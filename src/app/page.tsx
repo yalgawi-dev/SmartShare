@@ -1,66 +1,53 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
 
-export default function Home() {
+import styles from './page.module.css';
+import Link from 'next/link';
+import { useSpaces } from './context/SpacesContext';
+import { getFeatureById } from './data/features';
+
+export default function Dashboard() {
+  const { spaces } = useSpaces();
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div>
+          <h1 className={styles.title}>המרחבים שלי</h1>
+          <p className={styles.subtitle}>בחר פרויקט כדי להמשיך או צור מרחב חדש</p>
         </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+        <Link href="/space/new" className={styles.createBtn}>
+          <span>+</span> מרחב חדש
+        </Link>
+      </header>
+
+      <div className={styles.grid}>
+        {spaces.map(space => (
+          <Link href={`/space/${space.id}`} key={space.id}>
+            <div className={`card ${styles.projectCard} glass-panel`}>
+              <div className={styles.projectHeader}>
+                <div className={styles.projectIcon}>{space.icon}</div>
+              </div>
+              <h2 className={styles.projectTitle}>{space.title}</h2>
+              <p className={styles.projectDesc}>{space.description}</p>
+              
+              <div className={styles.badges}>
+                {space.features.slice(0, 3).map(fId => {
+                  const feature = getFeatureById(fId);
+                  return feature ? <span key={fId} className={styles.badge}>{feature.name}</span> : null;
+                })}
+                {space.features.length > 3 && (
+                  <span className={styles.badge}>+{space.features.length - 3}</span>
+                )}
+              </div>
+
+              <div className={styles.projectFooter}>
+                <span>עודכן: {space.updatedAt}</span>
+                <span>{space.features.length} פיצ'רים</span>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }
