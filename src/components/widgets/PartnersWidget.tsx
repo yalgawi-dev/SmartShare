@@ -1,6 +1,6 @@
 'use client';
 
-export default function PartnersWidget({ activePartnersCount }: { activePartnersCount: number }) {
+export default function PartnersWidget({ activePartnersCount, onRemove }: { activePartnersCount: number, onRemove?: () => void }) {
   
   const handleInvite = async () => {
     if (navigator.share) {
@@ -31,12 +31,23 @@ export default function PartnersWidget({ activePartnersCount }: { activePartners
           </p>
         </div>
       </div>
-      <button 
-        onClick={handleInvite}
-        style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '0.5rem 1.5rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer' }}
-      >
-        + הזמן שותפים
-      </button>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <button 
+          onClick={handleInvite}
+          style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '0.5rem 1.5rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer' }}
+        >
+          + הזמן שותפים
+        </button>
+        {onRemove && (
+          <button 
+            onClick={onRemove}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: 'var(--text-secondary)' }}
+            title="הסר פיצ'ר מהקיר"
+          >
+            ✕
+          </button>
+        )}
+      </div>
     </div>
   );
 }

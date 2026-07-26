@@ -8,6 +8,7 @@ import { getFeatureById, AVAILABLE_FEATURES } from '../../data/features';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import ScannerWidget from '../../../components/widgets/ScannerWidget';
 import PartnersWidget from '../../../components/widgets/PartnersWidget';
+import GenericWidget from '../../../components/widgets/GenericWidget';
 
 function EmptyStateCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -59,13 +60,20 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const space = spaces.find(s => s.id === id);
 
   if (!space) {
-    return <div className={styles.container}><h1>הפרויקט לא נמצא.</h1></div>;
+    return <div className={styles.container}><h1>הפרויקט לא נמצא. יש לחזור לדף הבית ולהיכנס שוב.</h1></div>;
   }
 
   // Active features
   const hasFinance = space.features.includes('finance');
   const hasScanner = space.features.includes('scanner');
   const hasPartners = space.features.includes('partners');
+  
+  // Find generic features (those that are active but aren't explicitly rendered)
+  const explicitFeatures = ['finance', 'scanner', 'partners'];
+  const genericFeatures = space.features
+    .filter(f => !explicitFeatures.includes(f))
+    .map(f => getFeatureById(f))
+    .filter(f => f !== undefined) as { id: string; name: string; desc: string; icon: string }[];
 
   // Simulated DB: 0 partners initially
   const activePartnersCount = 0; 
@@ -90,6 +98,21 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             <p className={styles.subtitle}>{space.description} | <b>הקיר המרכזי (Wall)</b></p>
           </div>
         </div>
+        
+        {/* Settings button */}
+        <Link href={`/space/${id}/settings`} style={{ 
+          background: 'var(--bg-card)', 
+          border: '1px solid var(--border-light)', 
+          padding: '0.5rem 1rem', 
+          borderRadius: 'var(--radius-md)', 
+          color: 'var(--text-primary)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          textDecoration: 'none'
+        }}>
+          ⚙️ הגדרות מרחב
+        </Link>
       </header>
 
       {/* Two Column Layout for Wall */}
@@ -97,9 +120,20 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         
         {/* Main Wall Area (Left) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {hasPartners && <PartnersWidget activePartnersCount={activePartnersCount} />}
-          {hasFinance && <FinanceWidget space={space} activePartnersCount={activePartnersCount} />}
-          {hasScanner && <ScannerWidget />}
+          {hasPartners && <PartnersWidget activePartnersCount={activePartnersCount} onRemove={() => toggleFeature(id, 'partners')} />}
+          {hasFinance && <FinanceWidget space={space} activePartnersCount={activePartnersCount} onRemove={() => toggleFeature(id, 'finance')} />}
+          {hasScanner && <ScannerWidget onRemove={() => toggleFeature(id, 'scanner')} />}
+
+          {/* Render Generic Widgets for any feature that doesn't have a dedicated widget yet */}
+          {genericFeatures.map(feature => (
+            <GenericWidget 
+              key={feature.id}
+              title={feature.name}
+              description={feature.desc}
+              icon={feature.icon}
+              onRemove={() => toggleFeature(id, feature.id)}
+            />
+          ))}
 
           {space.features.length === 0 && (
             <EmptyStateCarousel />

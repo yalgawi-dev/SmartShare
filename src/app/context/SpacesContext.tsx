@@ -1,9 +1,30 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
 
 export type FeatureId = string;
+export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
+
+export interface Invoice {
+  id: string;
+  amount: number | null;
+  supplier: string | null;
+  payerName: string | null;
+  date: string;
+  status: InvoiceStatus;
+  note: string;
+  approvalsNeeded: number;
+  approvalsReceived: number;
+  vatRate: number; // 👈 Locked VAT rate at the time of creation
+  category: string; // 👈 Added category
+  hasAttachment: boolean; // 👈 Added attachment flag
+}
+
+export interface SpaceSettings {
+  defaultVatRate: number;
+  allowPartnersToEditWall: boolean;
+}
 
 export interface Space {
   id: string;
@@ -12,13 +33,22 @@ export interface Space {
   icon: string;
   updatedAt: string;
   features: FeatureId[];
+  settings: SpaceSettings;
+  invoices: Invoice[];
 }
 
 interface SpacesContextType {
   spaces: Space[];
-  addSpace: (space: Omit<Space, 'id' | 'updatedAt'>) => void;
+  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices'>) => void;
   toggleFeature: (spaceId: string, featureId: FeatureId) => void;
+  updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
+  addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
 }
+
+const defaultSettings: SpaceSettings = {
+  defaultVatRate: 18, // 18% is the default current VAT
+  allowPartnersToEditWall: false,
+};
 
 const initialSpaces: Space[] = [
   {
@@ -27,36 +57,46 @@ const initialSpaces: Space[] = [
     description: 'ניהול הוצאות, קבלנים, העלאת חשבוניות ותוכניות אדריכליות במקום אחד.',
     icon: '🏠',
     updatedAt: 'לפני 2 דקות',
-    features: ['finance', 'cashbox', 'vault', 'camera', 'partners', 'suppliers'],
+    features: ['finance', 'cashbox', 'vault', 'scanner', 'partners', 'suppliers'],
+    settings: defaultSettings,
+    invoices: [
+      { id: 'inv-1', amount: 1180, supplier: 'הום סנטר - חומרי בניין', payerName: 'דני (אני)', date: '25/07/2026', status: 'pending', note: 'קניתי מלט וברזלים לפי בקשת הקבלן. ממתין לאישורכם.', approvalsNeeded: 2, approvalsReceived: 1, vatRate: 18, category: 'חומרי בניין', hasAttachment: true },
+      { id: 'inv-2', amount: 450, supplier: 'קבלן חשמל', payerName: 'יוסי', date: '24/07/2026', status: 'dispute', note: 'תשלום על נקודות החשמל הנוספות בסלון.', approvalsNeeded: 2, approvalsReceived: 0, vatRate: 18, category: 'קבלנים', hasAttachment: false },
+    ]
   },
-  {
-    id: '2',
-    title: 'התיק הרפואי של סבא',
-    description: 'ריכוז מסמכים רפואיים, מרשמים לתרופות, והערות טיפול בין בני המשפחה.',
-    icon: '⚕️',
-    updatedAt: 'אתמול',
-    features: ['vault', 'partners', 'suppliers', 'camera'],
-  },
-  {
-    id: '3',
-    title: 'חופשה משפחתית ביוון',
-    description: 'גלריית תמונות משותפת מהטיול והתחשבנות אוטומטית על הוצאות הרכב והמלון.',
-    icon: '✈️',
-    updatedAt: 'לפני שבוע',
-    features: ['gallery', 'camera', 'finance', 'cashbox', 'partners'],
-  }
 ];
 
 const SpacesContext = createContext<SpacesContextType | undefined>(undefined);
 
 export function SpacesProvider({ children }: { children: ReactNode }) {
-  const [spaces, setSpaces] = useState<Space[]>(initialSpaces);
+  // Initialize from LocalStorage or use defaults
+  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [isLoaded, setIsLoaded] = useState(false);
 
-  const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt'>) => {
+  useEffect(() => {
+    const savedSpaces = localStorage.getItem('smartshare_spaces');
+    if (savedSpaces) {
+      setSpaces(JSON.parse(savedSpaces));
+    } else {
+      setSpaces(initialSpaces);
+    }
+    setIsLoaded(true);
+  }, []);
+
+  // Save to LocalStorage whenever spaces change
+  useEffect(() => {
+    if (isLoaded) {
+      localStorage.setItem('smartshare_spaces', JSON.stringify(spaces));
+    }
+  }, [spaces, isLoaded]);
+
+  const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices'>) => {
     const newSpace: Space = {
       ...spaceData,
       id: Date.now().toString(),
       updatedAt: 'ממש עכשיו',
+      settings: defaultSettings,
+      invoices: [],
     };
     setSpaces(prev => [newSpace, ...prev]);
   };
@@ -77,8 +117,38 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateSpaceSettings = (spaceId: string, newSettings: Partial<SpaceSettings>) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return {
+          ...space,
+          settings: { ...space.settings, ...newSettings },
+          updatedAt: 'עודכן עכשיו'
+        };
+      }
+      return space;
+    }));
+  };
+
+  const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        const newInvoice: Invoice = {
+          ...invoiceData,
+          id: `inv-${Date.now()}`
+        };
+        return {
+          ...space,
+          invoices: [newInvoice, ...space.invoices],
+          updatedAt: 'עודכן עכשיו'
+        };
+      }
+      return space;
+    }));
+  }
+
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, toggleFeature }}>
+    <SpacesContext.Provider value={{ spaces, addSpace, toggleFeature, updateSpaceSettings, addInvoice }}>
       {children}
     </SpacesContext.Provider>
   );
