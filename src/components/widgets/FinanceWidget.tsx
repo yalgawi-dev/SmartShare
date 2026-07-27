@@ -1,10 +1,22 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSpaces } from '../../app/context/SpacesContext';
 
-export default function FinanceWidget({ space, activePartnersCount, onRemove }: { space: any, activePartnersCount: number, onRemove?: () => void }) {
+export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null }) {
   const [filter, setFilter] = useState<'all' | 'pending' | 'dispute' | 'missing'>('all');
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const { addInvoice } = useSpaces();
+
+  // If a scan arrives from the parent (ScannerWidget), open the modal and attach it
+  useEffect(() => {
+    if (initialScannedImage) {
+      setScannedImage(initialScannedImage);
+      setIsAddingExpense(true);
+    }
+  }, [initialScannedImage]);
   
   const hasScanner = space.features.includes('scanner');
   const invoices = space.invoices || [];
@@ -12,8 +24,62 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove }: 
   const filteredInvoices = invoices.filter((inv: any) => filter === 'all' || inv.status === filter);
   const totalExpenses = invoices.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 
+  const handleAddExpense = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const formData = new FormData(e.currentTarget);
+    const amount = Number(formData.get('amount'));
+    const supplier = formData.get('supplier') as string;
+    const category = formData.get('category') as string;
+
+    addInvoice(space.id, {
+      amount,
+      supplier,
+      category,
+      payerName: 'דני (אני)', // Hardcoded for now until Auth is built
+      date: new Date().toLocaleDateString('he-IL'),
+      status: 'pending',
+      note: '',
+      approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
+      approvalsReceived: 0,
+      vatRate: space.settings?.defaultVatRate || 18,
+      hasAttachment: !!scannedImage
+    });
+
+    setIsAddingExpense(false);
+    setScannedImage(null);
+  };
+
   return (
-    <div className="card glass-panel" style={{ padding: '2rem', marginBottom: '2rem', background: 'var(--bg-card)' }}>
+    <div className="card glass-panel" style={{ padding: '2rem', marginBottom: '2rem', background: 'var(--bg-card)', position: 'relative' }}>
+      
+      {/* Add Expense Modal */}
+      {isAddingExpense && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.95)', zIndex: 10, borderRadius: 'inherit', display: 'flex', flexDirection: 'column', padding: '2rem', backdropFilter: 'blur(5px)' }}>
+          <h3 style={{ margin: '0 0 1.5rem 0', fontSize: '1.25rem' }}>➕ הוספת הוצאה חדשה</h3>
+          <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: '400px' }}>
+            <input required name="supplier" placeholder="שם הספק / תיאור" style={{ padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+            <input required name="amount" type="number" placeholder="סכום (₪)" style={{ padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+            <select required name="category" style={{ padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-light)' }}>
+              <option value="כללי">כללי</option>
+              <option value="חומרי בניין">חומרי בניין</option>
+              <option value="קבלנים">קבלנים</option>
+              <option value="חשמל">חשמל</option>
+              <option value="ריהוט">ריהוט</option>
+            </select>
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+              <button type="submit" style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>שמור הוצאה</button>
+              <button type="button" onClick={() => { setIsAddingExpense(false); setScannedImage(null); }} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-light)', padding: '0.75rem', borderRadius: '4px', cursor: 'pointer' }}>ביטול</button>
+            </div>
+          </form>
+          {scannedImage && (
+            <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
+              <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מסמך מצורף (נסרק בהצלחה):</p>
+              <img src={scannedImage} alt="Scanned Attachment" style={{ maxWidth: '100%', maxHeight: '250px', border: '1px solid var(--border-light)', borderRadius: '8px' }} />
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Header and Controls */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -30,7 +96,10 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove }: 
           <Link href={`/space/${space.id}/reports`} style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none', padding: '0.5rem 1rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-full)' }}>
             📊 דוחות וייצוא
           </Link>
-          <button style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer' }}>
+          <button 
+            onClick={() => setIsAddingExpense(true)}
+            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer' }}
+          >
             + הוסף הוצאה
           </button>
           {onRemove && (

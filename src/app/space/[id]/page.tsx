@@ -56,6 +56,7 @@ function EmptyStateCarousel() {
 export default function SpaceWallPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { spaces, toggleFeature } = useSpaces();
+  const [scannedImage, setScannedImage] = useState<string | null>(null);
   
   const space = spaces.find(s => s.id === id);
 
@@ -121,8 +122,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Main Wall Area (Left) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {hasPartners && <PartnersWidget activePartnersCount={activePartnersCount} onRemove={() => toggleFeature(id, 'partners')} />}
-          {hasFinance && <FinanceWidget space={space} activePartnersCount={activePartnersCount} onRemove={() => toggleFeature(id, 'finance')} />}
-          {hasScanner && <ScannerWidget onRemove={() => toggleFeature(id, 'scanner')} />}
+          {hasFinance && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => toggleFeature(id, 'finance')} />}
+          {hasScanner && <ScannerWidget onRemove={() => toggleFeature(id, 'scanner')} onScanComplete={(imgUrl) => setScannedImage(imgUrl)} />}
 
           {/* Render Generic Widgets for any feature that doesn't have a dedicated widget yet */}
           {genericFeatures.map(feature => (
