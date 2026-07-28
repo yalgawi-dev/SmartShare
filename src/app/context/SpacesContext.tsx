@@ -21,19 +21,40 @@ export interface Invoice {
   hasAttachment: boolean; // 👈 Added attachment flag
 }
 
+export interface Comment {
+  id: string;
+  authorName: string;
+  avatarUrl?: string;
+  text: string;
+  timestamp: string;
+}
+
 export interface MediaItem {
   id: string;
-  type: 'photo' | 'message';
-  url?: string; // for photo
-  content?: string; // for message
+  type: 'photo' | 'video' | 'message';
+  url?: string;
+  avatarUrl?: string; // Add avatar support for authors
+  authorStatus?: string; // Add status for profile inspection
+  content?: string;
   authorName: string;
   timestamp: string;
   likes: number;
+  comments?: Comment[];
 }
 
 export interface SpaceSettings {
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
+}
+
+export interface SpaceMember {
+  userId: string;
+  name: string; // the name when added
+  canUpload: boolean;
+  canDelete: boolean;
+  canEdit: boolean;
+  localAvatarUrl?: string; // per-space avatar override
+  useNickname?: boolean; // per-space nickname preference override
 }
 
 export interface Space {
@@ -46,16 +67,26 @@ export interface Space {
   settings: SpaceSettings;
   invoices: Invoice[];
   mediaItems: MediaItem[];
+  members: SpaceMember[];
+  date?: string;
+  coverImage?: string;
 }
 
 interface SpacesContextType {
   spaces: Space[];
-  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems'>) => void;
+  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => void;
   updateSpaceTitle: (spaceId: string, newTitle: string) => void;
+  updateSpaceDate: (spaceId: string, newDate: string) => void;
+  updateSpaceCover: (spaceId: string, newCoverUrl: string) => void;
   toggleFeature: (spaceId: string, featureId: FeatureId) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
+  removeMediaItem: (spaceId: string, mediaId: string) => void;
+  likeMediaItem: (spaceId: string, mediaId: string) => void;
+  addComment: (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => void;
+  updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
+  joinSpace: (spaceId: string, userId: string, name: string) => void;
 }
 
 const defaultSettings: SpaceSettings = {
@@ -77,6 +108,7 @@ const initialSpaces: Space[] = [
       { id: 'inv-2', amount: 450, supplier: 'קבלן חשמל', payerName: 'יוסי', date: '24/07/2026', status: 'dispute', note: 'תשלום על נקודות החשמל הנוספות בסלון.', approvalsNeeded: 2, approvalsReceived: 0, vatRate: 18, category: 'קבלנים', hasAttachment: false },
     ],
     mediaItems: [],
+    members: [],
   },
 ];
 
@@ -104,7 +136,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }
   }, [spaces, isLoaded]);
 
-  const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems'>) => {
+  const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => {
     const newSpace: Space = {
       ...spaceData,
       id: crypto.randomUUID(),
@@ -136,6 +168,24 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     setSpaces(prev => prev.map(space => {
       if (space.id === spaceId) {
         return { ...space, title: newTitle, updatedAt: 'עודכן עכשיו' };
+      }
+      return space;
+    }));
+  };
+
+  const updateSpaceDate = (spaceId: string, newDate: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return { ...space, date: newDate, updatedAt: 'עודכן עכשיו' };
+      }
+      return space;
+    }));
+  };
+
+  const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return { ...space, coverImage: newCoverUrl, updatedAt: 'עודכן עכשיו' };
       }
       return space;
     }));
@@ -174,15 +224,93 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
     setSpaces(prev => prev.map(space => {
       if (space.id === spaceId) {
-        const newItem: MediaItem = {
-          ...item,
-          id: crypto.randomUUID(),
-          timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
-          likes: 0
-        };
         return {
           ...space,
-          mediaItems: [newItem, ...(space.mediaItems || [])] // Prepend new items
+          mediaItems: [
+            { ...item, id: Math.random().toString(36).substr(2, 9), timestamp: 'ממש עכשיו', likes: 0 },
+            ...(space.mediaItems || [])
+          ],
+          updatedAt: 'עודכן עכשיו'
+        };
+      }
+      return space;
+    }));
+  };
+
+  const removeMediaItem = (spaceId: string, mediaId: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return {
+          ...space,
+          mediaItems: (space.mediaItems || []).filter(item => item.id !== mediaId),
+          updatedAt: 'עודכן עכשיו'
+        };
+      }
+      return space;
+    }));
+  };
+
+  const likeMediaItem = (spaceId: string, mediaId: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return {
+          ...space,
+          mediaItems: (space.mediaItems || []).map(item => 
+            item.id === mediaId ? { ...item, likes: (item.likes || 0) + 1 } : item
+          )
+        };
+      }
+      return space;
+    }));
+  };
+
+  const addComment = (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return {
+          ...space,
+          mediaItems: (space.mediaItems || []).map(item => {
+            if (item.id === mediaId) {
+              const newComment: Comment = {
+                ...comment,
+                id: Math.random().toString(36).substr(2, 9),
+                timestamp: 'ממש עכשיו'
+              };
+              return { ...item, comments: [...(item.comments || []), newComment] };
+            }
+            return item;
+          })
+        };
+      }
+      return space;
+    }));
+  };
+
+  const joinSpace = (spaceId: string, userId: string, name: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        if (space.members?.some(m => m.userId === userId)) return space; // already joined
+        return {
+          ...space,
+          members: [...(space.members || []), {
+            userId,
+            name,
+            canUpload: true,
+            canDelete: false,
+            canEdit: false,
+          }]
+        };
+      }
+      return space;
+    }));
+  };
+
+  const updateMemberPermissions = (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return {
+          ...space,
+          members: (space.members || []).map(m => m.userId === userId ? { ...m, ...permissions } : m)
         };
       }
       return space;
@@ -190,7 +318,10 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, updateSpaceTitle, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem }}>
+    <SpacesContext.Provider value={{ spaces, addSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem, removeMediaItem, likeMediaItem,      addComment,
+      updateMemberPermissions,
+      joinSpace
+    }}>
       {children}
     </SpacesContext.Provider>
   );

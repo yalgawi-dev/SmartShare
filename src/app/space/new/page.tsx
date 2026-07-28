@@ -12,7 +12,7 @@ const TEMPLATES = [
   { id: 'event', title: 'תכנון אירועים', desc: 'לארגון מסיבה, חתונה או אירוע חברה. ניהול מוזמנים (RSVP) והוצאות ספקים.', icon: '🎉', features: ['guests', 'finance', 'suppliers', 'tasks'] },
   { id: 'trip', title: 'תכנון טיול', desc: 'ארגון טיול משותף, מסלול יומי, קופה משותפת ושמירת כרטיסים.', icon: '✈️', features: ['finance', 'journal', 'vault'] },
   { id: 'construction', title: 'פרויקט בנייה / שיפוץ', desc: 'ניהול קבלנים, קופת מזומן, סריקת חשבוניות ותוכניות אדריכליות.', icon: '🏗️', features: ['finance', 'suppliers', 'vault', 'scanner', 'cashbox'] },
-  { id: 'live', title: 'אירוע לייב (Live Media)', desc: 'מרחב ייעודי ליום האירוע למוזמנים בלבד: גלריית תמונות חיה וברכות.', icon: '📸', features: ['camera', 'gallery', 'guestbook'] },
+  { id: 'live', title: 'אירוע לייב (Live Media)', desc: 'מרחב ייעודי ליום האירוע למוזמנים בלבד: גלריית תמונות חיה וברכות.', icon: '📸', features: ['gallery', 'guestbook'] },
   { id: 'custom', title: 'קיר מותאם אישית', desc: 'קיר חלק ונקי. בנה בעצמך והוסף ווידג\'טים מתוך רשימת הפיצ\'רים המלאה.', icon: '✨', features: [] }
 ];
 
