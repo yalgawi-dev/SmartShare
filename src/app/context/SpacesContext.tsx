@@ -21,6 +21,16 @@ export interface Invoice {
   hasAttachment: boolean; // 👈 Added attachment flag
 }
 
+export interface MediaItem {
+  id: string;
+  type: 'photo' | 'message';
+  url?: string; // for photo
+  content?: string; // for message
+  authorName: string;
+  timestamp: string;
+  likes: number;
+}
+
 export interface SpaceSettings {
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
@@ -35,14 +45,17 @@ export interface Space {
   features: FeatureId[];
   settings: SpaceSettings;
   invoices: Invoice[];
+  mediaItems: MediaItem[];
 }
 
 interface SpacesContextType {
   spaces: Space[];
-  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices'>) => void;
+  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems'>) => void;
+  updateSpaceTitle: (spaceId: string, newTitle: string) => void;
   toggleFeature: (spaceId: string, featureId: FeatureId) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
+  addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
 }
 
 const defaultSettings: SpaceSettings = {
@@ -57,12 +70,13 @@ const initialSpaces: Space[] = [
     description: 'ניהול הוצאות, קבלנים, העלאת חשבוניות ותוכניות אדריכליות במקום אחד.',
     icon: '🏠',
     updatedAt: 'לפני 2 דקות',
-    features: ['finance', 'cashbox', 'vault', 'scanner', 'partners', 'suppliers'],
+    features: ['finance', 'scanner', 'partners'],
     settings: defaultSettings,
     invoices: [
       { id: 'inv-1', amount: 1180, supplier: 'הום סנטר - חומרי בניין', payerName: 'דני (אני)', date: '25/07/2026', status: 'pending', note: 'קניתי מלט וברזלים לפי בקשת הקבלן. ממתין לאישורכם.', approvalsNeeded: 2, approvalsReceived: 1, vatRate: 18, category: 'חומרי בניין', hasAttachment: true },
       { id: 'inv-2', amount: 450, supplier: 'קבלן חשמל', payerName: 'יוסי', date: '24/07/2026', status: 'dispute', note: 'תשלום על נקודות החשמל הנוספות בסלון.', approvalsNeeded: 2, approvalsReceived: 0, vatRate: 18, category: 'קבלנים', hasAttachment: false },
-    ]
+    ],
+    mediaItems: [],
   },
 ];
 
@@ -90,13 +104,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }
   }, [spaces, isLoaded]);
 
-  const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices'>) => {
+  const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems'>) => {
     const newSpace: Space = {
       ...spaceData,
-      id: Date.now().toString(),
-      updatedAt: 'ממש עכשיו',
+      id: crypto.randomUUID(),
+      updatedAt: 'נוצר הרגע',
       settings: defaultSettings,
       invoices: [],
+      mediaItems: [],
     };
     setSpaces(prev => [newSpace, ...prev]);
   };
@@ -112,6 +127,15 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
             : [...space.features, featureId],
           updatedAt: 'ממש עכשיו'
         };
+      }
+      return space;
+    }));
+  };
+
+  const updateSpaceTitle = (spaceId: string, newTitle: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return { ...space, title: newTitle, updatedAt: 'עודכן עכשיו' };
       }
       return space;
     }));
@@ -147,8 +171,26 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   }
 
+  const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        const newItem: MediaItem = {
+          ...item,
+          id: crypto.randomUUID(),
+          timestamp: new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }),
+          likes: 0
+        };
+        return {
+          ...space,
+          mediaItems: [newItem, ...(space.mediaItems || [])] // Prepend new items
+        };
+      }
+      return space;
+    }));
+  };
+
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, toggleFeature, updateSpaceSettings, addInvoice }}>
+    <SpacesContext.Provider value={{ spaces, addSpace, updateSpaceTitle, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem }}>
       {children}
     </SpacesContext.Provider>
   );

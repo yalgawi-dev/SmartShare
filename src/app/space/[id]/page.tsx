@@ -8,6 +8,8 @@ import { getFeatureById, AVAILABLE_FEATURES } from '../../data/features';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import ScannerWidget from '../../../components/widgets/ScannerWidget';
 import PartnersWidget from '../../../components/widgets/PartnersWidget';
+import GuestbookWidget from '../../../components/widgets/GuestbookWidget';
+import GalleryWidget from '../../../components/widgets/GalleryWidget';
 import GenericWidget from '../../../components/widgets/GenericWidget';
 
 function EmptyStateCarousel() {
@@ -55,8 +57,10 @@ function EmptyStateCarousel() {
 
 export default function SpaceWallPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { spaces, toggleFeature } = useSpaces();
+  const { spaces, toggleFeature, updateSpaceTitle } = useSpaces();
   const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editTitleValue, setEditTitleValue] = useState('');
   
   const space = spaces.find(s => s.id === id);
 
@@ -68,9 +72,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasFinance = space.features.includes('finance');
   const hasScanner = space.features.includes('scanner');
   const hasPartners = space.features.includes('partners');
+  const hasGuestbook = space.features.includes('guestbook');
+  const hasGallery = space.features.includes('gallery');
   
   // Find generic features (those that are active but aren't explicitly rendered)
-  const explicitFeatures = ['finance', 'scanner', 'partners'];
+  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery'];
   const genericFeatures = space.features
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))
@@ -95,7 +101,32 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         <div className={styles.titleArea}>
           <div className={styles.icon}>{space.icon}</div>
           <div>
-            <h1 className={styles.title}>{space.title}</h1>
+            {isEditingTitle ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  value={editTitleValue} 
+                  onChange={(e) => setEditTitleValue(e.target.value)}
+                  style={{ fontSize: '1.5rem', fontWeight: 'bold', border: '1px solid var(--primary)', borderRadius: '4px', padding: '0.2rem 0.5rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                  autoFocus
+                />
+                <button onClick={() => {
+                  if (editTitleValue.trim()) {
+                    updateSpaceTitle(id, editTitleValue);
+                  }
+                  setIsEditingTitle(false);
+                }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer' }}>שמור</button>
+                <button onClick={() => setIsEditingTitle(false)} style={{ background: 'transparent', color: 'var(--text-secondary)', border: 'none', cursor: 'pointer' }}>ביטול</button>
+              </div>
+            ) : (
+              <h1 className={styles.title} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {space.title}
+                <button onClick={() => {
+                  setEditTitleValue(space.title);
+                  setIsEditingTitle(true);
+                }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem', opacity: 0.6 }} title="ערוך שם מרחב">✏️</button>
+              </h1>
+            )}
             <p className={styles.subtitle}>{space.description} | <b>הקיר המרכזי (Wall)</b></p>
           </div>
         </div>
@@ -116,16 +147,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         </Link>
       </header>
 
-      {/* Two Column Layout for Wall */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: '2rem', alignItems: 'start' }}>
+      {/* The Unified Wall (Single Column Centered) */}
+      <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         
-        {/* Main Wall Area (Left) */}
+        {/* Active Widgets */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {hasPartners && <PartnersWidget activePartnersCount={activePartnersCount} onRemove={() => toggleFeature(id, 'partners')} />}
+          {hasGallery && <GalleryWidget space={space} onRemove={() => toggleFeature(id, 'gallery')} />}
+          {hasGuestbook && <GuestbookWidget space={space} onRemove={() => toggleFeature(id, 'guestbook')} />}
           {hasFinance && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => toggleFeature(id, 'finance')} />}
           {hasScanner && <ScannerWidget onRemove={() => toggleFeature(id, 'scanner')} onScanComplete={(imgUrl) => setScannedImage(imgUrl)} />}
 
-          {/* Render Generic Widgets for any feature that doesn't have a dedicated widget yet */}
+          {/* Render Generic Widgets */}
           {genericFeatures.map(feature => (
             <GenericWidget 
               key={feature.id}
@@ -141,54 +174,58 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           )}
         </div>
 
-        {/* Sidebar Dock (Right) */}
-        <div style={{ position: 'sticky', top: '2rem', padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border-light)' }}>
-          <h3 style={{ fontSize: '1.15rem', marginBottom: '1.25rem', color: 'var(--text-primary)' }}>🛠️ כלים זמינים להוספה:</h3>
-          {unusedFeatures.length === 0 ? (
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>הוספת את כל הכלים הזמינים!</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Widget Store / Add Features Section */}
+        {unusedFeatures.length > 0 && (
+          <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '2px dashed var(--border-light)' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '1.5rem', color: 'var(--text-primary)', textAlign: 'center' }}>
+              🧩 חנות הווידג'טים - הוסף כלים לקיר
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
               {unusedFeatures.map(mod => (
                 <div 
                   key={mod.id} 
                   style={{ 
                     cursor: 'pointer', 
                     border: '1px solid var(--border-light)', 
-                    background: 'rgba(0,0,0,0.02)',
-                    padding: '1rem',
+                    background: 'var(--bg-card)',
+                    padding: '1.25rem',
                     borderRadius: 'var(--radius-md)',
                     transition: 'all 0.2s ease',
-                    position: 'relative'
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center'
                   }}
                   onClick={() => handleAddFeature(mod.id)}
-                  onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={(e) => e.currentTarget.style.transform = 'none'}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 10px 15px -3px rgba(0,0,0,0.1)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = 'none'; }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
-                    <div style={{ fontSize: '1.5rem' }}>{mod.icon}</div>
-                    <h4 style={{ fontSize: '1rem', margin: 0 }}>{mod.name}</h4>
-                  </div>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0, paddingRight: '2.25rem' }}>{mod.desc}</p>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>{mod.icon}</div>
+                  <h4 style={{ fontSize: '1.1rem', margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>{mod.name}</h4>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0 0 1rem 0' }}>{mod.desc}</p>
                   
                   <button style={{ 
-                    marginTop: '0.75rem', 
+                    marginTop: 'auto',
                     width: '100%', 
-                    padding: '0.4rem', 
-                    background: 'var(--primary)', 
-                    color: 'white', 
-                    border: 'none', 
+                    padding: '0.5rem', 
+                    background: 'rgba(59, 130, 246, 0.1)', 
+                    color: 'var(--primary)', 
+                    border: '1px solid var(--primary)', 
                     borderRadius: 'var(--radius-sm)', 
                     fontWeight: 'bold',
-                    cursor: 'pointer'
-                  }}>
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--primary)'; e.currentTarget.style.color = 'white'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                  >
                     + הוסף לקיר
                   </button>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-
+          </div>
+        )}
       </div>
     </div>
   );

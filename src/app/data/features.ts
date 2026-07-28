@@ -9,6 +9,10 @@ export const AVAILABLE_FEATURES = [
   { id: 'chat', name: 'צ\'אט פנימי', desc: 'קבוצת התכתבויות מאובטחת לחברי המרחב', icon: '💬' },
   { id: 'journal', name: 'יומן מעקב', desc: 'תיעוד זמנים והערות ביומן', icon: '📝' },
   { id: 'location', name: 'מיקום בזמן אמת', desc: 'שיתוף וצפייה במיקום המשתתפים על גבי מפה', icon: '📍' },
+  { id: 'tasks', name: 'משימות וצ\'קליסטים', desc: 'מעקב אחר ביצוע משימות שוטפות', icon: '✅' },
+  { id: 'guests', name: 'ניהול מוזמנים (RSVP)', desc: 'רשימת אורחים, הזמנות דיגיטליות ואישורי הגעה', icon: '💌' },
+  { id: 'guestbook', name: 'ספר אורחים', desc: 'ברכות ואיחולים מהמשתתפים באירוע', icon: '✍️' },
+  { id: 'lists', name: 'רשימות קניות', desc: 'רשימות ציוד וקניות משותפות', icon: '🛒' },
 ];
 
 export const getFeatureById = (id: string) => AVAILABLE_FEATURES.find(f => f.id === id);
