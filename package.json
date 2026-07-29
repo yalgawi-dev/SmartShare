@@ -12,6 +12,7 @@
     "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-pageflip": "^2.0.3",
     "react-qr-code": "^2.2.0"
   },
   "devDependencies": {

@@ -9,7 +9,7 @@ import { getFeatureById, AVAILABLE_FEATURES } from '../../data/features';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import ScannerWidget from '../../../components/widgets/ScannerWidget';
 import PartnersWidget from '../../../components/widgets/PartnersWidget';
-import GuestbookWidget from '../../../components/widgets/GuestbookWidget';
+import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
 import GenericWidget from '../../../components/widgets/GenericWidget';
 import InviteModal from '../../../components/widgets/InviteModal';
@@ -190,7 +190,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title="לחץ כדי לשנות את תמונת הפרופיל שלך במרחב זה"
           >
             {displayAvatar ? (
-              <img src={displayAvatar} alt="My Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <img 
+                src={displayAvatar} 
+                alt="My Avatar" 
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                  const fallback = document.createElement('span');
+                  fallback.innerHTML = user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤';
+                  fallback.style.fontSize = '2.5rem';
+                  (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
+                }}
+              />
             ) : (
               <span style={{ fontSize: '2.5rem' }}>
                 {user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}
@@ -300,7 +311,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           {hasPartners && !isGuestMode && <PartnersWidget space={space} onRemove={() => toggleFeature(id, 'partners')} />}
           {hasGallery && <GalleryWidget space={space} onRemove={!isGuestMode ? () => toggleFeature(id, 'gallery') : undefined} isGuestMode={isGuestMode} />}
           {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => toggleFeature(id, 'finance')} />}
-          {hasGuestbook && <GuestbookWidget space={space} onRemove={!isGuestMode ? () => toggleFeature(id, 'guestbook') : undefined} isGuestMode={isGuestMode} />}
+          {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode} />}
           {hasScanner && !isGuestMode && <ScannerWidget onRemove={() => toggleFeature(id, 'scanner')} onScanComplete={(imgUrl) => setScannedImage(imgUrl)} />}
 
           {/* Render Generic Widgets */}
@@ -372,6 +383,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           </div>
         )}
       </div>
+      {showInvite && <InviteModal spaceId={id} onClose={() => setShowInvite(false)} />}
     </div>
   );
 }

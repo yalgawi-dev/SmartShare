@@ -14,12 +14,13 @@ export default function SettingsPage() {
   const [birthDate, setBirthDate] = useState(user?.birthDate || '');
   const [zodiacSign, setZodiacSign] = useState(user?.zodiacSign || '');
   const [gender, setGender] = useState(user?.gender || '');
+  const [hideRealName, setHideRealName] = useState(user?.hideRealName || false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!user) return <div style={{ padding: '2rem', textAlign: 'center' }}>יש להתחבר כדי לצפות במסך זה.</div>;
 
   const handleSave = () => {
-    updateProfile({ nickname, realName, status, customStatus, birthDate, zodiacSign, gender: gender as any });
+    updateProfile({ nickname, realName, status, customStatus, birthDate, zodiacSign, gender: gender as any, hideRealName });
     alert('הפרופיל עודכן בהצלחה!');
   };
 
@@ -77,6 +78,11 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontWeight: 'bold' }}>כינוי פומבי (יוצג לאורחים במקום השם האמיתי):</label>
             <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} placeholder="הזן כינוי..." style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <input type="checkbox" id="hideRealName" checked={hideRealName} onChange={e => setHideRealName(e.target.checked)} style={{ width: '1.2rem', height: '1.2rem' }} />
+            <label htmlFor="hideRealName" style={{ cursor: 'pointer' }}>הסתר את השם האמיתי שלי (הצג כינוי בלבד)</label>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

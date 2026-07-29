@@ -40,6 +40,7 @@ export default function TopGuestsWidget({ space }: { space: any }) {
         let finalAvatar = data.avatar;
         let finalGender = undefined;
         let finalStatus = data.status;
+        let finalName = name;
         
         if (user && (name === user.nickname || name === user.realName || name === 'אורח/ת')) {
           // Find space member local override
@@ -48,9 +49,15 @@ export default function TopGuestsWidget({ space }: { space: any }) {
           if (displayAvatar) finalAvatar = displayAvatar;
           finalGender = user.gender;
           if (user.status) finalStatus = user.status;
+          
+          if (user.hideRealName && user.nickname) {
+            finalName = user.nickname;
+          } else {
+            finalName = user.realName || user.nickname || 'אורח/ת';
+          }
         }
 
-        return { name, ...data, avatar: finalAvatar, gender: finalGender, status: finalStatus };
+        return { name: finalName, originalName: name, ...data, avatar: finalAvatar, gender: finalGender, status: finalStatus };
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
@@ -85,7 +92,7 @@ export default function TopGuestsWidget({ space }: { space: any }) {
 
         {topGuests.map((guest, idx) => (
           <div 
-            key={guest.name} 
+            key={`${guest.originalName}-${idx}`} 
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '75px', cursor: 'pointer' }}
             onClick={() => setInspectedProfile({
               name: guest.name,

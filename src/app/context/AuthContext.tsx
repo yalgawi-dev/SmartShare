@@ -25,6 +25,7 @@ export interface UserProfile {
   isAdmin: boolean;
   isBlocked?: boolean;
   createdAt: string;
+  hideRealName?: boolean;
 }
 
 interface AuthContextType {

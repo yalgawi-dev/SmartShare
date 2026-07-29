@@ -15,7 +15,7 @@ export default function CommentsModal({ spaceId, photo, onClose }: { spaceId: st
     if (!commentText.trim()) return;
 
     addComment(spaceId, photo.id, {
-      authorName: user?.nickname || user?.realName || 'אורח/ת',
+      authorName: user?.hideRealName && user?.nickname ? user.nickname : (user?.realName || user?.nickname || 'אורח/ת'),
       avatarUrl: user?.avatarUrl,
       text: commentText
     });
@@ -49,7 +49,23 @@ export default function CommentsModal({ spaceId, photo, onClose }: { spaceId: st
         <div style={{ width: '350px', background: 'white', display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-light)' }}>
           <div style={{ padding: '1rem', borderBottom: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
              <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden' }}>
-                {photo.avatarUrl ? <img src={photo.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%'}}>👤</span>}
+                {photo.avatarUrl ? (
+                  <img 
+                    src={photo.avatarUrl} 
+                    alt="Avatar" 
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const fallback = document.createElement('span');
+                      fallback.innerHTML = '👤';
+                      fallback.style.display = 'flex';
+                      fallback.style.alignItems = 'center';
+                      fallback.style.justifyContent = 'center';
+                      fallback.style.height = '100%';
+                      (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
+                    }}
+                  />
+                ) : <span style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%'}}>👤</span>}
              </div>
              <div>
                <h3 style={{ margin: 0, fontSize: '1rem' }}>{photo.authorName}</h3>
@@ -67,7 +83,24 @@ export default function CommentsModal({ spaceId, photo, onClose }: { spaceId: st
               photo.comments.map((comment: any) => (
                 <div key={comment.id} style={{ display: 'flex', gap: '0.5rem' }}>
                    <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden', flexShrink: 0 }}>
-                      {comment.avatarUrl ? <img src={comment.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', fontSize:'0.8rem'}}>👤</span>}
+                      {comment.avatarUrl ? (
+                        <img 
+                          src={comment.avatarUrl} 
+                          alt="Avatar" 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            const fallback = document.createElement('span');
+                            fallback.innerHTML = '👤';
+                            fallback.style.display = 'flex';
+                            fallback.style.alignItems = 'center';
+                            fallback.style.justifyContent = 'center';
+                            fallback.style.height = '100%';
+                            fallback.style.fontSize = '0.8rem';
+                            (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
+                          }}
+                        />
+                      ) : <span style={{display:'flex', alignItems:'center', justifyContent:'center', height:'100%', fontSize:'0.8rem'}}>👤</span>}
                    </div>
                    <div>
                      <div style={{ background: 'var(--bg-main)', padding: '0.5rem 0.75rem', borderRadius: '15px' }}>

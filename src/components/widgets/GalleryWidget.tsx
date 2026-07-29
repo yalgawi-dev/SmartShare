@@ -24,9 +24,9 @@ export default function GalleryWidget({ space, onRemove, isGuestMode }: { space:
   const canUpload = user?.isAdmin || !isGuestMode || (spaceMember?.canUpload ?? true);
   
   // Resolve identity based on global or space-level overrides
-  const useNicknameGlobally = false; // Add global toggle logic later if needed
+  const useNicknameGlobally = user?.hideRealName || false;
   const useNickname = spaceMember?.useNickname !== undefined ? spaceMember.useNickname : useNicknameGlobally;
-  const displayName = useNickname ? (user?.nickname || user?.realName) : (user?.realName || user?.nickname || 'אורח/ת');
+  const displayName = useNickname && user?.nickname ? user.nickname : (user?.realName || user?.nickname || 'אורח/ת');
   const displayAvatar = spaceMember?.localAvatarUrl || user?.avatarUrl;
   
   // Comments Modal
@@ -296,7 +296,19 @@ export default function GalleryWidget({ space, onRemove, isGuestMode }: { space:
                   }}
                 >
                   <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                    {photo.avatarUrl ? <img src={photo.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤')}
+                    {photo.avatarUrl ? (
+                      <img 
+                        src={photo.avatarUrl} 
+                        alt="Avatar" 
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          const fallback = document.createElement('span');
+                          fallback.innerHTML = user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤';
+                          (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
+                        }}
+                      />
+                    ) : (user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤')}
                   </div>
                   <span style={{ fontWeight: 'bold' }}>{photo.authorName}</span>
                 </div>

@@ -37,7 +37,18 @@ export default function Dashboard() {
             <span>⚙️ הגדרות אישיות</span>
             <div style={{ width: '35px', height: '35px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img 
+                  src={user.avatarUrl} 
+                  alt="Profile" 
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                    const fallback = document.createElement('span');
+                    fallback.innerHTML = user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤';
+                    fallback.style.fontSize = '1.2rem';
+                    (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
+                  }}
+                />
               ) : (
                 <span style={{ fontSize: '1.2rem' }}>
                   {user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}

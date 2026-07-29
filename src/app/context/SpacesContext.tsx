@@ -40,6 +40,12 @@ export interface MediaItem {
   timestamp: string;
   likes: number;
   comments?: Comment[];
+  fontFamily?: string;
+  backgroundColor?: string;
+  signatureUrl?: string;
+  pageNumber?: number;
+  slotIndex?: number;
+  attachedPhotoUrl?: string;
 }
 
 export interface SpaceSettings {
@@ -70,6 +76,8 @@ export interface Space {
   members: SpaceMember[];
   date?: string;
   coverImage?: string;
+  albumSize?: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square';
+  albumAtmospherePhotos?: string[];
 }
 
 interface SpacesContextType {
@@ -82,11 +90,16 @@ interface SpacesContextType {
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
+  updateMediaItem: (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => void;
   removeMediaItem: (spaceId: string, mediaId: string) => void;
   likeMediaItem: (spaceId: string, mediaId: string) => void;
   addComment: (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => void;
+  deleteComment: (spaceId: string, mediaId: string, commentId: string) => void;
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
+  updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
+  updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
+  moveMediaItem: (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => void;
 }
 
 const defaultSettings: SpaceSettings = {
@@ -132,7 +145,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   // Save to LocalStorage whenever spaces change
   useEffect(() => {
     if (isLoaded) {
-      localStorage.setItem('smartshare_spaces', JSON.stringify(spaces));
+      try {
+        localStorage.setItem('smartshare_spaces', JSON.stringify(spaces));
+      } catch (e: any) {
+        if (e.name === 'QuotaExceededError') {
+          console.error("Storage limit exceeded!");
+          alert("שגיאת מקום אחסון: לא ניתן לשמור את המידע מאחר וחרגת ממכסת האחסון המקומית (5MB). כדי למנוע את הבעיה, אנו נשדרג את מסד הנתונים או נשתמש בדחיסת תמונות קפדנית יותר.");
+        }
+      }
     }
   }, [spaces, isLoaded]);
 
@@ -227,9 +247,22 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         return {
           ...space,
           mediaItems: [
-            { ...item, id: Math.random().toString(36).substr(2, 9), timestamp: 'ממש עכשיו', likes: 0 },
-            ...(space.mediaItems || [])
+            ...(space.mediaItems || []),
+            { ...item, id: Math.random().toString(36).substr(2, 9), timestamp: 'ממש עכשיו', likes: 0 }
           ],
+          updatedAt: 'עודכן עכשיו'
+        };
+      }
+      return space;
+    }));
+  };
+
+  const updateMediaItem = (spaceId: string, itemId: string, updates: Partial<MediaItem>) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id === spaceId) {
+        return {
+          ...space,
+          mediaItems: (space.mediaItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
           updatedAt: 'עודכן עכשיו'
         };
       }
@@ -286,6 +319,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const deleteComment = (spaceId: string, mediaId: string, commentId: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id !== spaceId) return space;
+      return {
+        ...space,
+        mediaItems: space.mediaItems?.map(item => {
+          if (item.id !== mediaId) return item;
+          return { ...item, comments: item.comments?.filter(c => c.id !== commentId) };
+        })
+      };
+    }));
+  };
+
   const joinSpace = (spaceId: string, userId: string, name: string) => {
     setSpaces(prev => prev.map(space => {
       if (space.id === spaceId) {
@@ -317,10 +363,47 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const updateAlbumSettings = (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id !== spaceId) return space;
+      return {
+        ...space,
+        albumSize: size,
+        albumAtmospherePhotos: [...(space.albumAtmospherePhotos || []), ...newPhotos]
+      };
+    }));
+  };
+
+  const updateAtmospherePhoto = (spaceId: string, index: number, newUrl: string) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id !== spaceId || !space.albumAtmospherePhotos) return space;
+      const newPhotos = [...space.albumAtmospherePhotos];
+      newPhotos[index] = newUrl;
+      return { ...space, albumAtmospherePhotos: newPhotos };
+    }));
+  };
+
+  const moveMediaItem = (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => {
+    setSpaces(prev => prev.map(space => {
+      if (space.id !== spaceId) return space;
+      return {
+        ...space,
+        mediaItems: space.mediaItems?.map(media => {
+          if (media.id !== mediaId) return media;
+          return { ...media, pageNumber: newPageNumber, slotIndex: newSlotIndex };
+        })
+      };
+    }));
+  };
+
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem, removeMediaItem, likeMediaItem,      addComment,
+    <SpacesContext.Provider value={{ spaces, addSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace,
       updateMemberPermissions,
-      joinSpace
+      addComment,
+      deleteComment,
+      updateAlbumSettings,
+      updateAtmospherePhoto,
+      moveMediaItem
     }}>
       {children}
     </SpacesContext.Provider>

@@ -1,60 +1,30 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
-import { compressImage } from '../../utils/imageOptimizer';
 import ProfileModal from './ProfileModal';
+import MessageEditor from '../shared/MessageEditor';
 
 export default function GuestbookWidget({ space, onRemove, isGuestMode }: { space: any, onRemove?: () => void, isGuestMode?: boolean }) {
   const { addMediaItem, removeMediaItem, likeMediaItem } = useSpaces();
   const { user } = useAuth();
   const [isAddingMsg, setIsAddingMsg] = useState(false);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
-  
-  const videoInputRef = useRef<HTMLInputElement>(null);
   const [inspectedProfile, setInspectedProfile] = useState<any | null>(null);
 
   const spaceMember = space.members?.find((m: any) => m.userId === user?.id);
   const canUpload = user?.isAdmin || !isGuestMode || (spaceMember?.canUpload ?? true);
   
-  const useNicknameGlobally = false;
+  const useNicknameGlobally = user?.hideRealName || false;
   const useNickname = spaceMember?.useNickname !== undefined ? spaceMember.useNickname : useNicknameGlobally;
-  const displayName = useNickname ? (user?.nickname || user?.realName) : (user?.realName || user?.nickname || 'אורח/ת');
+  const displayName = useNickname && user?.nickname ? user.nickname : (user?.realName || user?.nickname || 'אורח/ת');
   const displayAvatar = spaceMember?.localAvatarUrl || user?.avatarUrl;
 
   const messages = (space.mediaItems || []).filter((m: any) => m.type === 'message').sort((a: any, b: any) => (b.likes || 0) - (a.likes || 0));
 
   // Removed handleAvatarChange
 
-  const handleVideoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 50 * 1024 * 1024) {
-        alert('הסרטון גדול מדי. הגבלה לעד 50MB (כדקה).');
-        return;
-      }
-      setVideoPreview(URL.createObjectURL(file));
-    }
-  };
 
-  const handleAddMessage = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const formData = new FormData(e.currentTarget);
-    const content = formData.get('content') as string;
-
-    addMediaItem(space.id, {
-      type: 'message',
-      authorName: displayName,
-      content,
-      url: videoPreview || undefined,
-      avatarUrl: displayAvatar, 
-      authorStatus: user?.status || undefined,
-    });
-    
-    setIsAddingMsg(false);
-    setVideoPreview(null);
-  };
 
   return (
     <div className="card glass-panel" style={{ padding: '2rem', marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 255, 0.9))', position: 'relative' }}>
@@ -97,42 +67,25 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
 
       {/* Add Message Modal */}
       {isAddingMsg && (
-        <div style={{ background: 'rgba(255,255,255,0.8)', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', border: '1px solid var(--border-light)' }}>
-          <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.1rem' }}>כתוב ברכה לאירוע:</h3>
-          <form onSubmit={handleAddMessage} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <div 
-                style={{ width: '50px', height: '50px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}
-              >
-                {displayAvatar ? <img src={displayAvatar} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤')}
-              </div>
-              <div style={{ flex: 1, padding: '0.75rem', borderRadius: '4px', background: 'var(--bg-main)', border: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                <span>מאת: </span><strong>{displayName}</strong>
-              </div>
-            </div>
-
-            <textarea name="content" placeholder="איחולים לבביים... (אופציונלי אם מצלמים וידאו)" rows={3} style={{ padding: '0.75rem', borderRadius: '4px', border: '1px solid var(--border-light)', resize: 'vertical' }} />
-            
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              <button type="button" onClick={() => videoInputRef.current?.click()} style={{ background: 'var(--bg-card)', border: '1px dashed var(--primary)', padding: '0.75rem', borderRadius: '4px', cursor: 'pointer', color: 'var(--primary)', fontWeight: 'bold' }}>
-                🎥 צלם ברכת וידאו (סלפי)
-              </button>
-              <input type="file" accept="video/mp4,video/quicktime" capture="user" ref={videoInputRef} onChange={handleVideoChange} style={{ display: 'none' }} />
-              {videoPreview && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>צפייה מקדימה:</p>
-                  <video src={videoPreview} controls style={{ width: '100%', maxHeight: '200px', borderRadius: '8px', background: 'black' }} />
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-              <button type="submit" style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>שלח ברכה ❤️</button>
-              <button type="button" onClick={() => { setIsAddingMsg(false); setVideoPreview(null); }} style={{ flex: 1, background: 'transparent', border: '1px solid var(--border-light)', padding: '0.75rem', borderRadius: '4px', cursor: 'pointer' }}>ביטול</button>
-            </div>
-          </form>
-        </div>
+        <MessageEditor 
+          title="כתוב ברכה לאירוע:"
+          allowVideo={true}
+          onSave={(data) => {
+            addMediaItem(space.id, {
+              type: 'message',
+              authorName: displayName,
+              content: data.content,
+              url: data.videoUrl || data.attachedPhotoUrl,
+              avatarUrl: displayAvatar, 
+              authorStatus: user?.status,
+              fontFamily: data.fontFamily,
+              backgroundColor: data.backgroundColor,
+              signatureUrl: data.signatureUrl
+            });
+            setIsAddingMsg(false);
+          }}
+          onCancel={() => setIsAddingMsg(false)}
+        />
       )}
 
       {/* Messages Grid */}
@@ -146,11 +99,14 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
           {messages.map((msg: any) => (
             <div key={msg.id} style={{ 
-              background: 'white', 
+              background: msg.backgroundColor || 'white', 
               padding: '1.5rem', 
               borderRadius: 'var(--radius-lg)', 
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
               border: '1px solid rgba(0,0,0,0.05)',
+              display: 'flex',
+              flexDirection: 'column',
+              fontFamily: msg.fontFamily || 'Heebo',
               position: 'relative'
             }}>
               {/* Delete Button */}
@@ -181,7 +137,19 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
                 })}
               >
                 <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden' }}>
-                  {msg.avatarUrl ? <img src={msg.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : (user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤')}
+                  {msg.avatarUrl ? (
+                    <img 
+                      src={msg.avatarUrl} 
+                      alt="Avatar" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                        const fallback = document.createElement('span');
+                        fallback.innerHTML = user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤';
+                        (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
+                      }}
+                    />
+                  ) : (user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤')}
                 </div>
                 <div>
                   <h3 style={{ margin: 0, fontSize: '1rem' }}>{msg.authorName}</h3>
@@ -198,7 +166,13 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
 
               {/* Text Content */}
               {msg.content && (
-                <p style={{ fontSize: '1.05rem', lineHeight: '1.5', margin: 0, color: 'var(--text-primary)', whiteSpace: 'pre-wrap' }}>
+                <p style={{ 
+                  margin: 0, 
+                  lineHeight: '1.6', 
+                  flex: 1, 
+                  whiteSpace: 'pre-wrap',
+                  fontSize: msg.fontFamily === 'Amatic SC' ? '1.5rem' : '1.1rem' 
+                }}>
                   {msg.content}
                 </p>
               )}
