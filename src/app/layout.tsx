@@ -29,7 +29,8 @@ export default function RootLayout({
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Heebo:wght@300;400;500;700&family=Rubik:wght@300;400;500;700&family=Secular+One&family=Frank+Ruhl+Libre:wght@300;400;500;700&display=swap" rel="stylesheet" />
+        <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&family=Karantina:wght@300;400;700&family=Heebo:wght@300;400;500;700&family=Rubik:wght@300;400;500;700&family=Secular+One&family=Frank+Ruhl+Libre:wght@300;400;500;700&display=swap" rel="stylesheet" />
+        <link href="https://cdn.fontsource.org/assets/fonts/gveret-levin@latest/index.css" rel="stylesheet" />
       </head>
       <body>
         <Providers>

@@ -37,13 +37,26 @@ export interface MediaItem {
   authorStatus?: string; // Add status for profile inspection
   content?: string;
   authorName: string;
+  authorId?: string;
   timestamp: string;
   likes: number;
   comments?: Comment[];
   fontFamily?: string;
   backgroundColor?: string;
+  rotation?: number;
+  isCard?: boolean;
+  stickerId?: string;
   signatureUrl?: string;
-  pageNumber?: number;
+  
+  // Canvas Editor Properties
+  x?: number;
+  y?: number;
+  scale?: number;
+  width?: number;
+  height?: number;
+  pageIndex?: number;
+  zIndex?: number;
+
   slotIndex?: number;
   attachedPhotoUrl?: string;
 }

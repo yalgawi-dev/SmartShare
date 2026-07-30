@@ -74,13 +74,17 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
             addMediaItem(space.id, {
               type: 'message',
               authorName: displayName,
+              authorId: user?.id,
               content: data.content,
               url: data.videoUrl || data.attachedPhotoUrl,
               avatarUrl: displayAvatar, 
               authorStatus: user?.status,
               fontFamily: data.fontFamily,
               backgroundColor: data.backgroundColor,
-              signatureUrl: data.signatureUrl
+              signatureUrl: data.signatureUrl,
+              rotation: data.rotation,
+              isCard: data.isCard,
+              stickerId: data.stickerId
             });
             setIsAddingMsg(false);
           }}
@@ -96,19 +100,38 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
           <p style={{ fontSize: '0.9rem' }}>היה הראשון לאחל משהו מיוחד!</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-          {messages.map((msg: any) => (
-            <div key={msg.id} style={{ 
-              background: msg.backgroundColor || 'white', 
-              padding: '1.5rem', 
-              borderRadius: 'var(--radius-lg)', 
-              boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
-              border: '1px solid rgba(0,0,0,0.05)',
-              display: 'flex',
-              flexDirection: 'column',
-              fontFamily: msg.fontFamily || 'Heebo',
-              position: 'relative'
-            }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', padding: '1rem' }}>
+          {messages.map((msg: any) => {
+            const hash = msg.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+            const rotation = msg.rotation !== undefined ? msg.rotation : ((hash % 5) - 2);
+
+            return (
+              <div key={msg.id} 
+                style={{ 
+                  background: msg.backgroundColor || 'white', 
+                  padding: '1.5rem', 
+                  borderRadius: '12px', 
+                  boxShadow: '2px 4px 15px rgba(0,0,0,0.1), 0 0 40px rgba(0,0,0,0.03) inset',
+                  border: '1px solid rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  fontFamily: msg.fontFamily || 'Heebo',
+                  position: 'relative',
+                  transform: `rotate(${rotation}deg)`,
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  cursor: 'default'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = `scale(1.02) rotate(${rotation}deg)`;
+                  e.currentTarget.style.boxShadow = '4px 8px 25px rgba(0,0,0,0.15), 0 0 40px rgba(0,0,0,0.03) inset';
+                  e.currentTarget.style.zIndex = '10';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = `rotate(${rotation}deg)`;
+                  e.currentTarget.style.boxShadow = '2px 4px 15px rgba(0,0,0,0.1), 0 0 40px rgba(0,0,0,0.03) inset';
+                  e.currentTarget.style.zIndex = '1';
+                }}
+              >
               {/* Delete Button */}
               {(!isGuestMode || spaceMember?.canDelete || user?.isAdmin) && (
                 <button onClick={() => removeMediaItem(space.id, msg.id)} style={{ position: 'absolute', top: '0.5rem', left: '0.5rem', background: 'rgba(255,0,0,0.1)', color: 'red', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.8rem' }} title="מחק ברכה">
@@ -177,7 +200,8 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
                 </p>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

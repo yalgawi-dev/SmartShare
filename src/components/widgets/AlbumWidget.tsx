@@ -5,7 +5,10 @@ import HTMLFlipBook from 'react-pageflip';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import MessageEditor from '../shared/MessageEditor';
+import DraggableElement from '../shared/DraggableElement';
+import StickerToolbox from '../shared/StickerToolbox';
 import { compressImage } from '../../utils/imageOptimizer';
+import { renderSticker } from '../../utils/stickers';
 
 // @ts-ignore
 const FlipBook = HTMLFlipBook as any;
@@ -33,12 +36,15 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
   const { user } = useAuth();
   
   const [isAddingMsg, setIsAddingMsg] = useState(false);
+  const [isPhotosManagerOpen, setIsPhotosManagerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isStickerToolboxOpen, setIsStickerToolboxOpen] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [viewMode, setViewMode] = useState<'album' | 'wall'>('album');
   const [currentPage, setCurrentPage] = useState(0);
   
   const [draggedItem, setDraggedItem] = useState<{ id: string } | null>(null);
+  const [clipboardMsgId, setClipboardMsgId] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const atmosphereInputRef = useRef<HTMLInputElement>(null);
@@ -84,10 +90,34 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
         pages.push(['FULL_PHOTO', atmospherePhotos[photoIndex].url, atmospherePhotos[photoIndex].originalIndex]);
         photoIndex++;
       } else {
-        // Odd pages or when out of photos get greetings
-        const chunk = sorted.slice(msgIndex, msgIndex + currentSize.itemsPerPage);
-        pages.push(chunk);
-        msgIndex += currentSize.itemsPerPage;
+        let currentPageCost = 0;
+        const maxPageCost = currentSize.height * 0.9; 
+        const chunk = [];
+        
+        while (msgIndex < sorted.length) {
+          const msg = sorted[msgIndex];
+          
+          let cost = 120;
+          if (msg.stickerId) cost = 100;
+          else {
+             if (msg.content) cost += msg.content.length * 1.5;
+             if (msg.attachedPhotoUrl || msg.url) cost += 300;
+             if (msg.isCard) cost += 80;
+             if (msg.fontSize) cost += (msg.fontSize * 20);
+          }
+          
+          if (currentPageCost + cost > maxPageCost && chunk.length > 0) {
+             break; 
+          }
+          
+          chunk.push(msg);
+          currentPageCost += cost;
+          msgIndex++;
+        }
+        
+        if (chunk.length > 0) {
+          pages.push(chunk);
+        }
       }
       currentPageIndex++;
     }
@@ -100,6 +130,33 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
   }, [messages, currentSize.itemsPerPage, atmospherePhotos]);
 
   const totalPages = albumPages.length + 2; // + covers
+
+  const handlePaste = (pageIndex: number, pageData: any[]) => {
+    if (!clipboardMsgId) return;
+    
+    let newTimestamp = new Date().toISOString();
+    try {
+      if (pageData.length > 0) {
+         const lastMsg = pageData[pageData.length - 1];
+         const lastTime = lastMsg.timestamp ? new Date(lastMsg.timestamp).getTime() : Date.now();
+         newTimestamp = new Date(lastTime + 1000).toISOString();
+      } else {
+         if (pageIndex > 0) {
+           const prevPage = albumPages[pageIndex - 1];
+           if (prevPage && prevPage.length > 0 && prevPage[0] !== 'FULL_PHOTO') {
+              const lastPrev = prevPage[prevPage.length - 1];
+              const lastTime = lastPrev.timestamp ? new Date(lastPrev.timestamp).getTime() : Date.now();
+              newTimestamp = new Date(lastTime + 5000).toISOString();
+           }
+         }
+      }
+    } catch (e) {
+      newTimestamp = new Date().toISOString();
+    }
+    
+    updateMediaItem(space.id, clipboardMsgId, { timestamp: newTimestamp });
+    setClipboardMsgId(null);
+  };
 
   const handleAtmosphereUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -144,6 +201,16 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
     setEditingMsgId(msg.id);
     setIsAddingMsg(true);
   };
+  
+  const handleAddSticker = (stickerId: string) => {
+    addMediaItem(space.id, {
+      type: 'message',
+      authorName: displayName,
+      authorId: user?.id,
+      stickerId: stickerId,
+      content: ''
+    });
+  };
 
   // Drag and Drop handlers
   const handleDragStart = (e: React.DragEvent, mediaId: string) => {
@@ -165,8 +232,30 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
     setDraggedItem(null);
   };
 
+  // Restore FlipBook page if it resets due to children changes (like live preview)
+  React.useEffect(() => {
+    if (flipBookRef.current && (flipBookRef.current as any).pageFlip) {
+      try {
+        const pageFlip = (flipBookRef.current as any).pageFlip();
+        if (pageFlip && typeof pageFlip.getCurrentPageIndex === 'function') {
+          const currentFlipPage = pageFlip.getCurrentPageIndex();
+          if (currentFlipPage !== currentPage && currentFlipPage === 0 && currentPage > 0) {
+            pageFlip.turnToPage(currentPage);
+          }
+        }
+      } catch (e) {
+        // ignore errors if pageFlip isn't fully initialized
+      }
+    }
+  }, [messages, currentPage, isEditMode, isStickerToolboxOpen, isPhotosManagerOpen, isSettingsOpen, isAddingMsg, editingMsgId]);
+
   return (
-    <div style={{ marginTop: '2rem' }}>
+    <div style={{ marginTop: '2rem', position: 'relative' }}>
+      <StickerToolbox 
+        isOpen={isStickerToolboxOpen} 
+        onClose={() => setIsStickerToolboxOpen(false)} 
+        onAddSticker={handleAddSticker}
+      />
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <h2 style={{ margin: 0, fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           📖 {viewMode === 'album' ? 'אלבום ברכות' : 'קיר ברכות'}
@@ -196,10 +285,28 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
           {isOwner && (
             <>
               <button 
-                onClick={() => setIsEditMode(!isEditMode)} 
+                onClick={() => {
+                  const newEditMode = !isEditMode;
+                  setIsEditMode(newEditMode);
+                  setIsStickerToolboxOpen(newEditMode); // Auto open when entering edit mode, close when exiting
+                }} 
                 style={{ background: isEditMode ? 'var(--primary)' : 'transparent', color: isEditMode ? 'white' : 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-full)', cursor: 'pointer' }}
               >
                 ✏️ עריכה
+              </button>
+              {isEditMode && (
+                <button 
+                  onClick={() => setIsStickerToolboxOpen(!isStickerToolboxOpen)} 
+                  style={{ background: isStickerToolboxOpen ? 'var(--primary-light)' : 'transparent', color: 'var(--primary)', border: '1px dashed var(--primary)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-full)', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  🎨 חומרי יצירה
+                </button>
+              )}
+              <button 
+                onClick={() => setIsPhotosManagerOpen(!isPhotosManagerOpen)} 
+                style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '0.75rem 1rem', borderRadius: 'var(--radius-full)', cursor: 'pointer' }}
+              >
+                🖼️ ניהול תמונות
               </button>
               <button 
                 onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
@@ -251,16 +358,43 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
 
           <div>
             <h4>העלאת תמונות אווירה (Bulk):</h4>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>העלה מספר תמונות נושא והן יפוזרו اوטומטית כעמודים שלמים (Full Bleed).</p>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>העלה מספר תמונות נושא והן יפוזרו אוטומטית כעמודים שלמים (Full Bleed).</p>
             <button onClick={() => atmosphereInputRef.current?.click()} style={{ background: 'white', border: '1px dashed var(--primary)', padding: '1rem', borderRadius: '8px', cursor: 'pointer', width: '200px' }}>
               📷 בחר מספר תמונות...
             </button>
             <input type="file" accept="image/*" multiple ref={atmosphereInputRef} onChange={handleAtmosphereUpload} style={{ display: 'none' }} />
-            {atmospherePhotos.length > 0 && (
-              <div style={{ marginTop: '0.5rem', fontSize: '0.9rem', color: 'green' }}>
-                ✅ הועלו {atmospherePhotos.length} תמונות נושא.
+          </div>
+        </div>
+      )}
+
+      {isPhotosManagerOpen && isOwner && (
+        <div style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '2rem', border: '1px solid var(--primary)', position: 'relative' }}>
+          <button onClick={() => setIsPhotosManagerOpen(false)} style={{ position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.2rem' }}>✖</button>
+          <h3 style={{ marginTop: 0 }}>ניהול תמונות אווירה</h3>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1rem' }}>כאן תוכל למחוק או להחליף תמונות קיימות, ולהעלות חדשות.</p>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+            {atmospherePhotos.map((photo, index) => (
+              <div key={index} style={{ position: 'relative', borderRadius: '8px', overflow: 'hidden', height: '120px', border: '1px solid var(--border-light)' }}>
+                <img src={photo} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt={`Atmosphere ${index}`} />
+                <div style={{ position: 'absolute', top: 5, right: 5, display: 'flex', gap: '0.2rem' }}>
+                  <button onClick={() => {
+                    setReplacePhotoIndex(index);
+                    replacePhotoRef.current?.click();
+                  }} style={{ background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '0.8rem' }} title="החלף תמונה">🔄</button>
+                  <button onClick={() => {
+                    const newPhotos = [...atmospherePhotos];
+                    newPhotos.splice(index, 1);
+                    updateAlbumSettings(space.id, currentSizeKey, newPhotos);
+                  }} style={{ background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', fontSize: '0.8rem' }} title="מחק תמונה">✕</button>
+                </div>
               </div>
-            )}
+            ))}
+            
+            <button onClick={() => atmosphereInputRef.current?.click()} style={{ background: 'rgba(0,0,0,0.02)', border: '2px dashed var(--border-light)', borderRadius: '8px', height: '120px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-secondary)' }}>
+              <span style={{ fontSize: '2rem' }}>+</span>
+              <span style={{ fontSize: '0.8rem' }}>הוסף תמונות</span>
+            </button>
           </div>
         </div>
       )}
@@ -270,6 +404,22 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
           title={editingMsgId ? 'ערוך ברכה' : 'ברכה חדשה לאלבום'}
           initialData={editingMsgId ? messages.find((m: any) => m.id === editingMsgId) : null}
           allowVideo={false} // Currently album widget doesn't support video well in flipbook
+          onChange={(data) => {
+            if (editingMsgId) {
+              updateMediaItem(space.id, editingMsgId, {
+                content: data.content,
+                fontFamily: data.fontFamily,
+                backgroundColor: data.backgroundColor,
+                textColor: data.textColor,
+                fontSize: data.fontSize,
+                rotation: data.rotation,
+                isCard: data.isCard,
+                stickerId: data.stickerId,
+                isBold: data.isBold,
+                isUnderline: data.isUnderline
+              });
+            }
+          }}
           onSave={(data) => {
             if (data.id) {
               updateMediaItem(space.id, data.id, {
@@ -277,18 +427,34 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
                 attachedPhotoUrl: data.attachedPhotoUrl,
                 signatureUrl: data.signatureUrl,
                 fontFamily: data.fontFamily,
-                backgroundColor: data.backgroundColor
+                backgroundColor: data.backgroundColor,
+                textColor: data.textColor,
+                fontSize: data.fontSize,
+                rotation: data.rotation,
+                isCard: data.isCard,
+                stickerId: data.stickerId,
+                isBold: data.isBold,
+                isUnderline: data.isUnderline
               });
             } else {
               addMediaItem(space.id, {
                 type: 'message',
                 authorName: displayName,
+                authorId: user?.id,
                 content: data.content,
                 attachedPhotoUrl: data.attachedPhotoUrl,
                 signatureUrl: data.signatureUrl,
+                url: data.videoUrl,
                 avatarUrl: displayAvatar, 
                 fontFamily: data.fontFamily,
-                backgroundColor: data.backgroundColor
+                backgroundColor: data.backgroundColor,
+                textColor: data.textColor,
+                fontSize: data.fontSize,
+                rotation: data.rotation,
+                isCard: data.isCard,
+                stickerId: data.stickerId,
+                isBold: data.isBold,
+                isUnderline: data.isUnderline
               });
             }
             setIsAddingMsg(false);
@@ -301,58 +467,76 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
         />
       )}
 
-      {(isEditMode || viewMode === 'wall') ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
-          {/* Grid / Wall View */}
-          {albumPages.map((pageData, pageIndex) => (
-            <div key={pageIndex} style={{ border: '2px solid var(--border-light)', borderRadius: '12px', overflow: 'hidden', height: viewMode === 'wall' ? 'auto' : '400px', minHeight: '300px', background: '#fff', position: 'relative', display: 'flex', flexDirection: 'column' }}>
-              {isEditMode && (
-                <div style={{ padding: '0.5rem', background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', textAlign: 'center', fontWeight: 'bold' }}>
-                  עמוד {pageIndex + 1}
-                </div>
-              )}
-              <div style={{ flex: 1, padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem', overflowY: 'auto' }}>
-                {pageData[0] === 'FULL_PHOTO' ? (
-                  <div style={{ flex: 1, background: '#eee', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                     <img src={pageData[1]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'cover' }} />
-                  </div>
-                ) : (
-                  pageData.map((msg: any) => (
-                    <div 
-                      key={msg.id} 
-                      style={{ border: '1px solid rgba(0,0,0,0.05)', borderRadius: '12px', background: msg.backgroundColor || '#fff', padding: '0.5rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)', position: 'relative' }}
-                    >
-                      <div style={{ fontFamily: msg.fontFamily }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                          <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#eee', overflow: 'hidden' }}>
-                            {msg.avatarUrl ? <img src={msg.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
-                          </div>
-                          <strong>{msg.authorName}</strong>
-                        </div>
-                        {msg.attachedPhotoUrl && (
-                           <div style={{ width: '100%', borderRadius: '8px', overflow: 'hidden', marginBottom: '0.5rem' }}>
-                             <img src={msg.attachedPhotoUrl} style={{ width: '100%', maxHeight: '150px', objectFit: 'cover' }} />
-                           </div>
-                        )}
-                        <div style={{ fontSize: '0.8rem', opacity: 0.8, whiteSpace: 'pre-wrap' }}>{msg.content}</div>
-                        {msg.signatureUrl && (
-                           <div style={{ marginTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-                             <img src={msg.signatureUrl} style={{ height: '30px', maxWidth: '80px', objectFit: 'contain' }} />
-                           </div>
-                        )}
+      {viewMode === 'wall' ? (
+        <div style={{ columnCount: window.innerWidth > 1000 ? 3 : window.innerWidth > 700 ? 2 : 1, columnGap: '2rem', padding: '2rem', width: '100%', boxSizing: 'border-box' }}>
+          {messages.map((msg: any) => {
+             // Deterministic random rotation based on ID string
+             const hash = msg.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+             const rotation = msg.rotation !== undefined ? msg.rotation : ((hash % 7) - 3);
+
+             return (
+               <div 
+                 key={`msg-${msg.id}`} 
+                 style={{ 
+                   breakInside: 'avoid', 
+                   marginBottom: '2rem', 
+                   background: msg.backgroundColor || '#fff', 
+                   padding: '1.5rem', 
+                   boxShadow: '2px 4px 15px rgba(0,0,0,0.1), 0 0 40px rgba(0,0,0,0.03) inset', 
+                   position: 'relative',
+                   transform: `rotate(${rotation}deg)`,
+                   transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                   cursor: 'default'
+                 }}
+                 onMouseEnter={(e) => {
+                   e.currentTarget.style.transform = `scale(1.02) rotate(${rotation}deg)`;
+                   e.currentTarget.style.boxShadow = '4px 8px 25px rgba(0,0,0,0.15), 0 0 40px rgba(0,0,0,0.03) inset';
+                   e.currentTarget.style.zIndex = '10';
+                 }}
+                 onMouseLeave={(e) => {
+                   e.currentTarget.style.transform = `rotate(${rotation}deg)`;
+                   e.currentTarget.style.boxShadow = '2px 4px 15px rgba(0,0,0,0.1), 0 0 40px rgba(0,0,0,0.03) inset';
+                   e.currentTarget.style.zIndex = '1';
+                 }}
+               >
+                 <div style={{ fontFamily: msg.fontFamily }}>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                     <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: '#eee', overflow: 'hidden' }}>
+                       {msg.avatarUrl ? <img src={msg.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
+                     </div>
+                     <strong style={{ fontSize: '1.1rem' }}>{msg.authorName}</strong>
+                   </div>
+                   {msg.attachedPhotoUrl && (
+                      <div style={{ width: '100%', padding: '0.5rem', background: 'white', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '1rem', transform: 'rotate(1deg)' }}>
+                        <img src={msg.attachedPhotoUrl} style={{ width: '100%', objectFit: 'cover' }} />
                       </div>
-                      <div style={{ position: 'absolute', top: 5, left: 5, display: 'flex', gap: '0.3rem' }}>
-                        {(user?.isAdmin || msg.authorName === displayName) && (
-                          <button onClick={() => openEditMessage(msg)} style={{ background: 'rgba(0,0,0,0.05)', color: '#333', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }} title="ערוך">✏️</button>
-                        )}
-                        <button onClick={() => removeMediaItem(space.id, msg.id)} style={{ background: 'red', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer' }}>✕</button>
+                   )}
+                   {msg.url && (
+                      <div style={{ width: '100%', padding: '0.5rem', background: 'white', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', marginBottom: '1rem', transform: 'rotate(-1deg)' }}>
+                        <video src={msg.url} controls style={{ width: '100%', display: 'block' }} />
                       </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          ))}
+                   )}
+                   <div style={{ fontSize: msg.fontFamily === 'Amatic SC' ? '1.5rem' : '1.1rem', opacity: 0.9, whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{msg.content}</div>
+                   {msg.signatureUrl && (
+                      <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'flex-end' }}>
+                        <img src={msg.signatureUrl} style={{ height: '40px', maxWidth: '120px', objectFit: 'contain' }} />
+                      </div>
+                   )}
+                 </div>
+                 <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: '0.5rem', opacity: isEditMode ? 1 : 0, transition: 'opacity 0.2s', pointerEvents: isEditMode ? 'auto' : 'none' }}>
+                   {(user?.isAdmin || (msg.authorId && msg.authorId === user?.id) || msg.authorName === displayName) && (
+                     <>
+                       <button onClick={() => openEditMessage(msg)} style={{ background: 'rgba(255,255,255,0.9)', color: '#333', border: '1px solid #ddd', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} title="ערוך">✏️</button>
+                       <button onClick={() => removeMediaItem(space.id, msg.id)} style={{ background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} title="מחק">✕</button>
+                     </>
+                   )}
+                 </div>
+                 
+                 {/* Visual indicator for edit mode */}
+                 {isEditMode && <div style={{ position: 'absolute', inset: 0, border: '2px dashed var(--primary)', borderRadius: '12px', pointerEvents: 'none', zIndex: 1 }} />}
+               </div>
+             );
+          })}
         </div>
       ) : (
         <div style={{ display: 'flex', justifyContent: 'center', background: 'var(--bg-main)', padding: '2rem 0', borderRadius: '12px', overflow: 'hidden', position: 'relative' }}>
@@ -379,6 +563,7 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
               usePortrait={false}
               drawShadow={true}
               mobileScrollSupport={true}
+              useMouseEvents={!isEditMode} // Disable page flipping via mouse when in edit mode
               onFlip={(e: any) => setCurrentPage(e.data)}
               className="demo-book"
               style={{ margin: '0 auto', boxShadow: '0 0 20px rgba(0,0,0,0.2)' }}
@@ -421,63 +606,154 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
                       )}
                     </div>
                   ) : (
-                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '1.5rem', overflowY: 'auto', boxSizing: 'border-box' }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', padding: '1.5rem', overflowY: 'hidden', boxSizing: 'border-box' }}>
                       <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '1rem', textAlign: 'center' }}>{pageIndex + 1}</div>
                       
-                      {/* Dynamic Greetings Layout */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', width: '100%', boxSizing: 'border-box' }}>
-                        {pageData.map((msg: any) => {
-                          const canEdit = !isGuestMode || spaceMember?.canDelete || user?.isAdmin || msg.authorName === displayName;
+                      {/* Freeform Canvas Layout */}
+                      <div style={{ position: 'relative', width: '100%', height: '100%', boxSizing: 'border-box' }}>
+                        {isEditMode && clipboardMsgId && (
+                           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.7)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <button
+                                onClick={() => handlePaste(pageIndex, pageData)}
+                                style={{ padding: '1rem 2rem', fontSize: '1.2rem', background: '#3b82f6', color: 'white', borderRadius: '30px', border: 'none', cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}
+                              >
+                                📋 הדבק ברכה בעמוד זה
+                              </button>
+                           </div>
+                        )}
+                        {pageData.map((msg: any, idx: number) => {
+                          const hash = msg.id.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+                          
+                          // Auto Layout: grid based with noise to prevent overlapping
+                          const cols = Math.max(1, Math.floor(currentSize.width / 260)); // ~250px per item
+                          const row = Math.floor(idx / cols);
+                          const col = idx % cols;
+                          
+                          const defaultX = (col * 260) + 15 + (hash % 20); // base + noise
+                          const defaultY = (row * 180) + 20 + ((hash * 7) % 30); // base + noise
+                          const defaultRotation = ((hash % 15) - 7);
+                          
+                          const x = msg.x !== undefined ? msg.x : defaultX;
+                          const y = msg.y !== undefined ? msg.y : defaultY;
+                          const rotation = msg.rotation !== undefined ? msg.rotation : defaultRotation;
+                          const scale = msg.scale || 1;
+                          
                           return (
-                            <div 
-                              key={msg.id} 
-                              onClick={(e) => {
-                                if (canEdit) {
-                                  e.stopPropagation();
+                            <DraggableElement
+                              key={msg.id}
+                              id={msg.id}
+                              x={x}
+                              y={y}
+                              rotation={rotation}
+                              scale={scale}
+                              zIndex={msg.zIndex || 1}
+                              isEditMode={isEditMode}
+                              isSelected={editingMsgId === msg.id}
+                              onSelect={setEditingMsgId}
+                              onClick={() => {
+                                if (isEditMode) {
                                   openEditMessage(msg);
                                 }
                               }}
-                              onPointerDown={(e) => {
-                                if (canEdit) e.stopPropagation();
+                              onChange={(id, updates) => {
+                                // Real-time local state update
+                                updateMediaItem(space.id, id, updates);
                               }}
-                              style={{ flex: '0 0 auto', border: '1px solid rgba(0,0,0,0.05)', borderRadius: '12px', display: 'flex', flexDirection: 'column', background: msg.backgroundColor || 'white', boxShadow: '0 4px 15px rgba(0,0,0,0.03)', overflow: 'hidden', position: 'relative', width: '100%', boxSizing: 'border-box', cursor: canEdit ? 'pointer' : 'default', transition: 'transform 0.2s, box-shadow 0.2s' }}
-                              onMouseEnter={(e) => { if (canEdit) { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.boxShadow = '0 8px 25px rgba(0,0,0,0.08)'; } }}
-                              onMouseLeave={(e) => { if (canEdit) { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 15px rgba(0,0,0,0.03)'; } }}
                             >
-                               <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: msg.fontFamily || 'Heebo', width: '100%', boxSizing: 'border-box' }}>
-                               {msg.attachedPhotoUrl && (
-                                 <div style={{ width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
-                                   <img src={msg.attachedPhotoUrl} style={{ width: '100%', maxHeight: '200px', objectFit: 'cover' }} />
-                                 </div>
-                               )}
-                               {msg.content && (
-                                 <div style={{ margin: 0, fontSize: msg.fontFamily === 'Amatic SC' ? '1.5rem' : '1.1rem', whiteSpace: 'pre-wrap' }}>
-                                   {msg.content}
-                                 </div>
-                               )}
-                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(0,0,0,0.05)' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: '#eee', overflow: 'hidden' }}>
-                                      {msg.avatarUrl ? <img src={msg.avatarUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : '👤'}
-                                    </div>
-                                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold' }}>{msg.authorName}</span>
+                              <div 
+                                style={{ 
+                                  position: 'relative', width: '250px', boxSizing: 'border-box',
+                                  ...(msg.isCard ? {
+                                    background: msg.backgroundColor || 'white',
+                                    padding: '1rem',
+                                    borderRadius: '12px',
+                                    border: '1px solid rgba(0,0,0,0.1)',
+                                    boxShadow: '2px 4px 10px rgba(0,0,0,0.1)'
+                                  } : {
+                                    background: 'transparent', border: 'none'
+                                  })
+                                }}
+                              >
+                                {msg.stickerId && !msg.content && !msg.attachedPhotoUrl ? (
+                                  <div style={{ fontSize: '4rem', textAlign: 'center', margin: '0', display: 'flex', justifyContent: 'center' }}>
+                                    {renderSticker(msg.stickerId, 100)}
                                   </div>
-                                  {msg.signatureUrl && <img src={msg.signatureUrl} style={{ height: '35px', maxWidth: '100px', objectFit: 'contain' }} />}
-                               </div>
-                               
-                               {canEdit && (
-                                  <div style={{ position: 'absolute', top: 5, left: 5, display: 'flex', gap: '0.5rem' }}>
-                                    <button onClick={(e) => { e.stopPropagation(); openEditMessage(msg); }} style={{ background: 'rgba(0,0,0,0.05)', color: '#333', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.9rem' }} title="ערוך">
-                                      ✏️
-                                    </button>
-                                    <button onClick={(e) => { e.stopPropagation(); removeMediaItem(space.id, msg.id); }} style={{ background: 'rgba(255,0,0,0.1)', color: 'red', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '0.9rem' }} title="מחק">
-                                      ✕
-                                    </button>
+                                ) : (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', fontFamily: msg.fontFamily || 'Heebo', width: '100%', boxSizing: 'border-box', color: 'var(--text-primary)', position: 'relative' }}>
+                                    {msg.stickerId && (
+                                      <div style={{ 
+                                        position: 'absolute', 
+                                        ...(msg.stickerPosition === 'top-left' ? { top: '-15px', left: '-15px' } : 
+                                            msg.stickerPosition === 'bottom-right' ? { bottom: '-15px', right: '-15px' } :
+                                            msg.stickerPosition === 'bottom-left' ? { bottom: '-15px', left: '-15px' } :
+                                            { top: '-15px', right: '-15px' }), // Default top-right
+                                        fontSize: '2rem', 
+                                        transform: 'rotate(15deg)', 
+                                        zIndex: 5 
+                                      }}>
+                                        {renderSticker(msg.stickerId, 48)}
+                                      </div>
+                                    )}
+                                    {msg.attachedPhotoUrl && (
+                                      <div style={{ width: '100%', padding: '0.5rem', background: 'white', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+                                        <img src={msg.attachedPhotoUrl} style={{ width: '100%', maxHeight: '200px', objectFit: 'cover' }} />
+                                      </div>
+                                    )}
+                                    {msg.content && (
+                                      <div style={{ margin: 0, fontSize: msg.fontSize ? `${msg.fontSize}rem` : (['Amatic SC', 'Caveat', 'Karantina', '"Guttman Yad", "Ktav Yad", cursive', '"Gveret Levin", cursive', 'Kalam', '"Guttman Mantova", "Dana Yad", cursive', '"Varela Round", "Assistant", sans-serif'].includes(msg.fontFamily) ? '1.8rem' : '1.1rem'), whiteSpace: 'pre-wrap', lineHeight: '1.4', fontWeight: msg.isBold ? 'bold' : 'normal', textDecoration: msg.isUnderline ? 'underline' : 'none', color: msg.textColor || '#000000' }}>
+                                        {msg.content}
+                                      </div>
+                                    )}
+                                    <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', marginTop: '0.5rem', gap: '1rem', opacity: 0.8 }}>
+                                       {msg.signatureUrl ? (
+                                          <img src={msg.signatureUrl} style={{ height: '30px', maxWidth: '100px', objectFit: 'contain' }} />
+                                       ) : (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontStyle: 'italic', fontSize: '0.9rem' }}>
+                                            <span>באהבה, </span>
+                                            <strong>{msg.authorName}</strong>
+                                          </div>
+                                       )}
+                                    </div>
                                   </div>
                                 )}
-                             </div>
-                          </div>
-                        );
+                                
+                                {/* Action Buttons overlay (Edit/Delete) */}
+                                <div style={{ position: 'absolute', top: -15, left: -15, display: 'flex', gap: '0.5rem', opacity: isEditMode ? 1 : 0, transition: 'opacity 0.2s', pointerEvents: isEditMode ? 'auto' : 'none', zIndex: 10 }}>
+                                  {(user?.isAdmin || (msg.authorId && msg.authorId === user?.id) || msg.authorName === displayName) && (
+                                    <>
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); openEditMessage(msg); }} 
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        style={{ background: 'white', color: '#333', border: '1px solid #ddd', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} 
+                                        title="ערוך"
+                                      >✏️</button>
+                                      <button 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          setClipboardMsgId(msg.id); 
+                                          alert('הברכה נגזרה! עבור לעמוד הרצוי באלבום ולחץ על הכפתור החדש שיופיע "הדבק ברכה בעמוד זה".'); 
+                                        }} 
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} 
+                                        title="גזור להעברה לעמוד אחר"
+                                      >✂️</button>
+                                      <button 
+                                        onClick={(e) => { 
+                                          e.stopPropagation(); 
+                                          if (confirm('האם אתה בטוח שברצונך למחוק ברכה זו לצמיתות? הפעולה לא ניתנת לביטול.')) {
+                                            removeMediaItem(space.id, msg.id); 
+                                          }
+                                        }} 
+                                        onPointerDown={(e) => e.stopPropagation()}
+                                        style={{ background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }} 
+                                        title="מחק"
+                                      >✕</button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </DraggableElement>
+                          );
                         })}
                       </div>
                     </div>
