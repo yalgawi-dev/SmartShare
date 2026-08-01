@@ -1,6 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { auth, db } from '@/lib/firebase';
+import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 
 export interface UserContact {
   id: string;
@@ -57,98 +60,141 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load simulated DB on mount
+  // Load all users for the CRM (admin view) - simplified for prototype
+  const fetchAllUsers = async () => {
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const users = usersSnap.docs.map(d => d.data() as UserProfile);
+      setAllUsers(users);
+    } catch (e) {
+      console.error("Failed to fetch all users", e);
+    }
+  };
+
   useEffect(() => {
-    const savedUsers = localStorage.getItem('smartshare_users');
-    const savedSession = localStorage.getItem('smartshare_session_id');
+    // 1. Firebase Auth Listener
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        // Sign in anonymously if no user is found
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("Firebase Anonymous Auth Error:", error);
+        }
+      } else {
+        // We have a firebase user, check Firestore for their profile
+        try {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          let activeUser: UserProfile;
+          
+          if (userSnap.exists()) {
+            activeUser = userSnap.data() as UserProfile;
+          } else {
+            // Check if there is a local storage user we can migrate (from before the cloud refactor)
+            const savedUsers = localStorage.getItem('smartshare_users');
+            let legacyLocalUser: UserProfile | undefined;
+            if (savedUsers) {
+              try {
+                const parsed = JSON.parse(savedUsers) as UserProfile[];
+                // We just take the first local user as the migrated one since we don't have their local ID
+                legacyLocalUser = parsed[0];
+              } catch (e) {}
+            }
+            
+            // Create new user profile in Firestore
+            activeUser = {
+              id: firebaseUser.uid,
+              realName: legacyLocalUser?.realName || 'אורח',
+              phone: legacyLocalUser?.phone || '',
+              nickname: legacyLocalUser?.nickname || '',
+              status: legacyLocalUser?.status || 'hidden',
+              contacts: legacyLocalUser?.contacts || [],
+              isAdmin: legacyLocalUser?.isAdmin || false,
+              createdAt: new Date().toISOString(),
+            };
+            await setDoc(userRef, activeUser);
+          }
 
-    let parsedUsers: UserProfile[] = [];
-    if (savedUsers) {
-      try {
-        parsedUsers = JSON.parse(savedUsers);
-        setAllUsers(parsedUsers);
-      } catch (e) {
-        console.error("Failed to parse users", e);
+          if (!activeUser.isBlocked) {
+            setUser(activeUser);
+          }
+          
+          // Also fetch all users for admin
+          if (activeUser.isAdmin) {
+             fetchAllUsers();
+          }
+        } catch (e) {
+          console.error("Error fetching user from Firestore", e);
+        }
+
+        setIsLoaded(true);
       }
-    }
+    });
 
-    if (savedSession) {
-      const activeUser = parsedUsers.find(u => u.id === savedSession);
-      if (activeUser && !activeUser.isBlocked) {
-        setUser(activeUser);
-      } else if (activeUser?.isBlocked) {
-        // Force logout if blocked
-        localStorage.removeItem('smartshare_session_id');
-      }
-    }
-
-    setIsLoaded(true);
+    return () => unsubscribe();
   }, []);
 
-  // Save to simulated DB whenever allUsers changes
-  useEffect(() => {
-    if (isLoaded) {
-      localStorage.setItem('smartshare_users', JSON.stringify(allUsers));
-      if (user) {
-        // Keep active user state in sync with DB
-        const updatedUser = allUsers.find(u => u.id === user.id);
-        if (updatedUser) setUser(updatedUser);
-      }
-    }
-  }, [allUsers, isLoaded]);
-
-  const login = (phone: string, realName: string) => {
-    let existingUser = allUsers.find(u => u.phone === phone);
+  const login = async (phone: string, realName: string) => {
+    if (!user) return;
     
-    if (!existingUser) {
-      existingUser = {
-        id: crypto.randomUUID(),
-        realName,
-        phone,
-        contacts: [],
-        isAdmin: phone === '0500000000', // Mock rule: this phone is Super Admin
-        createdAt: new Date().toISOString(),
-      };
-      setAllUsers(prev => [...prev, existingUser!]);
+    const updatedUser = { ...user, phone, realName, isAdmin: phone === '0500000000' };
+    
+    // Update local state immediately
+    setUser(updatedUser);
+    
+    // Push to Firestore
+    try {
+      await updateDoc(doc(db, 'users', user.id), { phone, realName, isAdmin: updatedUser.isAdmin });
+    } catch (e) {
+      console.error("Failed to update user login details in Firestore", e);
     }
-
-    if (existingUser.isBlocked) {
-      alert("משתמש זה חסום במערכת.");
-      return;
-    }
-
-    setUser(existingUser);
-    localStorage.setItem('smartshare_session_id', existingUser.id);
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('smartshare_session_id');
+    // Logout means they become a new anonymous user next time
+    auth.signOut();
   };
 
-  const updateProfile = (updates: Partial<UserProfile>) => {
+  const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return;
-    setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, ...updates } : u));
+    
+    const updatedUser = { ...user, ...updates };
+    setUser(updatedUser);
+    setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
+    
+    try {
+      await updateDoc(doc(db, 'users', user.id), updates);
+    } catch (e) {
+      console.error("Failed to update profile in Firestore", e);
+    }
   };
 
-  const addContact = (contact: Omit<UserContact, 'addedAt'>) => {
+  const addContact = async (contact: Omit<UserContact, 'addedAt'>) => {
     if (!user) return;
     const newContact: UserContact = { ...contact, addedAt: new Date().toISOString() };
-    
-    // Check if contact already exists
     if (user.contacts.some(c => c.id === contact.id)) return;
 
-    setAllUsers(prev => prev.map(u => {
-      if (u.id === user.id) {
-        return { ...u, contacts: [...u.contacts, newContact] };
-      }
-      return u;
-    }));
+    const updatedContacts = [...user.contacts, newContact];
+    setUser({ ...user, contacts: updatedContacts });
+    
+    try {
+      await updateDoc(doc(db, 'users', user.id), { contacts: updatedContacts });
+    } catch (e) {
+      console.error("Failed to add contact in Firestore", e);
+    }
   };
 
-  const blockUser = (userId: string, block: boolean) => {
+  const blockUser = async (userId: string, block: boolean) => {
     if (!user?.isAdmin) return;
     setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isBlocked: block } : u));
+    
+    try {
+      await updateDoc(doc(db, 'users', userId), { isBlocked: block });
+    } catch (e) {
+      console.error("Failed to block user in Firestore", e);
+    }
   };
 
   return (

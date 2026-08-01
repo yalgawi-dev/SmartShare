@@ -163,24 +163,30 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
     if (files.length > 0) {
       try {
         const compressedUrls = await Promise.all(
-          files.map(f => compressImage(f, 1200, 1200, 0.7))
+          files.map(async (f) => {
+             const compressed = await compressImage(f, 1200, 1200, 0.7);
+             const path = `spaces/atmosphere/${space.id}_${Date.now()}_${Math.random()}.jpg`;
+             return await uploadImageToStorage(compressed, path);
+          })
         );
-        updateAlbumSettings(space.id, currentSizeKey, compressedUrls);
+        updateAlbumSettings(space.id, currentSizeKey, [...(space.albumAtmospherePhotos || []), ...compressedUrls]);
       } catch (err) {
-        console.error("Failed to compress atmosphere photos:", err);
+        console.error("Failed to compress and upload atmosphere photos:", err);
       }
     }
   };
 
   const handleReplacePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file && replacePhotoIndex !== null) {
+    if (file && replacePhotoIndex !== null && updateAtmospherePhoto) {
       try {
-        const compressed = await compressImage(file, 1200, 1200, 0.7);
-        updateAtmospherePhoto(space.id, replacePhotoIndex, compressed);
+        const compressed = await compressImage(file, 800, 800, 0.7);
+        const path = `spaces/atmosphere/${space.id}_${Date.now()}.jpg`;
+        const url = await uploadImageToStorage(compressed, path);
+        updateAtmospherePhoto(space.id, replacePhotoIndex, url);
         setReplacePhotoIndex(null);
       } catch (err) {
-        console.error("Failed to compress replacement photo:", err);
+        console.error("Failed to compress and upload replacement photo:", err);
       }
     }
   };
@@ -190,9 +196,11 @@ export default function AlbumWidget({ space, isGuestMode }: { space: any, isGues
     if (file && updateSpaceCover) {
       try {
         const compressed = await compressImage(file, 1200, 1200, 0.7);
-        updateSpaceCover(space.id, compressed);
+        const path = `spaces/covers/${space.id}_${Date.now()}.jpg`;
+        const url = await uploadImageToStorage(compressed, path);
+        updateSpaceCover(space.id, url);
       } catch (err) {
-        console.error("Failed to compress cover photo:", err);
+        console.error("Failed to compress and upload cover photo:", err);
       }
     }
   };

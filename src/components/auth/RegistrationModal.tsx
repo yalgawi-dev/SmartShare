@@ -4,6 +4,9 @@ import { useState } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
 import styles from './RegistrationModal.module.css';
 
+import { auth } from '@/lib/firebase';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+
 export default function RegistrationModal() {
   const { user, login, updateProfile, isLoaded } = useAuth();
   const [phone, setPhone] = useState('');
@@ -11,17 +14,35 @@ export default function RegistrationModal() {
   const [nickname, setNickname] = useState('');
   const [status, setStatus] = useState<any>('hidden');
 
-  if (!isLoaded || user) return null;
+  // Show modal only if user is logged in anonymously but hasn't filled their details
+  if (!isLoaded || !user || user.realName !== 'אורח') return null;
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     if (phone.trim() && realName.trim()) {
       login(phone, realName);
-      // login occurs synchronously (simulated), so user will be set
-      // update profile with extra fields after a short delay so context updates
       setTimeout(() => {
         updateProfile({ nickname, status });
       }, 100);
+    }
+  };
+
+  const handleGoogleLogin = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const googleUser = result.user;
+      
+      login(googleUser.phoneNumber || '', googleUser.displayName || 'משתמש גוגל');
+      setTimeout(() => {
+        updateProfile({ 
+          avatarUrl: googleUser.photoURL || undefined,
+          nickname: googleUser.displayName?.split(' ')[0]
+        });
+      }, 100);
+    } catch (e) {
+      console.error("Google Auth Error", e);
+      alert("שגיאה בהתחברות לחשבון גוגל");
     }
   };
 
@@ -30,6 +51,14 @@ export default function RegistrationModal() {
       <div className={`card glass-panel ${styles.modal}`}>
         <h2 className={styles.title}>ברוכים הבאים ל-SmartShare! 👋</h2>
         <p className={styles.subtitle}>כדי להצטרף לאירוע, ספר לנו קצת על עצמך.</p>
+        
+        <button type="button" onClick={handleGoogleLogin} className={styles.btnPrimary} style={{ backgroundColor: '#fff', color: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem', border: '1px solid #ddd' }}>
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="24" height="24" />
+          התחבר עם גוגל
+        </button>
+        
+        <div style={{ textAlign: 'center', margin: '1rem 0', color: 'var(--text-secondary)' }}>או הזן פרטים ידנית:</div>
+        
         <form onSubmit={handleLogin} className={styles.form}>
           <div className={styles.formGroup}>
             <label>שם מלא:</label>
@@ -67,6 +96,8 @@ export default function RegistrationModal() {
               <option value="single">רווק/ה 🌟</option>
               <option value="relationship">בזוגיות ❤️</option>
               <option value="married">נשוי/ה 💍</option>
+              <option value="divorced">גרוש/ה 💔</option>
+              <option value="widowed">אלמן/ה 🕊️</option>
               <option value="complicated">מסובך 🌀</option>
             </select>
           </div>

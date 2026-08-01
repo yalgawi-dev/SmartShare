@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { compressImage } from '../../utils/imageOptimizer';
+import { uploadImageToStorage } from '@/lib/firebase';
 import ProfileModal from './ProfileModal';
 import CommentsModal from './CommentsModal';
 
@@ -50,10 +51,13 @@ export default function GalleryWidget({ space, onRemove, isGuestMode }: { space:
              return;
           }
           // Note: Full duration checking requires loading video metadata. For now we use size as a proxy and allow video tags.
+          // TO-DO: Video should also go to Storage eventually, but for now we skip or just upload
           finalUrl = URL.createObjectURL(file);
         } else {
           // Handle Image with compression
-          finalUrl = await compressImage(file, 1200, 1200, 0.8);
+          const compressed = await compressImage(file, 1200, 1200, 0.8);
+          const path = `spaces/gallery/${space.id}_${Date.now()}.jpg`;
+          finalUrl = await uploadImageToStorage(compressed, path);
         }
 
         addMediaItem(space.id, {

@@ -1,7 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
+import { db } from '@/lib/firebase';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
 export type FeatureId = string;
 export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
@@ -16,9 +18,9 @@ export interface Invoice {
   note: string;
   approvalsNeeded: number;
   approvalsReceived: number;
-  vatRate: number; // 👈 Locked VAT rate at the time of creation
-  category: string; // 👈 Added category
-  hasAttachment: boolean; // 👈 Added attachment flag
+  vatRate: number; 
+  category: string; 
+  hasAttachment: boolean; 
 }
 
 export interface Comment {
@@ -33,8 +35,8 @@ export interface MediaItem {
   id: string;
   type: 'photo' | 'video' | 'message';
   url?: string;
-  avatarUrl?: string; // Add avatar support for authors
-  authorStatus?: string; // Add status for profile inspection
+  avatarUrl?: string; 
+  authorStatus?: string; 
   content?: string;
   authorName: string;
   authorId?: string;
@@ -46,6 +48,7 @@ export interface MediaItem {
   rotation?: number;
   isCard?: boolean;
   stickerId?: string;
+  stickerPosition?: string;
   signatureUrl?: string;
   
   // Canvas Editor Properties
@@ -68,12 +71,12 @@ export interface SpaceSettings {
 
 export interface SpaceMember {
   userId: string;
-  name: string; // the name when added
+  name: string; 
   canUpload: boolean;
   canDelete: boolean;
   canEdit: boolean;
-  localAvatarUrl?: string; // per-space avatar override
-  useNickname?: boolean; // per-space nickname preference override
+  localAvatarUrl?: string; 
+  useNickname?: boolean; 
 }
 
 export interface Space {
@@ -113,10 +116,11 @@ interface SpacesContextType {
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
   moveMediaItem: (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => void;
+  isLoaded: boolean;
 }
 
 const defaultSettings: SpaceSettings = {
-  defaultVatRate: 18, // 18% is the default current VAT
+  defaultVatRate: 18, 
   allowPartnersToEditWall: false,
 };
 
@@ -129,10 +133,7 @@ const initialSpaces: Space[] = [
     updatedAt: 'לפני 2 דקות',
     features: ['finance', 'scanner', 'partners'],
     settings: defaultSettings,
-    invoices: [
-      { id: 'inv-1', amount: 1180, supplier: 'הום סנטר - חומרי בניין', payerName: 'דני (אני)', date: '25/07/2026', status: 'pending', note: 'קניתי מלט וברזלים לפי בקשת הקבלן. ממתין לאישורכם.', approvalsNeeded: 2, approvalsReceived: 1, vatRate: 18, category: 'חומרי בניין', hasAttachment: true },
-      { id: 'inv-2', amount: 450, supplier: 'קבלן חשמל', payerName: 'יוסי', date: '24/07/2026', status: 'dispute', note: 'תשלום על נקודות החשמל הנוספות בסלון.', approvalsNeeded: 2, approvalsReceived: 0, vatRate: 18, category: 'קבלנים', hasAttachment: false },
-    ],
+    invoices: [],
     mediaItems: [],
     members: [],
   },
@@ -141,272 +142,332 @@ const initialSpaces: Space[] = [
 const SpacesContext = createContext<SpacesContextType | undefined>(undefined);
 
 export function SpacesProvider({ children }: { children: ReactNode }) {
-  // Initialize from LocalStorage or use defaults
-  const [spaces, setSpaces] = useState<Space[]>([]);
+  const [spacesBase, setSpacesBase] = useState<Omit<Space, 'mediaItems'>[]>([]);
+  const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
   const [isLoaded, setIsLoaded] = useState(false);
+  const mediaUnsubscribes = useRef<Record<string, () => void>>({});
 
   useEffect(() => {
-    const savedSpaces = localStorage.getItem('smartshare_spaces');
-    if (savedSpaces) {
-      setSpaces(JSON.parse(savedSpaces));
-    } else {
-      setSpaces(initialSpaces);
-    }
-    setIsLoaded(true);
-  }, []);
-
-  // Save to LocalStorage whenever spaces change
-  useEffect(() => {
-    if (isLoaded) {
-      try {
-        localStorage.setItem('smartshare_spaces', JSON.stringify(spaces));
-      } catch (e: any) {
-        if (e.name === 'QuotaExceededError') {
-          console.error("Storage limit exceeded!");
-          alert("שגיאת מקום אחסון: לא ניתן לשמור את המידע מאחר וחרגת ממכסת האחסון המקומית (5MB). כדי למנוע את הבעיה, אנו נשדרג את מסד הנתונים או נשתמש בדחיסת תמונות קפדנית יותר.");
+    const spacesRef = collection(db, 'spaces');
+    const unsubscribeSpaces = onSnapshot(spacesRef, (snapshot) => {
+      const dbSpaces = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // ensure mediaItems are not pulled from root doc anymore if they exist there legacy
+        delete data.mediaItems; 
+        return { id: doc.id, ...data } as Omit<Space, 'mediaItems'>;
+      });
+      
+      // Look for any spaces in localStorage that aren't in Firestore yet
+      let spacesToUpload: Space[] = [];
+      const savedSpaces = localStorage.getItem('smartshare_spaces');
+      if (savedSpaces) {
+        try {
+          const parsed = JSON.parse(savedSpaces);
+          if (Array.isArray(parsed)) {
+            parsed.forEach(localSpace => {
+              if (!dbSpaces.find(dbS => dbS.id === localSpace.id)) {
+                spacesToUpload.push(localSpace);
+              }
+            });
+          }
+        } catch (e) {
+          console.error("Failed to parse local spaces during migration", e);
         }
       }
+
+      if (dbSpaces.length === 0 && spacesToUpload.length === 0) {
+        spacesToUpload = initialSpaces;
+      }
+
+      if (spacesToUpload.length > 0) {
+        spacesToUpload.forEach(space => {
+          const spaceWithoutMedia = { ...space };
+          const legacyMediaItems = spaceWithoutMedia.mediaItems || [];
+          delete (spaceWithoutMedia as any).mediaItems;
+
+          setDoc(doc(db, 'spaces', space.id), spaceWithoutMedia).catch(console.error);
+          dbSpaces.push(spaceWithoutMedia);
+          
+          // Migrate legacy mediaItems to subcollection
+          if (legacyMediaItems.length > 0) {
+            legacyMediaItems.forEach(item => {
+               setDoc(doc(db, 'spaces', space.id, 'mediaItems', item.id), item).catch(console.error);
+            });
+          }
+        });
+      }
+
+      setSpacesBase(dbSpaces);
+      
+      // Setup mediaItems listeners for all spaces
+      dbSpaces.forEach(space => {
+        if (!mediaUnsubscribes.current[space.id]) {
+          const mediaRef = collection(db, 'spaces', space.id, 'mediaItems');
+          const unsub = onSnapshot(mediaRef, (mediaSnap) => {
+            const items = mediaSnap.docs.map(d => ({ id: d.id, ...d.data() } as MediaItem));
+            setMediaItemsBySpace(prev => ({
+              ...prev,
+              [space.id]: items
+            }));
+          });
+          mediaUnsubscribes.current[space.id] = unsub;
+        }
+      });
+
+      setIsLoaded(true);
+    }, (error) => {
+       console.error("Firestore error:", error);
+       const savedSpaces = localStorage.getItem('smartshare_spaces');
+       if (savedSpaces) {
+         const parsed = JSON.parse(savedSpaces) as Space[];
+         setSpacesBase(parsed.map(s => {
+           const sc = {...s}; delete (sc as any).mediaItems; return sc;
+         }));
+         const mediaMap: Record<string, MediaItem[]> = {};
+         parsed.forEach(s => mediaMap[s.id] = s.mediaItems || []);
+         setMediaItemsBySpace(mediaMap);
+       }
+       setIsLoaded(true);
+    });
+
+    return () => {
+      unsubscribeSpaces();
+      Object.values(mediaUnsubscribes.current).forEach(unsub => unsub());
+    };
+  }, []);
+
+  // Compute final spaces array for context consumers
+  const spaces: Space[] = spacesBase.map(base => ({
+    ...base,
+    mediaItems: mediaItemsBySpace[base.id] || []
+  }));
+
+  // Helper function to update Space ROOT document
+  const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>) => {
+    let updatedSpace: Omit<Space, 'mediaItems'> | null = null;
+    
+    setSpacesBase(prev => {
+      return prev.map(space => {
+        if (space.id === spaceId) {
+          updatedSpace = mutator(space);
+          return updatedSpace;
+        }
+        return space;
+      });
+    });
+
+    if (updatedSpace) {
+      try {
+        await setDoc(doc(db, 'spaces', spaceId), updatedSpace);
+      } catch (e) {
+        console.error("Error updating Firestore space root", e);
+      }
     }
-  }, [spaces, isLoaded]);
+  };
 
   const addSpace = (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => {
-    const newSpace: Space = {
+    const newSpace: Omit<Space, 'mediaItems'> = {
       ...spaceData,
       id: crypto.randomUUID(),
       updatedAt: 'נוצר הרגע',
       settings: defaultSettings,
       invoices: [],
-      mediaItems: [],
+      members: [],
     };
-    setSpaces(prev => [newSpace, ...prev]);
+    setSpacesBase(prev => [newSpace, ...prev]);
+    setDoc(doc(db, 'spaces', newSpace.id), newSpace).catch(console.error);
   };
 
   const toggleFeature = (spaceId: string, featureId: FeatureId) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        const hasFeature = space.features.includes(featureId);
-        return {
-          ...space,
-          features: hasFeature 
-            ? space.features.filter(f => f !== featureId) 
-            : [...space.features, featureId],
-          updatedAt: 'ממש עכשיו'
-        };
-      }
-      return space;
-    }));
+    saveSpaceUpdate(spaceId, space => {
+      const hasFeature = space.features.includes(featureId);
+      return {
+        ...space,
+        features: hasFeature ? space.features.filter(f => f !== featureId) : [...space.features, featureId],
+        updatedAt: 'ממש עכשיו'
+      };
+    });
   };
 
   const updateSpaceTitle = (spaceId: string, newTitle: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return { ...space, title: newTitle, updatedAt: 'עודכן עכשיו' };
-      }
-      return space;
-    }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceDate = (spaceId: string, newDate: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return { ...space, date: newDate, updatedAt: 'עודכן עכשיו' };
-      }
-      return space;
-    }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return { ...space, coverImage: newCoverUrl, updatedAt: 'עודכן עכשיו' };
-      }
-      return space;
-    }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceSettings = (spaceId: string, newSettings: Partial<SpaceSettings>) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          settings: { ...space.settings, ...newSettings },
-          updatedAt: 'עודכן עכשיו'
-        };
-      }
-      return space;
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      settings: { ...space.settings, ...newSettings },
+      updatedAt: 'עודכן עכשיו'
     }));
   };
 
   const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        const newInvoice: Invoice = {
-          ...invoiceData,
-          id: `inv-${Date.now()}`
-        };
-        return {
-          ...space,
-          invoices: [newInvoice, ...space.invoices],
-          updatedAt: 'עודכן עכשיו'
-        };
-      }
-      return space;
-    }));
-  }
-
-  const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          mediaItems: [
-            ...(space.mediaItems || []),
-            { ...item, id: Math.random().toString(36).substr(2, 9), timestamp: 'ממש עכשיו', likes: 0 }
-          ],
-          updatedAt: 'עודכן עכשיו'
-        };
-      }
-      return space;
-    }));
-  };
-
-  const updateMediaItem = (spaceId: string, itemId: string, updates: Partial<MediaItem>) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          mediaItems: (space.mediaItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
-          updatedAt: 'עודכן עכשיו'
-        };
-      }
-      return space;
-    }));
-  };
-
-  const removeMediaItem = (spaceId: string, mediaId: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          mediaItems: (space.mediaItems || []).filter(item => item.id !== mediaId),
-          updatedAt: 'עודכן עכשיו'
-        };
-      }
-      return space;
-    }));
-  };
-
-  const likeMediaItem = (spaceId: string, mediaId: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          mediaItems: (space.mediaItems || []).map(item => 
-            item.id === mediaId ? { ...item, likes: (item.likes || 0) + 1 } : item
-          )
-        };
-      }
-      return space;
-    }));
-  };
-
-  const addComment = (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          mediaItems: (space.mediaItems || []).map(item => {
-            if (item.id === mediaId) {
-              const newComment: Comment = {
-                ...comment,
-                id: Math.random().toString(36).substr(2, 9),
-                timestamp: 'ממש עכשיו'
-              };
-              return { ...item, comments: [...(item.comments || []), newComment] };
-            }
-            return item;
-          })
-        };
-      }
-      return space;
-    }));
-  };
-
-  const deleteComment = (spaceId: string, mediaId: string, commentId: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id !== spaceId) return space;
-      return {
-        ...space,
-        mediaItems: space.mediaItems?.map(item => {
-          if (item.id !== mediaId) return item;
-          return { ...item, comments: item.comments?.filter(c => c.id !== commentId) };
-        })
-      };
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...space.invoices],
+      updatedAt: 'עודכן עכשיו'
     }));
   };
 
   const joinSpace = (spaceId: string, userId: string, name: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        if (space.members?.some(m => m.userId === userId)) return space; // already joined
-        return {
-          ...space,
-          members: [...(space.members || []), {
-            userId,
-            name,
-            canUpload: true,
-            canDelete: false,
-            canEdit: false,
-          }]
-        };
-      }
-      return space;
-    }));
+    saveSpaceUpdate(spaceId, space => {
+      if (space.members?.some(m => m.userId === userId)) return space; 
+      return {
+        ...space,
+        members: [...(space.members || []), {
+          userId,
+          name,
+          canUpload: true,
+          canDelete: false,
+          canEdit: false,
+        }]
+      };
+    });
   };
 
   const updateMemberPermissions = (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id === spaceId) {
-        return {
-          ...space,
-          members: (space.members || []).map(m => m.userId === userId ? { ...m, ...permissions } : m)
-        };
-      }
-      return space;
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m => m.userId === userId ? { ...m, ...permissions } : m)
     }));
   };
 
   const updateAlbumSettings = (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id !== spaceId) return space;
-      return {
-        ...space,
-        albumSize: size,
-        albumAtmospherePhotos: [...(space.albumAtmospherePhotos || []), ...newPhotos]
-      };
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      albumSize: size,
+      albumAtmospherePhotos: [...(space.albumAtmospherePhotos || []), ...newPhotos]
     }));
   };
 
   const updateAtmospherePhoto = (spaceId: string, index: number, newUrl: string) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id !== spaceId || !space.albumAtmospherePhotos) return space;
-      const newPhotos = [...space.albumAtmospherePhotos];
+    saveSpaceUpdate(spaceId, space => {
+      const newPhotos = [...(space.albumAtmospherePhotos || [])];
       newPhotos[index] = newUrl;
       return { ...space, albumAtmospherePhotos: newPhotos };
+    });
+  };
+
+  // --- SUBCOLLECTION MUTATORS (MediaItems / Greetings) ---
+
+  const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
+    const newItem: MediaItem = { 
+      ...item, 
+      id: Math.random().toString(36).substr(2, 9), 
+      timestamp: new Date().toISOString(), 
+      likes: 0 
+    };
+    
+    // Optimistic UI update
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: [...(prev[spaceId] || []), newItem]
     }));
+
+    // Save to Firestore subcollection
+    setDoc(doc(db, 'spaces', spaceId, 'mediaItems', newItem.id), newItem).catch(console.error);
+  };
+
+  const updateMediaItem = (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => {
+    // Optimistic update
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: (prev[spaceId] || []).map(item => item.id === mediaId ? { ...item, ...updates } : item)
+    }));
+
+    // Update Firestore subcollection
+    updateDoc(doc(db, 'spaces', spaceId, 'mediaItems', mediaId), updates).catch(console.error);
+  };
+
+  const removeMediaItem = (spaceId: string, mediaId: string) => {
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: (prev[spaceId] || []).filter(item => item.id !== mediaId)
+    }));
+
+    deleteDoc(doc(db, 'spaces', spaceId, 'mediaItems', mediaId)).catch(console.error);
+  };
+
+  const likeMediaItem = (spaceId: string, mediaId: string) => {
+    const spaceItems = mediaItemsBySpace[spaceId] || [];
+    const itemToLike = spaceItems.find(i => i.id === mediaId);
+    if (!itemToLike) return;
+
+    const newLikes = (itemToLike.likes || 0) + 1;
+    
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: prev[spaceId].map(item => item.id === mediaId ? { ...item, likes: newLikes } : item)
+    }));
+
+    updateDoc(doc(db, 'spaces', spaceId, 'mediaItems', mediaId), { likes: newLikes }).catch(console.error);
+  };
+
+  const addComment = (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => {
+    const spaceItems = mediaItemsBySpace[spaceId] || [];
+    const targetItem = spaceItems.find(i => i.id === mediaId);
+    if (!targetItem) return;
+
+    const newComment: Comment = { 
+      ...comment, 
+      id: Math.random().toString(36).substr(2, 9), 
+      timestamp: new Date().toISOString() 
+    };
+    
+    const updatedComments = [...(targetItem.comments || []), newComment];
+
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: prev[spaceId].map(item => {
+        if (item.id === mediaId) {
+          return { ...item, comments: updatedComments };
+        }
+        return item;
+      })
+    }));
+
+    updateDoc(doc(db, 'spaces', spaceId, 'mediaItems', mediaId), { comments: updatedComments }).catch(console.error);
+  };
+
+  const deleteComment = (spaceId: string, mediaId: string, commentId: string) => {
+    const spaceItems = mediaItemsBySpace[spaceId] || [];
+    const targetItem = spaceItems.find(i => i.id === mediaId);
+    if (!targetItem) return;
+
+    const updatedComments = (targetItem.comments || []).filter(c => c.id !== commentId);
+
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: prev[spaceId].map(item => {
+        if (item.id === mediaId) return { ...item, comments: updatedComments };
+        return item;
+      })
+    }));
+
+    updateDoc(doc(db, 'spaces', spaceId, 'mediaItems', mediaId), { comments: updatedComments }).catch(console.error);
   };
 
   const moveMediaItem = (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => {
-    setSpaces(prev => prev.map(space => {
-      if (space.id !== spaceId) return space;
-      return {
-        ...space,
-        mediaItems: space.mediaItems?.map(media => {
-          if (media.id !== mediaId) return media;
-          return { ...media, pageNumber: newPageNumber, slotIndex: newSlotIndex };
-        })
-      };
+    setMediaItemsBySpace(prev => ({
+      ...prev,
+      [spaceId]: (prev[spaceId] || []).map(media => {
+        if (media.id !== mediaId) return media;
+        return { ...media, pageNumber: newPageNumber, slotIndex: newSlotIndex }; 
+      })
     }));
+
+    updateDoc(doc(db, 'spaces', spaceId, 'mediaItems', mediaId), { 
+      pageNumber: newPageNumber, 
+      slotIndex: newSlotIndex 
+    }).catch(console.error);
   };
 
   return (
@@ -416,7 +477,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       deleteComment,
       updateAlbumSettings,
       updateAtmospherePhoto,
-      moveMediaItem
+      moveMediaItem,
+      isLoaded
     }}>
       {children}
     </SpacesContext.Provider>

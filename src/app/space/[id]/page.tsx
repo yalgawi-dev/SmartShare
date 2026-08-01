@@ -16,6 +16,7 @@ import InviteModal from '../../../components/widgets/InviteModal';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import GuestOnboardingModal from '../../../components/widgets/GuestOnboardingModal';
 import { compressImage } from '../../../utils/imageOptimizer';
+import { uploadImageToStorage } from '@/lib/firebase';
 
 function EmptyStateCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -65,7 +66,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   // Using simple window location to avoid next/navigation async issues for a quick demo
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, joinSpace } = useSpaces();
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, joinSpace } = useSpaces();
   const { user } = useAuth();
   
   // Auto-join space
@@ -88,8 +89,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   const space = spaces.find(s => s.id === id);
 
+  if (!isLoaded) {
+    return <div className={styles.container} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><h2>טוען אלבום...</h2></div>;
+  }
+
   if (!space) {
-    return <div className={styles.container}><h1>הפרויקט לא נמצא. יש לחזור לדף הבית ולהיכנס שוב.</h1></div>;
+    return <div className={styles.container}><h1>האלבום לא נמצא. יש לחזור לדף הבית ולהיכנס שוב.</h1></div>;
   }
 
   // Active features
@@ -120,7 +125,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     if (file) {
       try {
         const compressed = await compressImage(file, 1920, 1080, 0.8);
-        updateSpaceCover(id, compressed);
+        const path = `spaces/covers/${id}_${Date.now()}.jpg`;
+        const url = await uploadImageToStorage(compressed, path);
+        updateSpaceCover(id, url);
       } catch (err) {
         console.error('Failed to upload cover', err);
         alert('שגיאה בהעלאת תמונת השער');
@@ -133,7 +140,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     if (file && user) {
       try {
         const compressed = await compressImage(file, 400, 400, 0.8);
-        updateMemberPermissions(id, user.id, { localAvatarUrl: compressed });
+        const path = `users/avatars/${user.id}_space_${id}_${Date.now()}.jpg`;
+        const url = await uploadImageToStorage(compressed, path);
+        updateMemberPermissions(id, user.id, { localAvatarUrl: url });
       } catch (err) {
         console.error('Failed to upload local avatar', err);
         alert('שגיאה בהעלאת התמונה');

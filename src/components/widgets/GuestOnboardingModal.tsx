@@ -3,10 +3,12 @@
 import { useState, useRef } from 'react';
 import { useGuest } from '../../app/context/GuestContext';
 import { compressImage } from '../../utils/imageOptimizer';
+import { uploadImageToStorage } from '@/lib/firebase';
 
 export default function GuestOnboardingModal() {
   const { profile, saveProfile } = useGuest();
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // If they already have a profile, don't show the onboarding
@@ -20,15 +22,25 @@ export default function GuestOnboardingModal() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const name = formData.get('name') as string;
     const status = formData.get('status') as any;
     
+    setIsUploading(true);
+    let finalUrl = avatarPreview;
+    if (avatarPreview && avatarPreview.startsWith('data:image')) {
+      try {
+        finalUrl = await uploadImageToStorage(avatarPreview, `guests/avatars/${Date.now()}.jpg`);
+      } catch (err) {
+        console.error("Upload error", err);
+      }
+    }
+
     saveProfile({
       name,
-      avatarUrl: avatarPreview || undefined,
+      avatarUrl: finalUrl || undefined,
       status
     });
   };

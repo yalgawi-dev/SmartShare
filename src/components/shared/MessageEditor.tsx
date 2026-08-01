@@ -47,6 +47,8 @@ const FONT_OPTIONS = [
   { name: 'כתב יד עגול 3', value: 'Kalam' },
 ];
 
+import { uploadImageToStorage } from '@/lib/firebase';
+
 const BG_COLORS = [
   { name: 'לבן', value: 'white' },
   { name: 'צהוב', value: '#fef3c7' },
@@ -71,6 +73,7 @@ export default function MessageEditor({ initialData, onSave, onCancel, onChange,
   const [attachedPhotoPreview, setAttachedPhotoPreview] = useState<string | null>(initialData?.attachedPhotoUrl || null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(initialData?.signatureUrl || null);
   const [videoPreview, setVideoPreview] = useState<string | null>(initialData?.videoUrl || null);
+  const [isUploading, setIsUploading] = useState(false);
 
   React.useEffect(() => {
     if (onChange) {
@@ -109,32 +112,53 @@ export default function MessageEditor({ initialData, onSave, onCancel, onChange,
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim() && !attachedPhotoPreview && !signatureUrl && !videoPreview && !stickerId) return;
     
-    onSave({
-      id: initialData?.id,
-      content,
-      fontFamily: selectedFont,
-      backgroundColor: selectedBgColor,
-      textColor: selectedTextColor,
-      fontSize,
-      rotation,
-      isCard,
-      stickerId,
-      isBold,
-      isUnderline,
-      attachedPhotoUrl: attachedPhotoPreview || undefined,
-      signatureUrl: signatureUrl || undefined,
-      videoUrl: videoPreview || undefined
-    });
+    setIsUploading(true);
+    try {
+      let finalPhotoUrl = attachedPhotoPreview;
+      if (attachedPhotoPreview && attachedPhotoPreview.startsWith('data:image')) {
+        const path = `spaces/media/${Date.now()}_photo.jpg`;
+        finalPhotoUrl = await uploadImageToStorage(attachedPhotoPreview, path);
+      }
+      
+      let finalSignatureUrl = signatureUrl;
+      if (signatureUrl && signatureUrl.startsWith('data:image')) {
+        const path = `spaces/media/${Date.now()}_sig.png`;
+        finalSignatureUrl = await uploadImageToStorage(signatureUrl, path);
+      }
+
+      onSave({
+        id: initialData?.id,
+        content,
+        fontFamily: selectedFont,
+        backgroundColor: selectedBgColor,
+        textColor: selectedTextColor,
+        fontSize,
+        rotation,
+        isCard,
+        stickerId,
+        stickerPosition,
+        isBold,
+        isUnderline,
+        attachedPhotoUrl: finalPhotoUrl || undefined,
+        signatureUrl: finalSignatureUrl || undefined,
+        videoUrl: videoPreview || undefined
+      });
+    } catch (err) {
+      console.error("Upload failed", err);
+      alert("שגיאה בהעלאת התמונות. אנא נסה שנית.");
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   return (
     <div style={{ background: 'white', padding: '1.5rem', borderRadius: 'var(--radius-md)', marginBottom: '2rem', border: '1px solid var(--border-light)', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', opacity: isUploading ? 0.6 : 1, pointerEvents: isUploading ? 'none' : 'auto' }}>
         <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           
           <div style={{ flex: 1, minWidth: '250px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
