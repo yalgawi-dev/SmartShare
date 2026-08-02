@@ -19,6 +19,7 @@ export interface UserProfile {
   nickname?: string;
   avatarUrl?: string;
   phone?: string;
+  email?: string;
   status?: 'single' | 'married' | 'relationship' | 'complicated' | 'hidden' | 'divorced' | 'widowed' | 'other';
   customStatus?: string;
   birthDate?: string;

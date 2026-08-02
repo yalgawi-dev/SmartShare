@@ -65,7 +65,8 @@ export default function SettingsPage() {
           </div>
           <div>
             <h2 style={{ margin: '0 0 0.5rem 0' }}>{user.realName}</h2>
-            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>טלפון: {user.phone}</p>
+            <p style={{ color: 'var(--text-secondary)', margin: 0, marginBottom: '0.25rem' }}>טלפון: {user.phone}</p>
+            <p style={{ color: 'var(--text-secondary)', margin: 0 }}>אימייל: {user.email || 'לא סופק אימייל'}</p>
           </div>
         </div>
 

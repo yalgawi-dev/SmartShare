@@ -35,6 +35,19 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [torchOn, setTorchOn] = useState(false);
   const [zoom, setZoom] = useState(1.0);
   
+  // Load saved zoom on mount
+  useEffect(() => {
+    const savedZoom = localStorage.getItem('myspace_scanner_zoom');
+    if (savedZoom) {
+      setZoom(parseFloat(savedZoom));
+    }
+  }, []);
+
+  // Save zoom when changed
+  useEffect(() => {
+    localStorage.setItem('myspace_scanner_zoom', zoom.toString());
+  }, [zoom]);
+  
   const [error, setError] = useState('');
 
   // 1. Load OpenCV.js safely
@@ -144,40 +157,58 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    ctx.drawImage(video, 0, 0, w, h);
+    // Fill with black background in case video is scaled out
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, w, h);
+
+    // Apply the same scale the user sees to the captured image!
+    // If zoom < 1.0, the image is smaller and centered.
+    // If zoom > 1.0, the image is larger and cropped.
+    const scaledW = w * zoom;
+    const scaledH = h * zoom;
+    const offsetX = (w - scaledW) / 2;
+    const offsetY = (h - scaledH) / 2;
+
+    ctx.drawImage(video, offsetX, offsetY, scaledW, scaledH);
     
     // Map guide DOM Rect to object-fit: contain intrinsic video coordinates
     const guideBox = guideRef.current.getBoundingClientRect();
-    const containerBox = video.getBoundingClientRect();
+    const videoBox = video.getBoundingClientRect();
     
-    // For contain, scale is MIN of the ratios
-    const scale = Math.min(containerBox.width / w, containerBox.height / h);
+    // We assume object-fit: contain.
+    // Find the intrinsic video rect inside the videoBox
+    const videoRatio = w / h;
+    const boxRatio = videoBox.width / videoBox.height;
     
-    // Calculate the letterbox margins (empty space around the video)
-    const renderedWidth = w * scale;
-    const renderedHeight = h * scale;
-    const marginX = (containerBox.width - renderedWidth) / 2;
-    const marginY = (containerBox.height - renderedHeight) / 2;
+    let renderedW = videoBox.width;
+    let renderedH = videoBox.height;
+    let renderedLeft = videoBox.left;
+    let renderedTop = videoBox.top;
 
-    const toIntrinsicX = (screenX: number) => {
-      let x = (screenX - containerBox.left - marginX) / scale;
-      return Math.max(0, Math.min(w, x));
-    };
-    const toIntrinsicY = (screenY: number) => {
-      let y = (screenY - containerBox.top - marginY) / scale;
-      return Math.max(0, Math.min(h, y));
-    };
+    if (videoRatio > boxRatio) {
+      // Video is wider than the container, letterboxing on top/bottom
+      renderedH = videoBox.width / videoRatio;
+      renderedTop = videoBox.top + (videoBox.height - renderedH) / 2;
+    } else {
+      // Video is taller than the container, pillarboxing on left/right
+      renderedW = videoBox.height * videoRatio;
+      renderedLeft = videoBox.left + (videoBox.width - renderedW) / 2;
+    }
 
-    const tlx = toIntrinsicX(guideBox.left);
-    const tly = toIntrinsicY(guideBox.top);
-    const brx = toIntrinsicX(guideBox.right);
-    const bry = toIntrinsicY(guideBox.bottom);
+    const intrinsicScaleX = w / renderedW;
+    const intrinsicScaleY = h / renderedH;
+
+    // Convert guide bounds relative to the rendered video area
+    const gLeft = (guideBox.left - renderedLeft) * intrinsicScaleX;
+    const gTop = (guideBox.top - renderedTop) * intrinsicScaleY;
+    const gRight = (guideBox.right - renderedLeft) * intrinsicScaleX;
+    const gBottom = (guideBox.bottom - renderedTop) * intrinsicScaleY;
 
     let defaultPts = [
-      {x: tlx, y: tly},
-      {x: brx, y: tly},
-      {x: brx, y: bry},
-      {x: tlx, y: bry}
+      { x: gLeft, y: gTop },
+      { x: gRight, y: gTop },
+      { x: gRight, y: gBottom },
+      { x: gLeft, y: gBottom }
     ];
     
     // Try to auto-detect the document using the OpenCV algorithm from the Skill!
@@ -482,7 +513,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '300px', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem', borderRadius: '24px' }}>
                <span style={{ fontSize: '1.2rem' }}>-</span>
                <input 
-                 type="range" min="1" max="3" step="0.1" value={zoom} 
+                 type="range" min="0.5" max="3" step="0.1" value={zoom} 
                  onChange={(e) => setZoom(parseFloat(e.target.value))} 
                  style={{ flex: 1, accentColor: '#FFD700' }} 
                />

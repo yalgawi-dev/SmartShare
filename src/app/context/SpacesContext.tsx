@@ -67,6 +67,7 @@ export interface MediaItem {
 export interface SpaceSettings {
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
+  mySharePercentage?: number;
 }
 
 export interface SpaceMember {
@@ -77,6 +78,7 @@ export interface SpaceMember {
   canEdit: boolean;
   localAvatarUrl?: string; 
   useNickname?: boolean; 
+  sharePercentage?: number;
 }
 
 export interface Space {

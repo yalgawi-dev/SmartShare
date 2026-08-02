@@ -123,43 +123,52 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
               </div>
             </label>
           </div>
-          {/* Dynamic Table for Partners */}
+          {/* Dynamic List for Partners Permissions */}
           {space.members && space.members.length > 0 ? (
-            <div style={{ marginTop: '1.5rem' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-                <thead>
-                  <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)' }}>
-                    <th style={{ padding: '0.75rem' }}>שם האורח</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>הרשאת העלאה</th>
-                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>הרשאת מחיקה</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {space.members.map((m: any) => (
-                    <tr key={m.userId} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: '500' }}>
-                        {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)' }}>(אתה)</span>}
-                      </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={m.canUpload} 
-                          onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })} 
-                          style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-                        />
-                      </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={m.canDelete} 
-                          onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} 
-                          style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
-                        />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', fontWeight: 'bold', fontSize: '0.9rem' }}>
+                <span style={{ flex: 1 }}>שם האורח</span>
+                <span style={{ width: '80px', textAlign: 'center' }}>העלאה</span>
+                <span style={{ width: '80px', textAlign: 'center' }}>מחיקה</span>
+              </div>
+              
+              {space.members.map((m: any) => (
+                <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ flex: 1, fontWeight: '500' }}>
+                    {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>(אתה)</span>}
+                  </div>
+                  
+                  {/* Upload Toggle */}
+                  <div style={{ width: '80px', display: 'flex', justifyContent: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={m.canUpload} 
+                        onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })} 
+                        style={{ display: 'none' }} 
+                      />
+                      <div style={{ width: '36px', height: '20px', background: m.canUpload ? 'var(--primary)' : '#ccc', borderRadius: '20px', position: 'relative', transition: '0.3s' }}>
+                        <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: m.canUpload ? '2px' : '18px', transition: '0.3s' }} />
+                      </div>
+                    </label>
+                  </div>
+                  
+                  {/* Delete Toggle */}
+                  <div style={{ width: '80px', display: 'flex', justifyContent: 'center' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={m.canDelete} 
+                        onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} 
+                        style={{ display: 'none' }} 
+                      />
+                      <div style={{ width: '36px', height: '20px', background: m.canDelete ? 'var(--primary)' : '#ccc', borderRadius: '20px', position: 'relative', transition: '0.3s' }}>
+                        <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: m.canDelete ? '2px' : '18px', transition: '0.3s' }} />
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>אין חברים במרחב עדיין.</p>
