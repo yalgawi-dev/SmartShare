@@ -43,7 +43,7 @@ export default function RegistrationModal() {
   return (
     <div className={styles.overlay}>
       <div className={`card glass-panel ${styles.modal}`}>
-        <h2 className={styles.title}>ברוכים הבאים ל-SmartShare! 👋</h2>
+        <h2 className={styles.title}>ברוכים הבאים ל-MySpace! 👋</h2>
         <p className={styles.subtitle}>כדי להצטרף לאירוע, ספר לנו קצת על עצמך.</p>
         
         <button type="button" onClick={handleGoogleLogin} className={styles.btnPrimary} style={{ backgroundColor: '#fff', color: '#333', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '1.5rem', border: '1px solid #ddd' }}>

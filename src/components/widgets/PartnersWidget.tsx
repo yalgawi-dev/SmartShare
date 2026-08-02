@@ -14,7 +14,7 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'הצטרף למרחב שלי ב-SmartShare',
+          title: 'הצטרף למרחב שלי ב-MySpace',
           text: 'היי! אני מזמין אותך להצטרף אלי למרחב העבודה המשותף שלנו.',
           url: window.location.href,
         });
@@ -27,36 +27,32 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
   };
 
   return (
-    <div className="card glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', background: 'var(--bg-card)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <div style={{ fontSize: '2rem' }}>🤝</div>
+    <div className="card glass-panel" style={{ padding: '0.75rem 1rem', marginBottom: '1.5rem', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ fontSize: '1.5rem', background: 'var(--bg-main)', width: '36px', height: '36px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>👥</div>
           <div>
-            <h3 style={{ fontSize: '1.1rem', margin: 0, color: 'var(--text-primary)' }}>שותפים לפרויקט</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', margin: 0 }}>
-              {activePartnersCount === 0 
-                ? 'טרם הזמנת שותפים לפרויקט זה.' 
-                : `ישנם ${activePartnersCount} שותפים פעילים במרחב.`}
-            </p>
+            <h3 style={{ fontSize: '1rem', margin: 0, color: 'var(--text-primary)' }}>שותפים לפרויקט ({activePartnersCount})</h3>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <button 
-            onClick={() => setShowManage(!showManage)}
-            style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '0.5rem 1.5rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer' }}
-          >
-            {showManage ? 'סגור ניהול' : 'ניהול הרשאות'}
-          </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <button 
             onClick={handleInvite}
-            style={{ background: 'transparent', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '0.5rem 1.5rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer' }}
+            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
           >
-            + הזמן שותפים
+            + הזמן
+          </button>
+          <button 
+            onClick={() => setShowManage(!showManage)}
+            style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: '1.1rem' }}
+            title="ניהול הרשאות"
+          >
+            ⚙️
           </button>
           {onRemove && (
             <button 
               onClick={onRemove}
-              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: 'var(--text-secondary)' }}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.1rem', color: 'var(--text-secondary)', padding: '0.2rem' }}
               title="הסר פיצ'ר מהקיר"
             >
               ✕

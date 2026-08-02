@@ -137,40 +137,58 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         )}
       </div>
 
-      {/* Compact Header */}
-      <header className={`card glass-panel`} style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+      {/* Facebook-style Header */}
+      <header className={`card`} style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', position: 'relative', border: 'none', background: 'transparent' }}>
+        
+        {/* Cover Photo Background */}
+        <div 
+          style={{ height: '160px', width: '100%', background: 'var(--border-light)', position: 'relative', cursor: !isGuestMode ? 'pointer' : 'default', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', overflow: 'hidden' }}
+          onClick={() => !isGuestMode && fileInputRef.current?.click()}
+          title={!isGuestMode ? "שנה תמונת נושא" : ""}
+        >
+          {space.coverImage ? (
+             <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : (
+             <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)', opacity: 0.8 }}></div>
+          )}
+          {!isGuestMode && (
+             <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.5)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               📷
+             </div>
+          )}
+        </div>
+        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleCoverUpload} style={{ display: 'none' }} />
+        
+        {/* Profile Info Area */}
+        <div className="glass-panel" style={{ padding: '0 1.5rem 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', position: 'relative', borderBottomLeftRadius: '24px', borderBottomRightRadius: '24px', borderTop: 'none', marginTop: '-1px' }}>
           
-          {/* Circular Cover/Avatar */}
-          <div 
-            style={{ 
-              width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-main)', 
-              boxShadow: 'var(--shadow-md)', border: '2px solid var(--border-light)', 
-              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', cursor: !isGuestMode ? 'pointer' : 'default', flexShrink: 0, position: 'relative'
-            }}
-            onClick={() => !isGuestMode && fileInputRef.current?.click()}
-            title={!isGuestMode ? "שנה תמונת שער" : ""}
-          >
-            {space.coverImage ? (
-              <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            ) : (
-              <span style={{ fontSize: '2.5rem' }}>{space.icon || '🏠'}</span>
-            )}
-            {!isGuestMode && (
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.7rem', textAlign: 'center', padding: '0.2rem 0' }}>
-                ערוך
-              </div>
-            )}
+          {/* Action Gear */}
+          {!isGuestMode && (
+            <div style={{ position: 'absolute', top: '1rem', left: '1.5rem', zIndex: 10 }}>
+              <Link href={`/space/${id}/settings`} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מרחב">
+                ⚙️
+              </Link>
+            </div>
+          )}
+
+          {/* Avatar (Overlapping cover) */}
+          <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex' }}>
+             <div style={{ 
+                width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-main)', 
+                boxShadow: '0 4px 10px rgba(0,0,0,0.1)', border: '4px solid var(--bg-card)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
+              }}>
+                <span style={{ fontSize: '2.5rem' }}>{space.icon || '🏠'}</span>
+             </div>
           </div>
-          <input type="file" accept="image/*" ref={fileInputRef} onChange={handleCoverUpload} style={{ display: 'none' }} />
-          
-          {/* Title & Date (Click to Edit) */}
+
+          {/* Title & Date */}
           <div style={{ flex: 1 }}>
             {isEditingTitle && !isGuestMode ? (
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <input 
                   type="text" value={editTitleValue} onChange={(e) => setEditTitleValue(e.target.value)}
-                  style={{ fontSize: '1.5rem', fontWeight: 'bold', border: '1px solid var(--primary)', borderRadius: '8px', padding: '0.2rem 0.5rem', width: '100%', maxWidth: '300px' }}
+                  style={{ fontSize: '1.75rem', fontWeight: 'bold', border: '1px solid var(--primary)', borderRadius: '8px', padding: '0.2rem 0.5rem', width: '100%', maxWidth: '300px' }}
                   autoFocus
                 />
                 <button onClick={() => { if(editTitleValue.trim()) updateSpaceTitle(id, editTitleValue); setIsEditingTitle(false); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '8px', cursor: 'pointer' }}>✓</button>
@@ -178,7 +196,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             ) : (
               <h1 
                 onClick={() => { if(!isGuestMode) { setEditTitleValue(space.title); setIsEditingTitle(true); } }} 
-                style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: !isGuestMode ? 'pointer' : 'default' }}
+                style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-primary)', cursor: !isGuestMode ? 'pointer' : 'default', letterSpacing: '-0.02em' }}
                 title={!isGuestMode ? "לחץ לעריכה" : ""}
               >
                 {space.title}
@@ -186,7 +204,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             )}
 
             {isEditingDate && !isGuestMode ? (
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <input 
                   type="date" value={editDateValue} onChange={(e) => setEditDateValue(e.target.value)}
                   style={{ padding: '0.2rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}
@@ -196,26 +214,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             ) : (
               <p 
                 onClick={() => { if(!isGuestMode) { setEditDateValue(space.date || ''); setIsEditingDate(true); } }}
-                style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem', cursor: !isGuestMode ? 'pointer' : 'default' }}
+                style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem', cursor: !isGuestMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                 title={!isGuestMode ? "לחץ לעריכה" : ""}
               >
-                📅 {space.date ? new Date(space.date).toLocaleDateString('he-IL') : 'הגדר תאריך'} • <b>הקיר המרכזי</b>
+                📅 {space.date ? new Date(space.date).toLocaleDateString('he-IL') : 'הגדר תאריך'}
               </p>
             )}
           </div>
         </div>
-
-        {/* Action Chips */}
-        {!isGuestMode && (
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem' }}>
-            <button onClick={() => setShowInvite(true)} style={{ background: 'rgba(79, 70, 229, 0.1)', color: 'var(--primary)', border: '1px solid rgba(79, 70, 229, 0.2)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              💌 הוסף אנשים
-            </button>
-            <Link href={`/space/${id}/settings`} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: '500', cursor: 'pointer', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              ⚙️ הגדרות מרחב
-            </Link>
-          </div>
-        )}
       </header>
 
       {/* Feature Menu Modal (Bottom Sheet) */}

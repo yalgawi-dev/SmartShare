@@ -19,7 +19,7 @@ export default function Dashboard() {
             S
           </div>
           <div>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: '1.75rem' }}>SmartShare</h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: '1.75rem' }}>MySpace</h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '1rem' }}>המרחבים שלי</p>
           </div>
         </div>
@@ -31,7 +31,7 @@ export default function Dashboard() {
             </Link>
           )}
           <Link href="/settings" style={{ padding: '0.5rem', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ padding: '0 0.5rem', fontSize: '0.9rem' }}>⚙️ הגדרות אישיות</span>
+            <span style={{ padding: '0 0.25rem', fontSize: '1.2rem' }} title="הגדרות אישיות">⚙️</span>
             <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {user?.avatarUrl ? (
                 <img 

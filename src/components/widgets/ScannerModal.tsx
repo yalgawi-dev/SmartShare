@@ -33,6 +33,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'bw' | 'color'>('bw');
   const [torchOn, setTorchOn] = useState(false);
+  const [zoom, setZoom] = useState(1.0);
   
   const [error, setError] = useState('');
 
@@ -412,7 +413,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             <video 
               ref={videoRef}
               autoPlay playsInline muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
             />
             
             {/* Static Guide Overlay with Scanning Animation */}
@@ -472,10 +473,22 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       </div>
 
       {/* Footer Controls */}
-      <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '1rem', zIndex: 1000 }}>
         
         {step === 'scanning' && (
-           <div style={{ display: 'flex', justifyContent: 'center' }}>
+           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+             
+             {/* Zoom Slider */}
+             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '300px', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem', borderRadius: '24px' }}>
+               <span style={{ fontSize: '1.2rem' }}>-</span>
+               <input 
+                 type="range" min="1" max="3" step="0.1" value={zoom} 
+                 onChange={(e) => setZoom(parseFloat(e.target.value))} 
+                 style={{ flex: 1, accentColor: '#FFD700' }} 
+               />
+               <span style={{ fontSize: '1.2rem' }}>+</span>
+             </div>
+
              <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
            </div>
         )}
