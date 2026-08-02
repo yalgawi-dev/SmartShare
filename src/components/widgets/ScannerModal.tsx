@@ -513,7 +513,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '300px', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem', borderRadius: '24px' }}>
                <span style={{ fontSize: '1.2rem' }}>-</span>
                <input 
-                 type="range" min="0.5" max="3" step="0.1" value={zoom} 
+                 type="range" min="0.1" max="3" step="0.1" value={zoom} 
                  onChange={(e) => setZoom(parseFloat(e.target.value))} 
                  style={{ flex: 1, accentColor: '#FFD700' }} 
                />

@@ -109,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: firebaseUser.uid,
               realName: firebaseUser.displayName || legacyLocalUser?.realName || 'אורח',
               phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
+              email: firebaseUser.email || legacyLocalUser?.email || '',
               nickname: legacyLocalUser?.nickname || (firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0] : ''),
               avatarUrl: firebaseUser.photoURL || undefined,
               status: legacyLocalUser?.status || 'hidden',

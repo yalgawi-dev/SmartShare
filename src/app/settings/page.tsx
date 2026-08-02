@@ -6,9 +6,12 @@ import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user, updateProfile, logout } = useAuth();
+  const { spaces } = useSpaces();
   
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [realName, setRealName] = useState(user?.realName || '');
+  const [phone, setPhone] = useState(user?.phone || '');
+  const [email, setEmail] = useState(user?.email || '');
   const [status, setStatus] = useState(user?.status || 'hidden');
   const [customStatus, setCustomStatus] = useState(user?.customStatus || '');
   const [birthDate, setBirthDate] = useState(user?.birthDate || '');
@@ -20,7 +23,7 @@ export default function SettingsPage() {
   if (!user) return <div style={{ padding: '2rem', textAlign: 'center' }}>יש להתחבר כדי לצפות במסך זה.</div>;
 
   const handleSave = () => {
-    updateProfile({ nickname, realName, status, customStatus, birthDate, zodiacSign, gender: gender as any, hideRealName });
+    updateProfile({ nickname, realName, phone, email, status, customStatus, birthDate, zodiacSign, gender: gender as any, hideRealName });
     alert('הפרופיל עודכן בהצלחה!');
   };
 
@@ -74,6 +77,16 @@ export default function SettingsPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <label style={{ fontWeight: 'bold' }}>שם אמיתי (מוסתר מאורחים):</label>
             <input type="text" value={realName} onChange={e => setRealName(e.target.value)} style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontWeight: 'bold' }}>טלפון:</label>
+            <input type="text" value={phone} onChange={e => setPhone(e.target.value)} placeholder="05X-XXXXXXX" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <label style={{ fontWeight: 'bold' }}>אימייל:</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="your@email.com" style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -152,25 +165,33 @@ export default function SettingsPage() {
           אנשים שהוספת בעבר כשותפים לפרויקטים, שמורים כאן לגישה מהירה.
         </p>
 
-        {user.contacts.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
-            אין לך עדיין אנשי קשר שמורים.
-          </div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-            {user.contacts.map(contact => (
-              <div key={contact.id} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden' }}>
-                  {contact.avatarUrl ? <img src={contact.avatarUrl} alt={contact.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%'}}>👤</span>}
-                </div>
-                <div>
-                  <div style={{ fontWeight: 'bold' }}>{contact.name}</div>
-                  {contact.phone && <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{contact.phone}</div>}
-                </div>
+        {(() => {
+          const allSpaceMembers = spaces.flatMap(s => s.members || []);
+          const uniqueMembers = Array.from(new Map(allSpaceMembers.map(m => [m.userId, m])).values()).filter(m => m.userId !== user?.id);
+          
+          if (uniqueMembers.length === 0) {
+            return (
+              <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+                אין לך עדיין אנשי קשר מהמרחבים שלך.
               </div>
-            ))}
-          </div>
-        )}
+            );
+          }
+          
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+              {uniqueMembers.map(contact => (
+                <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden' }}>
+                    <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '1.2rem'}}>{contact.name.charAt(0)}</span>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 'bold' }}>{contact.name}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

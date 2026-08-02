@@ -45,7 +45,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, joinSpace } = useSpaces();
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, joinSpace } = useSpaces();
   const { user } = useAuth();
   
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     .map(f => getFeatureById(f))
     .filter(f => f !== undefined) as { id: string; name: string; desc: string; icon: string }[];
 
-  const activePartnersCount = 0; 
+  const activePartnersCount = hasPartners ? (space.members?.length || 0) : 0; 
   const unusedFeatures = AVAILABLE_FEATURES.filter(f => !space.features.includes(f.id));
 
   const showToast = (msg: string) => {
@@ -184,32 +184,30 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
           {/* Avatar (Overlapping cover) & Partners Stack */}
           <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-             <div style={{ 
+             <div 
+               onClick={() => {
+                 if (!isGuestMode) {
+                   const newIcon = window.prompt('הזן אימוג׳י חדש עבור המרחב:', space.icon);
+                   if (newIcon) {
+                     updateSpaceIcon(id, newIcon);
+                   }
+                 }
+               }}
+               title={!isGuestMode ? "לחץ להחלפת אימוג׳י" : ""}
+               style={{ 
                 width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-main)', 
                 boxShadow: '0 4px 10px rgba(0,0,0,0.1)', border: '4px solid var(--bg-card)', 
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+                cursor: !isGuestMode ? 'pointer' : 'default'
               }}>
                 <span style={{ fontSize: '2.5rem' }}>{space.icon || space.title.charAt(0)}</span>
              </div>
              
-             {/* Partners Avatar Stack */}
-             {hasPartners && (
+             {/* Partners Bubble */}
+             {hasPartners && activePartnersCount > 0 && (
                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }} title="שותפים פעילים">
-                 <div style={{ display: 'flex', direction: 'rtl' }}>
-                   {(space.members || []).slice(0, 3).map((m: any, idx: number) => (
-                     <div key={m.userId} style={{ 
-                       width: '32px', height: '32px', borderRadius: '50%', background: `hsl(${idx * 40}, 70%, 60%)`, color: 'white', 
-                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', 
-                       border: '2px solid var(--bg-card)', marginLeft: '-10px', zIndex: 10 - idx
-                     }}>
-                       {m.name.charAt(0)}
-                     </div>
-                   ))}
-                   {(space.members?.length || 0) > 3 && (
-                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--border-light)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', marginLeft: '-10px', zIndex: 0 }}>
-                       +{(space.members?.length || 0) - 3}
-                     </div>
-                   )}
+                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', boxShadow: 'var(--shadow-sm)' }}>
+                   {activePartnersCount}
                  </div>
                </div>
              )}
