@@ -14,6 +14,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isScanning, setIsScanning] = useState(false);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
+  const [selectedPayer, setSelectedPayer] = useState(user?.realName || 'אני');
+  const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateSpaceSettings } = useSpaces();
 
   // If a scan arrives from the parent (ScannerWidget), open the modal and attach it
@@ -61,17 +63,27 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const formData = new FormData(e.currentTarget);
     const amount = Number(formData.get('amount'));
     const supplier = formData.get('supplier') as string;
-    const category = formData.get('category') as string;
-    const payerName = formData.get('payerName') as string;
+    
+    let payerName = selectedPayer;
+    if (selectedPayer === 'other') {
+      payerName = (formData.get('payerNameCustom') as string) || 'אני';
+    }
+    
+    let category = selectedCategory;
+    if (selectedCategory === 'other') {
+      category = (formData.get('categoryCustom') as string) || 'כללי';
+    }
+    
+    const note = (formData.get('note') as string) || '';
 
     addInvoice(space.id, {
       amount,
       supplier,
       category,
-      payerName: payerName || 'אני',
+      payerName,
       date: new Date().toLocaleDateString('he-IL'),
       status: 'pending',
-      note: '',
+      note,
       approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
       approvalsReceived: 0,
       vatRate: space.settings?.defaultVatRate || 18,
@@ -322,24 +334,53 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               <input required name="amount" type="number" placeholder="סכום (₪)" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
               
               {activePartnersCount > 0 && (
-                <>
-                  <input required name="payerName" list="payers" placeholder="מי שילם?" defaultValue={user?.realName || 'אני'} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
-                  <datalist id="payers">
-                    <option value={user?.realName || 'אני'} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <select 
+                    required 
+                    value={selectedPayer} 
+                    onChange={e => setSelectedPayer(e.target.value)}
+                    style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
+                  >
+                    <option value={user?.realName || 'אני'}>{user?.realName || 'אני'}</option>
                     {space.members?.map((m: any) => (
-                      <option key={m.userId} value={m.name} />
+                      <option key={m.userId} value={m.name}>{m.name}</option>
                     ))}
-                  </datalist>
-                </>
+                    <option value="other">אחר (הקלד שם)...</option>
+                  </select>
+                  {selectedPayer === 'other' && (
+                    <input 
+                      required 
+                      name="payerNameCustom" 
+                      placeholder="הקלד שם איש קשר..." 
+                      style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--primary)', fontSize: '1rem', background: '#fff' }} 
+                    />
+                  )}
+                </div>
               )}
               
-              <select required name="category" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}>
-                <option value="כללי">כללי</option>
-                <option value="חומרי בניין">חומרי בניין</option>
-                <option value="קבלנים">קבלנים</option>
-                <option value="חשמל">חשמל</option>
-                <option value="ריהוט">ריהוט</option>
-              </select>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <select 
+                  required 
+                  value={selectedCategory}
+                  onChange={e => setSelectedCategory(e.target.value)}
+                  style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
+                >
+                  <option value="כללי">כללי</option>
+                  <option value="חומרי בניין">חומרי בניין</option>
+                  <option value="קבלנים">קבלנים</option>
+                  <option value="חשמל">חשמל</option>
+                  <option value="ריהוט">ריהוט</option>
+                  <option value="other">אחר (הקלד קטגוריה)...</option>
+                </select>
+                {selectedCategory === 'other' && (
+                  <input 
+                    required 
+                    name="categoryCustom" 
+                    placeholder="הקלד קטגוריה..." 
+                    style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--primary)', fontSize: '1rem', background: '#fff' }} 
+                  />
+                )}
+              </div>
               
               <textarea name="note" placeholder="הערות (אופציונלי)" rows={2} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', resize: 'vertical' }}></textarea>
               

@@ -92,6 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (userSnap.exists()) {
             activeUser = userSnap.data() as UserProfile;
+            if ((activeUser.email === 'yalgawi@gmail.com' || activeUser.phone === '0509666008' || activeUser.phone === '+972509666008') && !activeUser.isAdmin) {
+              activeUser.isAdmin = true;
+              await updateDoc(userRef, { isAdmin: true });
+            }
           } else {
             // Check if there is a local storage user we can migrate (from before the cloud refactor)
             const savedUsers = localStorage.getItem('smartshare_users');
@@ -114,7 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               avatarUrl: firebaseUser.photoURL || undefined,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
-              isAdmin: legacyLocalUser?.isAdmin || false,
+              isAdmin: legacyLocalUser?.isAdmin || firebaseUser.email === 'yalgawi@gmail.com' || firebaseUser.phoneNumber === '+972509666008' || false,
               createdAt: new Date().toISOString(),
             };
             await setDoc(userRef, activeUser);

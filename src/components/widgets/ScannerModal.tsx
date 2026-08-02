@@ -107,15 +107,36 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     document.body.appendChild(script);
   }, []);
 
+  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
+
   // 2. Start Camera
   useEffect(() => {
     let animationFrameId: number;
 
     async function startCamera() {
       try {
-        const mediaStream = await navigator.mediaDevices.getUserMedia({
+        let devices = videoDevices;
+        if (devices.length === 0) {
+          const allDevices = await navigator.mediaDevices.enumerateDevices();
+          devices = allDevices.filter(d => d.kind === 'videoinput');
+          setVideoDevices(devices);
+        }
+        
+        let constraints: MediaStreamConstraints = {
           video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } }
-        });
+        };
+
+        if (devices.length > 0 && currentDeviceIndex < devices.length) {
+          const deviceId = devices[currentDeviceIndex].deviceId;
+          if (deviceId) {
+            constraints = {
+              video: { deviceId: { exact: deviceId }, width: { ideal: 1080 }, height: { ideal: 1920 } }
+            };
+          }
+        }
+
+        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -134,10 +155,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
-      cancelAnimationFrame(animationFrameId);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, currentDeviceIndex]);
+
+  const cycleCamera = () => {
+    if (videoDevices.length > 1) {
+      setCurrentDeviceIndex((prev) => (prev + 1) % videoDevices.length);
+    } else {
+      alert('לא נמצאו מצלמות נוספות במכשיר זה.');
+    }
+  };
 
   const toggleTorch = async () => {
     if (!stream) return;
@@ -436,14 +464,23 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     const finalImage = mode === 'color' ? croppedSnapshot : bwSnapshot;
     if (finalImage) onComplete(finalImage);
   };
-
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
       {/* Header */}
       <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
         <button onClick={onClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
-        <h3 style={{ margin: 0 }}>סורק חכם</h3>
-        <div style={{ width: '50px', display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>סורק מסמכים</span>
+          </h2>
+        </div>
+        
+        <div style={{ width: '80px', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+          {step === 'scanning' && videoDevices.length > 1 && (
+            <button onClick={cycleCamera} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} title="החלף מצלמה">
+              🔄
+            </button>
+          )}
           {step === 'scanning' && stream && (
             <button onClick={toggleTorch} style={{ background: 'transparent', color: torchOn ? '#FFD700' : 'white', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
               🔦
