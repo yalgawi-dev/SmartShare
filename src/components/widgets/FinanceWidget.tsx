@@ -3,11 +3,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useSpaces } from '../../app/context/SpacesContext';
+import { useAuth } from '../../app/context/AuthContext';
+import ScannerModal from './ScannerModal';
 
 export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null }) {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
   const [filter, setFilter] = useState<'all' | 'pending' | 'dispute' | 'missing'>('all');
   const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
   const { addInvoice, updateSpaceSettings } = useSpaces();
@@ -42,7 +46,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     balances.push({ name: 'אני', paid: myPaid, expected: myExpected, balance: myBalance, userId: 'me' });
 
     // Partners
-    space.members?.forEach((m: any) => {
+    const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
+    validMembers.forEach((m: any) => {
       const p = m.sharePercentage ?? (100 / memberCount);
       const paid = invoices.filter((i: any) => i.payerName === m.name).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
       const expected = totalExpenses * p / 100;
@@ -133,13 +138,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סך הכל שולם</p>
                 <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
               </div>
-              <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center' }}>
+              <div 
+                onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
+                style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+                title="לחץ לצפייה בממתינים"
+              >
                 <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתין לאישור</p>
                 <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{invoices.filter((i: any) => i.status === 'pending').length}</h3>
               </div>
               {activePartnersCount > 0 && (
                 <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מאזן אישי</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מאזן אישי {myBalance < 0 ? '(חובה להעביר)' : myBalance > 0 ? '(זכות לקבל)' : ''}</p>
                   <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
                     {myBalance > 0 ? '+' : ''}₪{myBalance.toLocaleString(undefined, {maximumFractionDigits: 0})}
                   </h3>
@@ -166,12 +175,12 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                         <th style={{ padding: '0.75rem' }}>שותף</th>
                         <th style={{ padding: '0.75rem' }}>חלק באחוזים</th>
                         <th style={{ padding: '0.75rem' }}>סך הכל שילם</th>
-                        <th style={{ padding: '0.75rem' }}>מאזן נוכחי</th>
+                        <th style={{ padding: '0.75rem' }}>מאזן נוכחי (חובה/זכות)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {balances.map((b) => {
-                        const memberCount = (space.members?.length || 0) + 1;
+                        const memberCount = validMembers.length + 1;
                         const defaultShare = 100 / memberCount;
                         let p = defaultShare;
                         if (b.userId === 'me') p = space.settings?.mySharePercentage ?? defaultShare;
@@ -186,6 +195,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                             <td style={{ padding: '0.75rem' }}>{p.toFixed(1)}%</td>
                             <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                             <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                              <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
                               {b.balance > 0 ? '+' : ''}₪{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
                             </td>
                           </tr>
@@ -301,17 +311,25 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             </div>
             
             <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <input required name="supplier" placeholder="שם הספק / תיאור" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input required name="supplier" placeholder="שם הספק / תיאור" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+                <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem' }} title="סרוק חשבונית">
+                  📷
+                </button>
+              </div>
+              
               <input required name="amount" type="number" placeholder="סכום (₪)" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
               
               {activePartnersCount > 0 && (
-                <select required name="payerName" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}>
-                  <option value="" disabled selected>מי שילם?</option>
-                  <option value="אני">אני</option>
-                  {space.members?.map((m: any) => (
-                    <option key={m.userId} value={m.name}>{m.name}</option>
-                  ))}
-                </select>
+                <>
+                  <input required name="payerName" list="payers" placeholder="מי שילם?" defaultValue={user?.realName || 'אני'} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+                  <datalist id="payers">
+                    <option value={user?.realName || 'אני'} />
+                    {space.members?.map((m: any) => (
+                      <option key={m.userId} value={m.name} />
+                    ))}
+                  </datalist>
+                </>
               )}
               
               <select required name="category" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}>
@@ -321,12 +339,24 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 <option value="חשמל">חשמל</option>
                 <option value="ריהוט">ריהוט</option>
               </select>
+              
+              <textarea name="note" placeholder="הערות (אופציונלי)" rows={2} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', resize: 'vertical' }}></textarea>
+              
               <div style={{ marginTop: '0.5rem' }}>
                 <button type="submit" style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }}>
                   שמור הוצאה
                 </button>
               </div>
             </form>
+            {isScanning && (
+              <ScannerModal 
+                onClose={() => setIsScanning(false)}
+                onComplete={(imgUrl) => {
+                  setScannedImage(imgUrl);
+                  setIsScanning(false);
+                }}
+              />
+            )}
             {scannedImage && (
               <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
                 <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מסמך מצורף (נסרק בהצלחה):</p>

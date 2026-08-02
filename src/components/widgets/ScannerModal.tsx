@@ -43,10 +43,26 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     }
   }, []);
 
-  // Save zoom when changed
+  // Save zoom when changed and attempt native hardware zoom
   useEffect(() => {
     localStorage.setItem('myspace_scanner_zoom', zoom.toString());
-  }, [zoom]);
+    
+    if (stream) {
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        // @ts-ignore
+        if (capabilities.zoom) {
+          try {
+            // @ts-ignore
+            track.applyConstraints({ advanced: [{ zoom }] });
+          } catch (e) {
+            console.warn("Native zoom failed", e);
+          }
+        }
+      }
+    }
+  }, [zoom, stream]);
   
   const [error, setError] = useState('');
 
@@ -441,10 +457,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         
         {step === 'scanning' && (
           <>
-            <video 
+              <video 
               ref={videoRef}
               autoPlay playsInline muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
+              style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
             />
             
             {/* Static Guide Overlay with Scanning Animation */}

@@ -183,7 +183,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           )}
 
           {/* Avatar (Overlapping cover) & Partners Stack */}
-          <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
              <div 
                onClick={() => {
                  if (!isGuestMode) {
@@ -205,9 +205,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
              
              {/* Partners Bubble */}
              {hasPartners && activePartnersCount > 0 && (
-               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }} title="שותפים פעילים">
-                 <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', boxShadow: 'var(--shadow-sm)' }}>
-                   {activePartnersCount}
+               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', cursor: 'help' }} title={`${activePartnersCount} שותפים בפרויקט`}>
+                 <div style={{ padding: '0.2rem 0.75rem', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', boxShadow: 'var(--shadow-sm)' }}>
+                   <span>👥</span> {activePartnersCount} שותפים
                  </div>
                </div>
              )}
