@@ -33,8 +33,10 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   // Financial Engine Calculations
   const balances: { name: string, paid: number, expected: number, balance: number, userId?: string }[] = [];
   let myBalance = 0;
+  const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
+  
   if (activePartnersCount > 0) {
-    const memberCount = (space.members?.length || 0) + 1; // +1 for "me"
+    const memberCount = validMembers.length + 1; // +1 for "me"
     
     // Get custom shares or default equally
     const myShare = space.settings?.mySharePercentage ?? (100 / memberCount);
@@ -46,7 +48,6 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     balances.push({ name: 'אני', paid: myPaid, expected: myExpected, balance: myBalance, userId: 'me' });
 
     // Partners
-    const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
     validMembers.forEach((m: any) => {
       const p = m.sharePercentage ?? (100 / memberCount);
       const paid = invoices.filter((i: any) => i.payerName === m.name).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);

@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 
 export default function SettingsPage() {
