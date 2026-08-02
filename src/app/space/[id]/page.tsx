@@ -97,12 +97,23 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     showToast(`נוסף בהצלחה: ${featureName}`);
   };
 
+  const handleRemoveFeature = (featureId: string, featureName: string) => {
+    if (window.confirm(`האם אתה בטוח שברצונך להסיר את הפיצ'ר "${featureName}" מהקיר?\n\nאל דאגה, תוכל תמיד להחזיר אותו דרך תפריט הכלים, והמידע שלך לא יימחק.`)) {
+      toggleFeature(id, featureId);
+      showToast(`הוסר מהקיר: ${featureName}`);
+    }
+  };
+
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       try {
         showToast('מעלה תמונה, אנא המתן...');
         const compressed = await compressImage(file, 1920, 1080, 0.8);
+        
+        // Optimistic update so user sees it instantly
+        updateSpaceCover(id, compressed);
+        
         const path = `spaces/covers/${id}_${Date.now()}.jpg`;
         const url = await uploadImageToStorage(compressed, path);
         updateSpaceCover(id, url);
@@ -171,15 +182,37 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             </div>
           )}
 
-          {/* Avatar (Overlapping cover) */}
-          <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex' }}>
+          {/* Avatar (Overlapping cover) & Partners Stack */}
+          <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
              <div style={{ 
                 width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-main)', 
                 boxShadow: '0 4px 10px rgba(0,0,0,0.1)', border: '4px solid var(--bg-card)', 
                 display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0
               }}>
-                <span style={{ fontSize: '2.5rem' }}>{space.icon || '🏠'}</span>
+                <span style={{ fontSize: '2.5rem' }}>{space.icon || space.title.charAt(0)}</span>
              </div>
+             
+             {/* Partners Avatar Stack */}
+             {hasPartners && (
+               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }} title="שותפים פעילים">
+                 <div style={{ display: 'flex', direction: 'rtl' }}>
+                   {(space.members || []).slice(0, 3).map((m: any, idx: number) => (
+                     <div key={m.userId} style={{ 
+                       width: '32px', height: '32px', borderRadius: '50%', background: `hsl(${idx * 40}, 70%, 60%)`, color: 'white', 
+                       display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', 
+                       border: '2px solid var(--bg-card)', marginLeft: '-10px', zIndex: 10 - idx
+                     }}>
+                       {m.name.charAt(0)}
+                     </div>
+                   ))}
+                   {(space.members?.length || 0) > 3 && (
+                     <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'var(--border-light)', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', marginLeft: '-10px', zIndex: 0 }}>
+                       +{(space.members?.length || 0) - 3}
+                     </div>
+                   )}
+                 </div>
+               </div>
+             )}
           </div>
 
           {/* Title & Date */}
@@ -217,7 +250,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem', cursor: !isGuestMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                 title={!isGuestMode ? "לחץ לעריכה" : ""}
               >
-                📅 {space.date ? new Date(space.date).toLocaleDateString('he-IL') : 'הגדר תאריך'}
+                {space.date ? new Date(space.date).toLocaleDateString('he-IL') : 'הגדר תאריך'}
               </p>
             )}
           </div>
@@ -259,35 +292,32 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Gamification / Wall of Fame */}
         <TopGuestsWidget space={space} />
 
-        {/* Active Widgets */}
+        {/* Active Widgets - Ordered by Priority */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          {hasPartners && !isGuestMode && <PartnersWidget space={space} onRemove={() => toggleFeature(id, 'partners')} />}
-          {hasGallery && <GalleryWidget space={space} onRemove={!isGuestMode ? () => toggleFeature(id, 'gallery') : undefined} isGuestMode={isGuestMode} />}
-          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => toggleFeature(id, 'finance')} />}
-          {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode} onRemove={!isGuestMode ? () => toggleFeature(id, 'guestbook') : undefined} />}
           
-          {/* Scanner Widget - No remove button for templates, pass undefined if template */}
+          {/* Finance is always at the top if active */}
+          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => handleRemoveFeature('finance', 'התחשבנות')} />}
+          
+          {/* Scanner Widget - No remove button for templates */}
           {hasScanner && !isGuestMode && (
             <ScannerWidget 
-              onRemove={space.templateId ? undefined : () => toggleFeature(id, 'scanner')} 
+              onRemove={space.templateId ? undefined : () => handleRemoveFeature('scanner', 'סרוק חשבונית')} 
               onScanComplete={(imgUrl) => setScannedImage(imgUrl)} 
             />
           )}
 
-          {/* Render Generic Widgets */}
-          {genericFeatures.map(feature => (
+          {/* Other features */}
+          {hasGallery && <GalleryWidget space={space} onRemove={!isGuestMode ? () => handleRemoveFeature('gallery', 'גלריית תמונות') : undefined} isGuestMode={isGuestMode} />}
+          {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode} onRemove={!isGuestMode ? () => handleRemoveFeature('guestbook', 'ספר אורחים') : undefined} />}
+          
+          {genericFeatures.map(f => (
             <GenericWidget 
-              key={feature.id}
-              title={feature.name}
-              description={feature.desc}
-              icon={feature.icon}
-              onRemove={() => toggleFeature(id, feature.id)}
+              key={f.id} 
+              feature={f} 
+              onRemove={!isGuestMode ? () => handleRemoveFeature(f.id, f.name) : undefined} 
             />
           ))}
-
-          {space.features.length === 0 && (
-            <EmptyStateCarousel />
-          )}
+        </div>
         </div>
       </div>
       

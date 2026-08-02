@@ -4,12 +4,14 @@ import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useSpaces } from '../../../context/SpacesContext';
+import { useAuth } from '../../../context/AuthContext';
 import styles from '../page.module.css';
 
 export default function SpaceSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { spaces, updateSpaceSettings } = useSpaces();
+  const { spaces, updateSpaceSettings, updateMemberPermissions } = useSpaces();
+  const { user } = useAuth();
   
   const space = spaces.find(s => s.id === id);
 
@@ -38,6 +40,25 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
     setTimeout(() => setIsSaved(false), 3000);
   };
 
+  const handleInvite = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'הצטרף למרחב שלי ב-MySpace',
+          text: 'היי! אני מזמין אותך להצטרף אלי למרחב העבודה המשותף שלנו.',
+          url: `${window.location.origin}/space/${id}`,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      alert('אפשרות השיתוף אינה נתמכת בדפדפן זה. העתק את הקישור במקום.');
+    }
+  };
+
+  const hasPartners = space.features.includes('partners');
+  const hasFinance = space.features.includes('finance');
+
   return (
     <div className={styles.container} style={{ maxWidth: '800px', margin: '0 auto' }}>
       <Link href={`/space/${id}`} className={styles.backBtn}>
@@ -53,11 +74,20 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
       <div className="card glass-panel" style={{ padding: '2rem', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         
-        {/* Permissions Section */}
+        {/* Partners Dynamic Section */}
+        {hasPartners && (
         <section>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
-            🤝 הרשאות שותפים
-          </h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)' }}>
+              👥 ניהול שותפים למרחב
+            </h2>
+            <button 
+              onClick={handleInvite}
+              style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              + הזמן שותפים
+            </button>
+          </div>
           
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
             <div>
@@ -93,9 +123,52 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
               </div>
             </label>
           </div>
+          {/* Dynamic Table for Partners */}
+          {space.members && space.members.length > 0 ? (
+            <div style={{ marginTop: '1.5rem' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)' }}>
+                    <th style={{ padding: '0.75rem' }}>שם האורח</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>הרשאת העלאה</th>
+                    <th style={{ padding: '0.75rem', textAlign: 'center' }}>הרשאת מחיקה</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {space.members.map((m: any) => (
+                    <tr key={m.userId} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                      <td style={{ padding: '0.75rem', fontWeight: '500' }}>
+                        {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)' }}>(אתה)</span>}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={m.canUpload} 
+                          onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })} 
+                          style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                        />
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>
+                        <input 
+                          type="checkbox" 
+                          checked={m.canDelete} 
+                          onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} 
+                          style={{ width: '18px', height: '18px', accentColor: 'var(--primary)' }}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>אין חברים במרחב עדיין.</p>
+          )}
         </section>
+        )}
 
         {/* Finance Section */}
+        {hasFinance && (
         <section>
           <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
             💰 הגדרות התחשבנות
@@ -127,6 +200,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
             </div>
           </div>
         </section>
+        )}
 
         {/* Save Actions */}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
