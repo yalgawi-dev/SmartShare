@@ -191,66 +191,52 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const handleCapture = () => {
     if (!videoRef.current || !guideRef.current) return;
     const video = videoRef.current;
+    const guideBox = guideRef.current.getBoundingClientRect();
+    const videoBox = video.getBoundingClientRect();
     
     const w = video.videoWidth;
     const h = video.videoHeight;
 
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    
+    // Capture at double the screen resolution for better OCR quality
+    const scaleFactor = 2;
+    canvas.width = videoBox.width * scaleFactor;
+    canvas.height = videoBox.height * scaleFactor;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Fill with black background in case video is scaled out
     ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, w, h);
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Apply the same scale the user sees to the captured image!
-    // If zoom < 1.0, the image is smaller and centered.
-    // If zoom > 1.0, the image is larger and cropped.
-    const scaledW = w * zoom;
-    const scaledH = h * zoom;
-    const offsetX = (w - scaledW) / 2;
-    const offsetY = (h - scaledH) / 2;
-
-    ctx.drawImage(video, offsetX, offsetY, scaledW, scaledH);
-    
-    // Map guide DOM Rect to object-fit: contain intrinsic video coordinates
-    const guideBox = guideRef.current.getBoundingClientRect();
-    const videoBox = video.getBoundingClientRect();
-    
-    // We assume object-fit: cover.
-    // Find the intrinsic video rect inside the videoBox
     const videoRatio = w / h;
     const boxRatio = videoBox.width / videoBox.height;
     
-    let renderedW = videoBox.width;
-    let renderedH = videoBox.height;
-    let renderedLeft = videoBox.left;
-    let renderedTop = videoBox.top;
+    let renderW = canvas.width;
+    let renderH = canvas.height;
+    let renderX = 0;
+    let renderY = 0;
 
     if (videoRatio > boxRatio) {
-      // cover: video is wider than container, height matches, width overflows
-      renderedH = videoBox.height;
-      renderedW = videoBox.height * videoRatio;
-      renderedLeft = videoBox.left + (videoBox.width - renderedW) / 2;
-      renderedTop = videoBox.top;
+      // cover: wider
+      renderH = canvas.height;
+      renderW = canvas.height * videoRatio;
+      renderX = (canvas.width - renderW) / 2;
     } else {
-      // cover: video is taller than container, width matches, height overflows
-      renderedW = videoBox.width;
-      renderedH = videoBox.width / videoRatio;
-      renderedLeft = videoBox.left;
-      renderedTop = videoBox.top + (videoBox.height - renderedH) / 2;
+      // cover: taller
+      renderW = canvas.width;
+      renderH = canvas.width / videoRatio;
+      renderY = (canvas.height - renderH) / 2;
     }
 
-    const intrinsicScaleX = w / renderedW;
-    const intrinsicScaleY = h / renderedH;
-
-    // Convert guide bounds relative to the rendered video area
-    const gLeft = (guideBox.left - renderedLeft) * intrinsicScaleX;
-    const gTop = (guideBox.top - renderedTop) * intrinsicScaleY;
-    const gRight = (guideBox.right - renderedLeft) * intrinsicScaleX;
-    const gBottom = (guideBox.bottom - renderedTop) * intrinsicScaleY;
+    ctx.drawImage(video, renderX, renderY, renderW, renderH);
+    
+    // Since the canvas exactly matches the videoBox visually (scaled by scaleFactor),
+    // mapping the guideBox is trivial:
+    const gLeft = (guideBox.left - videoBox.left) * scaleFactor;
+    const gTop = (guideBox.top - videoBox.top) * scaleFactor;
+    const gRight = (guideBox.right - videoBox.left) * scaleFactor;
+    const gBottom = (guideBox.bottom - videoBox.top) * scaleFactor;
 
     let defaultPts = [
       { x: gLeft, y: gTop },
@@ -480,11 +466,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         </div>
         
         <div style={{ width: '80px', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          {step === 'scanning' && videoDevices.length > 1 && (
-            <button onClick={cycleCamera} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }} title="החלף מצלמה">
-              🔄
-            </button>
-          )}
+          {/* Removed cycle camera button per user request */}
           {step === 'scanning' && stream && (
             <button onClick={toggleTorch} style={{ background: 'transparent', color: torchOn ? '#FFD700' : 'white', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
               🔦
@@ -501,7 +483,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               <video 
               ref={videoRef}
               autoPlay playsInline muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
             />
             
             {/* Static Guide Overlay with Scanning Animation */}
@@ -566,15 +548,18 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         {step === 'scanning' && (
            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
              
-             {/* Zoom Slider */}
-             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', width: '100%', maxWidth: '300px', background: 'rgba(255,255,255,0.1)', padding: '0.5rem 1rem', borderRadius: '24px' }}>
-               <span style={{ fontSize: '1.2rem' }}>-</span>
-               <input 
-                 type="range" min="0.1" max="3" step="0.1" value={zoom} 
-                 onChange={(e) => setZoom(parseFloat(e.target.value))} 
-                 style={{ flex: 1, accentColor: '#FFD700' }} 
-               />
-               <span style={{ fontSize: '1.2rem' }}>+</span>
+             {/* Zoom Buttons */}
+             <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.5)', padding: '0.5rem', borderRadius: '24px' }}>
+               <button 
+                 onClick={() => setZoom(1.0)} 
+                 style={{ background: zoom === 1.0 ? 'white' : 'transparent', color: zoom === 1.0 ? 'black' : 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
+                 1x
+               </button>
+               <button 
+                 onClick={() => setZoom(2.0)} 
+                 style={{ background: zoom === 2.0 ? 'white' : 'transparent', color: zoom === 2.0 ? 'black' : 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
+                 2x
+               </button>
              </div>
 
              <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />

@@ -321,6 +321,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       {/* Add Expense Modal (Bottom Sheet Style) */}
       {isAddingExpense && (
         <>
+          <style dangerouslySetInnerHTML={{__html: `
+            .scanner-fab-button { display: none !important; }
+          `}} />
           <div className="bottom-sheet-overlay" onClick={() => setIsAddingExpense(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
           <div className="bottom-sheet" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

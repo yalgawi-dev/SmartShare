@@ -24,15 +24,15 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
           {user?.isAdmin && (
-            <Link href="/admin/users" style={{ padding: '0.6rem 1rem', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '0.9rem' }}>
+            <Link href="/admin/users" style={{ padding: '0.4rem 0.75rem', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
               🛡️ אדמין
             </Link>
           )}
-          <Link href="/settings" style={{ padding: '0.5rem', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <Link href="/settings" style={{ padding: '0.4rem', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ padding: '0 0.25rem', fontSize: '1.2rem' }} title="הגדרות אישיות">⚙️</span>
-            <div style={{ width: '36px', height: '36px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               {user?.avatarUrl ? (
                 <img 
                   src={user.avatarUrl} 

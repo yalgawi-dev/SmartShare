@@ -179,15 +179,21 @@ export default function SettingsPage() {
           }
           
           return (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {uniqueMembers.map(contact => (
-                <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden' }}>
-                    <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: '1.2rem'}}>{contact.name.charAt(0)}</span>
+                <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.02)' }}>
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.25rem', color: 'var(--text-secondary)' }}>
+                    {contact.name.charAt(0)}
                   </div>
-                  <div>
-                    <div style={{ fontWeight: 'bold' }}>{contact.name}</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{contact.name}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.2rem' }}>
+                      שותף בפרויקט • {contact.role === 'admin' ? 'מנהל מורשה' : 'משתמש רגיל'}
+                    </div>
                   </div>
+                  <button style={{ padding: '0.5rem 1rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-card)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                    שלח הודעה 💬
+                  </button>
                 </div>
               ))}
             </div>

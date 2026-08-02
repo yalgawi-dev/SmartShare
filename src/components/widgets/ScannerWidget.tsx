@@ -15,7 +15,9 @@ export default function ScannerWidget({ onRemove, onScanComplete }: { onRemove?:
 
   return (
     <>
-      <div style={{
+      <div 
+        className="scanner-fab-button"
+        style={{
         position: 'fixed',
         bottom: '2rem',
         right: '2rem',
