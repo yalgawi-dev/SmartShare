@@ -318,7 +318,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             />
           ))}
         </div>
-        </div>
+
+        {/* Empty State */}
+        {space.features.length === 0 && (
+          <EmptyStateCarousel />
+        )}
       </div>
       
       {showInvite && <InviteModal spaceId={id} onClose={() => setShowInvite(false)} />}
