@@ -64,30 +64,30 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
         <span>&rarr;</span> חזרה לקיר הפרויקט
       </Link>
 
-      <header className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+      <header className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.5rem' }}>
         <div>
           <h1 className={styles.title}>📊 דוחות פיננסיים: {space.title}</h1>
           <p className={styles.subtitle}>ריכוז נתונים, פילוחים וייצוא להנהלת חשבונות</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
           <button 
             onClick={handleExportCSV}
-            style={{ background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>📄</span> ייצא לאקסל (CSV)
+            style={{ background: 'white', color: 'var(--primary)', border: '1px solid var(--primary)', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'center' }}>
+            <span>📄</span> ייצא לאקסל
           </button>
           <button 
             onClick={handleExportZIP}
-            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'center' }}>
             <span>📦</span> הורד הכל (ZIP)
           </button>
         </div>
       </header>
 
       {/* Analytics Row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '2rem' }}>
-        <div className="card glass-panel" style={{ padding: '2rem', background: 'var(--bg-card)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+        <div className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)' }}>
           <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)' }}>סך כל ההוצאות בפרויקט</h3>
-          <h2 style={{ margin: 0, fontSize: '3rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString()}</h2>
+          <h2 style={{ margin: 0, fontSize: '2.5rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString()}</h2>
         </div>
         
         <div className="card glass-panel" style={{ padding: '2rem', background: 'var(--bg-card)' }}>
@@ -107,7 +107,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Table Row */}
-      <div className="card glass-panel" style={{ padding: '2rem', background: 'var(--bg-card)' }}>
+      <div className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', overflow: 'hidden' }}>
         <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-primary)' }}>טבלת הוצאות מפורטת</h3>
         
         {invoices.length === 0 ? (

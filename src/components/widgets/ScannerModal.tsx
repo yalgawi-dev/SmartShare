@@ -412,7 +412,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             <video 
               ref={videoRef}
               autoPlay playsInline muted
-              style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
             />
             
             {/* Static Guide Overlay with Scanning Animation */}
