@@ -186,12 +186,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
              <div 
                onClick={() => {
-                 if (!isGuestMode) {
-                   const newIcon = window.prompt('הזן אימוג׳י חדש עבור המרחב:', space.icon);
-                   if (newIcon) {
-                     updateSpaceIcon(id, newIcon);
-                   }
-                 }
+                  if (!isGuestMode) {
+                    const newIcon = window.prompt('הזן אימוג׳י חדש (השתמש במקלדת האימוג׳י בטלפון שלך כדי לבחור סמל):', space.icon);
+                    if (newIcon) {
+                      updateSpaceIcon(id, newIcon);
+                    }
+                  }
                }}
                title={!isGuestMode ? "לחץ להחלפת אימוג׳י" : ""}
                style={{ 

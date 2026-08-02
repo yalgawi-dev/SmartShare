@@ -20,17 +20,19 @@ export default function AdminUsersPage() {
         </Link>
       </header>
 
-      <div className="card glass-panel" style={{ overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
+      <div className="card glass-panel" style={{ overflowX: 'auto', paddingBottom: '1rem' }}>
+        <p style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 'bold' }}>&larr; גלול הצידה כדי לראות עוד פרטים &rarr;</p>
+        <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', textAlign: 'right' }}>
           <thead>
             <tr style={{ background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-light)' }}>
               <th style={{ padding: '1rem' }}>מזהה</th>
-              <th style={{ padding: '1rem' }}>שם מלא (אמיתי)</th>
-              <th style={{ padding: '1rem' }}>כינוי / פומבי</th>
+              <th style={{ padding: '1rem' }}>שם מלא</th>
+              <th style={{ padding: '1rem' }}>כינוי</th>
               <th style={{ padding: '1rem' }}>טלפון</th>
-              <th style={{ padding: '1rem' }}>אנשי קשר שמורים</th>
-              <th style={{ padding: '1rem' }}>תאריך הצטרפות</th>
-              <th style={{ padding: '1rem', textAlign: 'center' }}>פעולות אדמין</th>
+              <th style={{ padding: '1rem' }}>אימייל</th>
+              <th style={{ padding: '1rem' }}>אנשי קשר</th>
+              <th style={{ padding: '1rem' }}>הצטרפות</th>
+              <th style={{ padding: '1rem', textAlign: 'center' }}>פעולות</th>
             </tr>
           </thead>
           <tbody>
@@ -40,6 +42,7 @@ export default function AdminUsersPage() {
                 <td style={{ padding: '1rem', fontWeight: 'bold' }}>{u.realName} {u.isAdmin && '👑'}</td>
                 <td style={{ padding: '1rem' }}>{u.nickname || '-'}</td>
                 <td style={{ padding: '1rem' }}>{u.phone}</td>
+                <td style={{ padding: '1rem' }}>{u.email || '-'}</td>
                 <td style={{ padding: '1rem' }}>{u.contacts?.length || 0}</td>
                 <td style={{ padding: '1rem' }}>{new Date(u.createdAt).toLocaleDateString('he-IL')}</td>
                 <td style={{ padding: '1rem', textAlign: 'center' }}>
@@ -53,7 +56,8 @@ export default function AdminUsersPage() {
                         padding: '0.5rem 1rem', 
                         borderRadius: '4px', 
                         cursor: 'pointer',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap'
                       }}
                     >
                       {u.isBlocked ? 'שחרר חסימה' : 'חסום משתמש'}

@@ -161,9 +161,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </div>
               {activePartnersCount > 0 && (
                 <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center' }}>
-                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מאזן אישי {myBalance < 0 ? '(חובה להעביר)' : myBalance > 0 ? '(זכות לקבל)' : ''}</p>
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    {myBalance < 0 ? 'סה"כ עליך להשלים לקופה:' : myBalance > 0 ? 'סה"כ מגיע לך מהקופה:' : 'מאזן אישי מאופס'}
+                  </p>
                   <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
-                    {myBalance > 0 ? '+' : ''}₪{myBalance.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                    {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
                   </h3>
                 </div>
               )}
@@ -217,6 +219,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                     </tbody>
                   </table>
                 </div>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
+                  💡 <strong>איך מתחשבנים?</strong> מי שהמאזן שלו באדום (מינוס) צריך להעביר את הכסף למי שהמאזן שלו בירוק (פלוס), עד שהקופה כולה מתאפסת.
+                </p>
               </div>
             )}
 
@@ -316,8 +321,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       {/* Add Expense Modal (Bottom Sheet Style) */}
       {isAddingExpense && (
         <>
-          <div className="bottom-sheet-overlay" onClick={() => setIsAddingExpense(false)} style={{ position: 'absolute' }}></div>
-          <div className="bottom-sheet" style={{ position: 'absolute' }}> 
+          <div className="bottom-sheet-overlay" onClick={() => setIsAddingExpense(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
+          <div className="bottom-sheet" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הוספת הוצאה חדשה</h3>
               <button onClick={() => setIsAddingExpense(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>✕</button>
@@ -326,7 +331,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input required name="supplier" placeholder="שם הספק / תיאור" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
-                <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem' }} title="סרוק חשבונית">
+                <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
                   📷
                 </button>
               </div>

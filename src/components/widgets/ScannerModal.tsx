@@ -219,7 +219,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     const guideBox = guideRef.current.getBoundingClientRect();
     const videoBox = video.getBoundingClientRect();
     
-    // We assume object-fit: contain.
+    // We assume object-fit: cover.
     // Find the intrinsic video rect inside the videoBox
     const videoRatio = w / h;
     const boxRatio = videoBox.width / videoBox.height;
@@ -230,13 +230,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     let renderedTop = videoBox.top;
 
     if (videoRatio > boxRatio) {
-      // Video is wider than the container, letterboxing on top/bottom
-      renderedH = videoBox.width / videoRatio;
-      renderedTop = videoBox.top + (videoBox.height - renderedH) / 2;
-    } else {
-      // Video is taller than the container, pillarboxing on left/right
+      // cover: video is wider than container, height matches, width overflows
+      renderedH = videoBox.height;
       renderedW = videoBox.height * videoRatio;
       renderedLeft = videoBox.left + (videoBox.width - renderedW) / 2;
+      renderedTop = videoBox.top;
+    } else {
+      // cover: video is taller than container, width matches, height overflows
+      renderedW = videoBox.width;
+      renderedH = videoBox.width / videoRatio;
+      renderedLeft = videoBox.left;
+      renderedTop = videoBox.top + (videoBox.height - renderedH) / 2;
     }
 
     const intrinsicScaleX = w / renderedW;
@@ -497,7 +501,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               <video 
               ref={videoRef}
               autoPlay playsInline muted
-              style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#000', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.1s ease-out' }}
             />
             
             {/* Static Guide Overlay with Scanning Animation */}
