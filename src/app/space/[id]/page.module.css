@@ -190,3 +190,53 @@
   font-size: 0.85rem;
   margin-top: 0.25rem;
 }
+
+/* --- Responsive Design (Mobile First Overrides) --- */
+
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+    padding-bottom: 5rem; /* Safe area for FAB */
+  }
+  
+  .header {
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+  }
+  
+  .titleArea {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .icon {
+    font-size: 2rem;
+    padding: 0.5rem;
+  }
+  
+  .title {
+    font-size: 1.5rem;
+  }
+  
+  .subtitle {
+    font-size: 0.95rem;
+  }
+  
+  .grid {
+    grid-template-columns: 1fr; /* Full width cards on mobile */
+    gap: 1rem;
+  }
+  
+  .moduleCard {
+    padding: 1rem;
+  }
+  
+  .emptyStateWrapper {
+    height: 300px;
+  }
+  
+  .emptyStateIcon {
+    font-size: 3rem;
+  }
+}
