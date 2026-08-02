@@ -30,16 +30,10 @@ export default function RegistrationModal() {
   const handleGoogleLogin = async () => {
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      const googleUser = result.user;
-      
-      login(googleUser.phoneNumber || '', googleUser.displayName || 'משתמש גוגל');
-      setTimeout(() => {
-        updateProfile({ 
-          avatarUrl: googleUser.photoURL || undefined,
-          nickname: googleUser.displayName?.split(' ')[0]
-        });
-      }, 100);
+      await signInWithPopup(auth, provider);
+      // AuthContext's onAuthStateChanged listener will automatically detect the new user,
+      // create their profile in Firestore using their Google display name,
+      // and update the global state, which will unmount this modal automatically!
     } catch (e) {
       console.error("Google Auth Error", e);
       alert("שגיאה בהתחברות לחשבון גוגל");

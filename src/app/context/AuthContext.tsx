@@ -106,9 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Create new user profile in Firestore
             activeUser = {
               id: firebaseUser.uid,
-              realName: legacyLocalUser?.realName || 'אורח',
-              phone: legacyLocalUser?.phone || '',
-              nickname: legacyLocalUser?.nickname || '',
+              realName: firebaseUser.displayName || legacyLocalUser?.realName || 'אורח',
+              phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
+              nickname: legacyLocalUser?.nickname || (firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0] : ''),
+              avatarUrl: firebaseUser.photoURL || undefined,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
               isAdmin: legacyLocalUser?.isAdmin || false,
