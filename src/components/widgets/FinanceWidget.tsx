@@ -12,20 +12,49 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [filter, setFilter] = useState<'all' | 'pending' | 'dispute' | 'missing'>('all');
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string}>({});
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [selectedPayer, setSelectedPayer] = useState(user?.realName || 'אני');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateSpaceSettings } = useSpaces();
 
-  // If a scan arrives from the parent (ScannerWidget), open the modal and attach it
+  // If a scan arrives from the parent (ScannerWidget), run OCR then open modal
   useEffect(() => {
-    if (initialScannedImage) {
-      setScannedImage(initialScannedImage);
-      setIsAddingExpense(true);
-    }
+    const processInitialScan = async () => {
+      if (initialScannedImage) {
+        setIsAnalyzing(true);
+        try {
+          const { extractInvoiceData } = await import('../../utils/ocrUtils');
+          const data = await extractInvoiceData(initialScannedImage);
+          setOcrData(data);
+        } catch (e) {
+          console.error("Failed to extract OCR data", e);
+        }
+        setScannedImage(initialScannedImage);
+        setIsAnalyzing(false);
+        setIsAddingExpense(true);
+      }
+    };
+    processInitialScan();
   }, [initialScannedImage]);
   
+  const handleScanResult = async (imgUrl: string) => {
+    setIsScanning(false);
+    setIsAnalyzing(true);
+    try {
+      const { extractInvoiceData } = await import('../../utils/ocrUtils');
+      const data = await extractInvoiceData(imgUrl);
+      setOcrData(data);
+    } catch (e) {
+      console.error("Failed to extract OCR data", e);
+    }
+    setScannedImage(imgUrl);
+    setIsAnalyzing(false);
+    setIsAddingExpense(true);
+  };
+
   const hasScanner = space.features.includes('scanner');
   const invoices = space.invoices || [];
 
@@ -74,6 +103,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       category = (formData.get('categoryCustom') as string) || 'כללי';
     }
     
+    const dateVal = (formData.get('date') as string);
+    const date = dateVal ? new Date(dateVal).toLocaleDateString('he-IL') : new Date().toLocaleDateString('he-IL');
     const note = (formData.get('note') as string) || '';
 
     addInvoice(space.id, {
@@ -81,7 +112,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       supplier,
       category,
       payerName,
-      date: new Date().toLocaleDateString('he-IL'),
+      date,
       status: 'pending',
       note,
       approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
@@ -333,13 +364,16 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             
             <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input required name="supplier" placeholder="שם הספק / תיאור" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+                <input required name="supplier" defaultValue={ocrData.vendor || ''} placeholder="שם הספק / תיאור" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
                 <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
                   📷
                 </button>
               </div>
               
-              <input required name="amount" type="number" placeholder="סכום (₪)" style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <input required name="amount" type="number" defaultValue={ocrData.amount || ''} placeholder="סכום (₪)" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+                <input required name="date" type="date" defaultValue={ocrData.date || new Date().toISOString().split('T')[0]} style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }} />
+              </div>
               
               {activePartnersCount > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -401,16 +435,23 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             {isScanning && (
               <ScannerModal 
                 onClose={() => setIsScanning(false)}
-                onComplete={(imgUrl) => {
-                  setScannedImage(imgUrl);
-                  setIsScanning(false);
-                }}
+                onComplete={handleScanResult}
               />
             )}
             {scannedImage && (
               <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
                 <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מסמך מצורף (נסרק בהצלחה):</p>
                 <img src={scannedImage} alt="Scanned Attachment" style={{ maxWidth: '100%', maxHeight: '200px', border: '1px solid var(--border-light)', borderRadius: '12px', objectFit: 'contain' }} />
+              </div>
+            )}
+            {isAnalyzing && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                <style dangerouslySetInnerHTML={{__html: `
+                  @keyframes pulsebot { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+                `}} />
+                <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'pulsebot 1.5s infinite' }}>🤖</div>
+                <h2 style={{ margin: 0 }}>מפענח נתונים...</h2>
+                <p style={{ marginTop: '0.5rem', opacity: 0.8 }}>קורא את החשבונית בעזרת בינה מלאכותית</p>
               </div>
             )}
           </div>
