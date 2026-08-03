@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
@@ -20,6 +21,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [selectedPayer, setSelectedPayer] = useState(user?.realName || 'אני');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateSpaceSettings } = useSpaces();
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // If a scan arrives from the parent (ScannerWidget), run OCR then open modal
   useEffect(() => {
@@ -390,14 +396,14 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       </button>
 
       {/* Add Expense Modal (Bottom Sheet Style) */}
-      {isAddingExpense && (
-        <>
+      {isMounted && isAddingExpense && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }}>
           <style dangerouslySetInnerHTML={{__html: `
             .scanner-fab-button { display: none !important; }
           `}} />
           {/* Removed onClick to prevent accidental closing and losing data */}
-          <div className="bottom-sheet-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
-          <div className="bottom-sheet" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
+          <div className="bottom-sheet-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
+          <div className="bottom-sheet" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הוספת הוצאה חדשה</h3>
               <button onClick={() => setIsAddingExpense(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>✕</button>
@@ -418,8 +424,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               
               <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
-                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סכום (₪)</label>
-                  <input required name="amount" type="number" defaultValue={ocrData.amount || ''} placeholder="סכום" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סכום כולל מע״מ (₪)</label>
+                  <input required name="amount" type="number" step="0.01" defaultValue={ocrData.amount || ''} placeholder="סכום כולל מע״מ" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
                 </div>
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>תאריך</label>
@@ -502,7 +508,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </div>
             )}
             {isAnalyzing && (
-              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                 <style dangerouslySetInnerHTML={{__html: `
                   @keyframes pulsebot { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
                 `}} />
@@ -514,7 +520,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             
             {/* Full Screen Image Preview Modal */}
             {previewImage && (
-              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                   <button type="button" onClick={() => setPreviewImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>✕ חזור לטופס</button>
                 </div>
@@ -524,16 +530,18 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </div>
             )}
           </div>
-        </>
+        </div>,
+        document.body
       )}
 
       {/* Edit Shares Modal */}
-      {isEditingShares && (
+      {isMounted && isEditingShares && createPortal(
         <SharesEditorModal 
           space={space} 
           onClose={() => setIsEditingShares(false)} 
           onSave={updateSpaceSettings}
-        />
+        />,
+        document.body
       )}
 
     </div>
