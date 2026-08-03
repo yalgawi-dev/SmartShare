@@ -190,9 +190,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
     const canvas = document.createElement('canvas');
     
-    // Capture at quadruple the screen resolution for MUCH better OCR quality
-    // Since our camera is 4000x4000, 4x CSS pixels is about ~1600px width, perfect for OCR.
-    const scaleFactor = 4;
+    // Calculate a scale factor that targets exactly ~1000px width.
+    // 1000px is enough for Tesseract OCR to read text but significantly faster than 1500px or 4K.
+    const scaleFactor = 1000 / videoBox.width;
     canvas.width = videoBox.width * scaleFactor;
     canvas.height = videoBox.height * scaleFactor;
     const ctx = canvas.getContext('2d');
@@ -405,8 +405,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           let bw = new cv.Mat();
           // 2. Adaptive Threshold (Extracts text evenly across shadows)
-          // Block size 41, C=7 to preserve text thickness (12 was washing out thin lines)
-          cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 41, 7);
+          // Block size 55 (since image is 1000px wide, covers ~3 letters), C=15 to aggressively remove paper noise (black dots) without killing text
+          cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
           
           // 3. Preserve solid black boxes (which adaptiveThreshold ruins)
           let darkMask = new cv.Mat();

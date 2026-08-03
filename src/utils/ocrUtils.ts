@@ -61,13 +61,17 @@ export async function extractInvoiceData(imageUrl: string): Promise<OcrResult> {
     }
     
     // 3. Extract Vendor
-    // Usually the first or second line with Hebrew letters
+    // Usually the first or second line with Hebrew letters.
+    // Must be at least 4 chars and ideally contain at least two words or be a long word.
     for (const line of lines) {
       if (line.length > 3 && /[א-ת]/.test(line)) {
+        const cleanedLine = line.replace(/[^א-תa-zA-Z0-9 "'-]/g, ' ').replace(/\s+/g, ' ').trim();
         // Exclude common non-vendor header words if they are the ONLY thing on the line
-        if (!/^(עוסק מורשה|חשבונית מס|קבלה|חשבונית מס קבלה|ע"מ|ח\.פ|תאריך|שעה)$/.test(line)) {
-           // Clean up random OCR artifacts
-           result.vendor = line.replace(/[^א-תa-zA-Z0-9 "'-]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (
+          !/^(עוסק מורשה|חשבונית מס|קבלה|חשבונית מס קבלה|ע"מ|ח\.פ|תאריך|שעה|לכבוד|שם לקוח|מקור|העתק|טלפון|פקס|כתובת)/i.test(cleanedLine) &&
+          cleanedLine.length > 3
+        ) {
+           result.vendor = cleanedLine;
            break;
         }
       }
