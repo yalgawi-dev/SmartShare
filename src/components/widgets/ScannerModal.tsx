@@ -241,12 +241,13 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       const cv = (window as any).cv;
       if (cv && cv.Mat) {
         // Create scaled down temp canvas for performance
-        const tempScale = 300 / w;
+        // Create scaled down temp canvas for performance from the CROPPED canvas
+        const tempScale = 300 / canvas.width;
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = 300;
-        tempCanvas.height = Math.round(h * tempScale);
+        tempCanvas.height = Math.round(canvas.height * tempScale);
         const tempCtx = tempCanvas.getContext('2d');
-        tempCtx?.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx?.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
         
         let src = cv.imread(tempCanvas);
         let gray = new cv.Mat();
@@ -278,13 +279,12 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         for (let i = 0; i < contours.size(); ++i) {
           let cnt = contours.get(i);
           let area = cv.contourArea(cnt);
-          // Require between 10% and 90% of screen to avoid snapping to the whole room/wall
-          if (area > src.rows * src.cols * 0.10 && area < src.rows * src.cols * 0.90) { 
+          // Industry Standard: Require area to be at least 15% of the frame, max 95%
+          if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.95) { 
             let peri = cv.arcLength(cnt, true);
             let approx = new cv.Mat();
-            // INCREASED to 0.05: This makes the algorithm much more forgiving of fingers holding the paper 
-            // or curved/wrinkled edges, forcing it to approximate it into 4 corners.
-            cv.approxPolyDP(cnt, approx, 0.05 * peri, true);
+            // Industry Standard: 0.02 precision for polygon approximation
+            cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
             if (approx.rows === 4 && area > maxArea) {
               maxArea = area;
               if (bestContour) bestContour.delete();
