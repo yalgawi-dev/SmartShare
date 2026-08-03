@@ -198,6 +198,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
+    // Crucial for preventing "foggy" or "aliased" artifacts when downscaling 4K video to 1000px
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    
     ctx.fillStyle = '#000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 

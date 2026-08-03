@@ -15,6 +15,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string}>({});
   const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [selectedPayer, setSelectedPayer] = useState(user?.realName || 'אני');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
@@ -360,7 +361,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
           <style dangerouslySetInnerHTML={{__html: `
             .scanner-fab-button { display: none !important; }
           `}} />
-          <div className="bottom-sheet-overlay" onClick={() => setIsAddingExpense(false)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
+          {/* Removed onClick to prevent accidental closing and losing data */}
+          <div className="bottom-sheet-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
           <div className="bottom-sheet" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הוספת הוצאה חדשה</h3>
@@ -457,7 +459,12 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             {scannedImage && (
               <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
                 <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מסמך מצורף (נסרק בהצלחה):</p>
-                <img src={scannedImage} alt="Scanned Attachment" style={{ maxWidth: '100%', maxHeight: '200px', border: '1px solid var(--border-light)', borderRadius: '12px', objectFit: 'contain' }} />
+                <img 
+                  src={scannedImage} 
+                  alt="Scanned Attachment" 
+                  onClick={() => setPreviewImage(scannedImage)}
+                  style={{ maxWidth: '100%', maxHeight: '200px', border: '1px solid var(--border-light)', borderRadius: '12px', objectFit: 'contain', cursor: 'zoom-in' }} 
+                />
               </div>
             )}
             {isAnalyzing && (
@@ -468,6 +475,18 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 <div style={{ fontSize: '4rem', marginBottom: '1rem', animation: 'pulsebot 1.5s infinite' }}>🤖</div>
                 <h2 style={{ margin: 0 }}>מפענח נתונים...</h2>
                 <p style={{ marginTop: '0.5rem', opacity: 0.8 }}>קורא את החשבונית בעזרת בינה מלאכותית</p>
+              </div>
+            )}
+            
+            {/* Full Screen Image Preview Modal */}
+            {previewImage && (
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <button type="button" onClick={() => setPreviewImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>✕ חזור לטופס</button>
+                </div>
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                  <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+                </div>
               </div>
             )}
           </div>

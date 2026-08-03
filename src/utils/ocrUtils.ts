@@ -23,7 +23,7 @@ export async function extractInvoiceData(imageUrl: string): Promise<OcrResult> {
     
     // 1. Extract Amount
     let maxAmount = 0;
-    // Regex for numbers with optional decimals (e.g., 1,234.56 or 123.4)
+    let explicitTotal = 0;
     const amountRegex = /(\d{1,3}(?:,\d{3})*(?:\.\d+)?|\d+(?:\.\d+)?)/g;
     
     for (const line of lines) {
@@ -31,21 +31,24 @@ export async function extractInvoiceData(imageUrl: string): Promise<OcrResult> {
       if (matches) {
         for (const match of matches) {
           const val = parseFloat(match.replace(/,/g, ''));
-          // Reasonable limits for a single receipt
-          if (!isNaN(val) && val > 0 && val < 200000) {
-            const isTotalLine = /(סה"כ|סך הכל|לתשלום|חשבון|סהכ|סה״כ)/i.test(line);
+          // Ignore obvious non-amounts like 9-digit IDs, years, or long serials unless explicitly tagged
+          if (!isNaN(val) && val > 0 && val < 100000 && match.length < 7) {
+            const isTotalLine = /(סה"כ|סך הכל|לתשלום|חשבון|סהכ|סה״כ|יתרה|סכום)/i.test(line);
             if (isTotalLine) {
-              // If it's explicitly labeled as total, we prefer it unless we already found a bigger explicitly labeled one.
-              if (val > maxAmount) maxAmount = val;
+              if (val > explicitTotal) explicitTotal = val;
             } else if (val > maxAmount) {
-              // Otherwise, just keep track of the largest number (often the total)
               maxAmount = val;
             }
           }
         }
       }
     }
-    if (maxAmount > 0) result.amount = maxAmount;
+    // Prefer explicit total if found, otherwise fallback to max amount found
+    if (explicitTotal > 0) {
+      result.amount = explicitTotal;
+    } else if (maxAmount > 0) {
+      result.amount = maxAmount;
+    }
     
     // 2. Extract Date (DD/MM/YYYY or DD.MM.YY)
     const dateRegex = /(\d{1,2})[\/\.-](\d{1,2})[\/\.-](\d{2,4})/;
@@ -57,22 +60,37 @@ export async function extractInvoiceData(imageUrl: string): Promise<OcrResult> {
       if (day.length === 1) day = '0' + day;
       if (month.length === 1) month = '0' + month;
       if (year.length === 2) year = '20' + year;
-      result.date = `${year}-${month}-${day}`; // input type="date" format
+      result.date = `${year}-${month}-${day}`;
     }
     
-    // 3. Extract Vendor
-    // Usually the first or second line with Hebrew letters.
-    // Must be at least 4 chars and ideally contain at least two words or be a long word.
-    for (const line of lines) {
-      if (line.length > 3 && /[א-ת]/.test(line)) {
+    // 3. Extract Vendor - SMART HEURISTIC
+    // In Israel, invoices almost always have "עוסק מורשה" (Osek Murshe) or "ח.פ." followed by a 9-digit number.
+    // The vendor name is typically 1-2 lines ABOVE this ID number.
+    let foundVendor = false;
+    for (let i = 0; i < lines.length; i++) {
+      if (/(עוסק מורשה|ע"מ|ע\.מ|ח\.פ|ח"פ)/.test(lines[i]) || /\b\d{9}\b/.test(lines[i])) {
+        // Look at the previous 1-3 lines for a valid name
+        for (let j = i - 1; j >= Math.max(0, i - 3); j--) {
+          const candidate = lines[j].replace(/[^א-תa-zA-Z0-9 "'-]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (candidate.length > 2 && !/^(עוסק מורשה|חשבונית מס|קבלה|חשבונית מס קבלה|ע"מ|ח\.פ|תאריך|שעה|לכבוד|שם לקוח|מקור|העתק|טלפון|פקס|כתובת)/i.test(candidate)) {
+            result.vendor = candidate;
+            foundVendor = true;
+            break;
+          }
+        }
+        if (foundVendor) break;
+      }
+    }
+    
+    // Fallback if no ID found: use the first valid looking text line
+    if (!foundVendor) {
+      for (const line of lines) {
         const cleanedLine = line.replace(/[^א-תa-zA-Z0-9 "'-]/g, ' ').replace(/\s+/g, ' ').trim();
-        // Exclude common non-vendor header words if they are the ONLY thing on the line
-        if (
-          !/^(עוסק מורשה|חשבונית מס|קבלה|חשבונית מס קבלה|ע"מ|ח\.פ|תאריך|שעה|לכבוד|שם לקוח|מקור|העתק|טלפון|פקס|כתובת)/i.test(cleanedLine) &&
-          cleanedLine.length > 3
-        ) {
-           result.vendor = cleanedLine;
-           break;
+        if (cleanedLine.length > 3 && /[א-ת]/.test(cleanedLine)) {
+          if (!/^(עוסק מורשה|חשבונית מס|קבלה|חשבונית מס קבלה|ע"מ|ח\.פ|תאריך|שעה|לכבוד|שם לקוח|מקור|העתק|טלפון|פקס|כתובת|מקור|העתק)/i.test(cleanedLine)) {
+             result.vendor = cleanedLine;
+             break;
+          }
         }
       }
     }
