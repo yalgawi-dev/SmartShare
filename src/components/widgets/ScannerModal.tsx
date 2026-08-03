@@ -127,15 +127,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } }
         };
 
-        if (devices.length > 0 && currentDeviceIndex < devices.length) {
-          const deviceId = devices[currentDeviceIndex].deviceId;
-          if (deviceId) {
-            constraints = {
-              video: { deviceId: { exact: deviceId }, width: { ideal: 1080 }, height: { ideal: 1920 } }
-            };
-          }
-        }
-
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(mediaStream);
         if (videoRef.current) {
@@ -492,7 +483,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               style={{
                 position: 'absolute', top: '50%', left: '50%', 
                 transform: 'translate(-50%, -50%)',
-                width: 'min(90%, 60vh)', 
+                width: 'min(95%, 75vh)', 
                 aspectRatio: '1 / 1.414',
                 border: '2px solid rgba(255, 215, 0, 0.5)', borderRadius: '12px',
                 boxShadow: '0 0 0 4000px rgba(0,0,0,0.85)', pointerEvents: 'none',
