@@ -10,11 +10,8 @@ export async function POST(request: Request) {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      return NextResponse.json({ 
-        error: 'Missing GEMINI_API_KEY', 
-        vendor: 'שגיאה: חסר מפתח API',
-        amount: 0 
-      }, { status: 500 });
+      // Gracefully tell the client to use the local Tesseract OCR instead of failing
+      return NextResponse.json({ useClientFallback: true });
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

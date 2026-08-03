@@ -58,12 +58,30 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         body: JSON.stringify({ imageUrl: ocrDataUrl || imgUrl })
       });
       
+      let ocrSucceeded = false;
       if (response.ok) {
         const data = await response.json();
-        setOcrData(data);
+        if (data.useClientFallback) {
+          console.log("No Gemini API key found, falling back to local Tesseract...");
+          // Fallback to local Free OCR
+          const { extractInvoiceData } = await import('../../utils/ocrUtils');
+          const localData = await extractInvoiceData(ocrDataUrl || imgUrl);
+          setOcrData(localData);
+          ocrSucceeded = true;
+        } else {
+          setOcrData(data);
+          ocrSucceeded = true;
+        }
       } else {
         const err = await response.json();
         console.error("Cloud OCR API Error:", err);
+      }
+
+      if (!ocrSucceeded) {
+        // Ultimate fallback if fetch failed completely
+        const { extractInvoiceData } = await import('../../utils/ocrUtils');
+        const localData = await extractInvoiceData(ocrDataUrl || imgUrl);
+        setOcrData(localData);
       }
 
       // 3. Save the Cloud URL to state instead of the massive local base64 string
