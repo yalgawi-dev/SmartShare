@@ -41,24 +41,40 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     processInitialScan();
   }, [initialScannedImage]);
   
-  const handleScanResult = (imgUrl: string, ocrDataUrl?: string) => {
+  const handleScanResult = async (imgUrl: string, ocrDataUrl?: string) => {
     setIsScanning(false);
     setIsAnalyzing(true);
     
-    // Force React to paint the analyzing UI before loading Tesseract
-    setTimeout(async () => {
-      try {
-        const { extractInvoiceData } = await import('../../utils/ocrUtils');
-        // Always run OCR on the high-contrast B&W image if provided
-        const data = await extractInvoiceData(ocrDataUrl || imgUrl);
+    try {
+      // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
+      const { uploadImageToStorage } = await import('../../lib/firebase');
+      const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+      const cloudUrl = await uploadImageToStorage(imgUrl, filename);
+      
+      // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
+      const response = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: ocrDataUrl || imgUrl })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
         setOcrData(data);
-      } catch (e) {
-        console.error("Failed to extract OCR data", e);
+      } else {
+        const err = await response.json();
+        console.error("Cloud OCR API Error:", err);
       }
-      setScannedImage(imgUrl);
-      setIsAnalyzing(false);
-      setIsAddingExpense(true);
-    }, 100);
+
+      // 3. Save the Cloud URL to state instead of the massive local base64 string
+      setScannedImage(cloudUrl);
+    } catch (e) {
+      console.error("Failed to process cloud upload/OCR", e);
+      setScannedImage(imgUrl); // Fallback to local
+    }
+    
+    setIsAnalyzing(false);
+    setIsAddingExpense(true);
   };
 
   const hasScanner = space.features.includes('scanner');
