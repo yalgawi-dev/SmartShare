@@ -265,6 +265,13 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
         cv.Canny(blurred, edged, 75, 200, 3, false);
         
+        // --- INDUSTRY EXPERT TRICK ---
+        // If the document bleeds off the edge of the screen (e.g., 3 sides visible, "ח" shape),
+        // Canny edge detection won't close the contour. By drawing a white border around the 
+        // entire image, we force open edges that touch the screen border to connect,
+        // allowing findContours to seamlessly extract documents even if a side is cut off!
+        cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
+        
         let M = cv.Mat.ones(3, 3, cv.CV_8U);
         let closed = new cv.Mat();
         cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
