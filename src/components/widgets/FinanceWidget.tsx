@@ -40,19 +40,24 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     processInitialScan();
   }, [initialScannedImage]);
   
-  const handleScanResult = async (imgUrl: string) => {
+  const handleScanResult = (imgUrl: string, ocrDataUrl?: string) => {
     setIsScanning(false);
     setIsAnalyzing(true);
-    try {
-      const { extractInvoiceData } = await import('../../utils/ocrUtils');
-      const data = await extractInvoiceData(imgUrl);
-      setOcrData(data);
-    } catch (e) {
-      console.error("Failed to extract OCR data", e);
-    }
-    setScannedImage(imgUrl);
-    setIsAnalyzing(false);
-    setIsAddingExpense(true);
+    
+    // Force React to paint the analyzing UI before loading Tesseract
+    setTimeout(async () => {
+      try {
+        const { extractInvoiceData } = await import('../../utils/ocrUtils');
+        // Always run OCR on the high-contrast B&W image if provided
+        const data = await extractInvoiceData(ocrDataUrl || imgUrl);
+        setOcrData(data);
+      } catch (e) {
+        console.error("Failed to extract OCR data", e);
+      }
+      setScannedImage(imgUrl);
+      setIsAnalyzing(false);
+      setIsAddingExpense(true);
+    }, 100);
   };
 
   const hasScanner = space.features.includes('scanner');

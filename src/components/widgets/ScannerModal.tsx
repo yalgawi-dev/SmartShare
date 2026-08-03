@@ -9,7 +9,7 @@ interface Point {
 
 interface ScannerModalProps {
   onClose: () => void;
-  onComplete: (imageDataUrl: string) => void;
+  onComplete: (imageDataUrl: string, ocrDataUrl?: string) => void;
 }
 
 export default function ScannerModal({ onClose, onComplete }: ScannerModalProps) {
@@ -190,8 +190,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
     const canvas = document.createElement('canvas');
     
-    // Capture at double the screen resolution for better OCR quality
-    const scaleFactor = 2;
+    // Capture at quadruple the screen resolution for MUCH better OCR quality
+    // Since our camera is 4000x4000, 4x CSS pixels is about ~1600px width, perfect for OCR.
+    const scaleFactor = 4;
     canvas.width = videoBox.width * scaleFactor;
     canvas.height = videoBox.height * scaleFactor;
     const ctx = canvas.getContext('2d');
@@ -404,8 +405,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           let bw = new cv.Mat();
           // 2. Adaptive Threshold (Extracts text evenly across shadows)
-          // Larger block size (41) and C (12) for a much cleaner paper background while retaining text.
-          cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 41, 12);
+          // Block size 41, C=7 to preserve text thickness (12 was washing out thin lines)
+          cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 41, 7);
           
           // 3. Preserve solid black boxes (which adaptiveThreshold ruins)
           let darkMask = new cv.Mat();
@@ -452,7 +453,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
   const handleDone = () => {
     const finalImage = mode === 'color' ? croppedSnapshot : bwSnapshot;
-    if (finalImage) onComplete(finalImage);
+    // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
+    if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
   };
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
