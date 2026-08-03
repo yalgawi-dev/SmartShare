@@ -124,7 +124,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         }
         
         let constraints: MediaStreamConstraints = {
-          video: { facingMode: 'environment', width: { ideal: 1080 }, height: { ideal: 1920 } }
+          video: { facingMode: 'environment', width: { ideal: 4000 }, height: { ideal: 4000 } }
         };
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
