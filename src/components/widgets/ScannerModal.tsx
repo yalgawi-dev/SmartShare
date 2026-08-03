@@ -290,9 +290,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.95) { 
             let peri = cv.arcLength(cnt, true);
             let approx = new cv.Mat();
-            // Industry Standard: 0.02 precision for polygon approximation
-            cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-            if (approx.rows === 4 && area > maxArea) {
+            // Slightly relaxed precision to handle slightly curved paper edges
+            cv.approxPolyDP(cnt, approx, 0.04 * peri, true);
+            // Allow 4 to 8 points. We will mathematically extract the 4 extreme corners later.
+            if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
               maxArea = area;
               if (bestContour) bestContour.delete();
               bestContour = approx.clone();
@@ -303,20 +304,21 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         
         if (bestContour) {
           let pts = [];
-          for (let i = 0; i < 4; i++) {
+          for (let i = 0; i < bestContour.rows; i++) {
             pts.push({
               x: bestContour.data32S[i * 2] / tempScale,
               y: bestContour.data32S[i * 2 + 1] / tempScale
             });
           }
           
-          // Sort to TL, TR, BR, BL order
+          // Find the 4 extreme corners among all points (TL, TR, BR, BL)
           pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
           const tl = pts[0];
-          const br = pts[3];
-          const remain = [pts[1], pts[2]].sort((a, b) => (b.x - b.y) - (a.x - a.y));
-          const tr = remain[0];
-          const bl = remain[1];
+          const br = pts[pts.length - 1];
+          
+          pts.sort((a, b) => (a.x - a.y) - (b.x - b.y));
+          const bl = pts[0];
+          const tr = pts[pts.length - 1];
           
           defaultPts = [tl, tr, br, bl];
           bestContour.delete();
