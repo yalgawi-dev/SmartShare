@@ -428,60 +428,34 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
           
-          // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style with Shadow Removal)
-          // Step A: Extract background illumination (the shadow map) via Morphological Dilation
+          // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style)
+          // Step A: Extract pure RGB background (shadows & paper color) using Median Blur
+          let rgb = new cv.Mat();
+          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
+          
           let downscaled = new cv.Mat();
-          cv.resize(dst, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+          cv.resize(rgb, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
-          // Dilation removes the dark text, leaving only the white paper and its shadows
-          let kernel = cv.Mat.ones(7, 7, cv.CV_8U);
-          cv.dilate(downscaled, downscaled, kernel, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
-          kernel.delete();
-          
-          // Small blur to smooth the paper texture but keep sharp shadow edges (prevents halos)
-          cv.GaussianBlur(downscaled, downscaled, new cv.Size(5, 5), 0);
+          // Median Blur perfectly erases text without bleeding colors, leaving only the paper and shadow gradients
+          cv.medianBlur(downscaled, downscaled, 17);
           
           let bg = new cv.Mat();
           cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
-          // Step B: Remove shadows by dividing original by background (Retinex theory)
+          // Step B: Remove shadows and white balance (Retinex theory)
           let shadowFree = new cv.Mat();
-          cv.divide(dst, bg, shadowFree, 255, -1);
+          cv.divide(rgb, bg, shadowFree, 255, -1);
           
-          // Step C: Contrast and Saturation Boost in HSV (The "Magic")
-          // Convert shadowFree (RGBA) to RGB then HSV
-          let rgb = new cv.Mat();
-          cv.cvtColor(shadowFree, rgb, cv.COLOR_RGBA2RGB);
-          
-          let hsv = new cv.Mat();
-          cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
-          
-          // Split channels
-          let hsvPlanes = new cv.MatVector();
-          cv.split(hsv, hsvPlanes);
-          
-          let H = hsvPlanes.get(0);
-          let S = hsvPlanes.get(1);
-          let V = hsvPlanes.get(2);
-          
-          // Boost Saturation (S * 1.5 - 40) to make colors vivid and completely crush color noise on paper
-          S.convertTo(S, -1, 1.5, -40);
-          
-          // Boost Contrast on V (V * 2.0 - 180) to darken faded ink and force paper to pure white
-          V.convertTo(V, -1, 2.0, -180);
-          
-          // Merge back
-          cv.merge(hsvPlanes, hsv);
-          
-          let magicColor = new cv.Mat();
-          cv.cvtColor(hsv, magicColor, cv.COLOR_HSV2RGB);
+          // Step C: Enhance Contrast just slightly (to make ink pop) without amplifying noise
+          // alpha=1.2, beta=-30 pushes paper to pure white and deepens the ink colors
+          shadowFree.convertTo(shadowFree, -1, 1.2, -30);
           
           // Step D: "4K" Sharpness (Unsharp Mask)
           let blurredColor = new cv.Mat();
-          cv.GaussianBlur(magicColor, blurredColor, new cv.Size(0, 0), 2);
+          cv.GaussianBlur(shadowFree, blurredColor, new cv.Size(0, 0), 2);
           let sharpenedColor = new cv.Mat();
-          // Boost sharpness heavily to make text crisp
-          cv.addWeighted(magicColor, 1.8, blurredColor, -0.8, 0, sharpenedColor);
+          // Sharpen text
+          cv.addWeighted(shadowFree, 1.5, blurredColor, -0.5, 0, sharpenedColor);
           
           // Add alpha channel back for canvas rendering
           let finalRgba = new cv.Mat();
@@ -494,9 +468,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          downscaled.delete(); bg.delete(); shadowFree.delete(); 
-          rgb.delete(); hsv.delete(); hsvPlanes.delete(); H.delete(); S.delete(); V.delete();
-          magicColor.delete(); blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
+          rgb.delete(); downscaled.delete(); bg.delete(); shadowFree.delete();
+          blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
           
           resolve();
 
