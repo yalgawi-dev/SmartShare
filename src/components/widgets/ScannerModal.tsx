@@ -429,18 +429,24 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
           
           // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style)
-          // Step A: Extract pure RGB background (shadows & paper color) using Median Blur
+          // Step A: Extract Achromatic Illumination Map (Grayscale)
+          // IMPORTANT: We MUST compute the background map on grayscale. If we use RGB, colored thick areas (like yellow logos)
+          // will bleed into the background map and get erased upon division. A grayscale map preserves ALL chroma perfectly!
           let rgb = new cv.Mat();
           cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
           
-          let downscaled = new cv.Mat();
-          cv.resize(rgb, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+          let downscaledGray = new cv.Mat();
+          cv.resize(gray, downscaledGray, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
           // Median Blur perfectly erases text without bleeding colors, leaving only the paper and shadow gradients
-          cv.medianBlur(downscaled, downscaled, 17);
+          cv.medianBlur(downscaledGray, downscaledGray, 17);
           
+          let bgGray = new cv.Mat();
+          cv.resize(downscaledGray, bgGray, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+          
+          // Convert grayscale background map back to 3-channels so we can divide RGB by it
           let bg = new cv.Mat();
-          cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+          cv.cvtColor(bgGray, bg, cv.COLOR_GRAY2RGB);
           
           // Step B: Remove shadows and white balance (Retinex theory)
           let shadowFree = new cv.Mat();
@@ -478,7 +484,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          rgb.delete(); downscaled.delete(); bg.delete(); shadowFree.delete();
+          rgb.delete(); downscaledGray.delete(); bgGray.delete(); bg.delete(); shadowFree.delete();
           inkMask.delete(); darkenAmount.delete();
           blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
           
