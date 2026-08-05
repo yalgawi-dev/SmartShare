@@ -657,42 +657,44 @@ function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: ()
 
   const total = myShare + Object.values(partnerShares).reduce((a,b)=>a+b, 0);
 
+  const handleAutoBalance = () => {
+    setMyShare(defaultShare);
+    const newPartnerShares: Record<string, number> = {};
+    validMembers.forEach((m: any) => {
+      newPartnerShares[m.userId] = defaultShare;
+    });
+    setPartnerShares(newPartnerShares);
+  };
+
   const handleSave = () => {
     if (Math.abs(total - 100) > 0.1) {
       alert('סך כל האחוזים חייב להיות 100%');
       return;
     }
     
-    // update Space Settings for myShare
     onSave(space.id, { mySharePercentage: myShare });
-    
-    // To update partner shares, we ideally update space.members, but the context only exposes updateSpaceSettings.
-    // Let's assume we can also pass members array to updateSpaceSettings for now, or just alert that they need to implement it.
-    // Wait, SpacesContext doesn't have an `updateSpaceMember` method. 
-    // I should add `updateSpaceMember(spaceId, userId, updates)` or something.
-    // Actually, `updateSpaceSettings` might just merge into `space`. Let's just alert for now or implement it.
-    alert('שמירת אחוזים דורשת חיבור מורחב למסד הנתונים עבור השותפים. שמירה זמנית בוצעה בהצלחה!');
+    alert('שמירת אחוזים דורשת עדכון פנימי לכל משתמש במסד הנתונים. מבוצעת שמירה למשתמש הנוכחי בינתיים.');
     onClose();
   };
 
   return (
-    <>
-      <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'fixed', zIndex: 10000 }}></div>
-      <div className="bottom-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bottom: 'auto', right: 'auto', width: '90%', maxWidth: '400px', zIndex: 10001, borderRadius: '24px' }}>
+    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
+      <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, fontSize: '1.25rem' }}>אחוזי השתתפות</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(79, 70, 229, 0.05)', borderRadius: '12px', border: '1px solid var(--primary)' }}>
-            <span style={{ fontWeight: 'bold' }}>אני</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+            <span style={{ fontWeight: 'bold' }}>אני ({user?.realName})</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input 
                 type="number" 
-                value={Number(myShare).toString()} 
-                onChange={e => setMyShare(Number(e.target.value))}
-                style={{ width: '80px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }} 
+                value={myShare} 
+                onChange={(e) => setMyShare(Number(e.target.value))}
+                style={{ width: '60px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)' }}
               />
               <span>%</span>
             </div>
@@ -704,9 +706,9 @@ function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: ()
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input 
                   type="number" 
-                  value={Number(partnerShares[m.userId]).toString()} 
-                  onChange={e => setPartnerShares(prev => ({...prev, [m.userId]: Number(e.target.value)}))}
-                  style={{ width: '80px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }} 
+                  value={partnerShares[m.userId] || 0} 
+                  onChange={(e) => setPartnerShares({...partnerShares, [m.userId]: Number(e.target.value)})}
+                  style={{ width: '60px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)' }}
                 />
                 <span>%</span>
               </div>
@@ -722,6 +724,6 @@ function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: ()
           </button>
         </div>
       </div>
-    </>
+    </div>
   );
 }
