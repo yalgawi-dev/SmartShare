@@ -96,6 +96,10 @@ export default function Dashboard() {
           </Link>
         ))}
       </div>
+      
+      <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
+        v1.2 - אלגוריתם חציון מתקדם (Median Filter)
+      </div>
     </div>
   );
 }
