@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v1.2 - אלגוריתם חציון מתקדם (Median Filter)
+        v1.3 - חלוקת מסיכה לשחזור דיו (Masked Ink Restore)
       </div>
     </div>
   );

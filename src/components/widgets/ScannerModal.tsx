@@ -446,9 +446,19 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let shadowFree = new cv.Mat();
           cv.divide(rgb, bg, shadowFree, 255, -1);
           
-          // Step C: Enhance Contrast just slightly (to make ink pop) without amplifying noise
-          // alpha=1.2, beta=-30 pushes paper to pure white and deepens the ink colors
-          shadowFree.convertTo(shadowFree, -1, 1.2, -30);
+          // Step C: Enhance Contrast and Restore Ink Darkness
+          // 1. Overall slight boost to ensure paper is pure white and colors are vibrant
+          shadowFree.convertTo(shadowFree, -1, 1.1, -10);
+          
+          // 2. Selectively darken ink using the flawless B&W mask!
+          // The bw image is 0 on ink and 255 on paper. We invert it so ink is 255.
+          let inkMask = new cv.Mat();
+          cv.bitwise_not(bw, inkMask);
+          
+          // Subtract 100 from RGB values only where there is ink. 
+          // This guarantees dark, legible text without washing out, while leaving paper and highlights untouched!
+          let darkenAmount = new cv.Mat(shadowFree.rows, shadowFree.cols, shadowFree.type(), new cv.Scalar(100, 100, 100, 0));
+          cv.subtract(shadowFree, darkenAmount, shadowFree, inkMask);
           
           // Step D: "4K" Sharpness (Unsharp Mask)
           let blurredColor = new cv.Mat();
@@ -469,6 +479,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
           rgb.delete(); downscaled.delete(); bg.delete(); shadowFree.delete();
+          inkMask.delete(); darkenAmount.delete();
           blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
           
           resolve();
