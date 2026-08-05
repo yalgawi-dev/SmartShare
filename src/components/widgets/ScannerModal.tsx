@@ -31,7 +31,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'color'>('bw');
+  const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
+  const [mode, setMode] = useState<'bw' | 'color' | 'original'>('bw');
   const [torchOn, setTorchOn] = useState(false);
   const [zoom, setZoom] = useState(1.0);
   
@@ -427,10 +428,26 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
           
+          // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style)
+          let enhancedColor = new cv.Mat();
+          // Increase contrast (alpha=1.5) and decrease brightness (beta=-20) to push light grays to pure white
+          // and keep darks dark.
+          dst.convertTo(enhancedColor, -1, 1.5, -20);
+          
+          // Slight sharpening for color
+          let blurredColor = new cv.Mat();
+          cv.GaussianBlur(enhancedColor, blurredColor, new cv.Size(0, 0), 2);
+          let sharpenedColor = new cv.Mat();
+          cv.addWeighted(enhancedColor, 1.5, blurredColor, -0.5, 0, sharpenedColor);
+          
+          cv.imshow(canvas, sharpenedColor);
+          setColorSnapshot(canvas.toDataURL('image/jpeg', 0.9));
+
           // Cleanup all Mats safely
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
+          enhancedColor.delete(); blurredColor.delete(); sharpenedColor.delete();
           
           resolve();
 
@@ -453,10 +470,14 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setRawSnapshot(null);
     setCroppedSnapshot(null);
     setBwSnapshot(null);
+    setColorSnapshot(null);
   };
 
   const handleDone = () => {
-    const finalImage = mode === 'color' ? croppedSnapshot : bwSnapshot;
+    let finalImage = bwSnapshot;
+    if (mode === 'color') finalImage = colorSnapshot;
+    if (mode === 'original') finalImage = croppedSnapshot;
+    
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
   };
@@ -472,7 +493,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         </div>
         
         <div style={{ width: '80px', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          {/* Removed cycle camera button per user request */}
           {step === 'scanning' && stream && (
             <button onClick={toggleTorch} style={{ background: 'transparent', color: torchOn ? '#FFD700' : 'white', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
               🔦
@@ -482,21 +502,23 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         </div>
       </div>
 
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      {/* Main Content Area */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         
         {step === 'scanning' && (
           <>
-              <video 
-              ref={videoRef}
-              autoPlay playsInline muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#000' }}
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
-            
-            {/* Static Guide Overlay with Scanning Animation */}
+            {/* Dark Overlay with Transparent Center for Document Alignment */}
             <div 
               ref={guideRef}
               style={{
-                position: 'absolute', top: '50%', left: '50%', 
+                position: 'absolute', top: '50%', left: '50%',
                 transform: 'translate(-50%, -50%)',
                 width: 'min(95%, 75vh)', 
                 aspectRatio: '1 / 1.414',
@@ -544,7 +566,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         )}
 
         {step === 'review' && (
-           <img src={mode === 'bw' ? (bwSnapshot || '') : (croppedSnapshot || '')} style={{ width: '100%', height: '100%', objectFit: 'contain' }} alt="Scanned document" />
+           <img 
+             src={mode === 'bw' ? (bwSnapshot || '') : mode === 'color' ? (colorSnapshot || '') : (croppedSnapshot || '')} 
+             style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+             alt="Scanned document" 
+           />
         )}
       </div>
 
@@ -585,16 +611,21 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
         {step === 'review' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <button 
+                onClick={() => setMode('original')} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'original' ? 'white' : 'transparent', color: mode === 'original' ? 'black' : 'white', cursor: 'pointer' }}>
+                מקור
+              </button>
               <button 
                 onClick={() => setMode('color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'color' ? 'white' : 'transparent', color: mode === 'color' ? 'black' : 'white', cursor: 'pointer' }}>
-                תמונה מקורית
+                צבעוני קסם
               </button>
               <button 
                 onClick={() => setMode('bw')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'bw' ? 'white' : 'transparent', color: mode === 'bw' ? 'black' : 'white', cursor: 'pointer' }}>
-                ניקוי לשחור-לבן
+                שחור-לבן
               </button>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
