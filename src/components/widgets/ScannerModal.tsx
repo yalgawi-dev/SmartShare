@@ -428,26 +428,39 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
           
-          // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style)
-          let enhancedColor = new cv.Mat();
-          // Increase contrast (alpha=1.5) and decrease brightness (beta=-20) to push light grays to pure white
-          // and keep darks dark.
-          dst.convertTo(enhancedColor, -1, 1.5, -20);
+          // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style with Shadow Removal)
+          // Step A: Extract background illumination (the shadow map)
+          let downscaled = new cv.Mat();
+          cv.resize(dst, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+          // Strong blur on downscaled image to remove text and keep only shadows
+          cv.GaussianBlur(downscaled, downscaled, new cv.Size(21, 21), 0);
+          let bg = new cv.Mat();
+          cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
-          // Slight sharpening for color
+          // Step B: Remove shadows by dividing original by background
+          let shadowFree = new cv.Mat();
+          cv.divide(dst, bg, shadowFree, 255, -1);
+          
+          // Step C: "4K" Sharpness (Unsharp Mask)
           let blurredColor = new cv.Mat();
-          cv.GaussianBlur(enhancedColor, blurredColor, new cv.Size(0, 0), 2);
+          cv.GaussianBlur(shadowFree, blurredColor, new cv.Size(0, 0), 2);
           let sharpenedColor = new cv.Mat();
-          cv.addWeighted(enhancedColor, 1.5, blurredColor, -0.5, 0, sharpenedColor);
+          // Boost sharpness heavily to make text crisp
+          cv.addWeighted(shadowFree, 1.8, blurredColor, -0.8, 0, sharpenedColor);
           
-          cv.imshow(canvas, sharpenedColor);
+          // Step D: Magic Color Contrast (boost colors, keep blacks dark)
+          let magicColor = new cv.Mat();
+          sharpenedColor.convertTo(magicColor, -1, 1.3, -30);
+          
+          cv.imshow(canvas, magicColor);
           setColorSnapshot(canvas.toDataURL('image/jpeg', 0.9));
 
           // Cleanup all Mats safely
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          enhancedColor.delete(); blurredColor.delete(); sharpenedColor.delete();
+          downscaled.delete(); bg.delete(); shadowFree.delete(); blurredColor.delete(); 
+          sharpenedColor.delete(); magicColor.delete();
           
           resolve();
 
