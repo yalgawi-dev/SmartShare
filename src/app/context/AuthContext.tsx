@@ -36,6 +36,7 @@ interface AuthContextType {
   user: UserProfile | null;
   allUsers: UserProfile[]; // For Admin CRM simulation
   login: (phone: string, realName: string) => void;
+  loginWithGoogle: () => Promise<void>;
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   addContact: (contact: Omit<UserContact, 'addedAt'>) => void;
@@ -47,6 +48,7 @@ const AuthContext = createContext<AuthContextType>({
   user: null,
   allUsers: [],
   login: () => {},
+  loginWithGoogle: async () => {},
   logout: () => {},
   updateProfile: () => {},
   addContact: () => {},
@@ -144,6 +146,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
+  const loginWithGoogle = async () => {
+    try {
+      const { signInWithPopup } = await import('firebase/auth');
+      const { googleProvider } = await import('@/lib/firebase');
+      // Firebase auth will trigger onAuthStateChanged which handles the firestore setup
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      console.error("Google login failed", e);
+    }
+  };
+
   const login = async (phone: string, realName: string) => {
     if (!user) return;
     
@@ -206,16 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      allUsers,
-      login,
-      logout,
-      updateProfile,
-      addContact,
-      blockUser,
-      isLoaded
-    }}>
+    <AuthContext.Provider value={{ user, allUsers, login, loginWithGoogle, logout, updateProfile, addContact, blockUser, isLoaded }}>
       {children}
     </AuthContext.Provider>
   );

@@ -8,7 +8,7 @@ import { getFeatureById } from './data/features';
 
 export default function Dashboard() {
   const { spaces } = useSpaces();
-  const { user } = useAuth();
+  const { user, isLoaded, loginWithGoogle } = useAuth();
 
   return (
     <div className={styles.container}>
@@ -29,7 +29,18 @@ export default function Dashboard() {
             {/* Keeping this hidden on very small screens via media queries in standard CSS, but doing it inline for now if possible. Actually, just display it. */}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', marginRight: '0.5rem', overflow: 'hidden' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>{user?.realName || user?.nickname || 'אורח'}</span>
+            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>
+              {user?.realName || user?.nickname || 'אורח'}
+            </span>
+            {(!user?.email) && (
+              <button 
+                onClick={() => loginWithGoogle()}
+                style={{ fontSize: '0.65rem', background: '#4285F4', color: 'white', border: 'none', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                title="התחברות עם Google לשמירת נתונים"
+              >
+                <span>G</span> התחבר
+              </button>
+            )}
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
@@ -58,7 +69,7 @@ export default function Dashboard() {
       </Link>
 
       <div className={styles.grid}>
-        {spaces.map(space => (
+        {spaces.filter(s => s.status !== 'pending_deletion').map(space => (
           <Link href={`/space/${space.id}`} key={space.id}>
             <div className={`card ${styles.projectCard} glass-panel`}>
               <div className={styles.projectHeader}>

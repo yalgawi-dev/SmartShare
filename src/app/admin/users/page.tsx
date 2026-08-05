@@ -1,10 +1,12 @@
 'use client';
 
 import { useAuth } from '../../context/AuthContext';
+import { useSpaces } from '../../context/SpacesContext';
 import Link from 'next/link';
 
 export default function AdminUsersPage() {
   const { user, allUsers, blockUser } = useAuth();
+  const { spaces, restoreSpace } = useSpaces();
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -71,6 +73,60 @@ export default function AdminUsersPage() {
         {allUsers.length === 0 && (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>אין משתמשים במערכת</div>
         )}
+      </div>
+
+      <div style={{ marginTop: '3rem' }}>
+        <h2 style={{ fontSize: '1.5rem', color: 'var(--text-primary)', marginBottom: '1rem' }}>מרחבים בהשהיה / ארכיון 🗑️</h2>
+        <div className="card glass-panel" style={{ overflowX: 'auto', paddingBottom: '1rem' }}>
+          <table style={{ width: '100%', minWidth: '800px', borderCollapse: 'collapse', textAlign: 'right' }}>
+            <thead>
+              <tr style={{ background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-light)' }}>
+                <th style={{ padding: '1rem' }}>מזהה</th>
+                <th style={{ padding: '1rem' }}>שם המרחב</th>
+                <th style={{ padding: '1rem' }}>שותפים</th>
+                <th style={{ padding: '1rem' }}>הוצאות</th>
+                <th style={{ padding: '1rem' }}>תאריך מחיקה מתוכנן</th>
+                <th style={{ padding: '1rem', textAlign: 'center' }}>פעולות</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spaces.filter(s => s.status === 'pending_deletion').map(s => (
+                <tr key={s.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  <td style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{s.id.substring(0, 8)}...</td>
+                  <td style={{ padding: '1rem', fontWeight: 'bold' }}>{s.icon} {s.title}</td>
+                  <td style={{ padding: '1rem' }}>{s.members?.length || 0}</td>
+                  <td style={{ padding: '1rem' }}>{s.invoices?.length || 0}</td>
+                  <td style={{ padding: '1rem', color: '#EF4444' }}>
+                    {s.deletionScheduledFor ? new Date(s.deletionScheduledFor).toLocaleDateString('he-IL') : '-'}
+                  </td>
+                  <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <button 
+                      onClick={() => restoreSpace(s.id)}
+                      style={{ 
+                        background: '#10B981', 
+                        color: 'white', 
+                        border: 'none', 
+                        padding: '0.5rem 1rem', 
+                        borderRadius: '4px', 
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      שחזר מרחב ♻️
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {spaces.filter(s => s.status === 'pending_deletion').length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    אין מרחבים בהמתנה למחיקה.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

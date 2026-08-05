@@ -5,7 +5,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { useState } from 'react';
 
 export default function PartnersWidget({ space, onRemove }: { space: any, onRemove?: () => void }) {
-  const { updateMemberPermissions, removeMember } = useSpaces();
+  const { updateMemberPermissions, removeMember, restoreMember } = useSpaces();
   const { user } = useAuth();
   const [showManage, setShowManage] = useState(false);
   const activePartnersCount = space.members?.length || 0;
@@ -78,15 +78,19 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
               </thead>
               <tbody>
                 {space.members.map((m: any) => (
-                  <tr key={m.userId} style={{ borderBottom: '1px solid var(--border-light)' }}>
+                  <tr key={m.userId} style={{ borderBottom: '1px solid var(--border-light)', opacity: m.isActive === false ? 0.6 : 1 }}>
                     <td style={{ padding: '0.5rem' }}>
-                      {m.name} {m.userId === user?.id && '(אתה)'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                        {m.isActive === false && <span style={{ background: '#ef4444', color: 'white', fontSize: '0.65rem', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>לא פעיל</span>}
+                        <span>{m.name} {m.userId === user?.id && '(אתה)'}</span>
+                      </div>
                     </td>
                     <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                       <input 
                         type="checkbox" 
                         checked={m.canUpload} 
-                        onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })} 
+                        onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })}
+                        disabled={m.isActive === false} 
                       />
                     </td>
                     <td style={{ padding: '0.5rem', textAlign: 'center' }}>
@@ -94,20 +98,31 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
                         type="checkbox" 
                         checked={m.canDelete} 
                         onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} 
+                        disabled={m.isActive === false}
                       />
                     </td>
                     <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                      <button 
-                        onClick={() => {
-                          if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהמרחב? האחוזים יחולקו מחדש שווה בשווה.`)) {
-                            removeMember(space.id, m.userId, user?.id || 'unknown');
-                          }
-                        }}
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem', padding: '0.2rem' }}
-                        title="הסר שותף"
-                      >
-                        🗑️
-                      </button>
+                      {m.isActive === false ? (
+                        <button 
+                          onClick={() => restoreMember(space.id, m.userId, user?.id || 'unknown')}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '1.2rem', padding: '0.2rem' }}
+                          title="שחזר שותף"
+                        >
+                          ♻️
+                        </button>
+                      ) : (
+                        <button 
+                          onClick={() => {
+                            if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהמרחב?`)) {
+                              removeMember(space.id, m.userId, user?.id || 'unknown');
+                            }
+                          }}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem', padding: '0.2rem' }}
+                          title="הסר שותף"
+                        >
+                          🗑️
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

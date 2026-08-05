@@ -22,6 +22,9 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+import { GoogleAuthProvider } from "firebase/auth";
+export const googleProvider = new GoogleAuthProvider();
+
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 export const uploadImageToStorage = async (dataUrl: string, path: string): Promise<string> => {

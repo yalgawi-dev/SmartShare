@@ -81,6 +81,7 @@ export interface SpaceMember {
   localAvatarUrl?: string; 
   useNickname?: boolean; 
   sharePercentage?: number;
+  isActive?: boolean;
 }
 
 export interface AuditRecord {
@@ -107,11 +108,15 @@ export interface Space {
   coverImage?: string;
   albumSize?: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square';
   albumAtmospherePhotos?: string[];
+  status?: 'active' | 'pending_deletion';
+  deletionScheduledFor?: string;
 }
 
 interface SpacesContextType {
   spaces: Space[];
   addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => void;
+  deleteSpace: (spaceId: string) => void;
+  restoreSpace: (spaceId: string) => void;
   updateSpaceTitle: (spaceId: string, newTitle: string) => void;
   updateSpaceDate: (spaceId: string, newDate: string) => void;
   updateSpaceCover: (spaceId: string, newCoverUrl: string) => void;
@@ -127,6 +132,7 @@ interface SpacesContextType {
   deleteComment: (spaceId: string, mediaId: string, commentId: string) => void;
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string) => void;
+  restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
@@ -295,6 +301,34 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     setDoc(doc(db, 'spaces', newSpace.id), newSpace).catch(console.error);
   };
 
+  const deleteSpace = (spaceId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      if (!space.invoices || space.invoices.length === 0) {
+        // Hard Delete
+        deleteDoc(doc(db, 'spaces', spaceId)).catch(console.error);
+        setSpacesBase(prev => prev.filter(s => s.id !== spaceId));
+        return space;
+      }
+      
+      // Soft Delete / Archive
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 14); // 14 days grace period
+      return {
+        ...space,
+        status: 'pending_deletion',
+        deletionScheduledFor: futureDate.toISOString()
+      };
+    });
+  };
+
+  const restoreSpace = (spaceId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      status: 'active',
+      deletionScheduledFor: undefined
+    }));
+  };
+
   const toggleFeature = (spaceId: string, featureId: FeatureId) => {
     saveSpaceUpdate(spaceId, space => {
       const hasFeature = space.features.includes(featureId);
@@ -377,20 +411,21 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => {
-      const memberCount = (space.members?.length || 0) + 1; // +1 for the creator/me
+      const activeMembers = space.members?.filter(m => m.isActive !== false) || [];
+      const memberCount = activeMembers.length + 1; // +1 for the creator/me
       const defaultShare = 100 / memberCount;
       
-      const newMembers = (space.members || []).map(m => ({
-        ...m,
-        sharePercentage: defaultShare
-      }));
+      const newMembers = (space.members || []).map(m => {
+        if (m.isActive === false) return { ...m, sharePercentage: 0 };
+        return { ...m, sharePercentage: defaultShare };
+      });
 
       const newLog: AuditRecord = {
         id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         timestamp: new Date().toISOString(),
         actionType: 'AUTO_BALANCE',
         performedBy,
-        details: `המערכת חילקה את האחוזים שווה בשווה (${defaultShare.toFixed(1)}% לכל אחד) עבור ${memberCount} משתתפים.`
+        details: `המערכת חילקה את האחוזים שווה בשווה (${defaultShare.toFixed(1)}% לכל אחד) עבור ${memberCount} משתתפים פעילים.`
       };
 
       return {
@@ -407,14 +442,27 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       const memberToRemove = space.members?.find(m => m.userId === userId);
       if (!memberToRemove) return space;
 
-      const newMembers = space.members?.filter(m => m.userId !== userId) || [];
+      const hasInvoices = space.invoices?.some(i => i.payerId === userId);
+      let newMembers;
+      let actionType: 'MEMBER_REMOVED' | 'MEMBER_LEFT' = 'MEMBER_REMOVED';
+      let details = '';
+
+      if (hasInvoices) {
+        // Soft delete
+        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false } : m) || [];
+        details = `השותף ${memberToRemove.name} סומן כלא-פעיל (יש לו היסטוריית תשלומים). האחוזים יאופסו.`;
+      } else {
+        // Hard delete
+        newMembers = space.members?.filter(m => m.userId !== userId) || [];
+        details = `השותף ${memberToRemove.name} הוסר מהמרחב לחלוטין. האחוזים יאופסו.`;
+      }
       
       const newLog: AuditRecord = {
         id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         timestamp: new Date().toISOString(),
-        actionType: 'MEMBER_REMOVED',
+        actionType,
         performedBy,
-        details: `השותף ${memberToRemove.name} הוסר מהמרחב. האחוזים יאופסו לחלוקה שווה.`
+        details
       };
 
       return {
@@ -425,6 +473,33 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
     
     // Auto balance after removing
+    setTimeout(() => {
+      autoBalanceShares(spaceId, performedBy);
+    }, 100);
+  };
+
+  const restoreMember = (spaceId: string, userId: string, performedBy: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const memberToRestore = space.members?.find(m => m.userId === userId);
+      if (!memberToRestore) return space;
+
+      const newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: true } : m) || [];
+      
+      const newLog: AuditRecord = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'OTHER',
+        performedBy,
+        details: `השותף ${memberToRestore.name} הוחזר לפעילות.`
+      };
+
+      return {
+        ...space,
+        members: newMembers,
+        auditLogs: [newLog, ...(space.auditLogs || [])]
+      };
+    });
+    
     setTimeout(() => {
       autoBalanceShares(spaceId, performedBy);
     }, 100);
@@ -561,11 +636,12 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace,
+    <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace,
       updateMemberPermissions,
       addComment,
       deleteComment,
       removeMember,
+      restoreMember,
       autoBalanceShares,
       addAuditLog,
       updateAlbumSettings,
