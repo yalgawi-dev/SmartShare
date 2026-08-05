@@ -83,6 +83,14 @@ export interface SpaceMember {
   sharePercentage?: number;
 }
 
+export interface AuditRecord {
+  id: string;
+  timestamp: string;
+  actionType: 'MEMBER_LEFT' | 'MEMBER_REMOVED' | 'SHARES_UPDATED' | 'AUTO_BALANCE' | 'OTHER';
+  performedBy: string; // userId of who performed the action
+  details: string; // Human readable explanation
+}
+
 export interface Space {
   id: string;
   title: string;
@@ -94,6 +102,7 @@ export interface Space {
   invoices: Invoice[];
   mediaItems: MediaItem[];
   members: SpaceMember[];
+  auditLogs?: AuditRecord[];
   date?: string;
   coverImage?: string;
   albumSize?: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square';
@@ -117,6 +126,9 @@ interface SpacesContextType {
   addComment: (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => void;
   deleteComment: (spaceId: string, mediaId: string, commentId: string) => void;
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
+  removeMember: (spaceId: string, userId: string, performedBy: string) => void;
+  autoBalanceShares: (spaceId: string, performedBy: string) => void;
+  addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
@@ -349,6 +361,75 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const addAuditLog = (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newLog: AuditRecord = {
+        ...log,
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString()
+      };
+      return {
+        ...space,
+        auditLogs: [newLog, ...(space.auditLogs || [])]
+      };
+    });
+  };
+
+  const autoBalanceShares = (spaceId: string, performedBy: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const memberCount = (space.members?.length || 0) + 1; // +1 for the creator/me
+      const defaultShare = 100 / memberCount;
+      
+      const newMembers = (space.members || []).map(m => ({
+        ...m,
+        sharePercentage: defaultShare
+      }));
+
+      const newLog: AuditRecord = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'AUTO_BALANCE',
+        performedBy,
+        details: `המערכת חילקה את האחוזים שווה בשווה (${defaultShare.toFixed(1)}% לכל אחד) עבור ${memberCount} משתתפים.`
+      };
+
+      return {
+        ...space,
+        settings: { ...space.settings, mySharePercentage: defaultShare },
+        members: newMembers,
+        auditLogs: [newLog, ...(space.auditLogs || [])]
+      };
+    });
+  };
+
+  const removeMember = (spaceId: string, userId: string, performedBy: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const memberToRemove = space.members?.find(m => m.userId === userId);
+      if (!memberToRemove) return space;
+
+      const newMembers = space.members?.filter(m => m.userId !== userId) || [];
+      
+      const newLog: AuditRecord = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'MEMBER_REMOVED',
+        performedBy,
+        details: `השותף ${memberToRemove.name} הוסר מהמרחב. האחוזים יאופסו לחלוקה שווה.`
+      };
+
+      return {
+        ...space,
+        members: newMembers,
+        auditLogs: [newLog, ...(space.auditLogs || [])]
+      };
+    });
+    
+    // Auto balance after removing
+    setTimeout(() => {
+      autoBalanceShares(spaceId, performedBy);
+    }, 100);
+  };
+
   const updateAlbumSettings = (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
@@ -484,6 +565,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       updateMemberPermissions,
       addComment,
       deleteComment,
+      removeMember,
+      autoBalanceShares,
+      addAuditLog,
       updateAlbumSettings,
       updateAtmospherePhoto,
       moveMediaItem,

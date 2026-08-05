@@ -5,7 +5,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { useState } from 'react';
 
 export default function PartnersWidget({ space, onRemove }: { space: any, onRemove?: () => void }) {
-  const { updateMemberPermissions } = useSpaces();
+  const { updateMemberPermissions, removeMember } = useSpaces();
   const { user } = useAuth();
   const [showManage, setShowManage] = useState(false);
   const activePartnersCount = space.members?.length || 0;
@@ -70,9 +70,10 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
               <thead>
                 <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)' }}>
-                  <th style={{ padding: '0.5rem' }}>שם האורח</th>
-                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>הרשאת העלאה</th>
-                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>הרשאת מחיקה</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'right' }}>שם האורח</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>העלאה</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>מחיקה</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>הסרה</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,6 +95,19 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
                         checked={m.canDelete} 
                         onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} 
                       />
+                    </td>
+                    <td style={{ padding: '0.5rem', textAlign: 'center' }}>
+                      <button 
+                        onClick={() => {
+                          if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהמרחב? האחוזים יחולקו מחדש שווה בשווה.`)) {
+                            removeMember(space.id, m.userId, user?.id || 'unknown');
+                          }
+                        }}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem', padding: '0.2rem' }}
+                        title="הסר שותף"
+                      >
+                        🗑️
+                      </button>
                     </td>
                   </tr>
                 ))}

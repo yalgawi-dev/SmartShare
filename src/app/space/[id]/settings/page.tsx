@@ -212,7 +212,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* Save Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', marginBottom: '2rem' }}>
           {isSaved && <span style={{ color: 'green', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>✓ נשמר בהצלחה</span>}
           <button 
             onClick={() => router.push(`/space/${id}`)}
@@ -225,6 +225,40 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
             שמור הגדרות
           </button>
         </div>
+
+        {/* Audit Logs Section */}
+        <section style={{ borderTop: '1px solid var(--border-light)', paddingTop: '2rem' }}>
+          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>📜</span> יומן שקיפות ואמון (Audit Logs)
+          </h2>
+          <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+            מערכת ה-Audit Log מתעדת פעולות קריטיות כגון עזיבה/הסרת שותפים ושינויים באחוזי חלוקת הכספים במרחב, להבטחת שקיפות מלאה.
+          </p>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {(!space.auditLogs || space.auditLogs.length === 0) ? (
+              <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                אין עדיין רשומות יומן למרחב זה.
+              </div>
+            ) : (
+              space.auditLogs.map(log => (
+                <div key={log.id} style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--primary)', alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: '80px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {new Date(log.timestamp).toLocaleDateString('he-IL')} <br/> {new Date(log.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
+                      {log.actionType === 'MEMBER_REMOVED' ? 'הסרת שותף' : 
+                       log.actionType === 'AUTO_BALANCE' ? 'איזון אחוזים אוטומטי' : 
+                       log.actionType === 'SHARES_UPDATED' ? 'עדכון אחוזים' : log.actionType}
+                    </div>
+                    <div style={{ fontSize: '0.9rem' }}>{log.details}</div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
 
       </div>
     </div>

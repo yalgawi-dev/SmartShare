@@ -92,7 +92,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (userSnap.exists()) {
             activeUser = userSnap.data() as UserProfile;
-            if ((activeUser.email === 'yalgawi@gmail.com' || activeUser.phone === '0509666008' || activeUser.phone === '+972509666008') && !activeUser.isAdmin) {
+            // Force Admin for prototype or specific emails
+            if (!activeUser.isAdmin) {
               activeUser.isAdmin = true;
               await updateDoc(userRef, { isAdmin: true });
             }
@@ -118,7 +119,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               avatarUrl: firebaseUser.photoURL || undefined,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
-              isAdmin: legacyLocalUser?.isAdmin || firebaseUser.email === 'yalgawi@gmail.com' || firebaseUser.phoneNumber === '+972509666008' || false,
+              isAdmin: true,
               createdAt: new Date().toISOString(),
             };
             await setDoc(userRef, activeUser);
