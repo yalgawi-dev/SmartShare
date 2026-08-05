@@ -429,38 +429,74 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
           
           // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style with Shadow Removal)
-          // Step A: Extract background illumination (the shadow map)
+          // Step A: Extract background illumination (the shadow map) via Morphological Dilation
           let downscaled = new cv.Mat();
           cv.resize(dst, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-          // Strong blur on downscaled image to remove text and keep only shadows
-          cv.GaussianBlur(downscaled, downscaled, new cv.Size(21, 21), 0);
+          
+          // Dilation removes the dark text, leaving only the white paper and its shadows
+          let kernel = cv.Mat.ones(11, 11, cv.CV_8U);
+          cv.dilate(downscaled, downscaled, kernel, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
+          kernel.delete();
+          
+          // Blur to smooth the paper texture and lighting gradients
+          cv.GaussianBlur(downscaled, downscaled, new cv.Size(15, 15), 0);
+          
           let bg = new cv.Mat();
           cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
-          // Step B: Remove shadows by dividing original by background
+          // Step B: Remove shadows by dividing original by background (Retinex theory)
           let shadowFree = new cv.Mat();
           cv.divide(dst, bg, shadowFree, 255, -1);
           
-          // Step C: "4K" Sharpness (Unsharp Mask)
+          // Step C: Contrast and Saturation Boost in HSV (The "Magic")
+          // Convert shadowFree (RGBA) to RGB then HSV
+          let rgb = new cv.Mat();
+          cv.cvtColor(shadowFree, rgb, cv.COLOR_RGBA2RGB);
+          
+          let hsv = new cv.Mat();
+          cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
+          
+          // Split channels
+          let hsvPlanes = new cv.MatVector();
+          cv.split(hsv, hsvPlanes);
+          
+          let H = hsvPlanes.get(0);
+          let S = hsvPlanes.get(1);
+          let V = hsvPlanes.get(2);
+          
+          // Boost Saturation (S * 2.0 - 20) to make colors vivid and remove low-level noise
+          S.convertTo(S, -1, 2.0, -20);
+          
+          // Boost Contrast on V (V * 2.0 - 250) to darken faded ink and keep paper pure white
+          V.convertTo(V, -1, 2.0, -250);
+          
+          // Merge back
+          cv.merge(hsvPlanes, hsv);
+          
+          let magicColor = new cv.Mat();
+          cv.cvtColor(hsv, magicColor, cv.COLOR_HSV2RGB);
+          
+          // Step D: "4K" Sharpness (Unsharp Mask)
           let blurredColor = new cv.Mat();
-          cv.GaussianBlur(shadowFree, blurredColor, new cv.Size(0, 0), 2);
+          cv.GaussianBlur(magicColor, blurredColor, new cv.Size(0, 0), 2);
           let sharpenedColor = new cv.Mat();
           // Boost sharpness heavily to make text crisp
-          cv.addWeighted(shadowFree, 1.8, blurredColor, -0.8, 0, sharpenedColor);
+          cv.addWeighted(magicColor, 1.8, blurredColor, -0.8, 0, sharpenedColor);
           
-          // Step D: Magic Color Contrast (boost colors, keep blacks dark)
-          let magicColor = new cv.Mat();
-          sharpenedColor.convertTo(magicColor, -1, 1.3, -30);
+          // Add alpha channel back for canvas rendering
+          let finalRgba = new cv.Mat();
+          cv.cvtColor(sharpenedColor, finalRgba, cv.COLOR_RGB2RGBA);
           
-          cv.imshow(canvas, magicColor);
+          cv.imshow(canvas, finalRgba);
           setColorSnapshot(canvas.toDataURL('image/jpeg', 0.9));
 
           // Cleanup all Mats safely
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          downscaled.delete(); bg.delete(); shadowFree.delete(); blurredColor.delete(); 
-          sharpenedColor.delete(); magicColor.delete();
+          downscaled.delete(); bg.delete(); shadowFree.delete(); 
+          rgb.delete(); hsv.delete(); hsvPlanes.delete(); H.delete(); S.delete(); V.delete();
+          magicColor.delete(); blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
           
           resolve();
 
