@@ -434,12 +434,12 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.resize(dst, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
           // Dilation removes the dark text, leaving only the white paper and its shadows
-          let kernel = cv.Mat.ones(11, 11, cv.CV_8U);
+          let kernel = cv.Mat.ones(7, 7, cv.CV_8U);
           cv.dilate(downscaled, downscaled, kernel, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
           kernel.delete();
           
-          // Blur to smooth the paper texture and lighting gradients
-          cv.GaussianBlur(downscaled, downscaled, new cv.Size(15, 15), 0);
+          // Small blur to smooth the paper texture but keep sharp shadow edges (prevents halos)
+          cv.GaussianBlur(downscaled, downscaled, new cv.Size(5, 5), 0);
           
           let bg = new cv.Mat();
           cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -464,11 +464,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let S = hsvPlanes.get(1);
           let V = hsvPlanes.get(2);
           
-          // Boost Saturation (S * 2.0 - 20) to make colors vivid and remove low-level noise
-          S.convertTo(S, -1, 2.0, -20);
+          // Boost Saturation (S * 1.5 - 40) to make colors vivid and completely crush color noise on paper
+          S.convertTo(S, -1, 1.5, -40);
           
-          // Boost Contrast on V (V * 2.0 - 250) to darken faded ink and keep paper pure white
-          V.convertTo(V, -1, 2.0, -250);
+          // Boost Contrast on V (V * 2.0 - 180) to darken faded ink and force paper to pure white
+          V.convertTo(V, -1, 2.0, -180);
           
           // Merge back
           cv.merge(hsvPlanes, hsv);
