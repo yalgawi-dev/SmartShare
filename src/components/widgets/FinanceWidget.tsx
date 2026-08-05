@@ -595,6 +595,7 @@ function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: ()
   };
 
   return (
+    <>
       <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'fixed', zIndex: 10000 }}></div>
       <div className="bottom-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bottom: 'auto', right: 'auto', width: '90%', maxWidth: '400px', zIndex: 10001, borderRadius: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
