@@ -24,35 +24,32 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
-          {user?.isAdmin && (
-            <Link href="/admin/users" style={{ padding: '0.4rem 0.75rem', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-              🛡️ אדמין
+        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', display: 'none' }}>
+            {/* Keeping this hidden on very small screens via media queries in standard CSS, but doing it inline for now if possible. Actually, just display it. */}
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', marginRight: '0.5rem', overflow: 'hidden' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '120px' }}>{user?.realName || user?.nickname || 'אורח'}</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '120px' }}>{user?.email || ''}</span>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+            {user?.isAdmin && (
+              <Link href="/admin/users" style={{ padding: '0.4rem 0.6rem', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '1rem', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border-light)' }} title="ניהול מערכת">
+                🛡️
+              </Link>
+            )}
+            <Link href="/settings" style={{ padding: '0.4rem 0.6rem', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="הגדרות פרופיל">
+              <span style={{ fontSize: '1.2rem' }}>⚙️</span>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <span style={{ fontSize: '1rem' }}>{user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}</span>
+                )}
+              </div>
             </Link>
-          )}
-          <Link href="/settings" style={{ padding: '0.4rem', borderRadius: '12px', background: 'var(--bg-card)', border: '1px solid var(--border-light)', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ padding: '0 0.25rem', fontSize: '1.2rem' }} title="הגדרות אישיות">⚙️</span>
-            <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              {user?.avatarUrl ? (
-                <img 
-                  src={user.avatarUrl} 
-                  alt="Profile" 
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                    const fallback = document.createElement('span');
-                    fallback.innerHTML = user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤';
-                    fallback.style.fontSize = '1.2rem';
-                    (e.target as HTMLImageElement).parentElement?.appendChild(fallback);
-                  }}
-                />
-              ) : (
-                <span style={{ fontSize: '1.2rem' }}>
-                  {user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}
-                </span>
-              )}
-            </div>
-          </Link>
+          </div>
         </div>
       </header>
 

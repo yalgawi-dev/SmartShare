@@ -21,6 +21,8 @@ export interface Invoice {
   vatRate: number; 
   category: string; 
   hasAttachment: boolean; 
+  attachmentUrl?: string;
+  payerId?: string;
 }
 
 export interface Comment {

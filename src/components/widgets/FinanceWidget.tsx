@@ -18,7 +18,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
-  const [selectedPayer, setSelectedPayer] = useState(user?.realName || 'אני');
+  const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateSpaceSettings } = useSpaces();
   const [isMounted, setIsMounted] = useState(false);
@@ -119,7 +119,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const myShare = space.settings?.mySharePercentage ?? (100 / memberCount);
     
     // Me
-    const myPaid = invoices.filter((i: any) => i.payerName === 'אני').reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+    const myPaid = invoices.filter((i: any) => i.payerId === user?.id || i.payerId === 'me' || (!i.payerId && (i.payerName === 'אני' || i.payerName === user?.realName))).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
     const myExpected = totalExpenses * myShare / 100;
     myBalance = myPaid - myExpected;
     balances.push({ name: 'אני', paid: myPaid, expected: myExpected, balance: myBalance, userId: 'me' });
@@ -127,7 +127,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     // Partners
     validMembers.forEach((m: any) => {
       const p = m.sharePercentage ?? (100 / memberCount);
-      const paid = invoices.filter((i: any) => i.payerName === m.name).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+      const paid = invoices.filter((i: any) => i.payerId === m.userId || (!i.payerId && i.payerName === m.name)).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
       const expected = totalExpenses * p / 100;
       balances.push({ name: m.name, paid, expected, balance: paid - expected, userId: m.userId });
     });
@@ -139,9 +139,18 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const amount = Number(formData.get('amount'));
     const supplier = formData.get('supplier') as string;
     
-    let payerName = selectedPayer;
-    if (selectedPayer === 'other') {
-      payerName = (formData.get('payerNameCustom') as string) || 'אני';
+    let payerName = user?.realName || 'אני';
+    let payerId: string | undefined = user?.id || 'me';
+    
+    if (selectedPayerId === 'other') {
+      payerName = (formData.get('payerNameCustom') as string) || 'אחר';
+      payerId = undefined;
+    } else if (selectedPayerId !== 'me' && selectedPayerId !== user?.id) {
+      const partner = validMembers.find((m: any) => m.userId === selectedPayerId);
+      if (partner) {
+        payerName = partner.name;
+        payerId = partner.userId;
+      }
     }
     
     let category = selectedCategory;
@@ -164,7 +173,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
       approvalsReceived: 0,
       vatRate: space.settings?.defaultVatRate || 18,
-      hasAttachment: !!scannedImage
+      hasAttachment: !!scannedImage,
+      attachmentUrl: scannedImage || undefined,
+      payerId: payerId
     });
 
     setIsAddingExpense(false);
@@ -437,17 +448,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <select 
                     required 
-                    value={selectedPayer} 
-                    onChange={e => setSelectedPayer(e.target.value)}
+                    value={selectedPayerId} 
+                    onChange={e => setSelectedPayerId(e.target.value)}
                     style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
                   >
-                    <option value={user?.realName || 'אני'}>{user?.realName || 'אני'}</option>
-                    {space.members?.map((m: any) => (
-                      <option key={m.userId} value={m.name}>{m.name}</option>
+                    <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
+                    {validMembers.map((m: any) => (
+                      <option key={m.userId} value={m.userId}>{m.name}</option>
                     ))}
                     <option value="other">אחר (הקלד שם)...</option>
                   </select>
-                  {selectedPayer === 'other' && (
+                  {selectedPayerId === 'other' && (
                     <input 
                       required 
                       name="payerNameCustom" 
@@ -549,13 +560,15 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
 }
 
 function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: () => void, onSave: any }) {
-  const memberCount = (space.members?.length || 0) + 1;
+  const { user } = useAuth();
+  const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
+  const memberCount = validMembers.length + 1;
   const defaultShare = 100 / memberCount;
   
   const [myShare, setMyShare] = useState<number>(space.settings?.mySharePercentage ?? defaultShare);
   const [partnerShares, setPartnerShares] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {};
-    space.members?.forEach((m: any) => {
+    validMembers.forEach((m: any) => {
       initial[m.userId] = m.sharePercentage ?? defaultShare;
     });
     return initial;
@@ -582,12 +595,11 @@ function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: ()
   };
 
   return (
-    <>
-      <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute' }}></div>
-      <div className="bottom-sheet" style={{ position: 'absolute' }}>
+      <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'fixed', zIndex: 10000 }}></div>
+      <div className="bottom-sheet" style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', bottom: 'auto', right: 'auto', width: '90%', maxWidth: '400px', zIndex: 10001, borderRadius: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, fontSize: '1.25rem' }}>אחוזי השתתפות</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>✕</button>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
         </div>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -604,9 +616,9 @@ function SharesEditorModal({ space, onClose, onSave }: { space: any, onClose: ()
             </div>
           </div>
 
-          {space.members?.map((m: any) => (
-            <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-              <span>{m.name}</span>
+          {validMembers.map((m: any) => (
+            <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+              <span style={{ fontWeight: 'bold' }}>{m.name}</span>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input 
                   type="number" 
