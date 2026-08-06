@@ -457,22 +457,31 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.divide(rgb, bg, shadowFree, 255, -1);
           
           // Step C: Enhance Contrast and Restore Ink Darkness
-          // We use a strong global linear contrast stretch (Alpha=1.8, Beta=-120)
-          // This maps everything >208 to pure 255 (perfectly clean white paper) 
-          // and maps everything <66 to pure 0 (bold, dark text).
-          shadowFree.convertTo(shadowFree, -1, 1.8, -120);
+          // 1. Overall slight boost to ensure paper is pure white and colors are vibrant
+          shadowFree.convertTo(shadowFree, -1, 1.2, -30);
           
-          /* 
-          // --- FALLBACK BASE (v1.3 Masked Ink Restore) ---
-          // Saved per user request in case we want to revert to mask-based darkening.
-          // shadowFree.convertTo(shadowFree, -1, 1.1, -10);
-          // let inkMask = new cv.Mat();
-          // cv.bitwise_not(bw, inkMask);
-          // let darkenAmount = new cv.Mat(shadowFree.rows, shadowFree.cols, shadowFree.type(), new cv.Scalar(100, 100, 100, 0));
-          // cv.subtract(shadowFree, darkenAmount, shadowFree, inkMask);
-          // inkMask.delete(); darkenAmount.delete();
-          // -----------------------------------------------
-          */
+          // 2. We want to darken the text without destroying light-colored logos (like the yellow highlight).
+          // We use the adaptive threshold mask (bw) which finds all sharp edges (text + logos).
+          let bwInv = new cv.Mat();
+          cv.bitwise_not(bw, bwInv); 
+          
+          // But bwInv includes the yellow logo! 
+          // We create a lightness mask from shadowFree to exclude light colors.
+          let shadowFreeGray = new cv.Mat();
+          cv.cvtColor(shadowFree, shadowFreeGray, cv.COLOR_RGB2GRAY);
+          
+          let lightnessMask = new cv.Mat();
+          // Pixels darker than 210 in the shadow-free image are considered potential ink.
+          // The yellow logo is very light (> 220), so it will be excluded! Text is usually < 190.
+          cv.threshold(shadowFreeGray, lightnessMask, 210, 255, cv.THRESH_BINARY_INV);
+          
+          // trueInkMask is the intersection: must be a sharp edge (bwInv) AND must be dark (lightnessMask)
+          let trueInkMask = new cv.Mat();
+          cv.bitwise_and(bwInv, lightnessMask, trueInkMask);
+          
+          // 3. Selectively darken ONLY the true ink!
+          let darkenAmount = new cv.Mat(shadowFree.rows, shadowFree.cols, shadowFree.type(), new cv.Scalar(120, 120, 120, 0));
+          cv.subtract(shadowFree, darkenAmount, shadowFree, trueInkMask);
           
           // Step D: "4K" Sharpness (Unsharp Mask)
           let blurredColor = new cv.Mat();
@@ -493,6 +502,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
           rgb.delete(); downscaledGray.delete(); bgGray.delete(); bg.delete(); shadowFree.delete();
+          bwInv.delete(); shadowFreeGray.delete(); lightnessMask.delete(); trueInkMask.delete(); darkenAmount.delete();
           blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
           
           resolve();
