@@ -495,13 +495,19 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           }
           cv.merge(rgbPlanes, rgb);
           
+          // NEW Step 4.5: Bilateral Filter (V4.3 Grain Eliminator)
+          // Smooths flat areas (removing camera grain from the paper) but keeps text edges razor sharp.
+          let smoothed = new cv.Mat();
+          cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
+
           // Step E: Extreme Unsharp Mask (The Magic Color Engine)
           // This drives text edges to pitch black and makes light blue text highly legible,
           // while leaving solid colors (like the duck) completely undisturbed!
           blurred = new cv.Mat();
-          cv.GaussianBlur(rgb, blurred, new cv.Size(0, 0), 2);
+          cv.GaussianBlur(smoothed, blurred, new cv.Size(0, 0), 2);
           let sharp = new cv.Mat();
-          cv.addWeighted(rgb, 2.5, blurred, -1.5, 0, sharp);
+          cv.addWeighted(smoothed, 2.5, blurred, -1.5, 0, sharp);
+          smoothed.delete();
           
           // Step F: Final Vibrancy Boost
           let hsv = new cv.Mat();
