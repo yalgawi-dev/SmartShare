@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.1 - הגנת צבע מתמטית (Saturation-Weighted Retinex)
+        v5.0 - מנוע שכבות (Semantic Layering + מנגנון רקע דינמי ועובי אותיות)
       </div>
     </div>
   );

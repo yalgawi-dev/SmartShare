@@ -566,9 +566,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   };
 
   const handleCropComplete = async () => {
-    if (!rawSnapshot || cropPoints.length !== 4) return;
-    await performCrop(rawSnapshot, cropPoints);
-    setStep('review');
+    if (!rawSnapshot || cropPoints.length !== 4) {
+      alert("Missing image or crop points.");
+      return;
+    }
+    try {
+      await performCrop(rawSnapshot, cropPoints);
+      setStep('review');
+    } catch (err: any) {
+      alert("שגיאה בעיבוד התמונה. נסה שנית או צלם שוב.\n" + (err.message || err));
+      console.error(err);
+    }
   };
 
   const handleRetake = () => {
