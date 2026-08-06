@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v3.0 - מנוע Expert (CamScanner Algorithm)
+        v3.1 - 3-Layer Semantic Engine (CamScanner Exact Algorithm)
       </div>
     </div>
   );

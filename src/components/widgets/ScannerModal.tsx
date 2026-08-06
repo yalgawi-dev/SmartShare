@@ -460,42 +460,44 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let s = hsvPlanes.get(1);
           let v = hsvPlanes.get(2);
           
-          // Step C: Expert Illumination Map (Max Filter / Dilation)
-          // This perfectly finds the white paper background and pushes it over text and drawings
+          // Step C: Global Shadow Removal (Retinex) to create 'vBase'
           let vDownscaled = new cv.Mat();
           cv.resize(v, vDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-          
-          let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 21));
-          cv.dilate(vDownscaled, vDownscaled, kernel);
-          // Smooth the map so we don't get blocky illumination artifacts
-          cv.GaussianBlur(vDownscaled, vDownscaled, new cv.Size(15, 15), 0);
-          
+          // Massive Gaussian Blur captures global illumination (phone shadows, page gradients)
+          cv.GaussianBlur(vDownscaled, vDownscaled, new cv.Size(41, 41), 0);
           let vBg = new cv.Mat();
           cv.resize(vDownscaled, vBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+          let vBase = new cv.Mat();
+          cv.divide(v, vBg, vBase, 255, -1);
           
-          // Step D: Remove shadows and white balance (Retinex on V channel only)
-          let vCorrected = new cv.Mat();
-          cv.divide(v, vBg, vCorrected, 255, -1);
+          // Step D: Detect Text and Edges (Adaptive Thresholding)
+          bw = new cv.Mat();
+          cv.adaptiveThreshold(v, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 41, 10);
+          let textMask = new cv.Mat();
+          cv.bitwise_not(bw, textMask); // 255 for text, 0 for paper
           
-          // Step E: Highlight-Preserving Contrast Stretch
-          // We use alpha=1.3, beta=-75. This maps 255 to 255 (preserving light colors like the pink curtain)
-          // while strongly pulling down midtones and shadows (making text much darker).
-          vCorrected.convertTo(vCorrected, -1, 1.3, -75);
+          // Step E: Detect Solid Colors
+          let colorMask = new cv.Mat();
+          cv.threshold(s, colorMask, 30, 255, cv.THRESH_BINARY);
+          let maskKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+          cv.dilate(colorMask, colorMask, maskKernel); // Protect edges of colored regions
           
-          // Step F: "4K" Sharpness (Unsharp Mask on V channel)
-          // Naturally drives high-contrast text edges to pitch black (0)
-          let vBlurred = new cv.Mat();
-          cv.GaussianBlur(vCorrected, vBlurred, new cv.Size(0, 0), 3);
-          let vSharp = new cv.Mat();
-          cv.addWeighted(vCorrected, 2.0, vBlurred, -1.0, 0, vSharp);
+          // Step F: Create the deeply contrasted text channel
+          let vText = new cv.Mat();
+          // alpha=1.5, beta=-100 guarantees that everything below V=200 gets dramatically darker
+          vBase.convertTo(vText, -1, 1.5, -100); 
           
-          // Step G: Magic Color Saturation Boost
-          // 1.6x boost ensures colors POP and light texts remain readable
-          s.convertTo(s, -1, 1.6, 0);
+          // Step G: Composite the Final V Channel (3-Layer Semantic Engine)
+          let vFinal = new cv.Mat(v.rows, v.cols, cv.CV_8UC1, new cv.Scalar(255)); // Layer 1: Pure White Paper
+          vBase.copyTo(vFinal, colorMask);                                         // Layer 2: Paste Solid Colors (Duck, Logos)
+          vText.copyTo(vFinal, textMask);                                          // Layer 3: Paste Pitch Black Text & Edges
+          
+          // Step H: Massive Saturation Boost to bring "Life" back
+          s.convertTo(s, -1, 1.8, 0);
           
           // Re-merge planes
           hsvPlanes.set(1, s);
-          hsvPlanes.set(2, vSharp);
+          hsvPlanes.set(2, vFinal);
           cv.merge(hsvPlanes, hsv);
           
           // Convert back to RGB
@@ -514,8 +516,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
           rgb.delete(); hsv.delete(); hsvPlanes.delete(); h.delete(); s.delete(); v.delete();
-          vDownscaled.delete(); kernel.delete(); vBg.delete(); vCorrected.delete(); enhancedRgb.delete();
-          vBlurred.delete(); vSharp.delete(); finalRgba.delete();
+          vDownscaled.delete(); vBg.delete(); vBase.delete(); textMask.delete(); 
+          colorMask.delete(); maskKernel.delete(); vText.delete(); vFinal.delete(); 
+          enhancedRgb.delete(); finalRgba.delete();
           
           resolve();
 
