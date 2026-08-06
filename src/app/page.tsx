@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v1.6 - סינון מסיכת דיו (True Ink Mask)
+        v2.0 - מנוע HSV מקצועי (Expert Color Enhancement)
       </div>
     </div>
   );
