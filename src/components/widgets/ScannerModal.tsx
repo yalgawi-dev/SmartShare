@@ -460,12 +460,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let s = hsvPlanes.get(1);
           let v = hsvPlanes.get(2);
           
-          // Step C: Illumination Map strictly on Value (Brightness) channel
+          // Step C: Expert Illumination Map (Max Filter / Dilation)
+          // This perfectly finds the white paper background and pushes it over text and drawings
           let vDownscaled = new cv.Mat();
           cv.resize(v, vDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
-          // Median Blur perfectly erases text without bleeding colors
-          cv.medianBlur(vDownscaled, vDownscaled, 17); // Back to v1.4 kernel size
+          let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(21, 21));
+          cv.dilate(vDownscaled, vDownscaled, kernel);
+          // Smooth the map so we don't get blocky illumination artifacts
+          cv.GaussianBlur(vDownscaled, vDownscaled, new cv.Size(15, 15), 0);
           
           let vBg = new cv.Mat();
           cv.resize(vDownscaled, vBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -474,21 +477,21 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let vCorrected = new cv.Mat();
           cv.divide(v, vBg, vCorrected, 255, -1);
           
-          // Step E: Enhance Contrast (The v1.4 "Anchor" Constants)
-          // The user specifically requested returning to the v1.4 anchor.
-          // Alpha=1.8, Beta=-120 guarantees pitch black text and pure white paper.
-          vCorrected.convertTo(vCorrected, -1, 1.8, -120);
+          // Step E: Highlight-Preserving Contrast Stretch
+          // We use alpha=1.3, beta=-75. This maps 255 to 255 (preserving light colors like the pink curtain)
+          // while strongly pulling down midtones and shadows (making text much darker).
+          vCorrected.convertTo(vCorrected, -1, 1.3, -75);
           
           // Step F: "4K" Sharpness (Unsharp Mask on V channel)
-          // Sharpening the V channel before merging prevents color fringing on text
+          // Naturally drives high-contrast text edges to pitch black (0)
           let vBlurred = new cv.Mat();
-          cv.GaussianBlur(vCorrected, vBlurred, new cv.Size(0, 0), 2);
+          cv.GaussianBlur(vCorrected, vBlurred, new cv.Size(0, 0), 3);
           let vSharp = new cv.Mat();
-          cv.addWeighted(vCorrected, 1.5, vBlurred, -0.5, 0, vSharp);
+          cv.addWeighted(vCorrected, 2.0, vBlurred, -1.0, 0, vSharp);
           
-          // Step G: Massive Saturation Boost (Restores faint watercolors like the pink curtain)
-          // 1.8x boost ensures colors POP like CamScanner's Magic Color
-          s.convertTo(s, -1, 1.8, 0);
+          // Step G: Magic Color Saturation Boost
+          // 1.6x boost ensures colors POP and light texts remain readable
+          s.convertTo(s, -1, 1.6, 0);
           
           // Re-merge planes
           hsvPlanes.set(1, s);
@@ -511,7 +514,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
           rgb.delete(); hsv.delete(); hsvPlanes.delete(); h.delete(); s.delete(); v.delete();
-          vDownscaled.delete(); vBg.delete(); vCorrected.delete(); enhancedRgb.delete();
+          vDownscaled.delete(); kernel.delete(); vBg.delete(); vCorrected.delete(); enhancedRgb.delete();
           vBlurred.delete(); vSharp.delete(); finalRgba.delete();
           
           resolve();
