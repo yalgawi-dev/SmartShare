@@ -444,24 +444,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           // --------------------------------------------------------------------
           */
 
-          // Step A: Pre-processing Noise Reduction
-          let rgb = new cv.Mat();
-          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-          cv.medianBlur(rgb, rgb, 3);
-          
-          // Step B: Convert to HSV to separate color from brightness
-          let hsv = new cv.Mat();
-          cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
-          
-          // Split into Hue, Saturation, Value
-          let hsvPlanes = new cv.MatVector();
-          cv.split(hsv, hsvPlanes);
-          let h = hsvPlanes.get(0);
-          let s = hsvPlanes.get(1);
-          let v = hsvPlanes.get(2);
-          
+
           // Step C: Grayscale Illumination Map (The v1.4 Anchor)
-          gray = new cv.Mat();
+          let gray = new cv.Mat();
           cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
           
           let grayDownscaled = new cv.Mat();
@@ -474,7 +459,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
           // Step D: RGB Retinex Division & Mild Stretch
-          rgb = new cv.Mat();
+          let rgb = new cv.Mat();
           cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
           let rgbPlanes = new cv.MatVector();
           cv.split(rgb, rgbPlanes);
@@ -496,22 +481,22 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           // Step E: Extreme Unsharp Mask (The Magic Color Engine)
           // This drives text edges to pitch black and makes light blue text highly legible,
           // while leaving solid colors (like the duck) completely undisturbed!
-          blurred = new cv.Mat();
+          let blurred = new cv.Mat();
           cv.GaussianBlur(rgb, blurred, new cv.Size(0, 0), 2);
-          sharp = new cv.Mat();
+          let sharp = new cv.Mat();
           cv.addWeighted(rgb, 2.5, blurred, -1.5, 0, sharp);
           
           // Step F: Final Vibrancy Boost
-          hsv = new cv.Mat();
+          let hsv = new cv.Mat();
           cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
-          hsvPlanes = new cv.MatVector();
+          let hsvPlanes = new cv.MatVector();
           cv.split(hsv, hsvPlanes);
-          s = hsvPlanes.get(1);
+          let s = hsvPlanes.get(1);
           s.convertTo(s, -1, 1.3, 0); // 30% saturation boost for vibrant watercolors
           hsvPlanes.set(1, s);
           cv.merge(hsvPlanes, hsv);
           
-          enhancedRgb = new cv.Mat();
+          let enhancedRgb = new cv.Mat();
           cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
           
           // Add alpha channel back for canvas rendering
