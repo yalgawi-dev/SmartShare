@@ -446,7 +446,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
 
           // Step C: Grayscale Illumination Map (The v1.4 Anchor)
-          let gray = new cv.Mat();
+          gray = new cv.Mat();
           cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
           
           let grayDownscaled = new cv.Mat();
@@ -481,7 +481,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           // Step E: Extreme Unsharp Mask (The Magic Color Engine)
           // This drives text edges to pitch black and makes light blue text highly legible,
           // while leaving solid colors (like the duck) completely undisturbed!
-          let blurred = new cv.Mat();
+          blurred = new cv.Mat();
           cv.GaussianBlur(rgb, blurred, new cv.Size(0, 0), 2);
           let sharp = new cv.Mat();
           cv.addWeighted(rgb, 2.5, blurred, -1.5, 0, sharp);
