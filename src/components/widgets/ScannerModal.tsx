@@ -551,8 +551,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-          sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
           enhancedRgb.delete(); finalRgba.delete();
           
           resolve();
