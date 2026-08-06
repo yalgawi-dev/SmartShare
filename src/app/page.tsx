@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v3.1 - 3-Layer Semantic Engine (CamScanner Exact Algorithm)
+        v4.0 - חזרה לעוגן המקורי (RGB Retinex + Unsharp Mask)
       </div>
     </div>
   );

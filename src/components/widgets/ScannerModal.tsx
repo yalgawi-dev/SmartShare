@@ -460,48 +460,58 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let s = hsvPlanes.get(1);
           let v = hsvPlanes.get(2);
           
-          // Step C: Global Shadow Removal (Retinex) to create 'vBase'
-          let vDownscaled = new cv.Mat();
-          cv.resize(v, vDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-          // Massive Gaussian Blur captures global illumination (phone shadows, page gradients)
-          cv.GaussianBlur(vDownscaled, vDownscaled, new cv.Size(41, 41), 0);
-          let vBg = new cv.Mat();
-          cv.resize(vDownscaled, vBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-          let vBase = new cv.Mat();
-          cv.divide(v, vBg, vBase, 255, -1);
+          // Step C: Grayscale Illumination Map (The v1.4 Anchor)
+          gray = new cv.Mat();
+          cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
           
-          // Step D: Detect Text and Edges (Adaptive Thresholding)
-          bw = new cv.Mat();
-          cv.adaptiveThreshold(v, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 41, 10);
-          let textMask = new cv.Mat();
-          cv.bitwise_not(bw, textMask); // 255 for text, 0 for paper
+          let grayDownscaled = new cv.Mat();
+          cv.resize(gray, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
-          // Step E: Detect Solid Colors
-          let colorMask = new cv.Mat();
-          cv.threshold(s, colorMask, 30, 255, cv.THRESH_BINARY);
-          let maskKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-          cv.dilate(colorMask, colorMask, maskKernel); // Protect edges of colored regions
+          // Median Blur erases text and finds the true paper background (even in deep phone shadows)
+          cv.medianBlur(grayDownscaled, grayDownscaled, 21);
           
-          // Step F: Create the deeply contrasted text channel
-          let vText = new cv.Mat();
-          // alpha=1.5, beta=-100 guarantees that everything below V=200 gets dramatically darker
-          vBase.convertTo(vText, -1, 1.5, -100); 
+          let illuminationMap = new cv.Mat();
+          cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
-          // Step G: Composite the Final V Channel (3-Layer Semantic Engine)
-          let vFinal = new cv.Mat(v.rows, v.cols, cv.CV_8UC1, new cv.Scalar(255)); // Layer 1: Pure White Paper
-          vBase.copyTo(vFinal, colorMask);                                         // Layer 2: Paste Solid Colors (Duck, Logos)
-          vText.copyTo(vFinal, textMask);                                          // Layer 3: Paste Pitch Black Text & Edges
+          // Step D: RGB Retinex Division & Mild Stretch
+          rgb = new cv.Mat();
+          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
+          let rgbPlanes = new cv.MatVector();
+          cv.split(rgb, rgbPlanes);
           
-          // Step H: Massive Saturation Boost to bring "Life" back
-          s.convertTo(s, -1, 1.8, 0);
+          for (let i = 0; i < 3; i++) {
+              let channel = rgbPlanes.get(i);
+              // Divide original color by the grayscale illumination map.
+              // This instantly removes all shadows and perfectly white-balances the paper.
+              cv.divide(channel, illuminationMap, channel, 255, -1);
+              
+              // Mild stretch to guarantee pure white paper (without destroying colors like v1.4 did)
+              channel.convertTo(channel, -1, 1.2, -30);
+              
+              rgbPlanes.set(i, channel);
+              channel.delete();
+          }
+          cv.merge(rgbPlanes, rgb);
           
-          // Re-merge planes
+          // Step E: Extreme Unsharp Mask (The Magic Color Engine)
+          // This drives text edges to pitch black and makes light blue text highly legible,
+          // while leaving solid colors (like the duck) completely undisturbed!
+          blurred = new cv.Mat();
+          cv.GaussianBlur(rgb, blurred, new cv.Size(0, 0), 2);
+          sharp = new cv.Mat();
+          cv.addWeighted(rgb, 2.5, blurred, -1.5, 0, sharp);
+          
+          // Step F: Final Vibrancy Boost
+          hsv = new cv.Mat();
+          cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
+          hsvPlanes = new cv.MatVector();
+          cv.split(hsv, hsvPlanes);
+          s = hsvPlanes.get(1);
+          s.convertTo(s, -1, 1.3, 0); // 30% saturation boost for vibrant watercolors
           hsvPlanes.set(1, s);
-          hsvPlanes.set(2, vFinal);
           cv.merge(hsvPlanes, hsv);
           
-          // Convert back to RGB
-          let enhancedRgb = new cv.Mat();
+          enhancedRgb = new cv.Mat();
           cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
           
           // Add alpha channel back for canvas rendering
@@ -515,9 +525,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          rgb.delete(); hsv.delete(); hsvPlanes.delete(); h.delete(); s.delete(); v.delete();
-          vDownscaled.delete(); vBg.delete(); vBase.delete(); textMask.delete(); 
-          colorMask.delete(); maskKernel.delete(); vText.delete(); vFinal.delete(); 
+          grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
+          sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
           enhancedRgb.delete(); finalRgba.delete();
           
           resolve();
