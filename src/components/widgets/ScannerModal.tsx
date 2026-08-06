@@ -444,20 +444,23 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           // --------------------------------------------------------------------
           */
 
-          // Step C: SMOOTH Grayscale Illumination Map
+
+          // Step C: Grayscale Illumination Map (The v1.4 Anchor)
           gray = new cv.Mat();
           cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
           
           let grayDownscaled = new cv.Mat();
           cv.resize(gray, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
-          // Massive Gaussian Blur (51x51) ensures absolutely no "stains" or halos around phone shadows
-          cv.GaussianBlur(grayDownscaled, grayDownscaled, new cv.Size(51, 51), 0);
+          // Median Blur erases text and finds the true paper background (even in deep phone shadows)
+          cv.medianBlur(grayDownscaled, grayDownscaled, 21);
           
           let illuminationMap = new cv.Mat();
           cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
-          // --- Color Protection Engine ---
+          // --- NEW: Color Protection Engine ---
+          // Prevent RGB Retinex from turning dark/solid colors into neon by 
+          // raising the illumination map floor based on local saturation.
           let rgbForMask = new cv.Mat();
           cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
           let hsvForMask = new cv.Mat();
@@ -466,13 +469,13 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.split(hsvForMask, hsvPlanesForMask);
           let sMap = hsvPlanesForMask.get(1);
           
-          // Protect colors from Retinex (bg = bg + 0.5 * S)
+          // illuminationMap = illuminationMap + 0.5 * Saturation
           cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
           
           rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
           // ------------------------------------
           
-          // Step D: RGB Retinex Division & Gentle Stretch
+          // Step D: RGB Retinex Division & Mild Stretch
           let rgb = new cv.Mat();
           cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
           let rgbPlanes = new cv.MatVector();
@@ -480,35 +483,33 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           for (let i = 0; i < 3; i++) {
               let channel = rgbPlanes.get(i);
+              // Divide original color by the grayscale illumination map.
+              // This instantly removes all shadows and perfectly white-balances the paper.
               cv.divide(channel, illuminationMap, channel, 255, -1);
               
-              // Gentle stretch to preserve light grays (multiply by 1.05, no subtraction)
-              channel.convertTo(channel, -1, 1.05, 0);
+              // Mild stretch to guarantee pure white paper (without destroying colors like v1.4 did)
+              channel.convertTo(channel, -1, 1.2, -30);
               
               rgbPlanes.set(i, channel);
               channel.delete();
           }
           cv.merge(rgbPlanes, rgb);
           
-          // Step E: Grain Removal (Smoothing)
-          // A 3x3 Median Blur removes print dots and camera noise without blurring text edges
-          cv.medianBlur(rgb, rgb, 3);
-          
-          // Step F: Targeted Unsharp Mask
-          // Because grain is removed, this will ONLY sharpen real edges (text and contours)
+          // Step E: Extreme Unsharp Mask (The Magic Color Engine)
+          // This drives text edges to pitch black and makes light blue text highly legible,
+          // while leaving solid colors (like the duck) completely undisturbed!
           blurred = new cv.Mat();
           cv.GaussianBlur(rgb, blurred, new cv.Size(0, 0), 2);
           let sharp = new cv.Mat();
-          // Reduced aggression from 2.5/-1.5 to 1.7/-0.7 to avoid "crunchy" artifacts and preserve light grays
-          cv.addWeighted(rgb, 1.7, blurred, -0.7, 0, sharp);
+          cv.addWeighted(rgb, 2.5, blurred, -1.5, 0, sharp);
           
-          // Step G: Final Vibrancy Boost
+          // Step F: Final Vibrancy Boost
           let hsv = new cv.Mat();
           cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
           let hsvPlanes = new cv.MatVector();
           cv.split(hsv, hsvPlanes);
           let s = hsvPlanes.get(1);
-          s.convertTo(s, -1, 1.2, 0); // 20% boost (reduced from 30% to keep it natural)
+          s.convertTo(s, -1, 1.3, 0); // 30% saturation boost for vibrant watercolors
           hsvPlanes.set(1, s);
           cv.merge(hsvPlanes, hsv);
           
