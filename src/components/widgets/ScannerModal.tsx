@@ -465,7 +465,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.resize(v, vDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
           // Median Blur perfectly erases text without bleeding colors
-          cv.medianBlur(vDownscaled, vDownscaled, 21);
+          cv.medianBlur(vDownscaled, vDownscaled, 17); // Back to v1.4 kernel size
           
           let vBg = new cv.Mat();
           cv.resize(vDownscaled, vBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -474,32 +474,34 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let vCorrected = new cv.Mat();
           cv.divide(v, vBg, vCorrected, 255, -1);
           
-          // Step E: Enhance Contrast (Darken text naturally) and Boost Saturation
-          // Darken midtones to make text pitch black, while paper stays white
-          vCorrected.convertTo(vCorrected, -1, 1.4, -40);
+          // Step E: Enhance Contrast (The v1.4 "Anchor" Constants)
+          // The user specifically requested returning to the v1.4 anchor.
+          // Alpha=1.8, Beta=-120 guarantees pitch black text and pure white paper.
+          vCorrected.convertTo(vCorrected, -1, 1.8, -120);
           
-          // Boost saturation to make colors pop (Magic Color effect)
-          s.convertTo(s, -1, 1.4, 0);
+          // Step F: "4K" Sharpness (Unsharp Mask on V channel)
+          // Sharpening the V channel before merging prevents color fringing on text
+          let vBlurred = new cv.Mat();
+          cv.GaussianBlur(vCorrected, vBlurred, new cv.Size(0, 0), 2);
+          let vSharp = new cv.Mat();
+          cv.addWeighted(vCorrected, 1.5, vBlurred, -0.5, 0, vSharp);
+          
+          // Step G: Massive Saturation Boost (Restores faint watercolors like the pink curtain)
+          // 1.8x boost ensures colors POP like CamScanner's Magic Color
+          s.convertTo(s, -1, 1.8, 0);
           
           // Re-merge planes
           hsvPlanes.set(1, s);
-          hsvPlanes.set(2, vCorrected);
+          hsvPlanes.set(2, vSharp);
           cv.merge(hsvPlanes, hsv);
           
           // Convert back to RGB
           let enhancedRgb = new cv.Mat();
           cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
           
-          // Step F: "4K" Sharpness (Unsharp Mask)
-          let blurredColor = new cv.Mat();
-          cv.GaussianBlur(enhancedRgb, blurredColor, new cv.Size(0, 0), 2);
-          let sharpenedColor = new cv.Mat();
-          // Unsharp mask naturally drives high-contrast text edges to 0 (pitch black)
-          cv.addWeighted(enhancedRgb, 1.5, blurredColor, -0.5, 0, sharpenedColor);
-          
           // Add alpha channel back for canvas rendering
           let finalRgba = new cv.Mat();
-          cv.cvtColor(sharpenedColor, finalRgba, cv.COLOR_RGB2RGBA);
+          cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
           
           cv.imshow(canvas, finalRgba);
           setColorSnapshot(canvas.toDataURL('image/jpeg', 0.9));
@@ -510,7 +512,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
           rgb.delete(); hsv.delete(); hsvPlanes.delete(); h.delete(); s.delete(); v.delete();
           vDownscaled.delete(); vBg.delete(); vCorrected.delete(); enhancedRgb.delete();
-          blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
+          vBlurred.delete(); vSharp.delete(); finalRgba.delete();
           
           resolve();
 

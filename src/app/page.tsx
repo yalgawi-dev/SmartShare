@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v2.0 - מנוע HSV מקצועי (Expert Color Enhancement)
+        v2.1 - שילוב מנצח (HSV + v1.4 Anchor)
       </div>
     </div>
   );
