@@ -458,6 +458,23 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           let illuminationMap = new cv.Mat();
           cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
+          // --- NEW: Color Protection Engine ---
+          // Prevent RGB Retinex from turning dark/solid colors into neon by 
+          // raising the illumination map floor based on local saturation.
+          let rgbForMask = new cv.Mat();
+          cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
+          let hsvForMask = new cv.Mat();
+          cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
+          let hsvPlanesForMask = new cv.MatVector();
+          cv.split(hsvForMask, hsvPlanesForMask);
+          let sMap = hsvPlanesForMask.get(1);
+          
+          // illuminationMap = illuminationMap + 0.5 * Saturation
+          cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
+          
+          rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
+          // ------------------------------------
+          
           // Step D: RGB Retinex Division & Mild Stretch
           let rgb = new cv.Mat();
           cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
