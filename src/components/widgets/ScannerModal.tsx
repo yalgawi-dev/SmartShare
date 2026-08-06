@@ -35,6 +35,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [mode, setMode] = useState<'bw' | 'color' | 'original'>('bw');
   const [torchOn, setTorchOn] = useState(false);
   const [zoom, setZoom] = useState(1.0);
+  const [thicknessLevel, setThicknessLevel] = useState(0.5);
   
   // Load saved zoom on mount
   useEffect(() => {
@@ -444,77 +445,100 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           // --------------------------------------------------------------------
           */
 
-
-          // Step C: Grayscale Illumination Map (The v1.4 Anchor)
-          gray = new cv.Mat();
-          cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
+          // ==========================================
+          // V5 ENGINE: SEMANTIC LAYERING & THICKNESS
+          // ==========================================
           
+          let rgb = new cv.Mat();
+          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
+          
+          // --- 1. Find Global Paper Color (Base Canvas) ---
+          let tiny = new cv.Mat();
+          cv.resize(rgb, tiny, new cv.Size(10, 10));
+          let pixels = [];
+          for(let i=0; i<100; i++) {
+              let r = tiny.data[i*3]; let g = tiny.data[i*3+1]; let b = tiny.data[i*3+2];
+              let lum = 0.299*r + 0.587*g + 0.114*b;
+              pixels.push({r, g, b, lum});
+          }
+          pixels.sort((a,b) => b.lum - a.lum); // sort descending by luminance
+          
+          // Take the 10th brightest pixel (90th percentile) to avoid glare
+          let baseR = pixels[10].r; let baseG = pixels[10].g; let baseB = pixels[10].b;
+          
+          // Snap to white if it's very bright and low saturation (standard paper)
+          let maxRGB = Math.max(baseR, baseG, baseB);
+          let minRGB = Math.min(baseR, baseG, baseB);
+          let sat = (maxRGB === 0) ? 0 : (maxRGB - minRGB) / maxRGB;
+          if (maxRGB > 200 && sat < 0.15) {
+              baseR = 255; baseG = 255; baseB = 255;
+          }
+          tiny.delete();
+          
+          // --- 2. Build Illumination Map (v4.1 Anchor) ---
+          let gray_map = new cv.Mat();
+          cv.cvtColor(dst, gray_map, cv.COLOR_RGBA2GRAY);
           let grayDownscaled = new cv.Mat();
-          cv.resize(gray, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-          
-          // Median Blur erases text and finds the true paper background (even in deep phone shadows)
-          cv.medianBlur(grayDownscaled, grayDownscaled, 21);
-          
+          cv.resize(gray_map, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+          cv.medianBlur(grayDownscaled, grayDownscaled, 21); // Median perfectly follows deep shadows
           let illuminationMap = new cv.Mat();
           cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
           
-          // --- NEW: Color Protection Engine ---
-          // Prevent RGB Retinex from turning dark/solid colors into neon by 
-          // raising the illumination map floor based on local saturation.
-          let rgbForMask = new cv.Mat();
-          cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
           let hsvForMask = new cv.Mat();
-          cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
+          cv.cvtColor(rgb, hsvForMask, cv.COLOR_RGB2HSV);
           let hsvPlanesForMask = new cv.MatVector();
           cv.split(hsvForMask, hsvPlanesForMask);
           let sMap = hsvPlanesForMask.get(1);
           
-          // illuminationMap = illuminationMap + 0.5 * Saturation
+          // Protect colors from being washed out
           cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
+          hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
           
-          rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
-          // ------------------------------------
-          
-          // Step D: RGB Retinex Division & Mild Stretch
-          let rgb = new cv.Mat();
-          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
+          // --- 3. Flattening (Shadow Eradication) ---
           let rgbPlanes = new cv.MatVector();
           cv.split(rgb, rgbPlanes);
-          
           for (let i = 0; i < 3; i++) {
               let channel = rgbPlanes.get(i);
-              // Divide original color by the grayscale illumination map.
-              // This instantly removes all shadows and perfectly white-balances the paper.
               cv.divide(channel, illuminationMap, channel, 255, -1);
-              
-              // Mild stretch to guarantee pure white paper (without destroying colors like v1.4 did)
-              channel.convertTo(channel, -1, 1.2, -30);
-              
+              channel.convertTo(channel, -1, 1.1, -10); // Mild contrast
               rgbPlanes.set(i, channel);
               channel.delete();
           }
           cv.merge(rgbPlanes, rgb);
+          gray_map.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgbPlanes.delete();
           
-          // Step E: Extreme Unsharp Mask (The Magic Color Engine)
-          // This drives text edges to pitch black and makes light blue text highly legible,
-          // while leaving solid colors (like the duck) completely undisturbed!
-          blurred = new cv.Mat();
-          cv.GaussianBlur(rgb, blurred, new cv.Size(0, 0), 2);
-          let sharp = new cv.Mat();
-          cv.addWeighted(rgb, 2.5, blurred, -1.5, 0, sharp);
+          // --- 4. Grain Removal & Text Thickening ---
+          // Smooth the flattened image completely (no grain!)
+          cv.medianBlur(rgb, rgb, 3);
           
-          // Step F: Final Vibrancy Boost
-          let hsv = new cv.Mat();
-          cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
-          let hsvPlanes = new cv.MatVector();
-          cv.split(hsv, hsvPlanes);
-          let s = hsvPlanes.get(1);
-          s.convertTo(s, -1, 1.3, 0); // 30% saturation boost for vibrant watercolors
-          hsvPlanes.set(1, s);
-          cv.merge(hsvPlanes, hsv);
+          // Erode acts as a text thickener! Dark areas (text) expand.
+          if (thicknessLevel > 0) {
+              let eroded = new cv.Mat();
+              let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+              cv.erode(rgb, eroded, kernel);
+              // Blend based on slider: 0 = original, 1 = fully thickened
+              cv.addWeighted(eroded, thicknessLevel, rgb, 1.0 - thicknessLevel, 0, rgb);
+              eroded.delete(); kernel.delete();
+          }
           
-          let enhancedRgb = new cv.Mat();
-          cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
+          // --- 5. Semantic Compositing (Tint Base Canvas) ---
+          if (baseR < 255 || baseG < 255 || baseB < 255) {
+              let baseCanvas = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC3, new cv.Scalar(baseR, baseG, baseB));
+              let floatFlat = new cv.Mat();
+              rgb.convertTo(floatFlat, cv.CV_32FC3, 1.0/255.0);
+              let floatBase = new cv.Mat();
+              baseCanvas.convertTo(floatBase, cv.CV_32FC3, 1.0);
+              
+              let floatResult = new cv.Mat();
+              cv.multiply(floatFlat, floatBase, floatResult);
+              floatResult.convertTo(rgb, cv.CV_8UC3, 1.0);
+              
+              baseCanvas.delete(); floatFlat.delete(); floatBase.delete(); floatResult.delete();
+          }
+          
+          // Final Output
+          let enhancedRgb = rgb.clone();
+          rgb.delete();
           
           // Add alpha channel back for canvas rendering
           let finalRgba = new cv.Mat();
@@ -693,6 +717,20 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
         {step === 'review' && (
           <>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1rem' }}>
+              <label style={{ color: 'white', fontSize: '0.8rem', marginBottom: '0.5rem' }}>עובי אותיות (טקסט): {thicknessLevel}</label>
+              <input 
+                type="range" 
+                min="0" max="1" step="0.1" 
+                value={thicknessLevel} 
+                onChange={(e) => {
+                  setThicknessLevel(parseFloat(e.target.value));
+                  // Auto-reprocess when slider changes
+                  setTimeout(handleCropComplete, 50);
+                }}
+                style={{ width: '80%' }}
+              />
+            </div>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => setMode('original')} 
