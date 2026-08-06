@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v1.4 - מפת הארה אכרומטית (Achromatic Illumination)
+        v1.5 - קודקס הזהב (Global Contrast Stretch + Noise Reduction)
       </div>
     </div>
   );

@@ -429,12 +429,16 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
           
           // 4. Industry-Standard Color Enhancement (CamScanner "Magic Color" style)
+          // Step A.0: Pre-processing Noise Reduction
+          // Apply a small median blur to smooth out camera noise and make colors perfectly homogeneous before processing.
+          // A 3x3 median blur preserves sharp text edges while completely flattening paper noise.
+          let rgb = new cv.Mat();
+          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
+          cv.medianBlur(rgb, rgb, 3);
+          
           // Step A: Extract Achromatic Illumination Map (Grayscale)
           // IMPORTANT: We MUST compute the background map on grayscale. If we use RGB, colored thick areas (like yellow logos)
           // will bleed into the background map and get erased upon division. A grayscale map preserves ALL chroma perfectly!
-          let rgb = new cv.Mat();
-          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-          
           let downscaledGray = new cv.Mat();
           cv.resize(gray, downscaledGray, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
           
@@ -453,18 +457,22 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.divide(rgb, bg, shadowFree, 255, -1);
           
           // Step C: Enhance Contrast and Restore Ink Darkness
-          // 1. Overall slight boost to ensure paper is pure white and colors are vibrant
-          shadowFree.convertTo(shadowFree, -1, 1.1, -10);
+          // We use a strong global linear contrast stretch (Alpha=1.8, Beta=-120)
+          // This maps everything >208 to pure 255 (perfectly clean white paper) 
+          // and maps everything <66 to pure 0 (bold, dark text).
+          shadowFree.convertTo(shadowFree, -1, 1.8, -120);
           
-          // 2. Selectively darken ink using the flawless B&W mask!
-          // The bw image is 0 on ink and 255 on paper. We invert it so ink is 255.
-          let inkMask = new cv.Mat();
-          cv.bitwise_not(bw, inkMask);
-          
-          // Subtract 100 from RGB values only where there is ink. 
-          // This guarantees dark, legible text without washing out, while leaving paper and highlights untouched!
-          let darkenAmount = new cv.Mat(shadowFree.rows, shadowFree.cols, shadowFree.type(), new cv.Scalar(100, 100, 100, 0));
-          cv.subtract(shadowFree, darkenAmount, shadowFree, inkMask);
+          /* 
+          // --- FALLBACK BASE (v1.3 Masked Ink Restore) ---
+          // Saved per user request in case we want to revert to mask-based darkening.
+          // shadowFree.convertTo(shadowFree, -1, 1.1, -10);
+          // let inkMask = new cv.Mat();
+          // cv.bitwise_not(bw, inkMask);
+          // let darkenAmount = new cv.Mat(shadowFree.rows, shadowFree.cols, shadowFree.type(), new cv.Scalar(100, 100, 100, 0));
+          // cv.subtract(shadowFree, darkenAmount, shadowFree, inkMask);
+          // inkMask.delete(); darkenAmount.delete();
+          // -----------------------------------------------
+          */
           
           // Step D: "4K" Sharpness (Unsharp Mask)
           let blurredColor = new cv.Mat();
@@ -485,7 +493,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
           darkMask.delete(); blackMat.delete(); bwRgba.delete();
           rgb.delete(); downscaledGray.delete(); bgGray.delete(); bg.delete(); shadowFree.delete();
-          inkMask.delete(); darkenAmount.delete();
           blurredColor.delete(); sharpenedColor.delete(); finalRgba.delete();
           
           resolve();
