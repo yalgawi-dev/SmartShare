@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4.2 - מנוע AI OCR (Gemini) - תיקון 413 Payload Too Large לסמארטפונים
+        v4.4.3 - החלת כיווץ תמונות גלובאלי על סורק החשבוניות
       </div>
     </div>
   );

@@ -62,9 +62,18 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
       const { uploadImageToStorage, db } = await import('../../lib/firebase');
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
+      const { compressImage } = await import('../../utils/imageOptimizer');
+      
+      // Convert base64 dataUrl to File object for the compressor
+      const res = await fetch(imgUrl);
+      const blob = await res.blob();
+      const file = new File([blob], "invoice.jpg", { type: "image/jpeg" });
+      
+      // Globally compress using the standard utility (max 1200px, 80% quality)
+      const compressedUrl = await compressImage(file, 1200, 1200, 0.8);
       
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
-      const cloudUrl = await uploadImageToStorage(imgUrl, filename);
+      const cloudUrl = await uploadImageToStorage(compressedUrl, filename);
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
       // Pass the cloudUrl instead of the base64 string to avoid Vercel 4.5MB Payload limit
