@@ -33,16 +33,22 @@ export async function POST(request: Request) {
     }
 
     const prompt = `
-      You are an expert Israeli accountant AI. Your job is to extract exact billing data from the provided image of an Israeli invoice/receipt (חשבונית מס / קבלה).
+      You are an expert Israeli accountant AI. Extract exact billing data from this Israeli invoice/receipt.
       
-      Extract the following fields and return ONLY a valid JSON object without markdown formatting. If a field cannot be found with high confidence, set its value to null.
-      
+      RULES FOR EXTRACTION:
+      1. vendor: The name of the business (ספק). Look at the top logo or biggest text. Ignore legal prefixes like 'עוסק מורשה' or 'ח.פ.'.
+      2. amount: The FINAL total amount to pay (סה"כ לתשלום). Do NOT extract sub-total or VAT amount. Return ONLY the number.
+      3. date: The invoice issue date in YYYY-MM-DD format (תאריך חשבונית). CRITICAL: Ignore 'Pay by' (לתשלום עד) or 'Value date' (תאריך ערך).
+      4. vatNumber: The 9-digit Osek Murshe (עוסק מורשה / ח.פ).
+      5. invoiceNumber: The invoice or receipt number (מספר חשבונית / מס' קבלה).
+
+      Return ONLY a valid raw JSON object exactly like this template (use null if not found):
       {
-        "vendor": "String. The name of the business (ספק). Look at the top logo or the biggest text at the header. Do NOT include legal prefixes/suffixes like 'עוסק מורשה' or 'ח.פ.', just the pure business name.",
-        "amount": "Number (float). The FINAL total amount to pay (סה\"כ לתשלום / סך הכל / לתשלום). Look for the highest monetary value usually at the bottom. Do NOT confuse with sub-total (סה\"כ לפני מע\"מ), VAT amount (סכום מע\"מ), or phone numbers. Return ONLY the number without currency symbols.",
-        "date": "String in YYYY-MM-DD format. The date the invoice was issued (תאריך חשבונית / תאריך הפקה / תאריך). CRITICAL: Do NOT extract the 'Pay by' date (לתשלום עד) or 'Value date' (תאריך ערך)!",
-        "vatNumber": "String. The 9-digit Osek Murshe (עוסק מורשה) or Het Pe (ח.פ) number. It is usually 9 digits long.",
-        "invoiceNumber": "String. The invoice or receipt number (מספר חשבונית / מס' קבלה). Usually located at the top near the date."
+        "vendor": "string or null",
+        "amount": 123.45,
+        "date": "2024-01-01",
+        "vatNumber": "123456789",
+        "invoiceNumber": "string or null"
       }
     `;
 
@@ -50,12 +56,19 @@ export async function POST(request: Request) {
       model: 'gemini-2.5-flash',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
-      ]
+      ],
+      config: {
+        responseMimeType: "application/json"
+      }
     });
 
-    const text = response.text || '';
-    const jsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const data = JSON.parse(jsonStr);
+    const text = response.text || '{}';
+    let data = {};
+    try {
+      data = JSON.parse(text);
+    } catch(e) {
+      console.error("JSON parse error:", e, text);
+    }
 
     return NextResponse.json(data);
   } catch (error) {
