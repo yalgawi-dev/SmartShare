@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4.7 - אופטימיזציית מנוע ראייה (רזולוציה וצבע) 
+        v4.4.8 - תיקון ליבה ברינדור נתוני AI
       </div>
     </div>
   );

@@ -86,6 +86,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       if (response.ok) {
         const data = await response.json();
         setOcrData(data);
+        alert(`DEBUG AI RESPONSE:\n${JSON.stringify(data, null, 2)}`);
         
         // 3. Track Usage in Firebase
         try {
@@ -534,7 +535,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               <button onClick={() => setIsAddingExpense(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>✕</button>
             </div>
             
-            <form onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
+            <form key={scannedImage || 'new-expense'} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>שם העסק / תיאור</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>

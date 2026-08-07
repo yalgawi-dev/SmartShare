@@ -58,7 +58,7 @@ export async function POST(request: Request) {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-1.5-pro',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ],
