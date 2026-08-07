@@ -10,8 +10,8 @@ export async function POST(request: Request) {
     }
 
     if (!process.env.GEMINI_API_KEY) {
-      // Gracefully tell the client to use the local Tesseract OCR instead of failing
-      return NextResponse.json({ useClientFallback: true });
+      console.error("GEMINI_API_KEY is missing from environment variables.");
+      return NextResponse.json({ error: 'AI OCR is not configured on the server.' }, { status: 500 });
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -33,15 +33,17 @@ export async function POST(request: Request) {
     }
 
     const prompt = `
-      You are an expert Israeli accountant. Analyze this invoice/receipt.
-      Extract the following information and return ONLY a valid JSON object without markdown formatting:
+      You are an expert Israeli accountant AI. Your job is to extract exact billing data from the provided image of an Israeli invoice/receipt (חשבונית מס / קבלה).
+      
+      Extract the following fields and return ONLY a valid JSON object without markdown formatting. If a field cannot be found with high confidence, set its value to null.
+      
       {
-        "vendor": "Name of the business. Do not include the words 'עוסק מורשה' or 'ח.פ.', just the pure business name. Find the name usually above the Osek Murshe number.",
-        "amount": Total final amount to pay (number only, no currency symbol. Make sure it's the total including VAT (סה"כ לתשלום) and not a phone number),
-        "date": "Date of the invoice in YYYY-MM-DD format (if found)",
-        "vatNumber": "The 9-digit Osek Murshe (עוסק מורשה) or Het Pe (ח.פ) number"
+        "vendor": "String. The name of the business (ספק). Look at the top logo or the biggest text at the header. Do NOT include legal prefixes/suffixes like 'עוסק מורשה' or 'ח.פ.', just the pure business name.",
+        "amount": "Number (float). The FINAL total amount to pay (סה\"כ לתשלום / סך הכל / לתשלום). Look for the highest monetary value usually at the bottom. Do NOT confuse with sub-total (סה\"כ לפני מע\"מ), VAT amount (סכום מע\"מ), or phone numbers. Return ONLY the number without currency symbols.",
+        "date": "String in YYYY-MM-DD format. The date the invoice was issued (תאריך חשבונית / תאריך הפקה / תאריך). CRITICAL: Do NOT extract the 'Pay by' date (לתשלום עד) or 'Value date' (תאריך ערך)!",
+        "vatNumber": "String. The 9-digit Osek Murshe (עוסק מורשה) or Het Pe (ח.פ) number. It is usually 9 digits long.",
+        "invoiceNumber": "String. The invoice or receipt number (מספר חשבונית / מס' קבלה). Usually located at the top near the date."
       }
-      If a field is not found, leave it as null.
     `;
 
     const response = await ai.models.generateContent({

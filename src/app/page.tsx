@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.3 - הגנת צבע מתמטית + סינון בילטרלי (Bilateral Grain Eliminator)
+        v4.4 - מנוע AI OCR (Gemini) + בקרת שימושים (Firebase)
       </div>
     </div>
   );

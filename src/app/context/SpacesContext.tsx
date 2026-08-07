@@ -23,6 +23,8 @@ export interface Invoice {
   hasAttachment: boolean; 
   attachmentUrl?: string;
   payerId?: string;
+  vatNumber?: string;
+  invoiceNumber?: string;
 }
 
 export interface Comment {

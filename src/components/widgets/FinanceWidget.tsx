@@ -15,7 +15,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string}>({});
+  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, vatNumber?: string, invoiceNumber?: string}>({});
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
@@ -34,11 +34,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       if (initialScannedImage) {
         setIsAnalyzing(true);
         try {
-          const { extractInvoiceData } = await import('../../utils/ocrUtils');
-          const data = await extractInvoiceData(initialScannedImage);
-          setOcrData(data);
+          const response = await fetch('/api/ocr', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl: initialScannedImage })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setOcrData(data);
+          }
         } catch (e) {
-          console.error("Failed to extract OCR data", e);
+          console.error("Failed to process cloud OCR", e);
         }
         setScannedImage(initialScannedImage);
         setIsAnalyzing(false);
@@ -54,7 +60,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     
     try {
       // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
-      const { uploadImageToStorage } = await import('../../lib/firebase');
+      const { uploadImageToStorage, db } = await import('../../lib/firebase');
+      const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
+      
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       const cloudUrl = await uploadImageToStorage(imgUrl, filename);
       
@@ -65,33 +73,38 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         body: JSON.stringify({ imageUrl: ocrDataUrl || imgUrl })
       });
       
-      let ocrSucceeded = false;
       if (response.ok) {
         const data = await response.json();
-        if (data.useClientFallback) {
-          console.log("No Gemini API key found, falling back to local Tesseract...");
-          // Fallback to local Free OCR
-          const { extractInvoiceData } = await import('../../utils/ocrUtils');
-          const localData = await extractInvoiceData(ocrDataUrl || imgUrl);
-          setOcrData(localData);
-          ocrSucceeded = true;
-        } else {
-          setOcrData(data);
-          ocrSucceeded = true;
+        setOcrData(data);
+        
+        // 3. Track Usage in Firebase
+        try {
+          if (user?.id) {
+            const userStatsRef = doc(db, 'users', user.id, 'stats', 'ocr');
+            const userDoc = await getDoc(userStatsRef);
+            if (userDoc.exists()) {
+              await updateDoc(userStatsRef, { scans: increment(1), lastScan: new Date().toISOString() });
+            } else {
+              await setDoc(userStatsRef, { scans: 1, lastScan: new Date().toISOString() });
+            }
+          }
+          const globalStatsRef = doc(db, 'system', 'ocr_stats');
+          const globalDoc = await getDoc(globalStatsRef);
+          if (globalDoc.exists()) {
+            await updateDoc(globalStatsRef, { totalScans: increment(1) });
+          } else {
+            await setDoc(globalStatsRef, { totalScans: 1 });
+          }
+        } catch (trackingError) {
+          console.error("Failed to track OCR usage", trackingError);
         }
+
       } else {
         const err = await response.json();
         console.error("Cloud OCR API Error:", err);
       }
 
-      if (!ocrSucceeded) {
-        // Ultimate fallback if fetch failed completely
-        const { extractInvoiceData } = await import('../../utils/ocrUtils');
-        const localData = await extractInvoiceData(ocrDataUrl || imgUrl);
-        setOcrData(localData);
-      }
-
-      // 3. Save the Cloud URL to state instead of the massive local base64 string
+      // 4. Save the Cloud URL to state instead of the massive local base64 string
       setScannedImage(cloudUrl);
     } catch (e) {
       console.error("Failed to process cloud upload/OCR", e);
@@ -171,6 +184,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const dateVal = (formData.get('date') as string);
     const date = dateVal ? new Date(dateVal).toLocaleDateString('he-IL') : new Date().toLocaleDateString('he-IL');
     const note = (formData.get('note') as string) || '';
+    const vatNumber = (formData.get('vatNumber') as string) || '';
+    const invoiceNumber = (formData.get('invoiceNumber') as string) || '';
 
     addInvoice(space.id, {
       amount,
@@ -180,6 +195,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       date,
       status: 'pending',
       note,
+      vatNumber,
+      invoiceNumber,
       approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
       approvalsReceived: 0,
       vatRate: space.settings?.defaultVatRate || 18,
@@ -522,6 +539,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>תאריך</label>
                   <input required name="date" type="date" defaultValue={ocrData.date || new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>מס' חשבונית (אופציונלי)</label>
+                  <input name="invoiceNumber" defaultValue={ocrData.invoiceNumber || ''} placeholder="מספר מסמך" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
+                </div>
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
+                  <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>ח.פ / ע.מ (אופציונלי)</label>
+                  <input name="vatNumber" defaultValue={ocrData.vatNumber || ''} placeholder="מספר תאגיד" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
                 </div>
               </div>
               
