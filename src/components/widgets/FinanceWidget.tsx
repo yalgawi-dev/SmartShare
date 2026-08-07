@@ -69,8 +69,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       const blob = await res.blob();
       const file = new File([blob], "invoice.jpg", { type: "image/jpeg" });
       
-      // Globally compress using the standard utility (max 1200px, 80% quality)
-      const compressedUrl = await compressImage(file, 1200, 1200, 0.8);
+      // Globally compress using the standard utility (max 1200px, 95% quality so we don't destroy text for AI!)
+      const compressedUrl = await compressImage(file, 1500, 1500, 0.95);
       
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       const cloudUrl = await uploadImageToStorage(compressedUrl, filename);

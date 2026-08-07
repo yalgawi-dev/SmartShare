@@ -24,6 +24,11 @@ export async function POST(request: Request) {
       inlineData = { data, mimeType };
     } else {
       const response = await fetch(imageUrl);
+      if (!response.ok) {
+         console.error("Failed to fetch Firebase image:", response.status, response.statusText);
+         const text = await response.text();
+         return NextResponse.json({ error: 'Failed to download image from cloud storage', debugStatus: response.status, debugText: text.substring(0, 200) }, { status: 400 });
+      }
       const arrayBuffer = await response.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
       inlineData = {

@@ -32,7 +32,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'color' | 'original'>('bw');
+  const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color'); // AI prefers color over stark B&W
   const [torchOn, setTorchOn] = useState(false);
   const [zoom, setZoom] = useState(1.0);
   
