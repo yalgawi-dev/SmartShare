@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4.9 - עקיפת חסימת התראות בדפדפן (PWA Debugging)
+        v4.5.0 - כלי אבחון למפתחים (Debug Mode)
       </div>
     </div>
   );

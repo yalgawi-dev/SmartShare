@@ -38,46 +38,35 @@ export async function POST(request: Request) {
     }
 
     const prompt = `
-      You are an expert Israeli accountant AI. Extract exact billing data from this Israeli invoice/receipt.
-      
-      RULES FOR EXTRACTION:
-      1. vendor: The name of the business (ספק). Look at the top logo or biggest text. Ignore legal prefixes like 'עוסק מורשה' or 'ח.פ.'.
-      2. amount: The FINAL total amount to pay (סה"כ לתשלום). Do NOT extract sub-total or VAT amount. Return ONLY the number.
-      3. date: The invoice issue date in YYYY-MM-DD format (תאריך חשבונית). CRITICAL: Ignore 'Pay by' (לתשלום עד) or 'Value date' (תאריך ערך).
-      4. vatNumber: The 9-digit Osek Murshe (עוסק מורשה / ח.פ).
-      5. invoiceNumber: The invoice or receipt number (מספר חשבונית / מס' קבלה).
-
-      Return ONLY a valid raw JSON object exactly like this template (use null if not found):
-      {
-        "vendor": "string or null",
-        "amount": 123.45,
-        "date": "2024-01-01",
-        "vatNumber": "123456789",
-        "invoiceNumber": "string or null"
-      }
+      Please read this Israeli invoice/receipt carefully.
+      Do not format as JSON. Just write down the raw text you see, specifically:
+      1. What is the name of the business (Vendor / ספק)?
+      2. What is the total amount to pay (סה"כ לתשלום)?
+      3. What is the date?
+      Just give me the raw answers so I can debug if you see the text properly.
     `;
 
     const response = await ai.models.generateContent({
       model: 'gemini-1.5-pro',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
-      ],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            vendor: { type: "STRING", description: "The name of the business/supplier. Ignore legal prefixes." },
-            amount: { type: "NUMBER", description: "The final total amount to pay (סה\"כ לתשלום)." },
-            date: { type: "STRING", description: "The invoice issue date in YYYY-MM-DD format." },
-            vatNumber: { type: "STRING", description: "The 9-digit Osek Murshe / Het Pe number." },
-            invoiceNumber: { type: "STRING", description: "The invoice or receipt number." }
-          }
-        }
-      }
+      ]
     });
 
-    const text = response.text || '{}';
+    const text = response.text || 'No text returned from Gemini.';
+    console.log("Raw Gemini Output:", text);
+    
+    // We mock the data so the UI doesn't crash, but we pass the raw text in the debug field
+    return NextResponse.json({ 
+      vendor: "RAW DEBUG MODE", 
+      amount: 1, 
+      date: "2000-01-01" 
+    }, {
+      // Use headers to send the raw debug text without failing the JSON parse on the client
+      headers: {
+        'x-debug-raw-text': encodeURIComponent(text)
+      }
+    });
     let data: any = {};
     try {
       data = JSON.parse(text);

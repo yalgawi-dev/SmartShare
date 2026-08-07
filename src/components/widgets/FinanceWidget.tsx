@@ -17,6 +17,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, vatNumber?: string, invoiceNumber?: string}>({});
   const [ocrDebugMessage, setOcrDebugMessage] = useState<string | null>(null);
+  const [testApiResult, setTestApiResult] = useState<string | null>(null);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
@@ -85,9 +86,12 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       });
       
       if (response.ok) {
+        const rawTextEncoded = response.headers.get('x-debug-raw-text');
+        const rawText = rawTextEncoded ? decodeURIComponent(rawTextEncoded) : "No raw text returned.";
+        
         const data = await response.json();
         setOcrData(data);
-        setOcrDebugMessage(`DEBUG AI SUCCESS:\n${JSON.stringify(data, null, 2)}`);
+        setOcrDebugMessage(`RAW AI TEXT (NOT JSON):\n\n${rawText}`);
         
         // 3. Track Usage in Firebase
         try {
@@ -538,8 +542,44 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             
             <form key={scannedImage || 'new-expense'} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
               
+              {/* DIAGNOSTIC TOOLS - TEMPORARY */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f0f9ff', borderRadius: '12px', border: '1px solid #bae6fd' }}>
+                <strong style={{ fontSize: '0.9rem', color: '#0369a1' }}>כלי אבחון למפתחים (לבדוק למה השדות ריקים):</strong>
+                
+                <button type="button" onClick={async () => {
+                  setTestApiResult('בודק חיבור לשרת...');
+                  try {
+                    const res = await fetch('/api/ocr-test');
+                    const data = await res.json();
+                    setTestApiResult(JSON.stringify(data, null, 2));
+                  } catch (e: any) {
+                    setTestApiResult(`שגיאת רשת: ${e.message}`);
+                  }
+                }} style={{ padding: '0.5rem', background: '#38bdf8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  1. בדוק חיבור ל-Gemini API
+                </button>
+                {testApiResult && <pre style={{ fontSize: '0.7rem', background: 'white', padding: '0.5rem', borderRadius: '4px', overflowX: 'auto', margin: 0, direction: 'ltr' }}>{testApiResult}</pre>}
+                
+                {scannedImage && (
+                  <button type="button" onClick={() => window.open(scannedImage, '_blank')} style={{ padding: '0.5rem', background: '#818cf8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                    2. צפה בתמונה שנשלחה ל-AI
+                  </button>
+                )}
+                
+                <button type="button" onClick={() => {
+                  setOcrData({
+                    vendor: "ספק דמה לבדיקה",
+                    amount: 999.99,
+                    date: "2024-12-31"
+                  });
+                  setScannedImage(`test-${Date.now()}`); // Force remount
+                }} style={{ padding: '0.5rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                  3. בדוק הזרקת נתונים לשדות
+                </button>
+              </div>
+
               {ocrDebugMessage && (
-                <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>
+                <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'ltr', textAlign: 'left' }}>
                   {ocrDebugMessage}
                 </div>
               )}
