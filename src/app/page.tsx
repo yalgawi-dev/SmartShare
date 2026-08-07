@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4.3 - החלת כיווץ תמונות גלובאלי על סורק החשבוניות
+        v4.4.4 - תיקון הגדרות דגם AI (Gemini 2.0 Flash)
       </div>
     </div>
   );
