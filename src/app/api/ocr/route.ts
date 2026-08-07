@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
 
+export const maxDuration = 60; // Allow up to 60 seconds on Vercel
+
 export async function POST(request: Request) {
   try {
     const { imageUrl } = await request.json();
@@ -47,7 +49,7 @@ export async function POST(request: Request) {
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-1.5-flash',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ]
