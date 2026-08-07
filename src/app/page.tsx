@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4.5 - תיקון הגדרות דגם AI (Gemini 1.5 Flash - יציב)
+        v4.4.6 - מערכת איסוף שגיאות עמוקה למנוע AI
       </div>
     </div>
   );

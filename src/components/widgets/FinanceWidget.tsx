@@ -112,12 +112,18 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       } else {
         const err = await response.json();
         console.error("Cloud OCR API Error:", err);
+        let msg = `שגיאה בשרת הפענוח: ${err.error || 'אנא נסה שוב מאוחר יותר.'}`;
+        if (err.debugRaw) msg += `\nמידע מהמודל: ${err.debugRaw}`;
+        if (err.debugMime) msg += `\nסוג קובץ: ${err.debugMime}`;
+        if (err.debugLength) msg += `\nגודל: ${err.debugLength} תווים`;
+        alert(msg);
       }
 
       // 4. Save the Cloud URL to state instead of the massive local base64 string
       setScannedImage(cloudUrl);
-    } catch (e) {
+    } catch (e: any) {
       console.error("Failed to process cloud upload/OCR", e);
+      alert(`תקלת תקשורת עם שרת הפענוח: ${e.message}`);
       setScannedImage(imgUrl); // Fallback to local
     }
     

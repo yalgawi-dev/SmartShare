@@ -58,16 +58,37 @@ export async function POST(request: Request) {
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ],
       config: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            vendor: { type: "STRING", description: "The name of the business/supplier. Ignore legal prefixes." },
+            amount: { type: "NUMBER", description: "The final total amount to pay (סה\"כ לתשלום)." },
+            date: { type: "STRING", description: "The invoice issue date in YYYY-MM-DD format." },
+            vatNumber: { type: "STRING", description: "The 9-digit Osek Murshe / Het Pe number." },
+            invoiceNumber: { type: "STRING", description: "The invoice or receipt number." }
+          }
+        }
       }
     });
 
     const text = response.text || '{}';
-    let data = {};
+    let data: any = {};
     try {
       data = JSON.parse(text);
+      // Validate that we didn't just get an empty object
+      if (!data.vendor && !data.amount && !data.date) {
+         console.warn("Gemini returned empty data:", text);
+         return NextResponse.json({ 
+           error: 'Gemini could not find any data in the image.', 
+           debugRaw: text, 
+           debugMime: inlineData?.mimeType, 
+           debugLength: inlineData?.data?.length 
+         }, { status: 400 });
+      }
     } catch(e) {
       console.error("JSON parse error:", e, text);
+      return NextResponse.json({ error: 'Failed to parse Gemini JSON', debugRaw: text }, { status: 400 });
     }
 
     return NextResponse.json(data);
