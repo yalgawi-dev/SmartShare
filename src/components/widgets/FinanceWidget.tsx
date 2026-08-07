@@ -67,10 +67,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       const cloudUrl = await uploadImageToStorage(imgUrl, filename);
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
+      // Pass the cloudUrl instead of the base64 string to avoid Vercel 4.5MB Payload limit
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: ocrDataUrl || imgUrl })
+        body: JSON.stringify({ imageUrl: cloudUrl })
       });
       
       if (response.ok) {
