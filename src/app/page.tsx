@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4 - מנוע AI OCR (Gemini) + בקרת שימושים (Firebase)
+        v4.4.1 - מנוע AI OCR (Gemini) + JSON Parsing
       </div>
     </div>
   );
