@@ -16,6 +16,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, vatNumber?: string, invoiceNumber?: string}>({});
+  const [ocrDebugMessage, setOcrDebugMessage] = useState<string | null>(null);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isEditingShares, setIsEditingShares] = useState(false);
@@ -86,7 +87,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       if (response.ok) {
         const data = await response.json();
         setOcrData(data);
-        alert(`DEBUG AI RESPONSE:\n${JSON.stringify(data, null, 2)}`);
+        setOcrDebugMessage(`DEBUG AI SUCCESS:\n${JSON.stringify(data, null, 2)}`);
         
         // 3. Track Usage in Firebase
         try {
@@ -117,14 +118,14 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         if (err.debugRaw) msg += `\nמידע מהמודל: ${err.debugRaw}`;
         if (err.debugMime) msg += `\nסוג קובץ: ${err.debugMime}`;
         if (err.debugLength) msg += `\nגודל: ${err.debugLength} תווים`;
-        alert(msg);
+        setOcrDebugMessage(msg);
       }
 
       // 4. Save the Cloud URL to state instead of the massive local base64 string
       setScannedImage(cloudUrl);
     } catch (e: any) {
       console.error("Failed to process cloud upload/OCR", e);
-      alert(`תקלת תקשורת עם שרת הפענוח: ${e.message}`);
+      setOcrDebugMessage(`תקלת תקשורת בסיסית: ${e.message}`);
       setScannedImage(imgUrl); // Fallback to local
     }
     
@@ -536,6 +537,13 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             </div>
             
             <form key={scannedImage || 'new-expense'} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
+              
+              {ocrDebugMessage && (
+                <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap' }}>
+                  {ocrDebugMessage}
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>שם העסק / תיאור</label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>

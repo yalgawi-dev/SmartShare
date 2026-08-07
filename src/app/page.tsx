@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.4.8 - תיקון ליבה ברינדור נתוני AI
+        v4.4.9 - עקיפת חסימת התראות בדפדפן (PWA Debugging)
       </div>
     </div>
   );
