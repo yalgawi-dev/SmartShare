@@ -34,28 +34,37 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   useEffect(() => {
     const processInitialScan = async () => {
       if (initialScannedImage) {
+        // Open the form immediately so the user can paste the key if they want to
+        setIsAddingExpense(true);
         setIsAnalyzing(true);
+        
         try {
+          // 1. Fix the Vercel payload limit for the global scanner by uploading to Firebase first
+          const { uploadImageToStorage } = await import('../../lib/firebase');
+          const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+          const cloudUrl = await uploadImageToStorage(initialScannedImage, filename);
+          
           const customKey = (window as any).customGeminiKey || undefined;
           const response = await fetch('/api/ocr', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: initialScannedImage, customKey })
+            body: JSON.stringify({ imageUrl: cloudUrl, customKey })
           });
           if (response.ok) {
             const data = await response.json();
             setOcrData(data);
+          } else {
+             console.error("Global scanner OCR failed", await response.json());
           }
         } catch (e) {
           console.error("Failed to process cloud OCR", e);
         }
         setScannedImage(initialScannedImage);
         setIsAnalyzing(false);
-        setIsAddingExpense(true);
       }
     };
     processInitialScan();
-  }, [initialScannedImage]);
+  }, [initialScannedImage, space.id]);
   
   const handleScanResult = async (imgUrl: string, ocrDataUrl?: string) => {
     setIsScanning(false);
