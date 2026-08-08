@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.4 - ביטול כיווץ כפול של המצלמה והפעלת סורק אמיתי
+        v4.5.5 - ביטול מעבר דרך Firebase לחלוטין - ישירות לגוגל
       </div>
     </div>
   );

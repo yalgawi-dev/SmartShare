@@ -39,16 +39,12 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         setIsAnalyzing(true);
         
         try {
-          // 1. Fix the Vercel payload limit for the global scanner by uploading to Firebase first
-          const { uploadImageToStorage } = await import('../../lib/firebase');
-          const filename = `invoices/${space.id}/${Date.now()}.jpg`;
-          const cloudUrl = await uploadImageToStorage(initialScannedImage, filename);
-          
+          // 1. Bypass Firebase Storage completely to avoid any network hangs or rule blocks!
           const customKey = (window as any).customGeminiKey || undefined;
           const response = await fetch('/api/ocr', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: cloudUrl, customKey })
+            body: JSON.stringify({ imageUrl: initialScannedImage, customKey })
           });
           if (response.ok) {
             const data = await response.json();
@@ -78,9 +74,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       
       // 1. The image is already compressed and cropped by ScannerModal (at ~1000px, 0.9 quality)
       // So we do not need to compress it again! This fixes the 'double engine' bug.
-      const filename = `invoices/${space.id}/${Date.now()}.jpg`;
-      setOcrDebugMessage("1. מעלה תמונה לשרת המאובטח...");
-      const cloudUrl = await uploadImageToStorage(imgUrl, filename);
+      // 1. Bypass Firebase Storage completely to avoid any network hangs or rule blocks!
+      // Since the image is already compressed to ~300KB by ScannerModal, we are well below Vercel's 4.5MB limit.
+      setOcrDebugMessage("1. שולח תמונה בטוחה לשרת...");
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
       setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
@@ -89,7 +85,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          imageUrl: cloudUrl,
+          imageUrl: imgUrl, // Send Base64 directly!
           customKey
         })
       });
@@ -136,8 +132,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         setOcrDebugMessage(msg);
       }
 
-      // 4. Save the Cloud URL to state instead of the massive local base64 string
-      setScannedImage(cloudUrl);
+      // 4. Save the local image URL to state
+      setScannedImage(imgUrl);
     } catch (e: any) {
       console.error("Failed to process cloud upload/OCR", e);
       setOcrDebugMessage(`תקלת תקשורת בסיסית: ${e.message}`);
