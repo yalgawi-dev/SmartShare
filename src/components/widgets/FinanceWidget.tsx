@@ -79,10 +79,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       // 1. The image is already compressed and cropped by ScannerModal (at ~1000px, 0.9 quality)
       // So we do not need to compress it again! This fixes the 'double engine' bug.
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+      setOcrDebugMessage("1. מעלה תמונה לשרת המאובטח...");
       const cloudUrl = await uploadImageToStorage(imgUrl, filename);
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
-      // Pass the cloudUrl instead of the base64 string to avoid Vercel 4.5MB Payload limit
+      setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
       const customKey = (window as any).customGeminiKey || undefined;
       const response = await fetch('/api/ocr', {
         method: 'POST',
@@ -92,6 +93,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
           customKey
         })
       });
+      
+      setOcrDebugMessage("3. מקבל תשובה מהשרת...");
       
       if (response.ok) {
         const rawTextEncoded = response.headers.get('x-debug-raw-text');
