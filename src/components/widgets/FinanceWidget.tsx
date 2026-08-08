@@ -93,12 +93,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       setOcrDebugMessage("3. מקבל תשובה מהשרת...");
       
       if (response.ok) {
-        const rawTextEncoded = response.headers.get('x-debug-raw-text');
-        const rawText = rawTextEncoded ? decodeURIComponent(rawTextEncoded) : "No raw text returned.";
-        
         const data = await response.json();
         setOcrData(data);
-        setOcrDebugMessage(`RAW AI TEXT (NOT JSON):\n\n${rawText}`);
+        setOcrDebugMessage(null); // Clear the debug message so no red box appears!
         
         // 3. Track Usage in Firebase
         try {
@@ -712,7 +709,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </div>
             )}
             {isAnalyzing && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 99999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
                 <style dangerouslySetInnerHTML={{__html: `
                   @keyframes pulsebot { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
                 `}} />
@@ -724,7 +721,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             
             {/* Full Screen Image Preview Modal */}
             {previewImage && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 10000, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
+              <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
                   <button type="button" onClick={() => setPreviewImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>✕ חזור לטופס</button>
                 </div>
