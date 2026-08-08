@@ -36,10 +36,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       if (initialScannedImage) {
         setIsAnalyzing(true);
         try {
+          const customKey = (window as any).customGeminiKey || undefined;
           const response = await fetch('/api/ocr', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: initialScannedImage })
+            body: JSON.stringify({ imageUrl: initialScannedImage, customKey })
           });
           if (response.ok) {
             const data = await response.json();
@@ -79,10 +80,16 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
       // Pass the cloudUrl instead of the base64 string to avoid Vercel 4.5MB Payload limit
+      const customKey = (window as any).customGeminiKey || undefined;
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: cloudUrl })
+        body: JSON.stringify({ 
+          imageUrl: typeof imgUrl === 'string' && imgUrl.startsWith('data:image') 
+            ? imgUrl 
+            : cloudUrl,
+          customKey
+        })
       });
       
       if (response.ok) {
@@ -546,10 +553,22 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', background: '#f0f9ff', borderRadius: '12px', border: '1px solid #bae6fd' }}>
                 <strong style={{ fontSize: '0.9rem', color: '#0369a1' }}>כלי אבחון למפתחים (לבדוק למה השדות ריקים):</strong>
                 
+                <input 
+                  type="text" 
+                  placeholder="הדבק מפתח API חדש כאן (אופציונלי לבדיקה עוקפת Vercel)" 
+                  onChange={(e) => {
+                    // Update a local variable or state for the custom key (we'll use a simple window var for quick debug)
+                    (window as any).customGeminiKey = e.target.value;
+                  }}
+                  style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #bae6fd', fontSize: '0.8rem', width: '100%', color: '#000' }}
+                />
+
                 <button type="button" onClick={async () => {
                   setTestApiResult('בודק חיבור לשרת...');
                   try {
-                    const res = await fetch('/api/ocr-test');
+                    const customKey = (window as any).customGeminiKey || '';
+                    const url = customKey ? `/api/ocr-test?key=${encodeURIComponent(customKey)}` : '/api/ocr-test';
+                    const res = await fetch(url);
                     const data = await res.json();
                     setTestApiResult(JSON.stringify(data, null, 2));
                   } catch (e: any) {
@@ -558,7 +577,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 }} style={{ padding: '0.5rem', background: '#38bdf8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                   1. בדוק חיבור ל-Gemini API
                 </button>
-                {testApiResult && <pre style={{ fontSize: '0.7rem', background: 'white', padding: '0.5rem', borderRadius: '4px', overflowX: 'auto', margin: 0, direction: 'ltr' }}>{testApiResult}</pre>}
+                {testApiResult && <pre style={{ fontSize: '0.7rem', background: 'white', color: '#000', padding: '0.5rem', borderRadius: '4px', overflowX: 'auto', margin: 0, direction: 'ltr' }}>{testApiResult}</pre>}
                 
                 {scannedImage && (
                   <button type="button" onClick={() => window.open(scannedImage, '_blank')} style={{ padding: '0.5rem', background: '#818cf8', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>

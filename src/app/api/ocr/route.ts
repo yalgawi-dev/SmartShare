@@ -5,13 +5,16 @@ export const maxDuration = 60; // Allow up to 60 seconds on Vercel
 
 export async function POST(request: Request) {
   try {
-    const { imageUrl } = await request.json();
+    const body = await request.json();
+    const { imageUrl, customKey } = body;
     
     if (!imageUrl) {
       return NextResponse.json({ error: 'No image URL provided' }, { status: 400 });
     }
 
-    if (!process.env.GEMINI_API_KEY) {
+    const apiKey = customKey || process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
       console.error("GEMINI_API_KEY is missing from environment variables.");
       return NextResponse.json({ error: 'AI OCR is not configured on the server.' }, { status: 500 });
     }

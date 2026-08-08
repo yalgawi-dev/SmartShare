@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const { searchParams } = new URL(request.url);
+    const customKey = searchParams.get('key');
+    const apiKey = customKey || process.env.GEMINI_API_KEY;
+    
     if (!apiKey) {
       return NextResponse.json({ error: 'GEMINI_API_KEY is missing' }, { status: 500 });
     }
