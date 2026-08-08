@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.6 - תיקון תצוגת הקבלה המוגדלת והסרת הודעת השגיאה האדומה
+        v4.5.7 - החזרת גיבוי Firebase עם מנגנון Timeout חכם למניעת תקיעות
       </div>
     </div>
   );

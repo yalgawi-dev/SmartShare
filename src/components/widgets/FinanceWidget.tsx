@@ -36,15 +36,25 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       if (initialScannedImage) {
         // Open the form immediately so the user can paste the key if they want to
         setIsAddingExpense(true);
-        setIsAnalyzing(true);
-        
         try {
-          // 1. Bypass Firebase Storage completely to avoid any network hangs or rule blocks!
+          // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
+          const { uploadImageToStorage } = await import('../../lib/firebase');
+          const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+          
+          let finalImageUrl = initialScannedImage; // Default to Base64
+          try {
+            const uploadPromise = uploadImageToStorage(initialScannedImage, filename);
+            const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Firebase timeout")), 10000));
+            finalImageUrl = await Promise.race([uploadPromise, timeoutPromise]);
+          } catch (fbError) {
+            console.warn("Firebase upload failed/timed out, bypassing to Google AI directly", fbError);
+          }
+          
           const customKey = (window as any).customGeminiKey || undefined;
           const response = await fetch('/api/ocr', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: initialScannedImage, customKey })
+            body: JSON.stringify({ imageUrl: finalImageUrl, customKey })
           });
           if (response.ok) {
             const data = await response.json();
@@ -74,9 +84,23 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       
       // 1. The image is already compressed and cropped by ScannerModal (at ~1000px, 0.9 quality)
       // So we do not need to compress it again! This fixes the 'double engine' bug.
-      // 1. Bypass Firebase Storage completely to avoid any network hangs or rule blocks!
-      // Since the image is already compressed to ~300KB by ScannerModal, we are well below Vercel's 4.5MB limit.
-      setOcrDebugMessage("1. שולח תמונה בטוחה לשרת...");
+      // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
+      const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+      setOcrDebugMessage("1. מנסה לשמור גיבוי ב-Firebase...");
+      
+      let finalImageUrl = imgUrl; // Default to Base64
+      try {
+        // Use Promise.race to enforce a 10-second timeout on Firebase Storage!
+        // If Firebase rules block it and it hangs, we won't get stuck forever.
+        const uploadPromise = uploadImageToStorage(imgUrl, filename);
+        const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Firebase timeout")), 10000));
+        
+        finalImageUrl = await Promise.race([uploadPromise, timeoutPromise]);
+        setOcrDebugMessage("הגיבוי הצליח! מתחבר למנוע ה-AI...");
+      } catch (fbError) {
+        console.warn("Firebase upload failed/timed out, bypassing to Google AI directly", fbError);
+        setOcrDebugMessage("גיבוי Firebase נכשל - מדלג ישירות למנוע ה-AI...");
+      }
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
       setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
@@ -85,7 +109,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          imageUrl: imgUrl, // Send Base64 directly!
+          imageUrl: finalImageUrl,
           customKey
         })
       });
