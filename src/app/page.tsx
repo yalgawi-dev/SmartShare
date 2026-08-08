@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.2 - בדיקת מודלים פתוחים מול גוגל
+        v4.5.4 - ביטול כיווץ כפול של המצלמה והפעלת סורק אמיתי
       </div>
     </div>
   );
