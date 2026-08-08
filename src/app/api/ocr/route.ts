@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'AI OCR is not configured on the server.' }, { status: 500 });
     }
 
-    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
     
     let inlineData = undefined;
     if (imageUrl.startsWith('data:image')) {
@@ -44,34 +44,32 @@ export async function POST(request: Request) {
 
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
-      Do not format as JSON. Just write down the raw text you see, specifically:
-      1. What is the name of the business (Vendor / ספק)?
-      2. What is the total amount to pay (סה"כ לתשלום)?
-      3. What is the date?
-      Just give me the raw answers so I can debug if you see the text properly.
+      Return ONLY a raw JSON object (no markdown, no backticks, no markdown codeblocks) with exactly these fields:
+      {
+        "vendor": "Name of the business (ספק)",
+        "amount": Total amount to pay as a number (סה"כ לתשלום),
+        "date": "Date of invoice in YYYY-MM-DD format"
+      }
+      If you cannot find a field, leave it null. Do not include any other text.
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-pro',
+      model: 'gemini-flash-latest',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ]
     });
 
-    const text = response.text || 'No text returned from Gemini.';
+    let text = response.text || '';
     console.log("Raw Gemini Output:", text);
     
-    // We mock the data so the UI doesn't crash, but we pass the raw text in the debug field
-    return NextResponse.json({ 
-      vendor: "RAW DEBUG MODE", 
-      amount: 1, 
-      date: "2000-01-01" 
-    }, {
-      // Use headers to send the raw debug text without failing the JSON parse on the client
-      headers: {
-        'x-debug-raw-text': encodeURIComponent(text)
-      }
-    });
+    // Clean up potential markdown formatting from Gemini
+    if (text.includes('\`\`\`json')) {
+      text = text.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    } else if (text.includes('\`\`\`')) {
+       text = text.replace(/\`\`\`/g, '').trim();
+    }
+
     let data: any = {};
     try {
       data = JSON.parse(text);
