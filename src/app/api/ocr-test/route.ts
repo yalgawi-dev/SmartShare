@@ -11,22 +11,21 @@ export async function GET(request: Request) {
     }
 
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
-    const data = await res.json();
+    // Test if we can actually initialize the SDK and make a real call
+    const { GoogleGenAI } = require('@google/genai');
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
-    if (!res.ok) {
-      return NextResponse.json({ 
-        error: 'API Request Failed', 
-        status: res.status, 
-        details: data 
-      }, { status: 500 });
-    }
-
-    // Extract just the names of the models
-    const availableModels = data.models ? data.models.map((m: any) => m.name) : [];
+    // Test a tiny generation call to verify the key works for inference, not just listing models
+    const response = await ai.models.generateContent({
+      model: 'gemini-flash-latest',
+      contents: [
+        { role: 'user', parts: [{ text: 'Reply with the word BINGO' }] }
+      ]
+    });
 
     return NextResponse.json({ 
       status: 'SUCCESS',
-      available_models: availableModels,
+      model_response: response.text,
       timestamp: new Date().toISOString()
     });
   } catch (error: any) {

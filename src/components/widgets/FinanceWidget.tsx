@@ -85,9 +85,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          imageUrl: typeof imgUrl === 'string' && imgUrl.startsWith('data:image') 
-            ? imgUrl 
-            : cloudUrl,
+          imageUrl: cloudUrl,
           customKey
         })
       });
