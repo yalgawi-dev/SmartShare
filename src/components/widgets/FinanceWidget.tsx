@@ -50,10 +50,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             console.warn("Firebase upload failed/timed out, bypassing to Google AI directly", fbError);
           }
           
+          const customKey = typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key') : undefined;
           const response = await fetch('/api/ocr', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: finalImageUrl })
+            body: JSON.stringify({ imageUrl: finalImageUrl, customKey: customKey || undefined })
           });
           if (response.ok) {
             const data = await response.json();
@@ -103,11 +104,13 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
       setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
+      const customKey = typeof window !== 'undefined' ? localStorage.getItem('gemini_api_key') : undefined;
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          imageUrl: finalImageUrl
+          imageUrl: finalImageUrl,
+          customKey: customKey || undefined
         })
       });
       
@@ -578,9 +581,20 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <input required name="supplier" defaultValue={ocrData.vendor || ''} placeholder="שם הספק / תיאור" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)', width: '100%' }} />
                   {!scannedImage && (
-                    <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
-                      📷
-                    </button>
+                    <>
+                      <button type="button" onClick={() => {
+                        const key = prompt("Vercel מסרב לעבוד? אין בעיה!\nהדבק כאן את מפתח ה-Gemini API שלך (הוא יישמר בטוח בדפדפן ולא תצטרך להזין אותו שוב):", localStorage.getItem('gemini_api_key') || '');
+                        if (key !== null) {
+                          localStorage.setItem('gemini_api_key', key.trim());
+                          alert("המפתח נשמר בהצלחה בדפדפן! נסה לסרוק עכשיו.");
+                        }
+                      }} style={{ background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', padding: '0 0.75rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.2rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="הגדרות API אישיות">
+                        ⚙️
+                      </button>
+                      <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
+                        📷
+                      </button>
+                    </>
                   )}
                 </div>
               </div>

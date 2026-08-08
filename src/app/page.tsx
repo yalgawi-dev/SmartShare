@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.8 - הסרת מעקף המפתח, חזרה לעבודה מול שרת בלבד
+        v4.5.9 - החזרת כפתור שמירת מפתח דפדפן (לעקיפת Vercel באופן קבוע)
       </div>
     </div>
   );
