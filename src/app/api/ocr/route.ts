@@ -48,7 +48,9 @@ export async function POST(request: Request) {
       {
         "vendor": "Name of the business (ספק)",
         "amount": Total amount to pay as a number (סה"כ לתשלום),
-        "date": "Date of invoice in YYYY-MM-DD format"
+        "date": "Date of invoice in YYYY-MM-DD format",
+        "invoiceNumber": "Invoice number or Receipt number (מספר מסמך / חשבונית)",
+        "vatNumber": "Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה)"
       }
       If you cannot find a field, leave it null. Do not include any other text.
     `;
