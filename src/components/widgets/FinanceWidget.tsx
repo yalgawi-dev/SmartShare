@@ -36,12 +36,13 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       if (initialScannedImage) {
         // Open the form immediately so the user can paste the key if they want to
         setIsAddingExpense(true);
+        let finalImageUrl = initialScannedImage; // Default to Base64
+        
         try {
           // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
           const { uploadImageToStorage } = await import('../../lib/firebase');
           const filename = `invoices/${space.id}/${Date.now()}.jpg`;
           
-          let finalImageUrl = initialScannedImage; // Default to Base64
           try {
             const uploadPromise = uploadImageToStorage(initialScannedImage, filename);
             const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Firebase timeout")), 10000));
@@ -64,7 +65,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         } catch (e) {
           console.error("Failed to process cloud OCR", e);
         }
-        setScannedImage(initialScannedImage);
+        
+        setScannedImage(finalImageUrl);
         setIsAnalyzing(false);
       }
     };
@@ -150,8 +152,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         setOcrDebugMessage(msg);
       }
 
-      // 4. Save the local image URL to state
-      setScannedImage(imgUrl);
+      // 4. Save the actual Firebase Storage URL to state (or Base64 if fallback)
+      setScannedImage(finalImageUrl);
     } catch (e: any) {
       console.error("Failed to process cloud upload/OCR", e);
       setOcrDebugMessage(`תקלת תקשורת בסיסית: ${e.message}`);
