@@ -38,18 +38,7 @@
   --transition-normal: 0.3s ease-in-out;
 }
 
-/* Dark Mode Preferences */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg-main: #111827;      /* Gray 900 */
-    --bg-card: #1F2937;      /* Gray 800 */
-    --bg-glass: rgba(31, 41, 55, 0.75);
-    
-    --text-primary: #F9FAFB; /* Gray 50 */
-    --text-secondary: #D1D5DB; /* Gray 300 */
-    --border-light: rgba(255, 255, 255, 0.05);
-  }
-}
+/* Dark Mode removed at user request - app will always stay in Light Mode */
 
 * {
   box-sizing: border-box;
