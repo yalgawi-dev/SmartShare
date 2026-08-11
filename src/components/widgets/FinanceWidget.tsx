@@ -30,80 +30,34 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     setIsMounted(true);
   }, []);
 
-  // If a scan arrives from the parent (ScannerWidget), run OCR then open modal
-  useEffect(() => {
-    const processInitialScan = async () => {
-      if (initialScannedImage) {
-        // Open the form immediately so the user can paste the key if they want to
-        setIsAddingExpense(true);
-        let finalImageUrl = initialScannedImage; // Default to Base64
-        
-        try {
-          // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
-          const { uploadImageToStorage } = await import('../../lib/firebase');
-          const filename = `invoices/${space.id}/${Date.now()}.jpg`;
-          
-          finalImageUrl = await uploadImageToStorage(initialScannedImage, filename);
-          
-          const response = await fetch('/api/ocr', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ imageUrl: finalImageUrl })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setOcrData(data);
-          } else {
-             console.error("Global scanner OCR failed", await response.json());
-          }
-        } catch (e) {
-          console.error("Failed to process cloud OCR", e);
-        }
-        
-        setScannedImage(finalImageUrl);
-        setIsAnalyzing(false);
-      }
-    };
-    processInitialScan();
-  }, [initialScannedImage, space.id]);
-  
-  const handleScanResult = async (imgUrl: string, ocrDataUrl?: string) => {
+  const runOcrPipeline = async (imgUrl: string) => {
     setIsScanning(false);
+    setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
+    setOcrData({}); // Clear old data
     
     try {
-      // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
+      // 1. Upload high-res image to Firebase Storage
       const { uploadImageToStorage, db } = await import('../../lib/firebase');
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
-      const { compressImage } = await import('../../utils/imageOptimizer');
       
-      // 1. The image is already compressed and cropped by ScannerModal (at ~1000px, 0.9 quality)
-      // So we do not need to compress it again! This fixes the 'double engine' bug.
-      // 1. Upload high-res image to Firebase Storage so it's backed up safely in the cloud
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
-      setOcrDebugMessage("1. מנסה לשמור גיבוי ב-Firebase...");
-      
-      let finalImageUrl = imgUrl; // Fallback to local if needed later
       setOcrDebugMessage("1. מעלה תמונה לענן...");
-      finalImageUrl = await uploadImageToStorage(imgUrl, filename);
+      const finalImageUrl = await uploadImageToStorage(imgUrl, filename);
       setOcrDebugMessage("ההעלאה הצליחה! מתחבר למנוע ה-AI...");
       
-      // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
+      // 2. Call our Next.js API Route which uses Gemini 2.5 Flash
       setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          imageUrl: finalImageUrl
-        })
+        body: JSON.stringify({ imageUrl: finalImageUrl })
       });
-      
-      setOcrDebugMessage("3. מקבל תשובה מהשרת...");
       
       if (response.ok) {
         const data = await response.json();
-        setOcrData(data);
-        setOcrDebugMessage(null); // Clear the debug message so no red box appears!
+        setOcrData(data); // This will now correctly populate the form!
+        setOcrDebugMessage(null);
         
         // 3. Track Usage in Firebase
         try {
@@ -126,27 +80,35 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         } catch (trackingError) {
           console.error("Failed to track OCR usage", trackingError);
         }
-
       } else {
         const err = await response.json();
         console.error("Cloud OCR API Error:", err);
-        let msg = `שגיאה בשרת הפענוח: ${err.error || 'אנא נסה שוב מאוחר יותר.'}`;
-        if (err.debugRaw) msg += `\nמידע מהמודל: ${err.debugRaw}`;
-        if (err.debugMime) msg += `\nסוג קובץ: ${err.debugMime}`;
-        if (err.debugLength) msg += `\nגודל: ${err.debugLength} תווים`;
-        setOcrDebugMessage(msg);
+        setOcrDebugMessage(`שגיאה בשרת הפענוח: ${err.error || 'אנא נסה שוב מאוחר יותר.'}`);
       }
 
-      // 4. Save the actual Firebase Storage URL to state (or Base64 if fallback)
+      // 4. Save the actual Firebase Storage URL to state
       setScannedImage(finalImageUrl);
     } catch (e: any) {
       console.error("Failed to process cloud upload/OCR", e);
       setOcrDebugMessage(`תקלת תקשורת בסיסית: ${e.message}`);
-      setScannedImage(imgUrl); // Fallback to local
+      setScannedImage(imgUrl); // Fallback to local preview
     }
     
     setIsAnalyzing(false);
-    setIsAddingExpense(true);
+  };
+
+  // If a scan arrives from the parent (Big Blue Button ScannerWidget)
+  useEffect(() => {
+    if (initialScannedImage && initialScannedImage !== scannedImage) {
+      runOcrPipeline(initialScannedImage);
+    }
+  }, [initialScannedImage, space.id]);
+  
+  const handleCloseForm = () => {
+    setIsAddingExpense(false);
+    setScannedImage(null);
+    setOcrData({});
+    setOcrDebugMessage(null);
   };
 
   const hasScanner = space.features.includes('scanner');
@@ -239,8 +201,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       payerId: payerId
     });
 
-    setIsAddingExpense(false);
-    setScannedImage(null);
+    handleCloseForm();
     setActiveTab('transactions'); // Move to transactions so they see the newly added item at the top!
   };
 
@@ -252,7 +213,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              💰 התחשבנות (v2.0)
+              💰 התחשבנות (v2.1)
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
@@ -549,10 +510,10 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
           <div className="bottom-sheet" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הוספת הוצאה חדשה</h3>
-              <button onClick={() => setIsAddingExpense(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>✕</button>
+              <button onClick={handleCloseForm} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)' }}>✕</button>
             </div>
             
-            <form key={scannedImage || 'new-expense'} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
+            <form key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
 
               {ocrDebugMessage && (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'ltr', textAlign: 'left' }}>
@@ -654,7 +615,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             {isScanning && (
               <ScannerModal 
                 onClose={() => setIsScanning(false)}
-                onComplete={handleScanResult}
+                onComplete={runOcrPipeline}
               />
             )}
             {scannedImage && (
