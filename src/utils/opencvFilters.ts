@@ -230,14 +230,24 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step)
-        // We use the perfectly thresholded B&W image to force all text pixels to be perfectly black.
-        // We don't use a saturation mask anymore because camera noise causes chromatic aberration inside black text,
-        // which makes the text look non-homogeneous if we skip high-saturation pixels.
+        // We want to force black text to be pitch black (using the BW mask), but leave blue signatures alone!
+        // Black text often has chromatic noise (tiny blue/red pixels). If we just check raw saturation, the text looks non-homogeneous.
+        // Solution: Blur the saturation channel heavily before thresholding. This smears the noise into the black text,
+        // allowing us to perfectly isolate true black text from true blue signatures!
+        let sBlurred = new cv.Mat();
+        cv.GaussianBlur(s, sBlurred, new cv.Size(9, 9), 0);
+        
+        let lowSatMask = new cv.Mat();
+        cv.threshold(sBlurred, lowSatMask, 55, 255, cv.THRESH_BINARY_INV); // 255 where it's truly grayscale/black
+        
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
-        // Take the darker of the two: the enhanced color, or the pitch-black BW map.
-        cv.min(enhancedRgb, bwColor, enhancedRgb); 
+        let magicColor = new cv.Mat();
+        cv.min(enhancedRgb, bwColor, magicColor); 
+        
+        // Only apply the pitch-black text overlay on pixels that are genuinely low-saturation
+        magicColor.copyTo(enhancedRgb, lowSatMask);
         
         let finalRgba = new cv.Mat();
         cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
@@ -246,7 +256,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        bwColor.delete();
+        sBlurred.delete(); lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
