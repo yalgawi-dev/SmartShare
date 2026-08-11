@@ -174,61 +174,50 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         const bwUrl = compressCanvas(canvas);
         
         // --- Color Enhancement ---
+        let grayColor = new cv.Mat();
+        cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
+        
+        let grayDownscaled = new cv.Mat();
+        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+        cv.medianBlur(grayDownscaled, grayDownscaled, 21);
+        
+        let illuminationMap = new cv.Mat();
+        cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-        
-        let grayForIllum = new cv.Mat();
-        cv.cvtColor(dst, grayForIllum, cv.COLOR_RGBA2GRAY);
-        
-        // 1. Estimate background illumination (to remove shadows)
-        let downscaled = new cv.Mat();
-        // Downscale to speed up the heavy blur
-        cv.resize(grayForIllum, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        // Median blur removes text/thin lines, leaving only the background color/shadows
-        cv.medianBlur(downscaled, downscaled, 31);
-        
-        let bg = new cv.Mat();
-        // Upscale back to original size
-        cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        
-        // 2. Divide each RGB channel by the Grayscale background to flatten illumination
-        // Doing this preserves the relative color balance (red/blue pens).
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
+        
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
-            cv.divide(channel, bg, channel, 255.0, -1);
+            cv.divide(channel, illuminationMap, channel, 255, -1);
+            channel.convertTo(channel, -1, 1.2, -30);
             rgbPlanes.set(i, channel);
             channel.delete();
         }
-        let enhancedRgb = new cv.Mat();
-        cv.merge(rgbPlanes, enhancedRgb);
+        cv.merge(rgbPlanes, rgb);
         
-        // 3. Unsharp mask to crisp up the text
+        let smoothed = new cv.Mat();
+        cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
+
         let colorBlurred = new cv.Mat();
-        cv.GaussianBlur(enhancedRgb, colorBlurred, new cv.Size(0, 0), 3);
-        cv.addWeighted(enhancedRgb, 1.5, colorBlurred, -0.5, 0, enhancedRgb);
+        cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 2);
+        let sharp = new cv.Mat();
+        cv.addWeighted(smoothed, 2.5, colorBlurred, -1.5, 0, sharp);
         
-        // 4. Apply STRONG high-contrast levels adjustment 
-        // Force near-whites to pure white and darken text significantly.
-        // alpha=2.0, beta=-100. 
-        // e.g. 200 (light background noise) -> 400-100 = 300 -> 255 (pure white)
-        // e.g. 100 (faded text) -> 200-100 = 100 (darker)
-        // e.g. 50 (black text) -> 100-100 = 0 (pure black)
-        enhancedRgb.convertTo(enhancedRgb, -1, 2.0, -100);
-        
-        // 5. Slightly boost saturation to make ink (blue/red pens) pop
         let hsv = new cv.Mat();
-        cv.cvtColor(enhancedRgb, hsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.35, 0); // 35% saturation boost
+        s.convertTo(s, -1, 1.3, 0);
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
+        
+        let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
-        // 5. Convert to RGBA for canvas display
         let finalRgba = new cv.Mat();
         cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
@@ -239,8 +228,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        rgb.delete(); grayForIllum.delete(); downscaled.delete(); bg.delete(); rgbPlanes.delete(); enhancedRgb.delete();
-        colorBlurred.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
+        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
+        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
+        enhancedRgb.delete(); finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
 
