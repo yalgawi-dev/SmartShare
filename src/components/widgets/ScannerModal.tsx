@@ -284,13 +284,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         )}
 
         {step === 'review' && (
-           <div style={{ width: '100%', height: '100%', overflow: 'auto', touchAction: 'pan-x pan-y pinch-zoom', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-             <img 
-               src={mode === 'bw' ? (bwSnapshot || '') : mode === 'color' ? (colorSnapshot || '') : (croppedSnapshot || '')} 
-               style={{ maxWidth: '200%', maxHeight: '200%', objectFit: 'contain', transition: 'transform 0.2s' }} 
-               alt="Scanned document" 
-             />
-           </div>
+           <img 
+             src={mode === 'bw' ? (bwSnapshot || '') : mode === 'color' ? (colorSnapshot || '') : (croppedSnapshot || '')} 
+             style={{ width: '100%', height: '100%', objectFit: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }} 
+             alt="Scanned document" 
+           />
         )}
       </div>
 
