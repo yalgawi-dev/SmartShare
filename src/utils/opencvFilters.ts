@@ -174,83 +174,51 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         const bwUrl = compressCanvas(canvas);
         
         // --- Color Enhancement ---
-        gray = new cv.Mat();
-        cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
-        
-        let grayDownscaled = new cv.Mat();
-        cv.resize(gray, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        cv.medianBlur(grayDownscaled, grayDownscaled, 21);
-        
-        let illuminationMap = new cv.Mat();
-        cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        
-        let rgbForMask = new cv.Mat();
-        cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
-        let hsvForMask = new cv.Mat();
-        cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
-        let hsvPlanesForMask = new cv.MatVector();
-        cv.split(hsvForMask, hsvPlanesForMask);
-        let sMap = hsvPlanesForMask.get(1);
-        
-        cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
-        rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
-        
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-        let rgbPlanes = new cv.MatVector();
-        cv.split(rgb, rgbPlanes);
         
-        for (let i = 0; i < 3; i++) {
-            let channel = rgbPlanes.get(i);
-            cv.divide(channel, illuminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, 1.2, -30);
-            rgbPlanes.set(i, channel);
-            channel.delete();
-        }
-        cv.merge(rgbPlanes, rgb);
+        // 1. Estimate background illumination (to remove shadows)
+        let downscaled = new cv.Mat();
+        // Downscale to speed up the heavy blur
+        cv.resize(rgb, downscaled, new cv.Size(0, 0), 0.2, 0.2, cv.INTER_AREA);
+        // Median blur removes text/thin lines, leaving only the background color/shadows
+        cv.medianBlur(downscaled, downscaled, 31);
         
-        let smoothed = new cv.Mat();
-        cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
-
-        blurred = new cv.Mat();
-        cv.GaussianBlur(smoothed, blurred, new cv.Size(0, 0), 2);
-        let sharp = new cv.Mat();
-        cv.addWeighted(smoothed, 2.5, blurred, -1.5, 0, sharp);
-        smoothed.delete();
+        let bg = new cv.Mat();
+        // Upscale back to original size
+        cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
+        // 2. Divide original by background to flatten illumination
+        let enhancedRgb = new cv.Mat();
+        // dst = (src / bg) * 255
+        cv.divide(rgb, bg, enhancedRgb, 255.0, -1);
+        
+        // 3. Unsharp mask to make text crisp
+        let blurred = new cv.Mat();
+        cv.GaussianBlur(enhancedRgb, blurred, new cv.Size(0, 0), 3);
+        cv.addWeighted(enhancedRgb, 1.5, blurred, -0.5, 0, enhancedRgb);
+        
+        // 4. Slightly boost saturation to make ink pop
         let hsv = new cv.Mat();
-        cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(enhancedRgb, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.3, 0);
+        s.convertTo(s, -1, 1.2, 0); // 20% saturation boost
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
-        
-        let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
-        // Fix for bluish tint: Manual Red/Blue Swap
-        let swapPlanes = new cv.MatVector();
-        cv.split(enhancedRgb, swapPlanes);
-        let r = swapPlanes.get(0);
-        let g = swapPlanes.get(1);
-        let b = swapPlanes.get(2);
-        
-        let fixedRgb = new cv.Mat();
-        let fixedPlanes = new cv.MatVector();
-        fixedPlanes.push_back(b);
-        fixedPlanes.push_back(g);
-        fixedPlanes.push_back(r);
-        cv.merge(fixedPlanes, fixedRgb);
-        
+        // 5. Convert to RGBA for canvas display
         let finalRgba = new cv.Mat();
-        cv.cvtColor(fixedRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        r.delete(); g.delete(); b.delete(); swapPlanes.delete(); fixedPlanes.delete(); fixedRgb.delete();
+        // Cleanup Color
+        rgb.delete(); downscaled.delete(); bg.delete(); enhancedRgb.delete();
+        blurred.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
 
         // Cleanup
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
