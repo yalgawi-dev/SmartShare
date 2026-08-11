@@ -3,11 +3,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { compressCanvas } from '../../utils/imageOptimizer';
+import { useCamera } from '../../hooks/useCamera';
+import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 
-interface Point {
-  x: number;
-  y: number;
-}
 
 interface ScannerModalProps {
   onClose: () => void;
@@ -22,52 +20,26 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const lastContourRef = useRef<Point[] | null>(null);
   const missedFramesRef = useRef<number>(0);
   
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const {
+    stream,
+    torchOn,
+    zoom,
+    setZoom,
+    error: cameraError,
+    cycleCamera,
+    toggleTorch,
+    stopCamera
+  } = useCamera(videoRef, step === 'scanning');
+
   const [cvLoaded, setCvLoaded] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
   const [rawSnapshot, setRawSnapshot] = useState<string | null>(null);
-  
-  // Points for the manual 4-point cropper (in intrinsic image pixel coordinates)
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
-  
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color'); // AI prefers color over stark B&W
-  const [torchOn, setTorchOn] = useState(false);
-  const [zoom, setZoom] = useState(1.0);
-  
-  // Load saved zoom on mount
-  useEffect(() => {
-    const savedZoom = localStorage.getItem('myspace_scanner_zoom');
-    if (savedZoom) {
-      setZoom(parseFloat(savedZoom));
-    }
-  }, []);
-
-  // Save zoom when changed and attempt native hardware zoom
-  useEffect(() => {
-    localStorage.setItem('myspace_scanner_zoom', zoom.toString());
-    
-    if (stream) {
-      const track = stream.getVideoTracks()[0];
-      if (track) {
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-        // @ts-ignore
-        if (capabilities.zoom) {
-          try {
-            // @ts-ignore
-            track.applyConstraints({ advanced: [{ zoom }] });
-          } catch (e) {
-            console.warn("Native zoom failed", e);
-          }
-        }
-      }
-    }
-  }, [zoom, stream]);
-  
-  const [error, setError] = useState('');
+  const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color');
 
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -110,78 +82,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     document.body.appendChild(script);
   }, []);
 
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
 
-  // 2. Start Camera
-  useEffect(() => {
-    let animationFrameId: number;
-
-    async function startCamera() {
-      try {
-        let devices = videoDevices;
-        if (devices.length === 0) {
-          const allDevices = await navigator.mediaDevices.enumerateDevices();
-          devices = allDevices.filter(d => d.kind === 'videoinput');
-          setVideoDevices(devices);
-        }
-        
-        let constraints: MediaStreamConstraints = {
-          video: { facingMode: 'environment', width: { ideal: 4000 }, height: { ideal: 4000 } }
-        };
-
-        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        setStream(mediaStream);
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
-      } catch (err) {
-        setError('לא ניתן לגשת למצלמה. אנא אשר הרשאות בדפדפן.');
-        console.error(err);
-      }
-    }
-    
-    if (step === 'scanning') {
-      startCamera();
-    }
-
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, currentDeviceIndex]);
-
-  const cycleCamera = () => {
-    if (videoDevices.length > 1) {
-      setCurrentDeviceIndex((prev) => (prev + 1) % videoDevices.length);
-    } else {
-      alert('לא נמצאו מצלמות נוספות במכשיר זה.');
-    }
-  };
-
-  const toggleTorch = async () => {
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities() as any;
-    if (capabilities.torch) {
-      try {
-        await track.applyConstraints({
-          advanced: [{ torch: !torchOn } as any]
-        });
-        setTorchOn(!torchOn);
-      } catch (err) {
-        console.error("Torch failed", err);
-      }
-    } else {
-      alert("פנס לא נתמך במכשיר זה.");
-    }
-  };
-
-  // 3. (Removed Live Edge Detection for a cleaner static guide UX)
-  
-  // 4. Capture Full Res Snapshot -> Move to Manual Cropping
   const handleCapture = () => {
     if (!videoRef.current || !guideRef.current) return;
     const video = videoRef.current;
@@ -244,99 +145,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       { x: gLeft, y: gBottom }
     ];
     
-    // Try to auto-detect the document using the OpenCV algorithm from the Skill!
-    try {
-      const cv = (window as any).cv;
-      if (cv && cv.Mat) {
-        // Create scaled down temp canvas for performance
-        // Create scaled down temp canvas for performance from the CROPPED canvas
-        const tempScale = 300 / canvas.width;
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 300;
-        tempCanvas.height = Math.round(canvas.height * tempScale);
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx?.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-        
-        let src = cv.imread(tempCanvas);
-        let gray = new cv.Mat();
-        let blurred = new cv.Mat();
-        let edged = new cv.Mat();
-        
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-        
-        // Apply CLAHE to improve contrast for edge detection in bad lighting
-        let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
-        clahe.apply(gray, gray);
-        clahe.delete();
-        
-        let ksize = new cv.Size(5, 5);
-        cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
-        cv.Canny(blurred, edged, 75, 200, 3, false);
-        
-        // --- INDUSTRY EXPERT TRICK ---
-        // If the document bleeds off the edge of the screen (e.g., 3 sides visible, "ח" shape),
-        // Canny edge detection won't close the contour. By drawing a white border around the 
-        // entire image, we force open edges that touch the screen border to connect,
-        // allowing findContours to seamlessly extract documents even if a side is cut off!
-        cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
-        
-        let M = cv.Mat.ones(3, 3, cv.CV_8U);
-        let closed = new cv.Mat();
-        cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
-        
-        let contours = new cv.MatVector();
-        let hierarchy = new cv.Mat();
-        cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-        
-        let maxArea = 0;
-        let bestContour = null;
-        
-        for (let i = 0; i < contours.size(); ++i) {
-          let cnt = contours.get(i);
-          let area = cv.contourArea(cnt);
-          // Industry Standard: Require area to be at least 15% of the frame, max 95%
-          if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.95) { 
-            let peri = cv.arcLength(cnt, true);
-            let approx = new cv.Mat();
-            // Slightly relaxed precision to handle slightly curved paper edges
-            cv.approxPolyDP(cnt, approx, 0.04 * peri, true);
-            // Allow 4 to 8 points. We will mathematically extract the 4 extreme corners later.
-            if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
-              maxArea = area;
-              if (bestContour) bestContour.delete();
-              bestContour = approx.clone();
-            }
-            approx.delete();
-          }
-        }
-        
-        if (bestContour) {
-          let pts = [];
-          for (let i = 0; i < bestContour.rows; i++) {
-            pts.push({
-              x: bestContour.data32S[i * 2] / tempScale,
-              y: bestContour.data32S[i * 2 + 1] / tempScale
-            });
-          }
-          
-          // Find the 4 extreme corners among all points (TL, TR, BR, BL)
-          pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-          const tl = pts[0];
-          const br = pts[pts.length - 1];
-          
-          pts.sort((a, b) => (a.x - a.y) - (b.x - b.y));
-          const bl = pts[0];
-          const tr = pts[pts.length - 1];
-          
-          defaultPts = [tl, tr, br, bl];
-          bestContour.delete();
-        }
-        
-        M.delete(); closed.delete(); contours.delete(); hierarchy.delete();
-        gray.delete(); blurred.delete(); edged.delete(); src.delete();
-      }
-    } catch (err) {
-      console.warn("Auto-detect failed, using static guide fallback", err);
+    const detectedPts = detectDocument(canvas);
+    if (detectedPts) {
+      defaultPts = detectedPts;
     }
     
     setCropPoints(defaultPts);
@@ -345,209 +156,20 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     const snapshotUrl = compressCanvas(canvas);
     setRawSnapshot(snapshotUrl);
     
-    if (stream) stream.getTracks().forEach(t => t.stop());
-    
-    // Show cropping screen for user verification
+    stopCamera();
     setStep('cropping');
   };
 
   // 5. Apply Perspective Crop
-  const performCrop = (snapshot: string, pts: Point[]) => {
-    return new Promise<void>((resolve, reject) => {
-      const img = new Image();
-      img.src = snapshot;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return reject();
-        ctx.drawImage(img, 0, 0);
-
-        try {
-          const cv = (window as any).cv;
-          let src = cv.imread(canvas);
-          
-          const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
-          const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-          const maxWidth = Math.round(Math.max(widthA, widthB));
-
-          const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
-          const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
-          const maxHeight = Math.round(Math.max(heightA, heightB));
-          
-          let dst = new cv.Mat();
-          let dsize = new cv.Size(maxWidth, maxHeight);
-          
-          let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-            pts[0].x, pts[0].y,
-            pts[1].x, pts[1].y,
-            pts[2].x, pts[2].y,
-            pts[3].x, pts[3].y
-          ]);
-          
-          let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-            0, 0,
-            maxWidth, 0,
-            maxWidth, maxHeight,
-            0, maxHeight
-          ]);
-          
-          let M = cv.getPerspectiveTransform(srcTri, dstTri);
-          cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
-          
-          // Render back to canvas
-          cv.imshow(canvas, dst);
-          const croppedUrl = compressCanvas(canvas);
-          setCroppedSnapshot(croppedUrl);
-
-          // Run Industry-Standard Grayscale Document Enhancement
-          let gray = new cv.Mat();
-          cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
-          
-          // 1. Unsharp Mask (Sharpening to bring out faint text and darken it)
-          let blurred = new cv.Mat();
-          cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 2);
-          let sharpened = new cv.Mat();
-          cv.addWeighted(gray, 1.7, blurred, -0.7, 0, sharpened);
-          
-          let bw = new cv.Mat();
-          // 2. Adaptive Threshold (Extracts text evenly across shadows)
-          // Block size 55 (since image is 1000px wide, covers ~3 letters), C=15 to aggressively remove paper noise (black dots) without killing text
-          cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
-          
-          // 3. Preserve solid black boxes (which adaptiveThreshold ruins)
-          let darkMask = new cv.Mat();
-          // CHANGED TO 50: This ensures only pure black printed ink is kept. 
-          // Shadows and fingers (which are > 80) will no longer become black blobs!
-          cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
-          
-          let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
-          blackMat.copyTo(bw, darkMask); // Overwrite bw with black where darkMask is true
-          
-          let bwRgba = new cv.Mat();
-          cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
-          cv.imshow(canvas, bwRgba);
-          
-          setBwSnapshot(compressCanvas(canvas));
-          
-          // 4. Industry-Standard Color Enhancement (v2.0 HSV Expert Algorithm)
-          
-          /*
-          // --- FALLBACK BASE (v1.6 True Ink Mask / v1.4 Grayscale Retinex) ---
-          // Saved per user request.
-          // let rgb = new cv.Mat(); cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB); cv.medianBlur(rgb, rgb, 3);
-          // let downscaledGray = new cv.Mat(); cv.resize(gray, downscaledGray, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-          // cv.medianBlur(downscaledGray, downscaledGray, 17);
-          // let bgGray = new cv.Mat(); cv.resize(downscaledGray, bgGray, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-          // let bg = new cv.Mat(); cv.cvtColor(bgGray, bg, cv.COLOR_GRAY2RGB);
-          // let shadowFree = new cv.Mat(); cv.divide(rgb, bg, shadowFree, 255, -1);
-          // shadowFree.convertTo(shadowFree, -1, 1.2, -30);
-          // ... [Mask logic omitted for brevity] ...
-          // --------------------------------------------------------------------
-          */
-
-
-          // Step C: Grayscale Illumination Map (The v1.4 Anchor)
-          gray = new cv.Mat();
-          cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY);
-          
-          let grayDownscaled = new cv.Mat();
-          cv.resize(gray, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-          
-          // Median Blur erases text and finds the true paper background (even in deep phone shadows)
-          cv.medianBlur(grayDownscaled, grayDownscaled, 21);
-          
-          let illuminationMap = new cv.Mat();
-          cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-          
-          // --- NEW: Color Protection Engine ---
-          // Prevent RGB Retinex from turning dark/solid colors into neon by 
-          // raising the illumination map floor based on local saturation.
-          let rgbForMask = new cv.Mat();
-          cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
-          let hsvForMask = new cv.Mat();
-          cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
-          let hsvPlanesForMask = new cv.MatVector();
-          cv.split(hsvForMask, hsvPlanesForMask);
-          let sMap = hsvPlanesForMask.get(1);
-          
-          // illuminationMap = illuminationMap + 0.5 * Saturation
-          cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
-          
-          rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
-          // ------------------------------------
-          
-          // Step D: RGB Retinex Division & Mild Stretch
-          let rgb = new cv.Mat();
-          cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-          let rgbPlanes = new cv.MatVector();
-          cv.split(rgb, rgbPlanes);
-          
-          for (let i = 0; i < 3; i++) {
-              let channel = rgbPlanes.get(i);
-              // Divide original color by the grayscale illumination map.
-              // This instantly removes all shadows and perfectly white-balances the paper.
-              cv.divide(channel, illuminationMap, channel, 255, -1);
-              
-              // Mild stretch to guarantee pure white paper (without destroying colors like v1.4 did)
-              channel.convertTo(channel, -1, 1.2, -30);
-              
-              rgbPlanes.set(i, channel);
-              channel.delete();
-          }
-          cv.merge(rgbPlanes, rgb);
-          
-          // NEW Step 4.5: Bilateral Filter (V4.3 Grain Eliminator)
-          // Smooths flat areas (removing camera grain from the paper) but keeps text edges razor sharp.
-          let smoothed = new cv.Mat();
-          cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
-
-          // Step E: Extreme Unsharp Mask (The Magic Color Engine)
-          // This drives text edges to pitch black and makes light blue text highly legible,
-          // while leaving solid colors (like the duck) completely undisturbed!
-          blurred = new cv.Mat();
-          cv.GaussianBlur(smoothed, blurred, new cv.Size(0, 0), 2);
-          let sharp = new cv.Mat();
-          cv.addWeighted(smoothed, 2.5, blurred, -1.5, 0, sharp);
-          smoothed.delete();
-          
-          // Step F: Final Vibrancy Boost
-          let hsv = new cv.Mat();
-          cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
-          let hsvPlanes = new cv.MatVector();
-          cv.split(hsv, hsvPlanes);
-          let s = hsvPlanes.get(1);
-          s.convertTo(s, -1, 1.3, 0); // 30% saturation boost for vibrant watercolors
-          hsvPlanes.set(1, s);
-          cv.merge(hsvPlanes, hsv);
-          
-          let enhancedRgb = new cv.Mat();
-          cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
-          
-          // Add alpha channel back for canvas rendering
-          let finalRgba = new cv.Mat();
-          cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
-          
-          cv.imshow(canvas, finalRgba);
-          setColorSnapshot(compressCanvas(canvas));
-
-          // Cleanup all Mats safely
-          src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-          gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
-          darkMask.delete(); blackMat.delete(); bwRgba.delete();
-          grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-          sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-          enhancedRgb.delete(); finalRgba.delete();
-          
-          resolve();
-
-        } catch (err) {
-          console.error("OpenCV Crop/Binarize Failed", err);
-          reject(err);
-        }
-      };
-    });
+  const performCrop = async (snapshot: string, pts: Point[]) => {
+    try {
+      const results = await applyPerspectiveAndFilters(snapshot, pts);
+      setCroppedSnapshot(results.cropped);
+      setBwSnapshot(results.bw);
+      setColorSnapshot(results.color);
+    } catch (err) {
+      console.error("Crop failed:", err);
+    }
   };
 
   const handleCropComplete = async () => {
@@ -596,6 +218,12 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       {/* Main Content Area */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
         
+        {cameraError && (
+          <div style={{ position: 'absolute', top: '10px', left: '10px', right: '10px', background: 'red', color: 'white', padding: '10px', borderRadius: '8px', zIndex: 100 }}>
+            {cameraError}
+          </div>
+        )}
+
         {step === 'scanning' && (
           <>
             <video 
@@ -639,7 +267,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                  `}
                </style>
                
-               {/* Corner Markers inside the guide */}
                <div style={{ position: 'absolute', top: '-2px', left: '-2px', width: '20px', height: '20px', borderTop: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
                <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '20px', height: '20px', borderTop: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
                <div style={{ position: 'absolute', bottom: '-2px', left: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
