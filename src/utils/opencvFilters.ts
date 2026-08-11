@@ -177,10 +177,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
         
+        let grayForIllum = new cv.Mat();
+        cv.cvtColor(dst, grayForIllum, cv.COLOR_RGBA2GRAY);
+        
         // 1. Estimate background illumination (to remove shadows)
         let downscaled = new cv.Mat();
         // Downscale to speed up the heavy blur
-        cv.resize(rgb, downscaled, new cv.Size(0, 0), 0.2, 0.2, cv.INTER_AREA);
+        cv.resize(grayForIllum, downscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
         // Median blur removes text/thin lines, leaving only the background color/shadows
         cv.medianBlur(downscaled, downscaled, 31);
         
@@ -188,22 +191,31 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         // Upscale back to original size
         cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
-        // 2. Divide original by background to flatten illumination
+        // 2. Divide each RGB channel by the Grayscale background to flatten illumination
+        // Doing this preserves the relative color balance (red/blue pens).
+        let rgbPlanes = new cv.MatVector();
+        cv.split(rgb, rgbPlanes);
+        for (let i = 0; i < 3; i++) {
+            let channel = rgbPlanes.get(i);
+            cv.divide(channel, bg, channel, 255.0, -1);
+            rgbPlanes.set(i, channel);
+            channel.delete();
+        }
         let enhancedRgb = new cv.Mat();
-        // dst = (src / bg) * 255
-        cv.divide(rgb, bg, enhancedRgb, 255.0, -1);
+        cv.merge(rgbPlanes, enhancedRgb);
         
         // 3. Unsharp mask to crisp up the text
         let colorBlurred = new cv.Mat();
         cv.GaussianBlur(enhancedRgb, colorBlurred, new cv.Size(0, 0), 3);
         cv.addWeighted(enhancedRgb, 1.5, colorBlurred, -0.5, 0, enhancedRgb);
         
-        // 4. Apply high-contrast levels adjustment 
-        // Force near-whites to pure white and darken text.
-        // alpha=1.5, beta=-70. 
-        // e.g. 220 (light noise) -> 330-70 = 260 -> 255 (pure white)
-        // e.g. 100 (faded text) -> 150-70 = 80 (darker)
-        enhancedRgb.convertTo(enhancedRgb, -1, 1.5, -70);
+        // 4. Apply STRONG high-contrast levels adjustment 
+        // Force near-whites to pure white and darken text significantly.
+        // alpha=2.0, beta=-100. 
+        // e.g. 200 (light background noise) -> 400-100 = 300 -> 255 (pure white)
+        // e.g. 100 (faded text) -> 200-100 = 100 (darker)
+        // e.g. 50 (black text) -> 100-100 = 0 (pure black)
+        enhancedRgb.convertTo(enhancedRgb, -1, 2.0, -100);
         
         // 5. Slightly boost saturation to make ink (blue/red pens) pop
         let hsv = new cv.Mat();
@@ -227,7 +239,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        rgb.delete(); downscaled.delete(); bg.delete(); enhancedRgb.delete();
+        rgb.delete(); grayForIllum.delete(); downscaled.delete(); bg.delete(); rgbPlanes.delete(); enhancedRgb.delete();
         colorBlurred.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
