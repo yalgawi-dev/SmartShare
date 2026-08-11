@@ -236,13 +236,25 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
+        // 6. BLEND WITH B&W MASK (Magic Step)
+        // We use the perfectly thresholded B&W image to force the text pixels in the color image to be darker,
+        // without affecting the colored pixels (like the blue pen or the white background).
+        let bwColor = new cv.Mat();
+        cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
+        
+        // Take the darker of the two: the enhanced color, or the BW map.
+        // This makes text pitch black but leaves everything else alone.
+        let magicColor = new cv.Mat();
+        cv.min(enhancedRgb, bwColor, magicColor);
+        
         let finalRgba = new cv.Mat();
-        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(magicColor, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
+        bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
