@@ -43,13 +43,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
           const { uploadImageToStorage } = await import('../../lib/firebase');
           const filename = `invoices/${space.id}/${Date.now()}.jpg`;
           
-          try {
-            const uploadPromise = uploadImageToStorage(initialScannedImage, filename);
-            const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Firebase timeout")), 10000));
-            finalImageUrl = await Promise.race([uploadPromise, timeoutPromise]);
-          } catch (fbError) {
-            console.warn("Firebase upload failed/timed out, bypassing to Google AI directly", fbError);
-          }
+          finalImageUrl = await uploadImageToStorage(initialScannedImage, filename);
           
           const response = await fetch('/api/ocr', {
             method: 'POST',
@@ -89,19 +83,10 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       setOcrDebugMessage("1. מנסה לשמור גיבוי ב-Firebase...");
       
-      let finalImageUrl = imgUrl; // Default to Base64
-      try {
-        // Use Promise.race to enforce a 10-second timeout on Firebase Storage!
-        // If Firebase rules block it and it hangs, we won't get stuck forever.
-        const uploadPromise = uploadImageToStorage(imgUrl, filename);
-        const timeoutPromise = new Promise<string>((_, reject) => setTimeout(() => reject(new Error("Firebase timeout")), 10000));
-        
-        finalImageUrl = await Promise.race([uploadPromise, timeoutPromise]);
-        setOcrDebugMessage("הגיבוי הצליח! מתחבר למנוע ה-AI...");
-      } catch (fbError) {
-        console.warn("Firebase upload failed/timed out, bypassing to Google AI directly", fbError);
-        setOcrDebugMessage("גיבוי Firebase נכשל - מדלג ישירות למנוע ה-AI...");
-      }
+      let finalImageUrl = imgUrl; // Fallback to local if needed later
+      setOcrDebugMessage("1. מעלה תמונה לענן...");
+      finalImageUrl = await uploadImageToStorage(imgUrl, filename);
+      setOcrDebugMessage("ההעלאה הצליחה! מתחבר למנוע ה-AI...");
       
       // 2. Call our Next.js API Route which uses Gemini 2.5 Flash for 99% accuracy
       setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
@@ -267,7 +252,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              💰 התחשבנות
+              💰 התחשבנות (v2.0)
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
