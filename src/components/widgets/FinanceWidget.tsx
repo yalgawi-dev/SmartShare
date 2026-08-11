@@ -17,6 +17,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, vatNumber?: string, invoiceNumber?: string}>({});
   const [ocrDebugMessage, setOcrDebugMessage] = useState<string | null>(null);
+  const [ocrElapsedTime, setOcrElapsedTime] = useState<number>(0);
   const [testApiResult, setTestApiResult] = useState<string | null>(null);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -35,7 +36,13 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
     setOcrData({}); // Clear old data
+    setOcrElapsedTime(0);
     
+    const startTime = Date.now();
+    const timerInterval = setInterval(() => {
+      setOcrElapsedTime((Date.now() - startTime) / 1000);
+    }, 100);
+
     try {
       // 1. We optimize the network by running Firebase Upload AND Gemini AI in parallel!
       // This cuts the latency in half. We also send the base64 image directly to the API
@@ -53,6 +60,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       });
       
       const [finalImageUrl, response] = await Promise.all([uploadPromise, ocrPromise]);
+      
+      clearInterval(timerInterval);
+      setOcrElapsedTime((Date.now() - startTime) / 1000); // Final precise time
       
       if (response.ok) {
         const data = await response.json();
@@ -89,6 +99,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       // 4. Save the actual Firebase Storage URL to state
       setScannedImage(finalImageUrl);
     } catch (e: any) {
+      clearInterval(timerInterval);
+      setOcrElapsedTime((Date.now() - startTime) / 1000);
       console.error("Failed to process cloud upload/OCR", e);
       setOcrDebugMessage(`תקלת תקשורת בסיסית: ${e.message}`);
       setScannedImage(imgUrl); // Fallback to local preview
@@ -109,6 +121,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     setScannedImage(null);
     setOcrData({});
     setOcrDebugMessage(null);
+    setOcrElapsedTime(0);
   };
 
   const hasScanner = space.features.includes('scanner');
@@ -213,7 +226,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              💰 התחשבנות (v2.2)
+              💰 התחשבנות (v2.3)
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
@@ -514,6 +527,35 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             </div>
             
             <form key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
+
+              {isAnalyzing && (
+                <div style={{ padding: '1.5rem', background: 'var(--bg-main)', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', border: '1px solid var(--border-light)' }}>
+                  <div style={{ fontSize: '3rem', animation: 'bounce 1s infinite' }}>🤖</div>
+                  <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>מפענח את הקבלה...</div>
+                  <div style={{ fontSize: '1.5rem', fontFamily: 'monospace', color: 'var(--primary)', fontWeight: 'bold' }}>
+                    {ocrElapsedTime.toFixed(1)}s
+                  </div>
+                  <style>
+                    {`
+                      @keyframes bounce {
+                        0%, 100% { transform: translateY(0); }
+                        50% { transform: translateY(-10px); }
+                      }
+                    `}
+                  </style>
+                </div>
+              )}
+              
+              {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+                  <div style={{ color: '#166534', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>✨</span> פוענח בהצלחה
+                  </div>
+                  <div style={{ fontFamily: 'monospace', color: '#15803d', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                    ⏱️ {ocrElapsedTime.toFixed(2)}s
+                  </div>
+                </div>
+              )}
 
               {ocrDebugMessage && (
                 <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'ltr', textAlign: 'left' }}>
