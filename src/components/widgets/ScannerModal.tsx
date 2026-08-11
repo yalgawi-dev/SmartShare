@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { compressCanvas } from '../../utils/imageOptimizer';
 
 interface Point {
   x: number;
@@ -339,8 +341,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     
     setCropPoints(defaultPts);
     
-    // OPTIMIZATION: Reduced from 0.9 to 0.5 to cut Base64 payload size by ~70%
-    const snapshotUrl = canvas.toDataURL('image/jpeg', 0.5);
+    // OPTIMIZATION: Using Single Source of Truth for compression (0.5 quality)
+    const snapshotUrl = compressCanvas(canvas);
     setRawSnapshot(snapshotUrl);
     
     if (stream) stream.getTracks().forEach(t => t.stop());
@@ -396,7 +398,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           // Render back to canvas
           cv.imshow(canvas, dst);
-          const croppedUrl = canvas.toDataURL('image/jpeg', 0.5);
+          const croppedUrl = compressCanvas(canvas);
           setCroppedSnapshot(croppedUrl);
 
           // Run Industry-Standard Grayscale Document Enhancement
@@ -427,7 +429,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
           cv.imshow(canvas, bwRgba);
           
-          setBwSnapshot(canvas.toDataURL('image/jpeg', 0.5));
+          setBwSnapshot(compressCanvas(canvas));
           
           // 4. Industry-Standard Color Enhancement (v2.0 HSV Expert Algorithm)
           
@@ -528,7 +530,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
           
           cv.imshow(canvas, finalRgba);
-          setColorSnapshot(canvas.toDataURL('image/jpeg', 0.5));
+          setColorSnapshot(compressCanvas(canvas));
 
           // Cleanup all Mats safely
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
