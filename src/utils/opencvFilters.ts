@@ -160,7 +160,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.addWeighted(gray, 1.7, blurred, -0.7, 0, sharpened);
         
         let bw = new cv.Mat();
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 10);
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
@@ -209,6 +209,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         }
         cv.merge(rgbPlanes, rgb);
         
+        // Thicken the text slightly (Half-strength of v3.6, using ELLIPSE to avoid crosses)
+        let eroded = new cv.Mat();
+        let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        cv.erode(rgb, eroded, kernel);
+        cv.addWeighted(rgb, 0.75, eroded, 0.25, 0, rgb);
+        kernel.delete(); eroded.delete();
+        
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
@@ -230,15 +237,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step)
-        // We want to force black text to be pitch black (using the BW mask), but leave blue signatures alone!
-        // Black text often has chromatic noise (tiny blue/red pixels). If we just check raw saturation, the text looks non-homogeneous.
-        // Solution: Blur the saturation channel heavily before thresholding. This smears the noise into the black text,
-        // allowing us to perfectly isolate true black text from true blue signatures!
-        let sBlurred = new cv.Mat();
-        cv.GaussianBlur(s, sBlurred, new cv.Size(3, 3), 0);
-        
+        // We restore the original v3.6 logic where we apply the pitch-black BW mask ONLY
+        // to pixels with saturation < 50, preserving colored signatures perfectly!
+        // The chromatic noise is organically fixed by the cv.erode step above.
         let lowSatMask = new cv.Mat();
-        cv.threshold(sBlurred, lowSatMask, 30, 255, cv.THRESH_BINARY_INV); // 255 where it's truly grayscale/black
+        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
         
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
@@ -256,7 +259,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        sBlurred.delete(); lowSatMask.delete(); bwColor.delete(); magicColor.delete();
+        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
