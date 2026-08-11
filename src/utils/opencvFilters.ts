@@ -160,7 +160,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.addWeighted(gray, 1.7, blurred, -0.7, 0, sharpened);
         
         let bw = new cv.Mat();
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 10);
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
@@ -208,13 +208,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
-        // Thicken the text slightly (Half-strength)
-        // We use a CROSS kernel and blend it 50% with the original to avoid filling in holes of 6 and 0
-        let eroded = new cv.Mat();
-        let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-        cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 0.5, eroded, 0.5, 0, rgb);
-        kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
