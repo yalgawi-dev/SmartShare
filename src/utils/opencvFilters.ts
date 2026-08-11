@@ -193,15 +193,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         // dst = (src / bg) * 255
         cv.divide(rgb, bg, enhancedRgb, 255.0, -1);
         
-        // 3. Apply levels adjustment to force near-whites to pure white (removes cyan/gray noise)
-        // and force near-blacks to pure black (crisps up text).
-        // alpha=1.3 increases contrast, beta=-40 darkens overall to compensate.
-        // Pixel = Pixel * 1.3 - 40. 
-        // e.g. 230 (light noise) -> 299-40 = 259 (clipped to 255 white)
-        // e.g. 50 (gray text) -> 65-40 = 25 (darker)
-        enhancedRgb.convertTo(enhancedRgb, -1, 1.3, -40);
+        // 3. Unsharp mask to crisp up the text
+        let colorBlurred = new cv.Mat();
+        cv.GaussianBlur(enhancedRgb, colorBlurred, new cv.Size(0, 0), 3);
+        cv.addWeighted(enhancedRgb, 1.5, colorBlurred, -0.5, 0, enhancedRgb);
         
-        // 4. Slightly boost saturation to make ink (blue/red pens) pop
+        // 4. Apply high-contrast levels adjustment 
+        // Force near-whites to pure white and darken text.
+        // alpha=1.5, beta=-70. 
+        // e.g. 220 (light noise) -> 330-70 = 260 -> 255 (pure white)
+        // e.g. 100 (faded text) -> 150-70 = 80 (darker)
+        enhancedRgb.convertTo(enhancedRgb, -1, 1.5, -70);
+        
+        // 5. Slightly boost saturation to make ink (blue/red pens) pop
         let hsv = new cv.Mat();
         cv.cvtColor(enhancedRgb, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
@@ -224,7 +228,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         rgb.delete(); downscaled.delete(); bg.delete(); enhancedRgb.delete();
-        hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
+        colorBlurred.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
 
