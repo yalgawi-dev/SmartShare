@@ -339,7 +339,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     
     setCropPoints(defaultPts);
     
-    const snapshotUrl = canvas.toDataURL('image/jpeg', 0.9);
+    // OPTIMIZATION: Reduced from 0.9 to 0.5 to cut Base64 payload size by ~70%
+    const snapshotUrl = canvas.toDataURL('image/jpeg', 0.5);
     setRawSnapshot(snapshotUrl);
     
     if (stream) stream.getTracks().forEach(t => t.stop());
@@ -395,7 +396,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           
           // Render back to canvas
           cv.imshow(canvas, dst);
-          const croppedUrl = canvas.toDataURL('image/jpeg', 0.9);
+          const croppedUrl = canvas.toDataURL('image/jpeg', 0.5);
           setCroppedSnapshot(croppedUrl);
 
           // Run Industry-Standard Grayscale Document Enhancement
@@ -426,7 +427,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
           cv.imshow(canvas, bwRgba);
           
-          setBwSnapshot(canvas.toDataURL('image/jpeg', 0.9));
+          setBwSnapshot(canvas.toDataURL('image/jpeg', 0.5));
           
           // 4. Industry-Standard Color Enhancement (v2.0 HSV Expert Algorithm)
           
@@ -527,7 +528,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
           
           cv.imshow(canvas, finalRgba);
-          setColorSnapshot(canvas.toDataURL('image/jpeg', 0.9));
+          setColorSnapshot(canvas.toDataURL('image/jpeg', 0.5));
 
           // Cleanup all Mats safely
           src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
