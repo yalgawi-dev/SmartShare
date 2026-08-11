@@ -235,10 +235,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         // Solution: Blur the saturation channel heavily before thresholding. This smears the noise into the black text,
         // allowing us to perfectly isolate true black text from true blue signatures!
         let sBlurred = new cv.Mat();
-        cv.GaussianBlur(s, sBlurred, new cv.Size(9, 9), 0);
+        cv.GaussianBlur(s, sBlurred, new cv.Size(3, 3), 0);
         
         let lowSatMask = new cv.Mat();
-        cv.threshold(sBlurred, lowSatMask, 55, 255, cv.THRESH_BINARY_INV); // 255 where it's truly grayscale/black
+        cv.threshold(sBlurred, lowSatMask, 30, 255, cv.THRESH_BINARY_INV); // 255 where it's truly grayscale/black
         
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
