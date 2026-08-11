@@ -208,12 +208,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
-        
-        // Thicken the text (Erode darkens and expands dark regions on bright backgrounds)
-        // Using a CROSS kernel instead of a solid rectangle preserves holes in numbers like 6 and 0
+        // Thicken the text slightly (Half-strength)
+        // We use a CROSS kernel and blend it 50% with the original to avoid filling in holes of 6 and 0
+        let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-        cv.erode(rgb, rgb, kernel);
-        kernel.delete();
+        cv.erode(rgb, eroded, kernel);
+        cv.addWeighted(rgb, 0.5, eroded, 0.5, 0, rgb);
+        kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
