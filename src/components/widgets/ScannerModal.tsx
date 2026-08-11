@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { createPortal } from 'react-dom';
 import { compressCanvas } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
@@ -284,11 +285,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         )}
 
         {step === 'review' && (
-           <img 
-             src={mode === 'bw' ? (bwSnapshot || '') : mode === 'color' ? (colorSnapshot || '') : (croppedSnapshot || '')} 
-             style={{ width: '100%', height: '100%', objectFit: 'contain', touchAction: 'pan-x pan-y pinch-zoom' }} 
-             alt="Scanned document" 
-           />
+           <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
+             <TransformComponent wrapperStyle={{ width: '100%', height: '100%', overflow: 'hidden' }} contentStyle={{ width: '100%', height: '100%' }}>
+               <img 
+                 src={mode === 'bw' ? (bwSnapshot || '') : mode === 'color' ? (colorSnapshot || '') : (croppedSnapshot || '')} 
+                 style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                 alt="Scanned document" 
+               />
+             </TransformComponent>
+           </TransformWrapper>
         )}
       </div>
 
