@@ -184,33 +184,33 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let illuminationMap = new cv.Mat();
         cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
-        let rgbForMask = new cv.Mat();
-        cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
+        let bgrForMask = new cv.Mat();
+        cv.cvtColor(dst, bgrForMask, cv.COLOR_RGBA2BGR);
         let hsvForMask = new cv.Mat();
-        cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
+        cv.cvtColor(bgrForMask, hsvForMask, cv.COLOR_BGR2HSV);
         let hsvPlanesForMask = new cv.MatVector();
         cv.split(hsvForMask, hsvPlanesForMask);
         let sMap = hsvPlanesForMask.get(1);
         
         cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
-        rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
+        bgrForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
         
-        let rgb = new cv.Mat();
-        cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-        let rgbPlanes = new cv.MatVector();
-        cv.split(rgb, rgbPlanes);
+        let bgr = new cv.Mat();
+        cv.cvtColor(dst, bgr, cv.COLOR_RGBA2BGR);
+        let bgrPlanes = new cv.MatVector();
+        cv.split(bgr, bgrPlanes);
         
         for (let i = 0; i < 3; i++) {
-            let channel = rgbPlanes.get(i);
+            let channel = bgrPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
             channel.convertTo(channel, -1, 1.2, -30);
-            rgbPlanes.set(i, channel);
+            bgrPlanes.set(i, channel);
             channel.delete();
         }
-        cv.merge(rgbPlanes, rgb);
+        cv.merge(bgrPlanes, bgr);
         
         let smoothed = new cv.Mat();
-        cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
+        cv.bilateralFilter(bgr, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
         blurred = new cv.Mat();
         cv.GaussianBlur(smoothed, blurred, new cv.Size(0, 0), 2);
@@ -219,7 +219,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         smoothed.delete();
         
         let hsv = new cv.Mat();
-        cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(sharp, hsv, cv.COLOR_BGR2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
@@ -227,11 +227,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
+        let enhancedBgr = new cv.Mat();
+        cv.cvtColor(hsv, enhancedBgr, cv.COLOR_HSV2BGR);
         
         let finalRgba = new cv.Mat();
-        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(enhancedBgr, finalRgba, cv.COLOR_BGR2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
