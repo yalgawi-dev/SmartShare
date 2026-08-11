@@ -229,7 +229,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.3, 0);
+        s.convertTo(s, -1, 1.15, 0); // Reduced from 1.3 to avoid burning vibrant colors
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         
@@ -237,24 +237,27 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step)
-        // We use the perfectly thresholded B&W image to force the text pixels in the color image to be darker,
-        // without affecting the colored pixels (like the blue pen or the white background).
+        // Create a mask for LOW saturation pixels (grays/blacks) so we don't ruin vibrant colors like yellow ducks!
+        let lowSatMask = new cv.Mat();
+        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
+        
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
-        // Take the darker of the two: the enhanced color, or the BW map.
-        // This makes text pitch black but leaves everything else alone.
         let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor);
+        cv.min(enhancedRgb, bwColor, magicColor); // This deep-fries colors, but makes text pitch black
+        
+        // Copy the deep-fried pitch black text ONLY onto pixels that are low saturation (gray/black originally)
+        magicColor.copyTo(enhancedRgb, lowSatMask);
         
         let finalRgba = new cv.Mat();
-        cv.cvtColor(magicColor, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        bwColor.delete(); magicColor.delete();
+        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
