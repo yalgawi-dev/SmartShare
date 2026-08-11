@@ -230,18 +230,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step)
-        // Create a mask for LOW saturation pixels (grays/blacks) so we don't ruin vibrant colors like yellow ducks!
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
-        
+        // We use the perfectly thresholded B&W image to force all text pixels to be perfectly black.
+        // We don't use a saturation mask anymore because camera noise causes chromatic aberration inside black text,
+        // which makes the text look non-homogeneous if we skip high-saturation pixels.
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
-        let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor); // This deep-fries colors, but makes text pitch black
-        
-        // Copy the deep-fried pitch black text ONLY onto pixels that are low saturation (gray/black originally)
-        magicColor.copyTo(enhancedRgb, lowSatMask);
+        // Take the darker of the two: the enhanced color, or the pitch-black BW map.
+        cv.min(enhancedRgb, bwColor, enhancedRgb); 
         
         let finalRgba = new cv.Mat();
         cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
@@ -250,7 +246,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
+        bwColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
