@@ -193,18 +193,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         // dst = (src / bg) * 255
         cv.divide(rgb, bg, enhancedRgb, 255.0, -1);
         
-        // 3. Unsharp mask to make text crisp
-        let blurred = new cv.Mat();
-        cv.GaussianBlur(enhancedRgb, blurred, new cv.Size(0, 0), 3);
-        cv.addWeighted(enhancedRgb, 1.5, blurred, -0.5, 0, enhancedRgb);
+        // 3. Apply levels adjustment to force near-whites to pure white (removes cyan/gray noise)
+        // and force near-blacks to pure black (crisps up text).
+        // alpha=1.3 increases contrast, beta=-40 darkens overall to compensate.
+        // Pixel = Pixel * 1.3 - 40. 
+        // e.g. 230 (light noise) -> 299-40 = 259 (clipped to 255 white)
+        // e.g. 50 (gray text) -> 65-40 = 25 (darker)
+        enhancedRgb.convertTo(enhancedRgb, -1, 1.3, -40);
         
-        // 4. Slightly boost saturation to make ink pop
+        // 4. Slightly boost saturation to make ink (blue/red pens) pop
         let hsv = new cv.Mat();
         cv.cvtColor(enhancedRgb, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.2, 0); // 20% saturation boost
+        s.convertTo(s, -1, 1.35, 0); // 35% saturation boost
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
@@ -216,17 +219,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        // Cleanup Color
-        rgb.delete(); downscaled.delete(); bg.delete(); enhancedRgb.delete();
-        blurred.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
-
         // Cleanup
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-        enhancedRgb.delete(); finalRgba.delete();
+        rgb.delete(); downscaled.delete(); bg.delete(); enhancedRgb.delete();
+        hsv.delete(); hsvPlanes.delete(); s.delete(); finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
 
