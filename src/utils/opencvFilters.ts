@@ -210,7 +210,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.merge(rgbPlanes, rgb);
         
         // Thicken the text (Erode darkens and expands dark regions on bright backgrounds)
-        let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
+        // Using a CROSS kernel instead of a solid rectangle preserves holes in numbers like 6 and 0
+        let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
         cv.erode(rgb, rgb, kernel);
         kernel.delete();
         
@@ -220,7 +221,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let colorBlurred = new cv.Mat();
         cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 2);
         let sharp = new cv.Mat();
-        cv.addWeighted(smoothed, 2.5, colorBlurred, -1.5, 0, sharp);
+        cv.addWeighted(smoothed, 3.5, colorBlurred, -2.5, 0, sharp);
         
         let hsv = new cv.Mat();
         cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
