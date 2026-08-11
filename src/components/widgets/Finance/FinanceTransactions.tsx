@@ -1,0 +1,167 @@
+import React from 'react';
+
+interface FinanceTransactionsProps {
+  invoices: any[];
+  filteredInvoices: any[];
+  activePartnersCount: number;
+  user: any;
+  filter: string;
+  setFilter: (filter: string) => void;
+  expandedInvoiceId: string | null;
+  setExpandedInvoiceId: (id: string | null) => void;
+  setPreviewImage: (url: string | null) => void;
+}
+
+export function FinanceTransactions({
+  invoices,
+  filteredInvoices,
+  activePartnersCount,
+  user,
+  filter,
+  setFilter,
+  expandedInvoiceId,
+  setExpandedInvoiceId,
+  setPreviewImage
+}: FinanceTransactionsProps) {
+  return (
+    <div>
+      {/* Filter Pills */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem', scrollbarWidth: 'none' }}>
+        <button onClick={() => setFilter('all')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'all' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'all' ? 'bold' : 'normal', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          הכל
+        </button>
+        <button onClick={() => setFilter('pending_me')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_me' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_me' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+          ממתין לאישורי
+          {invoices.filter((i: any) => i.status === 'pending' && i.payerId !== user?.id && i.payerId !== 'me').length > 0 && (
+            <span style={{ background: '#f59e0b', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>
+              {invoices.filter((i: any) => i.status === 'pending' && i.payerId !== user?.id && i.payerId !== 'me').length}
+            </span>
+          )}
+        </button>
+        <button onClick={() => setFilter('pending_partners')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_partners' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_partners' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+          ממתין לשותפים
+        </button>
+      </div>
+
+      {filteredInvoices.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
+          <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
+          לא נמצאו חשבוניות. לחץ על ה-➕ כדי להוסיף.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
+          {[...filteredInvoices].reverse().map((inv: any) => (
+            <div key={inv.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              
+              <div 
+                onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <div style={{ 
+                    width: '40px', height: '40px', flexShrink: 0,
+                    borderRadius: '50%', 
+                    background: inv.status === 'approved' ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1rem'
+                  }}>
+                    {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '⚠️'}
+                  </div>
+                  <div>
+                    <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {inv.supplier}
+                      {inv.hasAttachment ? (
+                        <span title="מצורפת חשבונית" style={{ fontSize: '0.9rem' }}>📎</span>
+                      ) : (
+                        <span title="חסר מסמך/קבלה" style={{ fontSize: '0.9rem', color: '#ef4444' }}>⚠️</span>
+                      )}
+                    </h4>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                      <span>{inv.date}</span>
+                      <span>• ע"י {inv.payerName}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div>
+                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                      ₪{inv.amount?.toLocaleString()}
+                    </h3>
+                    {activePartnersCount > 0 && inv.status === 'pending' && (
+                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold' }}>
+                        {inv.approvalsReceived}/{inv.approvalsNeeded} אושר
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', transform: expandedInvoiceId === inv.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                    ⌄
+                  </div>
+                </div>
+              </div>
+
+              {/* EXPANDED DETAILS */}
+              {expandedInvoiceId === inv.id && (
+                <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)' }}>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
+                    
+                    {/* Left Side: Invoice Image */}
+                    {inv.hasAttachment && inv.attachmentUrl ? (
+                      <div style={{ flex: '1 1 200px', maxWidth: '300px' }}>
+                        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>חשבונית / קבלה סרוקה:</p>
+                        <div 
+                          onClick={() => setPreviewImage(inv.attachmentUrl)}
+                          style={{ width: '100%', height: '150px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}
+                        >
+                          <img src={inv.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="חשבונית סרוקה" />
+                          <div style={{ position: 'absolute', bottom: '0.5rem', right: '0.5rem', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>🔍 הגדל</div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ flex: '1 1 200px', maxWidth: '300px', padding: '1rem', border: '1px dashed #ef4444', borderRadius: '12px', color: '#ef4444', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        לא צורפה קבלה או חשבונית.
+                      </div>
+                    )}
+
+                    {/* Right Side: Approvals & Actions */}
+                    <div style={{ flex: '2 1 300px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                      <div>
+                        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>סטטוס אישורים ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}):</p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                          {inv.status === 'approved' ? (
+                            <span style={{ color: '#10b981', fontSize: '0.9rem' }}>✓ כל השותפים אישרו הוצאה זו.</span>
+                          ) : (
+                            <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור של לפחות שותף אחד.</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
+                        {inv.payerId !== user?.id && inv.payerId !== 'me' && inv.status === 'pending' && (
+                          <button onClick={() => alert('אושר!')} style={{ flex: 1, padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            ✓ מאשר את ההוצאה
+                          </button>
+                        )}
+                        {(inv.payerId === user?.id || inv.payerId === 'me') && inv.status === 'pending' && (
+                          <button onClick={() => alert('התראה נשלחה לשותפים בהצלחה!')} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            🔔 שלח התראה לשותף (Nudge)
+                          </button>
+                        )}
+                        <button onClick={() => alert('פונקציית צ׳אט תתווסף בקרוב')} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          💬 פתח דיון
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
