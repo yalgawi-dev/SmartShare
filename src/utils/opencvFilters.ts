@@ -203,11 +203,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, 1.2, -30);
+            channel.convertTo(channel, -1, 1.3, -40); // Increased contrast for whiter page
             rgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
+        
+        // Thicken the text (Erode darkens and expands dark regions on bright backgrounds)
+        let kernel = cv.Mat.ones(2, 2, cv.CV_8U);
+        cv.erode(rgb, rgb, kernel);
+        kernel.delete();
         
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
