@@ -37,27 +37,27 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     setOcrData({}); // Clear old data
     
     try {
-      // 1. Upload high-res image to Firebase Storage
+      // 1. We optimize the network by running Firebase Upload AND Gemini AI in parallel!
+      // This cuts the latency in half. We also send the base64 image directly to the API
+      // so the server doesn't have to waste time downloading it again from Firebase.
       const { uploadImageToStorage, db } = await import('../../lib/firebase');
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
       
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
-      setOcrDebugMessage("1. מעלה תמונה לענן...");
-      const finalImageUrl = await uploadImageToStorage(imgUrl, filename);
-      setOcrDebugMessage("ההעלאה הצליחה! מתחבר למנוע ה-AI...");
       
-      // 2. Call our Next.js API Route which uses Gemini 2.5 Flash
-      setOcrDebugMessage("2. מפענח טקסט (פנייה ל-Google AI)...");
-      const response = await fetch('/api/ocr', {
+      const uploadPromise = uploadImageToStorage(imgUrl, filename);
+      const ocrPromise = fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: finalImageUrl })
+        body: JSON.stringify({ imageUrl: imgUrl }) // Send base64 directly!
       });
+      
+      const [finalImageUrl, response] = await Promise.all([uploadPromise, ocrPromise]);
       
       if (response.ok) {
         const data = await response.json();
         setOcrData(data); // This will now correctly populate the form!
-        setOcrDebugMessage(null);
+        setOcrDebugMessage(null); // Ensure UI is clean
         
         // 3. Track Usage in Firebase
         try {
@@ -213,7 +213,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              💰 התחשבנות (v2.1)
+              💰 התחשבנות (v2.2)
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
