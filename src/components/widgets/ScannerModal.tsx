@@ -20,6 +20,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const lastContourRef = useRef<Point[] | null>(null);
   const missedFramesRef = useRef<number>(0);
   
+  const [cvLoaded, setCvLoaded] = useState(false);
+  const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
+  
   const {
     stream,
     torchOn,
@@ -30,9 +33,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     toggleTorch,
     stopCamera
   } = useCamera(videoRef, step === 'scanning');
-
-  const [cvLoaded, setCvLoaded] = useState(false);
-  const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
   const [rawSnapshot, setRawSnapshot] = useState<string | null>(null);
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
