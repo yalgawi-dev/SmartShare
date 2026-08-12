@@ -231,7 +231,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.split(hsv, hsvPlanes);
         
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.15, 0); // Base saturation boost
+        s.convertTo(s, -1, 1.3, 0); // Boost saturation heavily to make colored pens pop
         
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
@@ -240,11 +240,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
-        // Identify pixels with low color (Saturation < 50).
-        // Because of the 50% cv.erode above, chromatic noise inside black text is swallowed,
-        // so this mask perfectly isolates the black text without harming colored pens!
+        // Identify pixels with almost zero color (Saturation < 15).
+        // A threshold of 15 is low enough to protect faint blue signatures,
+        // while the 50% cv.erode above ensures black text has almost 0 saturation (no chromatic noise).
         let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV);
+        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
         
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
