@@ -254,13 +254,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         hsvPlanes.set(2, v);
         cv.merge(hsvPlanes, hsv);
         
+        let finalRgb = new cv.Mat();
+        cv.cvtColor(hsv, finalRgb, cv.COLOR_HSV2RGB);
+        
         let finalRgba = new cv.Mat();
-        cv.cvtColor(hsv, finalRgba, cv.COLOR_HSV2RGBA);
+        cv.cvtColor(finalRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
+        finalRgb.delete();
         inkMask.delete(); vDark.delete(); sBoost.delete(); vEroded.delete(); kernel.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
