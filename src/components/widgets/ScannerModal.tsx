@@ -5,7 +5,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { createPortal } from 'react-dom';
 import { compressCanvas } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
-import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
+import { detectDocument, applyPerspectiveAndFilters, Point, ScannerOptions } from '../../utils/opencvFilters';
 
 
 interface ScannerModalProps {
@@ -41,6 +41,14 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color');
+  
+  const [devOptions, setDevOptions] = useState<ScannerOptions>({
+    contrastAlpha: 1.3,
+    contrastBeta: -40,
+    erodeWeight: 0.5,
+    saturationBoost: 1.3
+  });
+  const [showDevTools, setShowDevTools] = useState(false);
 
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -162,9 +170,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   };
 
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[]) => {
+  const performCrop = async (snapshot: string, pts: Point[], options?: ScannerOptions) => {
     try {
-      const results = await applyPerspectiveAndFilters(snapshot, pts);
+      const results = await applyPerspectiveAndFilters(snapshot, pts, options || devOptions);
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
       setColorSnapshot(results.color);
@@ -177,6 +185,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     if (!rawSnapshot || cropPoints.length !== 4) return;
     await performCrop(rawSnapshot, cropPoints);
     setStep('review');
+  };
+
+  const handleApplyDevOptions = async () => {
+    if (!rawSnapshot || cropPoints.length !== 4) return;
+    await performCrop(rawSnapshot, cropPoints, devOptions);
   };
 
   const handleRetake = () => {
@@ -350,7 +363,37 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'bw' ? 'white' : 'transparent', color: mode === 'bw' ? 'black' : 'white', cursor: 'pointer' }}>
                 שחור-לבן
               </button>
+              <button 
+                onClick={() => setShowDevTools(!showDevTools)} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold' }}>
+                ⚙️
+              </button>
             </div>
+            
+            {showDevTools && (
+              <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <label>Contrast Alpha ({devOptions.contrastAlpha})</label>
+                  <input type="range" min="1.0" max="2.5" step="0.1" value={devOptions.contrastAlpha} onChange={e => setDevOptions({...devOptions, contrastAlpha: parseFloat(e.target.value)})} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <label>Contrast Beta ({devOptions.contrastBeta})</label>
+                  <input type="range" min="-100" max="0" step="5" value={devOptions.contrastBeta} onChange={e => setDevOptions({...devOptions, contrastBeta: parseFloat(e.target.value)})} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <label>Erode Weight ({devOptions.erodeWeight})</label>
+                  <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <label>Saturation ({devOptions.saturationBoost})</label>
+                  <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
+                </div>
+                <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                  החל שינויים
+                </button>
+              </div>
+            )}
+            
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
               <button onClick={() => setStep('cropping')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
                 חזור לעריכה

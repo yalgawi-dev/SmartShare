@@ -99,11 +99,18 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   }
 }
 
+export interface ScannerOptions {
+  contrastAlpha?: number;
+  contrastBeta?: number;
+  erodeWeight?: number;
+  saturationBoost?: number;
+}
+
 /**
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Promise<{ cropped: string, bw: string, color: string }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -194,21 +201,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
+        const alpha = options.contrastAlpha ?? 1.3;
+        const beta = options.contrastBeta ?? -40;
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, 1.3, -40); // Increased contrast for whiter page
+            channel.convertTo(channel, -1, alpha, beta); // Configurable contrast for whiter page
             rgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
         
         // Thicken the text (using ELLIPSE instead of CROSS to avoid artifacts).
-        // Using 50% strength (like v3.6) to naturally swallow chromatic noise in black text!
+        const erodeWt = options.erodeWeight ?? 0.5;
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 0.5, eroded, 0.5, 0, rgb);
+        cv.addWeighted(rgb, 1 - erodeWt, eroded, erodeWt, 0, rgb);
         kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
@@ -224,8 +233,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         
+        const satBoost = options.saturationBoost ?? 1.3;
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.3, 0); // Boost saturation heavily to make colored pens pop
+        s.convertTo(s, -1, satBoost, 0); // Configurable saturation boost
         
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
