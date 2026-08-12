@@ -200,10 +200,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
+        // SAFE Gamma Array in JS Memory (prevents cv.LUT crashes)
+        // Gamma 1.4 naturally deepens faint text and beautifully preserves color ratios (unlike linear clipping)
+        let lutArray = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) {
+            lutArray[i] = Math.min(255, Math.pow(i / 255.0, 1.4) * 255.0);
+        }
+        
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, 1.3, -40); // Increased contrast for whiter page
+            
+            // Apply Gamma instead of linear contrast
+            let data = channel.data;
+            for (let j = 0; j < data.length; j++) {
+                data[j] = lutArray[data[j]];
+            }
+            
             rgbPlanes.set(i, channel);
             channel.delete();
         }
@@ -231,19 +244,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.split(hsv, hsvPlanes);
         
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, 1.15, 0); // Base saturation boost
+        
+        // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
+        // Calculate the mask FIRST before boosting saturation! This ensures background stains 
+        // with low natural saturation stay below 15 and are perfectly masked out by the B&W image!
+        let lowSatMask = new cv.Mat();
+        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
+        
+        // Now that the mask is safely calculated, aggressively boost saturation so the blue pen POPS!
+        s.convertTo(s, -1, 2.2, 0); 
         
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         
         let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
-        
-        // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
-        // Identify pixels with low color. Lowered threshold from 50 to 15 based on today's insight 
-        // to perfectly preserve blue ink while still masking pure black text!
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
         
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
