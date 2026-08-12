@@ -263,7 +263,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         // Safe Memory Cleanup for split channels
         tempChannels.forEach(ch => ch.delete());
         tempIllumChannels.forEach(ch => ch.delete());
-        rgbDownscaled.delete(); illuminationMapSmall.delete(); illuminationMap.delete(); illumPlanes.delete();
+        colorDownscaled.delete(); illuminationMapSmall.delete(); illuminationMap.delete(); illumPlanes.delete();
         
         // Thicken the text - Use ELLIPSE instead of RECT for smoother text per user request
         let eroded = new cv.Mat();
