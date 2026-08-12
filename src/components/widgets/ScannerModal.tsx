@@ -43,10 +43,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
-    gamma: 1.5,
+    gamma: 1.3,
     erodeWeight: 0.5,
-    saturationBoost: 1.3,
-    bgBlurSize: 15
+    saturationBoost: 1.15,
+    bgBlurSize: 21
   });
   const [showDevTools, setShowDevTools] = useState(false);
 

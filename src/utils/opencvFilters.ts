@@ -99,18 +99,11 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   }
 }
 
-export interface ScannerOptions {
-  gamma?: number;
-  bgBlurSize?: number;
-  erodeWeight?: number;
-  saturationBoost?: number;
-}
-
 /**
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, detectedType?: string, appliedOptions?: ScannerOptions }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Promise<{ cropped: string, bw: string, color: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -208,33 +201,25 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
-        let finalGamma = options.gamma ?? 1.4;
-        let lutArray = new Uint8Array(256);
-        for (let i = 0; i < 256; i++) {
-            lutArray[i] = Math.min(255, Math.pow(i / 255.0, finalGamma) * 255.0);
-        }
+        // Use options.gamma for contrast multiplier, default to 1.3 (Anchor v3.6)
+        let finalGamma = options.gamma ?? 1.3;
         
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
-            
-            // Gamma mapping on the anchor version
-            let data = channel.data;
-            for (let j = 0; j < data.length; j++) {
-                data[j] = lutArray[data[j]];
-            }
-            
+            channel.convertTo(channel, -1, finalGamma, -40); // Increased contrast for whiter page
             rgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
         
-        // Thicken the text slightly (Half-strength of v3.6, using ELLIPSE to avoid crosses)
-        let finalErode = options.erodeWeight ?? 0.25;
+        // Thicken the text slightly (Half-strength)
+        // We use a CROSS kernel and blend it 50% with the original to avoid filling in holes of 6 and 0
         let eroded = new cv.Mat();
-        let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
+        let finalErode = options.erodeWeight ?? 0.5;
         cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 1 - finalErode, eroded, finalErode, 0, rgb);
+        cv.addWeighted(rgb, 1.0 - finalErode, eroded, finalErode, 0, rgb);
         kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
@@ -250,6 +235,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
+        
         let finalSat = options.saturationBoost ?? 1.15;
         s.convertTo(s, -1, finalSat, 0); // Reduced from 1.3 to avoid burning vibrant colors
         hsvPlanes.set(1, s);
@@ -259,9 +245,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step)
-        // We restore the original v3.6 logic where we apply the pitch-black BW mask ONLY
-        // to pixels with saturation < 50, preserving colored signatures perfectly!
-        // The chromatic noise is organically fixed by the cv.erode step above.
+        // Create a mask for LOW saturation pixels (grays/blacks) so we don't ruin vibrant colors like yellow ducks!
         let lowSatMask = new cv.Mat();
         cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
         
@@ -269,9 +253,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
         let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor); 
+        cv.min(enhancedRgb, bwColor, magicColor); // This deep-fries colors, but makes text pitch black
         
-        // Only apply the pitch-black text overlay on pixels that are genuinely low-saturation
+        // Copy the deep-fried pitch black text ONLY onto pixels that are low saturation (gray/black originally)
         magicColor.copyTo(enhancedRgb, lowSatMask);
         
         let finalRgba = new cv.Mat();
