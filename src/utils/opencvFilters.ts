@@ -162,6 +162,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let bw = new cv.Mat();
         cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
         
+        // Expand the black ink (0) to bridge broken notebook lines
+        let bwKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+        cv.erode(bw, bw, bwKernel);
+        bwKernel.delete();
+        
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
         
@@ -236,40 +241,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
-        
-        // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
-        // Identify pixels with almost zero color (Saturation < 15).
-        // A threshold of 15 is low enough to protect faint blue signatures,
-        // while the 50% cv.erode above ensures black text has almost 0 saturation (no chromatic noise).
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
-        
-        let bwColor = new cv.Mat();
-        cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
-        
-        // Take the pitch-black text from the B&W mask
-        let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor); 
-        
-        // Apply the pitch-black text ONLY to the areas that lack color
-        magicColor.copyTo(enhancedRgb, lowSatMask);
+        let finalRgb = new cv.Mat();
+        cv.cvtColor(hsv, finalRgb, cv.COLOR_HSV2RGB);
         
         let finalRgba = new cv.Mat();
-        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(finalRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
+        finalRgb.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
         smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-        enhancedRgb.delete(); finalRgba.delete();
+        finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
 
