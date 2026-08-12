@@ -189,17 +189,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let illuminationMap = new cv.Mat();
         cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
-        let rgbForMask = new cv.Mat();
-        cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
-        let hsvForMask = new cv.Mat();
-        cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
-        let hsvPlanesForMask = new cv.MatVector();
-        cv.split(hsvForMask, hsvPlanesForMask);
-        let sMap = hsvPlanesForMask.get(1);
-        
-        cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
-        rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
-        
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
         let rgbPlanes = new cv.MatVector();
