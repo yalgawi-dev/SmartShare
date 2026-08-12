@@ -169,13 +169,32 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('cropping');
   };
 
+  const [profile, setProfile] = useState<'auto' | 'text' | 'photo'>('auto');
+  const [detectedType, setDetectedType] = useState<'text' | 'photo' | null>(null);
+
   // 5. Apply Perspective Crop
   const performCrop = async (snapshot: string, pts: Point[], options?: ScannerOptions) => {
     try {
-      const results = await applyPerspectiveAndFilters(snapshot, pts, options || devOptions);
+      let cropOptions: ScannerOptions = {};
+      if (options) {
+        cropOptions = options; // Manual override from DevTools
+      } else if (profile === 'text') {
+        cropOptions = { gamma: 0.5, bgBlurSize: 3, erodeWeight: 1.0, saturationBoost: 1.0 };
+      } else if (profile === 'photo') {
+        cropOptions = { gamma: 0.8, bgBlurSize: 49, erodeWeight: 0.3, saturationBoost: 2.2 };
+      }
+      
+      const results = await applyPerspectiveAndFilters(snapshot, pts, cropOptions);
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
       setColorSnapshot(results.color);
+      
+      if (results.detectedType) {
+        setDetectedType(results.detectedType as 'text' | 'photo');
+      }
+      if (results.appliedOptions) {
+        setDevOptions(results.appliedOptions);
+      }
     } catch (err) {
       console.error("Crop failed:", err);
     }
@@ -355,8 +374,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               </button>
               <button 
                 onClick={() => setMode('color')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'color' ? 'white' : 'transparent', color: mode === 'color' ? 'black' : 'white', cursor: 'pointer' }}>
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'color' ? 'white' : 'transparent', color: mode === 'color' ? 'black' : 'white', cursor: 'pointer', position: 'relative' }}>
                 צבעוני קסם
+                {mode !== 'color' && detectedType && (
+                  <span style={{ position: 'absolute', top: -8, right: -8, background: '#FFD700', borderRadius: '50%', padding: '2px', fontSize: '0.7rem' }}>✨</span>
+                )}
               </button>
               <button 
                 onClick={() => setMode('bw')} 
@@ -369,6 +391,26 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 ⚙️
               </button>
             </div>
+            
+            {mode === 'color' && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => { setProfile('auto'); performCrop(rawSnapshot!, cropPoints); }} 
+                  style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'auto' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                  אוטומטי {detectedType === 'text' ? '📝' : detectedType === 'photo' ? '🖼️' : '✨'}
+                </button>
+                <button 
+                  onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints); }} 
+                  style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'text' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                  📝 טקסט
+                </button>
+                <button 
+                  onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints); }} 
+                  style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'photo' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                  🖼️ צילום
+                </button>
+              </div>
+            )}
             
             {showDevTools && (
               <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>

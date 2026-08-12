@@ -110,7 +110,7 @@ export interface ScannerOptions {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, detectedType?: string, appliedOptions?: ScannerOptions }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -173,6 +173,37 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, bwRgba);
         const bwUrl = compressCanvas(canvas);
         
+        // --- Auto-Detect Document Type ---
+        let rgbDownscaled = new cv.Mat();
+        cv.resize(dst, rgbDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        
+        let smallHsv = new cv.Mat();
+        cv.cvtColor(rgbDownscaled, smallHsv, cv.COLOR_RGBA2RGB);
+        cv.cvtColor(smallHsv, smallHsv, cv.COLOR_RGB2HSV);
+        let smallHsvPlanes = new cv.MatVector();
+        cv.split(smallHsv, smallHsvPlanes);
+        let smallSat = smallHsvPlanes.get(1); // Saturation channel
+        
+        let meanStd = new cv.Mat();
+        let mean = new cv.Mat();
+        cv.meanStdDev(smallSat, mean, meanStd);
+        let avgSaturation = mean.data64F[0];
+        
+        meanStd.delete(); mean.delete(); smallSat.delete(); smallHsvPlanes.delete(); smallHsv.delete(); rgbDownscaled.delete();
+        
+        // A standard text document (even with blue ink) has very low average saturation.
+        // A color photo / magazine has high average saturation.
+        const isTextDocument = avgSaturation < 35;
+        const detectedType = isTextDocument ? 'text' : 'photo';
+        
+        // --- Determine Final Options (Auto vs Manual) ---
+        // If the user provided a specific manual override (e.g., via sliders), use it.
+        // Otherwise, fallback to the golden parameters discovered for each type.
+        let finalBlurSize = options.bgBlurSize ?? (isTextDocument ? 3 : 49);
+        let finalGamma = options.gamma ?? (isTextDocument ? 0.5 : 0.8);
+        let finalErode = options.erodeWeight ?? (isTextDocument ? 1.0 : 0.3);
+        let finalSat = options.saturationBoost ?? (isTextDocument ? 1.0 : 2.2);
+
         // --- Color Enhancement ---
         let grayColor = new cv.Mat();
         cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
@@ -181,13 +212,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
         // SAFE Bounds Check for Blur Size (prevents OpenCV crash)
-        let blurSize = options.bgBlurSize ?? 15;
         let maxAllowed = Math.min(grayDownscaled.cols, grayDownscaled.rows);
         if (maxAllowed % 2 === 0) maxAllowed -= 1;
-        if (blurSize > maxAllowed) blurSize = Math.max(3, maxAllowed);
-        if (blurSize % 2 === 0) blurSize += 1;
+        if (finalBlurSize > maxAllowed) finalBlurSize = Math.max(3, maxAllowed);
+        if (finalBlurSize % 2 === 0) finalBlurSize += 1;
         
-        cv.medianBlur(grayDownscaled, grayDownscaled, blurSize);
+        cv.medianBlur(grayDownscaled, grayDownscaled, finalBlurSize);
         
         let illuminationMap = new cv.Mat();
         cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -197,12 +227,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
-        const gamma = options.gamma ?? 1.5;
-        
         // SAFE Gamma Array in JS Memory (prevents cv.LUT crashes)
         let lutArray = new Uint8Array(256);
         for (let i = 0; i < 256; i++) {
-            lutArray[i] = Math.min(255, Math.pow(i / 255.0, gamma) * 255.0);
+            lutArray[i] = Math.min(255, Math.pow(i / 255.0, finalGamma) * 255.0);
         }
         
         // Memory-safe channel processing
@@ -228,11 +256,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         tempChannels.forEach(ch => ch.delete());
         
         // Thicken the text
-        const erodeWt = options.erodeWeight ?? 0.5;
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 1 - erodeWt, eroded, erodeWt, 0, rgb);
+        cv.addWeighted(rgb, 1 - finalErode, eroded, finalErode, 0, rgb);
         kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
@@ -248,9 +275,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         
-        const satBoost = options.saturationBoost ?? 1.3;
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, satBoost, 0); 
+        s.convertTo(s, -1, finalSat, 0); 
         
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
@@ -280,7 +306,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         hsv.delete(); hsvPlanes.delete(); 
         finalRgba.delete();
         
-        resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
+        resolve({ 
+          cropped: croppedUrl, 
+          bw: bwUrl, 
+          color: colorUrl,
+          detectedType: detectedType,
+          appliedOptions: { gamma: finalGamma, erodeWeight: finalErode, saturationBoost: finalSat, bgBlurSize: finalBlurSize }
+        });
 
       } catch (err) {
         console.error("OpenCV processing failed", err);
