@@ -180,9 +180,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let grayDownscaled = new cv.Mat();
         cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
-        // Dynamic blur size to avoid erasing large photos
+        // SAFE Bounds Check for Blur Size (prevents OpenCV crash)
         let blurSize = options.bgBlurSize ?? 15;
+        let maxAllowed = Math.min(grayDownscaled.cols, grayDownscaled.rows);
+        if (maxAllowed % 2 === 0) maxAllowed -= 1;
+        if (blurSize > maxAllowed) blurSize = Math.max(3, maxAllowed);
         if (blurSize % 2 === 0) blurSize += 1;
+        
         cv.medianBlur(grayDownscaled, grayDownscaled, blurSize);
         
         let illuminationMap = new cv.Mat();
@@ -194,24 +198,36 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.split(rgb, rgbPlanes);
         
         const gamma = options.gamma ?? 1.5;
-        // Precompute Gamma LUT
-        let lut = new cv.Mat(1, 256, cv.CV_8U);
-        let lutData = lut.data;
+        
+        // SAFE Gamma Array in JS Memory (prevents cv.LUT crashes)
+        let lutArray = new Uint8Array(256);
         for (let i = 0; i < 256; i++) {
-            lutData[i] = Math.min(255, Math.pow(i / 255.0, gamma) * 255.0);
+            lutArray[i] = Math.min(255, Math.pow(i / 255.0, gamma) * 255.0);
         }
         
+        // Memory-safe channel processing
+        let tempChannels = [];
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
-            cv.LUT(channel, lut, channel); // Apply Gamma to darken text while keeping 255 white
+            
+            // Manual Gamma apply for total safety
+            let data = channel.data;
+            for (let j = 0; j < data.length; j++) {
+                data[j] = lutArray[data[j]];
+            }
+            
             rgbPlanes.set(i, channel);
-            channel.delete();
+            tempChannels.push(channel); 
+            // DO NOT delete channel here, it corrupts rgbPlanes before merge
         }
-        cv.merge(rgbPlanes, rgb);
-        lut.delete();
         
-        // Thicken the text (using ELLIPSE instead of CROSS to avoid artifacts).
+        cv.merge(rgbPlanes, rgb);
+        
+        // Safe Memory Cleanup for split channels
+        tempChannels.forEach(ch => ch.delete());
+        
+        // Thicken the text
         const erodeWt = options.erodeWeight ?? 0.5;
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
@@ -234,10 +250,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         const satBoost = options.saturationBoost ?? 1.3;
         let s = hsvPlanes.get(1);
-        s.convertTo(s, -1, satBoost, 0); // Configurable saturation boost
+        s.convertTo(s, -1, satBoost, 0); 
         
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
+        s.delete(); // Safe because it's after merge
+        
+        // Cleanup remaining hsv planes
+        let h = hsvPlanes.get(0); h.delete();
+        let v = hsvPlanes.get(2); v.delete();
         
         let finalRgb = new cv.Mat();
         cv.cvtColor(hsv, finalRgb, cv.COLOR_HSV2RGB);
@@ -248,13 +269,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        // Cleanup
+        // Cleanup all allocated Mats to prevent memory leaks
         finalRgb.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
+        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); 
+        rgb.delete(); rgbPlanes.delete();
+        smoothed.delete(); colorBlurred.delete(); sharp.delete(); 
+        hsv.delete(); hsvPlanes.delete(); 
         finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
