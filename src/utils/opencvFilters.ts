@@ -150,19 +150,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
         let blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 1.5);
+        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 2);
         let sharpened = new cv.Mat();
-        cv.addWeighted(gray, 1.8, blurred, -0.8, 0, sharpened);
+        cv.addWeighted(gray, 1.7, blurred, -0.7, 0, sharpened);
         
         let bw = new cv.Mat();
-        // C=12 instead of 15 makes the lines naturally thicker and connected, without blobbing!
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 12);
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
         
-        // Use a very light Cross kernel (not a Rect) if we want to bridge gaps, 
-        // but threshold tuning is usually enough. Let's do a light cross.
-        let bwKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-        // We do a very light erode (iterations: 1) only to connect thin lines, cross prevents blocky blobs
-        cv.erode(bw, bw, bwKernel, new cv.Point(-1, -1), 1);
+        // Expand the black ink (0) to bridge broken notebook lines
+        // Using ELLIPSE instead of RECT or CROSS per user request for smoother dots
+        let bwKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2));
+        cv.erode(bw, bw, bwKernel);
         bwKernel.delete();
         
         let darkMask = new cv.Mat();
@@ -200,9 +198,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         const detectedType = isTextDocument ? 'text' : 'photo';
         
         // --- Determine Final Options (Auto vs Manual) ---
-        // If the user provided a specific manual override (e.g., via sliders), use it.
-        // Otherwise, fallback to the golden parameters discovered for each type.
-        let finalBlurSize = options.bgBlurSize ?? (isTextDocument ? 51 : 49);
+        let finalBlurSize = options.bgBlurSize ?? (isTextDocument ? 21 : 49);
         let finalGamma = options.gamma ?? (isTextDocument ? 1.4 : 0.8);
         let finalErode = options.erodeWeight ?? (isTextDocument ? 0.5 : 0.3);
         let finalSat = options.saturationBoost ?? (isTextDocument ? 2.6 : 2.2);
@@ -211,26 +207,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let grayColor = new cv.Mat();
         cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
         
-        let grayDownscaled = new cv.Mat();
-        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        let grayDownscaled2 = new cv.Mat();
+        cv.resize(grayColor, grayDownscaled2, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
-        // --- SMART BACKGROUND ESTIMATION ---
-        // Dilate expands the bright pixels (paper) over the dark pixels (text), effectively erasing the text
-        // and leaving only the uneven lighting and shadows of the paper!
-        let kernelSize = Math.min(21, Math.max(5, finalBlurSize)); 
-        if (kernelSize % 2 === 0) kernelSize += 1;
-        let bgKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kernelSize, kernelSize));
+        // REVERT to medianBlur which correctly tracks shadow gradients!
+        let maxAllowed = Math.min(grayDownscaled2.cols, grayDownscaled2.rows);
+        if (maxAllowed % 2 === 0) maxAllowed -= 1;
+        if (finalBlurSize > maxAllowed) finalBlurSize = Math.max(3, maxAllowed);
+        if (finalBlurSize % 2 === 0) finalBlurSize += 1;
         
-        let background = new cv.Mat();
-        cv.dilate(grayDownscaled, background, bgKernel);
-        bgKernel.delete();
-        
-        // Smooth the background map so we don't get hard edges
-        cv.GaussianBlur(background, background, new cv.Size(kernelSize, kernelSize), 0);
+        cv.medianBlur(grayDownscaled2, grayDownscaled2, finalBlurSize);
         
         let illuminationMap = new cv.Mat();
-        cv.resize(background, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        background.delete();
+        cv.resize(grayDownscaled2, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
