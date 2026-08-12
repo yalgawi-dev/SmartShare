@@ -225,48 +225,43 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         let s = hsvPlanes.get(1);
         let v = hsvPlanes.get(2);
         
-        // Remove chromatic noise from saturation channel without destroying thick blue strokes
-        cv.medianBlur(s, s, 5);
-        s.convertTo(s, -1, 1.15, 0); // Reduced from 1.3 to avoid burning vibrant colors
+        // We use the flawless B&W mask to identify all ink pixels (both black and blue)
+        let inkMask = new cv.Mat();
+        cv.bitwise_not(bw, inkMask); // 255 where ink is, 0 for background
         
-        // Thicken the text slightly by eroding ONLY the Value channel (so we don't destroy color!)
+        // Base saturation boost for the entire page (e.g., yellow duck)
+        s.convertTo(s, -1, 1.15, 0); 
+        
+        // For INK pixels, we want them to be BOLD and COLORFUL.
+        // We darken their brightness (V) and boost their color (S).
+        // This ensures black text becomes pitch black (V drops, S stays near 0),
+        // and blue signatures become deep, vibrant blue (V drops, S spikes)!
+        let vDark = new cv.Mat();
+        v.convertTo(vDark, -1, 0.4, 0); // Darken ink by 60%
+        vDark.copyTo(v, inkMask);
+        
+        let sBoost = new cv.Mat();
+        s.convertTo(sBoost, -1, 2.0, 0); // Double the saturation for ink
+        sBoost.copyTo(s, inkMask);
+        
+        // Thicken all text slightly (Half-strength of v3.6, using ELLIPSE to avoid crosses)
         let vEroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.erode(v, vEroded, kernel);
         cv.addWeighted(v, 0.75, vEroded, 0.25, 0, v);
-        kernel.delete(); vEroded.delete();
         
         hsvPlanes.set(1, s);
         hsvPlanes.set(2, v);
         cv.merge(hsvPlanes, hsv);
         
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
-        
-        // 6. BLEND WITH B&W MASK (Magic Step)
-        // We restore the original v3.6 logic where we apply the pitch-black BW mask ONLY
-        // to pixels with saturation < 50, preserving colored signatures perfectly!
-        // The chromatic noise is organically fixed by the cv.erode step above.
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
-        
-        let bwColor = new cv.Mat();
-        cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
-        
-        let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor); 
-        
-        // Only apply the pitch-black text overlay on pixels that are genuinely low-saturation
-        magicColor.copyTo(enhancedRgb, lowSatMask);
-        
         let finalRgba = new cv.Mat();
-        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(hsv, finalRgba, cv.COLOR_HSV2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
+        inkMask.delete(); vDark.delete(); sBoost.delete(); vEroded.delete(); kernel.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
