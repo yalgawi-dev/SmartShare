@@ -257,8 +257,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         s.delete(); // Safe because it's after merge
         
         // Cleanup remaining hsv planes
-        let h = hsvPlanes.get(0); h.delete();
-        let v = hsvPlanes.get(2); v.delete();
+        let hPlane = hsvPlanes.get(0); hPlane.delete();
+        let vPlane = hsvPlanes.get(2); vPlane.delete();
         
         let finalRgb = new cv.Mat();
         cv.cvtColor(hsv, finalRgb, cv.COLOR_HSV2RGB);
