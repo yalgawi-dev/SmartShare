@@ -173,15 +173,19 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [detectedType, setDetectedType] = useState<'text' | 'photo' | null>(null);
 
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[], options?: ScannerOptions) => {
+  const performCrop = async (snapshot: string, pts: Point[], options?: ScannerOptions, targetProfile?: 'auto' | 'text' | 'photo') => {
     try {
-      let cropOptions: ScannerOptions = {};
-      if (options) {
-        cropOptions = options; // Manual override from DevTools
-      } else if (profile === 'text') {
-        cropOptions = { gamma: 0.5, bgBlurSize: 3, erodeWeight: 1.0, saturationBoost: 1.0 };
-      } else if (profile === 'photo') {
-        cropOptions = { gamma: 0.8, bgBlurSize: 49, erodeWeight: 0.3, saturationBoost: 2.2 };
+      const activeProfile = targetProfile || profile;
+      let cropOptions: ScannerOptions | undefined = options;
+      
+      // If no explicit devOptions were passed (meaning the user clicked a profile button instead of 'Apply Changes')
+      if (!options) {
+        if (activeProfile === 'text') {
+          cropOptions = { gamma: 1.3, bgBlurSize: 21, erodeWeight: 0.8, saturationBoost: 3.0 };
+        } else if (activeProfile === 'photo') {
+          cropOptions = { gamma: 0.8, bgBlurSize: 49, erodeWeight: 0.3, saturationBoost: 2.2 };
+        }
+        // If activeProfile is 'auto', cropOptions remains undefined, letting opencvFilters decide.
       }
       
       const results = await applyPerspectiveAndFilters(snapshot, pts, cropOptions);
@@ -395,17 +399,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             {mode === 'color' && (
               <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                 <button 
-                  onClick={() => { setProfile('auto'); performCrop(rawSnapshot!, cropPoints); }} 
+                  onClick={() => { setProfile('auto'); performCrop(rawSnapshot!, cropPoints, undefined, 'auto'); }} 
                   style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'auto' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
                   אוטומטי {detectedType === 'text' ? '📝' : detectedType === 'photo' ? '🖼️' : '✨'}
                 </button>
                 <button 
-                  onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints); }} 
+                  onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints, undefined, 'text'); }} 
                   style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'text' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
                   📝 טקסט
                 </button>
                 <button 
-                  onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints); }} 
+                  onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints, undefined, 'photo'); }} 
                   style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'photo' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
                   🖼️ צילום
                 </button>
