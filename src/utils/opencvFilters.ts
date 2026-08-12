@@ -311,7 +311,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        colorDownscaled.delete(); illuminationMapSmall.delete(); illuminationMap.delete(); illumPlanes.delete();
         rgb.delete(); rgbPlanes.delete();
         smoothed.delete(); colorBlurred.delete(); sharp.delete(); 
         hsv.delete(); hsvPlanes.delete(); 

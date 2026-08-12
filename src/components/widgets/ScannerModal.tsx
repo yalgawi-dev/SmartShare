@@ -202,8 +202,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       if (results.appliedOptions) {
         setDevOptions(results.appliedOptions);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Crop failed:", err);
+      alert("Error in crop: " + (err?.message || err));
     }
   };
 
