@@ -270,8 +270,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-        enhancedRgb.delete(); finalRgba.delete();
+        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); v.delete();
+        finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
 
