@@ -209,6 +209,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         }
         cv.merge(rgbPlanes, rgb);
         
+        // Thicken the text (using ELLIPSE instead of CROSS to avoid artifacts).
+        // Using 50% strength (like v3.6) to naturally swallow chromatic noise in black text!
+        let eroded = new cv.Mat();
+        let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        cv.erode(rgb, eroded, kernel);
+        cv.addWeighted(rgb, 0.5, eroded, 0.5, 0, rgb);
+        kernel.delete(); eroded.delete();
+        
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
@@ -223,55 +231,45 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.split(hsv, hsvPlanes);
         
         let s = hsvPlanes.get(1);
-        let v = hsvPlanes.get(2);
-        
-        // We use the flawless B&W mask to identify all ink pixels (both black and blue)
-        let inkMask = new cv.Mat();
-        cv.bitwise_not(bw, inkMask); // 255 where ink is, 0 for background
-        
-        // Base saturation boost for the entire page (e.g., yellow duck)
-        s.convertTo(s, -1, 1.15, 0); 
-        
-        // For INK pixels, we want them to be BOLD and COLORFUL.
-        // We darken their brightness (V) and boost their color (S).
-        // This ensures black text becomes pitch black (V drops, S stays near 0),
-        // and blue signatures become deep, vibrant blue (V drops, S spikes)!
-        let vDark = new cv.Mat();
-        v.convertTo(vDark, -1, 0.4, 0); // Darken ink by 60%
-        vDark.copyTo(v, inkMask);
-        
-        let sBoost = new cv.Mat();
-        s.convertTo(sBoost, -1, 2.0, 0); // Double the saturation for ink
-        sBoost.copyTo(s, inkMask);
-        
-        // Thicken all text slightly (Half-strength of v3.6, using ELLIPSE to avoid crosses)
-        let vEroded = new cv.Mat();
-        let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
-        cv.erode(v, vEroded, kernel);
-        cv.addWeighted(v, 0.75, vEroded, 0.25, 0, v);
+        s.convertTo(s, -1, 1.15, 0); // Base saturation boost
         
         hsvPlanes.set(1, s);
-        hsvPlanes.set(2, v);
         cv.merge(hsvPlanes, hsv);
         
-        let finalRgb = new cv.Mat();
-        cv.cvtColor(hsv, finalRgb, cv.COLOR_HSV2RGB);
+        let enhancedRgb = new cv.Mat();
+        cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
+        
+        // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
+        // Identify pixels with low color (Saturation < 50).
+        // Because of the 50% cv.erode above, chromatic noise inside black text is swallowed,
+        // so this mask perfectly isolates the black text without harming colored pens!
+        let lowSatMask = new cv.Mat();
+        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV);
+        
+        let bwColor = new cv.Mat();
+        cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
+        
+        // Take the pitch-black text from the B&W mask
+        let magicColor = new cv.Mat();
+        cv.min(enhancedRgb, bwColor, magicColor); 
+        
+        // Apply the pitch-black text ONLY to the areas that lack color
+        magicColor.copyTo(enhancedRgb, lowSatMask);
         
         let finalRgba = new cv.Mat();
-        cv.cvtColor(finalRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
         // Cleanup
-        finalRgb.delete();
-        inkMask.delete(); vDark.delete(); sBoost.delete(); vEroded.delete(); kernel.delete();
+        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete(); v.delete();
-        finalRgba.delete();
+        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
+        enhancedRgb.delete(); finalRgba.delete();
         
         resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
 
