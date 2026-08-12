@@ -103,7 +103,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, pureColor: string, appliedOptions?: ScannerOptions }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, pureColor: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -163,7 +163,22 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
         
         let darkMask = new cv.Mat();
-        cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
+        cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
+        
+        // --- Auto-Detect Profile (Photo vs Text) ---
+        // Adaptive thresholding makes mostly white pages with black text.
+        // If more than 30% of the image became black, it's highly likely a photo (or a very noisy/dark image that shouldn't be processed as text).
+        let totalPixels = bw.rows * bw.cols;
+        let whitePixels = cv.countNonZero(bw);
+        let blackPixels = totalPixels - whitePixels;
+        let blackRatio = blackPixels / totalPixels;
+        
+        let detectedType: 'text' | 'photo' = blackRatio > 0.30 ? 'photo' : 'text';
+        
+        // If options.profile is 'auto' (or undefined), set options.profile so the rest of the pipeline uses the detected type!
+        if (!options.profile || options.profile === 'auto') {
+            options.profile = detectedType;
+        } 
         
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
         blackMat.copyTo(bw, darkMask);
@@ -203,6 +218,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         // Use options.gamma for contrast multiplier, default to 1.3 (Anchor v3.6)
         let finalGamma = options.gamma ?? 1.3;
+        
+        let isPhoto = options.profile === 'photo';
         
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
@@ -284,6 +301,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let whiteClipThreshold = options.whiteClip ?? 210; // Default to 210 (pixels brighter than this become pure white)
         let pureGamma = options.gamma ?? 0.5; // Default Gamma for Pure Color (makes text bold without B&W overlay)
         let pureSat = options.saturationBoost ?? 1.8;
+        let pureErodeWeight = options.erodeWeight ?? 0.5;
         
         // LUT for White Clipping + Gamma
         let pureLut = new Uint8Array(256);
@@ -298,8 +316,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
                 pureLut[i] = Math.min(255, Math.pow(norm, pureGamma) * 255.0);
             }
         }
-        
-        let isPhoto = options.profile === 'photo';
         
         for (let i = 0; i < 3; i++) {
             let channel = rgbPurePlanes.get(i);
@@ -335,7 +351,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         if (!isPhoto) {
             let erodedPure = new cv.Mat();
             let pureKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-            let pureErodeWeight = options.erodeWeight ?? 0.5;
             cv.erode(rgbPure, erodedPure, pureKernel);
             cv.addWeighted(rgbPure, 1.0 - pureErodeWeight, erodedPure, pureErodeWeight, 0, rgbPure);
             pureKernel.delete(); erodedPure.delete();
@@ -378,7 +393,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
           bw: bwUrl, 
           color: colorUrl,
           pureColor: pureColorUrl,
-          appliedOptions: { gamma: pureGamma, erodeWeight: finalErode, saturationBoost: pureSat, bgBlurSize: finalBlurSize, whiteClip: whiteClipThreshold }
+          appliedOptions: { gamma: pureGamma, erodeWeight: pureErodeWeight, saturationBoost: pureSat, bgBlurSize: finalBlurSize, whiteClip: whiteClipThreshold, profile: options.profile },
+          detectedType
         });
 
       } catch (err) {
