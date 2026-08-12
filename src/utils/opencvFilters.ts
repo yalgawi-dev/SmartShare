@@ -207,19 +207,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let grayColor = new cv.Mat();
         cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
         
-        let grayDownscaled2 = new cv.Mat();
-        cv.resize(grayColor, grayDownscaled2, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        let grayDownscaled = new cv.Mat();
+        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
         // REVERT to medianBlur which correctly tracks shadow gradients!
-        let maxAllowed = Math.min(grayDownscaled2.cols, grayDownscaled2.rows);
+        let maxAllowed = Math.min(grayDownscaled.cols, grayDownscaled.rows);
         if (maxAllowed % 2 === 0) maxAllowed -= 1;
         if (finalBlurSize > maxAllowed) finalBlurSize = Math.max(3, maxAllowed);
         if (finalBlurSize % 2 === 0) finalBlurSize += 1;
         
-        cv.medianBlur(grayDownscaled2, grayDownscaled2, finalBlurSize);
+        cv.medianBlur(grayDownscaled, grayDownscaled, finalBlurSize);
         
         let illuminationMap = new cv.Mat();
-        cv.resize(grayDownscaled2, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
