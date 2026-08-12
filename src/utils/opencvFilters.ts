@@ -103,7 +103,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Promise<{ cropped: string, bw: string, color: string }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, appliedOptions?: ScannerOptions }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
