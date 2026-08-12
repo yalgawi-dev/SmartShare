@@ -157,7 +157,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let bw = new cv.Mat();
         cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
         
-        // Removed the erode step here based on user feedback that B&W text was too thick
+        // Expand the black ink (0) to bridge broken notebook lines (restored for readability)
+        let bwKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+        cv.erode(bw, bw, bwKernel);
+        bwKernel.delete();
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
