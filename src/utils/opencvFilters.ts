@@ -199,10 +199,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         // --- Determine Final Options (Auto vs Manual) ---
         // If the user provided a specific manual override (e.g., via sliders), use it.
         // Otherwise, fallback to the golden parameters discovered for each type.
-        let finalBlurSize = options.bgBlurSize ?? (isTextDocument ? 21 : 49);
-        let finalGamma = options.gamma ?? (isTextDocument ? 1.3 : 0.8);
-        let finalErode = options.erodeWeight ?? (isTextDocument ? 0.8 : 0.3);
-        let finalSat = options.saturationBoost ?? (isTextDocument ? 3.0 : 2.2);
+        let finalBlurSize = options.bgBlurSize ?? (isTextDocument ? 51 : 49);
+        let finalGamma = options.gamma ?? (isTextDocument ? 1.4 : 0.8);
+        let finalErode = options.erodeWeight ?? (isTextDocument ? 0.5 : 0.3);
+        let finalSat = options.saturationBoost ?? (isTextDocument ? 2.6 : 2.2);
 
         // --- Color Enhancement ---
         let grayColor = new cv.Mat();

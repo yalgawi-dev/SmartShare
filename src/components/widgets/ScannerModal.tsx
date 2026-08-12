@@ -181,7 +181,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       // If no explicit devOptions were passed (meaning the user clicked a profile button instead of 'Apply Changes')
       if (!options) {
         if (activeProfile === 'text') {
-          cropOptions = { gamma: 1.3, bgBlurSize: 21, erodeWeight: 0.8, saturationBoost: 3.0 };
+          cropOptions = { gamma: 1.4, bgBlurSize: 51, erodeWeight: 0.5, saturationBoost: 2.6 };
         } else if (activeProfile === 'photo') {
           cropOptions = { gamma: 0.8, bgBlurSize: 49, erodeWeight: 0.3, saturationBoost: 2.2 };
         }
