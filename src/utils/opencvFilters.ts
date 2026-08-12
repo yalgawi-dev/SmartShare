@@ -115,37 +115,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
     const img = new Image();
     img.src = snapshot;
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('Canvas context failed'));
-      ctx.drawImage(img, 0, 0);
-
       try {
-        const cv = (window as any).cv;
-        let src = cv.imread(canvas);
-        
-        const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
-        const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-        const maxWidth = Math.round(Math.max(widthA, widthB));
-
-        const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
-        const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
-        const maxHeight = Math.round(Math.max(heightA, heightB));
-        
-        let dst = new cv.Mat();
-        let dsize = new cv.Size(maxWidth, maxHeight);
-        
-        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          pts[0].x, pts[0].y,
-          pts[1].x, pts[1].y,
-          pts[2].x, pts[2].y,
-          pts[3].x, pts[3].y
-        ]);
-        
-        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          0, 0,
         const src = cv.imread(img);
         
         // 1. Perspective Transform
