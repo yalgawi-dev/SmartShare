@@ -190,7 +190,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         // If activeProfile is 'auto', cropOptions remains undefined, letting opencvFilters decide.
       }
       
-      const results = await applyPerspectiveAndFilters(snapshot, pts, cropOptions);
+      const results = await applyPerspectiveAndFilters(snapshot, pts, { ...cropOptions, profile: activeProfile });
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
       setColorSnapshot(results.color);

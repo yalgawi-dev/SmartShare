@@ -206,8 +206,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
-            cv.divide(channel, illuminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, finalGamma, -40); // Increased contrast for whiter page
+            if (!isPhoto) {
+                cv.divide(channel, illuminationMap, channel, 255, -1);
+                channel.convertTo(channel, -1, finalGamma, -40); // Increased contrast for whiter page
+            } else {
+                channel.convertTo(channel, -1, finalGamma, 0); // Gentle contrast for photos
+            }
             rgbPlanes.set(i, channel);
             channel.delete();
         }
@@ -218,8 +222,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
         let finalErode = options.erodeWeight ?? 0.5;
-        cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 1.0 - finalErode, eroded, finalErode, 0, rgb);
+        if (!isPhoto) {
+            cv.erode(rgb, eroded, kernel);
+            cv.addWeighted(rgb, 1.0 - finalErode, eroded, finalErode, 0, rgb);
+        }
         kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
@@ -244,7 +250,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
-        // 6. BLEND WITH B&W MASK (Magic Step)
+        // 6. BLEND WITH B&W MASK (Magic Step) - Skip for photos!
         // Create a mask for LOW saturation pixels (grays/blacks) so we don't ruin vibrant colors like yellow ducks!
         let lowSatMask = new cv.Mat();
         cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
@@ -253,10 +259,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
         let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor); // This deep-fries colors, but makes text pitch black
-        
-        // Copy the deep-fried pitch black text ONLY onto pixels that are low saturation (gray/black originally)
-        magicColor.copyTo(enhancedRgb, lowSatMask);
+        if (!isPhoto) {
+            cv.min(enhancedRgb, bwColor, magicColor); // This deep-fries colors, but makes text pitch black
+            // Copy the deep-fried pitch black text ONLY onto pixels that are low saturation (gray/black originally)
+            magicColor.copyTo(enhancedRgb, lowSatMask);
+        }
         
         let finalRgba = new cv.Mat();
         cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
@@ -292,22 +299,47 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             }
         }
         
+        let isPhoto = options.profile === 'photo';
+        
         for (let i = 0; i < 3; i++) {
             let channel = rgbPurePlanes.get(i);
             
-            // 1. Illumination division (flatten lighting)
-            cv.divide(channel, illuminationMap, channel, 255, -1);
+            // 1. Illumination division (flatten lighting) ONLY for text
+            if (!isPhoto) {
+                cv.divide(channel, illuminationMap, channel, 255, -1);
+            }
             
             // 2. Apply White Clip and Gamma via LUT
             let data = channel.data;
-            for (let j = 0; j < data.length; j++) {
-                data[j] = pureLut[data[j]];
+            if (!isPhoto) {
+                for (let j = 0; j < data.length; j++) {
+                    data[j] = pureLut[data[j]];
+                }
+            } else {
+                 // For photos, just apply Gamma, no white clip (white clip destroys skies and bright areas)
+                 let photoLut = new Uint8Array(256);
+                 for (let k = 0; k < 256; k++) {
+                     photoLut[k] = Math.min(255, Math.pow(k / 255.0, pureGamma) * 255.0);
+                 }
+                 for (let j = 0; j < data.length; j++) {
+                     data[j] = photoLut[data[j]];
+                 }
             }
             
             rgbPurePlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPurePlanes, rgbPure);
+        
+        // Thicken the text slightly (Erode) - skip for photos
+        if (!isPhoto) {
+            let erodedPure = new cv.Mat();
+            let pureKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
+            let pureErodeWeight = options.erodeWeight ?? 0.5;
+            cv.erode(rgbPure, erodedPure, pureKernel);
+            cv.addWeighted(rgbPure, 1.0 - pureErodeWeight, erodedPure, pureErodeWeight, 0, rgbPure);
+            pureKernel.delete(); erodedPure.delete();
+        }
         
         // Increase Saturation for pop
         let hsvPure = new cv.Mat();
