@@ -150,16 +150,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
         let blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 2);
+        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 1.5);
         let sharpened = new cv.Mat();
-        cv.addWeighted(gray, 1.7, blurred, -0.7, 0, sharpened);
+        cv.addWeighted(gray, 1.8, blurred, -0.8, 0, sharpened);
         
         let bw = new cv.Mat();
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
+        // C=12 instead of 15 makes the lines naturally thicker and connected, without blobbing!
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 12);
         
-        // Expand the black ink (0) to bridge broken notebook lines (restored for readability)
-        let bwKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-        cv.erode(bw, bw, bwKernel);
+        // Use a very light Cross kernel (not a Rect) if we want to bridge gaps, 
+        // but threshold tuning is usually enough. Let's do a light cross.
+        let bwKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
+        // We do a very light erode (iterations: 1) only to connect thin lines, cross prevents blocky blobs
+        cv.erode(bw, bw, bwKernel, new cv.Point(-1, -1), 1);
         bwKernel.delete();
         
         let darkMask = new cv.Mat();
@@ -211,16 +214,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let grayDownscaled = new cv.Mat();
         cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
-        // SAFE Bounds Check for Blur Size (prevents OpenCV crash)
-        let maxAllowed = Math.min(grayDownscaled.cols, grayDownscaled.rows);
-        if (maxAllowed % 2 === 0) maxAllowed -= 1;
-        if (finalBlurSize > maxAllowed) finalBlurSize = Math.max(3, maxAllowed);
-        if (finalBlurSize % 2 === 0) finalBlurSize += 1;
+        // --- SMART BACKGROUND ESTIMATION ---
+        // Dilate expands the bright pixels (paper) over the dark pixels (text), effectively erasing the text
+        // and leaving only the uneven lighting and shadows of the paper!
+        let kernelSize = Math.min(21, Math.max(5, finalBlurSize)); 
+        if (kernelSize % 2 === 0) kernelSize += 1;
+        let bgKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(kernelSize, kernelSize));
         
-        cv.medianBlur(grayDownscaled, grayDownscaled, finalBlurSize);
+        let background = new cv.Mat();
+        cv.dilate(grayDownscaled, background, bgKernel);
+        bgKernel.delete();
+        
+        // Smooth the background map so we don't get hard edges
+        cv.GaussianBlur(background, background, new cv.Size(kernelSize, kernelSize), 0);
         
         let illuminationMap = new cv.Mat();
-        cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        cv.resize(background, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        background.delete();
         
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
@@ -237,6 +247,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let tempChannels = [];
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
+            
+            // Divide out the shadows to make the paper perfectly white
             cv.divide(channel, illuminationMap, channel, 255, -1);
             
             // Manual Gamma apply for total safety
@@ -255,7 +267,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         // Safe Memory Cleanup for split channels
         tempChannels.forEach(ch => ch.delete());
         
-        // Thicken the text
+        // Thicken the text - Use ELLIPSE instead of RECT for smoother text per user request
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.erode(rgb, eroded, kernel);
@@ -265,10 +277,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
+        // Smart Sharpening (Unsharp Mask)
         let colorBlurred = new cv.Mat();
-        cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 2);
+        cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 3);
         let sharp = new cv.Mat();
-        cv.addWeighted(smoothed, 3.5, colorBlurred, -2.5, 0, sharp);
+        cv.addWeighted(smoothed, 2.5, colorBlurred, -1.5, 0, sharp);
         
         let hsv = new cv.Mat();
         cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
