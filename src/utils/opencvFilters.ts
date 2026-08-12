@@ -1,5 +1,6 @@
 import { compressCanvas } from './imageOptimizer';
 
+declare const cv: any;
 export interface Point {
   x: number;
   y: number;
@@ -100,6 +101,8 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 }
 
 export interface ScannerOptions {
+  gamma?: number;
+  bgBlurSize?: number;
   contrastAlpha?: number;
   contrastBeta?: number;
   erodeWeight?: number;
@@ -211,16 +214,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
 
         // Create illumination map from RGB instead of Grayscale!
         // This ensures every colored stain in the background is divided out by itself, yielding pure white!
-        let rgbDownscaled = new cv.Mat();
-        cv.resize(rgb, rgbDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        let colorDownscaled = new cv.Mat();
+        cv.resize(rgb, colorDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
-        let maxAllowed = Math.min(rgbDownscaled.cols, rgbDownscaled.rows);
+        let maxAllowed = Math.min(colorDownscaled.cols, colorDownscaled.rows);
         if (maxAllowed % 2 === 0) maxAllowed -= 1;
         if (finalBlurSize > maxAllowed) finalBlurSize = Math.max(3, maxAllowed);
         if (finalBlurSize % 2 === 0) finalBlurSize += 1;
         
         let illuminationMapSmall = new cv.Mat();
-        cv.medianBlur(rgbDownscaled, illuminationMapSmall, finalBlurSize);
+        cv.medianBlur(colorDownscaled, illuminationMapSmall, finalBlurSize);
         
         let illuminationMap = new cv.Mat();
         cv.resize(illuminationMapSmall, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -308,7 +311,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); 
+        colorDownscaled.delete(); illuminationMapSmall.delete(); illuminationMap.delete(); illumPlanes.delete();
         rgb.delete(); rgbPlanes.delete();
         smoothed.delete(); colorBlurred.delete(); sharp.delete(); 
         hsv.delete(); hsvPlanes.delete(); 

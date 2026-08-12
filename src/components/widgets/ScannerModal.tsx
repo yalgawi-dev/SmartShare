@@ -14,7 +14,7 @@ interface ScannerModalProps {
 }
 
 export default function ScannerModal({ onClose, onComplete }: ScannerModalProps) {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null as unknown as HTMLVideoElement);
   const guideRef = useRef<HTMLDivElement>(null);
   
   // Ref to store the latest stable contour points in video scale
