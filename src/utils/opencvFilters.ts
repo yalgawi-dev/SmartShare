@@ -209,13 +209,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         }
         cv.merge(rgbPlanes, rgb);
         
-        // Thicken the text slightly (Half-strength of v3.6, using ELLIPSE to avoid crosses)
-        let eroded = new cv.Mat();
-        let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
-        cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 0.75, eroded, 0.25, 0, rgb);
-        kernel.delete(); eroded.delete();
-        
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
@@ -228,9 +221,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
+        
         let s = hsvPlanes.get(1);
+        let v = hsvPlanes.get(2);
+        
+        // Remove chromatic noise from saturation channel without destroying thick blue strokes
+        cv.medianBlur(s, s, 5);
         s.convertTo(s, -1, 1.15, 0); // Reduced from 1.3 to avoid burning vibrant colors
+        
+        // Thicken the text slightly by eroding ONLY the Value channel (so we don't destroy color!)
+        let vEroded = new cv.Mat();
+        let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        cv.erode(v, vEroded, kernel);
+        cv.addWeighted(v, 0.75, vEroded, 0.25, 0, v);
+        kernel.delete(); vEroded.delete();
+        
         hsvPlanes.set(1, s);
+        hsvPlanes.set(2, v);
         cv.merge(hsvPlanes, hsv);
         
         let enhancedRgb = new cv.Mat();
