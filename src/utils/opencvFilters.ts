@@ -146,18 +146,36 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
           0, 0,
-          maxWidth, 0,
-          maxWidth, maxHeight,
-          0, maxHeight
+        const src = cv.imread(img);
+        
+        // 1. Perspective Transform
+        const dst = new cv.Mat();
+        const w = Math.max(
+          Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+          Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y)
+        );
+        const h = Math.max(
+          Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y),
+          Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y)
+        );
+        
+        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          pts[0].x, pts[0].y, pts[1].x, pts[1].y,
+          pts[2].x, pts[2].y, pts[3].x, pts[3].y
         ]);
         
-        let M = cv.getPerspectiveTransform(srcTri, dstTri);
-        cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          0, 0, w, 0, w, h, 0, h
+        ]);
         
+        const M = cv.getPerspectiveTransform(srcTri, dstTri);
+        cv.warpPerspective(src, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+        
+        const canvas = document.createElement('canvas');
         cv.imshow(canvas, dst);
         const croppedUrl = compressCanvas(canvas);
-
-        // --- B&W Enhancement ---
+        
+        // --- B&W Processing ---
         let gray = new cv.Mat();
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
@@ -190,8 +208,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
         
         let grayDownscaled = new cv.Mat();
-        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        cv.medianBlur(grayDownscaled, grayDownscaled, 21);
+        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        
+        // Dynamic blur size to avoid erasing large photos
+        let blurSize = options.bgBlurSize ?? 15;
+        if (blurSize % 2 === 0) blurSize += 1;
+        cv.medianBlur(grayDownscaled, grayDownscaled, blurSize);
         
         let illuminationMap = new cv.Mat();
         cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -201,16 +223,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
-        const alpha = options.contrastAlpha ?? 1.3;
-        const beta = options.contrastBeta ?? -40;
+        const gamma = options.gamma ?? 1.5;
+        // Precompute Gamma LUT
+        let lut = new cv.Mat(1, 256, cv.CV_8U);
+        let lutData = lut.data;
+        for (let i = 0; i < 256; i++) {
+            lutData[i] = Math.min(255, Math.pow(i / 255.0, gamma) * 255.0);
+        }
+        
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, alpha, beta); // Configurable contrast for whiter page
+            cv.LUT(channel, lut, channel); // Apply Gamma to darken text while keeping 255 white
             rgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
+        lut.delete();
         
         // Thicken the text (using ELLIPSE instead of CROSS to avoid artifacts).
         const erodeWt = options.erodeWeight ?? 0.5;

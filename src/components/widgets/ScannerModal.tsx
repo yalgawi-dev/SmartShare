@@ -43,10 +43,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
-    contrastAlpha: 1.3,
-    contrastBeta: -40,
+    gamma: 1.5,
     erodeWeight: 0.5,
-    saturationBoost: 1.3
+    saturationBoost: 1.3,
+    bgBlurSize: 15
   });
   const [showDevTools, setShowDevTools] = useState(false);
 
@@ -373,20 +373,20 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             {showDevTools && (
               <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Contrast Alpha ({devOptions.contrastAlpha})</label>
-                  <input type="range" min="1.0" max="2.5" step="0.1" value={devOptions.contrastAlpha} onChange={e => setDevOptions({...devOptions, contrastAlpha: parseFloat(e.target.value)})} />
+                  <label>Gamma (Darkens text) ({devOptions.gamma})</label>
+                  <input type="range" min="0.5" max="3.5" step="0.1" value={devOptions.gamma} onChange={e => setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Contrast Beta ({devOptions.contrastBeta})</label>
-                  <input type="range" min="-100" max="0" step="5" value={devOptions.contrastBeta} onChange={e => setDevOptions({...devOptions, contrastBeta: parseFloat(e.target.value)})} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Erode Weight ({devOptions.erodeWeight})</label>
+                  <label>Erode (Thickens text) ({devOptions.erodeWeight})</label>
                   <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Saturation ({devOptions.saturationBoost})</label>
+                  <label>Saturation (Colors pop) ({devOptions.saturationBoost})</label>
                   <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <label>Shadow Radius (px) ({devOptions.bgBlurSize})</label>
+                  <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
                 </div>
                 <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
                   החל שינויים
