@@ -240,11 +240,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
-        // Identify pixels with low color (Saturation < 50).
-        // Because of the 50% cv.erode above, chromatic noise inside black text is swallowed,
-        // so this mask perfectly isolates the black text without harming colored pens!
+        // Identify pixels with low color. Lowered threshold from 50 to 15 based on today's insight 
+        // to perfectly preserve blue ink while still masking pure black text!
         let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV);
+        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
         
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
