@@ -40,13 +40,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color');
+  const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
+  const [mode, setMode] = useState<'bw' | 'color' | 'pure_color' | 'original'>('pure_color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
-    gamma: 1.3,
+    gamma: 0.5,
     erodeWeight: 0.5,
-    saturationBoost: 1.15,
-    bgBlurSize: 21
+    saturationBoost: 1.8,
+    bgBlurSize: 21,
+    whiteClip: 210
   });
   const [showDevTools, setShowDevTools] = useState(false);
 
@@ -192,6 +194,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
       setColorSnapshot(results.color);
+      setPureColorSnapshot(results.pureColor);
       
       if (results.detectedType) {
         setDetectedType(results.detectedType as 'text' | 'photo');
@@ -199,7 +202,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           setProfile(results.detectedType as 'text' | 'photo');
         }
       }
-      if (results.appliedOptions) {
+      if (results.appliedOptions && showDevTools) {
         setDevOptions(results.appliedOptions);
       }
     } catch (err: any) {
@@ -225,6 +228,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setCroppedSnapshot(null);
     setBwSnapshot(null);
     setColorSnapshot(null);
+    setPureColorSnapshot(null);
     setProfile('auto');
     setDetectedType(null);
   };
@@ -232,6 +236,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const handleDone = () => {
     let finalImage = bwSnapshot;
     if (mode === 'color') finalImage = colorSnapshot;
+    if (mode === 'pure_color') finalImage = pureColorSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
@@ -330,7 +335,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
            <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
              <TransformComponent wrapperStyle={{ width: '100%', height: '100%', overflow: 'hidden' }} contentStyle={{ width: '100%', height: '100%' }}>
                <img 
-                 src={mode === 'bw' ? (bwSnapshot || '') : mode === 'color' ? (colorSnapshot || '') : (croppedSnapshot || '')} 
+                 src={mode === 'original' ? (croppedSnapshot || '') : mode === 'bw' ? (bwSnapshot || '') : mode === 'pure_color' ? (pureColorSnapshot || '') : (colorSnapshot || '')} 
                  style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                  alt="Scanned document" 
                />
@@ -376,28 +381,30 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
         {step === 'review' && (
           <>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button 
                 onClick={() => setMode('original')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'original' ? 'white' : 'transparent', color: mode === 'original' ? 'black' : 'white', cursor: 'pointer' }}>
-                מקור
-              </button>
-              <button 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  מקור
+                </button>
+                <button 
+                onClick={() => setMode('pure_color')} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  צבע טהור
+                </button>
+                <button 
                 onClick={() => setMode('color')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'color' ? 'white' : 'transparent', color: mode === 'color' ? 'black' : 'white', cursor: 'pointer', position: 'relative' }}>
-                צבעוני קסם
-                {mode !== 'color' && detectedType && (
-                  <span style={{ position: 'absolute', top: -8, right: -8, background: '#FFD700', borderRadius: '50%', padding: '2px', fontSize: '0.7rem' }}>✨</span>
-                )}
-              </button>
-              <button 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'color' ? '#fff' : 'transparent', color: mode === 'color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  צבע רגיל
+                </button>
+                <button 
                 onClick={() => setMode('bw')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'bw' ? 'white' : 'transparent', color: mode === 'bw' ? 'black' : 'white', cursor: 'pointer' }}>
-                שחור-לבן
-              </button>
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  שחור-לבן
+                </button>
             </div>
             
-            {mode === 'color' && (
+            {(mode === 'color' || mode === 'pure_color') && (
               <>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
@@ -434,6 +441,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <label>Shadow Radius (px) ({devOptions.bgBlurSize})</label>
                       <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>White Clip ({devOptions.whiteClip})</label>
+                      <input type="range" min="150" max="255" step="1" value={devOptions.whiteClip} onChange={e => setDevOptions({...devOptions, whiteClip: parseFloat(e.target.value)})} />
                     </div>
                     <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
                       החל שינויים

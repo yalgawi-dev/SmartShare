@@ -103,7 +103,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, appliedOptions?: ScannerOptions }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, pureColor: string, appliedOptions?: ScannerOptions }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -264,6 +264,71 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
+        // =================================================================================
+        // ========================== PURE COLOR (v4.0) ALGORITHM ==========================
+        // =================================================================================
+        
+        let rgbPure = new cv.Mat();
+        cv.cvtColor(dst, rgbPure, cv.COLOR_RGBA2RGB);
+        let rgbPurePlanes = new cv.MatVector();
+        cv.split(rgbPure, rgbPurePlanes);
+        
+        // Slider controls for Pure Color
+        let whiteClipThreshold = options.whiteClip ?? 210; // Default to 210 (pixels brighter than this become pure white)
+        let pureGamma = options.gamma ?? 0.5; // Default Gamma for Pure Color (makes text bold without B&W overlay)
+        let pureSat = options.saturationBoost ?? 1.8;
+        
+        // LUT for White Clipping + Gamma
+        let pureLut = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) {
+            // 1. Normalize i to 0-1
+            let norm = i / 255.0;
+            // 2. White clip: If above threshold, push to pure white
+            if (i > whiteClipThreshold) {
+                pureLut[i] = 255;
+            } else {
+                // Apply Gamma to darken the text
+                pureLut[i] = Math.min(255, Math.pow(norm, pureGamma) * 255.0);
+            }
+        }
+        
+        for (let i = 0; i < 3; i++) {
+            let channel = rgbPurePlanes.get(i);
+            
+            // 1. Illumination division (flatten lighting)
+            cv.divide(channel, illuminationMap, channel, 255, -1);
+            
+            // 2. Apply White Clip and Gamma via LUT
+            let data = channel.data;
+            for (let j = 0; j < data.length; j++) {
+                data[j] = pureLut[data[j]];
+            }
+            
+            rgbPurePlanes.set(i, channel);
+            channel.delete();
+        }
+        cv.merge(rgbPurePlanes, rgbPure);
+        
+        // Increase Saturation for pop
+        let hsvPure = new cv.Mat();
+        cv.cvtColor(rgbPure, hsvPure, cv.COLOR_RGB2HSV);
+        let hsvPurePlanes = new cv.MatVector();
+        cv.split(hsvPure, hsvPurePlanes);
+        let sPure = hsvPurePlanes.get(1);
+        
+        sPure.convertTo(sPure, -1, pureSat, 0); 
+        hsvPurePlanes.set(1, sPure);
+        cv.merge(hsvPurePlanes, hsvPure);
+        
+        let finalPureColor = new cv.Mat();
+        cv.cvtColor(hsvPure, finalPureColor, cv.COLOR_HSV2RGB);
+        let finalPureRgba = new cv.Mat();
+        cv.cvtColor(finalPureColor, finalPureRgba, cv.COLOR_RGB2RGBA);
+        
+        cv.imshow(canvas, finalPureRgba);
+        const pureColorUrl = compressCanvas(canvas);
+
+        
         // Cleanup
         lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
@@ -273,11 +338,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
         enhancedRgb.delete(); finalRgba.delete();
         
+        // Pure cleanup
+        rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
+        
         resolve({ 
           cropped: croppedUrl, 
           bw: bwUrl, 
           color: colorUrl,
-          appliedOptions: { gamma: finalGamma, erodeWeight: finalErode, saturationBoost: finalSat, bgBlurSize: finalBlurSize }
+          pureColor: pureColorUrl,
+          appliedOptions: { gamma: pureGamma, erodeWeight: finalErode, saturationBoost: pureSat, bgBlurSize: finalBlurSize, whiteClip: whiteClipThreshold }
         });
 
       } catch (err) {
