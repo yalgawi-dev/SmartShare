@@ -5,7 +5,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { createPortal } from 'react-dom';
 import { compressCanvas } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
-import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
+import { detectDocument, applyPerspectiveAndFilters, Point, ScannerOptions } from '../../utils/opencvFilters';
 
 
 interface ScannerModalProps {
@@ -41,6 +41,14 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'bw' | 'color' | 'original'>('color');
+  
+  const [devOptions, setDevOptions] = useState<ScannerOptions>({
+    gamma: 1.5,
+    erodeWeight: 0.5,
+    saturationBoost: 1.3,
+    bgBlurSize: 15
+  });
+  const [showDevTools, setShowDevTools] = useState(false);
 
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -161,13 +169,39 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('cropping');
   };
 
+  const [profile, setProfile] = useState<'auto' | 'text' | 'photo'>('auto');
+  const [detectedType, setDetectedType] = useState<'text' | 'photo' | null>(null);
+
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[]) => {
+  const performCrop = async (snapshot: string, pts: Point[], options?: ScannerOptions, targetProfile?: 'auto' | 'text' | 'photo') => {
     try {
-      const results = await applyPerspectiveAndFilters(snapshot, pts);
+      const activeProfile = targetProfile || profile;
+      let cropOptions: ScannerOptions | undefined = options;
+      
+      // If no explicit devOptions were passed (meaning the user clicked a profile button instead of 'Apply Changes')
+      if (!options) {
+        if (activeProfile === 'text') {
+          cropOptions = { gamma: 1.4, bgBlurSize: 51, erodeWeight: 0.5, saturationBoost: 2.6 };
+        } else if (activeProfile === 'photo') {
+          cropOptions = { gamma: 0.8, bgBlurSize: 49, erodeWeight: 0.3, saturationBoost: 2.2 };
+        }
+        // If activeProfile is 'auto', cropOptions remains undefined, letting opencvFilters decide.
+      }
+      
+      const results = await applyPerspectiveAndFilters(snapshot, pts, cropOptions);
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
       setColorSnapshot(results.color);
+      
+      if (results.detectedType) {
+        setDetectedType(results.detectedType as 'text' | 'photo');
+        if (activeProfile === 'auto') {
+          setProfile(results.detectedType as 'text' | 'photo');
+        }
+      }
+      if (results.appliedOptions) {
+        setDevOptions(results.appliedOptions);
+      }
     } catch (err) {
       console.error("Crop failed:", err);
     }
@@ -179,12 +213,19 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('review');
   };
 
+  const handleApplyDevOptions = async () => {
+    if (!rawSnapshot || cropPoints.length !== 4) return;
+    await performCrop(rawSnapshot, cropPoints, devOptions, profile !== 'auto' ? profile : undefined);
+  };
+
   const handleRetake = () => {
     setStep('scanning');
     setRawSnapshot(null);
     setCroppedSnapshot(null);
     setBwSnapshot(null);
     setColorSnapshot(null);
+    setProfile('auto');
+    setDetectedType(null);
   };
 
   const handleDone = () => {
@@ -342,8 +383,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               </button>
               <button 
                 onClick={() => setMode('color')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'color' ? 'white' : 'transparent', color: mode === 'color' ? 'black' : 'white', cursor: 'pointer' }}>
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'color' ? 'white' : 'transparent', color: mode === 'color' ? 'black' : 'white', cursor: 'pointer', position: 'relative' }}>
                 צבעוני קסם
+                {mode !== 'color' && detectedType && (
+                  <span style={{ position: 'absolute', top: -8, right: -8, background: '#FFD700', borderRadius: '50%', padding: '2px', fontSize: '0.7rem' }}>✨</span>
+                )}
               </button>
               <button 
                 onClick={() => setMode('bw')} 
@@ -351,6 +395,53 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 שחור-לבן
               </button>
             </div>
+            
+            {mode === 'color' && (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                  <button 
+                    onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints, undefined, 'text'); }} 
+                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'text' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    📝 טקסט
+                  </button>
+                  <button 
+                    onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints, undefined, 'photo'); }} 
+                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'photo' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    🖼️ צילום
+                  </button>
+                  <button 
+                    onClick={() => setShowDevTools(!showDevTools)} 
+                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                    ⚙️
+                  </button>
+                </div>
+                
+                {showDevTools && (
+                  <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Gamma (Darkens text) ({devOptions.gamma})</label>
+                      <input type="range" min="0.5" max="3.5" step="0.1" value={devOptions.gamma} onChange={e => setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Erode (Thickens text) ({devOptions.erodeWeight})</label>
+                      <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Saturation (Colors pop) ({devOptions.saturationBoost})</label>
+                      <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Shadow Radius (px) ({devOptions.bgBlurSize})</label>
+                      <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                    </div>
+                    <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                      החל שינויים
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+            
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
               <button onClick={() => setStep('cropping')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
                 חזור לעריכה

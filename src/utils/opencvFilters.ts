@@ -99,58 +99,53 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   }
 }
 
+export interface ScannerOptions {
+  contrastAlpha?: number;
+  contrastBeta?: number;
+  erodeWeight?: number;
+  saturationBoost?: number;
+}
+
 /**
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Promise<{ cropped: string, bw: string, color: string }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, detectedType?: string, appliedOptions?: ScannerOptions }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
     img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return reject(new Error('Canvas context failed'));
-      ctx.drawImage(img, 0, 0);
-
       try {
-        const cv = (window as any).cv;
-        let src = cv.imread(canvas);
+        const src = cv.imread(img);
         
-        const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
-        const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-        const maxWidth = Math.round(Math.max(widthA, widthB));
-
-        const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
-        const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
-        const maxHeight = Math.round(Math.max(heightA, heightB));
+        // 1. Perspective Transform
+        const dst = new cv.Mat();
+        const w = Math.max(
+          Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y),
+          Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y)
+        );
+        const h = Math.max(
+          Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y),
+          Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y)
+        );
         
-        let dst = new cv.Mat();
-        let dsize = new cv.Size(maxWidth, maxHeight);
-        
-        let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          pts[0].x, pts[0].y,
-          pts[1].x, pts[1].y,
-          pts[2].x, pts[2].y,
-          pts[3].x, pts[3].y
+        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          pts[0].x, pts[0].y, pts[1].x, pts[1].y,
+          pts[2].x, pts[2].y, pts[3].x, pts[3].y
         ]);
         
-        let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          0, 0,
-          maxWidth, 0,
-          maxWidth, maxHeight,
-          0, maxHeight
+        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          0, 0, w, 0, w, h, 0, h
         ]);
         
-        let M = cv.getPerspectiveTransform(srcTri, dstTri);
-        cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
+        const M = cv.getPerspectiveTransform(srcTri, dstTri);
+        cv.warpPerspective(src, dst, M, new cv.Size(w, h), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
         
+        const canvas = document.createElement('canvas');
         cv.imshow(canvas, dst);
         const croppedUrl = compressCanvas(canvas);
-
-        // --- B&W Enhancement ---
+        
+        // --- B&W Processing ---
         let gray = new cv.Mat();
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
@@ -161,6 +156,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         
         let bw = new cv.Mat();
         cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
+        
+        // Expand the black ink (0) to bridge broken notebook lines
+        // Using ELLIPSE instead of RECT or CROSS per user request for smoother dots
+        let bwKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(2, 2));
+        cv.erode(bw, bw, bwKernel);
+        bwKernel.delete();
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV); 
@@ -173,70 +174,109 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.imshow(canvas, bwRgba);
         const bwUrl = compressCanvas(canvas);
         
-        // --- Color Enhancement ---
-        let grayColor = new cv.Mat();
-        cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
+        // --- Auto-Detect Document Type ---
+        let rgbDownscaled = new cv.Mat();
+        cv.resize(dst, rgbDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
         
-        let grayDownscaled = new cv.Mat();
-        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        cv.medianBlur(grayDownscaled, grayDownscaled, 21);
+        let smallHsv = new cv.Mat();
+        cv.cvtColor(rgbDownscaled, smallHsv, cv.COLOR_RGBA2RGB);
+        cv.cvtColor(smallHsv, smallHsv, cv.COLOR_RGB2HSV);
+        let smallHsvPlanes = new cv.MatVector();
+        cv.split(smallHsv, smallHsvPlanes);
+        let smallSat = smallHsvPlanes.get(1); // Saturation channel
         
-        let illuminationMap = new cv.Mat();
-        cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        let meanStd = new cv.Mat();
+        let mean = new cv.Mat();
+        cv.meanStdDev(smallSat, mean, meanStd);
+        let avgSaturation = mean.data64F[0];
         
-        let rgbForMask = new cv.Mat();
-        cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
-        let hsvForMask = new cv.Mat();
-        cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
-        let hsvPlanesForMask = new cv.MatVector();
-        cv.split(hsvForMask, hsvPlanesForMask);
-        let sMap = hsvPlanesForMask.get(1);
+        meanStd.delete(); mean.delete(); smallSat.delete(); smallHsvPlanes.delete(); smallHsv.delete(); rgbDownscaled.delete();
         
-        cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
-        rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
+        // A standard text document (even with blue ink) has very low average saturation.
+        // A color photo / magazine has high average saturation.
+        const isTextDocument = avgSaturation < 35;
+        const detectedType = isTextDocument ? 'text' : 'photo';
         
+        // --- Determine Final Options (Auto vs Manual) ---
+        let finalBlurSize = options.bgBlurSize ?? (isTextDocument ? 21 : 49);
+        let finalGamma = options.gamma ?? (isTextDocument ? 1.4 : 0.8);
+        let finalErode = options.erodeWeight ?? (isTextDocument ? 0.5 : 0.3);
+        let finalSat = options.saturationBoost ?? (isTextDocument ? 2.6 : 2.2);
+
+        // --- Color Enhancement (Channel-Independent Illumination Normalization) ---
         let rgb = new cv.Mat();
         cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
+
+        // Create illumination map from RGB instead of Grayscale!
+        // This ensures every colored stain in the background is divided out by itself, yielding pure white!
+        let rgbDownscaled = new cv.Mat();
+        cv.resize(rgb, rgbDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        
+        let maxAllowed = Math.min(rgbDownscaled.cols, rgbDownscaled.rows);
+        if (maxAllowed % 2 === 0) maxAllowed -= 1;
+        if (finalBlurSize > maxAllowed) finalBlurSize = Math.max(3, maxAllowed);
+        if (finalBlurSize % 2 === 0) finalBlurSize += 1;
+        
+        let illuminationMapSmall = new cv.Mat();
+        cv.medianBlur(rgbDownscaled, illuminationMapSmall, finalBlurSize);
+        
+        let illuminationMap = new cv.Mat();
+        cv.resize(illuminationMapSmall, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
+        let illumPlanes = new cv.MatVector();
+        cv.split(illuminationMap, illumPlanes);
         
         // SAFE Gamma Array in JS Memory (prevents cv.LUT crashes)
-        // Gamma 1.4 naturally deepens faint text and beautifully preserves color ratios (unlike linear clipping)
         let lutArray = new Uint8Array(256);
         for (let i = 0; i < 256; i++) {
-            lutArray[i] = Math.min(255, Math.pow(i / 255.0, 1.4) * 255.0);
+            lutArray[i] = Math.min(255, Math.pow(i / 255.0, finalGamma) * 255.0);
         }
         
+        // Memory-safe channel processing
+        let tempChannels = [];
+        let tempIllumChannels = [];
         for (let i = 0; i < 3; i++) {
             let channel = rgbPlanes.get(i);
-            cv.divide(channel, illuminationMap, channel, 255, -1);
+            let illumChannel = illumPlanes.get(i);
             
-            // Apply Gamma instead of linear contrast
+            // Divide out the shadows using the channel's OWN color map
+            cv.divide(channel, illumChannel, channel, 255, -1);
+            
+            // Manual Gamma apply for total safety
             let data = channel.data;
             for (let j = 0; j < data.length; j++) {
                 data[j] = lutArray[data[j]];
             }
             
             rgbPlanes.set(i, channel);
-            channel.delete();
+            tempChannels.push(channel); 
+            tempIllumChannels.push(illumChannel);
         }
+        
         cv.merge(rgbPlanes, rgb);
         
-        // Thicken the text (using ELLIPSE instead of CROSS to avoid artifacts).
-        // Using 50% strength (like v3.6) to naturally swallow chromatic noise in black text!
+        // Safe Memory Cleanup for split channels
+        tempChannels.forEach(ch => ch.delete());
+        tempIllumChannels.forEach(ch => ch.delete());
+        rgbDownscaled.delete(); illuminationMapSmall.delete(); illuminationMap.delete(); illumPlanes.delete();
+        
+        // Thicken the text - Use ELLIPSE instead of RECT for smoother text per user request
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.erode(rgb, eroded, kernel);
-        cv.addWeighted(rgb, 0.5, eroded, 0.5, 0, rgb);
+        cv.addWeighted(rgb, 1 - finalErode, eroded, finalErode, 0, rgb);
         kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
+        // Smart Sharpening (Unsharp Mask)
         let colorBlurred = new cv.Mat();
-        cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 2);
+        cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 3);
         let sharp = new cv.Mat();
-        cv.addWeighted(smoothed, 3.5, colorBlurred, -2.5, 0, sharp);
+        cv.addWeighted(smoothed, 2.5, colorBlurred, -1.5, 0, sharp);
         
         let hsv = new cv.Mat();
         cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
@@ -244,48 +284,43 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Prom
         cv.split(hsv, hsvPlanes);
         
         let s = hsvPlanes.get(1);
-        
-        // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
-        // Calculate the mask FIRST before boosting saturation! This ensures background stains 
-        // with low natural saturation stay below 15 and are perfectly masked out by the B&W image!
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
-        
-        // Now that the mask is safely calculated, aggressively boost saturation so the blue pen POPS!
-        s.convertTo(s, -1, 2.2, 0); 
+        s.convertTo(s, -1, finalSat, 0); 
         
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
+        s.delete(); // Safe because it's after merge
         
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
+        // Cleanup remaining hsv planes
+        let hPlane = hsvPlanes.get(0); hPlane.delete();
+        let vPlane = hsvPlanes.get(2); vPlane.delete();
         
-        let bwColor = new cv.Mat();
-        cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
-        
-        // Take the pitch-black text from the B&W mask
-        let magicColor = new cv.Mat();
-        cv.min(enhancedRgb, bwColor, magicColor); 
-        
-        // Apply the pitch-black text ONLY to the areas that lack color
-        magicColor.copyTo(enhancedRgb, lowSatMask);
+        let finalRgb = new cv.Mat();
+        cv.cvtColor(hsv, finalRgb, cv.COLOR_HSV2RGB);
         
         let finalRgba = new cv.Mat();
-        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(finalRgb, finalRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        // Cleanup
-        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
+        // Cleanup all allocated Mats to prevent memory leaks
+        finalRgb.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-        enhancedRgb.delete(); finalRgba.delete();
+        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); 
+        rgb.delete(); rgbPlanes.delete();
+        smoothed.delete(); colorBlurred.delete(); sharp.delete(); 
+        hsv.delete(); hsvPlanes.delete(); 
+        finalRgba.delete();
         
-        resolve({ cropped: croppedUrl, bw: bwUrl, color: colorUrl });
+        resolve({ 
+          cropped: croppedUrl, 
+          bw: bwUrl, 
+          color: colorUrl,
+          detectedType: detectedType,
+          appliedOptions: { gamma: finalGamma, erodeWeight: finalErode, saturationBoost: finalSat, bgBlurSize: finalBlurSize }
+        });
 
       } catch (err) {
         console.error("OpenCV processing failed", err);
