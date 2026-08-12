@@ -208,8 +208,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
-        // SAFE Gamma Array in JS Memory (prevents cv.LUT crashes)
-        // Gamma naturally deepens faint text and beautifully preserves color ratios (unlike linear clipping)
         let finalGamma = options.gamma ?? 1.4;
         let lutArray = new Uint8Array(256);
         for (let i = 0; i < 256; i++) {
@@ -220,7 +218,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             let channel = rgbPlanes.get(i);
             cv.divide(channel, illuminationMap, channel, 255, -1);
             
-            // Apply Gamma instead of linear contrast
+            // Gamma mapping on the anchor version
             let data = channel.data;
             for (let j = 0; j < data.length; j++) {
                 data[j] = lutArray[data[j]];
@@ -231,9 +229,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         }
         cv.merge(rgbPlanes, rgb);
         
-        // Thicken the text (using ELLIPSE instead of CROSS to avoid artifacts).
-        // Using erodeWeight to naturally swallow chromatic noise in black text!
-        let finalErode = options.erodeWeight ?? 0.5;
+        // Thicken the text slightly (Half-strength of v3.6, using ELLIPSE to avoid crosses)
+        let finalErode = options.erodeWeight ?? 0.25;
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.erode(rgb, eroded, kernel);
@@ -252,33 +249,29 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
-        
         let s = hsvPlanes.get(1);
-        
-        // 6. BLEND WITH B&W MASK (Magic Step - Separate & Recombine)
-        // Calculate the mask FIRST before boosting saturation! This ensures background stains 
-        // with low natural saturation stay below 15 and are perfectly masked out by the B&W image!
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 15, 255, cv.THRESH_BINARY_INV);
-        
-        // Now that the mask is safely calculated, aggressively boost saturation so the blue pen POPS!
-        let finalSat = options.saturationBoost ?? 2.2;
-        s.convertTo(s, -1, finalSat, 0); 
-        
+        let finalSat = options.saturationBoost ?? 1.15;
+        s.convertTo(s, -1, finalSat, 0); // Reduced from 1.3 to avoid burning vibrant colors
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         
         let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
+        // 6. BLEND WITH B&W MASK (Magic Step)
+        // We restore the original v3.6 logic where we apply the pitch-black BW mask ONLY
+        // to pixels with saturation < 50, preserving colored signatures perfectly!
+        // The chromatic noise is organically fixed by the cv.erode step above.
+        let lowSatMask = new cv.Mat();
+        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
+        
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
-        // Take the pitch-black text from the B&W mask
         let magicColor = new cv.Mat();
         cv.min(enhancedRgb, bwColor, magicColor); 
         
-        // Apply the pitch-black text ONLY to the areas that lack color
+        // Only apply the pitch-black text overlay on pixels that are genuinely low-saturation
         magicColor.copyTo(enhancedRgb, lowSatMask);
         
         let finalRgba = new cv.Mat();
