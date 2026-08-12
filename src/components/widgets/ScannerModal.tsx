@@ -195,6 +195,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       
       if (results.detectedType) {
         setDetectedType(results.detectedType as 'text' | 'photo');
+        if (activeProfile === 'auto') {
+          setProfile(results.detectedType as 'text' | 'photo');
+        }
       }
       if (results.appliedOptions) {
         setDevOptions(results.appliedOptions);
@@ -212,7 +215,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
   const handleApplyDevOptions = async () => {
     if (!rawSnapshot || cropPoints.length !== 4) return;
-    await performCrop(rawSnapshot, cropPoints, devOptions);
+    await performCrop(rawSnapshot, cropPoints, devOptions, profile !== 'auto' ? profile : undefined);
   };
 
   const handleRetake = () => {
@@ -221,6 +224,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setCroppedSnapshot(null);
     setBwSnapshot(null);
     setColorSnapshot(null);
+    setProfile('auto');
+    setDetectedType(null);
   };
 
   const handleDone = () => {
@@ -389,55 +394,52 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid white', background: mode === 'bw' ? 'white' : 'transparent', color: mode === 'bw' ? 'black' : 'white', cursor: 'pointer' }}>
                 שחור-לבן
               </button>
-              <button 
-                onClick={() => setShowDevTools(!showDevTools)} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold' }}>
-                ⚙️
-              </button>
             </div>
             
             {mode === 'color' && (
-              <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
-                <button 
-                  onClick={() => { setProfile('auto'); performCrop(rawSnapshot!, cropPoints, undefined, 'auto'); }} 
-                  style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'auto' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
-                  אוטומטי {detectedType === 'text' ? '📝' : detectedType === 'photo' ? '🖼️' : '✨'}
-                </button>
-                <button 
-                  onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints, undefined, 'text'); }} 
-                  style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'text' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
-                  📝 טקסט
-                </button>
-                <button 
-                  onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints, undefined, 'photo'); }} 
-                  style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'photo' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
-                  🖼️ צילום
-                </button>
-              </div>
-            )}
-            
-            {showDevTools && (
-              <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Gamma (Darkens text) ({devOptions.gamma})</label>
-                  <input type="range" min="0.5" max="3.5" step="0.1" value={devOptions.gamma} onChange={e => setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
+              <>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
+                  <button 
+                    onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints, undefined, 'text'); }} 
+                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'text' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    📝 טקסט
+                  </button>
+                  <button 
+                    onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints, undefined, 'photo'); }} 
+                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'photo' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
+                    🖼️ צילום
+                  </button>
+                  <button 
+                    onClick={() => setShowDevTools(!showDevTools)} 
+                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
+                    ⚙️
+                  </button>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Erode (Thickens text) ({devOptions.erodeWeight})</label>
-                  <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Saturation (Colors pop) ({devOptions.saturationBoost})</label>
-                  <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <label>Shadow Radius (px) ({devOptions.bgBlurSize})</label>
-                  <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
-                </div>
-                <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
-                  החל שינויים
-                </button>
-              </div>
+                
+                {showDevTools && (
+                  <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Gamma (Darkens text) ({devOptions.gamma})</label>
+                      <input type="range" min="0.5" max="3.5" step="0.1" value={devOptions.gamma} onChange={e => setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Erode (Thickens text) ({devOptions.erodeWeight})</label>
+                      <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Saturation (Colors pop) ({devOptions.saturationBoost})</label>
+                      <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Shadow Radius (px) ({devOptions.bgBlurSize})</label>
+                      <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                    </div>
+                    <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                      החל שינויים
+                    </button>
+                  </div>
+                )}
+              </>
             )}
             
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
