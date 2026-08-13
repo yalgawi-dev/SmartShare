@@ -44,7 +44,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [mode, setMode] = useState<'bw' | 'color' | 'pure_color' | 'original'>('pure_color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
-    gamma: 0.5,
+    gamma: 1.3,
+    pureGamma: 0.5,
     erodeWeight: 0.5,
     saturationBoost: 1.8,
     bgBlurSize: 21,
@@ -183,9 +184,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       // If no explicit devOptions were passed (meaning the user clicked a profile button instead of 'Apply Changes')
       if (!options) {
         if (activeProfile === 'text') {
-          cropOptions = { gamma: 1.4, bgBlurSize: 51, erodeWeight: 0.5, saturationBoost: 2.6 };
+          cropOptions = { gamma: 1.3, pureGamma: 0.5, bgBlurSize: 21, erodeWeight: 0.5, saturationBoost: 1.8, whiteClip: 210 };
         } else if (activeProfile === 'photo') {
-          cropOptions = { gamma: 0.8, bgBlurSize: 49, erodeWeight: 0.3, saturationBoost: 2.2 };
+          cropOptions = { gamma: 0.8, pureGamma: 1.0, bgBlurSize: 49, erodeWeight: 0.0, saturationBoost: 1.3, whiteClip: 255 };
         }
         // If activeProfile is 'auto', cropOptions remains undefined, letting opencvFilters decide.
       }
@@ -332,15 +333,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         )}
 
         {step === 'review' && (
-           <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
-             <TransformComponent wrapperStyle={{ width: '100%', height: '100%', overflow: 'hidden' }} contentStyle={{ width: '100%', height: '100%' }}>
-               <img 
-                 src={mode === 'original' ? (croppedSnapshot || '') : mode === 'bw' ? (bwSnapshot || '') : mode === 'pure_color' ? (pureColorSnapshot || '') : (colorSnapshot || '')} 
-                 style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                 alt="Scanned document" 
-               />
-             </TransformComponent>
-           </TransformWrapper>
+           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+             <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
+               <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
+                 <img 
+                   src={mode === 'original' ? (croppedSnapshot || '') : mode === 'bw' ? (bwSnapshot || '') : mode === 'pure_color' ? (pureColorSnapshot || '') : (colorSnapshot || '')} 
+                   style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                   alt="Scanned document" 
+                 />
+               </TransformComponent>
+             </TransformWrapper>
+           </div>
         )}
       </div>
 
@@ -425,10 +428,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 </div>
                 
                 {showDevTools && (
-                  <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', maxHeight: '40vh', overflowY: 'auto' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>Gamma (Darkens text) ({devOptions.gamma})</label>
-                      <input type="range" min="0.5" max="3.5" step="0.1" value={devOptions.gamma} onChange={e => setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
+                      <label>Gamma (Darkens text) ({mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma})</label>
+                      <input 
+                        type="range" 
+                        min="0.1" 
+                        max="3.5" 
+                        step="0.1" 
+                        value={mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma} 
+                        onChange={e => mode === 'pure_color' ? setDevOptions({...devOptions, pureGamma: parseFloat(e.target.value)}) : setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} 
+                      />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <label>Erode (Thickens text) ({devOptions.erodeWeight})</label>

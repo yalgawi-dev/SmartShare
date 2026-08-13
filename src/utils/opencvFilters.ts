@@ -299,7 +299,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         // Slider controls for Pure Color
         let whiteClipThreshold = options.whiteClip ?? 210; // Default to 210 (pixels brighter than this become pure white)
-        let pureGamma = options.gamma ?? 0.5; // Default Gamma for Pure Color (makes text bold without B&W overlay)
+        let pureGamma = options.pureGamma ?? 0.5; // Default Gamma for Pure Color (makes text bold without B&W overlay)
         let pureSat = options.saturationBoost ?? 1.8;
         let pureErodeWeight = options.erodeWeight ?? 0.5;
         
