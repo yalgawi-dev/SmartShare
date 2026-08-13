@@ -44,13 +44,16 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [mode, setMode] = useState<'bw' | 'color' | 'pure_color' | 'original'>('pure_color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
-    gamma: 1.3,
+    magicGamma: 1.3,
+    magicErode: 0.5,
+    magicSaturation: 1.8,
+    magicBlackPoint: 40,
     pureGamma: 0.5,
-    erodeWeight: 0.5,
-    saturationBoost: 1.8,
-    bgBlurSize: 21,
-    whiteClip: 210,
-    blackPoint: 0
+    pureErode: 0.5,
+    pureSaturation: 1.8,
+    pureWhiteClip: 210,
+    pureBlackPoint: 0,
+    bgBlurSize: 21
   });
   const [showDevTools, setShowDevTools] = useState(false);
 
@@ -181,15 +184,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     try {
       const activeProfile = targetProfile || profile;
       let cropOptions: ScannerOptions | undefined = options;
-      
-      // If no explicit devOptions were passed (meaning the user clicked a profile button instead of 'Apply Changes')
-      if (!options) {
-        if (activeProfile === 'text') {
-          cropOptions = { gamma: 1.3, pureGamma: 0.5, bgBlurSize: 21, erodeWeight: 0.5, saturationBoost: 1.8, whiteClip: 210, blackPoint: 0 };
-        } else if (activeProfile === 'photo') {
-          cropOptions = { gamma: 0.8, pureGamma: 1.0, bgBlurSize: 49, erodeWeight: 0.0, saturationBoost: 1.3, whiteClip: 255, blackPoint: 0 };
-        }
-      }
       
       const results = await applyPerspectiveAndFilters(snapshot, pts, { ...cropOptions, profile: activeProfile });
       setCroppedSnapshot(results.cropped);
@@ -411,19 +405,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               <div style={{ position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
-                    onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints, undefined, 'text'); }} 
-                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'text' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
-                    📝 טקסט
-                  </button>
-                  <button 
-                    onClick={() => { setProfile('photo'); performCrop(rawSnapshot!, cropPoints, undefined, 'photo'); }} 
-                    style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #aaa', background: profile === 'photo' ? '#444' : 'transparent', color: 'white', fontSize: '0.8rem', cursor: 'pointer' }}>
-                    🖼️ צילום
-                  </button>
-                  <button 
                     onClick={() => setShowDevTools(!showDevTools)} 
                     style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                    ⚙️
+                    ⚙️ הגדרות {mode === 'color' ? 'צבע רגיל' : 'צבע טהור'}
                   </button>
                 </div>
                 
@@ -433,39 +417,68 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       <span style={{ fontWeight: 'bold', color: '#FFD700', fontSize: '0.85rem' }}>הגדרות מתקדמות</span>
                       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <button 
-                          onClick={() => setDevOptions({ gamma: 1.3, pureGamma: 0.5, erodeWeight: 0.5, saturationBoost: 1.8, bgBlurSize: 21, whiteClip: 210, blackPoint: 0 })} 
+                          onClick={() => setDevOptions({ magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, bgBlurSize: 21 })} 
                           style={{ background: 'transparent', border: '1px solid #aaa', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>
                           איפוס
                         </button>
                         <button onClick={() => setShowDevTools(false)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer', lineHeight: '1' }}>×</button>
                       </div>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 0.75rem' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Gamma</span> <span>{mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma}</span></label>
-                        <input type="range" min="0.1" max="3.5" step="0.1" value={mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma} onChange={e => mode === 'pure_color' ? setDevOptions({...devOptions, pureGamma: parseFloat(e.target.value)}) : setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
+                    
+                    {mode === 'pure_color' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 0.75rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Gamma</span> <span>{devOptions.pureGamma}</span></label>
+                          <input type="range" min="0.1" max="3.5" step="0.1" value={devOptions.pureGamma} onChange={e => setDevOptions({...devOptions, pureGamma: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Erode</span> <span>{devOptions.pureErode}</span></label>
+                          <input type="range" min="0" max="1.0" step="0.1" value={devOptions.pureErode} onChange={e => setDevOptions({...devOptions, pureErode: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Saturation</span> <span>{devOptions.pureSaturation}</span></label>
+                          <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.pureSaturation} onChange={e => setDevOptions({...devOptions, pureSaturation: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shadow Radius</span> <span>{devOptions.bgBlurSize}</span></label>
+                          <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>White Clip</span> <span>{devOptions.pureWhiteClip}</span></label>
+                          <input type="range" min="150" max="255" step="1" value={devOptions.pureWhiteClip} onChange={e => setDevOptions({...devOptions, pureWhiteClip: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Black Point</span> <span>{devOptions.pureBlackPoint}</span></label>
+                          <input type="range" min="0" max="100" step="1" value={devOptions.pureBlackPoint} onChange={e => setDevOptions({...devOptions, pureBlackPoint: parseFloat(e.target.value)})} />
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Erode</span> <span>{devOptions.erodeWeight}</span></label>
-                        <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
+                    )}
+                    
+                    {mode === 'color' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 0.75rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Gamma</span> <span>{devOptions.magicGamma}</span></label>
+                          <input type="range" min="0.1" max="3.5" step="0.1" value={devOptions.magicGamma} onChange={e => setDevOptions({...devOptions, magicGamma: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Erode</span> <span>{devOptions.magicErode}</span></label>
+                          <input type="range" min="0" max="1.0" step="0.1" value={devOptions.magicErode} onChange={e => setDevOptions({...devOptions, magicErode: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Saturation</span> <span>{devOptions.magicSaturation}</span></label>
+                          <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.magicSaturation} onChange={e => setDevOptions({...devOptions, magicSaturation: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shadow Radius</span> <span>{devOptions.bgBlurSize}</span></label>
+                          <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Black Point</span> <span>{devOptions.magicBlackPoint}</span></label>
+                          <input type="range" min="0" max="100" step="1" value={devOptions.magicBlackPoint} onChange={e => setDevOptions({...devOptions, magicBlackPoint: parseFloat(e.target.value)})} />
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Saturation</span> <span>{devOptions.saturationBoost}</span></label>
-                        <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shadow</span> <span>{devOptions.bgBlurSize}</span></label>
-                        <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>White Clip</span> <span>{devOptions.whiteClip}</span></label>
-                        <input type="range" min="150" max="255" step="1" value={devOptions.whiteClip} onChange={e => setDevOptions({...devOptions, whiteClip: parseFloat(e.target.value)})} />
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Black Point</span> <span>{devOptions.blackPoint}</span></label>
-                        <input type="range" min="0" max="100" step="1" value={devOptions.blackPoint} onChange={e => setDevOptions({...devOptions, blackPoint: parseFloat(e.target.value)})} />
-                      </div>
-                    </div>
+                    )}
+                    
                     <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.4rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.25rem' }}>
                       החל ועדכן תצוגה ✔
                     </button>

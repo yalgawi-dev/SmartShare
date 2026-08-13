@@ -5,6 +5,25 @@ export interface Point {
   y: number;
 }
 
+export interface ScannerOptions {
+  // Magic Color (v3.6)
+  magicGamma?: number;
+  magicErode?: number;
+  magicSaturation?: number;
+  magicBlackPoint?: number;
+  
+  // Pure Color (v4.0)
+  pureGamma?: number;
+  pureErode?: number;
+  pureSaturation?: number;
+  pureWhiteClip?: number;
+  pureBlackPoint?: number;
+  
+  // Shared
+  bgBlurSize?: number;
+  profile?: 'text' | 'photo' | 'auto';
+}
+
 /**
  * Attempts to auto-detect a document contour in the given canvas.
  * Returns an array of 4 points if found, otherwise returns null.
@@ -216,9 +235,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let rgbPlanes = new cv.MatVector();
         cv.split(rgb, rgbPlanes);
         
-        // Use options.gamma for contrast multiplier, default to 1.3 (Anchor v3.6)
-        let finalGamma = options.gamma ?? 1.3;
-        let finalBlackPoint = options.blackPoint ?? 40; // Default offset was 40 in 3.6
+        // Use magic parameters for Magic Color
+        let finalGamma = options.magicGamma ?? 1.3;
+        let finalBlackPoint = options.magicBlackPoint ?? 40; // Default offset was 40 in 3.6
         
         let isPhoto = options.profile === 'photo';
         
@@ -236,10 +255,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.merge(rgbPlanes, rgb);
         
         // Thicken the text slightly (Half-strength)
-        // We use a CROSS kernel and blend it 50% with the original to avoid filling in holes of 6 and 0
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-        let finalErode = options.erodeWeight ?? 0.5;
+        let finalErode = options.magicErode ?? 0.5;
         if (!isPhoto) {
             cv.erode(rgb, eroded, kernel);
             cv.addWeighted(rgb, 1.0 - finalErode, eroded, finalErode, 0, rgb);
@@ -255,31 +273,32 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.addWeighted(smoothed, 3.5, colorBlurred, -2.5, 0, sharp);
         
         let hsv = new cv.Mat();
-        cv.cvtColor(sharp, hsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
         let hsvPlanes = new cv.MatVector();
         cv.split(hsv, hsvPlanes);
         let s = hsvPlanes.get(1);
         
-        let finalSat = options.saturationBoost ?? 1.15;
-        s.convertTo(s, -1, finalSat, 0); // Reduced from 1.3 to avoid burning vibrant colors
+        let finalSat = options.magicSaturation ?? 1.8;
+        if (isPhoto) {
+            finalSat = options.magicSaturation ?? 1.3;
+        }
+        
+        s.convertTo(s, -1, finalSat, 0); 
         hsvPlanes.set(1, s);
         cv.merge(hsvPlanes, hsv);
         
         let enhancedRgb = new cv.Mat();
         cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
         
-        // 6. BLEND WITH B&W MASK (Magic Step) - Skip for photos!
-        // Create a mask for LOW saturation pixels (grays/blacks) so we don't ruin vibrant colors like yellow ducks!
         let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV); // 255 where saturation is < 50
+        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV);
         
         let bwColor = new cv.Mat();
         cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
         
         let magicColor = new cv.Mat();
         if (!isPhoto) {
-            cv.min(enhancedRgb, bwColor, magicColor); // This deep-fries colors, but makes text pitch black
-            // Copy the deep-fried pitch black text ONLY onto pixels that are low saturation (gray/black originally)
+            cv.min(enhancedRgb, bwColor, magicColor);
             magicColor.copyTo(enhancedRgb, lowSatMask);
         }
         
@@ -289,36 +308,28 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        // =================================================================================
-        // ========================== PURE COLOR (v4.0) ALGORITHM ==========================
-        // =================================================================================
-        
         let rgbPure = new cv.Mat();
         cv.cvtColor(dst, rgbPure, cv.COLOR_RGBA2RGB);
         let rgbPurePlanes = new cv.MatVector();
         cv.split(rgbPure, rgbPurePlanes);
         
-        // Slider controls for Pure Color
-        let whiteClipThreshold = options.whiteClip ?? 210; // Default to 210 (pixels brighter than this become pure white)
-        let pureGamma = options.pureGamma ?? 0.5; // Default Gamma for Pure Color (makes text bold without B&W overlay)
-        let pureSat = options.saturationBoost ?? 1.8;
-        let pureErodeWeight = options.erodeWeight ?? 0.5;
-        let pureBlackPoint = options.blackPoint ?? 0;
+        let whiteClipThreshold = options.pureWhiteClip ?? 210;
+        let pureGamma = options.pureGamma ?? 0.5;
+        let pureSat = options.pureSaturation ?? 1.8;
+        let pureErodeWeight = options.pureErode ?? 0.5;
+        let pureBlackPoint = options.pureBlackPoint ?? 0;
         
-        // LUT for White Clipping + Gamma + Black Point
         let pureLut = new Uint8Array(256);
         let safeWhiteClip = Math.max(whiteClipThreshold, pureBlackPoint + 1);
         let range = safeWhiteClip - pureBlackPoint;
         
         for (let i = 0; i < 256; i++) {
-            // 1. Normalize i to 0-1 based on Black Point and White Clip
             if (i >= safeWhiteClip) {
                 pureLut[i] = 255;
             } else if (i <= pureBlackPoint) {
                 pureLut[i] = 0;
             } else {
                 let norm = Math.max(0, (i - pureBlackPoint) / range);
-                // Apply Gamma to darken the text
                 let val = Math.pow(norm, pureGamma) * 255.0;
                 pureLut[i] = isNaN(val) ? 0 : Math.min(255, val);
             }
@@ -327,19 +338,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         for (let i = 0; i < 3; i++) {
             let channel = rgbPurePlanes.get(i);
             
-            // 1. Illumination division (flatten lighting) ONLY for text
             if (!isPhoto) {
                 cv.divide(channel, illuminationMap, channel, 255, -1);
             }
             
-            // 2. Apply White Clip and Gamma via LUT
             let data = channel.data;
             if (!isPhoto) {
                 for (let j = 0; j < data.length; j++) {
                     data[j] = pureLut[data[j]];
                 }
             } else {
-                 // For photos, apply Gamma and Black point, no white clip (white clip destroys skies and bright areas)
                  let photoLut = new Uint8Array(256);
                  for (let k = 0; k < 256; k++) {
                      if (k <= pureBlackPoint) {
@@ -360,7 +368,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         }
         cv.merge(rgbPurePlanes, rgbPure);
         
-        // Thicken the text slightly (Erode) - skip for photos
         if (!isPhoto) {
             let erodedPure = new cv.Mat();
             let pureKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
@@ -369,7 +376,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             pureKernel.delete(); erodedPure.delete();
         }
         
-        // Increase Saturation for pop
         let hsvPure = new cv.Mat();
         cv.cvtColor(rgbPure, hsvPure, cv.COLOR_RGB2HSV);
         let hsvPurePlanes = new cv.MatVector();
@@ -388,8 +394,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        
-        // Cleanup
         lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
@@ -398,7 +402,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
         enhancedRgb.delete(); finalRgba.delete();
         
-        // Pure cleanup
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
         resolve({ 
