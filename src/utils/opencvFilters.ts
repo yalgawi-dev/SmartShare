@@ -245,22 +245,27 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             let channel = rgbPlanes.get(i);
             if (!isPhoto) {
                 cv.divide(channel, illuminationMap, channel, 255, -1);
-                channel.convertTo(channel, -1, finalGamma, -finalBlackPoint); // Increased contrast for whiter page
-            } else {
-                channel.convertTo(channel, -1, finalGamma, -Math.floor(finalBlackPoint / 2)); // Gentle contrast for photos
             }
             rgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPlanes, rgb);
         
-        // Thicken the text slightly (Half-strength)
+        // Thicken the text (Erode) BEFORE contrast curve so that gray halos get crushed into black!
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
         let finalErode = options.magicErode ?? 0.5;
-        if (!isPhoto) {
+        if (!isPhoto && finalErode > 0) {
             cv.erode(rgb, eroded, kernel);
             cv.addWeighted(rgb, 1.0 - finalErode, eroded, finalErode, 0, rgb);
+        }
+        kernel.delete(); eroded.delete();
+        
+        // Apply contrast curve (Gamma & Black Point)
+        if (!isPhoto) {
+            rgb.convertTo(rgb, -1, finalGamma, -finalBlackPoint); // Increased contrast for whiter page
+        } else {
+            rgb.convertTo(rgb, -1, finalGamma, -Math.floor(finalBlackPoint / 2)); // Gentle contrast for photos
         }
         kernel.delete(); eroded.delete();
         
@@ -335,45 +340,46 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             }
         }
         
+        // Step 1: Flatten lighting (Divide by illumination map)
         for (let i = 0; i < 3; i++) {
             let channel = rgbPurePlanes.get(i);
-            
             if (!isPhoto) {
                 cv.divide(channel, illuminationMap, channel, 255, -1);
             }
-            
-            let data = channel.data;
-            if (!isPhoto) {
-                for (let j = 0; j < data.length; j++) {
-                    data[j] = pureLut[data[j]];
-                }
-            } else {
-                 let photoLut = new Uint8Array(256);
-                 for (let k = 0; k < 256; k++) {
-                     if (k <= pureBlackPoint) {
-                         photoLut[k] = 0;
-                     } else {
-                         let norm = Math.max(0, (k - pureBlackPoint) / (255 - pureBlackPoint));
-                         let val = Math.pow(norm, pureGamma) * 255.0;
-                         photoLut[k] = isNaN(val) ? 0 : Math.min(255, val);
-                     }
-                 }
-                 for (let j = 0; j < data.length; j++) {
-                     data[j] = photoLut[data[j]];
-                 }
-            }
-            
             rgbPurePlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(rgbPurePlanes, rgbPure);
         
-        if (!isPhoto) {
+        // Step 2: Thicken text (Erode) BEFORE LUT
+        if (!isPhoto && pureErodeWeight > 0) {
             let erodedPure = new cv.Mat();
             let pureKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
             cv.erode(rgbPure, erodedPure, pureKernel);
             cv.addWeighted(rgbPure, 1.0 - pureErodeWeight, erodedPure, pureErodeWeight, 0, rgbPure);
             pureKernel.delete(); erodedPure.delete();
+        }
+        
+        // Step 3: Apply Gamma & White Clip LUT directly on the merged rgb data
+        let rgbData = rgbPure.data;
+        if (!isPhoto) {
+            for (let j = 0; j < rgbData.length; j++) {
+                rgbData[j] = pureLut[rgbData[j]];
+            }
+        } else {
+             let photoLut = new Uint8Array(256);
+             for (let k = 0; k < 256; k++) {
+                 if (k <= pureBlackPoint) {
+                     photoLut[k] = 0;
+                 } else {
+                     let norm = Math.max(0, (k - pureBlackPoint) / (255 - pureBlackPoint));
+                     let val = Math.pow(norm, pureGamma) * 255.0;
+                     photoLut[k] = isNaN(val) ? 0 : Math.min(255, val);
+                 }
+             }
+             for (let j = 0; j < rgbData.length; j++) {
+                 rgbData[j] = photoLut[rgbData[j]];
+             }
         }
         
         let hsvPure = new cv.Mat();
