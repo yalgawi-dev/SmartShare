@@ -267,7 +267,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         } else {
             rgb.convertTo(rgb, -1, finalGamma, -Math.floor(finalBlackPoint / 2)); // Gentle contrast for photos
         }
-        kernel.delete(); eroded.delete();
         
         let smoothed = new cv.Mat();
         cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
