@@ -417,7 +417,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       <span style={{ fontWeight: 'bold', color: '#FFD700', fontSize: '0.85rem' }}>הגדרות מתקדמות</span>
                       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <button 
-                          onClick={() => setDevOptions({ magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, bgBlurSize: 21 })} 
+                          onClick={() => {
+                            const defaultOpts = { magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, bgBlurSize: 21 };
+                            setDevOptions(defaultOpts);
+                            if (rawSnapshot) performCrop(rawSnapshot, cropPoints, defaultOpts);
+                          }} 
                           style={{ background: 'transparent', border: '1px solid #aaa', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>
                           איפוס
                         </button>

@@ -409,7 +409,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
           bw: bwUrl, 
           color: colorUrl,
           pureColor: pureColorUrl,
-          appliedOptions: { gamma: pureGamma, erodeWeight: pureErodeWeight, saturationBoost: pureSat, bgBlurSize: finalBlurSize, whiteClip: whiteClipThreshold, profile: options.profile },
+          appliedOptions: {
+            magicGamma: options.magicGamma,
+            magicErode: options.magicErode,
+            magicSaturation: options.magicSaturation,
+            magicBlackPoint: options.magicBlackPoint,
+            pureGamma: options.pureGamma,
+            pureErode: options.pureErode,
+            pureSaturation: options.pureSaturation,
+            pureWhiteClip: options.pureWhiteClip,
+            pureBlackPoint: options.pureBlackPoint,
+            bgBlurSize: finalBlurSize,
+            profile: options.profile
+          },
           detectedType
         });
 
