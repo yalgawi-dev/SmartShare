@@ -428,44 +428,46 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 </div>
                 
                 {showDevTools && (
-                  <div style={{ position: 'absolute', bottom: '100%', left: '10px', right: '10px', background: 'rgba(20,20,20,0.95)', padding: '1rem', borderRadius: '12px', border: '1px solid #444', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.5rem', zIndex: 2000, boxShadow: '0 -4px 20px rgba(0,0,0,0.5)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 'bold', color: '#FFD700' }}>הגדרות מתקדמות</span>
-                      <button onClick={() => setShowDevTools(false)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>×</button>
+                  <div style={{ position: 'absolute', bottom: '100%', left: '0', right: '0', background: 'rgba(20,20,20,0.85)', backdropFilter: 'blur(4px)', padding: '0.5rem 0.75rem', borderRadius: '12px', border: '1px solid #444', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', marginBottom: '0.5rem', zIndex: 2000, boxShadow: '0 -4px 20px rgba(0,0,0,0.5)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', borderBottom: '1px solid #333', paddingBottom: '0.25rem' }}>
+                      <span style={{ fontWeight: 'bold', color: '#FFD700', fontSize: '0.85rem' }}>הגדרות מתקדמות</span>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        <button 
+                          onClick={() => setDevOptions({ gamma: 1.3, pureGamma: 0.5, erodeWeight: 0.5, saturationBoost: 1.8, bgBlurSize: 21, whiteClip: 210, blackPoint: 0 })} 
+                          style={{ background: 'transparent', border: '1px solid #aaa', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.7rem', cursor: 'pointer' }}>
+                          איפוס
+                        </button>
+                        <button onClick={() => setShowDevTools(false)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer', lineHeight: '1' }}>×</button>
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>Gamma (Darkens text) ({mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma})</label>
-                      <input 
-                        type="range" 
-                        min="0.1" 
-                        max="3.5" 
-                        step="0.1" 
-                        value={mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma} 
-                        onChange={e => mode === 'pure_color' ? setDevOptions({...devOptions, pureGamma: parseFloat(e.target.value)}) : setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} 
-                      />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 0.75rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Gamma</span> <span>{mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma}</span></label>
+                        <input type="range" min="0.1" max="3.5" step="0.1" value={mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma} onChange={e => mode === 'pure_color' ? setDevOptions({...devOptions, pureGamma: parseFloat(e.target.value)}) : setDevOptions({...devOptions, gamma: parseFloat(e.target.value)})} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Erode</span> <span>{devOptions.erodeWeight}</span></label>
+                        <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Saturation</span> <span>{devOptions.saturationBoost}</span></label>
+                        <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shadow</span> <span>{devOptions.bgBlurSize}</span></label>
+                        <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>White Clip</span> <span>{devOptions.whiteClip}</span></label>
+                        <input type="range" min="150" max="255" step="1" value={devOptions.whiteClip} onChange={e => setDevOptions({...devOptions, whiteClip: parseFloat(e.target.value)})} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Black Point</span> <span>{devOptions.blackPoint}</span></label>
+                        <input type="range" min="0" max="100" step="1" value={devOptions.blackPoint} onChange={e => setDevOptions({...devOptions, blackPoint: parseFloat(e.target.value)})} />
+                      </div>
                     </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>Erode (Thickens text) ({devOptions.erodeWeight})</label>
-                      <input type="range" min="0" max="1.0" step="0.1" value={devOptions.erodeWeight} onChange={e => setDevOptions({...devOptions, erodeWeight: parseFloat(e.target.value)})} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>Saturation (Colors pop) ({devOptions.saturationBoost})</label>
-                      <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.saturationBoost} onChange={e => setDevOptions({...devOptions, saturationBoost: parseFloat(e.target.value)})} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>Shadow Radius (px) ({devOptions.bgBlurSize})</label>
-                      <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>White Clip ({devOptions.whiteClip})</label>
-                      <input type="range" min="150" max="255" step="1" value={devOptions.whiteClip} onChange={e => setDevOptions({...devOptions, whiteClip: parseFloat(e.target.value)})} />
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <label>Black Point (Fog) ({devOptions.blackPoint})</label>
-                      <input type="range" min="0" max="100" step="1" value={devOptions.blackPoint} onChange={e => setDevOptions({...devOptions, blackPoint: parseFloat(e.target.value)})} />
-                    </div>
-                    <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
-                      החל שינויים
+                    <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.4rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.25rem' }}>
+                      החל ועדכן תצוגה ✔
                     </button>
                   </div>
                 )}
