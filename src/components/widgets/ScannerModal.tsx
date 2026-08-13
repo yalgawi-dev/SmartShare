@@ -48,6 +48,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     magicErode: 0.5,
     magicSaturation: 1.8,
     magicBlackPoint: 40,
+    magicWhiteClip: 255,
     pureGamma: 0.5,
     pureErode: 0.5,
     pureSaturation: 1.8,
@@ -418,7 +419,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <button 
                           onClick={() => {
-                            const defaultOpts = { magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, bgBlurSize: 21 };
+                            const defaultOpts = { magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, magicWhiteClip: 255, pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, bgBlurSize: 21 };
                             setDevOptions(defaultOpts);
                             if (rawSnapshot) performCrop(rawSnapshot, cropPoints, defaultOpts);
                           }} 
@@ -475,6 +476,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Shadow Radius</span> <span>{devOptions.bgBlurSize}</span></label>
                           <input type="range" min="3" max="51" step="2" value={devOptions.bgBlurSize} onChange={e => setDevOptions({...devOptions, bgBlurSize: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>White Clip</span> <span>{devOptions.magicWhiteClip}</span></label>
+                          <input type="range" min="150" max="255" step="1" value={devOptions.magicWhiteClip} onChange={e => setDevOptions({...devOptions, magicWhiteClip: parseFloat(e.target.value)})} />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Black Point</span> <span>{devOptions.magicBlackPoint}</span></label>

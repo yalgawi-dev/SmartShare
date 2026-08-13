@@ -6,11 +6,11 @@ export interface Point {
 }
 
 export interface ScannerOptions {
-  // Magic Color (v3.6)
   magicGamma?: number;
   magicErode?: number;
   magicSaturation?: number;
   magicBlackPoint?: number;
+  magicWhiteClip?: number;
   
   // Pure Color (v4.0)
   pureGamma?: number;
@@ -251,6 +251,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         }
         cv.merge(rgbPlanes, rgb);
         
+        // Apply White Clip for Magic Color BEFORE convertTo
+        let magicWhiteClip = options.magicWhiteClip ?? 255; // Default 255 (no clip)
+        if (!isPhoto && magicWhiteClip < 255) {
+            let magicLut = new Uint8Array(256);
+            for (let i = 0; i < 256; i++) {
+                magicLut[i] = i >= magicWhiteClip ? 255 : i;
+            }
+            let rgbData = rgb.data;
+            for (let j = 0; j < rgbData.length; j++) {
+                rgbData[j] = magicLut[rgbData[j]];
+            }
+        }
+        
         // Thicken the text (Erode) BEFORE contrast curve so that gray halos get crushed into black!
         let eroded = new cv.Mat();
         let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
@@ -419,6 +432,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             magicErode: options.magicErode,
             magicSaturation: options.magicSaturation,
             magicBlackPoint: options.magicBlackPoint,
+            magicWhiteClip: options.magicWhiteClip,
             pureGamma: options.pureGamma,
             pureErode: options.pureErode,
             pureSaturation: options.pureSaturation,
