@@ -218,6 +218,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         // Use options.gamma for contrast multiplier, default to 1.3 (Anchor v3.6)
         let finalGamma = options.gamma ?? 1.3;
+        let finalBlackPoint = options.blackPoint ?? 40; // Default offset was 40 in 3.6
         
         let isPhoto = options.profile === 'photo';
         
@@ -225,9 +226,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             let channel = rgbPlanes.get(i);
             if (!isPhoto) {
                 cv.divide(channel, illuminationMap, channel, 255, -1);
-                channel.convertTo(channel, -1, finalGamma, -40); // Increased contrast for whiter page
+                channel.convertTo(channel, -1, finalGamma, -finalBlackPoint); // Increased contrast for whiter page
             } else {
-                channel.convertTo(channel, -1, finalGamma, 0); // Gentle contrast for photos
+                channel.convertTo(channel, -1, finalGamma, -Math.floor(finalBlackPoint / 2)); // Gentle contrast for photos
             }
             rgbPlanes.set(i, channel);
             channel.delete();
@@ -302,16 +303,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let pureGamma = options.pureGamma ?? 0.5; // Default Gamma for Pure Color (makes text bold without B&W overlay)
         let pureSat = options.saturationBoost ?? 1.8;
         let pureErodeWeight = options.erodeWeight ?? 0.5;
+        let pureBlackPoint = options.blackPoint ?? 0;
         
-        // LUT for White Clipping + Gamma
+        // LUT for White Clipping + Gamma + Black Point
         let pureLut = new Uint8Array(256);
         for (let i = 0; i < 256; i++) {
-            // 1. Normalize i to 0-1
-            let norm = i / 255.0;
-            // 2. White clip: If above threshold, push to pure white
+            // 1. Normalize i to 0-1 based on Black Point and White Clip
             if (i > whiteClipThreshold) {
                 pureLut[i] = 255;
+            } else if (i < pureBlackPoint) {
+                pureLut[i] = 0;
             } else {
+                let range = whiteClipThreshold - pureBlackPoint;
+                let norm = (i - pureBlackPoint) / range;
                 // Apply Gamma to darken the text
                 pureLut[i] = Math.min(255, Math.pow(norm, pureGamma) * 255.0);
             }
@@ -332,10 +336,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
                     data[j] = pureLut[data[j]];
                 }
             } else {
-                 // For photos, just apply Gamma, no white clip (white clip destroys skies and bright areas)
+                 // For photos, apply Gamma and Black point, no white clip (white clip destroys skies and bright areas)
                  let photoLut = new Uint8Array(256);
                  for (let k = 0; k < 256; k++) {
-                     photoLut[k] = Math.min(255, Math.pow(k / 255.0, pureGamma) * 255.0);
+                     if (k < pureBlackPoint) {
+                         photoLut[k] = 0;
+                     } else {
+                         let norm = (k - pureBlackPoint) / (255 - pureBlackPoint);
+                         photoLut[k] = Math.min(255, Math.pow(norm, pureGamma) * 255.0);
+                     }
                  }
                  for (let j = 0; j < data.length; j++) {
                      data[j] = photoLut[data[j]];

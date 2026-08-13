@@ -49,7 +49,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     erodeWeight: 0.5,
     saturationBoost: 1.8,
     bgBlurSize: 21,
-    whiteClip: 210
+    whiteClip: 210,
+    blackPoint: 0
   });
   const [showDevTools, setShowDevTools] = useState(false);
 
@@ -184,11 +185,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       // If no explicit devOptions were passed (meaning the user clicked a profile button instead of 'Apply Changes')
       if (!options) {
         if (activeProfile === 'text') {
-          cropOptions = { gamma: 1.3, pureGamma: 0.5, bgBlurSize: 21, erodeWeight: 0.5, saturationBoost: 1.8, whiteClip: 210 };
+          cropOptions = { gamma: 1.3, pureGamma: 0.5, bgBlurSize: 21, erodeWeight: 0.5, saturationBoost: 1.8, whiteClip: 210, blackPoint: 0 };
         } else if (activeProfile === 'photo') {
-          cropOptions = { gamma: 0.8, pureGamma: 1.0, bgBlurSize: 49, erodeWeight: 0.0, saturationBoost: 1.3, whiteClip: 255 };
+          cropOptions = { gamma: 0.8, pureGamma: 1.0, bgBlurSize: 49, erodeWeight: 0.0, saturationBoost: 1.3, whiteClip: 255, blackPoint: 0 };
         }
-        // If activeProfile is 'auto', cropOptions remains undefined, letting opencvFilters decide.
       }
       
       const results = await applyPerspectiveAndFilters(snapshot, pts, { ...cropOptions, profile: activeProfile });
@@ -459,6 +459,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <label>White Clip ({devOptions.whiteClip})</label>
                       <input type="range" min="150" max="255" step="1" value={devOptions.whiteClip} onChange={e => setDevOptions({...devOptions, whiteClip: parseFloat(e.target.value)})} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label>Black Point (Fog) ({devOptions.blackPoint})</label>
+                      <input type="range" min="0" max="100" step="1" value={devOptions.blackPoint} onChange={e => setDevOptions({...devOptions, blackPoint: parseFloat(e.target.value)})} />
                     </div>
                     <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
                       החל שינויים
