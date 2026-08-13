@@ -307,17 +307,20 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         // LUT for White Clipping + Gamma + Black Point
         let pureLut = new Uint8Array(256);
+        let safeWhiteClip = Math.max(whiteClipThreshold, pureBlackPoint + 1);
+        let range = safeWhiteClip - pureBlackPoint;
+        
         for (let i = 0; i < 256; i++) {
             // 1. Normalize i to 0-1 based on Black Point and White Clip
-            if (i > whiteClipThreshold) {
+            if (i >= safeWhiteClip) {
                 pureLut[i] = 255;
-            } else if (i < pureBlackPoint) {
+            } else if (i <= pureBlackPoint) {
                 pureLut[i] = 0;
             } else {
-                let range = whiteClipThreshold - pureBlackPoint;
-                let norm = (i - pureBlackPoint) / range;
+                let norm = Math.max(0, (i - pureBlackPoint) / range);
                 // Apply Gamma to darken the text
-                pureLut[i] = Math.min(255, Math.pow(norm, pureGamma) * 255.0);
+                let val = Math.pow(norm, pureGamma) * 255.0;
+                pureLut[i] = isNaN(val) ? 0 : Math.min(255, val);
             }
         }
         
@@ -339,11 +342,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
                  // For photos, apply Gamma and Black point, no white clip (white clip destroys skies and bright areas)
                  let photoLut = new Uint8Array(256);
                  for (let k = 0; k < 256; k++) {
-                     if (k < pureBlackPoint) {
+                     if (k <= pureBlackPoint) {
                          photoLut[k] = 0;
                      } else {
-                         let norm = (k - pureBlackPoint) / (255 - pureBlackPoint);
-                         photoLut[k] = Math.min(255, Math.pow(norm, pureGamma) * 255.0);
+                         let norm = Math.max(0, (k - pureBlackPoint) / (255 - pureBlackPoint));
+                         let val = Math.pow(norm, pureGamma) * 255.0;
+                         photoLut[k] = isNaN(val) ? 0 : Math.min(255, val);
                      }
                  }
                  for (let j = 0; j < data.length; j++) {
