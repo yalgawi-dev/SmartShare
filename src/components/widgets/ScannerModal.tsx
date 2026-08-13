@@ -408,7 +408,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             </div>
             
             {(mode === 'color' || mode === 'pure_color') && (
-              <>
+              <div style={{ position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
                     onClick={() => { setProfile('text'); performCrop(rawSnapshot!, cropPoints, undefined, 'text'); }} 
@@ -428,7 +428,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 </div>
                 
                 {showDevTools && (
-                  <div style={{ background: 'rgba(50,50,50,0.9)', padding: '1rem', borderRadius: '8px', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', maxHeight: '40vh', overflowY: 'auto' }}>
+                  <div style={{ position: 'absolute', bottom: '100%', left: '10px', right: '10px', background: 'rgba(20,20,20,0.95)', padding: '1rem', borderRadius: '12px', border: '1px solid #444', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.5rem', zIndex: 2000, boxShadow: '0 -4px 20px rgba(0,0,0,0.5)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 'bold', color: '#FFD700' }}>הגדרות מתקדמות</span>
+                      <button onClick={() => setShowDevTools(false)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>×</button>
+                    </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <label>Gamma (Darkens text) ({mode === 'pure_color' ? devOptions.pureGamma : devOptions.gamma})</label>
                       <input 
@@ -456,12 +460,12 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       <label>White Clip ({devOptions.whiteClip})</label>
                       <input type="range" min="150" max="255" step="1" value={devOptions.whiteClip} onChange={e => setDevOptions({...devOptions, whiteClip: parseFloat(e.target.value)})} />
                     </div>
-                    <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
+                    <button onClick={handleApplyDevOptions} style={{ background: '#FFD700', color: 'black', border: 'none', padding: '0.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '0.5rem' }}>
                       החל שינויים
                     </button>
                   </div>
                 )}
-              </>
+              </div>
             )}
             
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
