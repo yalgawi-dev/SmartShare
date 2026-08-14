@@ -418,7 +418,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.threshold(smartS, smartS, 30, 255, cv.THRESH_TOZERO);
         
         // Boost Saturation (S): Makes real red/blue inks pop.
-        smartS.convertTo(smartS, -1, 2.0, 0);
+        // Reduced from 2.0 to 1.5 to prevent anti-aliased notebook squares from spilling at intersections
+        smartS.convertTo(smartS, -1, 1.5, 0);
         
         smartHsvPlanes.set(1, smartS);
         smartHsvPlanes.set(2, smartV);
