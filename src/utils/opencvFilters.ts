@@ -419,22 +419,40 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.45 - RGB/HSV Adaptive) ---
-        // 1. Generate color background map using heavy median blur to erase text/photos
+        // --- Smart Color (v4.46 - Intelligent Text Masking) ---
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
         
+        // 1. Global White Balance (Flatten overall lighting and colored shadows)
         let smartDownscaled = new cv.Mat();
         cv.resize(smartRgb, smartDownscaled, new cv.Size(32, 32), 0, 0, cv.INTER_AREA);
         cv.medianBlur(smartDownscaled, smartDownscaled, 15);
         
-        let smartBgMap = new cv.Mat();
-        cv.resize(smartDownscaled, smartBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        let globalBgMap = new cv.Mat();
+        cv.resize(smartDownscaled, globalBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        cv.divide(smartRgb, globalBgMap, smartRgb, 255, -1);
         
-        // 2. Flatten Lighting (Divide RGB by Color BgMap)
-        cv.divide(smartRgb, smartBgMap, smartRgb, 255, -1);
+        // 2. Intelligent Text Extraction (Isolate thin strokes from large photos)
+        let flatGray = new cv.Mat();
+        cv.cvtColor(smartRgb, flatGray, cv.COLOR_RGB2GRAY);
         
-        // 3. Convert to HSV for vibrant document-style contrast
+        let smallGray = new cv.Mat();
+        cv.resize(flatGray, smallGray, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+        
+        // Use Morphological Close to erase text but keep photos
+        let textKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
+        cv.morphologyEx(smallGray, smallGray, cv.MORPH_CLOSE, textKernel);
+        
+        let localBg = new cv.Mat();
+        cv.resize(smallGray, localBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
+        // The difference between the text-erased map and the original is precisely the text!
+        let textMask = new cv.Mat();
+        cv.subtract(localBg, flatGray, textMask);
+        // Smooth the mask to prevent glassy/crunchy artifacts and ensure homogenous strokes
+        cv.GaussianBlur(textMask, textMask, new cv.Size(3, 3), 0);
+        
+        // 3. Apply Enhancements using HSV Space
         let smartHsv = new cv.Mat();
         cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
         let smartPlanes = new cv.MatVector();
@@ -443,9 +461,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
-        // 4. Apply LUT to V channel (Luminance)
-        let smartWhiteClip = options.smartWhiteClip ?? 225;
-        let smartBlackPoint = options.smartBlackPoint ?? 35;
+        // A. Darken text proportionally to how much it stands out (preserves anti-aliasing)
+        cv.subtract(vSmart, textMask, vSmart);
+        
+        // B. Boost saturation of text strokes to make colored pens pop
+        cv.add(sSmart, textMask, sSmart);
+        
+        // C. Global Saturation Boost for photos and document vibrancy
+        let smartSat = options.smartSaturation ?? 1.25;
+        if (smartSat !== 1.0) {
+            sSmart.convertTo(sSmart, -1, smartSat, 0);
+        }
+        
+        // D. Final cleanup LUT on V channel (Ensure crisp whites and deep blacks)
+        let smartWhiteClip = options.smartWhiteClip ?? 240;
+        let smartBlackPoint = options.smartBlackPoint ?? 15;
         let smartGamma = options.smartGamma ?? 1.0;
         
         let smartLut = new Uint8Array(256);
@@ -469,10 +499,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             vData[j] = smartLut[vData[j]];
         }
         
-        // 5. Boost Saturation in HSV (makes colors POP like a scanner)
-        let smartSat = options.smartSaturation ?? 1.4;
-        sSmart.convertTo(sSmart, -1, smartSat, 0);
-        
         smartPlanes.set(1, sSmart);
         smartPlanes.set(2, vSmart);
         cv.merge(smartPlanes, smartHsv);
@@ -480,14 +506,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let finalSmartRgb = new cv.Mat();
         cv.cvtColor(smartHsv, finalSmartRgb, cv.COLOR_HSV2RGB);
         
-        // 6. Gentle Unsharp Mask for Crisp Text
-        let smartSharpen = options.smartSharpen ?? 1.2;
-        if (smartSharpen > 0) {
-            let blurSmart = new cv.Mat();
-            cv.GaussianBlur(finalSmartRgb, blurSmart, new cv.Size(0, 0), 2);
-            cv.addWeighted(finalSmartRgb, 1.0 + smartSharpen, blurSmart, -smartSharpen, 0, finalSmartRgb);
-            blurSmart.delete();
-        }
+        // (Removed Unsharp Mask completely as requested to eliminate eye-strain and glassy artifacts)
         
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
@@ -505,8 +524,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
-        smartDownscaled.delete(); smartBgMap.delete(); smartRgb.delete(); smartHsv.delete(); 
-        smartPlanes.delete(); sSmart.delete(); vSmart.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+        smartRgb.delete(); smartDownscaled.delete(); globalBgMap.delete(); flatGray.delete(); smallGray.delete();
+        textKernel.delete(); localBg.delete(); textMask.delete(); smartHsv.delete(); smartPlanes.delete();
+        sSmart.delete(); vSmart.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
           cropped: croppedUrl, 
