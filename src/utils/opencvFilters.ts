@@ -419,66 +419,99 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.51 - Ultimate Text Engine Fixed) ---
-        // The user correctly deduced that Photos and Text need different routing (Cascade).
-        // This engine is dedicated strictly to Documents (Invoices/Notebooks).
-        // It uses Adaptive Thresholding to perfectly isolate text and colored pens,
-        // completely ignoring background shadows, then pastes the vibrant text onto pure white.
+        // --- Smart Color (v4.52 - Natural Document Retinex) ---
+        // We drop the binary masking (which caused the opaque/fake background and turned blue/red pens black).
+        // Instead, we return to the perfect Retinex lighting flattening, but fix the previous wash-out bug
+        // by applying a strong DILATE on the FULL-RES image before downscaling. This guarantees the text 
+        // is erased from the illumination map, keeping it perfectly solid while removing shadows naturally.
         
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-        
-        let graySmart = new cv.Mat();
-        cv.cvtColor(smartRgb, graySmart, cv.COLOR_RGB2GRAY);
-        
-        // 1. Isolate text strokes using Adaptive Threshold
-        // High C=15 to ignore faint paper grid lines, block=25 to capture thick marker strokes
-        let textMask = new cv.Mat();
-        cv.adaptiveThreshold(graySmart, textMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 25, 15);
-        
-        // CRITICAL FIX: Use DILATE instead of OPEN! 
-        // OPEN destroys thin pen lines causing "dotted/stuttering" text. 
-        // DILATE connects broken lines and makes the text bold and homogeneous.
-        let textKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-        cv.dilate(textMask, textMask, textKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
-        textKernel.delete();
-        
-        // 2. Enhance the original colors for the text
         let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(dst, smartHsv, cv.COLOR_RGBA2RGB);
+        cv.cvtColor(smartHsv, smartHsv, cv.COLOR_RGB2HSV);
         
         let smartPlanes = new cv.MatVector();
         cv.split(smartHsv, smartPlanes);
         
+        let hSmart = smartPlanes.get(0);
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
-        // Boost color of the pens (Saturation) - make red/blue pens vibrant
-        let colorBoost = options.smartSaturation ?? 1.8;
-        sSmart.convertTo(sSmart, -1, colorBoost, 0);
+        // 1. Build a PERFECT Illumination Map
+        // Step A: Erase all text strokes on the full-res image using a 7x7 Dilate (Max Pool)
+        // This ensures the white paper swallows the black/colored text BEFORE we downscale.
+        let vDilated = new cv.Mat();
+        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+        cv.dilate(vSmart, vDilated, eraseKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
+        eraseKernel.delete();
         
-        // Darken the text (Value) to make it bold and solid against the white paper
+        // Step B: Downscale heavily to capture only the broad lighting/shadow gradients
+        let downScaleSize = 64;
+        let smallV = new cv.Mat();
+        cv.resize(vDilated, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
+        
+        // Step C: Smooth heavily to create a natural lighting gradient
+        cv.GaussianBlur(smallV, smallV, new cv.Size(15, 15), 0);
+        
+        // Step D: Upscale to full size
+        let bgMap = new cv.Mat();
+        cv.resize(smallV, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
+        // 2. Flatten Lighting (Retinex Division)
+        // V_new = (V / bgMap) * 255
+        // Shadows are completely removed. Paper becomes uniformly ~255. Text keeps its relative contrast!
+        cv.divide(vSmart, bgMap, vSmart, 255, -1);
+        
+        // 3. Contrast Stretch & Smart Chroma (Natural Look)
         let vData = vSmart.data;
-        for(let i=0; i<vData.length; i++) {
-            // We darken ALL pixels in the mask to ensure even red/colored pens pop against pure white
-            let v = vData[i];
-            v = Math.max(0, Math.min(255, v * 0.7 - 10)); // Aggressive darkening for bold text
-            vData[i] = v;
+        let sData = sSmart.data;
+        
+        let whiteClip = options.smartWhiteClip ?? 230; // Soft white clip for a natural paper look
+        let blackPoint = options.smartBlackPoint ?? 70;  // Strong black point for solid text
+        let colorBoost = options.smartSaturation ?? 1.3;
+        
+        let vRange = Math.max(1, whiteClip - blackPoint);
+        let smartLut = new Uint8Array(256);
+        for (let i = 0; i < 256; i++) {
+            if (i >= whiteClip) {
+                smartLut[i] = 255;
+            } else if (i <= blackPoint) {
+                smartLut[i] = 0;
+            } else {
+                smartLut[i] = Math.round(((i - blackPoint) / vRange) * 255);
+            }
+        }
+        
+        for (let j = 0; j < vData.length; j++) {
+            let originalV = vData[j];
+            let finalV = smartLut[originalV];
+            vData[j] = finalV;
+            
+            let originalS = sData[j];
+            let finalS = originalS;
+            
+            // Smart Chroma: Eliminate shadow stains on paper, but preserve red/blue pens!
+            // If it's bright paper (V > 180) and low saturation (S < 80), it's a stain. Kill it.
+            if (finalV > 180 && originalS < 80) {
+                if (finalV >= 220) {
+                    finalS = 0;
+                } else {
+                    let fade = (finalV - 180) / 40.0;
+                    finalS = originalS * (1.0 - fade);
+                }
+            } else {
+                // It's a pen (high saturation) or text (dark). Boost its color naturally.
+                finalS = Math.min(255, originalS * colorBoost);
+            }
+            
+            sData[j] = finalS;
         }
         
         smartPlanes.set(1, sSmart);
         smartPlanes.set(2, vSmart);
         cv.merge(smartPlanes, smartHsv);
         
-        let smartEnhancedRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
-        
-        // 3. Paste the enhanced text onto a pure white background!
-        let finalSmartRgb = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
-        smartEnhancedRgb.copyTo(finalSmartRgb, textMask);
-        
-        // 4. Anti-alias the harsh binary edges of the mask to prevent jagged text
-        cv.GaussianBlur(finalSmartRgb, finalSmartRgb, new cv.Size(3, 3), 0);
+        let finalSmartRgb = new cv.Mat();
+        cv.cvtColor(smartHsv, finalSmartRgb, cv.COLOR_HSV2RGB);
         
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
@@ -497,9 +530,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
         let hSmart = smartPlanes.get(0);
-        smartRgb.delete(); graySmart.delete(); textMask.delete(); 
         smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
-        smartEnhancedRgb.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+        vDilated.delete(); smallV.delete(); bgMap.delete();
+        finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
           cropped: croppedUrl, 
