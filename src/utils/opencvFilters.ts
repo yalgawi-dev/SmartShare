@@ -419,7 +419,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v6.0 Harmonic Processing) ---
+        /* --- BACKUP of Smart Color (v6.1 Harmonic Processing) ---
         // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
         let smartGrayColor = new cv.Mat();
         cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
@@ -488,6 +488,71 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
         smartRgb.delete(); smartRgbPlanes.delete(); 
         smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete(); smartV.delete();
+        smartEnhancedRgb.delete(); finalSmartRgba.delete();
+        ----------------------------------------------------- */
+
+        // --- Smart Color (v7.0 Unified HSV Flattening) ---
+        // 1. Convert directly to HSV to preserve Hue (Color) perfectly
+        let smartRgb = new cv.Mat();
+        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
+        let smartHsv = new cv.Mat();
+        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        
+        let smartHsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, smartHsvPlanes);
+        
+        let smartH = smartHsvPlanes.get(0);
+        let smartS = smartHsvPlanes.get(1);
+        let smartV = smartHsvPlanes.get(2);
+        
+        // 2. PERFECT GLASS BACKGROUND: Create illumination map ONLY on the Luminance (V) channel
+        let smartDilatedV = new cv.Mat();
+        // Use 11x11 kernel to ensure lines are completely erased before making the map (fixes smeared notebook lines)
+        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(11, 11));
+        cv.dilate(smartV, smartDilatedV, eraseKernel);
+        eraseKernel.delete();
+        
+        let smartVDownscaled = new cv.Mat();
+        cv.resize(smartDilatedV, smartVDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+        // Use 31 blur to make it buttery smooth, ensuring no line artifacts remain
+        cv.medianBlur(smartVDownscaled, smartVDownscaled, 31);
+        
+        let smartIlluminationV = new cv.Mat();
+        cv.resize(smartVDownscaled, smartIlluminationV, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        smartDilatedV.delete(); smartVDownscaled.delete();
+        
+        // 3. FLATTEN LUMINANCE: Divide V by its illumination map
+        cv.divide(smartV, smartIlluminationV, smartV, 255, -1);
+        smartIlluminationV.delete();
+        
+        // 4. HARMONIC TONE MAPPING (V & S)
+        // Stretch Luminance (V): V = V * 2.0 - 255
+        smartV.convertTo(smartV, -1, 2.0, -255);
+        
+        // Clean chromatic noise: threshold increased to 40 to erase the bottom notebook shadow
+        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO);
+        
+        // Boost Saturation (S) by 2.0 to make true colors pop
+        smartS.convertTo(smartS, -1, 2.0, 0);
+        
+        // 5. MERGE BACK (Hue remains untouched, so Green stays Green!)
+        smartHsvPlanes.set(0, smartH);
+        smartHsvPlanes.set(1, smartS);
+        smartHsvPlanes.set(2, smartV);
+        cv.merge(smartHsvPlanes, smartHsv);
+        
+        let smartEnhancedRgb = new cv.Mat();
+        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
+        
+        let finalSmartRgba = new cv.Mat();
+        cv.cvtColor(smartEnhancedRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        
+        cv.imshow(canvas, finalSmartRgba);
+        const smartColorUrl = compressCanvas(canvas);
+        
+        // Cleanup smart objects
+        smartRgb.delete(); smartHsv.delete(); smartHsvPlanes.delete(); 
+        smartH.delete(); smartS.delete(); smartV.delete();
         smartEnhancedRgb.delete(); finalSmartRgba.delete();
         
         // Cleanup General and Pure objects
