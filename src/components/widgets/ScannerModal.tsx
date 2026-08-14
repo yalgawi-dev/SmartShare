@@ -400,7 +400,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 <button 
                 onClick={() => setMode('pure_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  צבע טהור
+                  תמונה
                 </button>
                 <button 
                 onClick={() => setMode('color')} 

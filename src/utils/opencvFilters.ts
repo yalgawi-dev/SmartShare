@@ -380,7 +380,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         let smartGrayDownscaled = new cv.Mat();
         cv.resize(smartDilatedBg, smartGrayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        cv.medianBlur(smartGrayDownscaled, smartGrayDownscaled, 21);
+        // Deep blur to completely eliminate dirty shadow stains on the edges
+        cv.blur(smartGrayDownscaled, smartGrayDownscaled, new cv.Size(51, 51));
         
         let smartIlluminationMap = new cv.Mat();
         cv.resize(smartGrayDownscaled, smartIlluminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -409,13 +410,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let smartS = smartHsvPlanes.get(1);
         let smartV = smartHsvPlanes.get(2);
         
-        // Stretch Luminance (V): Darkens faint text and lines naturally without breaking them.
-        // V = V * 2.0 - 255 (White stays white, light grays become dark, darks become pitch black)
-        smartV.convertTo(smartV, -1, 2.0, -255);
+        // Gentle Luminance Stretch (V): Darkens text without turning blue/red ink into pitch black!
+        // V = V * 1.4 - 70. This ensures handwriting stays its original color but remains highly legible.
+        smartV.convertTo(smartV, -1, 1.4, -70);
         
-        // Clean chromatic noise: Any pixel with original S < 30 is stripped of color (set to 0)
-        // This ensures faint blue shadows on paper don't explode into blue smears.
-        cv.threshold(smartS, smartS, 30, 255, cv.THRESH_TOZERO);
+        // Clean chromatic noise: Threshold lowered to 20 to protect faint colors from becoming grayscale
+        cv.threshold(smartS, smartS, 20, 255, cv.THRESH_TOZERO);
         
         // Boost Saturation (S): Makes real red/blue inks pop.
         // Reduced from 2.0 to 1.5 to prevent anti-aliased notebook squares from spilling at intersections
