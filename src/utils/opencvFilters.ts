@@ -502,7 +502,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         // Cleanup smart objects
         smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
-        smartRgb.delete(); smartRgbPlanes.delete(); smartEroded.delete(); smartSmoothed.delete();
+        smartRgb.delete(); smartRgbPlanes.delete(); smartSmoothed.delete();
         smartColorBlurred.delete(); smartSharp.delete(); smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete();
         smartEnhancedRgb.delete(); smartLowSatMask.delete(); smartBwColor.delete(); smartMagicColor.delete();
         finalSmartRgba.delete();
@@ -511,6 +511,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
+        
+        // Restore cleanup for MAIN Color Enhancement
+        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
+        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
+        enhancedRgb.delete(); lowSatMask.delete(); bwColor.delete(); magicColor.delete(); finalRgba.delete();
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         resolve({ 
