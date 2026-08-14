@@ -419,10 +419,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.54 - CamScanner Pro / Soft Matting) ---
-        // Industry-standard algorithm: Local adaptive thresholding combined with 
-        // alpha-blending (soft matting) to perfectly separate text from background 
-        // without destroying native colors or creating jagged "glassy" edges.
+        // --- Smart Color (v4.55 - Classic Magic Color) ---
+        // Restoring the successful v3.6 logic (Retinex + B&W Masking on Low Saturation)
+        // with the v4.53 fix (Dilated illumination map) so text doesn't fade!
         
         let smartHsv = new cv.Mat();
         cv.cvtColor(dst, smartHsv, cv.COLOR_RGBA2RGB);
@@ -435,74 +434,61 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
-        // 1. Adaptive Masking (Isolate text from shadows perfectly)
-        let textMask = new cv.Mat();
-        // block=55, C=15 gives excellent local binarization without catching noise
-        cv.adaptiveThreshold(vSmart, textMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 55, 15);
+        // 1. Create B&W Mask for crisp text
+        let bwMask = new cv.Mat();
+        cv.adaptiveThreshold(vSmart, bwMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
         
-        // 2. Soft Matting (Anti-aliasing)
-        // Convert the harsh binary mask into a soft Alpha channel
-        let alphaMask = new cv.Mat();
-        cv.GaussianBlur(textMask, alphaMask, new cv.Size(3, 3), 0);
+        // 2. Build Perfect Illumination Map (Dilate text first so it doesn't fade!)
+        let vDilated = new cv.Mat();
+        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+        cv.dilate(vSmart, vDilated, eraseKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
+        eraseKernel.delete();
         
-        // 3. Selective Color Restoration (Prepare the text pixels)
-        let vData = vSmart.data;
-        let sData = sSmart.data;
-        let alphaData = alphaMask.data;
+        let downScaleSize = 64;
+        let smallV = new cv.Mat();
+        cv.resize(vDilated, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
+        cv.GaussianBlur(smallV, smallV, new cv.Size(15, 15), 0);
+        let bgMap = new cv.Mat();
+        cv.resize(smallV, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
-        for (let i = 0; i < vData.length; i++) {
-            if (alphaData[i] > 0) { // If it's part of the text/pen/grid
-                let originalS = sData[i];
-                let originalV = vData[i];
-                
-                // If the saturation is very low (gray pencil / black pen) AND it's dark, pull V to pitch black.
-                // If it's a colored pen or light grid, preserve color and darken slightly.
-                let isBlackText = originalS < 60 && originalV < 160;
-                
-                if (isBlackText) {
-                    vData[i] = Math.max(0, originalV - 100); // Crush to solid black
-                } else {
-                    // It's colored pen or grid line. Boost its saturation so it pops.
-                    sData[i] = Math.min(255, originalS * 1.5);
-                    // Darken it slightly to make it legible on white paper, but preserve color
-                    vData[i] = Math.max(0, originalV - 30); 
-                }
-            }
-        }
+        // 3. Retinex Division (Removes shadows perfectly)
+        let vFlattened = new cv.Mat();
+        cv.divide(vSmart, bgMap, vFlattened, 255, -1);
         
-        smartPlanes.set(1, sSmart);
-        smartPlanes.set(2, vSmart);
+        // 4. Boost Saturation & Create Low Saturation Mask
+        // Median blur S to remove chromatic noise so blue pens are solid
+        cv.medianBlur(sSmart, sSmart, 5); 
+        
+        let smartLowSatMask = new cv.Mat();
+        cv.threshold(sSmart, smartLowSatMask, 50, 255, cv.THRESH_BINARY_INV);
+        
+        // Boost color 
+        sSmart.convertTo(sSmart, -1, 1.3, 0); 
+        
+        // Rebuild RGB image with flat lighting
+        smartPlanes.set(2, vFlattened);
         cv.merge(smartPlanes, smartHsv);
+        let flatRgb = new cv.Mat();
+        cv.cvtColor(smartHsv, flatRgb, cv.COLOR_HSV2RGB);
         
-        let smartEnhancedRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
+        // 5. The Magic v3.6 Blend
+        // Force the text to be pitch black using the BW mask
+        let smartBwColor = new cv.Mat();
+        cv.cvtColor(bwMask, smartBwColor, cv.COLOR_GRAY2RGB);
         
-        // 4. Alpha Blending (Blend the enhanced text onto a clean white background)
-        let finalSmartRgb = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
+        let smartMagicColor = new cv.Mat();
+        cv.min(flatRgb, smartBwColor, smartMagicColor); // Take the darkest pixels between flat lighting and the BW mask
         
-        // Manual alpha blend for buttery smooth edges (Soft Matting)
-        let enhancedData = smartEnhancedRgb.data;
-        let finalData = finalSmartRgb.data;
-        
-        for (let i = 0; i < alphaData.length; i++) {
-            let alpha = alphaData[i] / 255.0; // 0.0 (background) to 1.0 (text)
-            if (alpha > 0) {
-                let pixelIdx = i * 3;
-                let invAlpha = 1.0 - alpha;
-                
-                finalData[pixelIdx]     = Math.round(enhancedData[pixelIdx] * alpha + 255 * invAlpha);
-                finalData[pixelIdx + 1] = Math.round(enhancedData[pixelIdx + 1] * alpha + 255 * invAlpha);
-                finalData[pixelIdx + 2] = Math.round(enhancedData[pixelIdx + 2] * alpha + 255 * invAlpha);
-            }
-        }
+        // Apply the pitch-black text ONLY to the areas that lack color (lowSatMask)
+        smartMagicColor.copyTo(flatRgb, smartLowSatMask);
         
         let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(flatRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
-
-        lowSatMask.delete(); bwColor.delete(); magicColor.delete();
+        
+        // Cleanup
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
@@ -514,8 +500,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         hSmart = smartPlanes.get(0);
         smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
-        textMask.delete(); alphaMask.delete(); smartEnhancedRgb.delete();
-        finalSmartRgb.delete(); finalSmartRgba.delete();
+        bwMask.delete(); vDilated.delete(); smallV.delete(); bgMap.delete(); vFlattened.delete();
+        smartLowSatMask.delete(); flatRgb.delete(); smartBwColor.delete(); smartMagicColor.delete();
+        finalSmartRgba.delete();
 
         resolve({ 
           cropped: croppedUrl, 
