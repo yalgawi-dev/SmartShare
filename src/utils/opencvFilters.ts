@@ -366,7 +366,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         // Cleanup photo objects
         photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
-        photoS.delete(); photoV.delete(); finalPhotoColor.delete();
+        photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
         // --- Smart Color (v6.1 Harmonic Processing) - RESTORED ---
         // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
@@ -449,7 +449,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
         enhancedRgb.delete(); lowSatMask.delete(); bwColor.delete(); magicColor.delete(); finalRgba.delete();
         
-        rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
+        // Legacy pure objects were replaced by photo objects and already cleaned up.
         resolve({ 
           cropped: croppedUrl, 
           bw: bwUrl, 
