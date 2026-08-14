@@ -419,10 +419,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.48 - Semantic Retinex) ---
-        // This is a zero-compromise engine that uses Color Saturation and Luminance thresholds
-        // to semantically segment photos/text from the background paper, allowing for perfect
-        // shadow removal without washing out photos or leaving colored stains.
+        // --- Smart Color (v4.49 - Bulletproof Engine) ---
+        // This engine uses DILATE-only illumination mapping to perfectly flatten paper shadows,
+        // combined with Smart Chroma filtering to erase shadow stains while keeping photos vibrant.
         
         let smartHsv = new cv.Mat();
         cv.cvtColor(dst, smartHsv, cv.COLOR_RGBA2RGB);
@@ -435,83 +434,72 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
-        // 1. Build a Semantic Illumination Map
-        // We downscale heavily for robust large-shadow tracking and speed
+        // 1. Build a pure illumination map using DILATE (Max Pool)
+        // Downscale for speed and robust spatial filtering
         let downScaleSize = 64;
-        let smallS = new cv.Mat();
         let smallV = new cv.Mat();
-        cv.resize(sSmart, smallS, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
-        cv.resize(vSmart, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
+        cv.resize(vSmart, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_LINEAR);
         
-        let rawBg = new cv.Mat(downScaleSize, downScaleSize, cv.CV_8UC1);
-        let sDataSmall = smallS.data;
-        let vDataSmall = smallV.data;
-        let bgData = rawBg.data;
+        // Dilate expands the bright white paper over any dark text or photos
+        let bgKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(11, 11));
+        let bgSmall = new cv.Mat();
+        cv.dilate(smallV, bgSmall, bgKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
+        bgKernel.delete();
         
-        for (let i = 0; i < downScaleSize * downScaleSize; i++) {
-            // If pixel is highly colored (S > 40) OR very dark (V < 80), it is a photo or text!
-            // We force it to 255 (white paper) so it doesn't pull down the illumination map.
-            if (sDataSmall[i] > 40 || vDataSmall[i] < 80) {
-                bgData[i] = 255;
-            } else {
-                // Otherwise, it's paper or a soft shadow. Keep its actual luminance.
-                bgData[i] = vDataSmall[i];
-            }
-        }
-        
-        // Use median blur to completely erase thin artifacts (like faint black text lines)
-        // while perfectly preserving corner shadow gradients.
-        cv.medianBlur(rawBg, rawBg, 5);
-        cv.GaussianBlur(rawBg, rawBg, new cv.Size(5, 5), 0);
+        // Smooth the background map to create a natural lighting gradient
+        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(11, 11), 0);
         
         let bgMap = new cv.Mat();
-        cv.resize(rawBg, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        cv.resize(bgSmall, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
-        // 2. Flatten Lighting (Retinex Division)
-        // V_new = V / bgMap * 255. Shadows become white (255), photos are preserved!
+        // 2. Flatten Lighting (Division)
+        // This removes shadows. The paper becomes ~255, dark text and photos retain their contrast.
         cv.divide(vSmart, bgMap, vSmart, 255, -1);
         
-        // 3. Apply Enhancement LUT & Adaptive Saturation
-        let smartWhiteClip = options.smartWhiteClip ?? 240;
-        let smartBlackPoint = options.smartBlackPoint ?? 45; // Aggressive for thick black text
-        let smartGamma = options.smartGamma ?? 1.0;
+        // 3. Contrast & Smart Chroma Logic
+        let vData = vSmart.data;
+        let sData = sSmart.data;
         
+        let whiteClip = options.smartWhiteClip ?? 210; // Aggressive white
+        let blackPoint = options.smartBlackPoint ?? 60;  // Aggressive black for solid text
+        let colorBoost = options.smartSaturation ?? 1.4;
+        
+        let vRange = Math.max(1, whiteClip - blackPoint);
         let smartLut = new Uint8Array(256);
-        let safeSmartWhite = Math.max(smartWhiteClip, smartBlackPoint + 1);
-        let smartRange = safeSmartWhite - smartBlackPoint;
-        
         for (let i = 0; i < 256; i++) {
-            if (i >= safeSmartWhite) {
+            if (i >= whiteClip) {
                 smartLut[i] = 255;
-            } else if (i <= smartBlackPoint) {
+            } else if (i <= blackPoint) {
                 smartLut[i] = 0;
             } else {
-                let norm = Math.max(0, (i - smartBlackPoint) / smartRange);
-                let val = Math.pow(norm, smartGamma) * 255.0;
-                smartLut[i] = isNaN(val) ? 0 : Math.min(255, val);
+                smartLut[i] = Math.round(((i - blackPoint) / vRange) * 255);
             }
         }
         
-        let vDataFull = vSmart.data;
-        let sDataFull = sSmart.data;
-        let baseSat = options.smartSaturation ?? 1.5;
-        
-        for (let j = 0; j < vDataFull.length; j++) {
-            let finalV = smartLut[vDataFull[j]];
-            vDataFull[j] = finalV;
+        for (let j = 0; j < vData.length; j++) {
+            let originalV = vData[j];
+            let finalV = smartLut[originalV];
+            vData[j] = finalV;
             
-            // Adaptive Saturation:
-            // Kill saturation in the highlights (V > 230) to perfectly eliminate yellow/red shadow stains.
-            // Boost saturation in midtones/shadows (V < 190) to make photos and pens vibrate with life.
-            let satFactor = baseSat;
-            if (finalV > 230) {
-                satFactor = 0.0;
-            } else if (finalV > 190) {
-                let t = (finalV - 190) / 40.0;
-                satFactor = baseSat * (1.0 - t);
+            let originalS = sData[j];
+            let finalS = originalS;
+            
+            // Smart Chroma: Distinguish between pale shadow stains and vibrant objects (like a yellow duck)
+            // Stains on paper are bright (finalV > 180) AND have low/medium saturation (originalS < 90)
+            if (finalV > 180 && originalS < 90) {
+                if (finalV >= 220) {
+                    finalS = 0; // Pure white paper -> kill color
+                } else {
+                    // Soft transition to kill color
+                    let fade = (finalV - 180) / 40.0;
+                    finalS = originalS * (1.0 - fade);
+                }
+            } else {
+                // It's a dark object (text) or a vibrant color (duck/marker). Boost it!
+                finalS = Math.min(255, originalS * colorBoost);
             }
             
-            sDataFull[j] = Math.min(255, sDataFull[j] * satFactor);
+            sData[j] = finalS;
         }
         
         smartPlanes.set(1, sSmart);
@@ -538,7 +526,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
         smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
-        smallS.delete(); smallV.delete(); rawBg.delete(); bgMap.delete();
+        smallV.delete(); bgSmall.delete(); bgMap.delete();
         finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
