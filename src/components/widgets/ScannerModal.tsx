@@ -55,10 +55,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     pureSaturation: 1.8,
     pureWhiteClip: 210,
     pureBlackPoint: 0,
-    smartGamma: 0.8,
-    smartSaturation: 1.5,
-    smartWhiteClip: 230,
-    smartBlackPoint: 30,
+    smartGamma: 0.85,
+    smartSaturation: 1.25,
+    smartWhiteClip: 225,
+    smartBlackPoint: 35,
     smartSharpen: 1.2,
     bgBlurSize: 21
   });
@@ -434,7 +434,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                             const defaultOpts = { 
                               magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, magicWhiteClip: 255, 
                               pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, 
-                              smartGamma: 0.8, smartSaturation: 1.5, smartWhiteClip: 230, smartBlackPoint: 30, smartSharpen: 1.2,
+                              smartGamma: 0.85, smartSaturation: 1.25, smartWhiteClip: 225, smartBlackPoint: 35, smartSharpen: 1.2,
                               bgBlurSize: 21 
                             };
                             setDevOptions(defaultOpts);
