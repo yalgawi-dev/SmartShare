@@ -41,7 +41,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'color' | 'pure_color' | 'original'>('pure_color');
+  const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
+  const [mode, setMode] = useState<'bw' | 'color' | 'pure_color' | 'smart_color' | 'original'>('smart_color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
     magicGamma: 1.3,
@@ -54,6 +55,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     pureSaturation: 1.8,
     pureWhiteClip: 210,
     pureBlackPoint: 0,
+    smartGamma: 0.8,
+    smartSaturation: 1.5,
+    smartWhiteClip: 230,
+    smartBlackPoint: 30,
+    smartSharpen: 1.2,
     bgBlurSize: 21
   });
   const [showDevTools, setShowDevTools] = useState(false);
@@ -191,6 +197,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       setBwSnapshot(results.bw);
       setColorSnapshot(results.color);
       setPureColorSnapshot(results.pureColor);
+      setSmartColorSnapshot(results.smartColor);
       
       if (results.detectedType) {
         setDetectedType(results.detectedType as 'text' | 'photo');
@@ -332,7 +339,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'original' ? (croppedSnapshot || '') : mode === 'bw' ? (bwSnapshot || '') : mode === 'pure_color' ? (pureColorSnapshot || '') : (colorSnapshot || '')} 
+                   src={mode === 'original' ? (croppedSnapshot || '') : mode === 'bw' ? (bwSnapshot || '') : mode === 'pure_color' ? (pureColorSnapshot || '') : mode === 'smart_color' ? (smartColorSnapshot || '') : (colorSnapshot || '')} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -386,6 +393,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                   מקור
                 </button>
                 <button 
+                onClick={() => setMode('smart_color')} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_color' ? '#fff' : 'transparent', color: mode === 'smart_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  צבע חכם
+                </button>
+                <button 
                 onClick={() => setMode('pure_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   צבע טהור
@@ -402,13 +414,13 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 </button>
             </div>
             
-            {(mode === 'color' || mode === 'pure_color') && (
+            {(mode === 'color' || mode === 'pure_color' || mode === 'smart_color') && (
               <div style={{ position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
                     onClick={() => setShowDevTools(!showDevTools)} 
                     style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                    ⚙️ הגדרות {mode === 'color' ? 'צבע רגיל' : 'צבע טהור'}
+                    ⚙️ הגדרות {mode === 'smart_color' ? 'צבע חכם' : mode === 'color' ? 'צבע רגיל' : 'צבע טהור'}
                   </button>
                 </div>
                 
@@ -419,7 +431,12 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                         <button 
                           onClick={() => {
-                            const defaultOpts = { magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, magicWhiteClip: 255, pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, bgBlurSize: 21 };
+                            const defaultOpts = { 
+                              magicGamma: 1.3, magicErode: 0.5, magicSaturation: 1.8, magicBlackPoint: 40, magicWhiteClip: 255, 
+                              pureGamma: 0.5, pureErode: 0.5, pureSaturation: 1.8, pureWhiteClip: 210, pureBlackPoint: 0, 
+                              smartGamma: 0.8, smartSaturation: 1.5, smartWhiteClip: 230, smartBlackPoint: 30, smartSharpen: 1.2,
+                              bgBlurSize: 21 
+                            };
                             setDevOptions(defaultOpts);
                             if (rawSnapshot) performCrop(rawSnapshot, cropPoints, defaultOpts);
                           }} 
@@ -430,6 +447,31 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       </div>
                     </div>
                     
+                    {mode === 'smart_color' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 0.75rem' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Gamma</span> <span>{devOptions.smartGamma}</span></label>
+                          <input type="range" min="0.1" max="2.5" step="0.1" value={devOptions.smartGamma} onChange={e => setDevOptions({...devOptions, smartGamma: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Sharpen</span> <span>{devOptions.smartSharpen}</span></label>
+                          <input type="range" min="0" max="3.0" step="0.1" value={devOptions.smartSharpen} onChange={e => setDevOptions({...devOptions, smartSharpen: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Saturation</span> <span>{devOptions.smartSaturation}</span></label>
+                          <input type="range" min="1.0" max="3.0" step="0.1" value={devOptions.smartSaturation} onChange={e => setDevOptions({...devOptions, smartSaturation: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>White Clip</span> <span>{devOptions.smartWhiteClip}</span></label>
+                          <input type="range" min="150" max="255" step="1" value={devOptions.smartWhiteClip} onChange={e => setDevOptions({...devOptions, smartWhiteClip: parseFloat(e.target.value)})} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <label style={{ display: 'flex', justifyContent: 'space-between' }}><span>Black Point</span> <span>{devOptions.smartBlackPoint}</span></label>
+                          <input type="range" min="0" max="100" step="1" value={devOptions.smartBlackPoint} onChange={e => setDevOptions({...devOptions, smartBlackPoint: parseFloat(e.target.value)})} />
+                        </div>
+                      </div>
+                    )}
+
                     {mode === 'pure_color' && (
                       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem 0.75rem' }}>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>

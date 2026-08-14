@@ -19,6 +19,13 @@ export interface ScannerOptions {
   pureWhiteClip?: number;
   pureBlackPoint?: number;
   
+  // Smart Color (v4.42)
+  smartGamma?: number;
+  smartSaturation?: number;
+  smartWhiteClip?: number;
+  smartBlackPoint?: number;
+  smartSharpen?: number;
+
   // Shared
   bgBlurSize?: number;
   profile?: 'text' | 'photo' | 'auto';
@@ -122,7 +129,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, pureColor: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, pureColor: string, smartColor: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -412,6 +419,81 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
+        // --- Smart Color (v4.42 - HSV Adaptive) ---
+        // 1. Generate ultra-smooth background map to ignore photos
+        let smartGray = new cv.Mat();
+        cv.cvtColor(dst, smartGray, cv.COLOR_RGBA2GRAY);
+        let smartDownscaled = new cv.Mat();
+        cv.resize(smartGray, smartDownscaled, new cv.Size(32, 32), 0, 0, cv.INTER_AREA);
+        cv.medianBlur(smartDownscaled, smartDownscaled, 15);
+        let smartBgMap = new cv.Mat();
+        cv.resize(smartDownscaled, smartBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
+        // 2. Convert to HSV
+        let smartRgb = new cv.Mat();
+        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
+        let smartHsv = new cv.Mat();
+        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        let smartPlanes = new cv.MatVector();
+        cv.split(smartHsv, smartPlanes);
+        let sSmart = smartPlanes.get(1);
+        let vSmart = smartPlanes.get(2);
+        
+        // 3. Flatten Lighting ONLY on V channel
+        cv.divide(vSmart, smartBgMap, vSmart, 255, -1);
+        
+        // 4. Apply LUT to V channel (White Clip, Black Point, Gamma)
+        let smartWhiteClip = options.smartWhiteClip ?? 230;
+        let smartBlackPoint = options.smartBlackPoint ?? 30;
+        let smartGamma = options.smartGamma ?? 0.8;
+        
+        let smartLut = new Uint8Array(256);
+        let safeSmartWhite = Math.max(smartWhiteClip, smartBlackPoint + 1);
+        let smartRange = safeSmartWhite - smartBlackPoint;
+        
+        for (let i = 0; i < 256; i++) {
+            if (i >= safeSmartWhite) {
+                smartLut[i] = 255;
+            } else if (i <= smartBlackPoint) {
+                smartLut[i] = 0;
+            } else {
+                let norm = Math.max(0, (i - smartBlackPoint) / smartRange);
+                let val = Math.pow(norm, smartGamma) * 255.0;
+                smartLut[i] = isNaN(val) ? 0 : Math.min(255, val);
+            }
+        }
+        
+        let vData = vSmart.data;
+        for (let j = 0; j < vData.length; j++) {
+            vData[j] = smartLut[vData[j]];
+        }
+        
+        // 5. Boost Saturation
+        let smartSat = options.smartSaturation ?? 1.5;
+        sSmart.convertTo(sSmart, -1, smartSat, 0);
+        
+        smartPlanes.set(1, sSmart);
+        smartPlanes.set(2, vSmart);
+        cv.merge(smartPlanes, smartHsv);
+        
+        let finalSmartRgb = new cv.Mat();
+        cv.cvtColor(smartHsv, finalSmartRgb, cv.COLOR_HSV2RGB);
+        
+        // 6. Gentle Unsharp Mask for Crisp Text
+        let smartSharpen = options.smartSharpen ?? 1.2;
+        if (smartSharpen > 0) {
+            let blurSmart = new cv.Mat();
+            cv.GaussianBlur(finalSmartRgb, blurSmart, new cv.Size(0, 0), 2);
+            cv.addWeighted(finalSmartRgb, 1.0 + smartSharpen, blurSmart, -smartSharpen, 0, finalSmartRgb);
+            blurSmart.delete();
+        }
+        
+        let finalSmartRgba = new cv.Mat();
+        cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        
+        cv.imshow(canvas, finalSmartRgba);
+        const smartColorUrl = compressCanvas(canvas);
+
         lowSatMask.delete(); bwColor.delete(); magicColor.delete();
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
@@ -422,11 +504,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
+        smartGray.delete(); smartDownscaled.delete(); smartBgMap.delete(); smartRgb.delete(); smartHsv.delete(); 
+        smartPlanes.delete(); sSmart.delete(); vSmart.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+
         resolve({ 
           cropped: croppedUrl, 
           bw: bwUrl, 
           color: colorUrl,
           pureColor: pureColorUrl,
+          smartColor: smartColorUrl,
           appliedOptions: {
             magicGamma: options.magicGamma,
             magicErode: options.magicErode,
@@ -438,6 +524,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             pureSaturation: options.pureSaturation,
             pureWhiteClip: options.pureWhiteClip,
             pureBlackPoint: options.pureBlackPoint,
+            smartGamma: options.smartGamma,
+            smartSaturation: options.smartSaturation,
+            smartWhiteClip: options.smartWhiteClip,
+            smartBlackPoint: options.smartBlackPoint,
+            smartSharpen: options.smartSharpen,
             bgBlurSize: finalBlurSize,
             profile: options.profile
           },
