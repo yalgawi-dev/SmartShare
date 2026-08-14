@@ -529,7 +529,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
-        let hSmart = smartPlanes.get(0);
+        hSmart = smartPlanes.get(0);
         smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
         vDilated.delete(); smallV.delete(); bgMap.delete();
         finalSmartRgb.delete(); finalSmartRgba.delete();
