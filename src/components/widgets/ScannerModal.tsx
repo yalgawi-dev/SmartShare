@@ -420,7 +420,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                   <button 
                     onClick={() => setShowDevTools(!showDevTools)} 
                     style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                    ⚙️ הגדרות {mode === 'smart_color' ? 'צבע חכם' : mode === 'color' ? 'צבע רגיל' : 'צבע טהור'}
+                    ⚙️ הגדרות {mode === 'smart_color' ? 'צבע חכם' : mode === 'color' ? 'צבע רגיל' : 'תמונה'}
                   </button>
                 </div>
                 

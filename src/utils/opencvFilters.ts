@@ -332,94 +332,43 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        let rgbPure = new cv.Mat();
-        cv.cvtColor(dst, rgbPure, cv.COLOR_RGBA2RGB);
-        let rgbPurePlanes = new cv.MatVector();
-        cv.split(rgbPure, rgbPurePlanes);
+        // --- Photo Mode (Formerly Pure Color) ---
+        // Specially tuned for Illustrations, ID Cards, and Books.
+        // Preserves all gradients, gentle contrast stretch without erasing shadows.
+        let photoRgb = new cv.Mat();
+        cv.cvtColor(dst, photoRgb, cv.COLOR_RGBA2RGB);
+        let photoHsv = new cv.Mat();
+        cv.cvtColor(photoRgb, photoHsv, cv.COLOR_RGB2HSV);
+        let photoHsvPlanes = new cv.MatVector();
+        cv.split(photoHsv, photoHsvPlanes);
         
-        let whiteClipThreshold = options.pureWhiteClip ?? 210;
-        let pureGamma = options.pureGamma ?? 0.5;
-        let pureSat = options.pureSaturation ?? 1.8;
-        let pureErodeWeight = options.pureErode ?? 0.5;
-        let pureBlackPoint = options.pureBlackPoint ?? 0;
+        let photoS = photoHsvPlanes.get(1);
+        let photoV = photoHsvPlanes.get(2);
         
-        let pureLut = new Uint8Array(256);
-        let safeWhiteClip = Math.max(whiteClipThreshold, pureBlackPoint + 1);
-        let range = safeWhiteClip - pureBlackPoint;
+        // Gentle luminance stretch (makes darks a bit darker, keeps brights bright)
+        // Gamma 0.8 is great for photos (x = 255 * (x/255)^0.8). But we can just use a mild linear stretch
+        photoV.convertTo(photoV, -1, 1.1, -10); 
         
-        for (let i = 0; i < 256; i++) {
-            if (i >= safeWhiteClip) {
-                pureLut[i] = 255;
-            } else if (i <= pureBlackPoint) {
-                pureLut[i] = 0;
-            } else {
-                let norm = Math.max(0, (i - pureBlackPoint) / range);
-                let val = Math.pow(norm, pureGamma) * 255.0;
-                pureLut[i] = isNaN(val) ? 0 : Math.min(255, val);
-            }
-        }
+        // Gentle saturation boost to make illustrations lively
+        photoS.convertTo(photoS, -1, 1.3, 0);
         
-        // Step 1: Flatten lighting (Divide by illumination map)
-        for (let i = 0; i < 3; i++) {
-            let channel = rgbPurePlanes.get(i);
-            if (!isPhoto) {
-                cv.divide(channel, illuminationMap, channel, 255, -1);
-            }
-            rgbPurePlanes.set(i, channel);
-            channel.delete();
-        }
-        cv.merge(rgbPurePlanes, rgbPure);
+        photoHsvPlanes.set(1, photoS);
+        photoHsvPlanes.set(2, photoV);
+        cv.merge(photoHsvPlanes, photoHsv);
         
-        // Step 2: Thicken text (Erode) BEFORE LUT
-        if (!isPhoto && pureErodeWeight > 0) {
-            let erodedPure = new cv.Mat();
-            let pureKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-            cv.erode(rgbPure, erodedPure, pureKernel);
-            cv.addWeighted(rgbPure, 1.0 - pureErodeWeight, erodedPure, pureErodeWeight, 0, rgbPure);
-            pureKernel.delete(); erodedPure.delete();
-        }
-        
-        // Step 3: Apply Gamma & White Clip LUT directly on the merged rgb data
-        let rgbData = rgbPure.data;
-        if (!isPhoto) {
-            for (let j = 0; j < rgbData.length; j++) {
-                rgbData[j] = pureLut[rgbData[j]];
-            }
-        } else {
-             let photoLut = new Uint8Array(256);
-             for (let k = 0; k < 256; k++) {
-                 if (k <= pureBlackPoint) {
-                     photoLut[k] = 0;
-                 } else {
-                     let norm = Math.max(0, (k - pureBlackPoint) / (255 - pureBlackPoint));
-                     let val = Math.pow(norm, pureGamma) * 255.0;
-                     photoLut[k] = isNaN(val) ? 0 : Math.min(255, val);
-                 }
-             }
-             for (let j = 0; j < rgbData.length; j++) {
-                 rgbData[j] = photoLut[rgbData[j]];
-             }
-        }
-        
-        let hsvPure = new cv.Mat();
-        cv.cvtColor(rgbPure, hsvPure, cv.COLOR_RGB2HSV);
-        let hsvPurePlanes = new cv.MatVector();
-        cv.split(hsvPure, hsvPurePlanes);
-        let sPure = hsvPurePlanes.get(1);
-        
-        sPure.convertTo(sPure, -1, pureSat, 0); 
-        hsvPurePlanes.set(1, sPure);
-        cv.merge(hsvPurePlanes, hsvPure);
-        
-        let finalPureColor = new cv.Mat();
-        cv.cvtColor(hsvPure, finalPureColor, cv.COLOR_HSV2RGB);
+        let finalPhotoColor = new cv.Mat();
+        cv.cvtColor(photoHsv, finalPhotoColor, cv.COLOR_HSV2RGB);
         let finalPureRgba = new cv.Mat();
-        cv.cvtColor(finalPureColor, finalPureRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(finalPhotoColor, finalPureRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
+        
+        // Cleanup photo objects
+        photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
+        photoS.delete(); photoV.delete(); finalPhotoColor.delete();
 
-        /* --- BACKUP of Smart Color (v6.1 Harmonic Processing) ---
+        // --- Smart Color (v6.1 Harmonic Processing) - RESTORED ---
         // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
         let smartGrayColor = new cv.Mat();
         cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
@@ -488,71 +437,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
         smartRgb.delete(); smartRgbPlanes.delete(); 
         smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete(); smartV.delete();
-        smartEnhancedRgb.delete(); finalSmartRgba.delete();
-        ----------------------------------------------------- */
-
-        // --- Smart Color (v7.0 Unified HSV Flattening) ---
-        // 1. Convert directly to HSV to preserve Hue (Color) perfectly
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-        let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
-        
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
-        
-        let smartH = smartHsvPlanes.get(0);
-        let smartS = smartHsvPlanes.get(1);
-        let smartV = smartHsvPlanes.get(2);
-        
-        // 2. PERFECT GLASS BACKGROUND: Create illumination map ONLY on the Luminance (V) channel
-        let smartDilatedV = new cv.Mat();
-        // Use 11x11 kernel to ensure lines are completely erased before making the map (fixes smeared notebook lines)
-        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(11, 11));
-        cv.dilate(smartV, smartDilatedV, eraseKernel);
-        eraseKernel.delete();
-        
-        let smartVDownscaled = new cv.Mat();
-        cv.resize(smartDilatedV, smartVDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        // Use 31 blur to make it buttery smooth, ensuring no line artifacts remain
-        cv.medianBlur(smartVDownscaled, smartVDownscaled, 31);
-        
-        let smartIlluminationV = new cv.Mat();
-        cv.resize(smartVDownscaled, smartIlluminationV, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        smartDilatedV.delete(); smartVDownscaled.delete();
-        
-        // 3. FLATTEN LUMINANCE: Divide V by its illumination map
-        cv.divide(smartV, smartIlluminationV, smartV, 255, -1);
-        smartIlluminationV.delete();
-        
-        // 4. HARMONIC TONE MAPPING (V & S)
-        // Stretch Luminance (V): V = V * 2.0 - 255
-        smartV.convertTo(smartV, -1, 2.0, -255);
-        
-        // Clean chromatic noise: threshold increased to 40 to erase the bottom notebook shadow
-        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO);
-        
-        // Boost Saturation (S) by 2.0 to make true colors pop
-        smartS.convertTo(smartS, -1, 2.0, 0);
-        
-        // 5. MERGE BACK (Hue remains untouched, so Green stays Green!)
-        smartHsvPlanes.set(0, smartH);
-        smartHsvPlanes.set(1, smartS);
-        smartHsvPlanes.set(2, smartV);
-        cv.merge(smartHsvPlanes, smartHsv);
-        
-        let smartEnhancedRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
-        
-        let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(smartEnhancedRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
-        
-        cv.imshow(canvas, finalSmartRgba);
-        const smartColorUrl = compressCanvas(canvas);
-        
-        // Cleanup smart objects
-        smartRgb.delete(); smartHsv.delete(); smartHsvPlanes.delete(); 
-        smartH.delete(); smartS.delete(); smartV.delete();
         smartEnhancedRgb.delete(); finalSmartRgba.delete();
         
         // Cleanup General and Pure objects
