@@ -419,91 +419,107 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.47 - Ultimate LAB Adaptive) ---
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
+        // --- Smart Color (v4.48 - Semantic Retinex) ---
+        // This is a zero-compromise engine that uses Color Saturation and Luminance thresholds
+        // to semantically segment photos/text from the background paper, allowing for perfect
+        // shadow removal without washing out photos or leaving colored stains.
         
-        // 1. Generate Global Background Map to flatten lighting
-        let smartDownscaled = new cv.Mat();
-        cv.resize(smartRgb, smartDownscaled, new cv.Size(32, 32), 0, 0, cv.INTER_AREA);
+        let smartHsv = new cv.Mat();
+        cv.cvtColor(dst, smartHsv, cv.COLOR_RGBA2RGB);
+        cv.cvtColor(smartHsv, smartHsv, cv.COLOR_RGB2HSV);
         
-        // Use Dilate + Erode with BORDER_REPLICATE to prevent corner artifacts
-        let closeKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 15));
-        cv.dilate(smartDownscaled, smartDownscaled, closeKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
-        cv.erode(smartDownscaled, smartDownscaled, closeKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0);
-        closeKernel.delete();
-        
-        let smartBgMap = new cv.Mat();
-        cv.resize(smartDownscaled, smartBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        
-        // 2. Flatten Lighting
-        cv.divide(smartRgb, smartBgMap, smartRgb, 255, -1);
-        
-        // 3. Convert to LAB for perceptual processing
-        let smartLab = new cv.Mat();
-        cv.cvtColor(smartRgb, smartLab, cv.COLOR_RGB2Lab);
         let smartPlanes = new cv.MatVector();
-        cv.split(smartLab, smartPlanes);
+        cv.split(smartHsv, smartPlanes);
         
-        let lChannel = smartPlanes.get(0);
-        let aChannel = smartPlanes.get(1);
-        let bChannel = smartPlanes.get(2);
+        let hSmart = smartPlanes.get(0);
+        let sSmart = smartPlanes.get(1);
+        let vSmart = smartPlanes.get(2);
         
-        // 4. Aggressive L-channel LUT to force black text and white paper
-        // We use a linear stretch to prevent "glassy" artifacts and keep midtones natural
-        let smartWhiteClip = 220; // Aggressive white to kill shadows
-        let smartBlackPoint = 40; // Aggressive black to thicken text
+        // 1. Build a Semantic Illumination Map
+        // We downscale heavily for robust large-shadow tracking and speed
+        let downScaleSize = 64;
+        let smallS = new cv.Mat();
+        let smallV = new cv.Mat();
+        cv.resize(sSmart, smallS, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
+        cv.resize(vSmart, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
+        
+        let rawBg = new cv.Mat(downScaleSize, downScaleSize, cv.CV_8UC1);
+        let sDataSmall = smallS.data;
+        let vDataSmall = smallV.data;
+        let bgData = rawBg.data;
+        
+        for (let i = 0; i < downScaleSize * downScaleSize; i++) {
+            // If pixel is highly colored (S > 40) OR very dark (V < 80), it is a photo or text!
+            // We force it to 255 (white paper) so it doesn't pull down the illumination map.
+            if (sDataSmall[i] > 40 || vDataSmall[i] < 80) {
+                bgData[i] = 255;
+            } else {
+                // Otherwise, it's paper or a soft shadow. Keep its actual luminance.
+                bgData[i] = vDataSmall[i];
+            }
+        }
+        
+        // Use median blur to completely erase thin artifacts (like faint black text lines)
+        // while perfectly preserving corner shadow gradients.
+        cv.medianBlur(rawBg, rawBg, 5);
+        cv.GaussianBlur(rawBg, rawBg, new cv.Size(5, 5), 0);
+        
+        let bgMap = new cv.Mat();
+        cv.resize(rawBg, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
+        // 2. Flatten Lighting (Retinex Division)
+        // V_new = V / bgMap * 255. Shadows become white (255), photos are preserved!
+        cv.divide(vSmart, bgMap, vSmart, 255, -1);
+        
+        // 3. Apply Enhancement LUT & Adaptive Saturation
+        let smartWhiteClip = options.smartWhiteClip ?? 240;
+        let smartBlackPoint = options.smartBlackPoint ?? 45; // Aggressive for thick black text
+        let smartGamma = options.smartGamma ?? 1.0;
         
         let smartLut = new Uint8Array(256);
-        let smartRange = smartWhiteClip - smartBlackPoint;
+        let safeSmartWhite = Math.max(smartWhiteClip, smartBlackPoint + 1);
+        let smartRange = safeSmartWhite - smartBlackPoint;
         
         for (let i = 0; i < 256; i++) {
-            if (i >= smartWhiteClip) {
+            if (i >= safeSmartWhite) {
                 smartLut[i] = 255;
             } else if (i <= smartBlackPoint) {
                 smartLut[i] = 0;
             } else {
-                let norm = (i - smartBlackPoint) / smartRange;
-                smartLut[i] = Math.min(255, Math.max(0, norm * 255));
+                let norm = Math.max(0, (i - smartBlackPoint) / smartRange);
+                let val = Math.pow(norm, smartGamma) * 255.0;
+                smartLut[i] = isNaN(val) ? 0 : Math.min(255, val);
             }
         }
         
-        let lData = lChannel.data;
-        let aData = aChannel.data;
-        let bData = bChannel.data;
+        let vDataFull = vSmart.data;
+        let sDataFull = sSmart.data;
+        let baseSat = options.smartSaturation ?? 1.5;
         
-        let maxSat = 1.3; // Pop for dark colors (text/photos)
-        
-        for (let j = 0; j < lData.length; j++) {
-            let originalL = lData[j];
-            lData[j] = smartLut[originalL];
+        for (let j = 0; j < vDataFull.length; j++) {
+            let finalV = smartLut[vDataFull[j]];
+            vDataFull[j] = finalV;
             
-            // 5. Adaptive Saturation: 
-            // - Dark pixels (L < 180) get high saturation (maxSat)
-            // - Bright pixels (L > 220) get 0 saturation (kills yellow/red shadow stains on paper)
-            let satFactor = maxSat;
-            if (originalL > 220) {
+            // Adaptive Saturation:
+            // Kill saturation in the highlights (V > 230) to perfectly eliminate yellow/red shadow stains.
+            // Boost saturation in midtones/shadows (V < 190) to make photos and pens vibrate with life.
+            let satFactor = baseSat;
+            if (finalV > 230) {
                 satFactor = 0.0;
-            } else if (originalL > 180) {
-                // Smooth interpolation between 180 and 220
-                let t = (originalL - 180) / 40.0;
-                satFactor = maxSat * (1.0 - t);
+            } else if (finalV > 190) {
+                let t = (finalV - 190) / 40.0;
+                satFactor = baseSat * (1.0 - t);
             }
             
-            if (satFactor !== 1.0) {
-                aData[j] = Math.max(0, Math.min(255, 128 + (aData[j] - 128) * satFactor));
-                bData[j] = Math.max(0, Math.min(255, 128 + (bData[j] - 128) * satFactor));
-            }
+            sDataFull[j] = Math.min(255, sDataFull[j] * satFactor);
         }
         
-        smartPlanes.set(0, lChannel);
-        smartPlanes.set(1, aChannel);
-        smartPlanes.set(2, bChannel);
-        cv.merge(smartPlanes, smartLab);
+        smartPlanes.set(1, sSmart);
+        smartPlanes.set(2, vSmart);
+        cv.merge(smartPlanes, smartHsv);
         
         let finalSmartRgb = new cv.Mat();
-        cv.cvtColor(smartLab, finalSmartRgb, cv.COLOR_Lab2RGB);
+        cv.cvtColor(smartHsv, finalSmartRgb, cv.COLOR_HSV2RGB);
         
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
@@ -521,8 +537,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
-        smartRgb.delete(); smartDownscaled.delete(); smartBgMap.delete(); smartLab.delete();
-        smartPlanes.delete(); lChannel.delete(); aChannel.delete(); bChannel.delete(); 
+        smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
+        smallS.delete(); smallV.delete(); rawBg.delete(); bgMap.delete();
         finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
