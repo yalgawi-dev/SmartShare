@@ -419,16 +419,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v3.6 RESTORED 1:1) ---
+        // --- Smart Color (v5.0 Pro Glass & Solid Color) ---
+        // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
         let smartGrayColor = new cv.Mat();
         cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
         
+        let smartDilatedBg = new cv.Mat();
+        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+        cv.dilate(smartGrayColor, smartDilatedBg, eraseKernel); // Erases dark text, leaving only background
+        eraseKernel.delete();
+        
         let smartGrayDownscaled = new cv.Mat();
-        cv.resize(smartGrayColor, smartGrayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+        cv.resize(smartDilatedBg, smartGrayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
         cv.medianBlur(smartGrayDownscaled, smartGrayDownscaled, 21);
         
         let smartIlluminationMap = new cv.Mat();
         cv.resize(smartGrayDownscaled, smartIlluminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        smartDilatedBg.delete();
         
         let smartRgbForMask = new cv.Mat();
         cv.cvtColor(dst, smartRgbForMask, cv.COLOR_RGBA2RGB);
@@ -455,20 +462,22 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         }
         cv.merge(smartRgbPlanes, smartRgb);
         
-        // Thicken the text slightly (Half-strength)
+        // 2. HOMOGENEOUS COLOR ENGINE: Solidify the colored ink
+        // Thicken the text (Erode) with a slightly stronger blend (0.7) to fill gaps in pen strokes
         let smartEroded = new cv.Mat();
         let smartKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
         cv.erode(smartRgb, smartEroded, smartKernel);
-        cv.addWeighted(smartRgb, 0.5, smartEroded, 0.5, 0, smartRgb);
+        cv.addWeighted(smartRgb, 0.3, smartEroded, 0.7, 0, smartRgb);
         smartKernel.delete(); smartEroded.delete();
         
         let smartSmoothed = new cv.Mat();
         cv.bilateralFilter(smartRgb, smartSmoothed, 5, 50, 50, cv.BORDER_DEFAULT);
 
+        // Gentler sharpening so we don't amplify noise in red ink!
         let smartColorBlurred = new cv.Mat();
         cv.GaussianBlur(smartSmoothed, smartColorBlurred, new cv.Size(0, 0), 2);
         let smartSharp = new cv.Mat();
-        cv.addWeighted(smartSmoothed, 3.5, smartColorBlurred, -2.5, 0, smartSharp);
+        cv.addWeighted(smartSmoothed, 1.5, smartColorBlurred, -0.5, 0, smartSharp);
         
         let smartHsv = new cv.Mat();
         cv.cvtColor(smartSharp, smartHsv, cv.COLOR_RGB2HSV);
