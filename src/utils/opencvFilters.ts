@@ -470,12 +470,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         smartPlanes.set(2, vSmart);
         cv.merge(smartPlanes, smartHsv);
         
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, enhancedRgb, cv.COLOR_HSV2RGB);
+        let smartEnhancedRgb = new cv.Mat();
+        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
         
         // 3. Paste the enhanced text onto a pure white background!
         let finalSmartRgb = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
-        enhancedRgb.copyTo(finalSmartRgb, textMask);
+        smartEnhancedRgb.copyTo(finalSmartRgb, textMask);
         
         // 4. Anti-alias the harsh binary edges of the mask to prevent jagged text
         cv.GaussianBlur(finalSmartRgb, finalSmartRgb, new cv.Size(3, 3), 0);
@@ -499,7 +499,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let hSmart = smartPlanes.get(0);
         smartRgb.delete(); graySmart.delete(); textMask.delete(); 
         smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
-        enhancedRgb.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+        smartEnhancedRgb.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
           cropped: croppedUrl, 
