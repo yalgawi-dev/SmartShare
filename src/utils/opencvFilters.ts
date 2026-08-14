@@ -419,11 +419,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.52 - Natural Document Retinex) ---
-        // We drop the binary masking (which caused the opaque/fake background and turned blue/red pens black).
-        // Instead, we return to the perfect Retinex lighting flattening, but fix the previous wash-out bug
-        // by applying a strong DILATE on the FULL-RES image before downscaling. This guarantees the text 
-        // is erased from the illumination map, keeping it perfectly solid while removing shadows naturally.
+        // --- Smart Color (v4.53 - Adaptive Retinex) ---
+        // Back to the natural Retinex lighting flattening (which perfectly removed shadows),
+        // but now introducing an Adaptive Black Point based on Saturation!
+        // This ensures black text becomes pitch black, while colored pens (red/blue) and grid lines
+        // retain their natural bright colors without being crushed to black.
         
         let smartHsv = new cv.Mat();
         cv.cvtColor(dst, smartHsv, cv.COLOR_RGBA2RGB);
@@ -432,74 +432,72 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let smartPlanes = new cv.MatVector();
         cv.split(smartHsv, smartPlanes);
         
-        let hSmart = smartPlanes.get(0);
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
         // 1. Build a PERFECT Illumination Map
-        // Step A: Erase all text strokes on the full-res image using a 7x7 Dilate (Max Pool)
-        // This ensures the white paper swallows the black/colored text BEFORE we downscale.
+        // Erase text strokes on the full-res image using a 7x7 Dilate to ensure 
+        // the white paper swallows the text BEFORE downscaling.
         let vDilated = new cv.Mat();
         let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
         cv.dilate(vSmart, vDilated, eraseKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
         eraseKernel.delete();
         
-        // Step B: Downscale heavily to capture only the broad lighting/shadow gradients
+        // Downscale to capture broad lighting gradients
         let downScaleSize = 64;
         let smallV = new cv.Mat();
         cv.resize(vDilated, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
         
-        // Step C: Smooth heavily to create a natural lighting gradient
+        // Smooth the background map
         cv.GaussianBlur(smallV, smallV, new cv.Size(15, 15), 0);
         
-        // Step D: Upscale to full size
+        // Upscale to full size
         let bgMap = new cv.Mat();
         cv.resize(smallV, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
         // 2. Flatten Lighting (Retinex Division)
-        // V_new = (V / bgMap) * 255
-        // Shadows are completely removed. Paper becomes uniformly ~255. Text keeps its relative contrast!
+        // Shadows are completely removed.
         cv.divide(vSmart, bgMap, vSmart, 255, -1);
         
-        // 3. Contrast Stretch & Smart Chroma (Natural Look)
+        // 3. Adaptive Contrast Stretch & Smart Chroma
         let vData = vSmart.data;
         let sData = sSmart.data;
         
-        let whiteClip = options.smartWhiteClip ?? 230; // Soft white clip for a natural paper look
-        let blackPoint = options.smartBlackPoint ?? 70;  // Strong black point for solid text
-        let colorBoost = options.smartSaturation ?? 1.3;
-        
-        let vRange = Math.max(1, whiteClip - blackPoint);
-        let smartLut = new Uint8Array(256);
-        for (let i = 0; i < 256; i++) {
-            if (i >= whiteClip) {
-                smartLut[i] = 255;
-            } else if (i <= blackPoint) {
-                smartLut[i] = 0;
-            } else {
-                smartLut[i] = Math.round(((i - blackPoint) / vRange) * 255);
-            }
-        }
+        // Soft white clip to preserve natural paper micro-texture instead of an opaque mask
+        let whiteClip = options.smartWhiteClip ?? 245; 
+        let colorBoost = options.smartSaturation ?? 1.4;
         
         for (let j = 0; j < vData.length; j++) {
             let originalV = vData[j];
-            let finalV = smartLut[originalV];
+            let originalS = sData[j];
+            
+            // ADAPTIVE BLACK POINT:
+            // If the ink is grayscale/black (low S), we pull it down aggressively (bp=80).
+            // If the ink is colored (red/blue pen, high S), we pull it down gently so it stays bright!
+            let blackPoint = Math.max(0, 80 - originalS); 
+            
+            let finalV = originalV;
+            if (originalV >= whiteClip) {
+                finalV = 255;
+            } else if (originalV <= blackPoint) {
+                finalV = 0;
+            } else {
+                finalV = Math.round(((originalV - blackPoint) / (whiteClip - blackPoint)) * 255);
+            }
             vData[j] = finalV;
             
-            let originalS = sData[j];
+            // SMART CHROMA:
             let finalS = originalS;
-            
-            // Smart Chroma: Eliminate shadow stains on paper, but preserve red/blue pens!
-            // If it's bright paper (V > 180) and low saturation (S < 80), it's a stain. Kill it.
-            if (finalV > 180 && originalS < 80) {
-                if (finalV >= 220) {
+            if (finalV > 180 && originalS < 60) {
+                // It's a pale shadow stain on the paper. Fade its color to make clean gray/white paper.
+                if (finalV >= 230) {
                     finalS = 0;
                 } else {
-                    let fade = (finalV - 180) / 40.0;
+                    let fade = (finalV - 180) / 50.0; // 0 to 1
                     finalS = originalS * (1.0 - fade);
                 }
             } else {
-                // It's a pen (high saturation) or text (dark). Boost its color naturally.
+                // It's a vibrant colored pen or dark text. Boost its natural color!
                 finalS = Math.min(255, originalS * colorBoost);
             }
             
