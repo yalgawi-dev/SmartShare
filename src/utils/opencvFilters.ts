@@ -419,18 +419,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.43 - LAB Adaptive) ---
-        // 1. Generate color background map using Morphological Close to erase text/photos
+        // --- Smart Color (v4.45 - RGB/HSV Adaptive) ---
+        // 1. Generate color background map using heavy median blur to erase text/photos
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
         
         let smartDownscaled = new cv.Mat();
         cv.resize(smartRgb, smartDownscaled, new cv.Size(32, 32), 0, 0, cv.INTER_AREA);
-        
-        let closeKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 15));
-        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, closeKernel);
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0);
-        closeKernel.delete();
+        cv.medianBlur(smartDownscaled, smartDownscaled, 15);
         
         let smartBgMap = new cv.Mat();
         cv.resize(smartDownscaled, smartBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -438,20 +434,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         // 2. Flatten Lighting (Divide RGB by Color BgMap)
         cv.divide(smartRgb, smartBgMap, smartRgb, 255, -1);
         
-        // 3. Convert to LAB color space for perceptual luminance adjustment
-        let smartLab = new cv.Mat();
-        cv.cvtColor(smartRgb, smartLab, cv.COLOR_RGB2Lab);
+        // 3. Convert to HSV for vibrant document-style contrast
+        let smartHsv = new cv.Mat();
+        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
         let smartPlanes = new cv.MatVector();
-        cv.split(smartLab, smartPlanes);
+        cv.split(smartHsv, smartPlanes);
         
-        let lChannel = smartPlanes.get(0);
-        let aChannel = smartPlanes.get(1);
-        let bChannel = smartPlanes.get(2);
+        let sSmart = smartPlanes.get(1);
+        let vSmart = smartPlanes.get(2);
         
-        // 4. Apply LUT to L channel (Luminance)
-        let smartWhiteClip = options.smartWhiteClip ?? 230;
-        let smartBlackPoint = options.smartBlackPoint ?? 30;
-        let smartGamma = options.smartGamma ?? 0.8;
+        // 4. Apply LUT to V channel (Luminance)
+        let smartWhiteClip = options.smartWhiteClip ?? 225;
+        let smartBlackPoint = options.smartBlackPoint ?? 35;
+        let smartGamma = options.smartGamma ?? 1.0;
         
         let smartLut = new Uint8Array(256);
         let safeSmartWhite = Math.max(smartWhiteClip, smartBlackPoint + 1);
@@ -469,26 +464,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             }
         }
         
-        let lData = lChannel.data;
-        for (let j = 0; j < lData.length; j++) {
-            lData[j] = smartLut[lData[j]];
+        let vData = vSmart.data;
+        for (let j = 0; j < vData.length; j++) {
+            vData[j] = smartLut[vData[j]];
         }
         
-        // 5. Boost Saturation in LAB (scaling a and b channels around 128)
-        let smartSat = options.smartSaturation ?? 1.3;
-        if (smartSat !== 1.0) {
-            let offset = 128 * (1 - smartSat);
-            cv.addWeighted(aChannel, smartSat, aChannel, 0, offset, aChannel);
-            cv.addWeighted(bChannel, smartSat, bChannel, 0, offset, bChannel);
-        }
+        // 5. Boost Saturation in HSV (makes colors POP like a scanner)
+        let smartSat = options.smartSaturation ?? 1.4;
+        sSmart.convertTo(sSmart, -1, smartSat, 0);
         
-        smartPlanes.set(0, lChannel);
-        smartPlanes.set(1, aChannel);
-        smartPlanes.set(2, bChannel);
-        cv.merge(smartPlanes, smartLab);
+        smartPlanes.set(1, sSmart);
+        smartPlanes.set(2, vSmart);
+        cv.merge(smartPlanes, smartHsv);
         
         let finalSmartRgb = new cv.Mat();
-        cv.cvtColor(smartLab, finalSmartRgb, cv.COLOR_Lab2RGB);
+        cv.cvtColor(smartHsv, finalSmartRgb, cv.COLOR_HSV2RGB);
         
         // 6. Gentle Unsharp Mask for Crisp Text
         let smartSharpen = options.smartSharpen ?? 1.2;
@@ -515,8 +505,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
-        smartDownscaled.delete(); smartBgMap.delete(); smartRgb.delete(); smartLab.delete(); 
-        smartPlanes.delete(); lChannel.delete(); aChannel.delete(); bChannel.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+        smartDownscaled.delete(); smartBgMap.delete(); smartRgb.delete(); smartHsv.delete(); 
+        smartPlanes.delete(); sSmart.delete(); vSmart.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
           cropped: croppedUrl, 
