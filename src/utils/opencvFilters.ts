@@ -419,94 +419,91 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.46 - Intelligent Text Masking) ---
+        // --- Smart Color (v4.47 - Ultimate LAB Adaptive) ---
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
         
-        // 1. Global White Balance (Flatten overall lighting and colored shadows)
+        // 1. Generate Global Background Map to flatten lighting
         let smartDownscaled = new cv.Mat();
         cv.resize(smartRgb, smartDownscaled, new cv.Size(32, 32), 0, 0, cv.INTER_AREA);
-        cv.medianBlur(smartDownscaled, smartDownscaled, 15);
         
-        let globalBgMap = new cv.Mat();
-        cv.resize(smartDownscaled, globalBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        cv.divide(smartRgb, globalBgMap, smartRgb, 255, -1);
+        // Use Dilate + Erode with BORDER_REPLICATE to prevent corner artifacts
+        let closeKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(15, 15));
+        cv.dilate(smartDownscaled, smartDownscaled, closeKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
+        cv.erode(smartDownscaled, smartDownscaled, closeKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0);
+        closeKernel.delete();
         
-        // 2. Intelligent Text Extraction (Isolate thin strokes from large photos)
-        let flatGray = new cv.Mat();
-        cv.cvtColor(smartRgb, flatGray, cv.COLOR_RGB2GRAY);
+        let smartBgMap = new cv.Mat();
+        cv.resize(smartDownscaled, smartBgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         
-        let smallGray = new cv.Mat();
-        cv.resize(flatGray, smallGray, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+        // 2. Flatten Lighting
+        cv.divide(smartRgb, smartBgMap, smartRgb, 255, -1);
         
-        // Use Morphological Close to erase text but keep photos
-        let textKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
-        cv.morphologyEx(smallGray, smallGray, cv.MORPH_CLOSE, textKernel);
-        
-        let localBg = new cv.Mat();
-        cv.resize(smallGray, localBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        
-        // The difference between the text-erased map and the original is precisely the text!
-        let textMask = new cv.Mat();
-        cv.subtract(localBg, flatGray, textMask);
-        // Smooth the mask to prevent glassy/crunchy artifacts and ensure homogenous strokes
-        cv.GaussianBlur(textMask, textMask, new cv.Size(3, 3), 0);
-        
-        // 3. Apply Enhancements using HSV Space
-        let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        // 3. Convert to LAB for perceptual processing
+        let smartLab = new cv.Mat();
+        cv.cvtColor(smartRgb, smartLab, cv.COLOR_RGB2Lab);
         let smartPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartPlanes);
+        cv.split(smartLab, smartPlanes);
         
-        let sSmart = smartPlanes.get(1);
-        let vSmart = smartPlanes.get(2);
+        let lChannel = smartPlanes.get(0);
+        let aChannel = smartPlanes.get(1);
+        let bChannel = smartPlanes.get(2);
         
-        // A. Darken text proportionally to how much it stands out (preserves anti-aliasing)
-        cv.subtract(vSmart, textMask, vSmart);
-        
-        // B. Boost saturation of text strokes to make colored pens pop
-        cv.add(sSmart, textMask, sSmart);
-        
-        // C. Global Saturation Boost for photos and document vibrancy
-        let smartSat = options.smartSaturation ?? 1.25;
-        if (smartSat !== 1.0) {
-            sSmart.convertTo(sSmart, -1, smartSat, 0);
-        }
-        
-        // D. Final cleanup LUT on V channel (Ensure crisp whites and deep blacks)
-        let smartWhiteClip = options.smartWhiteClip ?? 240;
-        let smartBlackPoint = options.smartBlackPoint ?? 15;
-        let smartGamma = options.smartGamma ?? 1.0;
+        // 4. Aggressive L-channel LUT to force black text and white paper
+        // We use a linear stretch to prevent "glassy" artifacts and keep midtones natural
+        let smartWhiteClip = 220; // Aggressive white to kill shadows
+        let smartBlackPoint = 40; // Aggressive black to thicken text
         
         let smartLut = new Uint8Array(256);
-        let safeSmartWhite = Math.max(smartWhiteClip, smartBlackPoint + 1);
-        let smartRange = safeSmartWhite - smartBlackPoint;
+        let smartRange = smartWhiteClip - smartBlackPoint;
         
         for (let i = 0; i < 256; i++) {
-            if (i >= safeSmartWhite) {
+            if (i >= smartWhiteClip) {
                 smartLut[i] = 255;
             } else if (i <= smartBlackPoint) {
                 smartLut[i] = 0;
             } else {
-                let norm = Math.max(0, (i - smartBlackPoint) / smartRange);
-                let val = Math.pow(norm, smartGamma) * 255.0;
-                smartLut[i] = isNaN(val) ? 0 : Math.min(255, val);
+                let norm = (i - smartBlackPoint) / smartRange;
+                smartLut[i] = Math.min(255, Math.max(0, norm * 255));
             }
         }
         
-        let vData = vSmart.data;
-        for (let j = 0; j < vData.length; j++) {
-            vData[j] = smartLut[vData[j]];
+        let lData = lChannel.data;
+        let aData = aChannel.data;
+        let bData = bChannel.data;
+        
+        let maxSat = 1.3; // Pop for dark colors (text/photos)
+        
+        for (let j = 0; j < lData.length; j++) {
+            let originalL = lData[j];
+            lData[j] = smartLut[originalL];
+            
+            // 5. Adaptive Saturation: 
+            // - Dark pixels (L < 180) get high saturation (maxSat)
+            // - Bright pixels (L > 220) get 0 saturation (kills yellow/red shadow stains on paper)
+            let satFactor = maxSat;
+            if (originalL > 220) {
+                satFactor = 0.0;
+            } else if (originalL > 180) {
+                // Smooth interpolation between 180 and 220
+                let t = (originalL - 180) / 40.0;
+                satFactor = maxSat * (1.0 - t);
+            }
+            
+            if (satFactor !== 1.0) {
+                aData[j] = Math.max(0, Math.min(255, 128 + (aData[j] - 128) * satFactor));
+                bData[j] = Math.max(0, Math.min(255, 128 + (bData[j] - 128) * satFactor));
+            }
         }
         
-        smartPlanes.set(1, sSmart);
-        smartPlanes.set(2, vSmart);
-        cv.merge(smartPlanes, smartHsv);
+        smartPlanes.set(0, lChannel);
+        smartPlanes.set(1, aChannel);
+        smartPlanes.set(2, bChannel);
+        cv.merge(smartPlanes, smartLab);
         
         let finalSmartRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, finalSmartRgb, cv.COLOR_HSV2RGB);
-        
-        // (Removed Unsharp Mask completely as requested to eliminate eye-strain and glassy artifacts)
+        cv.cvtColor(smartLab, finalSmartRgb, cv.COLOR_Lab2RGB);
         
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
@@ -524,9 +521,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
         
-        smartRgb.delete(); smartDownscaled.delete(); globalBgMap.delete(); flatGray.delete(); smallGray.delete();
-        textKernel.delete(); localBg.delete(); textMask.delete(); smartHsv.delete(); smartPlanes.delete();
-        sSmart.delete(); vSmart.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+        smartRgb.delete(); smartDownscaled.delete(); smartBgMap.delete(); smartLab.delete();
+        smartPlanes.delete(); lChannel.delete(); aChannel.delete(); bChannel.delete(); 
+        finalSmartRgb.delete(); finalSmartRgba.delete();
 
         resolve({ 
           cropped: croppedUrl, 
