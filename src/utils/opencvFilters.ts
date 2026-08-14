@@ -461,15 +461,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let smartV = smartHsvPlanes.get(2);
         
         // Stretch Luminance (V): Darkens faint text and lines naturally without breaking them.
-        // V = V * 1.4 - 60 (White stays white, grays become black)
-        smartV.convertTo(smartV, -1, 1.4, -60);
+        // V = V * 2.0 - 255 (White stays white, light grays become dark, darks become pitch black)
+        smartV.convertTo(smartV, -1, 2.0, -255);
         
-        // Boost Saturation (S): Makes red/blue inks pop.
-        smartS.convertTo(smartS, -1, 2.5, 0); 
+        // Clean chromatic noise: Any pixel with original S < 30 is stripped of color (set to 0)
+        // This ensures faint blue shadows on paper don't explode into blue smears.
+        cv.threshold(smartS, smartS, 30, 255, cv.THRESH_TOZERO);
         
-        // Clean chromatic noise: Any pixel with S < 40 is stripped of color (set to 0)
-        // This ensures black/gray text doesn't get weird color halos.
-        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO);
+        // Boost Saturation (S): Makes real red/blue inks pop.
+        smartS.convertTo(smartS, -1, 2.0, 0);
         
         smartHsvPlanes.set(1, smartS);
         smartHsvPlanes.set(2, smartV);
