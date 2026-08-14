@@ -419,14 +419,27 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v5.0 Pro Glass & Solid Color) ---
-        // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
+        // --- Smart Color (v5.1 Pro Robust Color) ---
+        // 1. ROBUST COLOR MASK: Lock in the colored pixels from the ORIGINAL image
+        //    before any illumination changes can wash them out!
+        let origHsv = new cv.Mat();
+        cv.cvtColor(dst, origHsv, cv.COLOR_RGBA2RGB); 
+        cv.cvtColor(origHsv, origHsv, cv.COLOR_RGB2HSV);
+        let origHsvPlanes = new cv.MatVector();
+        cv.split(origHsv, origHsvPlanes);
+        let origS = origHsvPlanes.get(1);
+        
+        let smartLowSatMask = new cv.Mat();
+        cv.threshold(origS, smartLowSatMask, 50, 255, cv.THRESH_BINARY_INV); 
+        origHsv.delete(); origHsvPlanes.delete(); origS.delete();
+        
+        // 2. PERFECT GLASS BACKGROUND: Erase text before illumination map
         let smartGrayColor = new cv.Mat();
         cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
         
         let smartDilatedBg = new cv.Mat();
         let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
-        cv.dilate(smartGrayColor, smartDilatedBg, eraseKernel); // Erases dark text, leaving only background
+        cv.dilate(smartGrayColor, smartDilatedBg, eraseKernel); // Erases dark text
         eraseKernel.delete();
         
         let smartGrayDownscaled = new cv.Mat();
@@ -437,17 +450,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.resize(smartGrayDownscaled, smartIlluminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         smartDilatedBg.delete();
         
-        let smartRgbForMask = new cv.Mat();
-        cv.cvtColor(dst, smartRgbForMask, cv.COLOR_RGBA2RGB);
-        let smartHsvForMask = new cv.Mat();
-        cv.cvtColor(smartRgbForMask, smartHsvForMask, cv.COLOR_RGB2HSV);
-        let smartHsvPlanesForMask = new cv.MatVector();
-        cv.split(smartHsvForMask, smartHsvPlanesForMask);
-        let smartSMap = smartHsvPlanesForMask.get(1);
-        
-        cv.addWeighted(smartIlluminationMap, 1.0, smartSMap, 0.5, 0, smartIlluminationMap);
-        smartRgbForMask.delete(); smartHsvForMask.delete(); smartHsvPlanesForMask.delete(); smartSMap.delete();
-        
+        // 3. APPLY GLASS BACKGROUND TO RGB (NO CONTRAST STRETCHING = NO FADING)
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
         let smartRgbPlanes = new cv.MatVector();
@@ -456,35 +459,20 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         for (let i = 0; i < 3; i++) {
             let channel = smartRgbPlanes.get(i);
             cv.divide(channel, smartIlluminationMap, channel, 255, -1);
-            channel.convertTo(channel, -1, 1.3, -40); // Increased contrast for whiter page
             smartRgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(smartRgbPlanes, smartRgb);
         
-        // 2. HOMOGENEOUS COLOR ENGINE: Solidify the colored ink
-        // Thicken the text (Erode) with a slightly stronger blend (0.7) to fill gaps in pen strokes
-        let smartEroded = new cv.Mat();
-        let smartKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-        cv.erode(smartRgb, smartEroded, smartKernel);
-        cv.addWeighted(smartRgb, 0.3, smartEroded, 0.7, 0, smartRgb);
-        smartKernel.delete(); smartEroded.delete();
-        
-        let smartSmoothed = new cv.Mat();
-        cv.bilateralFilter(smartRgb, smartSmoothed, 5, 50, 50, cv.BORDER_DEFAULT);
-
-        // Gentler sharpening so we don't amplify noise in red ink!
-        let smartColorBlurred = new cv.Mat();
-        cv.GaussianBlur(smartSmoothed, smartColorBlurred, new cv.Size(0, 0), 2);
-        let smartSharp = new cv.Mat();
-        cv.addWeighted(smartSmoothed, 1.5, smartColorBlurred, -0.5, 0, smartSharp);
-        
+        // 4. HOMOGENEOUS COLOR ENGINE: Boost saturation for colored inks
         let smartHsv = new cv.Mat();
-        cv.cvtColor(smartSharp, smartHsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
         let smartHsvPlanes = new cv.MatVector();
         cv.split(smartHsv, smartHsvPlanes);
         let smartS = smartHsvPlanes.get(1);
-        smartS.convertTo(smartS, -1, 1.15, 0); 
+        
+        // Boost saturation heavily so red/blue inks pop, without touching luminance
+        smartS.convertTo(smartS, -1, 1.7, 0); 
         smartHsvPlanes.set(1, smartS);
         cv.merge(smartHsvPlanes, smartHsv);
         
@@ -492,9 +480,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
         
         // 6. BLEND WITH B&W MASK (Magic Step)
-        let smartLowSatMask = new cv.Mat();
-        cv.threshold(smartS, smartLowSatMask, 50, 255, cv.THRESH_BINARY_INV); 
-        
         let smartBwColor = new cv.Mat();
         cv.cvtColor(bw, smartBwColor, cv.COLOR_GRAY2RGB);
         
@@ -510,10 +495,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         const smartColorUrl = compressCanvas(canvas);
         
         // Cleanup smart objects
-        smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
-        smartRgb.delete(); smartRgbPlanes.delete(); smartSmoothed.delete();
-        smartColorBlurred.delete(); smartSharp.delete(); smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete();
-        smartEnhancedRgb.delete(); smartLowSatMask.delete(); smartBwColor.delete(); smartMagicColor.delete();
+        smartLowSatMask.delete(); smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
+        smartRgb.delete(); smartRgbPlanes.delete(); 
+        smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete();
+        smartEnhancedRgb.delete(); smartBwColor.delete(); smartMagicColor.delete();
         finalSmartRgba.delete();
         
         // Cleanup General and Pure objects
