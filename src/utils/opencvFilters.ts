@@ -432,6 +432,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let smartPlanes = new cv.MatVector();
         cv.split(smartHsv, smartPlanes);
         
+        let hSmart = smartPlanes.get(0);
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
