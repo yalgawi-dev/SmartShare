@@ -419,91 +419,100 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.55 - Classic Magic Color) ---
-        // Restoring the successful v3.6 logic (Retinex + B&W Masking on Low Saturation)
-        // with the v4.53 fix (Dilated illumination map) so text doesn't fade!
+        // --- Smart Color (v3.6 RESTORED 1:1) ---
+        let smartGrayColor = new cv.Mat();
+        cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
+        
+        let smartGrayDownscaled = new cv.Mat();
+        cv.resize(smartGrayColor, smartGrayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
+        cv.medianBlur(smartGrayDownscaled, smartGrayDownscaled, 21);
+        
+        let smartIlluminationMap = new cv.Mat();
+        cv.resize(smartGrayDownscaled, smartIlluminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        
+        let smartRgbForMask = new cv.Mat();
+        cv.cvtColor(dst, smartRgbForMask, cv.COLOR_RGBA2RGB);
+        let smartHsvForMask = new cv.Mat();
+        cv.cvtColor(smartRgbForMask, smartHsvForMask, cv.COLOR_RGB2HSV);
+        let smartHsvPlanesForMask = new cv.MatVector();
+        cv.split(smartHsvForMask, smartHsvPlanesForMask);
+        let smartSMap = smartHsvPlanesForMask.get(1);
+        
+        cv.addWeighted(smartIlluminationMap, 1.0, smartSMap, 0.5, 0, smartIlluminationMap);
+        smartRgbForMask.delete(); smartHsvForMask.delete(); smartHsvPlanesForMask.delete(); smartSMap.delete();
+        
+        let smartRgb = new cv.Mat();
+        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
+        let smartRgbPlanes = new cv.MatVector();
+        cv.split(smartRgb, smartRgbPlanes);
+        
+        for (let i = 0; i < 3; i++) {
+            let channel = smartRgbPlanes.get(i);
+            cv.divide(channel, smartIlluminationMap, channel, 255, -1);
+            channel.convertTo(channel, -1, 1.3, -40); // Increased contrast for whiter page
+            smartRgbPlanes.set(i, channel);
+            channel.delete();
+        }
+        cv.merge(smartRgbPlanes, smartRgb);
+        
+        // Thicken the text slightly (Half-strength)
+        let smartEroded = new cv.Mat();
+        let smartKernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
+        cv.erode(smartRgb, smartEroded, smartKernel);
+        cv.addWeighted(smartRgb, 0.5, smartEroded, 0.5, 0, smartRgb);
+        smartKernel.delete(); smartEroded.delete();
+        
+        let smartSmoothed = new cv.Mat();
+        cv.bilateralFilter(smartRgb, smartSmoothed, 5, 50, 50, cv.BORDER_DEFAULT);
+
+        let smartColorBlurred = new cv.Mat();
+        cv.GaussianBlur(smartSmoothed, smartColorBlurred, new cv.Size(0, 0), 2);
+        let smartSharp = new cv.Mat();
+        cv.addWeighted(smartSmoothed, 3.5, smartColorBlurred, -2.5, 0, smartSharp);
         
         let smartHsv = new cv.Mat();
-        cv.cvtColor(dst, smartHsv, cv.COLOR_RGBA2RGB);
-        cv.cvtColor(smartHsv, smartHsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(smartSharp, smartHsv, cv.COLOR_RGB2HSV);
+        let smartHsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, smartHsvPlanes);
+        let smartS = smartHsvPlanes.get(1);
+        smartS.convertTo(smartS, -1, 1.15, 0); 
+        smartHsvPlanes.set(1, smartS);
+        cv.merge(smartHsvPlanes, smartHsv);
         
-        let smartPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartPlanes);
+        let smartEnhancedRgb = new cv.Mat();
+        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
         
-        let hSmart = smartPlanes.get(0);
-        let sSmart = smartPlanes.get(1);
-        let vSmart = smartPlanes.get(2);
-        
-        // 1. Create B&W Mask for crisp text
-        let bwMask = new cv.Mat();
-        cv.adaptiveThreshold(vSmart, bwMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
-        
-        // 2. Build Perfect Illumination Map (Dilate text first so it doesn't fade!)
-        let vDilated = new cv.Mat();
-        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
-        cv.dilate(vSmart, vDilated, eraseKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
-        eraseKernel.delete();
-        
-        let downScaleSize = 64;
-        let smallV = new cv.Mat();
-        cv.resize(vDilated, smallV, new cv.Size(downScaleSize, downScaleSize), 0, 0, cv.INTER_AREA);
-        cv.GaussianBlur(smallV, smallV, new cv.Size(15, 15), 0);
-        let bgMap = new cv.Mat();
-        cv.resize(smallV, bgMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        
-        // 3. Retinex Division (Removes shadows perfectly)
-        let vFlattened = new cv.Mat();
-        cv.divide(vSmart, bgMap, vFlattened, 255, -1);
-        
-        // 4. Boost Saturation & Create Low Saturation Mask
-        // Median blur S to remove chromatic noise so blue pens are solid
-        cv.medianBlur(sSmart, sSmart, 5); 
-        
+        // 6. BLEND WITH B&W MASK (Magic Step)
         let smartLowSatMask = new cv.Mat();
-        cv.threshold(sSmart, smartLowSatMask, 50, 255, cv.THRESH_BINARY_INV);
+        cv.threshold(smartS, smartLowSatMask, 50, 255, cv.THRESH_BINARY_INV); 
         
-        // Boost color 
-        sSmart.convertTo(sSmart, -1, 1.3, 0); 
-        
-        // Rebuild RGB image with flat lighting
-        smartPlanes.set(2, vFlattened);
-        cv.merge(smartPlanes, smartHsv);
-        let flatRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, flatRgb, cv.COLOR_HSV2RGB);
-        
-        // 5. The Magic v3.6 Blend
-        // Force the text to be pitch black using the BW mask
         let smartBwColor = new cv.Mat();
-        cv.cvtColor(bwMask, smartBwColor, cv.COLOR_GRAY2RGB);
+        cv.cvtColor(bw, smartBwColor, cv.COLOR_GRAY2RGB);
         
         let smartMagicColor = new cv.Mat();
-        cv.min(flatRgb, smartBwColor, smartMagicColor); // Take the darkest pixels between flat lighting and the BW mask
+        cv.min(smartEnhancedRgb, smartBwColor, smartMagicColor); 
         
-        // Apply the pitch-black text ONLY to the areas that lack color (lowSatMask)
-        smartMagicColor.copyTo(flatRgb, smartLowSatMask);
+        smartMagicColor.copyTo(smartEnhancedRgb, smartLowSatMask);
         
         let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(flatRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(smartEnhancedRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
         
-        // Cleanup
+        // Cleanup smart objects
+        smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
+        smartRgb.delete(); smartRgbPlanes.delete(); smartEroded.delete(); smartSmoothed.delete();
+        smartColorBlurred.delete(); smartSharp.delete(); smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete();
+        smartEnhancedRgb.delete(); smartLowSatMask.delete(); smartBwColor.delete(); smartMagicColor.delete();
+        finalSmartRgba.delete();
+        
+        // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
-        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-        enhancedRgb.delete(); finalRgba.delete();
         
         rgbPure.delete(); rgbPurePlanes.delete(); hsvPure.delete(); hsvPurePlanes.delete(); sPure.delete(); finalPureColor.delete(); finalPureRgba.delete();
-        
-        hSmart = smartPlanes.get(0);
-        smartHsv.delete(); smartPlanes.delete(); hSmart.delete(); sSmart.delete(); vSmart.delete();
-        bwMask.delete(); vDilated.delete(); smallV.delete(); bgMap.delete(); vFlattened.delete();
-        smartLowSatMask.delete(); flatRgb.delete(); smartBwColor.delete(); smartMagicColor.delete();
-        finalSmartRgba.delete();
-
         resolve({ 
           cropped: croppedUrl, 
           bw: bwUrl, 
