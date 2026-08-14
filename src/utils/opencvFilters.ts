@@ -419,7 +419,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
 
-        // --- Smart Color (v4.50 - Ultimate Text Engine) ---
+        // --- Smart Color (v4.51 - Ultimate Text Engine Fixed) ---
         // The user correctly deduced that Photos and Text need different routing (Cascade).
         // This engine is dedicated strictly to Documents (Invoices/Notebooks).
         // It uses Adaptive Thresholding to perfectly isolate text and colored pens,
@@ -432,12 +432,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(smartRgb, graySmart, cv.COLOR_RGB2GRAY);
         
         // 1. Isolate text strokes using Adaptive Threshold
+        // High C=15 to ignore faint paper grid lines, block=25 to capture thick marker strokes
         let textMask = new cv.Mat();
-        cv.adaptiveThreshold(graySmart, textMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 10);
+        cv.adaptiveThreshold(graySmart, textMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 25, 15);
         
-        // Clean up isolated noise pixels in the mask
+        // CRITICAL FIX: Use DILATE instead of OPEN! 
+        // OPEN destroys thin pen lines causing "dotted/stuttering" text. 
+        // DILATE connects broken lines and makes the text bold and homogeneous.
         let textKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-        cv.morphologyEx(textMask, textMask, cv.MORPH_OPEN, textKernel);
+        cv.dilate(textMask, textMask, textKernel, new cv.Point(-1, -1), 1, cv.BORDER_REPLICATE);
         textKernel.delete();
         
         // 2. Enhance the original colors for the text
@@ -450,18 +453,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let sSmart = smartPlanes.get(1);
         let vSmart = smartPlanes.get(2);
         
-        // Boost color of the pens (Saturation)
-        let colorBoost = options.smartSaturation ?? 1.5;
+        // Boost color of the pens (Saturation) - make red/blue pens vibrant
+        let colorBoost = options.smartSaturation ?? 1.8;
         sSmart.convertTo(sSmart, -1, colorBoost, 0);
         
-        // Darken the text (Value) to make it bold and solid
+        // Darken the text (Value) to make it bold and solid against the white paper
         let vData = vSmart.data;
         for(let i=0; i<vData.length; i++) {
-            // Pull down darks to pitch black, leave bright colors alone
+            // We darken ALL pixels in the mask to ensure even red/colored pens pop against pure white
             let v = vData[i];
-            if (v < 160) {
-                v = Math.max(0, v - 50); // Darken heavily for solid text
-            }
+            v = Math.max(0, Math.min(255, v * 0.7 - 10)); // Aggressive darkening for bold text
             vData[i] = v;
         }
         
