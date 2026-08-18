@@ -215,8 +215,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         if (colorfulRatio > 0.03 || blackRatio > 0.40) {
             // There is significant color (e.g. blue pen, logo, or illustration) 
             // OR the image is extremely dark/noisy (like a dark B&W photo).
-            if (paperRatio > 0.15) {
-                // If there is also at least 15% solid white paper, it's a Collage (Mixed)!
+            if (paperRatio > 0.05) {
+                // If there is also at least 5% solid white paper (like a small receipt or white background), it's a Collage (Mixed)!
                 isMixed = true;
                 hybridMask = new cv.Mat();
                 let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
@@ -224,7 +224,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
                 cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(21, 21), 0, 0);
                 dilateKernel.delete();
             } else {
-                // Not enough paper, so the whole thing is just a Photo
+                // Not enough paper (< 5%), so the whole thing is just a pure Photo
                 isPhoto = true;
             }
         }
