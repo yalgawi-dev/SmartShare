@@ -219,9 +219,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
                 // If there is also at least 5% solid white paper (like a small receipt or white background), it's a Collage (Mixed)!
                 isMixed = true;
                 hybridMask = new cv.Mat();
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
-                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 2);
-                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(21, 21), 0, 0);
+                
+                // 1. Strong Opening to completely eradicate notebook grid lines and small shadow noise
+                let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(25, 25));
+                cv.morphologyEx(openedMask, hybridMask, cv.MORPH_OPEN, cleanKernel);
+                
+                // 2. Smooth Dilation to expand the mask around the real illustrations
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(35, 35));
+                cv.dilate(hybridMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 1);
+                
+                // 3. Large blur for seamless Alpha Blending
+                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(41, 41), 0, 0);
+                
+                cleanKernel.delete();
                 dilateKernel.delete();
             } else {
                 // Not enough paper (< 5%), so the whole thing is just a pure Photo
