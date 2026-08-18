@@ -167,57 +167,71 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
         
-        // --- Auto-Detect Profile (Photo vs Text) ---
-        // Adaptive thresholding makes mostly white pages with black text.
-        // If more than 30% of the image became black, it's highly likely a photo (or a very noisy/dark image that shouldn't be processed as text).
+        // --- Auto-Detect Profile (Photo vs Text vs Mixed) ---
         let totalPixels = bw.rows * bw.cols;
+        
+        let hsvCheck = new cv.Mat();
+        let rgbCheck = new cv.Mat();
+        cv.cvtColor(dst, rgbCheck, cv.COLOR_RGBA2RGB);
+        cv.cvtColor(rgbCheck, hsvCheck, cv.COLOR_RGB2HSV);
+        let hsvPlanesCheck = new cv.MatVector();
+        cv.split(hsvCheck, hsvPlanesCheck);
+        let sCheck = hsvPlanesCheck.get(1);
+        let vCheck = hsvPlanesCheck.get(2);
+        
+        // 1. Identify Colorful regions (Saturation > 35, not pure white/black)
+        let colorMask = new cv.Mat();
+        cv.threshold(sCheck, colorMask, 35, 255, cv.THRESH_BINARY);
+        let notPaperMask = new cv.Mat();
+        cv.threshold(vCheck, notPaperMask, 210, 255, cv.THRESH_BINARY_INV); // Exclude bright white from color
+        let targetMask = new cv.Mat();
+        cv.bitwise_and(colorMask, notPaperMask, targetMask);
+        
+        let openedMask = new cv.Mat();
+        let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
+        cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
+        let colorfulPixels = cv.countNonZero(openedMask);
+        let colorfulRatio = colorfulPixels / totalPixels;
+
+        // 2. Identify Paper regions (High Value, Low Saturation)
+        let brightMask = new cv.Mat();
+        cv.threshold(vCheck, brightMask, 200, 255, cv.THRESH_BINARY);
+        let nonColorMask = new cv.Mat();
+        cv.threshold(sCheck, nonColorMask, 40, 255, cv.THRESH_BINARY_INV);
+        let paperMask = new cv.Mat();
+        cv.bitwise_and(brightMask, nonColorMask, paperMask);
+        let paperPixels = cv.countNonZero(paperMask);
+        let paperRatio = paperPixels / totalPixels;
+
+        // 3. Identify Dark/Noisy regions (B&W threshold black area)
         let whitePixels = cv.countNonZero(bw);
         let blackPixels = totalPixels - whitePixels;
         let blackRatio = blackPixels / totalPixels;
-        
-        let isPhoto = blackRatio > 0.30;
+
+        let isPhoto = false;
         let isMixed = false;
         let hybridMask: any = null;
-        
-        if (!isPhoto) {
-            let hsvCheck = new cv.Mat();
-            let rgbCheck = new cv.Mat();
-            cv.cvtColor(dst, rgbCheck, cv.COLOR_RGBA2RGB);
-            cv.cvtColor(rgbCheck, hsvCheck, cv.COLOR_RGB2HSV);
-            let hsvPlanesCheck = new cv.MatVector();
-            cv.split(hsvCheck, hsvPlanesCheck);
-            let sCheck = hsvPlanesCheck.get(1);
-            let vCheck = hsvPlanesCheck.get(2);
-            
-            let colorMask = new cv.Mat();
-            cv.threshold(sCheck, colorMask, 35, 255, cv.THRESH_BINARY);
-            
-            let notPaperMask = new cv.Mat();
-            cv.threshold(vCheck, notPaperMask, 210, 255, cv.THRESH_BINARY_INV);
-            
-            let targetMask = new cv.Mat();
-            cv.bitwise_and(colorMask, notPaperMask, targetMask);
-            
-            let openedMask = new cv.Mat();
-            let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
-            cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
-            
-            let colorfulPixels = cv.countNonZero(openedMask);
-            let colorfulRatio = colorfulPixels / totalPixels;
-            
-            if (colorfulRatio > 0.15) {
-                isPhoto = true;
-            } else if (colorfulRatio > 0.005) {
+
+        if (colorfulRatio > 0.03 || blackRatio > 0.40) {
+            // There is significant color (e.g. blue pen, logo, or illustration) 
+            // OR the image is extremely dark/noisy (like a dark B&W photo).
+            if (paperRatio > 0.15) {
+                // If there is also at least 15% solid white paper, it's a Collage (Mixed)!
                 isMixed = true;
                 hybridMask = new cv.Mat();
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
-                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 1);
-                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(15, 15), 0, 0);
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
+                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 2);
+                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(21, 21), 0, 0);
                 dilateKernel.delete();
+            } else {
+                // Not enough paper, so the whole thing is just a Photo
+                isPhoto = true;
             }
-            vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
-            hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
         }
+
+        vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
+        hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
+        brightMask.delete(); nonColorMask.delete(); paperMask.delete();
         
         let detectedType: 'text' | 'photo' | 'mixed' = isPhoto ? 'photo' : (isMixed ? 'mixed' : 'text');
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
