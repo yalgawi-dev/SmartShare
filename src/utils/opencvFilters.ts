@@ -241,21 +241,22 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         let photoV = photoHsvPlanes.get(2);
         // Brightness and Contrast boost to simulate "turning on the light"
-        // Using convertTo instead of LUT because cv.LUT is not always exposed in OpenCV.js
-        photoV.convertTo(photoV, -1, 1.15, 15);
+        // Increased contrast to 1.25 and brightness to 20 for stronger lighting
+        photoV.convertTo(photoV, -1, 1.25, 20);
 
-        // Crisp sharpening on Value channel ONLY (prevents plastic color halos while adding depth)
+        // Clarity / Pop (הבלטה): Stronger Unsharp Mask with larger radius
+        // Targets local contrast to give depth without plastic halos
         let blurredV = new cv.Mat();
-        cv.GaussianBlur(photoV, blurredV, new cv.Size(0, 0), 1.0);
-        cv.addWeighted(photoV, 1.5, blurredV, -0.5, 0, photoV);
+        cv.GaussianBlur(photoV, blurredV, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(photoV, 1.75, blurredV, -0.75, 0, photoV);
         blurredV.delete();
 
         photoHsvPlanes.set(2, photoV);
         photoV.delete();
 
         let photoS = photoHsvPlanes.get(1);
-        // Gentle saturation boost to make colors pop naturally (do NOT threshold/zero out subtle colors)
-        photoS.convertTo(photoS, -1, 1.2, 5);
+        // Slightly richer saturation boost (1.25) to compensate for the extra brightness
+        photoS.convertTo(photoS, -1, 1.25, 10);
         photoHsvPlanes.set(1, photoS);
         photoS.delete();
 
