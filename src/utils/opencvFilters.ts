@@ -368,11 +368,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
         photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
-        // --- Smart Color (v11.0 Retinex Illumination Division Engine) ---
+        // --- Smart Color (v11.1 Hue-Restored Retinex Engine) ---
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
 
-        // 1. Convert to Grayscale for illumination estimation
+        // Save original HSV to preserve exact colors (fixes green->yellow shift)
+        let origHsv = new cv.Mat();
+        cv.cvtColor(smartRgb, origHsv, cv.COLOR_RGB2HSV);
+        let origHsvPlanes = new cv.MatVector();
+        cv.split(origHsv, origHsvPlanes);
+
+        // 1. Grayscale Illumination Map
         let smartGray = new cv.Mat();
         cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
 
@@ -385,8 +391,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
         smartKernel.delete();
 
-        // Smooth the illumination map to prevent hard edges around heavy shadows
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
+        // Increase blur to 7x7 for smoother shadow transitions
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(7, 7), 0, 0);
 
         // Upscale back to original size
         let smartBg = new cv.Mat();
@@ -413,25 +419,35 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         // to make the text pitch black and razor sharp without touching the white background.
         let smartSharp = new cv.Mat();
         cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartRgb);
+        cv.addWeighted(smartRgb, 2.2, smartSharp, -1.2, 0, smartRgb);
         smartSharp.delete();
 
-        // 5. Color Pop (Saturation Boost)
+        // 5. Hue Restoration and Color Calibration
         let smartHsv = new cv.Mat();
         cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
         let smartHsvPlanes = new cv.MatVector();
         cv.split(smartHsv, smartHsvPlanes);
 
-        let smartS = smartHsvPlanes.get(1);
-        // Boost color by 1.8x so colored pens and pictures (like the Duck) burst with color
-        smartS.convertTo(smartS, -1, 1.8, 0);
-        cv.threshold(smartS, smartS, 20, 255, cv.THRESH_TOZERO); // Clean faint chromatic noise
+        // A. Fix Green->Yellow: Replace corrupted Hue with original Hue
+        let originalH = origHsvPlanes.get(0);
+        smartHsvPlanes.set(0, originalH);
+        originalH.delete();
 
+        // B. Fix Reddish Stain: Clean faint noise and moderately boost color
+        let smartS = smartHsvPlanes.get(1);
+        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO); // Kills shadow color
+        smartS.convertTo(smartS, -1, 1.4, 0); // 1.4x boost instead of 1.8x
         smartHsvPlanes.set(1, smartS);
+        smartS.delete();
+
+        // C. Make Text "Full and Uniform": Push dark pixels lower
+        let smartV = smartHsvPlanes.get(2);
+        smartV.convertTo(smartV, -1, 1.1, -15);
+        smartHsvPlanes.set(2, smartV);
+        smartV.delete();
+
         cv.merge(smartHsvPlanes, smartHsv);
         cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
-        smartHsvPlanes.delete();
-        smartS.delete();
 
         // 6. Convert to output RGBA
         let finalSmartRgba = new cv.Mat();
@@ -440,8 +456,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
 
-        // Cleanup v11.0 Engine
-        smartRgb.delete(); smartGray.delete(); smartBg.delete(); smartHsv.delete(); finalSmartRgba.delete();
+        // Cleanup v11.1 Engine
+        smartRgb.delete(); origHsv.delete(); origHsvPlanes.delete();
+        smartGray.delete(); smartBg.delete(); 
+        smartHsv.delete(); smartHsvPlanes.delete(); finalSmartRgba.delete();
         
 
         // Cleanup General and Pure objects
