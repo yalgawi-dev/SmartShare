@@ -401,17 +401,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         // 4. Color Enhancement (Saturation) & Noise Cleanup
         let smartHsv = new cv.Mat();
         cv.cvtColor(claheRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let hsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, hsvPlanes);
+        let smartHsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, smartHsvPlanes);
 
-        let S = hsvPlanes.get(1);
+        let S = smartHsvPlanes.get(1);
         // Boost color by 1.5x so colored pens and pictures pop
         S.convertTo(S, -1, 1.5, 0);
         // Clean extreme faint chromatic noise (stains)
         cv.threshold(S, S, 20, 255, cv.THRESH_TOZERO);
 
-        hsvPlanes.set(1, S);
-        cv.merge(hsvPlanes, smartHsv);
+        smartHsvPlanes.set(1, S);
+        cv.merge(smartHsvPlanes, smartHsv);
         cv.cvtColor(smartHsv, claheRgb, cv.COLOR_HSV2RGB);
 
         // 5. Unsharp Mask for razor sharp text (Laser Scanner effect)
@@ -429,7 +429,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
 
         // Cleanup v10.0 Engine
         smartRgb.delete(); smartLab.delete(); labPlanes.delete(); L.delete(); a.delete(); b.delete();
-        claheRgb.delete(); smartHsv.delete(); hsvPlanes.delete(); S.delete(); finalSmartRgba.delete();
+        claheRgb.delete(); smartHsv.delete(); smartHsvPlanes.delete(); S.delete(); finalSmartRgba.delete();
         
 
         // Cleanup General and Pure objects
