@@ -332,112 +332,122 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalRgba);
         const colorUrl = compressCanvas(canvas);
         
-        // --- Photo Mode (Formerly Pure Color) ---
-        // Specially tuned for Illustrations, ID Cards, and Books.
-        // Preserves all gradients, gentle contrast stretch without erasing shadows.
+        // --- Photo Mode (v12.0 Professional Scanner Engine - For Photos) ---
+        // Specially tuned for Illustrations, Photos, and colored documents.
+        // Perfect for colored images (preserves exact Hue and Saturation).
         let photoRgb = new cv.Mat();
         cv.cvtColor(dst, photoRgb, cv.COLOR_RGBA2RGB);
+
         let photoHsv = new cv.Mat();
         cv.cvtColor(photoRgb, photoHsv, cv.COLOR_RGB2HSV);
         let photoHsvPlanes = new cv.MatVector();
         cv.split(photoHsv, photoHsvPlanes);
-        
-        let photoS = photoHsvPlanes.get(1);
+
         let photoV = photoHsvPlanes.get(2);
         
-        // Gentle luminance stretch (makes darks a bit darker, keeps brights bright)
-        // Gamma 0.8 is great for photos (x = 255 * (x/255)^0.8). But we can just use a mild linear stretch
-        photoV.convertTo(photoV, -1, 1.1, -10); 
-        
-        // Gentle saturation boost to make illustrations lively
-        photoS.convertTo(photoS, -1, 1.3, 0);
-        
-        photoHsvPlanes.set(1, photoS);
+        let photoVDownscaled = new cv.Mat();
+        cv.resize(photoV, photoVDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+
+        let photoVKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.morphologyEx(photoVDownscaled, photoVDownscaled, cv.MORPH_CLOSE, photoVKernel);
+        photoVKernel.delete();
+
+        cv.GaussianBlur(photoVDownscaled, photoVDownscaled, new cv.Size(7, 7), 0, 0);
+
+        let photoV_bg = new cv.Mat();
+        cv.resize(photoVDownscaled, photoV_bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        photoVDownscaled.delete();
+
+        cv.divide(photoV, photoV_bg, photoV, 255, -1);
+        photoV_bg.delete();
         photoHsvPlanes.set(2, photoV);
+        photoV.delete();
+
+        let photoS = photoHsvPlanes.get(1);
+        cv.threshold(photoS, photoS, 40, 255, cv.THRESH_TOZERO);
+        photoS.convertTo(photoS, -1, 1.4, 0);
+        photoHsvPlanes.set(1, photoS);
+        photoS.delete();
+
         cv.merge(photoHsvPlanes, photoHsv);
-        
-        let finalPhotoColor = new cv.Mat();
-        cv.cvtColor(photoHsv, finalPhotoColor, cv.COLOR_HSV2RGB);
+        cv.cvtColor(photoHsv, photoRgb, cv.COLOR_HSV2RGB);
+        photoHsvPlanes.delete();
+        photoHsv.delete();
+
+        let photoSharp = new cv.Mat();
+        cv.GaussianBlur(photoRgb, photoSharp, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(photoRgb, 2.0, photoSharp, -1.0, 0, photoRgb);
+        photoSharp.delete();
+
         let finalPureRgba = new cv.Mat();
-        cv.cvtColor(finalPhotoColor, finalPureRgba, cv.COLOR_RGB2RGBA);
-        
+        cv.cvtColor(photoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
+
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
-        
-        // Cleanup photo objects
-        photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
-        photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
-        // --- Smart Color (v12.0 Professional Scanner Engine) ---
+        photoRgb.delete(); finalPureRgba.delete();
+
+        // --- Smart Color (v11.0 Retinex Illumination Division Engine - Restored for Invoices) ---
+        // Perfect for text and invoices.
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
 
-        // Convert to HSV for mathematically perfect color preservation
-        let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
+        let smartGray = new cv.Mat();
+        cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
 
-        // 1. Process V (Value/Luminance) Channel: Remove shadows & make paper white
-        let V = smartHsvPlanes.get(2);
-        
-        let vDownscaled = new cv.Mat();
-        cv.resize(V, vDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        let smartDownscaled = new cv.Mat();
+        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
 
-        // Morphological closing (dilate then erode) to track the paper and ignore text
-        let vKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-        cv.morphologyEx(vDownscaled, vDownscaled, cv.MORPH_CLOSE, vKernel);
-        vKernel.delete();
+        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
+        smartKernel.delete();
 
-        // Smooth the illumination map to prevent hard edges around heavy shadows
-        cv.GaussianBlur(vDownscaled, vDownscaled, new cv.Size(7, 7), 0, 0);
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
 
-        // Upscale back to original size
-        let V_bg = new cv.Mat();
-        cv.resize(vDownscaled, V_bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        vDownscaled.delete();
+        let smartBg = new cv.Mat();
+        cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        smartDownscaled.delete();
 
-        // Retinex Division on V channel ONLY:
-        // This guarantees NO Hue shifts, because R, G, and B are scaled uniformly!
-        cv.divide(V, V_bg, V, 255, -1);
-        V_bg.delete();
-        smartHsvPlanes.set(2, V);
-        V.delete();
+        let smartRgbPlanes = new cv.MatVector();
+        cv.split(smartRgb, smartRgbPlanes);
 
-        // 2. Process S (Saturation) Channel: Erase stains & boost pure colors
-        let S = smartHsvPlanes.get(1);
-        
-        // Kill faint shadow colors / stains (S < 40 becomes 0, creating pure white)
-        cv.threshold(S, S, 40, 255, cv.THRESH_TOZERO);
-        
-        // Boost remaining colors (ink, photos) moderately
-        S.convertTo(S, -1, 1.4, 0);
-        
-        smartHsvPlanes.set(1, S);
-        S.delete();
+        for (let i = 0; i < 3; i++) {
+            let channel = smartRgbPlanes.get(i);
+            cv.divide(channel, smartBg, channel, 255, -1);
+            smartRgbPlanes.set(i, channel);
+            channel.delete();
+        }
+        cv.merge(smartRgbPlanes, smartRgb);
+        smartRgbPlanes.delete();
 
-        // Merge mathematically perfect HSV back to RGB
-        cv.merge(smartHsvPlanes, smartHsv);
-        cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
-        smartHsvPlanes.delete();
-        smartHsv.delete();
-
-        // 3. Contrast Recovery (Unsharp Mask)
-        // Since the user loved v11.0's text sharpness, we use the exact same formula.
         let smartSharp = new cv.Mat();
         cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
         cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartRgb);
         smartSharp.delete();
 
-        // 4. Convert to output RGBA
+        let smartHsv = new cv.Mat();
+        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        let smartHsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, smartHsvPlanes);
+
+        let smartS = smartHsvPlanes.get(1);
+        smartS.convertTo(smartS, -1, 1.8, 0);
+        // THRESH_TOZERO increased to 40 to eliminate the reddish stain from the shadow
+        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO);
+
+        smartHsvPlanes.set(1, smartS);
+        cv.merge(smartHsvPlanes, smartHsv);
+        cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
+        smartHsvPlanes.delete();
+        smartS.delete();
+
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
 
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
 
-        // Cleanup v12.0 Engine
-        smartRgb.delete(); finalSmartRgba.delete();
+        smartRgb.delete(); smartGray.delete(); smartBg.delete(); smartHsv.delete(); finalSmartRgba.delete();
         
 
         // Cleanup General and Pure objects

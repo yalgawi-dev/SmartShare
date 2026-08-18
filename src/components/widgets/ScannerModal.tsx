@@ -395,12 +395,12 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 <button 
                 onClick={() => setMode('smart_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_color' ? '#fff' : 'transparent', color: mode === 'smart_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  צבע חכם
+                  חשבוניות
                 </button>
                 <button 
                 onClick={() => setMode('pure_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  תמונה
+                  תמונות
                 </button>
                 <button 
                 onClick={() => setMode('color')} 
@@ -420,7 +420,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                   <button 
                     onClick={() => setShowDevTools(!showDevTools)} 
                     style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                    ⚙️ הגדרות {mode === 'smart_color' ? 'צבע חכם' : mode === 'color' ? 'צבע רגיל' : 'תמונה'}
+                    ⚙️ הגדרות {mode === 'smart_color' ? 'חשבוניות' : mode === 'color' ? 'צבע רגיל' : 'תמונות'}
                   </button>
                 </div>
                 
