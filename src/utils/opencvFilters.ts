@@ -211,19 +211,34 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             let hsvPlanesCheck = new cv.MatVector();
             cv.split(hsvCheck, hsvPlanesCheck);
             let sCheck = hsvPlanesCheck.get(1);
-            let colorfulMask = new cv.Mat();
-            cv.threshold(sCheck, colorfulMask, 45, 255, cv.THRESH_BINARY);
-            let colorfulPixels = cv.countNonZero(colorfulMask);
+            let vCheck = hsvPlanesCheck.get(2);
+            
+            let colorMask = new cv.Mat();
+            cv.threshold(sCheck, colorMask, 35, 255, cv.THRESH_BINARY);
+            
+            let notPaperMask = new cv.Mat();
+            cv.threshold(vCheck, notPaperMask, 210, 255, cv.THRESH_BINARY_INV);
+            
+            let targetMask = new cv.Mat();
+            cv.bitwise_and(colorMask, notPaperMask, targetMask);
+            
+            let openedMask = new cv.Mat();
+            let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
+            cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
+            
+            let colorfulPixels = cv.countNonZero(openedMask);
             let colorfulRatio = colorfulPixels / totalPixels;
-            if (colorfulRatio > 0.05) {
+            
+            if (colorfulRatio > 0.005) {
                 isMixed = true;
                 hybridMask = new cv.Mat();
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(25, 25));
-                cv.dilate(colorfulMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 2);
-                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(51, 51), 0, 0);
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(41, 41));
+                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 2);
+                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(91, 91), 0, 0);
                 dilateKernel.delete();
             }
-            hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete(); colorfulMask.delete();
+            vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
+            hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
         }
         
         let detectedType: 'text' | 'photo' | 'mixed' = isPhoto ? 'photo' : (isMixed ? 'mixed' : 'text');
