@@ -264,14 +264,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.split(photoHsv, photoHsvPlanes);
 
         let photoV = photoHsvPlanes.get(2);
-        // Gamma Correction to simulate "turning on the light" (brightens midtones without blowing whites)
-        let lut = new cv.Mat(1, 256, cv.CV_8U);
-        let gamma = 0.75; 
-        for (let i = 0; i < 256; i++) {
-            lut.data[i] = Math.min(255, Math.max(0, Math.pow(i / 255.0, gamma) * 255.0));
-        }
-        cv.LUT(photoV, lut, photoV);
-        lut.delete();
+        // Brightness and Contrast boost to simulate "turning on the light"
+        // Using convertTo instead of LUT because cv.LUT is not always exposed in OpenCV.js
+        photoV.convertTo(photoV, -1, 1.15, 15);
 
         // Crisp sharpening on Value channel ONLY (prevents plastic color halos while adding depth)
         let blurredV = new cv.Mat();
