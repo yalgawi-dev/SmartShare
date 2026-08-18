@@ -197,6 +197,29 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let totalPixels = bw.rows * bw.cols;
         let whitePixels = cv.countNonZero(bw);
         let blackPixels = totalPixels - whitePixels;
+        let blackRatio = blackPixels / totalPixels;
+        
+        let isPhoto = blackRatio > 0.30;
+        
+        if (!isPhoto) {
+            let hsvCheck = new cv.Mat();
+            let rgbCheck = new cv.Mat();
+            cv.cvtColor(dst, rgbCheck, cv.COLOR_RGBA2RGB);
+            cv.cvtColor(rgbCheck, hsvCheck, cv.COLOR_RGB2HSV);
+            let hsvPlanesCheck = new cv.MatVector();
+            cv.split(hsvCheck, hsvPlanesCheck);
+            let sCheck = hsvPlanesCheck.get(1);
+            let colorfulMask = new cv.Mat();
+            cv.threshold(sCheck, colorfulMask, 45, 255, cv.THRESH_BINARY);
+            let colorfulPixels = cv.countNonZero(colorfulMask);
+            let colorfulRatio = colorfulPixels / totalPixels;
+            if (colorfulRatio > 0.05) {
+                isPhoto = true;
+            }
+            hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete(); colorfulMask.delete();
+        }
+        
+        let detectedType: 'text' | 'photo' = isPhoto ? 'photo' : 'text';
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
         blackMat.copyTo(bw, darkMask);
         
@@ -360,7 +383,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             smartSharpen: options.smartSharpen,
             bgBlurSize: options.bgBlurSize,
             profile: options.profile
-          }
+          },
+          detectedType
         });
 
       } catch (err) {
