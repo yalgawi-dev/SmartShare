@@ -350,10 +350,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             smartWhiteClip: options.smartWhiteClip,
             smartBlackPoint: options.smartBlackPoint,
             smartSharpen: options.smartSharpen,
-            bgBlurSize: finalBlurSize,
+            bgBlurSize: options.bgBlurSize,
             profile: options.profile
-          },
-          detectedType
+          }
         });
 
       } catch (err) {
