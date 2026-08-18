@@ -220,17 +220,25 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
                 isMixed = true;
                 hybridMask = new cv.Mat();
                 
-                // 1. Strong Opening to completely eradicate notebook grid lines and small shadow noise
-                let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(25, 25));
-                cv.morphologyEx(openedMask, hybridMask, cv.MORPH_OPEN, cleanKernel);
+                // PERFORMANCE OPTIMIZATION: Downscale by 5x (25x fewer pixels) before heavy morphology
+                let smallMask = new cv.Mat();
+                cv.resize(openedMask, smallMask, new cv.Size(0, 0), 0.2, 0.2, cv.INTER_NEAREST);
                 
-                // 2. Smooth Dilation to expand the mask around the real illustrations
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(35, 35));
-                cv.dilate(hybridMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 1);
+                // 1. Strong Opening (equivalent to 25x25 on full res) to eradicate grid lines & noise
+                let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
+                cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
                 
-                // 3. Large blur for seamless Alpha Blending
-                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(41, 41), 0, 0);
+                // 2. Smooth Dilation (equivalent to 45x45 on full res)
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+                cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
                 
+                // 3. Blur for soft blending
+                cv.GaussianBlur(smallMask, smallMask, new cv.Size(9, 9), 0, 0);
+                
+                // Upscale back to full resolution
+                cv.resize(smallMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
+                
+                smallMask.delete();
                 cleanKernel.delete();
                 dilateKernel.delete();
             } else {
