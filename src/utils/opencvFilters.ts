@@ -373,65 +373,65 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
 
         // 1. Convert to Grayscale for illumination estimation
-        let gray = new cv.Mat();
-        cv.cvtColor(smartRgb, gray, cv.COLOR_RGB2GRAY);
+        let smartGray = new cv.Mat();
+        cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
 
         // 2. Downscale to quickly estimate background without text
-        let downscaled = new cv.Mat();
-        cv.resize(gray, downscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        let smartDownscaled = new cv.Mat();
+        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
 
         // Use morphological closing (dilate then erode) to track the paper and ignore text
-        let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-        cv.morphologyEx(downscaled, downscaled, cv.MORPH_CLOSE, kernel);
-        kernel.delete();
+        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
+        smartKernel.delete();
 
         // Smooth the illumination map to prevent hard edges around heavy shadows
-        cv.GaussianBlur(downscaled, downscaled, new cv.Size(5, 5), 0, 0);
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
 
         // Upscale back to original size
-        let bg = new cv.Mat();
-        cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        downscaled.delete();
+        let smartBg = new cv.Mat();
+        cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        smartDownscaled.delete();
 
         // 3. Divide image by illumination map (Retinex)
         // This mathematically eliminates shadows and forces the paper to be pure white
-        let rgbPlanes = new cv.MatVector();
-        cv.split(smartRgb, rgbPlanes);
+        let smartRgbPlanes = new cv.MatVector();
+        cv.split(smartRgb, smartRgbPlanes);
 
         for (let i = 0; i < 3; i++) {
-            let channel = rgbPlanes.get(i);
+            let channel = smartRgbPlanes.get(i);
             // divide(src1, src2, dst, scale) -> dst = saturate(src1 * scale / src2)
-            cv.divide(channel, bg, channel, 255, -1);
-            rgbPlanes.set(i, channel);
+            cv.divide(channel, smartBg, channel, 255, -1);
+            smartRgbPlanes.set(i, channel);
             channel.delete();
         }
-        cv.merge(rgbPlanes, smartRgb);
-        rgbPlanes.delete();
+        cv.merge(smartRgbPlanes, smartRgb);
+        smartRgbPlanes.delete();
 
         // 4. Contrast Recovery (Unsharp Mask)
         // Since division lightens the text, we apply aggressive unsharp masking
         // to make the text pitch black and razor sharp without touching the white background.
-        let sharp = new cv.Mat();
-        cv.GaussianBlur(smartRgb, sharp, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(smartRgb, 2.0, sharp, -1.0, 0, smartRgb);
-        sharp.delete();
+        let smartSharp = new cv.Mat();
+        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartRgb);
+        smartSharp.delete();
 
         // 5. Color Pop (Saturation Boost)
         let smartHsv = new cv.Mat();
         cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let hsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, hsvPlanes);
+        let smartHsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, smartHsvPlanes);
 
-        let S = hsvPlanes.get(1);
+        let smartS = smartHsvPlanes.get(1);
         // Boost color by 1.8x so colored pens and pictures (like the Duck) burst with color
-        S.convertTo(S, -1, 1.8, 0);
-        cv.threshold(S, S, 20, 255, cv.THRESH_TOZERO); // Clean faint chromatic noise
+        smartS.convertTo(smartS, -1, 1.8, 0);
+        cv.threshold(smartS, smartS, 20, 255, cv.THRESH_TOZERO); // Clean faint chromatic noise
 
-        hsvPlanes.set(1, S);
-        cv.merge(hsvPlanes, smartHsv);
+        smartHsvPlanes.set(1, smartS);
+        cv.merge(smartHsvPlanes, smartHsv);
         cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
-        hsvPlanes.delete();
-        S.delete();
+        smartHsvPlanes.delete();
+        smartS.delete();
 
         // 6. Convert to output RGBA
         let finalSmartRgba = new cv.Mat();
@@ -441,7 +441,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         const smartColorUrl = compressCanvas(canvas);
 
         // Cleanup v11.0 Engine
-        smartRgb.delete(); gray.delete(); bg.delete(); smartHsv.delete(); finalSmartRgba.delete();
+        smartRgb.delete(); smartGray.delete(); smartBg.delete(); smartHsv.delete(); finalSmartRgba.delete();
         
 
         // Cleanup General and Pure objects
