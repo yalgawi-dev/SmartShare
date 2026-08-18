@@ -101,11 +101,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   }
 }
 
-/**
- * Applies perspective crop and industry-standard enhancement filters.
- * Returns an object with Data URLs for cropped, bw, and color versions.
- */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' = 'auto'): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, hybridColor?: string, detectedType?: 'text' | 'photo' | 'mixed' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[]): Promise<{ cropped: string, bw: string, color: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -167,59 +163,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
         
-        // --- Auto-Detect Profile (Photo vs Text) ---
-        // Adaptive thresholding makes mostly white pages with black text.
-        // If more than 30% of the image became black, it's highly likely a photo (or a very noisy/dark image that shouldn't be processed as text).
-        let totalPixels = bw.rows * bw.cols;
-        let whitePixels = cv.countNonZero(bw);
-        let blackPixels = totalPixels - whitePixels;
-        let blackRatio = blackPixels / totalPixels;
-        
-        let isPhoto = blackRatio > 0.30;
-        let isMixed = false;
-        let hybridMask: any = null;
-        
-        if (!isPhoto) {
-            let hsvCheck = new cv.Mat();
-            let rgbCheck = new cv.Mat();
-            cv.cvtColor(dst, rgbCheck, cv.COLOR_RGBA2RGB);
-            cv.cvtColor(rgbCheck, hsvCheck, cv.COLOR_RGB2HSV);
-            let hsvPlanesCheck = new cv.MatVector();
-            cv.split(hsvCheck, hsvPlanesCheck);
-            let sCheck = hsvPlanesCheck.get(1);
-            let vCheck = hsvPlanesCheck.get(2);
-            
-            let colorMask = new cv.Mat();
-            cv.threshold(sCheck, colorMask, 35, 255, cv.THRESH_BINARY);
-            
-            let notPaperMask = new cv.Mat();
-            cv.threshold(vCheck, notPaperMask, 210, 255, cv.THRESH_BINARY_INV);
-            
-            let targetMask = new cv.Mat();
-            cv.bitwise_and(colorMask, notPaperMask, targetMask);
-            
-            let openedMask = new cv.Mat();
-            let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
-            cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
-            
-            let colorfulPixels = cv.countNonZero(openedMask);
-            let colorfulRatio = colorfulPixels / totalPixels;
-            
-            if (colorfulRatio > 0.15) {
-                isPhoto = true;
-            } else if (colorfulRatio > 0.005) {
-                isMixed = true;
-                hybridMask = new cv.Mat();
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
-                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 1);
-                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(15, 15), 0, 0);
-                dilateKernel.delete();
-            }
-            vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
-            hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
-        }
-        
-        let detectedType: 'text' | 'photo' | 'mixed' = isPhoto ? 'photo' : (isMixed ? 'mixed' : 'text');
+
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
         blackMat.copyTo(bw, darkMask);
         
@@ -272,129 +216,23 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // Applying OpenCV sharpening on top creates "Plastic/Glass" halos around text.
         // We simply pass the raw, color-boosted camera pixels forward.
 
-        let finalPureRgba = new cv.Mat();
-        cv.cvtColor(photoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
+        let finalColorRgba = new cv.Mat();
+        cv.cvtColor(photoRgb, finalColorRgba, cv.COLOR_RGB2RGBA);
 
-        cv.imshow(canvas, finalPureRgba);
-        const pureColorUrl = compressCanvas(canvas);
+        cv.imshow(canvas, finalColorRgba);
+        const colorUrl = compressCanvas(canvas);
         
-        // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
+        photoRgb.delete(); finalColorRgba.delete();
 
-        // --- Smart Color (v11.0 Retinex Illumination Division Engine - Restored for Invoices) ---
-        // Perfect for text and invoices.
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-
-        let smartGray = new cv.Mat();
-        cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
-
-        let smartDownscaled = new cv.Mat();
-        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-
-        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
-        smartKernel.delete();
-
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
-
-        let smartBg = new cv.Mat();
-        cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        smartDownscaled.delete();
-
-        let smartRgbPlanes = new cv.MatVector();
-        cv.split(smartRgb, smartRgbPlanes);
-
-        for (let i = 0; i < 3; i++) {
-            let channel = smartRgbPlanes.get(i);
-            cv.divide(channel, smartBg, channel, 255, -1);
-            smartRgbPlanes.set(i, channel);
-            channel.delete();
-        }
-        cv.merge(smartRgbPlanes, smartRgb);
-        smartRgbPlanes.delete();
-
-        let smartSharp = new cv.Mat();
-        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartRgb);
-        smartSharp.delete();
-
-        let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
-
-        let smartS = smartHsvPlanes.get(1);
-        smartS.convertTo(smartS, -1, 1.8, 0);
-        // THRESH_TOZERO increased to 40 to eliminate the reddish stain from the shadow
-        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO);
-
-        smartHsvPlanes.set(1, smartS);
-        cv.merge(smartHsvPlanes, smartHsv);
-        cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
-        smartHsvPlanes.delete();
-        smartS.delete();
-
-        let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
-
-        cv.imshow(canvas, finalSmartRgba);
-        const smartColorUrl = compressCanvas(canvas);
-
-        let hybridUrl = undefined;
-        if (isMixed && hybridMask) {
-            let maskRgba = new cv.Mat();
-            cv.cvtColor(hybridMask, maskRgba, cv.COLOR_GRAY2RGBA);
-            
-            let maskFloat = new cv.Mat();
-            maskRgba.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
-            
-            let pureFloat = new cv.Mat();
-            finalPureRgba.convertTo(pureFloat, cv.CV_32F);
-            
-            let smartFloat = new cv.Mat();
-            finalSmartRgba.convertTo(smartFloat, cv.CV_32F);
-            
-            let oneMinusMask = new cv.Mat();
-            let scalar1 = new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0, 1.0, 1.0, 1.0));
-            cv.subtract(scalar1, maskFloat, oneMinusMask);
-            
-            let term1 = new cv.Mat();
-            cv.multiply(pureFloat, maskFloat, term1);
-            
-            let term2 = new cv.Mat();
-            cv.multiply(smartFloat, oneMinusMask, term2);
-            
-            let hybridFloat = new cv.Mat();
-            cv.add(term1, term2, hybridFloat);
-            
-            let finalHybrid = new cv.Mat();
-            hybridFloat.convertTo(finalHybrid, cv.CV_8U);
-            
-            cv.imshow(canvas, finalHybrid);
-            hybridUrl = compressCanvas(canvas);
-            
-            maskRgba.delete(); maskFloat.delete(); pureFloat.delete(); smartFloat.delete();
-            oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete(); finalHybrid.delete();
-            hybridMask.delete();
-        }
-
-        photoRgb.delete(); finalPureRgba.delete();
-        smartRgb.delete(); smartGray.delete(); smartBg.delete(); smartHsv.delete(); finalSmartRgba.delete();
-        
-
-        // Cleanup General and Pure objects
+        // Cleanup General objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         
-        // Legacy pure objects were replaced by photo objects and already cleaned up.
         resolve({ 
           cropped: croppedUrl, 
           bw: bwUrl, 
-          pureColor: pureColorUrl,
-          smartColor: smartColorUrl,
-          hybridColor: hybridUrl,
-          detectedType
+          color: colorUrl
         });
 
       } catch (err) {

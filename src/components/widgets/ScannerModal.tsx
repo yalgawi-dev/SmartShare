@@ -39,9 +39,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
-  const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
-  const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
-  const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
+  const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'original'>('auto');
   
   // 1. Load OpenCV.js safely
@@ -163,29 +161,13 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('cropping');
   };
 
-  const [profile, setProfile] = useState<'auto' | 'text' | 'photo'>('auto');
-  const [detectedType, setDetectedType] = useState<'text' | 'photo' | null>(null);
-
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[], targetProfile?: 'auto' | 'text' | 'photo') => {
+  const performCrop = async (snapshot: string, pts: Point[]) => {
     try {
-      const activeProfile = targetProfile || profile;
-      
-      const results = await applyPerspectiveAndFilters(snapshot, pts, activeProfile);
+      const results = await applyPerspectiveAndFilters(snapshot, pts);
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
-      setPureColorSnapshot(results.pureColor);
-      setSmartColorSnapshot(results.smartColor);
-      if (results.hybridColor) {
-        setHybridColorSnapshot(results.hybridColor);
-      }
-      
-      if (results.detectedType) {
-        setDetectedType(results.detectedType as 'text' | 'photo' | 'mixed');
-        if (activeProfile === 'auto') {
-          setProfile(results.detectedType as 'text' | 'photo' | 'mixed');
-        }
-      }
+      setColorSnapshot(results.color);
     } catch (err: any) {
       console.error("Crop failed:", err);
       alert("Error in crop: " + (err?.message || err));
@@ -203,18 +185,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setRawSnapshot(null);
     setCroppedSnapshot(null);
     setBwSnapshot(null);
-    setPureColorSnapshot(null);
-    setSmartColorSnapshot(null);
-    setProfile('auto');
-    setDetectedType(null);
+    setColorSnapshot(null);
   };
 
   const handleDone = () => {
     let finalImage = bwSnapshot;
-    if (mode === 'pure_color') finalImage = pureColorSnapshot;
-    if (mode === 'smart_color') finalImage = smartColorSnapshot;
+    if (mode === 'pure_color') finalImage = colorSnapshot;
+    if (mode === 'smart_color') finalImage = colorSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
-    if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : detectedType === 'mixed' ? hybridColorSnapshot : smartColorSnapshot;
+    if (mode === 'auto') finalImage = colorSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
@@ -313,7 +292,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
+                   src={mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : colorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
