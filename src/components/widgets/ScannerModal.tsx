@@ -39,7 +39,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
-  const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
+  const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
+  const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
+  const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'original'>('auto');
   
   // 1. Load OpenCV.js safely
@@ -161,13 +163,29 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('cropping');
   };
 
+  const [profile, setProfile] = useState<'auto' | 'text' | 'photo'>('auto');
+  const [detectedType, setDetectedType] = useState<'text' | 'photo' | null>(null);
+
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[]) => {
+  const performCrop = async (snapshot: string, pts: Point[], targetProfile?: 'auto' | 'text' | 'photo') => {
     try {
-      const results = await applyPerspectiveAndFilters(snapshot, pts);
+      const activeProfile = targetProfile || profile;
+      
+      const results = await applyPerspectiveAndFilters(snapshot, pts, activeProfile);
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
-      setColorSnapshot(results.color);
+      setPureColorSnapshot(results.pureColor);
+      setSmartColorSnapshot(results.smartColor);
+      if (results.hybridColor) {
+        setHybridColorSnapshot(results.hybridColor);
+      }
+      
+      if (results.detectedType) {
+        setDetectedType(results.detectedType as 'text' | 'photo' | 'mixed');
+        if (activeProfile === 'auto') {
+          setProfile(results.detectedType as 'text' | 'photo' | 'mixed');
+        }
+      }
     } catch (err: any) {
       console.error("Crop failed:", err);
       alert("Error in crop: " + (err?.message || err));
@@ -185,15 +203,18 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setRawSnapshot(null);
     setCroppedSnapshot(null);
     setBwSnapshot(null);
-    setColorSnapshot(null);
+    setPureColorSnapshot(null);
+    setSmartColorSnapshot(null);
+    setProfile('auto');
+    setDetectedType(null);
   };
 
   const handleDone = () => {
     let finalImage = bwSnapshot;
-    if (mode === 'pure_color') finalImage = colorSnapshot;
-    if (mode === 'smart_color') finalImage = colorSnapshot;
+    if (mode === 'pure_color') finalImage = pureColorSnapshot;
+    if (mode === 'smart_color') finalImage = smartColorSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
-    if (mode === 'auto') finalImage = colorSnapshot;
+    if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : detectedType === 'mixed' ? hybridColorSnapshot : smartColorSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
@@ -292,7 +313,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : colorSnapshot!} 
+                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -344,6 +365,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 onClick={() => setMode('auto')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'auto' ? '#fff' : 'transparent', color: mode === 'auto' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer', position: 'relative' }}>
                   אוטומט ✨
+                  {mode === 'auto' && detectedType && (
+                    <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px' }}>
+                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : 'חשבונית'}
+                    </span>
+                  )}
                 </button>
                 <button 
                 onClick={() => setMode('original')} 
