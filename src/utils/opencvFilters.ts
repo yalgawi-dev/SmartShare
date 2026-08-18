@@ -129,7 +129,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, hybridColor?: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' | 'mixed' }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -200,6 +200,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let blackRatio = blackPixels / totalPixels;
         
         let isPhoto = blackRatio > 0.30;
+        let isMixed = false;
+        let hybridMask: any = null;
         
         if (!isPhoto) {
             let hsvCheck = new cv.Mat();
@@ -214,12 +216,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             let colorfulPixels = cv.countNonZero(colorfulMask);
             let colorfulRatio = colorfulPixels / totalPixels;
             if (colorfulRatio > 0.05) {
-                isPhoto = true;
+                isMixed = true;
+                hybridMask = new cv.Mat();
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(25, 25));
+                cv.dilate(colorfulMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 2);
+                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(51, 51), 0, 0);
+                dilateKernel.delete();
             }
             hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete(); colorfulMask.delete();
         }
         
-        let detectedType: 'text' | 'photo' = isPhoto ? 'photo' : 'text';
+        let detectedType: 'text' | 'photo' | 'mixed' = isPhoto ? 'photo' : (isMixed ? 'mixed' : 'text');
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
         blackMat.copyTo(bw, darkMask);
         
@@ -288,8 +295,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
 
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas);
-
-        photoRgb.delete(); finalPureRgba.delete();
+        
+        // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
         // --- Smart Color (v11.0 Retinex Illumination Division Engine - Restored for Invoices) ---
         // Perfect for text and invoices.
@@ -351,6 +358,45 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
 
+        let hybridUrl = undefined;
+        if (isMixed && hybridMask) {
+            let maskRgba = new cv.Mat();
+            cv.cvtColor(hybridMask, maskRgba, cv.COLOR_GRAY2RGBA);
+            
+            let maskFloat = new cv.Mat();
+            maskRgba.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
+            
+            let pureFloat = new cv.Mat();
+            finalPureRgba.convertTo(pureFloat, cv.CV_32F);
+            
+            let smartFloat = new cv.Mat();
+            finalSmartRgba.convertTo(smartFloat, cv.CV_32F);
+            
+            let oneMinusMask = new cv.Mat();
+            let scalar1 = new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0, 1.0, 1.0, 1.0));
+            cv.subtract(scalar1, maskFloat, oneMinusMask);
+            
+            let term1 = new cv.Mat();
+            cv.multiply(pureFloat, maskFloat, term1);
+            
+            let term2 = new cv.Mat();
+            cv.multiply(smartFloat, oneMinusMask, term2);
+            
+            let hybridFloat = new cv.Mat();
+            cv.add(term1, term2, hybridFloat);
+            
+            let finalHybrid = new cv.Mat();
+            hybridFloat.convertTo(finalHybrid, cv.CV_8U);
+            
+            cv.imshow(canvas, finalHybrid);
+            hybridUrl = compressCanvas(canvas);
+            
+            maskRgba.delete(); maskFloat.delete(); pureFloat.delete(); smartFloat.delete();
+            oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete(); finalHybrid.delete();
+            hybridMask.delete();
+        }
+
+        photoRgb.delete(); finalPureRgba.delete();
         smartRgb.delete(); smartGray.delete(); smartBg.delete(); smartHsv.delete(); finalSmartRgba.delete();
         
 
@@ -365,6 +411,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
           bw: bwUrl, 
           pureColor: pureColorUrl,
           smartColor: smartColorUrl,
+          hybridColor: hybridUrl,
           appliedOptions: {
             magicGamma: options.magicGamma,
             magicErode: options.magicErode,

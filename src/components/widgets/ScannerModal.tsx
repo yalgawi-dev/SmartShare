@@ -41,6 +41,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
+  const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'original'>('auto');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
@@ -196,11 +197,14 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       setBwSnapshot(results.bw);
       setPureColorSnapshot(results.pureColor);
       setSmartColorSnapshot(results.smartColor);
+      if (results.hybridColor) {
+        setHybridColorSnapshot(results.hybridColor);
+      }
       
       if (results.detectedType) {
-        setDetectedType(results.detectedType as 'text' | 'photo');
+        setDetectedType(results.detectedType as 'text' | 'photo' | 'mixed');
         if (activeProfile === 'auto') {
-          setProfile(results.detectedType as 'text' | 'photo');
+          setProfile(results.detectedType as 'text' | 'photo' | 'mixed');
         }
       }
       if (results.appliedOptions && showDevTools) {
@@ -239,7 +243,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     if (mode === 'pure_color') finalImage = pureColorSnapshot;
     if (mode === 'smart_color') finalImage = smartColorSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
-    if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : smartColorSnapshot;
+    if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : detectedType === 'mixed' ? hybridColorSnapshot : smartColorSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
@@ -338,7 +342,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
+                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -392,7 +396,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                   אוטומט ✨
                   {mode === 'auto' && detectedType && (
                     <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px' }}>
-                      {detectedType === 'photo' ? 'תמונה' : 'חשבונית'}
+                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : 'חשבונית'}
                     </span>
                   )}
                 </button>
