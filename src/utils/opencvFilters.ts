@@ -368,63 +368,68 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
         photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
-        // --- Smart Color (v9.0 CamScanner Adaptive Masking Engine) ---
-        // 1. Convert to grayscale and blur slightly to remove shadow chroma noise
-        let smartGray = new cv.Mat();
-        cv.cvtColor(dst, smartGray, cv.COLOR_RGBA2GRAY);
-        cv.GaussianBlur(smartGray, smartGray, new cv.Size(5, 5), 0, 0);
+        // --- Smart Color (v10.0 CLAHE Mixed-Content Engine) ---
+        // 1. Convert to RGB and then to LAB color space for Luminance separation
+        let smartRgb = new cv.Mat();
+        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
+
+        let smartLab = new cv.Mat();
+        cv.cvtColor(smartRgb, smartLab, cv.COLOR_RGB2Lab);
+        let labPlanes = new cv.MatVector();
+        cv.split(smartLab, labPlanes);
+
+        let L = labPlanes.get(0);
+        let a = labPlanes.get(1);
+        let b = labPlanes.get(2);
+
+        // 2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
+        // This equalizes contrast locally, completely destroying shadows while preserving global color and photos!
+        let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
+        clahe.apply(L, L);
+        clahe.delete();
+
+        // 3. Global White Point Adjustment
+        // CLAHE pushes shadows towards white, but this guarantees paper is 100% pure white and text is bold.
+        L.convertTo(L, -1, 1.3, -50);
+
+        labPlanes.set(0, L);
+        cv.merge(labPlanes, smartLab);
         
-        // 2. Local Adaptive Thresholding (Creates a perfect binary mask of the ink, completely ignoring shadow gradients!)
-        let smartMask = new cv.Mat();
-        // blockSize = 51 (handles medium/thick lines well), C = 10 (keeps faint notebook squares but ignores noise)
-        cv.adaptiveThreshold(smartGray, smartMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, 10);
-        
-        // 3. Enhance the Original Ink Colors
-        let smartEnhancedRgb = new cv.Mat();
-        cv.cvtColor(dst, smartEnhancedRgb, cv.COLOR_RGBA2RGB);
-        
+        let claheRgb = new cv.Mat();
+        cv.cvtColor(smartLab, claheRgb, cv.COLOR_Lab2RGB);
+
+        // 4. Color Enhancement (Saturation) & Noise Cleanup
         let smartHsv = new cv.Mat();
-        cv.cvtColor(smartEnhancedRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
-        
-        let smartS = smartHsvPlanes.get(1);
-        let smartV = smartHsvPlanes.get(2);
-        
-        // Boost saturation slightly so blue/red ink pops
-        smartS.convertTo(smartS, -1, 1.4, 0);
-        
-        // Darken ink slightly to make faint notebook squares solid, but without turning blue into black
-        smartV.convertTo(smartV, -1, 1.2, -30);
-        
-        smartHsvPlanes.set(1, smartS);
-        smartHsvPlanes.set(2, smartV);
-        cv.merge(smartHsvPlanes, smartHsv);
-        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
-        
-        // 4. Create Pure White Background
-        let finalSmartRgb = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
-        
-        // 5. Composite: Paste the enhanced ink over the pure white background using the adaptive mask!
-        smartEnhancedRgb.copyTo(finalSmartRgb, smartMask);
-        
+        cv.cvtColor(claheRgb, smartHsv, cv.COLOR_RGB2HSV);
+        let hsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, hsvPlanes);
+
+        let S = hsvPlanes.get(1);
+        // Boost color by 1.5x so colored pens and pictures pop
+        S.convertTo(S, -1, 1.5, 0);
+        // Clean extreme faint chromatic noise (stains)
+        cv.threshold(S, S, 20, 255, cv.THRESH_TOZERO);
+
+        hsvPlanes.set(1, S);
+        cv.merge(hsvPlanes, smartHsv);
+        cv.cvtColor(smartHsv, claheRgb, cv.COLOR_HSV2RGB);
+
+        // 5. Unsharp Mask for razor sharp text (Laser Scanner effect)
+        let blurredText = new cv.Mat();
+        cv.GaussianBlur(claheRgb, blurredText, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(claheRgb, 1.5, blurredText, -0.5, 0, claheRgb);
+        blurredText.delete();
+
+        // 6. Convert to output RGBA
         let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
-        
-        // 6. Output to canvas
+        cv.cvtColor(claheRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
-        
-        // Cleanup v9.0 Engine
-        smartGray.delete();
-        smartMask.delete();
-        smartEnhancedRgb.delete();
-        smartHsv.delete();
-        smartHsvPlanes.delete();
-        smartS.delete();
-        smartV.delete();
-        finalSmartRgb.delete();
-        finalSmartRgba.delete();
+
+        // Cleanup v10.0 Engine
+        smartRgb.delete(); smartLab.delete(); labPlanes.delete(); L.delete(); a.delete(); b.delete();
+        claheRgb.delete(); smartHsv.delete(); hsvPlanes.delete(); S.delete(); finalSmartRgba.delete();
         
 
         // Cleanup General and Pure objects
