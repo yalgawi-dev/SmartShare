@@ -229,7 +229,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             let colorfulPixels = cv.countNonZero(openedMask);
             let colorfulRatio = colorfulPixels / totalPixels;
             
-            if (colorfulRatio > 0.005) {
+            if (colorfulRatio > 0.15) {
+                isPhoto = true;
+            } else if (colorfulRatio > 0.005) {
                 isMixed = true;
                 hybridMask = new cv.Mat();
                 let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
