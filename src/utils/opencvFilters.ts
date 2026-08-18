@@ -259,15 +259,30 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         photoHsvPlanes.set(1, photoS);
         photoS.delete();
 
-        cv.merge(photoHsvPlanes, photoHsv);
-
         // 4. Selective White Balance (Paper Whitening)
         // Find pixels that are bright (V > 190) and low-color (S < 55) which represents grayish/dim paper
         // and force them to pure crisp white (S=0, V=255) without touching actual colors!
+        let photoVFinal = photoHsvPlanes.get(2);
+        let photoSFinal = photoHsvPlanes.get(1);
+
+        let maskV = new cv.Mat();
+        let maskS = new cv.Mat();
         let paperMask = new cv.Mat();
-        cv.inRange(photoHsv, new cv.Scalar(0, 0, 190, 0), new cv.Scalar(180, 55, 255, 0), paperMask);
-        photoHsv.setTo(new cv.Scalar(0, 0, 255, 0), paperMask);
-        paperMask.delete();
+        
+        cv.threshold(photoVFinal, maskV, 190, 255, cv.THRESH_BINARY);
+        cv.threshold(photoSFinal, maskS, 55, 255, cv.THRESH_BINARY_INV);
+        cv.bitwise_and(maskV, maskS, paperMask);
+        
+        photoVFinal.setTo(new cv.Scalar(255), paperMask);
+        photoSFinal.setTo(new cv.Scalar(0), paperMask);
+
+        photoHsvPlanes.set(2, photoVFinal);
+        photoHsvPlanes.set(1, photoSFinal);
+
+        maskV.delete(); maskS.delete(); paperMask.delete();
+        photoVFinal.delete(); photoSFinal.delete();
+
+        cv.merge(photoHsvPlanes, photoHsv);
 
         cv.cvtColor(photoHsv, photoRgb, cv.COLOR_HSV2RGB);
         photoHsvPlanes.delete();
