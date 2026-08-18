@@ -264,8 +264,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.split(photoHsv, photoHsvPlanes);
 
         let photoV = photoHsvPlanes.get(2);
-        // Gentle contrast and brightness boost for photos (preserves shadows and natural lighting)
-        photoV.convertTo(photoV, -1, 1.05, 5);
+        // Gamma Correction to simulate "turning on the light" (brightens midtones without blowing whites)
+        let lut = new cv.Mat(1, 256, cv.CV_8U);
+        let gamma = 0.75; 
+        for (let i = 0; i < 256; i++) {
+            lut.data[i] = Math.min(255, Math.max(0, Math.pow(i / 255.0, gamma) * 255.0));
+        }
+        cv.LUT(photoV, lut, photoV);
+        lut.delete();
+
+        // Crisp sharpening on Value channel ONLY (prevents plastic color halos while adding depth)
+        let blurredV = new cv.Mat();
+        cv.GaussianBlur(photoV, blurredV, new cv.Size(0, 0), 1.0);
+        cv.addWeighted(photoV, 1.5, blurredV, -0.5, 0, photoV);
+        blurredV.delete();
+
         photoHsvPlanes.set(2, photoV);
         photoV.delete();
 
