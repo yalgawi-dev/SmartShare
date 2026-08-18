@@ -259,29 +259,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         photoHsvPlanes.set(1, photoS);
         photoS.delete();
 
-        // 4. Selective White Balance (Paper Whitening)
-        // Find pixels that are exceptionally bright (V > 215) and practically colorless (S < 25)
-        // to avoid nuking pale colors like watercolors, while still turning real white paper to 255.
-        let photoVFinal = photoHsvPlanes.get(2);
-        let photoSFinal = photoHsvPlanes.get(1);
-
-        let maskV = new cv.Mat();
-        let maskS = new cv.Mat();
-        let paperMask = new cv.Mat();
-        
-        cv.threshold(photoVFinal, maskV, 215, 255, cv.THRESH_BINARY);
-        cv.threshold(photoSFinal, maskS, 25, 255, cv.THRESH_BINARY_INV);
-        cv.bitwise_and(maskV, maskS, paperMask);
-        
-        photoVFinal.setTo(new cv.Scalar(255), paperMask);
-        photoSFinal.setTo(new cv.Scalar(0), paperMask);
-
-        photoHsvPlanes.set(2, photoVFinal);
-        photoHsvPlanes.set(1, photoSFinal);
-
-        maskV.delete(); maskS.delete(); paperMask.delete();
-        photoVFinal.delete(); photoSFinal.delete();
-
         cv.merge(photoHsvPlanes, photoHsv);
 
         cv.cvtColor(photoHsv, photoRgb, cv.COLOR_HSV2RGB);
