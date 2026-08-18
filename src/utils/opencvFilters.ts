@@ -368,76 +368,65 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
         photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
-        // --- Smart Color (v6.1 Harmonic Processing) - RESTORED ---
-        // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
-        let smartGrayColor = new cv.Mat();
-        cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
+        // --- Smart Color (v9.0 CamScanner Adaptive Masking Engine) ---
+        // 1. Convert to grayscale and blur slightly to remove shadow chroma noise
+        let smartGray = new cv.Mat();
+        cv.cvtColor(dst, smartGray, cv.COLOR_RGBA2GRAY);
+        cv.GaussianBlur(smartGray, smartGray, new cv.Size(5, 5), 0, 0);
         
-        let smartDilatedBg = new cv.Mat();
-        let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
-        cv.dilate(smartGrayColor, smartDilatedBg, eraseKernel); // Erases dark text
-        eraseKernel.delete();
+        // 2. Local Adaptive Thresholding (Creates a perfect binary mask of the ink, completely ignoring shadow gradients!)
+        let smartMask = new cv.Mat();
+        // blockSize = 51 (handles medium/thick lines well), C = 10 (keeps faint notebook squares but ignores noise)
+        cv.adaptiveThreshold(smartGray, smartMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 51, 10);
         
-        let smartGrayDownscaled = new cv.Mat();
-        cv.resize(smartDilatedBg, smartGrayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        cv.medianBlur(smartGrayDownscaled, smartGrayDownscaled, 21);
+        // 3. Enhance the Original Ink Colors
+        let smartEnhancedRgb = new cv.Mat();
+        cv.cvtColor(dst, smartEnhancedRgb, cv.COLOR_RGBA2RGB);
         
-        let smartIlluminationMap = new cv.Mat();
-        cv.resize(smartGrayDownscaled, smartIlluminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        smartDilatedBg.delete();
-        
-        // 2. APPLY GLASS BACKGROUND TO RGB (NO CONTRAST STRETCHING = NO FADING)
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-        let smartRgbPlanes = new cv.MatVector();
-        cv.split(smartRgb, smartRgbPlanes);
-        
-        for (let i = 0; i < 3; i++) {
-            let channel = smartRgbPlanes.get(i);
-            cv.divide(channel, smartIlluminationMap, channel, 255, -1);
-            smartRgbPlanes.set(i, channel);
-            channel.delete();
-        }
-        cv.merge(smartRgbPlanes, smartRgb);
-        
-        // 3. HARMONIC TONE MAPPING (Luminance & Saturation)
         let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(smartEnhancedRgb, smartHsv, cv.COLOR_RGB2HSV);
         let smartHsvPlanes = new cv.MatVector();
         cv.split(smartHsv, smartHsvPlanes);
         
         let smartS = smartHsvPlanes.get(1);
         let smartV = smartHsvPlanes.get(2);
         
-        // S-Curve Luminance Stretch (V): Maps 225 to 255 (kills dirty stains), maps 100 to 70 (saves ink color).
-        // V = V * 1.5 - 80.
-        smartV.convertTo(smartV, -1, 1.5, -80);
-        
-        // Clean chromatic noise
-        cv.threshold(smartS, smartS, 20, 255, cv.THRESH_TOZERO);
-        
-        // Boost Saturation (S): Gentle 1.4x to keep notebook squares clean but make ink pop.
+        // Boost saturation slightly so blue/red ink pops
         smartS.convertTo(smartS, -1, 1.4, 0);
+        
+        // Darken ink slightly to make faint notebook squares solid, but without turning blue into black
+        smartV.convertTo(smartV, -1, 1.2, -30);
         
         smartHsvPlanes.set(1, smartS);
         smartHsvPlanes.set(2, smartV);
         cv.merge(smartHsvPlanes, smartHsv);
-        
-        let smartEnhancedRgb = new cv.Mat();
         cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
         
-        let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(smartEnhancedRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        // 4. Create Pure White Background
+        let finalSmartRgb = new cv.Mat(dst.rows, dst.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
         
+        // 5. Composite: Paste the enhanced ink over the pure white background using the adaptive mask!
+        smartEnhancedRgb.copyTo(finalSmartRgb, smartMask);
+        
+        let finalSmartRgba = new cv.Mat();
+        cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        
+        // 6. Output to canvas
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
         
-        // Cleanup smart objects
-        smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
-        smartRgb.delete(); smartRgbPlanes.delete(); 
-        smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete(); smartV.delete();
-        smartEnhancedRgb.delete(); finalSmartRgba.delete();
+        // Cleanup v9.0 Engine
+        smartGray.delete();
+        smartMask.delete();
+        smartEnhancedRgb.delete();
+        smartHsv.delete();
+        smartHsvPlanes.delete();
+        smartS.delete();
+        smartV.delete();
+        finalSmartRgb.delete();
+        finalSmartRgba.delete();
         
+
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
