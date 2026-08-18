@@ -39,10 +39,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
-  const [colorSnapshot, setColorSnapshot] = useState<string | null>(null);
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'color' | 'pure_color' | 'smart_color' | 'original'>('smart_color');
+  const [mode, setMode] = useState<'bw' | 'pure_color' | 'smart_color'>('smart_color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
     magicGamma: 1.3,
@@ -195,7 +194,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       const results = await applyPerspectiveAndFilters(snapshot, pts, { ...cropOptions, profile: activeProfile });
       setCroppedSnapshot(results.cropped);
       setBwSnapshot(results.bw);
-      setColorSnapshot(results.color);
       setPureColorSnapshot(results.pureColor);
       setSmartColorSnapshot(results.smartColor);
       
@@ -230,17 +228,16 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setRawSnapshot(null);
     setCroppedSnapshot(null);
     setBwSnapshot(null);
-    setColorSnapshot(null);
     setPureColorSnapshot(null);
+    setSmartColorSnapshot(null);
     setProfile('auto');
     setDetectedType(null);
   };
 
   const handleDone = () => {
     let finalImage = bwSnapshot;
-    if (mode === 'color') finalImage = colorSnapshot;
     if (mode === 'pure_color') finalImage = pureColorSnapshot;
-    if (mode === 'original') finalImage = croppedSnapshot;
+    if (mode === 'smart_color') finalImage = smartColorSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
@@ -339,7 +336,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'original' ? (croppedSnapshot || '') : mode === 'bw' ? (bwSnapshot || '') : mode === 'pure_color' ? (pureColorSnapshot || '') : mode === 'smart_color' ? (smartColorSnapshot || '') : (colorSnapshot || '')} 
+                   src={mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -387,11 +384,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         {step === 'review' && (
           <>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-              <button 
-                onClick={() => setMode('original')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  מקור
-                </button>
                 <button 
                 onClick={() => setMode('smart_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_color' ? '#fff' : 'transparent', color: mode === 'smart_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
@@ -403,24 +395,19 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                   תמונות
                 </button>
                 <button 
-                onClick={() => setMode('color')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'color' ? '#fff' : 'transparent', color: mode === 'color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  צבע רגיל
-                </button>
-                <button 
                 onClick={() => setMode('bw')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   שחור-לבן
                 </button>
             </div>
             
-            {(mode === 'color' || mode === 'pure_color' || mode === 'smart_color') && (
+            {(mode === 'pure_color' || mode === 'smart_color') && (
               <div style={{ position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                   <button 
                     onClick={() => setShowDevTools(!showDevTools)} 
                     style={{ padding: '0.25rem 0.75rem', borderRadius: '16px', border: '1px solid #FFD700', background: showDevTools ? '#FFD700' : 'transparent', color: showDevTools ? 'black' : '#FFD700', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}>
-                    ⚙️ הגדרות {mode === 'smart_color' ? 'חשבוניות' : mode === 'color' ? 'צבע רגיל' : 'תמונות'}
+                    ⚙️ הגדרות {mode === 'smart_color' ? 'חשבוניות' : 'תמונות'}
                   </button>
                 </div>
                 

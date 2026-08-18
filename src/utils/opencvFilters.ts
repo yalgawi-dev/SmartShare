@@ -129,7 +129,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, color: string, pureColor: string, smartColor: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -197,15 +197,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         let totalPixels = bw.rows * bw.cols;
         let whitePixels = cv.countNonZero(bw);
         let blackPixels = totalPixels - whitePixels;
-        let blackRatio = blackPixels / totalPixels;
-        
-        let detectedType: 'text' | 'photo' = blackRatio > 0.30 ? 'photo' : 'text';
-        
-        // If options.profile is 'auto' (or undefined), set options.profile so the rest of the pipeline uses the detected type!
-        if (!options.profile || options.profile === 'auto') {
-            options.profile = detectedType;
-        } 
-        
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
         blackMat.copyTo(bw, darkMask);
         
@@ -213,124 +204,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
         cv.imshow(canvas, bwRgba);
         const bwUrl = compressCanvas(canvas);
-        
-        // --- Color Enhancement ---
-        let grayColor = new cv.Mat();
-        cv.cvtColor(dst, grayColor, cv.COLOR_RGBA2GRAY);
-        
-        let grayDownscaled = new cv.Mat();
-        cv.resize(grayColor, grayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        let finalBlurSize = options.bgBlurSize ?? 21;
-        cv.medianBlur(grayDownscaled, grayDownscaled, finalBlurSize);
-        
-        let illuminationMap = new cv.Mat();
-        cv.resize(grayDownscaled, illuminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        
-        let rgbForMask = new cv.Mat();
-        cv.cvtColor(dst, rgbForMask, cv.COLOR_RGBA2RGB);
-        let hsvForMask = new cv.Mat();
-        cv.cvtColor(rgbForMask, hsvForMask, cv.COLOR_RGB2HSV);
-        let hsvPlanesForMask = new cv.MatVector();
-        cv.split(hsvForMask, hsvPlanesForMask);
-        let sMap = hsvPlanesForMask.get(1);
-        
-        cv.addWeighted(illuminationMap, 1.0, sMap, 0.5, 0, illuminationMap);
-        rgbForMask.delete(); hsvForMask.delete(); hsvPlanesForMask.delete(); sMap.delete();
-        
-        let rgb = new cv.Mat();
-        cv.cvtColor(dst, rgb, cv.COLOR_RGBA2RGB);
-        let rgbPlanes = new cv.MatVector();
-        cv.split(rgb, rgbPlanes);
-        
-        // Use magic parameters for Magic Color
-        let finalGamma = options.magicGamma ?? 1.3;
-        let finalBlackPoint = options.magicBlackPoint ?? 40; // Default offset was 40 in 3.6
-        
-        let isPhoto = options.profile === 'photo';
-        
-        for (let i = 0; i < 3; i++) {
-            let channel = rgbPlanes.get(i);
-            if (!isPhoto) {
-                cv.divide(channel, illuminationMap, channel, 255, -1);
-            }
-            rgbPlanes.set(i, channel);
-            channel.delete();
-        }
-        cv.merge(rgbPlanes, rgb);
-        
-        // Apply White Clip for Magic Color BEFORE convertTo
-        let magicWhiteClip = options.magicWhiteClip ?? 255; // Default 255 (no clip)
-        if (!isPhoto && magicWhiteClip < 255) {
-            let magicLut = new Uint8Array(256);
-            for (let i = 0; i < 256; i++) {
-                magicLut[i] = i >= magicWhiteClip ? 255 : i;
-            }
-            let rgbData = rgb.data;
-            for (let j = 0; j < rgbData.length; j++) {
-                rgbData[j] = magicLut[rgbData[j]];
-            }
-        }
-        
-        // Thicken the text (Erode) BEFORE contrast curve so that gray halos get crushed into black!
-        let eroded = new cv.Mat();
-        let kernel = cv.getStructuringElement(cv.MORPH_CROSS, new cv.Size(3, 3));
-        let finalErode = options.magicErode ?? 0.5;
-        if (!isPhoto && finalErode > 0) {
-            cv.erode(rgb, eroded, kernel);
-            cv.addWeighted(rgb, 1.0 - finalErode, eroded, finalErode, 0, rgb);
-        }
-        kernel.delete(); eroded.delete();
-        
-        // Apply contrast curve (Gamma & Black Point)
-        if (!isPhoto) {
-            rgb.convertTo(rgb, -1, finalGamma, -finalBlackPoint); // Increased contrast for whiter page
-        } else {
-            rgb.convertTo(rgb, -1, finalGamma, -Math.floor(finalBlackPoint / 2)); // Gentle contrast for photos
-        }
-        
-        let smoothed = new cv.Mat();
-        cv.bilateralFilter(rgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
-
-        let colorBlurred = new cv.Mat();
-        cv.GaussianBlur(smoothed, colorBlurred, new cv.Size(0, 0), 2);
-        let sharp = new cv.Mat();
-        cv.addWeighted(smoothed, 3.5, colorBlurred, -2.5, 0, sharp);
-        
-        let hsv = new cv.Mat();
-        cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
-        let hsvPlanes = new cv.MatVector();
-        cv.split(hsv, hsvPlanes);
-        let s = hsvPlanes.get(1);
-        
-        let finalSat = options.magicSaturation ?? 1.8;
-        if (isPhoto) {
-            finalSat = options.magicSaturation ?? 1.3;
-        }
-        
-        s.convertTo(s, -1, finalSat, 0); 
-        hsvPlanes.set(1, s);
-        cv.merge(hsvPlanes, hsv);
-        
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(hsv, enhancedRgb, cv.COLOR_HSV2RGB);
-        
-        let lowSatMask = new cv.Mat();
-        cv.threshold(s, lowSatMask, 50, 255, cv.THRESH_BINARY_INV);
-        
-        let bwColor = new cv.Mat();
-        cv.cvtColor(bw, bwColor, cv.COLOR_GRAY2RGB);
-        
-        let magicColor = new cv.Mat();
-        if (!isPhoto) {
-            cv.min(enhancedRgb, bwColor, magicColor);
-            magicColor.copyTo(enhancedRgb, lowSatMask);
-        }
-        
-        let finalRgba = new cv.Mat();
-        cv.cvtColor(enhancedRgb, finalRgba, cv.COLOR_RGB2RGBA);
-        
-        cv.imshow(canvas, finalRgba);
-        const colorUrl = compressCanvas(canvas);
         
         // --- Photo Mode (v12.0 Professional Scanner Engine - For Photos) ---
         // Specially tuned for Illustrations, Photos, and colored documents.
@@ -455,16 +328,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         
-        // Restore cleanup for MAIN Color Enhancement
-        grayColor.delete(); grayDownscaled.delete(); illuminationMap.delete(); rgb.delete(); rgbPlanes.delete();
-        smoothed.delete(); colorBlurred.delete(); sharp.delete(); hsv.delete(); hsvPlanes.delete(); s.delete();
-        enhancedRgb.delete(); lowSatMask.delete(); bwColor.delete(); magicColor.delete(); finalRgba.delete();
-        
         // Legacy pure objects were replaced by photo objects and already cleaned up.
         resolve({ 
           cropped: croppedUrl, 
           bw: bwUrl, 
-          color: colorUrl,
           pureColor: pureColorUrl,
           smartColor: smartColorUrl,
           appliedOptions: {
