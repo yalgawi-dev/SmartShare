@@ -232,9 +232,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
             if (colorfulRatio > 0.005) {
                 isMixed = true;
                 hybridMask = new cv.Mat();
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(41, 41));
-                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 2);
-                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(91, 91), 0, 0);
+                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+                cv.dilate(openedMask, hybridMask, dilateKernel, new cv.Point(-1, -1), 1);
+                cv.GaussianBlur(hybridMask, hybridMask, new cv.Size(15, 15), 0, 0);
                 dilateKernel.delete();
             }
             vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
