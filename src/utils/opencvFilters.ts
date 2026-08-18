@@ -368,77 +368,82 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
         photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
-        // --- Smart Color (v6.1 Harmonic Processing) - RESTORED ---
-        // 1. PERFECT GLASS BACKGROUND: Erase text before illumination map
+        // --- Smart Color (v7.0 Masterpiece: Adaptive Threshold + Equalization) ---
+        // 1. Equalize Lighting (Illumination Map) to brighten text inside shadows
         let smartGrayColor = new cv.Mat();
         cv.cvtColor(dst, smartGrayColor, cv.COLOR_RGBA2GRAY);
         
         let smartDilatedBg = new cv.Mat();
         let eraseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
-        cv.dilate(smartGrayColor, smartDilatedBg, eraseKernel); // Erases dark text
+        cv.dilate(smartGrayColor, smartDilatedBg, eraseKernel); 
         eraseKernel.delete();
         
         let smartGrayDownscaled = new cv.Mat();
         cv.resize(smartDilatedBg, smartGrayDownscaled, new cv.Size(0, 0), 0.25, 0.25, cv.INTER_AREA);
-        // Deep blur to completely eliminate dirty shadow stains on the edges
         cv.blur(smartGrayDownscaled, smartGrayDownscaled, new cv.Size(51, 51));
         
         let smartIlluminationMap = new cv.Mat();
         cv.resize(smartGrayDownscaled, smartIlluminationMap, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
         smartDilatedBg.delete();
         
-        // 2. APPLY GLASS BACKGROUND TO RGB (NO CONTRAST STRETCHING = NO FADING)
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-        let smartRgbPlanes = new cv.MatVector();
-        cv.split(smartRgb, smartRgbPlanes);
-        
+        let equalizedRgb = new cv.Mat();
+        cv.cvtColor(dst, equalizedRgb, cv.COLOR_RGBA2RGB);
+        let equalizedRgbPlanes = new cv.MatVector();
+        cv.split(equalizedRgb, equalizedRgbPlanes);
         for (let i = 0; i < 3; i++) {
-            let channel = smartRgbPlanes.get(i);
+            let channel = equalizedRgbPlanes.get(i);
             cv.divide(channel, smartIlluminationMap, channel, 255, -1);
-            smartRgbPlanes.set(i, channel);
+            equalizedRgbPlanes.set(i, channel);
             channel.delete();
         }
-        cv.merge(smartRgbPlanes, smartRgb);
+        cv.merge(equalizedRgbPlanes, equalizedRgb);
         
-        // 3. HARMONIC TONE MAPPING (Luminance & Saturation)
-        let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
+        // 2. Create the Perfect Background Eraser Mask (v3.6 Adaptive Threshold logic)
+        let bwMask = new cv.Mat();
+        cv.adaptiveThreshold(smartGrayColor, bwMask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 55, 15);
         
-        let smartS = smartHsvPlanes.get(1);
-        let smartV = smartHsvPlanes.get(2);
+        // 3. Create Color Protection Mask (so faint red/blue ink isn't erased)
+        let equalizedHsv = new cv.Mat();
+        cv.cvtColor(equalizedRgb, equalizedHsv, cv.COLOR_RGB2HSV);
+        let equalizedHsvPlanes = new cv.MatVector();
+        cv.split(equalizedHsv, equalizedHsvPlanes);
+        let sChannel = equalizedHsvPlanes.get(1);
+        let vChannel = equalizedHsvPlanes.get(2);
         
-        // Gentle Luminance Stretch (V): Darkens text without turning blue/red ink into pitch black!
-        // V = V * 1.4 - 70. This ensures handwriting stays its original color but remains highly legible.
-        smartV.convertTo(smartV, -1, 1.4, -70);
+        let colorMask = new cv.Mat();
+        cv.threshold(sChannel, colorMask, 30, 255, cv.THRESH_BINARY);
         
-        // Clean chromatic noise: Threshold lowered to 20 to protect faint colors from becoming grayscale
-        cv.threshold(smartS, smartS, 20, 255, cv.THRESH_TOZERO);
+        let keepMask = new cv.Mat();
+        cv.bitwise_or(bwMask, colorMask, keepMask);
         
-        // Boost Saturation (S): Makes real red/blue inks pop.
-        // Reduced from 2.0 to 1.5 to prevent anti-aliased notebook squares from spilling at intersections
-        smartS.convertTo(smartS, -1, 1.5, 0);
+        // 4. Boost Ink Visibility (S and V)
+        sChannel.convertTo(sChannel, -1, 1.5, 0);
+        vChannel.convertTo(vChannel, -1, 1.2, -20);
         
-        smartHsvPlanes.set(1, smartS);
-        smartHsvPlanes.set(2, smartV);
-        cv.merge(smartHsvPlanes, smartHsv);
+        equalizedHsvPlanes.set(1, sChannel);
+        equalizedHsvPlanes.set(2, vChannel);
+        cv.merge(equalizedHsvPlanes, equalizedHsv);
         
-        let smartEnhancedRgb = new cv.Mat();
-        cv.cvtColor(smartHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
+        let enhancedRgb = new cv.Mat();
+        cv.cvtColor(equalizedHsv, enhancedRgb, cv.COLOR_HSV2RGB);
+        
+        // 5. Apply the Masks (Pure White Background)
+        let pureWhite = new cv.Mat(enhancedRgb.rows, enhancedRgb.cols, enhancedRgb.type(), new cv.Scalar(255, 255, 255));
+        let finalSmartRgb = pureWhite.clone();
+        enhancedRgb.copyTo(finalSmartRgb, keepMask);
         
         let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(smartEnhancedRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
         
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
         
         // Cleanup smart objects
         smartGrayColor.delete(); smartGrayDownscaled.delete(); smartIlluminationMap.delete();
-        smartRgb.delete(); smartRgbPlanes.delete(); 
-        smartHsv.delete(); smartHsvPlanes.delete(); smartS.delete(); smartV.delete();
-        smartEnhancedRgb.delete(); finalSmartRgba.delete();
+        equalizedRgb.delete(); equalizedRgbPlanes.delete(); 
+        bwMask.delete(); equalizedHsv.delete(); equalizedHsvPlanes.delete(); 
+        sChannel.delete(); vChannel.delete(); colorMask.delete(); keepMask.delete();
+        enhancedRgb.delete(); pureWhite.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
         
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
