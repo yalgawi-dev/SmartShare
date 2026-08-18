@@ -5,31 +5,7 @@ export interface Point {
   y: number;
 }
 
-export interface ScannerOptions {
-  magicGamma?: number;
-  magicErode?: number;
-  magicSaturation?: number;
-  magicBlackPoint?: number;
-  magicWhiteClip?: number;
-  
-  // Pure Color (v4.0)
-  pureGamma?: number;
-  pureErode?: number;
-  pureSaturation?: number;
-  pureWhiteClip?: number;
-  pureBlackPoint?: number;
-  
-  // Smart Color (v4.42)
-  smartGamma?: number;
-  smartSaturation?: number;
-  smartWhiteClip?: number;
-  smartBlackPoint?: number;
-  smartSharpen?: number;
 
-  // Shared
-  bgBlurSize?: number;
-  profile?: 'text' | 'photo' | 'auto';
-}
 
 /**
  * Attempts to auto-detect a document contour in the given canvas.
@@ -129,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], options: ScannerOptions = {}): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, hybridColor?: string, appliedOptions?: ScannerOptions, detectedType?: 'text' | 'photo' | 'mixed' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' = 'auto'): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, hybridColor?: string, detectedType?: 'text' | 'photo' | 'mixed' }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -416,25 +392,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
           pureColor: pureColorUrl,
           smartColor: smartColorUrl,
           hybridColor: hybridUrl,
-          appliedOptions: {
-            magicGamma: options.magicGamma,
-            magicErode: options.magicErode,
-            magicSaturation: options.magicSaturation,
-            magicBlackPoint: options.magicBlackPoint,
-            magicWhiteClip: options.magicWhiteClip,
-            pureGamma: options.pureGamma,
-            pureErode: options.pureErode,
-            pureSaturation: options.pureSaturation,
-            pureWhiteClip: options.pureWhiteClip,
-            pureBlackPoint: options.pureBlackPoint,
-            smartGamma: options.smartGamma,
-            smartSaturation: options.smartSaturation,
-            smartWhiteClip: options.smartWhiteClip,
-            smartBlackPoint: options.smartBlackPoint,
-            smartSharpen: options.smartSharpen,
-            bgBlurSize: options.bgBlurSize,
-            profile: options.profile
-          },
           detectedType
         });
 
