@@ -368,68 +368,80 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoRgb.delete(); photoHsv.delete(); photoHsvPlanes.delete();
         photoS.delete(); photoV.delete(); finalPhotoColor.delete(); finalPureRgba.delete();
 
-        // --- Smart Color (v10.0 CLAHE Mixed-Content Engine) ---
-        // 1. Convert to RGB and then to LAB color space for Luminance separation
+        // --- Smart Color (v11.0 Retinex Illumination Division Engine) ---
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
 
-        let smartLab = new cv.Mat();
-        cv.cvtColor(smartRgb, smartLab, cv.COLOR_RGB2Lab);
-        let labPlanes = new cv.MatVector();
-        cv.split(smartLab, labPlanes);
+        // 1. Convert to Grayscale for illumination estimation
+        let gray = new cv.Mat();
+        cv.cvtColor(smartRgb, gray, cv.COLOR_RGB2GRAY);
 
-        let L = labPlanes.get(0);
-        let a = labPlanes.get(1);
-        let b = labPlanes.get(2);
+        // 2. Downscale to quickly estimate background without text
+        let downscaled = new cv.Mat();
+        cv.resize(gray, downscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
 
-        // 2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        // This equalizes contrast locally, completely destroying shadows while preserving global color and photos!
-        let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
-        clahe.apply(L, L);
-        clahe.delete();
+        // Use morphological closing (dilate then erode) to track the paper and ignore text
+        let kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.morphologyEx(downscaled, downscaled, cv.MORPH_CLOSE, kernel);
+        kernel.delete();
 
-        // 3. Global White Point Adjustment
-        // CLAHE pushes shadows towards white, but this guarantees paper is 100% pure white and text is bold.
-        L.convertTo(L, -1, 1.3, -50);
+        // Smooth the illumination map to prevent hard edges around heavy shadows
+        cv.GaussianBlur(downscaled, downscaled, new cv.Size(5, 5), 0, 0);
 
-        labPlanes.set(0, L);
-        cv.merge(labPlanes, smartLab);
-        
-        let claheRgb = new cv.Mat();
-        cv.cvtColor(smartLab, claheRgb, cv.COLOR_Lab2RGB);
+        // Upscale back to original size
+        let bg = new cv.Mat();
+        cv.resize(downscaled, bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        downscaled.delete();
 
-        // 4. Color Enhancement (Saturation) & Noise Cleanup
+        // 3. Divide image by illumination map (Retinex)
+        // This mathematically eliminates shadows and forces the paper to be pure white
+        let rgbPlanes = new cv.MatVector();
+        cv.split(smartRgb, rgbPlanes);
+
+        for (let i = 0; i < 3; i++) {
+            let channel = rgbPlanes.get(i);
+            // divide(src1, src2, dst, scale) -> dst = saturate(src1 * scale / src2)
+            cv.divide(channel, bg, channel, 255, -1);
+            rgbPlanes.set(i, channel);
+            channel.delete();
+        }
+        cv.merge(rgbPlanes, smartRgb);
+        rgbPlanes.delete();
+
+        // 4. Contrast Recovery (Unsharp Mask)
+        // Since division lightens the text, we apply aggressive unsharp masking
+        // to make the text pitch black and razor sharp without touching the white background.
+        let sharp = new cv.Mat();
+        cv.GaussianBlur(smartRgb, sharp, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(smartRgb, 2.0, sharp, -1.0, 0, smartRgb);
+        sharp.delete();
+
+        // 5. Color Pop (Saturation Boost)
         let smartHsv = new cv.Mat();
-        cv.cvtColor(claheRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
+        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
+        let hsvPlanes = new cv.MatVector();
+        cv.split(smartHsv, hsvPlanes);
 
-        let S = smartHsvPlanes.get(1);
-        // Boost color by 1.5x so colored pens and pictures pop
-        S.convertTo(S, -1, 1.5, 0);
-        // Clean extreme faint chromatic noise (stains)
-        cv.threshold(S, S, 20, 255, cv.THRESH_TOZERO);
+        let S = hsvPlanes.get(1);
+        // Boost color by 1.8x so colored pens and pictures (like the Duck) burst with color
+        S.convertTo(S, -1, 1.8, 0);
+        cv.threshold(S, S, 20, 255, cv.THRESH_TOZERO); // Clean faint chromatic noise
 
-        smartHsvPlanes.set(1, S);
-        cv.merge(smartHsvPlanes, smartHsv);
-        cv.cvtColor(smartHsv, claheRgb, cv.COLOR_HSV2RGB);
-
-        // 5. Unsharp Mask for razor sharp text (Laser Scanner effect)
-        let blurredText = new cv.Mat();
-        cv.GaussianBlur(claheRgb, blurredText, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(claheRgb, 1.5, blurredText, -0.5, 0, claheRgb);
-        blurredText.delete();
+        hsvPlanes.set(1, S);
+        cv.merge(hsvPlanes, smartHsv);
+        cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
+        hsvPlanes.delete();
+        S.delete();
 
         // 6. Convert to output RGBA
         let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(claheRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
 
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas);
 
-        // Cleanup v10.0 Engine
-        smartRgb.delete(); smartLab.delete(); labPlanes.delete(); L.delete(); a.delete(); b.delete();
-        claheRgb.delete(); smartHsv.delete(); smartHsvPlanes.delete(); S.delete(); finalSmartRgba.delete();
+        // Cleanup v11.0 Engine
+        smartRgb.delete(); gray.delete(); bg.delete(); smartHsv.delete(); finalSmartRgba.delete();
         
 
         // Cleanup General and Pure objects
