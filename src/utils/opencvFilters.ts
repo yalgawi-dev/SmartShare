@@ -280,16 +280,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoHsvPlanes.delete();
         photoHsv.delete();
 
-        // 3. Crisp Depth Effect (Subtle Sharpening)
-        // Remove bilateral filter entirely to prevent "melting" fine textures
-        // Apply a classic mild sharpening kernel to compensate for perspective warp blur
-        let kernel = cv.matFromArray(3, 3, cv.CV_32F, [
-             0, -0.25,  0,
-            -0.25,  2.0, -0.25,
-             0, -0.25,  0
-        ]);
-        cv.filter2D(photoRgb, photoRgb, cv.CV_8U, kernel, new cv.Point(-1, -1), 0, cv.BORDER_DEFAULT);
-        kernel.delete();
+        // 3. Raw Camera Preservation
+        // We removed all artificial OpenCV sharpening, blurring, and bilateral filters!
+        // Modern smartphones already apply massive sharpening and noise reduction natively.
+        // Applying OpenCV sharpening on top creates "Plastic/Glass" halos around text.
+        // We simply pass the raw, color-boosted camera pixels forward.
 
         let finalPureRgba = new cv.Mat();
         cv.cvtColor(photoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
