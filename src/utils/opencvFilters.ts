@@ -424,13 +424,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         equalizedHsvPlanes.set(2, vChannel);
         cv.merge(equalizedHsvPlanes, equalizedHsv);
         
-        let enhancedRgb = new cv.Mat();
-        cv.cvtColor(equalizedHsv, enhancedRgb, cv.COLOR_HSV2RGB);
+        let smartEnhancedRgb = new cv.Mat();
+        cv.cvtColor(equalizedHsv, smartEnhancedRgb, cv.COLOR_HSV2RGB);
         
         // 5. Apply the Masks (Pure White Background)
-        let pureWhite = new cv.Mat(enhancedRgb.rows, enhancedRgb.cols, enhancedRgb.type(), new cv.Scalar(255, 255, 255));
+        let pureWhite = new cv.Mat(smartEnhancedRgb.rows, smartEnhancedRgb.cols, smartEnhancedRgb.type(), new cv.Scalar(255, 255, 255));
         let finalSmartRgb = pureWhite.clone();
-        enhancedRgb.copyTo(finalSmartRgb, keepMask);
+        smartEnhancedRgb.copyTo(finalSmartRgb, keepMask);
         
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(finalSmartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
@@ -443,7 +443,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         equalizedRgb.delete(); equalizedRgbPlanes.delete(); 
         bwMask.delete(); equalizedHsv.delete(); equalizedHsvPlanes.delete(); 
         sChannel.delete(); vChannel.delete(); colorMask.delete(); keepMask.delete();
-        enhancedRgb.delete(); pureWhite.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
+        smartEnhancedRgb.delete(); pureWhite.delete(); finalSmartRgb.delete(); finalSmartRgba.delete();
         
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
