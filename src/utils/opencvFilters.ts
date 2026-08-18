@@ -247,9 +247,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         photoHsvPlanes.delete();
         photoHsv.delete();
 
+        // 3. Crystal Clear Glass Effect
+        let smoothed = new cv.Mat();
+        // Bilateral filter smooths flat colors/noise while perfectly preserving edges
+        cv.bilateralFilter(photoRgb, smoothed, 5, 50, 50, cv.BORDER_DEFAULT);
+
         let photoSharp = new cv.Mat();
-        cv.GaussianBlur(photoRgb, photoSharp, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(photoRgb, 2.0, photoSharp, -1.0, 0, photoRgb);
+        cv.GaussianBlur(smoothed, photoSharp, new cv.Size(0, 0), 2.0);
+        // Stronger Unsharp Mask applied to the noise-free image creates a glossy/glass look
+        cv.addWeighted(smoothed, 2.5, photoSharp, -1.5, 0, photoRgb);
+        
+        smoothed.delete();
         photoSharp.delete();
 
         let finalPureRgba = new cv.Mat();

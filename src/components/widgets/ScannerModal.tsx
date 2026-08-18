@@ -41,7 +41,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'bw' | 'pure_color' | 'smart_color'>('smart_color');
+  const [mode, setMode] = useState<'bw' | 'pure_color' | 'smart_color' | 'original'>('smart_color');
   
   const [devOptions, setDevOptions] = useState<ScannerOptions>({
     magicGamma: 1.3,
@@ -238,6 +238,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     let finalImage = bwSnapshot;
     if (mode === 'pure_color') finalImage = pureColorSnapshot;
     if (mode === 'smart_color') finalImage = smartColorSnapshot;
+    if (mode === 'original') finalImage = croppedSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
@@ -336,7 +337,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
+                   src={mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -384,6 +385,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         {step === 'review' && (
           <>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                <button 
+                onClick={() => setMode('original')} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  מקור
+                </button>
                 <button 
                 onClick={() => setMode('smart_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_color' ? '#fff' : 'transparent', color: mode === 'smart_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
