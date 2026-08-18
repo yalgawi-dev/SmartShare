@@ -5,10 +5,9 @@ const withPWA = withPWAInit({
   dest: "public",
   disable: process.env.NODE_ENV === "development",
   register: true,
-  skipWaiting: true,
-});
+} as any);
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   turbopack: {},
   typescript: {
     ignoreBuildErrors: true,
@@ -16,6 +15,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-};
+} as any;
 
 export default withPWA(nextConfig);
