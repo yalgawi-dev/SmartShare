@@ -262,28 +262,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], optio
         cv.split(photoHsv, photoHsvPlanes);
 
         let photoV = photoHsvPlanes.get(2);
-        
-        let photoVDownscaled = new cv.Mat();
-        cv.resize(photoV, photoVDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-
-        let photoVKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-        cv.morphologyEx(photoVDownscaled, photoVDownscaled, cv.MORPH_CLOSE, photoVKernel);
-        photoVKernel.delete();
-
-        cv.GaussianBlur(photoVDownscaled, photoVDownscaled, new cv.Size(7, 7), 0, 0);
-
-        let photoV_bg = new cv.Mat();
-        cv.resize(photoVDownscaled, photoV_bg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        photoVDownscaled.delete();
-
-        cv.divide(photoV, photoV_bg, photoV, 255, -1);
-        photoV_bg.delete();
+        // Gentle contrast and brightness boost for photos (preserves shadows and natural lighting)
+        photoV.convertTo(photoV, -1, 1.05, 5);
         photoHsvPlanes.set(2, photoV);
         photoV.delete();
 
         let photoS = photoHsvPlanes.get(1);
-        cv.threshold(photoS, photoS, 40, 255, cv.THRESH_TOZERO);
-        photoS.convertTo(photoS, -1, 1.4, 0);
+        // Gentle saturation boost to make colors pop naturally (do NOT threshold/zero out subtle colors)
+        photoS.convertTo(photoS, -1, 1.2, 5);
         photoHsvPlanes.set(1, photoS);
         photoS.delete();
 
