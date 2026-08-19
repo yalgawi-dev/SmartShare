@@ -359,8 +359,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         let smartS = smartHsvPlanes.get(1);
         smartS.convertTo(smartS, -1, 1.8, 0);
-        // THRESH_TOZERO increased to 40 to eliminate the reddish stain from the shadow
-        cv.threshold(smartS, smartS, 40, 255, cv.THRESH_TOZERO);
+        // THRESH_TOZERO increased to 70 to aggressively eliminate bluish/reddish stains from hand shadows
+        cv.threshold(smartS, smartS, 70, 255, cv.THRESH_TOZERO);
 
         smartHsvPlanes.set(1, smartS);
         cv.merge(smartHsvPlanes, smartHsv);
