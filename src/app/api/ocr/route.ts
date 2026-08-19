@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     let pureInferenceMs = 0;
     let rawText = '';
     
-    // We will use the lightweight and fast 1.5-flash-8b model via REST
-    const model = 'gemini-1.5-flash-8b';
+    // We will use the lightweight and fast 3.5-flash-lite model via REST
+    const model = 'gemini-3.5-flash-lite';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
@@ -97,15 +97,11 @@ export async function POST(request: Request) {
            const errText = await res.text();
            if (res.status === 503 || errText.includes('503') || errText.includes('UNAVAILABLE') || errText.includes('high demand')) {
               console.warn(`[OCR] Google REST API 503 error, retries left: ${retries - 1}`);
-              retries--;
-              retryCount++;
-              if (retries === 0) throw new Error(`Google API failed after retries: ${errText}`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              totalWaitMs += delay;
-              delay += 500;
-              continue; // Try again
+              // This will trigger the catch block below which handles the delay and decrement
+              throw new Error('503_RETRY');
            } else {
-              throw new Error(`Google API Error ${res.status}: ${errText}`);
+              // Not a 503, throw a fatal error immediately
+              throw new Error(`FATAL: Google API Error ${res.status}: ${errText}`);
            }
         }
         
@@ -120,9 +116,14 @@ export async function POST(request: Request) {
         break; // Success, exit loop
         
       } catch (err: any) {
-         if (retries === 0) throw err;
+         if (err.message.startsWith('FATAL')) {
+            throw err; // Abort immediately for 404/400 errors
+         }
+         
          retries--;
          retryCount++;
+         if (retries === 0) throw new Error(`Google API failed after 3 retries. Last error: ${err.message}`);
+         
          await new Promise(resolve => setTimeout(resolve, delay));
          totalWaitMs += delay;
          delay += 500;
