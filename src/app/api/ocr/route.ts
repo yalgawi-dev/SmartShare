@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { NextResponse } from 'next/server';
 
 export const maxDuration = 60; // Allow up to 60 seconds on Vercel
@@ -53,13 +53,13 @@ export async function POST(request: Request) {
       config: {
         responseMimeType: "application/json",
         responseSchema: {
-          type: "OBJECT",
+          type: Type.OBJECT,
           properties: {
-            vendor: { type: "STRING", description: "Name of the business (ספק)" },
-            amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
-            date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
-            invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
-            vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
+            vendor: { type: Type.STRING, description: "Name of the business (ספק)" },
+            amount: { type: Type.NUMBER, description: "Total amount to pay (סה\"כ לתשלום)" },
+            date: { type: Type.STRING, description: "Date of invoice in YYYY-MM-DD format" },
+            invoiceNumber: { type: Type.STRING, description: "Invoice number (מספר מסמך)" },
+            vatNumber: { type: Type.STRING, description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
           }
         }
       }
