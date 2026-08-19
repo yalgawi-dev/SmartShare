@@ -128,13 +128,13 @@ export async function POST(request: Request) {
       data = JSON.parse(text);
       if (!data.vendor && !data.amount && !data.date) {
          return NextResponse.json({ 
-           error: 'Gemini could not find any data in the image.', 
+           error: 'Gemini could not find any data in the image. Raw output: ' + text, 
            debugRaw: text, 
            aiTimeMs, retryCount, pureInferenceMs, totalWaitMs
          }, { status: 400 });
       }
     } catch(e) {
-      return NextResponse.json({ error: 'Failed to parse Gemini JSON', debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to parse Gemini JSON. Raw output: ' + text, debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs }, { status: 400 });
     }
 
     data._debug = { aiTimeMs, retryCount, pureInferenceMs, totalWaitMs };
