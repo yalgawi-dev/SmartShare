@@ -57,8 +57,8 @@ export async function POST(request: Request) {
     `;
 
     let response = null;
-    let retries = 5;
-    let delay = 2000;
+    let retries = 3;
+    let delay = 1000;
     
     while (retries > 0) {
       try {
@@ -66,7 +66,20 @@ export async function POST(request: Request) {
           model: 'gemini-3.6-flash',
           contents: [
             { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
-          ]
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                vendor: { type: Type.STRING, description: "Name of the business (ספק)" },
+                amount: { type: Type.NUMBER, description: "Total amount to pay (סה\"כ לתשלום)" },
+                date: { type: Type.STRING, description: "Date of invoice in YYYY-MM-DD format" },
+                invoiceNumber: { type: Type.STRING, description: "Invoice number (מספר מסמך)" },
+                vatNumber: { type: Type.STRING, description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
+              }
+            }
+          }
         });
         break; // Success, exit loop
       } catch (err: any) {
@@ -75,7 +88,7 @@ export async function POST(request: Request) {
           retries--;
           if (retries === 0) throw err;
           await new Promise(resolve => setTimeout(resolve, delay));
-          delay *= 2; // Exponential backoff (1s, 2s)
+          delay += 500; // Linear backoff (1s, 1.5s, 2s) - max 4.5s total wait
         } else {
           throw err; // Not a 503, fail immediately
         }
