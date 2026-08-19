@@ -57,13 +57,13 @@ export async function POST(request: Request) {
     `;
 
     let response = null;
-    let retries = 3;
-    let delay = 1000;
+    let retries = 5;
+    let delay = 2000;
     
     while (retries > 0) {
       try {
         response = await ai.models.generateContent({
-          model: 'gemini-flash-latest',
+          model: 'gemini-1.5-flash',
           contents: [
             { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
           ]
