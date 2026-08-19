@@ -68,7 +68,17 @@ export async function POST(request: Request) {
         ]
       }],
       generationConfig: {
-        responseMimeType: "application/json"
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            vendor: { type: "STRING", description: "Name of the business (ספק)" },
+            amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
+            date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
+            invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
+            vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
+          }
+        }
       }
     };
 
@@ -102,7 +112,7 @@ export async function POST(request: Request) {
         const json = await res.json();
         rawText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
-        if (!rawText) {
+        if (!rawText.trim()) {
            console.error("Empty rawText, full json:", JSON.stringify(json));
            rawText = "EMPTY_RESPONSE_DUMP: " + JSON.stringify(json);
         }
