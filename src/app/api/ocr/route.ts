@@ -35,15 +35,14 @@ export async function POST(request: Request) {
 
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
-      Return ONLY a raw JSON object (no markdown, no backticks, no markdown codeblocks) with exactly these fields:
-      {
-        "vendor": "Name of the business (ספק)",
-        "amount": Total amount to pay as a number (סה"כ לתשלום),
-        "date": "Date of invoice in YYYY-MM-DD format",
-        "invoiceNumber": "Invoice number or Receipt number (מספר מסמך / חשבונית)",
-        "vatNumber": "Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה)"
-      }
-      If you cannot find a field, leave it null. Do not include any other text.
+      Extract the following fields and return them strictly in the JSON format requested by the schema.
+      - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
+      - "amount": Total amount to pay as a number (סה"כ לתשלום / סכום כולל מע"מ).
+      - "date": Date of invoice in YYYY-MM-DD format.
+      - "invoiceNumber": Invoice number or Receipt number (מספר מסמך / חשבונית / קבלה).
+      - "vatNumber": Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה / ע.מ). Usually a 9 digit number.
+      
+      If you cannot find a field, leave it null.
     `;
 
     const totalT0 = Date.now();
