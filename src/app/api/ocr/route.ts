@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     let pureInferenceMs = 0;
     let rawText = '';
     
-    // We will use gemini-2.5-flash as it has the highest capacity
-    const model = 'gemini-2.5-flash';
+    // We MUST use gemini-3.6-flash as Google deprecated 2.5 for new users
+    const model = 'gemini-3.6-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
