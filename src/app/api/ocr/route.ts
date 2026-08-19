@@ -56,16 +56,35 @@ export async function POST(request: Request) {
       If you cannot find a field, leave it null. Do not include any other text.
     `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
-      contents: [
-        { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
-      ]
-    });
+    let response = null;
+    let retries = 3;
+    let delay = 1000;
+    
+    while (retries > 0) {
+      try {
+        response = await ai.models.generateContent({
+          model: 'gemini-flash-latest',
+          contents: [
+            { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
+          ]
+        });
+        break; // Success, exit loop
+      } catch (err: any) {
+        if (err.status === 503 || err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand')) {
+          console.warn(`[OCR] Google API 503 error, retries left: ${retries - 1}`);
+          retries--;
+          if (retries === 0) throw err;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2; // Exponential backoff (1s, 2s)
+        } else {
+          throw err; // Not a 503, fail immediately
+        }
+      }
+    }
     const t1 = Date.now();
     const aiTimeMs = t1 - t0;
 
-    let text = response.text || '';
+    let text = response?.text || '';
     console.log(`[OCR Timing] AI Inference took ${aiTimeMs}ms. Raw Output:`, text);
     
     // Clean up potential markdown formatting from Gemini
