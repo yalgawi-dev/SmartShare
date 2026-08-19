@@ -43,24 +43,26 @@ export async function POST(request: Request) {
     }
 
     const t0 = Date.now();
-    const prompt = `
-      Please read this Israeli invoice/receipt carefully.
-      Return ONLY a raw JSON object (no markdown, no backticks, no markdown codeblocks) with exactly these fields:
-      {
-        "vendor": "Name of the business (ספק)",
-        "amount": Total amount to pay as a number (סה"כ לתשלום),
-        "date": "Date of invoice in YYYY-MM-DD format",
-        "invoiceNumber": "Invoice number or Receipt number (מספר מסמך / חשבונית)",
-        "vatNumber": "Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה)"
-      }
-      If you cannot find a field, leave it null. Do not include any other text.
-    `;
+    const prompt = "Please read this Israeli invoice/receipt carefully and extract the requested fields. Leave fields null if not found.";
 
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-1.5-flash-8b',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
-      ]
+      ],
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            vendor: { type: "STRING", description: "Name of the business (ספק)" },
+            amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
+            date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
+            invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
+            vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
+          }
+        }
+      }
     });
     const t1 = Date.now();
     const aiTimeMs = t1 - t0;
