@@ -74,7 +74,7 @@ export function FinanceAddExpenseForm({
             </div>
           )}
           
-          {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && (
+          {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && !ocrDebugMessage && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div style={{ color: '#166534', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>

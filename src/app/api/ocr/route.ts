@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       };
     }
 
-    const t0 = performance.now();
+    const t0 = Date.now();
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
       Return ONLY a raw JSON object (no markdown, no backticks, no markdown codeblocks) with exactly these fields:
@@ -62,8 +62,8 @@ export async function POST(request: Request) {
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ]
     });
-    const t1 = performance.now();
-    const aiTimeMs = Math.round(t1 - t0);
+    const t1 = Date.now();
+    const aiTimeMs = t1 - t0;
 
     let text = response.text || '';
     console.log(`[OCR Timing] AI Inference took ${aiTimeMs}ms. Raw Output:`, text);
