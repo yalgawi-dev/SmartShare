@@ -42,7 +42,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'original'>('auto');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'hybrid' | 'original'>('auto');
   
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -214,6 +214,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     if (mode === 'pure_color') finalImage = pureColorSnapshot;
     if (mode === 'smart_color') finalImage = smartColorSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
+    if (mode === 'hybrid') finalImage = hybridColorSnapshot;
     if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : detectedType === 'mixed' ? hybridColorSnapshot : smartColorSnapshot;
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
@@ -313,7 +314,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : smartColorSnapshot!} 
+                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : mode === 'hybrid' ? hybridColorSnapshot! : smartColorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -385,6 +386,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 onClick={() => setMode('pure_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   תמונות
+                </button>
+                <button 
+                onClick={() => setMode('hybrid')} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'hybrid' ? '#fff' : 'transparent', color: mode === 'hybrid' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  קולאז'
                 </button>
                 <button 
                 onClick={() => setMode('bw')} 

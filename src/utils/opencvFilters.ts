@@ -210,39 +210,31 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         let isPhoto = false;
         let isMixed = false;
-        let hybridMask: any = null;
 
+        // ALWAYS calculate hybrid mask so it's available for manual override
+        let hybridMask = new cv.Mat();
+        let smallMask = new cv.Mat();
+        cv.resize(openedMask, smallMask, new cv.Size(0, 0), 0.2, 0.2, cv.INTER_NEAREST);
+        
+        let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
+        cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
+        
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+        cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
+        
+        cv.GaussianBlur(smallMask, smallMask, new cv.Size(9, 9), 0, 0);
+        
+        cv.resize(smallMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
+        
+        smallMask.delete();
+        cleanKernel.delete();
+        dilateKernel.delete();
+
+        // Auto-Detect Logic to determine default mode
         if (colorfulRatio > 0.03 || blackRatio > 0.40) {
-            // There is significant color (e.g. blue pen, logo, or illustration) 
-            // OR the image is extremely dark/noisy (like a dark B&W photo).
             if (paperRatio > 0.05) {
-                // If there is also at least 5% solid white paper (like a small receipt or white background), it's a Collage (Mixed)!
                 isMixed = true;
-                hybridMask = new cv.Mat();
-                
-                // PERFORMANCE OPTIMIZATION: Downscale by 5x (25x fewer pixels) before heavy morphology
-                let smallMask = new cv.Mat();
-                cv.resize(openedMask, smallMask, new cv.Size(0, 0), 0.2, 0.2, cv.INTER_NEAREST);
-                
-                // 1. Strong Opening (equivalent to 25x25 on full res) to eradicate grid lines & noise
-                let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
-                cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
-                
-                // 2. Smooth Dilation (equivalent to 45x45 on full res)
-                let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
-                cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
-                
-                // 3. Blur for soft blending
-                cv.GaussianBlur(smallMask, smallMask, new cv.Size(9, 9), 0, 0);
-                
-                // Upscale back to full resolution
-                cv.resize(smallMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
-                
-                smallMask.delete();
-                cleanKernel.delete();
-                dilateKernel.delete();
             } else {
-                // Not enough paper (< 5%), so the whole thing is just a pure Photo
                 isPhoto = true;
             }
         }
@@ -373,7 +365,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         const smartColorUrl = compressCanvas(canvas);
 
         let hybridUrl = undefined;
-        if (isMixed && hybridMask) {
+        if (hybridMask) {
             let maskRgba = new cv.Mat();
             cv.cvtColor(hybridMask, maskRgba, cv.COLOR_GRAY2RGBA);
             
