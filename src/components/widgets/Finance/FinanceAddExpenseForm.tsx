@@ -75,13 +75,28 @@ export function FinanceAddExpenseForm({
           )}
           
           {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 1rem' }}>
-              <div style={{ color: '#166534', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>✨</span> פוענח בהצלחה
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 1rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ color: '#166534', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+                  <span>✨</span> פוענח בהצלחה
+                </div>
+                <div style={{ fontFamily: 'monospace', color: '#15803d', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  ⏱️ {ocrElapsedTime.toFixed(2)}s סה״כ
+                </div>
               </div>
-              <div style={{ fontFamily: 'monospace', color: '#15803d', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                ⏱️ {ocrElapsedTime.toFixed(2)}s
-              </div>
+              
+              {ocrData._debug && (
+                <div style={{ borderTop: '1px solid #bbf7d0', paddingTop: '0.5rem', marginTop: '0.25rem', fontSize: '0.8rem', color: '#166534' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>חשיבת בינה מלאכותית (Google):</span>
+                    <span style={{ fontWeight: 'bold' }}>{(ocrData._debug.aiTimeMs / 1000).toFixed(2)}s</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span>העלאה, רשת ועיבוד השרת שלנו:</span>
+                    <span style={{ fontWeight: 'bold' }}>{(ocrElapsedTime - (ocrData._debug.aiTimeMs / 1000)).toFixed(2)}s</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
