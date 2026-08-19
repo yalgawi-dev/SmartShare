@@ -53,6 +53,7 @@ export async function POST(request: Request) {
     let totalWaitMs = 0;
     let retryCount = 0;
     let pureInferenceMs = 0;
+    let abortedTimeMs = 0;
     let rawText = '';
     
     // We MUST use gemini-3.6-flash as Google deprecated 2.5 for new users
@@ -123,11 +124,13 @@ export async function POST(request: Request) {
         break; // Success, exit loop
         
       } catch (err: any) {
-         if (err?.message?.startsWith('FATAL')) {
-            throw err;
-         }
          if (err?.name === 'AbortError') {
+            abortedTimeMs += (Date.now() - callT0);
             console.warn(`[OCR] Google API request timed out after 20s, retries left: ${retries - 1}`);
+         } else if (err?.message === '503_RETRY') {
+            abortedTimeMs += (Date.now() - callT0);
+         } else if (err?.message?.startsWith('FATAL')) {
+            throw err;
          }
          
          retries--;
@@ -157,14 +160,14 @@ export async function POST(request: Request) {
          return NextResponse.json({ 
            error: 'Gemini could not find any data in the image. Raw output: ' + text, 
            debugRaw: text, 
-           aiTimeMs, retryCount, pureInferenceMs, totalWaitMs
+           aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs
          }, { status: 400 });
       }
     } catch(e) {
-      return NextResponse.json({ error: 'Failed to parse Gemini JSON. Raw output: ' + text, debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to parse Gemini JSON. Raw output: ' + text, debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs }, { status: 400 });
     }
 
-    data._debug = { aiTimeMs, retryCount, pureInferenceMs, totalWaitMs };
+    data._debug = { aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs };
     return NextResponse.json(data);
   } catch (error: any) {
     console.error("Cloud OCR REST Error:", error);

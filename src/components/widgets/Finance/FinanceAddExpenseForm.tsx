@@ -88,6 +88,10 @@ export function FinanceAddExpenseForm({
                     <td style={{ textAlign: 'left', padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>{((ocrData._debug.pureInferenceMs || ocrData._debug.aiTimeMs || 0) / 1000).toFixed(2)} שניות</td>
                   </tr>
                   <tr>
+                    <td style={{ padding: '0.25rem 0' }}>מתוכם קריאות שבוטלו (Google Hang):</td>
+                    <td style={{ textAlign: 'left', padding: '0.25rem 0' }}>{((ocrData._debug.abortedTimeMs || 0) / 1000).toFixed(2)} שניות</td>
+                  </tr>
+                  <tr>
                     <td style={{ padding: '0.25rem 0' }}>מתוכם השהיית עומסים בצד שרת:</td>
                     <td style={{ textAlign: 'left', padding: '0.25rem 0' }}>{((ocrData._debug.totalWaitMs || 0) / 1000).toFixed(2)} שניות ({ocrData._debug.retryCount || 0} ניסיונות)</td>
                   </tr>
