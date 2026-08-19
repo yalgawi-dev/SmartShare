@@ -46,7 +46,7 @@ export async function POST(request: Request) {
     const prompt = "Please read this Israeli invoice/receipt carefully and extract the requested fields. Leave fields null if not found.";
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash-8b',
+      model: 'gemini-1.5-flash',
       contents: [
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ],
