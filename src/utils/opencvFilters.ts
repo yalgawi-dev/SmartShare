@@ -193,11 +193,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let colorfulPixels = cv.countNonZero(openedMask);
         let colorfulRatio = colorfulPixels / totalPixels;
 
-        // 2. Identify Paper regions (Moderate-to-High Value, Low Saturation)
+        // 2. Identify Paper regions (High Value, Low Saturation)
         let brightMask = new cv.Mat();
-        cv.threshold(vCheck, brightMask, 130, 255, cv.THRESH_BINARY); // Relaxed from 200 to 130 for indoor lighting
+        cv.threshold(vCheck, brightMask, 200, 255, cv.THRESH_BINARY); // Restored to strict 200 to prevent false positives on photos
         let nonColorMask = new cv.Mat();
-        cv.threshold(sCheck, nonColorMask, 60, 255, cv.THRESH_BINARY_INV); // Relaxed from 40 to 60 for camera tint
+        cv.threshold(sCheck, nonColorMask, 40, 255, cv.THRESH_BINARY_INV); // Restored to 40
         let paperMask = new cv.Mat();
         cv.bitwise_and(brightMask, nonColorMask, paperMask);
         let paperPixels = cv.countNonZero(paperMask);
