@@ -193,11 +193,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let colorfulPixels = cv.countNonZero(openedMask);
         let colorfulRatio = colorfulPixels / totalPixels;
 
-        // 2. Identify Paper regions (High Value, Low Saturation)
+        // 2. Identify Paper regions (Adaptive Lighting, Low Saturation)
         let brightMask = new cv.Mat();
-        cv.threshold(vCheck, brightMask, 200, 255, cv.THRESH_BINARY); // Restored to strict 200 to prevent false positives on photos
+        // Use Otsu's method to automatically find the perfect threshold for the lighting in the room!
+        cv.threshold(vCheck, brightMask, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
         let nonColorMask = new cv.Mat();
-        cv.threshold(sCheck, nonColorMask, 40, 255, cv.THRESH_BINARY_INV); // Restored to 40
+        cv.threshold(sCheck, nonColorMask, 40, 255, cv.THRESH_BINARY_INV);
         let paperMask = new cv.Mat();
         cv.bitwise_and(brightMask, nonColorMask, paperMask);
         let paperPixels = cv.countNonZero(paperMask);
