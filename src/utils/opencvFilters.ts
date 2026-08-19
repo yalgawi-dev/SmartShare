@@ -232,12 +232,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         dilateKernel.delete();
 
         // Auto-Detect Logic to determine default mode
-        if (colorfulRatio > 0.03 || blackRatio > 0.40) {
+        if (colorfulRatio > 0.15 || blackRatio > 0.40) {
+            // Massive color or massive dark texture -> Pure Photo
+            isPhoto = true;
+        } else if (colorfulRatio > 0.03) {
+            // Moderate color
             if (paperRatio > 0.05) {
+                // There is also bright paper -> Mixed / Collage
                 isMixed = true;
             } else {
+                // No paper -> Photo
                 isPhoto = true;
             }
+        } else {
+            // Very little color, mostly black & white -> Text/Invoice
+            // Fallback for extremely weird edge cases, though technically it should be `isPhoto = false; isMixed = false;` which defaults to text.
         }
 
         vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
