@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     let pureInferenceMs = 0;
     let rawText = '';
     
-    // We will use the lightweight and fast 3.5-flash-lite model via REST
-    const model = 'gemini-3.5-flash-lite';
+    // We will use gemini-2.5-flash as it has the highest capacity
+    const model = 'gemini-2.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
@@ -83,24 +83,31 @@ export async function POST(request: Request) {
     };
 
     while (retries > 0) {
+      if (Date.now() - totalT0 > 50000) {
+          throw new Error("FATAL: Google API is completely unresponsive (Timeout exceeded 50s). Please try again later or upgrade your API key.");
+      }
+      
       const callT0 = Date.now();
       try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt
+        
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: controller.signal
         });
         
+        clearTimeout(timeoutId);
         pureInferenceMs = Date.now() - callT0;
         
         if (!res.ok) {
            const errText = await res.text();
-           if (res.status === 503 || errText.includes('503') || errText.includes('UNAVAILABLE') || errText.includes('high demand')) {
-              console.warn(`[OCR] Google REST API 503 error, retries left: ${retries - 1}`);
-              // This will trigger the catch block below which handles the delay and decrement
+           if (res.status === 503 || errText.includes('503') || errText.includes('UNAVAILABLE') || errText.includes('high demand') || res.status === 429) {
+              console.warn(`[OCR] Google REST API 503/429 error, retries left: ${retries - 1}`);
               throw new Error('503_RETRY');
            } else {
-              // Not a 503, throw a fatal error immediately
               throw new Error(`FATAL: Google API Error ${res.status}: ${errText}`);
            }
         }
@@ -116,13 +123,16 @@ export async function POST(request: Request) {
         break; // Success, exit loop
         
       } catch (err: any) {
-         if (err.message.startsWith('FATAL')) {
-            throw err; // Abort immediately for 404/400 errors
+         if (err?.message?.startsWith('FATAL')) {
+            throw err;
+         }
+         if (err?.name === 'AbortError') {
+            console.warn(`[OCR] Google API request timed out after 20s, retries left: ${retries - 1}`);
          }
          
          retries--;
          retryCount++;
-         if (retries === 0) throw new Error(`Google API failed after 3 retries. Last error: ${err.message}`);
+         if (retries === 0) throw new Error(`Google API failed after 3 retries. Last error: ${err?.message || 'Unknown error'}`);
          
          await new Promise(resolve => setTimeout(resolve, delay));
          totalWaitMs += delay;
