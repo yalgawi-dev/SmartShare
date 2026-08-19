@@ -42,7 +42,7 @@ export async function POST(request: Request) {
       };
     }
 
-    const t0 = Date.now();
+
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
       Return ONLY a raw JSON object (no markdown, no backticks, no markdown codeblocks) with exactly these fields:
@@ -56,11 +56,17 @@ export async function POST(request: Request) {
       If you cannot find a field, leave it null. Do not include any other text.
     `;
 
+    const totalT0 = Date.now();
     let response = null;
     let retries = 3;
     let delay = 1000;
     
+    let totalWaitMs = 0;
+    let retryCount = 0;
+    let pureInferenceMs = 0;
+    
     while (retries > 0) {
+      const callT0 = Date.now();
       try {
         response = await ai.models.generateContent({
           model: 'gemini-3.6-flash',
@@ -81,21 +87,23 @@ export async function POST(request: Request) {
             }
           }
         });
+        pureInferenceMs = Date.now() - callT0;
         break; // Success, exit loop
       } catch (err: any) {
         if (err.status === 503 || err.message?.includes('503') || err.message?.includes('UNAVAILABLE') || err.message?.includes('high demand')) {
           console.warn(`[OCR] Google API 503 error, retries left: ${retries - 1}`);
           retries--;
+          retryCount++;
           if (retries === 0) throw err;
           await new Promise(resolve => setTimeout(resolve, delay));
-          delay += 500; // Linear backoff (1s, 1.5s, 2s) - max 4.5s total wait
+          totalWaitMs += delay;
+          delay += 500; // Linear backoff (1s, 1.5s, 2s)
         } else {
           throw err; // Not a 503, fail immediately
         }
       }
     }
-    const t1 = Date.now();
-    const aiTimeMs = t1 - t0;
+    const aiTimeMs = Date.now() - totalT0;
 
     let text = response?.text || '';
     console.log(`[OCR Timing] AI Inference took ${aiTimeMs}ms. Raw Output:`, text);
@@ -118,16 +126,19 @@ export async function POST(request: Request) {
            debugRaw: text, 
            debugMime: inlineData?.mimeType, 
            debugLength: inlineData?.data?.length,
-           aiTimeMs
+           aiTimeMs,
+           retryCount,
+           pureInferenceMs,
+           totalWaitMs
          }, { status: 400 });
       }
     } catch(e) {
       console.error("JSON parse error:", e, text);
-      return NextResponse.json({ error: 'Failed to parse Gemini JSON', debugRaw: text, aiTimeMs }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to parse Gemini JSON', debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs }, { status: 400 });
     }
 
     // Attach timing info to the successful response
-    data._debug = { aiTimeMs };
+    data._debug = { aiTimeMs, retryCount, pureInferenceMs, totalWaitMs };
 
     return NextResponse.json(data);
   } catch (error: any) {
@@ -135,5 +146,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message || 'Failed to process OCR', stack: error.stack }, { status: 500 });
   }
 }
+
 
 

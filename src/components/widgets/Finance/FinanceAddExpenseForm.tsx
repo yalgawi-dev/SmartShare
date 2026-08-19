@@ -74,29 +74,29 @@ export function FinanceAddExpenseForm({
             </div>
           )}
           
-          {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && !ocrDebugMessage && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '8px', padding: '0.5rem 1rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ color: '#166534', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
-                  <span>✨</span> פוענח בהצלחה
-                </div>
-                <div style={{ fontFamily: 'monospace', color: '#15803d', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                  ⏱️ {ocrElapsedTime.toFixed(2)}s סה״כ
-                </div>
-              </div>
-              
-              {ocrData._debug && (
-                <div style={{ borderTop: '1px solid #bbf7d0', paddingTop: '0.5rem', marginTop: '0.25rem', fontSize: '0.8rem', color: '#166534' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>חשיבת בינה מלאכותית (Google):</span>
-                    <span style={{ fontWeight: 'bold' }}>{(ocrData._debug.aiTimeMs / 1000).toFixed(2)}s</span>
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <span>העלאה, רשת ועיבוד השרת שלנו:</span>
-                    <span style={{ fontWeight: 'bold' }}>{(ocrElapsedTime - (ocrData._debug.aiTimeMs / 1000)).toFixed(2)}s</span>
-                  </div>
-                </div>
-              )}
+          {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && !ocrDebugMessage && ocrData._debug && (
+            <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#ecfdf5', borderRadius: '0.5rem', border: '1px solid #10b981' }}>
+              <h4 style={{ color: '#047857', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 600 }}>⏱️ נתוני ביצועים (OCR)</h4>
+              <table style={{ width: '100%', fontSize: '0.85rem', color: '#065f46', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '0.25rem 0' }}>סה"כ זמן פענוח:</td>
+                    <td style={{ fontWeight: 'bold', textAlign: 'left', padding: '0.25rem 0' }}>{((ocrData._debug.aiTimeMs || 0) / 1000).toFixed(2)} שניות</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>מתוכם ניתוח נקי (Google AI):</td>
+                    <td style={{ textAlign: 'left', padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>{((ocrData._debug.pureInferenceMs || ocrData._debug.aiTimeMs || 0) / 1000).toFixed(2)} שניות</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '0.25rem 0' }}>מתוכם זמני המתנה פסיבית (503):</td>
+                    <td style={{ textAlign: 'left', padding: '0.25rem 0' }}>{((ocrData._debug.totalWaitMs || 0) / 1000).toFixed(2)} שניות ({ocrData._debug.retryCount || 0} ניסיונות)</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>העלאה, רשת ועיבוד השרת שלנו:</td>
+                    <td style={{ textAlign: 'left', padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>{Math.max(0, ((Number(ocrData._debug.totalTimeMs) || 0) - (Number(ocrData._debug.aiTimeMs) || 0)) / 1000).toFixed(2)} שניות</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
 
