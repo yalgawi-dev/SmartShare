@@ -101,6 +101,12 @@ export async function POST(request: Request) {
         
         const json = await res.json();
         rawText = json.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        
+        if (!rawText) {
+           console.error("Empty rawText, full json:", JSON.stringify(json));
+           rawText = "EMPTY_RESPONSE_DUMP: " + JSON.stringify(json);
+        }
+        
         break; // Success, exit loop
         
       } catch (err: any) {
