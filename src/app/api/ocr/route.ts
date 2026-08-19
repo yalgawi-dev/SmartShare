@@ -42,6 +42,7 @@ export async function POST(request: Request) {
       };
     }
 
+    const t0 = performance.now();
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
       Return ONLY a raw JSON object (no markdown, no backticks, no markdown codeblocks) with exactly these fields:
@@ -61,9 +62,11 @@ export async function POST(request: Request) {
         { role: 'user', parts: [ { text: prompt }, { inlineData } ] }
       ]
     });
+    const t1 = performance.now();
+    const aiTimeMs = Math.round(t1 - t0);
 
     let text = response.text || '';
-    console.log("Raw Gemini Output:", text);
+    console.log(`[OCR Timing] AI Inference took ${aiTimeMs}ms. Raw Output:`, text);
     
     // Clean up potential markdown formatting from Gemini
     if (text.includes('\`\`\`json')) {
@@ -82,13 +85,17 @@ export async function POST(request: Request) {
            error: 'Gemini could not find any data in the image.', 
            debugRaw: text, 
            debugMime: inlineData?.mimeType, 
-           debugLength: inlineData?.data?.length 
+           debugLength: inlineData?.data?.length,
+           aiTimeMs
          }, { status: 400 });
       }
     } catch(e) {
       console.error("JSON parse error:", e, text);
-      return NextResponse.json({ error: 'Failed to parse Gemini JSON', debugRaw: text }, { status: 400 });
+      return NextResponse.json({ error: 'Failed to parse Gemini JSON', debugRaw: text, aiTimeMs }, { status: 400 });
     }
+
+    // Attach timing info to the successful response
+    data._debug = { aiTimeMs };
 
     return NextResponse.json(data);
   } catch (error) {
@@ -96,3 +103,4 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Failed to process OCR' }, { status: 500 });
   }
 }
+
