@@ -393,22 +393,31 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
-        // --- Smart Color (v11.0 Retinex Illumination Division Engine - Restored for Invoices) ---
+        // --- Smart Color (v11.1 Retinex Illumination Division Engine - Restored for Invoices) ---
         // Perfect for text and invoices.
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
+        
+        // 1. Sharpen FIRST to preserve and darken faint blurry text
+        let smartSharp = new cv.Mat();
+        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(smartRgb, 2.5, smartSharp, -1.5, 0, smartRgb);
+        smartSharp.delete();
 
         let smartGray = new cv.Mat();
         cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
 
         let smartDownscaled = new cv.Mat();
-        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        // Downscale aggressively (0.05) to ensure faint text is completely destroyed in the background estimation
+        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
 
-        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        // Larger kernel to guarantee no text bleeds into the background estimation
+        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
         cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
         smartKernel.delete();
 
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
+        // Heavy blur to ensure perfectly smooth illumination map
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(11, 11), 0, 0);
 
         let smartBg = new cv.Mat();
         cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
@@ -419,17 +428,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         for (let i = 0; i < 3; i++) {
             let channel = smartRgbPlanes.get(i);
+            // Divide original by background. Paper becomes 255 (white), text stays dark.
             cv.divide(channel, smartBg, channel, 255, -1);
             smartRgbPlanes.set(i, channel);
             channel.delete();
         }
         cv.merge(smartRgbPlanes, smartRgb);
         smartRgbPlanes.delete();
-
-        let smartSharp = new cv.Mat();
-        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartRgb);
-        smartSharp.delete();
 
         let smartHsv = new cv.Mat();
         cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
