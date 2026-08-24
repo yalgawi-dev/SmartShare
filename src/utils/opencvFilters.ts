@@ -498,8 +498,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         photoRgb.delete(); finalPureRgba.delete();
-        smartRgb.delete(); smartGray.delete(); smartBg.delete(); smartHsv.delete(); finalSmartRgba.delete();
-        
+        smartRgb.delete(); finalSmartRgba.delete();
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
