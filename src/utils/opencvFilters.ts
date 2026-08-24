@@ -430,9 +430,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.merge(smartRgbPlanes, smartRgb);
         smartRgbPlanes.delete();
 
-        // Now that the paper is uniformly pure white, we can safely apply Unsharp Masking
-        // to darken the text WITHOUT creating bright halos in the background!
-        // We will use a smaller radius (1.0 instead of 2.0) to prevent wide dark smudges.
+        // 1. Connect dot-matrix dots (Morphological Erosion expands dark pixels)
+        // This solves the "hollow letters" problem on thermal receipts by physically 
+        // bridging the tiny gaps between printed dots before we sharpen them.
+        let connectKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+        cv.erode(smartRgb, smartRgb, connectKernel);
+        connectKernel.delete();
+
+        // 2. Unsharp Masking (Post-Division)
+        // Now that the paper is uniformly pure white and dots are connected, 
+        // we can safely apply Unsharp Masking to darken the text WITHOUT creating bright halos!
         let smartSharp = new cv.Mat();
         cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 1.0);
         cv.addWeighted(smartRgb, 2.5, smartSharp, -1.5, 0, smartRgb);
