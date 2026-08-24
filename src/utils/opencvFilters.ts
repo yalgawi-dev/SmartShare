@@ -339,7 +339,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let bwRgba = new cv.Mat();
         cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
         cv.imshow(canvas, bwRgba);
-        const bwUrl = compressCanvas(canvas);
+        const bwUrl = compressCanvas(canvas, 0.85);
         
         // --- Photo Mode (v12.0 Professional Scanner Engine - For Photos) ---
         // Specially tuned for Illustrations, Photos, and colored documents.
@@ -389,7 +389,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(photoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
 
         cv.imshow(canvas, finalPureRgba);
-        const pureColorUrl = compressCanvas(canvas);
+        const pureColorUrl = compressCanvas(canvas, 0.85);
         
         // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
@@ -465,7 +465,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
 
         cv.imshow(canvas, finalSmartRgba);
-        const smartColorUrl = compressCanvas(canvas);
+        const smartColorUrl = compressCanvas(canvas, 0.85);
 
         let hybridUrl = undefined;
         if (hybridMask) {

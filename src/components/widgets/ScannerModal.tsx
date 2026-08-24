@@ -97,15 +97,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
     const canvas = document.createElement('canvas');
     
-    // Calculate a scale factor that targets exactly ~1000px width.
-    // 1000px is enough for Tesseract OCR to read text but significantly faster than 1500px or 4K.
-    const scaleFactor = 1000 / videoBox.width;
+    // Calculate a scale factor that targets a high-res ~2000px width.
+    // 1000px was too low for OCR and caused extreme blurriness when cropping small receipts.
+    const scaleFactor = 2000 / videoBox.width;
     canvas.width = videoBox.width * scaleFactor;
     canvas.height = videoBox.height * scaleFactor;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Crucial for preventing "foggy" or "aliased" artifacts when downscaling 4K video to 1000px
+    // Crucial for preventing "foggy" or "aliased" artifacts when downscaling 4K video
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
@@ -155,8 +155,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     
     setCropPoints(defaultPts);
     
-    // OPTIMIZATION: Using Single Source of Truth for compression (0.5 quality)
-    const snapshotUrl = compressCanvas(canvas);
+    // CRITICAL FIX: Save the raw snapshot with 0.95 quality!
+    // Using 0.5 quality here introduced heavy JPEG mosquito noise, which the OpenCV filters 
+    // amplified into massive "cloudy" halos and blurry text.
+    const snapshotUrl = compressCanvas(canvas, 0.95);
     setRawSnapshot(snapshotUrl);
     
     stopCamera();
