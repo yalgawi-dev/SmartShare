@@ -393,65 +393,73 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
-        // --- Smart Color (v11.2 Sauvola-Masked Color Engine) ---
-        // Perfect for text and invoices. Uses the flawless Sauvola B&W mask to extract ink,
-        // and overlays it on a pure white background. ZERO halos, preserves faint text identically to B&W.
-        
+        // --- Smart Color (v11.3 Retinex + Post-Sharpening) ---
+        // Perfect for text and invoices.
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-        
-        // Boost color and contrast slightly for the ink
+
+        let smartGray = new cv.Mat();
+        cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
+
+        let smartDownscaled = new cv.Mat();
+        // Downscale aggressively to ensure faint text is completely destroyed in the background estimation
+        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+
+        // Larger kernel to guarantee no text bleeds into the background estimation
+        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
+        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
+        smartKernel.delete();
+
+        // Heavy blur to ensure perfectly smooth illumination map
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(11, 11), 0, 0);
+
+        let smartBg = new cv.Mat();
+        cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
+        smartDownscaled.delete();
+
+        let smartRgbPlanes = new cv.MatVector();
+        cv.split(smartRgb, smartRgbPlanes);
+
+        for (let i = 0; i < 3; i++) {
+            let channel = smartRgbPlanes.get(i);
+            // Divide original by background. Paper becomes 255 (white), text stays dark.
+            cv.divide(channel, smartBg, channel, 255, -1);
+            smartRgbPlanes.set(i, channel);
+            channel.delete();
+        }
+        cv.merge(smartRgbPlanes, smartRgb);
+        smartRgbPlanes.delete();
+
+        // Now that the paper is uniformly pure white, we can safely apply Unsharp Masking
+        // to darken the text WITHOUT creating bright halos in the background!
+        // We will use a smaller radius (1.0 instead of 2.0) to prevent wide dark smudges.
+        let smartSharp = new cv.Mat();
+        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 1.0);
+        cv.addWeighted(smartRgb, 2.5, smartSharp, -1.5, 0, smartRgb);
+        smartSharp.delete();
+
         let smartHsv = new cv.Mat();
         cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
         let smartHsvPlanes = new cv.MatVector();
         cv.split(smartHsv, smartHsvPlanes);
-        
+
+        // 1. Boost Saturation
         let smartS = smartHsvPlanes.get(1);
-        smartS.convertTo(smartS, -1, 1.5, 0); // Boost saturation
+        smartS.convertTo(smartS, -1, 1.5, 0);
+        cv.threshold(smartS, smartS, 70, 255, cv.THRESH_TOZERO);
         smartHsvPlanes.set(1, smartS);
-        
+        smartS.delete();
+
+        // 2. Linear Contrast Stretch on Brightness to make faint text perfectly black
         let smartV = smartHsvPlanes.get(2);
-        smartV.convertTo(smartV, -1, 1.2, -30); // Slightly darken ink so faint colors pop
+        smartV.convertTo(smartV, -1, 1.5, -120);
         smartHsvPlanes.set(2, smartV);
-        
+        smartV.delete();
+
         cv.merge(smartHsvPlanes, smartHsv);
         cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
-        
-        smartHsvPlanes.delete(); smartS.delete(); smartV.delete(); smartHsv.delete();
-
-        // Blend with pure white paper using the Sauvola BW mask
-        let smoothMask = new cv.Mat();
-        // bw is the Sauvola output: 0 is ink, 255 is paper. Blur for anti-aliasing.
-        cv.GaussianBlur(bw, smoothMask, new cv.Size(3, 3), 0, 0);
-        
-        let mask3c = new cv.Mat();
-        cv.cvtColor(smoothMask, mask3c, cv.COLOR_GRAY2RGB);
-        let mask3cFloat = new cv.Mat();
-        mask3c.convertTo(mask3cFloat, cv.CV_32F, 1.0 / 255.0);
-        
-        let smartFloat = new cv.Mat();
-        smartRgb.convertTo(smartFloat, cv.CV_32F);
-        
-        let whiteFloat = new cv.Mat(smartRgb.rows, smartRgb.cols, cv.CV_32FC3, new cv.Scalar(255, 255, 255));
-        
-        let oneMinusMask = new cv.Mat();
-        let scalar1 = new cv.Mat(mask3cFloat.rows, mask3cFloat.cols, mask3cFloat.type(), new cv.Scalar(1.0, 1.0, 1.0));
-        cv.subtract(scalar1, mask3cFloat, oneMinusMask);
-        
-        let term1 = new cv.Mat();
-        cv.multiply(smartFloat, oneMinusMask, term1); // Ink part
-        
-        let term2 = new cv.Mat();
-        cv.multiply(whiteFloat, mask3cFloat, term2); // Paper part
-        
-        let finalFloat = new cv.Mat();
-        cv.add(term1, term2, finalFloat);
-        
-        finalFloat.convertTo(smartRgb, cv.CV_8U);
-        
-        smoothMask.delete(); mask3c.delete(); mask3cFloat.delete();
-        smartFloat.delete(); whiteFloat.delete(); oneMinusMask.delete(); scalar1.delete();
-        term1.delete(); term2.delete(); finalFloat.delete();
+        smartHsvPlanes.delete();
+        smartHsv.delete();
 
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
@@ -498,7 +506,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         photoRgb.delete(); finalPureRgba.delete();
-        smartRgb.delete(); finalSmartRgba.delete();
+        smartRgb.delete(); smartGray.delete(); smartBg.delete(); finalSmartRgba.delete();
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
