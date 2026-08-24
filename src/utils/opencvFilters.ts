@@ -398,11 +398,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
         
-        // 1. Sharpen FIRST to preserve and darken faint blurry text
-        let smartSharp = new cv.Mat();
-        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(smartRgb, 2.5, smartSharp, -1.5, 0, smartRgb);
-        smartSharp.delete();
+        // We removed the aggressive pre-sharpening here because it creates halos around blurry text.
+        // Instead, we will apply a linear contrast stretch AFTER the background division to darken text without smudges.
 
         let smartGray = new cv.Mat();
         cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
@@ -441,16 +438,24 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let smartHsvPlanes = new cv.MatVector();
         cv.split(smartHsv, smartHsvPlanes);
 
+        // 1. Boost Saturation
         let smartS = smartHsvPlanes.get(1);
         smartS.convertTo(smartS, -1, 1.8, 0);
-        // THRESH_TOZERO increased to 70 to aggressively eliminate bluish/reddish stains from hand shadows
         cv.threshold(smartS, smartS, 70, 255, cv.THRESH_TOZERO);
-
         smartHsvPlanes.set(1, smartS);
+        smartS.delete();
+
+        // 2. Linear Contrast Stretch on Brightness (Value)
+        // Paper is ~255. We want to map faint text (~200) to pitch black (0).
+        // formula: new_v = old_v * 1.5 - 120. (255 stays 255. 200 becomes 180. 100 becomes 30).
+        let smartV = smartHsvPlanes.get(2);
+        smartV.convertTo(smartV, -1, 1.5, -120);
+        smartHsvPlanes.set(2, smartV);
+        smartV.delete();
+
         cv.merge(smartHsvPlanes, smartHsv);
         cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
         smartHsvPlanes.delete();
-        smartS.delete();
 
         let finalSmartRgba = new cv.Mat();
         cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
