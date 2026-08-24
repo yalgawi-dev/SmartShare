@@ -156,12 +156,20 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let gray = new cv.Mat();
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
-        let bw = new cv.Mat();
-        bw.create(gray.rows, gray.cols, cv.CV_8UC1);
+        // 1. Sharpening: crucial for blurry dot-matrix thermal receipts
+        let blurred = new cv.Mat();
+        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 2);
+        let sharpened = new cv.Mat();
+        // Strongly boost edges to help faint text survive the threshold
+        cv.addWeighted(gray, 2.0, blurred, -1.0, 0, sharpened);
+        blurred.delete();
         
-        const w = gray.cols;
-        const h = gray.rows;
-        const grayData = gray.data;
+        let bw = new cv.Mat();
+        bw.create(sharpened.rows, sharpened.cols, cv.CV_8UC1);
+        
+        const w = sharpened.cols;
+        const h = sharpened.rows;
+        const grayData = sharpened.data;
         const bwData = bw.data;
         
         // 2. Compute mean & variance integral images in O(N)
@@ -185,8 +193,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         // 3. Sauvola Local Adaptive Thresholding parameters
-        const S = 15; // Window size (small enough for micro-text)
-        const k = 0.12; // Threshold tuning
+        const S = 31; // Larger window to encompass whole words, not just strokes
+        const k = 0.05; // Lower K to preserve very faint text (was 0.12)
         const R = 128; // Dynamic range standard deviation for 8-bit gray
         
         for (let y = 0; y < h; y++) {
@@ -489,7 +497,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-        gray.delete(); bw.delete(); 
+        gray.delete(); sharpened.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         
         // Legacy pure objects were replaced by photo objects and already cleaned up.
