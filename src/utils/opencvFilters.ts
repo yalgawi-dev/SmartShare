@@ -152,17 +152,88 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.imshow(canvas, dst);
         const croppedUrl = compressCanvas(canvas);
 
-        // --- B&W Enhancement ---
+        // --- B&W Enhancement (Sauvola Adaptive Thresholding for Thermal Receipts) ---
         let gray = new cv.Mat();
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
-        let blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 2);
-        let sharpened = new cv.Mat();
-        cv.addWeighted(gray, 1.7, blurred, -0.7, 0, sharpened);
-        
         let bw = new cv.Mat();
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 55, 15);
+        bw.create(gray.rows, gray.cols, cv.CV_8UC1);
+        
+        const w = gray.cols;
+        const h = gray.rows;
+        const grayData = gray.data;
+        const bwData = bw.data;
+        
+        // 2. Compute mean & variance integral images in O(N)
+        const intImg = new Uint32Array(w * h);
+        const intSqImg = new Float64Array(w * h);
+        for (let y = 0; y < h; y++) {
+          let sum = 0;
+          let sqSum = 0;
+          for (let x = 0; x < w; x++) {
+            const val = grayData[y * w + x];
+            sum += val;
+            sqSum += val * val;
+            if (y === 0) {
+              intImg[y * w + x] = sum;
+              intSqImg[y * w + x] = sqSum;
+            } else {
+              intImg[y * w + x] = intImg[(y - 1) * w + x] + sum;
+              intSqImg[y * w + x] = intSqImg[(y - 1) * w + x] + sqSum;
+            }
+          }
+        }
+
+        // 3. Sauvola Local Adaptive Thresholding parameters
+        const S = 15; // Window size (small enough for micro-text)
+        const k = 0.12; // Threshold tuning
+        const R = 128; // Dynamic range standard deviation for 8-bit gray
+        
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            const idx = y * w + x;
+            const pix = grayData[idx];
+            
+            // Bounds for local window
+            const x1 = Math.max(0, x - Math.floor(S / 2));
+            const x2 = Math.min(w - 1, x + Math.floor(S / 2));
+            const y1 = Math.max(0, y - Math.floor(S / 2));
+            const y2 = Math.min(h - 1, y + Math.floor(S / 2));
+            
+            const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+            
+            // Get local mean
+            let sum = intImg[y2 * w + x2];
+            if (x1 > 0) sum -= intImg[y2 * w + (x1 - 1)];
+            if (y1 > 0) sum -= intImg[(y1 - 1) * w + x2];
+            if (x1 > 0 && y1 > 0) sum += intImg[(y1 - 1) * w + (x1 - 1)];
+            
+            // Get local standard deviation
+            let sqSum = intSqImg[y2 * w + x2];
+            if (x1 > 0) sqSum -= intSqImg[y2 * w + (x1 - 1)];
+            if (y1 > 0) sqSum -= intSqImg[(y1 - 1) * w + x2];
+            if (x1 > 0 && y1 > 0) sqSum += intSqImg[(y1 - 1) * w + (x1 - 1)];
+            
+            const mean = sum / count;
+            const variance = (sqSum / count) - (mean * mean);
+            const std = Math.sqrt(Math.max(0, variance));
+            
+            const threshold = mean * (1 + k * (std / R - 1));
+            
+            let val = 255;
+            if (pix < threshold) {
+              val = 0; // Black
+            }
+            
+            // Force dark pixels to black to guarantee text readability (Threshold ~130)
+            // Skip in shadow areas (local mean < 140) to prevent black blob artifacting
+            if (pix < 130 && mean >= 140) {
+              val = 0;
+            }
+            
+            bwData[idx] = val;
+          }
+        }
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
@@ -418,7 +489,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-        gray.delete(); blurred.delete(); sharpened.delete(); bw.delete(); 
+        gray.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         
         // Legacy pure objects were replaced by photo objects and already cleaned up.
