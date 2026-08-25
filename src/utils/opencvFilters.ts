@@ -418,60 +418,65 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.GaussianBlur(plusRgb, plusSharp, new cv.Size(0, 0), 1.0);
         cv.addWeighted(plusRgb, 2.0, plusSharp, -1.0, 0, plusRgb);
         plusSharp.delete();
-
-        // 1. RGB Background Illumination Map
-        let plusSmall = new cv.Mat();
-        cv.resize(plusRgb, plusSmall, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
-        let plusBgSmall = new cv.Mat();
-        let plusBgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21));
-        cv.morphologyEx(plusSmall, plusBgSmall, cv.MORPH_CLOSE, plusBgKernel);
-        plusBgKernel.delete();
-        plusSmall.delete();
-        
-        let plusBg = new cv.Mat();
-        cv.resize(plusBgSmall, plusBg, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
-        plusBgSmall.delete();
-        cv.GaussianBlur(plusBg, plusBg, new cv.Size(51, 51), 0, 0); // Smooth shadows
-        
-        // 2. RGB Retinex Flattening (Paper color becomes PURE WHITE!)
-        // Divide channel by channel to neutralize yellow/blue paper colors completely.
-        let planesRgb = new cv.MatVector();
-        cv.split(plusRgb, planesRgb);
-        let planesBg = new cv.MatVector();
-        cv.split(plusBg, planesBg);
-        
-        for (let i = 0; i < 3; i++) {
-            let p = planesRgb.get(i);
-            let bgP = planesBg.get(i);
-            cv.divide(p, bgP, p, 255, -1);
-            planesRgb.set(i, p);
-            p.delete(); bgP.delete();
-        }
-        cv.merge(planesRgb, plusRgb);
-        planesRgb.delete();
-        planesBg.delete();
-        plusBg.delete();
-
-        // 3. Magic Color Curve & Saturation Boost
         let plusHsv = new cv.Mat();
         cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
         let plusHsvPlanes = new cv.MatVector();
         cv.split(plusHsv, plusHsvPlanes);
 
-        let plusV = plusHsvPlanes.get(2);
-        let magicCurve = new cv.Mat();
-        // Shift black point to make text bold, clip safely.
-        plusV.convertTo(magicCurve, -1, 255.0 / 215.0, - (40 * 255.0 / 215.0));
-        plusHsvPlanes.set(2, magicCurve);
-        plusV.delete();
-        magicCurve.delete();
-
+        let plusH = plusHsvPlanes.get(0);
         let plusS = plusHsvPlanes.get(1);
-        plusS.convertTo(plusS, -1, 2.5, 0); // 2.5x saturation!
-        cv.threshold(plusS, plusS, 45, 255, cv.THRESH_TOZERO);
+        let plusV = plusHsvPlanes.get(2);
+
+        // 1. Ultimate Shadow Killer Background Map
+        let plusVSmall = new cv.Mat();
+        cv.resize(plusV, plusVSmall, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        
+        let plusBgSmall = new cv.Mat();
+        // Light dilate to eat thin text without shifting shadows
+        let plusBgKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+        cv.dilate(plusVSmall, plusBgSmall, plusBgKernel);
+        plusBgKernel.delete();
+        
+        // Massive blur to capture broad shadows perfectly
+        cv.GaussianBlur(plusBgSmall, plusBgSmall, new cv.Size(21, 21), 0, 0);
+        plusVSmall.delete();
+        
+        let plusBg = new cv.Mat();
+        cv.resize(plusBgSmall, plusBg, new cv.Size(plusV.cols, plusV.rows), 0, 0, cv.INTER_CUBIC);
+        plusBgSmall.delete();
+        cv.GaussianBlur(plusBg, plusBg, new cv.Size(31, 31), 0, 0); // Smooth upscale artifacts
+        
+        // 2. Retinex Flattening on V (Eliminates Shadows)
+        cv.divide(plusV, plusBg, plusV, 255, -1);
+        plusBg.delete();
+
+        // 3. Magic Curve & Smart Desaturation
+        let sData = plusS.data;
+        let vData = plusV.data;
+        for (let i = 0; i < sData.length; i++) {
+            let v = vData[i];
+            let s = sData[i];
+            
+            // If it's paper/shadow (bright after division), kill its color completely
+            if (v >= 190) {
+                sData[i] = 0; 
+            } else if (v <= 140) {
+                sData[i] = Math.min(255, s * 2.5); // Vivid ink
+            } else {
+                let ratio = (190 - v) / 50.0; // Smooth blend
+                sData[i] = Math.min(255, s * 2.5) * ratio;
+            }
+            
+            // Aggressive Magic Curve: Crush faint shadows to pure white, darken text
+            // Map 40 -> 0, and 210 -> 255. Anything above 210 becomes perfectly white!
+            let newV = (v - 40) * (255.0 / (210.0 - 40.0));
+            vData[i] = Math.max(0, Math.min(255, newV));
+        }
+
         plusHsvPlanes.set(1, plusS);
-        plusS.delete();
+        plusHsvPlanes.set(2, plusV);
+        plusH.delete(); plusS.delete(); plusV.delete();
 
         cv.merge(plusHsvPlanes, plusHsv);
         cv.cvtColor(plusHsv, plusRgb, cv.COLOR_HSV2RGB);
