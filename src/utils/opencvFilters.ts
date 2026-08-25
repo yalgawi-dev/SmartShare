@@ -398,103 +398,56 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
-        // --- Smart Color (v11.3 Retinex + Post-Sharpening) ---
-        // Perfect for text and invoices.
+        // --- Smart Color (v12.5 Ultimate Masked Color Engine - CamScanner Style) ---
+        // We use the flawless B&W mask to perfectly isolate text from the paper.
+        // Pure paper is forced to [255, 255, 255] (zero noise, zero shadows).
+        // Text keeps its original raw camera color, but is gently darkened/sharpened to pop.
         let smartRgb = new cv.Mat();
         cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
 
-        let smartGray = new cv.Mat();
-        cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
-
-        let smartDownscaled = new cv.Mat();
-        // Return to 0.05 scale! At 0.1 scale, thick text was not fully erased by MORPH_CLOSE,
-        // so it stayed in the background map. Dividing by a text-filled background map washed out the real text!
-        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
-
-        // Massive MORPH_ELLIPSE perfectly guarantees no text survives to pollute the background map.
-        // Ellipse creates a much smoother natural gradient than RECT, preventing blocky shadow artifacts.
-        let smartKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(11, 11));
-        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
-        smartKernel.delete();
-
-        // Moderate Gaussian Blur: Soft enough to avoid jagged edges on the shadow boundary, 
-        // but tight enough (5x5 instead of 11x11) to prevent the bright paper from bleeding into the shadow and causing a halo.
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
-
-        let smartBg = new cv.Mat();
-        cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
-        smartDownscaled.delete();
-
-        let smartRgbPlanes = new cv.MatVector();
-        cv.split(smartRgb, smartRgbPlanes);
-
-        for (let i = 0; i < 3; i++) {
-            let channel = smartRgbPlanes.get(i);
-            // Divide original by background. Paper becomes 255 (white), text stays dark.
-            cv.divide(channel, smartBg, channel, 255, -1);
-            smartRgbPlanes.set(i, channel);
-            channel.delete();
-        }
-        cv.merge(smartRgbPlanes, smartRgb);
-        smartRgbPlanes.delete();
-
-        // 1. Connect dot-matrix dots (Morphological Erosion expands dark pixels)
-        // This solves the "hollow letters" problem on thermal receipts by physically 
-        // bridging the tiny gaps between printed dots before we sharpen them.
-        let connectKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-        cv.erode(smartRgb, smartRgb, connectKernel);
-        connectKernel.delete();
-
-        // 2. Unsharp Masking (Post-Division)
-        // Now that the paper is uniformly pure white and dots are connected, 
-        // we can safely apply Unsharp Masking to darken the text WITHOUT creating bright halos!
+        // 1. Unsharp Mask the original image to make text edges crisp
         let smartSharp = new cv.Mat();
         cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 1.0);
-        cv.addWeighted(smartRgb, 2.5, smartSharp, -1.5, 0, smartRgb);
-        smartSharp.delete();
+        cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartSharp);
 
-        let smartHsv = new cv.Mat();
-        cv.cvtColor(smartRgb, smartHsv, cv.COLOR_RGB2HSV);
-        let smartHsvPlanes = new cv.MatVector();
-        cv.split(smartHsv, smartHsvPlanes);
+        // 2. Anti-alias the flawless B&W mask so text edges are smooth, not jagged.
+        let smoothMask = new cv.Mat();
+        cv.GaussianBlur(bw, smoothMask, new cv.Size(3, 3), 0, 0);
 
-        // 1. Boost Saturation gently to make pen ink pop
-        let smartS = smartHsvPlanes.get(1);
-        smartS.convertTo(smartS, -1, 1.5, 10);
-        // Removed THRESH_TOZERO because it was deleting handwriting color! 
-        // Retinex already forces paper to white (0 saturation), so we don't need this threshold.
-        smartHsvPlanes.set(1, smartS);
-        smartS.delete();
+        let smartData = smartSharp.data;
+        let maskData = smoothMask.data;
+        let numPixels = smartSharp.rows * smartSharp.cols;
 
-        // 2. Smart Darkening using the Flawless B&W Mask!
-        // Instead of a massive global contrast stretch that crushes color to pitch black,
-        // we use the B&W engine's mask to ONLY darken the text, preserving its color perfectly!
-        let smartV = smartHsvPlanes.get(2);
+        for (let i = 0; i < numPixels; i++) {
+            let maskVal = maskData[i];
+            
+            if (maskVal === 255) {
+                // Fast Path: Pure paper -> Pure Brilliant White
+                smartData[i * 3] = 255;
+                smartData[i * 3 + 1] = 255;
+                smartData[i * 3 + 2] = 255;
+            } else {
+                let alphaPaper = maskVal / 255.0; // 1.0 for paper, 0.0 for core text
+                let alphaText = 1.0 - alphaPaper; // 0.0 for paper, 1.0 for core text
+                
+                // Keep original vivid color, just darken it slightly (subtract 40) so it's bold like fresh ink.
+                let r = Math.max(0, smartData[i * 3] - 40);
+                let g = Math.max(0, smartData[i * 3 + 1] - 40);
+                let b = Math.max(0, smartData[i * 3 + 2] - 40);
+                
+                // Blend perfectly between the vivid dark ink and the pure white paper
+                smartData[i * 3] = r * alphaText + 255 * alphaPaper;
+                smartData[i * 3 + 1] = g * alphaText + 255 * alphaPaper;
+                smartData[i * 3 + 2] = b * alphaText + 255 * alphaPaper;
+            }
+        }
         
-        let textMask = new cv.Mat();
-        cv.bitwise_not(bw, textMask); // Text is 255, paper is 0
-        
-        let darkenAmount = new cv.Mat();
-        // Lower brightness of text by 110. (e.g. 230 faint blue -> 120 strong dark blue)
-        textMask.convertTo(darkenAmount, -1, 110 / 255.0, 0); 
-        
-        cv.subtract(smartV, darkenAmount, smartV);
-        
-        // Gentle global stretch to ensure paper is brilliant white
-        smartV.convertTo(smartV, -1, 1.1, -10);
-        
-        smartHsvPlanes.set(2, smartV);
-        smartV.delete();
-        textMask.delete();
-        darkenAmount.delete();
-
-        cv.merge(smartHsvPlanes, smartHsv);
-        cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
-        smartHsvPlanes.delete();
-        smartHsv.delete();
+        smoothMask.delete();
+        smartRgb.delete();
 
         let finalSmartRgba = new cv.Mat();
-        cv.cvtColor(smartRgb, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(smartSharp, finalSmartRgba, cv.COLOR_RGB2RGBA);
+        smartSharp.delete();
 
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas, 0.85);
@@ -538,7 +491,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         photoRgb.delete(); finalPureRgba.delete();
-        smartRgb.delete(); smartGray.delete(); smartBg.delete(); finalSmartRgba.delete();
+        finalSmartRgba.delete();
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
