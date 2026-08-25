@@ -439,7 +439,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
 
         // 2. Flatten Illumination (So text in shadow doesn't turn black!)
-        let plusHsv = new cv.Mat();
         cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
         let planes = new cv.MatVector();
         cv.split(plusHsv, planes);
