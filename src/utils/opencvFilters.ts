@@ -438,30 +438,41 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         grayForMask.delete();
         cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
 
-        // 2. Flatten Illumination (So text in shadow doesn't turn black!)
-        cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
-        let planes = new cv.MatVector();
-        cv.split(plusHsv, planes);
-        let V = planes.get(2);
+        // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
+        let smallRgb = new cv.Mat();
+        cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        let bgSmall = new cv.Mat();
+        cv.medianBlur(smallRgb, bgSmall, 15); // Erases text, keeps shadows
+        smallRgb.delete();
         
-        // Fast, flawless background estimation using Median Blur (ignores text completely)
-        let smallV = new cv.Mat();
-        cv.resize(V, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        bgSmall = new cv.Mat();
-        cv.medianBlur(smallV, bgSmall, 15); // Erases text, keeps shadows
-        smallV.delete();
-        
-        let bgV = new cv.Mat();
-        cv.resize(bgSmall, bgV, new cv.Size(V.cols, V.rows), 0, 0, cv.INTER_CUBIC);
+        let bgRgb = new cv.Mat();
+        cv.resize(bgSmall, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
         bgSmall.delete();
-        cv.GaussianBlur(bgV, bgV, new cv.Size(31, 31), 0, 0); // Smooth
+        cv.GaussianBlur(bgRgb, bgRgb, new cv.Size(31, 31), 0, 0); // Smooth
         
-        // Divide to flatten shadows - now text in shadow is just as bright as text in light!
-        let flatV = new cv.Mat();
-        cv.divide(V, bgV, flatV, 255, -1);
-        bgV.delete(); V.delete();
+        let flatRgb = new cv.Mat();
+        let planesRgb = new cv.MatVector();
+        cv.split(plusRgb, planesRgb);
+        let planesBg = new cv.MatVector();
+        cv.split(bgRgb, planesBg);
         
-        // 3. Create the Vivid Ink layer using the flattened brightness!
+        // Divide channel by channel to physically neutralize the shadow's ambient light
+        for (let i = 0; i < 3; i++) {
+            let p = planesRgb.get(i);
+            let bgP = planesBg.get(i);
+            cv.divide(p, bgP, p, 255, -1);
+            planesRgb.set(i, p);
+            p.delete(); bgP.delete();
+        }
+        cv.merge(planesRgb, flatRgb);
+        planesRgb.delete(); planesBg.delete(); bgRgb.delete();
+
+        // 3. Create the Vivid Ink layer using the color-restored image!
+        let flatHsv = new cv.Mat();
+        cv.cvtColor(flatRgb, flatHsv, cv.COLOR_RGB2HSV);
+        let planes = new cv.MatVector();
+        cv.split(flatHsv, planes);
+        
         // 2.5x Saturation for popping ink colors
         let S = planes.get(1);
         S.convertTo(S, -1, 2.5, 0);
@@ -469,15 +480,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         S.delete();
         
         // Darken the flattened ink to make it bold
+        let V = planes.get(2);
         let VCurve = new cv.Mat();
-        flatV.convertTo(VCurve, -1, 1.2, -40); 
+        V.convertTo(VCurve, -1, 1.2, -40); 
         planes.set(2, VCurve);
-        flatV.delete(); VCurve.delete();
+        V.delete(); VCurve.delete();
         
-        cv.merge(planes, plusHsv);
+        cv.merge(planes, flatHsv);
         let boostedRgb = new cv.Mat();
-        cv.cvtColor(plusHsv, boostedRgb, cv.COLOR_HSV2RGB);
-        plusHsv.delete(); planes.delete();
+        cv.cvtColor(flatHsv, boostedRgb, cv.COLOR_HSV2RGB);
+        flatHsv.delete(); planes.delete(); flatRgb.delete();
 
         // 4. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
         let maskFloat = new cv.Mat();
