@@ -243,6 +243,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           }
         }
         
+        // 4. Magic Pepper-Noise Removal!
+        // Median blur completely destroys isolated 1-pixel or 2-pixel black dots (like sensor noise in shadows)
+        // while perfectly preserving the solid, connected lines of the text.
+        cv.medianBlur(bw, bw, 3);
+        
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
         
@@ -405,13 +410,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // Downscale aggressively to ensure faint text is completely destroyed in the background estimation
         cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
 
-        // Larger kernel to guarantee no text bleeds into the background estimation
-        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
-        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
+        // Use a smaller Dilation kernel instead of MORPH_CLOSE.
+        // MORPH_CLOSE (dilate then erode) spreads bright paper into dark shadows, ruining the shadow map.
+        // Dilation alone (taking local maximum) is enough to erase thin black text,
+        // while perfectly maintaining the shape and depth of large soft shadows!
+        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+        cv.dilate(smartDownscaled, smartDownscaled, smartKernel);
         smartKernel.delete();
 
-        // Heavy blur to ensure perfectly smooth illumination map
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(11, 11), 0, 0);
+        // Lighter blur to perfectly map the shadows without bleeding them
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
 
         let smartBg = new cv.Mat();
         cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
