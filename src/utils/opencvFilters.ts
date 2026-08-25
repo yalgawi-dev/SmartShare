@@ -447,7 +447,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // Fast, flawless background estimation using Median Blur (ignores text completely)
         let smallV = new cv.Mat();
         cv.resize(V, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        let bgSmall = new cv.Mat();
+        bgSmall = new cv.Mat();
         cv.medianBlur(smallV, bgSmall, 15); // Erases text, keeps shadows
         smallV.delete();
         
