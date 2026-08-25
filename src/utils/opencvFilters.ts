@@ -402,10 +402,28 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
         let smallRgb = new cv.Mat();
         cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        let bgSmall2 = new cv.Mat();
-        cv.medianBlur(smallRgb, bgSmall2, 15); // Erases text, keeps shadows
-        cv.GaussianBlur(bgSmall2, bgSmall2, new cv.Size(3, 3), 0, 0); // Fast smooth on downscaled image!
+        
+        // Inpaint colorful logos so they don't become part of the background illumination map!
+        // This prevents Retinex from erasing the logo, and eliminates gray halos around it.
+        let binaryHybrid = new cv.Mat();
+        cv.threshold(hybridMask, binaryHybrid, 50, 255, cv.THRESH_BINARY);
+        let smallLogoMask = new cv.Mat();
+        cv.resize(binaryHybrid, smallLogoMask, new cv.Size(smallRgb.cols, smallRgb.rows), 0, 0, cv.INTER_NEAREST);
+        binaryHybrid.delete();
+        
+        let inpaintedSmallRgb = new cv.Mat();
+        if (colorfulRatio < 0.4 && cv.countNonZero(smallLogoMask) > 0) {
+            cv.inpaint(smallRgb, smallLogoMask, inpaintedSmallRgb, 3, cv.INPAINT_TELEA);
+        } else {
+            smallRgb.copyTo(inpaintedSmallRgb);
+        }
+        smallLogoMask.delete();
         smallRgb.delete();
+        
+        let bgSmall2 = new cv.Mat();
+        cv.medianBlur(inpaintedSmallRgb, bgSmall2, 15); // Erases text, keeps shadows (logos are inpainted out so they are protected!)
+        inpaintedSmallRgb.delete();
+        cv.GaussianBlur(bgSmall2, bgSmall2, new cv.Size(3, 3), 0, 0); // Fast smooth on downscaled image!
         
         let bgRgb = new cv.Mat();
         cv.resize(bgSmall2, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
@@ -453,9 +471,20 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         flatHsv.delete(); planes.delete(); flatRgb.delete();
 
         // 4. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
+        let combinedMask = new cv.Mat();
+        if (colorfulRatio < 0.4) {
+            let hardHybrid = new cv.Mat();
+            cv.threshold(hybridMask, hardHybrid, 10, 255, cv.THRESH_BINARY);
+            cv.bitwise_or(mask, hardHybrid, combinedMask);
+            hardHybrid.delete();
+        } else {
+            mask.copyTo(combinedMask);
+        }
+        
         let maskFloat = new cv.Mat();
-        mask.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
+        combinedMask.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
         mask.delete();
+        combinedMask.delete();
         
         let mask3 = new cv.Mat();
         cv.cvtColor(maskFloat, mask3, cv.COLOR_GRAY2RGB);
