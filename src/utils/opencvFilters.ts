@@ -169,12 +169,20 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         const w = sharpened.cols;
         const h = sharpened.rows;
-        const grayData = sharpened.data;
-        const bwData = bw.data;
         
-        // 2. Compute mean & variance integral images in O(N)
-        const intImg = new Uint32Array(w * h);
-        const intSqImg = new Float64Array(w * h);
+        // --- PRE-PROCESSING FOR B&W ---
+        // Boost contrast heavily so faint blue text becomes dark enough to cross a strict Sauvola threshold.
+        // This allows us to use a strict K (no pepper noise) without losing faint text!
+        let enhancedGray = new cv.Mat();
+        sharpened.convertTo(enhancedGray, -1, 1.5, -60);
+        
+        let grayData = enhancedGray.data;
+        let bwData = bw.data;
+        
+        // 1. Integral Images for O(1) local mean and variance
+        let intImg = new Int32Array((w + 1) * (h + 1));
+        let intSqImg = new Float64Array((w + 1) * (h + 1));
+        
         for (let y = 0; y < h; y++) {
           let sum = 0;
           let sqSum = 0;
@@ -182,20 +190,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             const val = grayData[y * w + x];
             sum += val;
             sqSum += val * val;
-            if (y === 0) {
-              intImg[y * w + x] = sum;
-              intSqImg[y * w + x] = sqSum;
-            } else {
-              intImg[y * w + x] = intImg[(y - 1) * w + x] + sum;
-              intSqImg[y * w + x] = intSqImg[(y - 1) * w + x] + sqSum;
-            }
+            
+            const idx = (y + 1) * (w + 1) + (x + 1);
+            intImg[idx] = intImg[y * (w + 1) + (x + 1)] + sum;
+            intSqImg[idx] = intSqImg[y * (w + 1) + (x + 1)] + sqSum;
           }
         }
-
+        
         // 3. Sauvola Local Adaptive Thresholding parameters
-        const S = 31; // Larger window to encompass whole words, not just strokes
-        const k = 0.05; // Ideal sensitivity for faint text
-        const R = 128; // Dynamic range standard deviation for 8-bit gray
+        const S = 31; // Larger window to encompass whole words
+        const k = 0.12; // Strict K to guarantee ZERO pepper noise around text! (Contrast stretch saves the text)
+        const R = 128; // Dynamic range standard deviation
         
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
@@ -211,16 +216,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             const count = (x2 - x1 + 1) * (y2 - y1 + 1);
             
             // Get local mean
-            let sum = intImg[y2 * w + x2];
-            if (x1 > 0) sum -= intImg[y2 * w + (x1 - 1)];
-            if (y1 > 0) sum -= intImg[(y1 - 1) * w + x2];
-            if (x1 > 0 && y1 > 0) sum += intImg[(y1 - 1) * w + (x1 - 1)];
+            let sum = intImg[(y2 + 1) * (w + 1) + (x2 + 1)] - intImg[y1 * (w + 1) + (x2 + 1)] - intImg[(y2 + 1) * (w + 1) + x1] + intImg[y1 * (w + 1) + x1];
             
             // Get local standard deviation
-            let sqSum = intSqImg[y2 * w + x2];
-            if (x1 > 0) sqSum -= intSqImg[y2 * w + (x1 - 1)];
-            if (y1 > 0) sqSum -= intSqImg[(y1 - 1) * w + x2];
-            if (x1 > 0 && y1 > 0) sqSum += intSqImg[(y1 - 1) * w + (x1 - 1)];
+            let sqSum = intSqImg[(y2 + 1) * (w + 1) + (x2 + 1)] - intSqImg[y1 * (w + 1) + (x2 + 1)] - intSqImg[(y2 + 1) * (w + 1) + x1] + intSqImg[y1 * (w + 1) + x1];
             
             const mean = sum / count;
             const variance = (sqSum / count) - (mean * mean);
@@ -233,16 +232,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
               val = 0; // Black
             }
             
-            // Force dark pixels to black to guarantee text readability (Threshold ~130)
-            // Skip in shadow areas (local mean < 140) to prevent black blob artifacting
+            // Force dark pixels to black to guarantee text readability
             if (pix < 130 && mean >= 140) {
               val = 0;
             }
 
-            // MAGIC BULLET: If standard deviation is very low (< 10), it means the area is completely flat 
-            // (either flat bright paper or flat deep shadow). There is no text here!
-            // Any pixels falling below the threshold are purely compression/sensor noise.
-            // Forcing them to white guarantees 0 pepper noise in flat shadows and flat paper!
+            // Flat area noise rejection
             if (std < 10) {
               val = 255;
             }
@@ -251,8 +246,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           }
         }
         
-        // Removed medianBlur here because it was causing letters with small holes (0, 8, 3) 
-        // to fill in and become "clumpy". The std < 10 check is already enough to kill the noise!
+        enhancedGray.delete();
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
@@ -471,9 +465,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         smartHsvPlanes.set(1, smartS);
         smartS.delete();
 
-        // 2. Linear Contrast Stretch on Brightness to make faint text perfectly black
+        // 2. MASSIVE Contrast Stretch to fix washed-out faint text!
+        // Moves the black point incredibly high so faint blue text becomes bold and dark.
         let smartV = smartHsvPlanes.get(2);
-        smartV.convertTo(smartV, -1, 1.5, -120);
+        smartV.convertTo(smartV, -1, 3.4, -600);
         smartHsvPlanes.set(2, smartV);
         smartV.delete();
 
