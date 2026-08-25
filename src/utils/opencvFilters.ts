@@ -374,11 +374,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let plusRgb = new cv.Mat();
         cv.cvtColor(dst, plusRgb, cv.COLOR_RGBA2RGB);
 
-        // Enhance edges gently
-        let plusSharp = new cv.Mat();
-        cv.GaussianBlur(plusRgb, plusSharp, new cv.Size(0, 0), 1.0);
-        cv.addWeighted(plusRgb, 2.0, plusSharp, -1.0, 0, plusRgb);
-        plusSharp.delete();
+        // Enhance edges gently (Removed Unsharp Mask because it amplifies JPG chroma noise into rainbow dots!)
         
         let plusHsv = new cv.Mat();
         cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
@@ -452,9 +448,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let planes = new cv.MatVector();
         cv.split(flatHsv, planes);
         
-        // 2.5x Saturation for popping ink colors
+        // 1.25x Saturation for popping ink colors (2.5x was too aggressive and created rainbow noise)
         let S = planes.get(1);
-        S.convertTo(S, -1, 2.5, 0);
+        S.convertTo(S, -1, 1.25, 0);
         planes.set(1, S);
         S.delete();
         
