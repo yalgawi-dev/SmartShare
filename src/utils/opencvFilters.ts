@@ -194,6 +194,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // 3. Sauvola Local Adaptive Thresholding parameters
         const S = 31; // Larger window to encompass whole words, not just strokes
+        const k = 0.05; // Ideal sensitivity for faint text
         const R = 128; // Dynamic range standard deviation for 8-bit gray
         
         for (let y = 0; y < h; y++) {
@@ -225,20 +226,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             const variance = (sqSum / count) - (mean * mean);
             const std = Math.sqrt(Math.max(0, variance));
             
-            // Dynamic K: The magic bullet for shadows!
-            // Sensitive (0.02) in bright areas to catch faint dot-matrix text.
-            // Strict (0.15) in dark shadows to ignore huge clumps of compression noise.
-            let dynamicK = 0.05;
-            if (mean > 160) {
-              dynamicK = 0.02; // Bright paper
-            } else if (mean < 100) {
-              dynamicK = 0.15; // Deep shadow
-            } else {
-              // Interpolate smoothly between 100 and 160
-              dynamicK = 0.15 - ((mean - 100) / 60) * (0.15 - 0.02);
-            }
-            
-            const threshold = mean * (1 + dynamicK * (std / R - 1));
+            const threshold = mean * (1 + k * (std / R - 1));
             
             let val = 255;
             if (pix < threshold) {
@@ -250,14 +238,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             if (pix < 130 && mean >= 140) {
               val = 0;
             }
+
+            // MAGIC BULLET: If standard deviation is very low (< 10), it means the area is completely flat 
+            // (either flat bright paper or flat deep shadow). There is no text here!
+            // Any pixels falling below the threshold are purely compression/sensor noise.
+            // Forcing them to white guarantees 0 pepper noise in flat shadows and flat paper!
+            if (std < 10) {
+              val = 255;
+            }
             
             bwData[idx] = val;
           }
         }
         
         // 4. Magic Pepper-Noise Removal!
-        // Median blur completely destroys isolated 1-pixel or 2-pixel black dots (like sensor noise in shadows)
-        // while perfectly preserving the solid, connected lines of the text.
+        // Median blur completely destroys isolated 1-pixel or 2-pixel black dots
         cv.medianBlur(bw, bw, 3);
         
         let darkMask = new cv.Mat();
@@ -419,16 +414,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
 
         let smartDownscaled = new cv.Mat();
-        // Downscale aggressively to ensure faint text is completely destroyed in the background estimation
-        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        // Downscale to 0.1 instead of 0.05 to maintain better shadow boundary geometry
+        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
 
-        // Use a Median Blur instead of Dilation.
-        // Dilation spreads bright paper into dark shadows, causing a bright halo around the shadow.
-        // Median Blur completely erases thin black text, but PERFECTLY preserves the exact boundary of shadows!
-        cv.medianBlur(smartDownscaled, smartDownscaled, 5);
+        // Use MORPH_CLOSE to perfectly erase black text while mathematically preserving the exact location of shadow edges.
+        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
+        smartKernel.delete();
 
         // Lighter blur to perfectly map the shadows without bleeding them
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(3, 3), 0, 0);
 
         let smartBg = new cv.Mat();
         cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
