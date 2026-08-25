@@ -217,9 +217,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let sCheck = hsvPlanesCheck.get(1);
         let vCheck = hsvPlanesCheck.get(2);
         
-        // 1. Identify Colorful regions (Saturation > 35, not pure white/black)
+        // 1. Identify Colorful regions (Saturation > 65, prevents shadows/noise from being detected as logos!)
         let colorMask = new cv.Mat();
-        cv.threshold(sCheck, colorMask, 35, 255, cv.THRESH_BINARY);
+        cv.threshold(sCheck, colorMask, 65, 255, cv.THRESH_BINARY);
         let notPaperMask = new cv.Mat();
         cv.threshold(vCheck, notPaperMask, 210, 255, cv.THRESH_BINARY_INV); // Exclude bright white from color
         let targetMask = new cv.Mat();
@@ -300,49 +300,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.imshow(canvas, bwRgba);
         const bwUrl = compressCanvas(canvas, 0.85);
         
-        // --- Photo Mode (v12.0 Professional Scanner Engine - For Photos) ---
-        // Specially tuned for Illustrations, Photos, and colored documents.
-        // Perfect for colored images (preserves exact Hue and Saturation).
+        // --- Photo Mode (Raw Original Camera Image) ---
+        // The user asked "Why doesn't it just take what it sees?". We remove all artificial OpenCV boosts.
+        // Modern smartphones natively apply massive HDR, sharpening, and color correction.
+        // Applying our own HSV boosts on top of that creates unnatural tints (like turning gray shadows blue).
         let photoRgb = new cv.Mat();
         cv.cvtColor(dst, photoRgb, cv.COLOR_RGBA2RGB);
-
-        let photoHsv = new cv.Mat();
-        cv.cvtColor(photoRgb, photoHsv, cv.COLOR_RGB2HSV);
-        let photoHsvPlanes = new cv.MatVector();
-        cv.split(photoHsv, photoHsvPlanes);
-
-        let photoV = photoHsvPlanes.get(2);
-        // Brightness and Contrast boost to simulate "turning on the light"
-        // Increased contrast to 1.25 and brightness to 20 for stronger lighting
-        photoV.convertTo(photoV, -1, 1.25, 20);
-
-        // Clarity / Pop (הבלטה): Stronger Unsharp Mask with larger radius
-        // Targets local contrast to give depth without plastic halos
-        let blurredV = new cv.Mat();
-        cv.GaussianBlur(photoV, blurredV, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(photoV, 1.75, blurredV, -0.75, 0, photoV);
-        blurredV.delete();
-
-        photoHsvPlanes.set(2, photoV);
-        photoV.delete();
-
-        let photoS = photoHsvPlanes.get(1);
-        // Slightly richer saturation boost (1.25) to compensate for the extra brightness
-        photoS.convertTo(photoS, -1, 1.25, 10);
-        photoHsvPlanes.set(1, photoS);
-        photoS.delete();
-
-        cv.merge(photoHsvPlanes, photoHsv);
-
-        cv.cvtColor(photoHsv, photoRgb, cv.COLOR_HSV2RGB);
-        photoHsvPlanes.delete();
-        photoHsv.delete();
-
-        // 3. Raw Camera Preservation
-        // We removed all artificial OpenCV sharpening, blurring, and bilateral filters!
-        // Modern smartphones already apply massive sharpening and noise reduction natively.
-        // Applying OpenCV sharpening on top creates "Plastic/Glass" halos around text.
-        // We simply pass the raw, color-boosted camera pixels forward.
 
         let finalPureRgba = new cv.Mat();
         cv.cvtColor(photoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
