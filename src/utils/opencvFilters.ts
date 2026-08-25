@@ -180,15 +180,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let bgSmall = new cv.Mat();
         let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21)); // 21px on 0.1 scale = 210px in original!
         cv.morphologyEx(small, bgSmall, cv.MORPH_CLOSE, bgKernel);
+        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(5, 5), 0, 0); // Fast smooth on downscaled image!
         bgKernel.delete();
         small.delete();
         
         let bg = new cv.Mat();
         cv.resize(bgSmall, bg, new cv.Size(sharpened.cols, sharpened.rows), 0, 0, cv.INTER_CUBIC);
         bgSmall.delete();
-        
-        // Massive Gaussian blur to completely eliminate the blocky edges (halos) caused by MORPH_CLOSE
-        cv.GaussianBlur(bg, bg, new cv.Size(51, 51), 0, 0);
         
         let flatGray = new cv.Mat();
         cv.divide(sharpened, bg, flatGray, 255, -1);
@@ -441,14 +439,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
         let smallRgb = new cv.Mat();
         cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        bgSmall = new cv.Mat();
-        cv.medianBlur(smallRgb, bgSmall, 15); // Erases text, keeps shadows
+        let bgSmall2 = new cv.Mat();
+        cv.medianBlur(smallRgb, bgSmall2, 15); // Erases text, keeps shadows
+        cv.GaussianBlur(bgSmall2, bgSmall2, new cv.Size(3, 3), 0, 0); // Fast smooth on downscaled image!
         smallRgb.delete();
         
         let bgRgb = new cv.Mat();
-        cv.resize(bgSmall, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
-        bgSmall.delete();
-        cv.GaussianBlur(bgRgb, bgRgb, new cv.Size(31, 31), 0, 0); // Smooth
+        cv.resize(bgSmall2, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
+        bgSmall2.delete();
         
         let flatRgb = new cv.Mat();
         let planesRgb = new cv.MatVector();
