@@ -194,7 +194,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Now that the lighting is mathematically perfectly flat (shadows are GONE),
         // we can use a very standard, robust Adaptive Threshold without fear of shadow blobs!
-        let bw = new cv.Mat();
         cv.adaptiveThreshold(flatGray, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 15);
         flatGray.delete();
         
