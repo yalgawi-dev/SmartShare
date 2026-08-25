@@ -251,9 +251,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           }
         }
         
-        // 4. Magic Pepper-Noise Removal!
-        // Median blur completely destroys isolated 1-pixel or 2-pixel black dots
-        cv.medianBlur(bw, bw, 3);
+        // Removed medianBlur here because it was causing letters with small holes (0, 8, 3) 
+        // to fill in and become "clumpy". The std < 10 check is already enough to kill the noise!
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
@@ -414,16 +413,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(smartRgb, smartGray, cv.COLOR_RGB2GRAY);
 
         let smartDownscaled = new cv.Mat();
-        // Downscale to 0.1 instead of 0.05 to maintain better shadow boundary geometry
-        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        // Return to 0.05 scale! At 0.1 scale, thick text was not fully erased by MORPH_CLOSE,
+        // so it stayed in the background map. Dividing by a text-filled background map washed out the real text!
+        cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
 
-        // Use MORPH_CLOSE to perfectly erase black text while mathematically preserving the exact location of shadow edges.
-        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+        // Massive MORPH_ELLIPSE perfectly guarantees no text survives to pollute the background map.
+        // Ellipse creates a much smoother natural gradient than RECT, preventing blocky shadow artifacts.
+        let smartKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(11, 11));
         cv.morphologyEx(smartDownscaled, smartDownscaled, cv.MORPH_CLOSE, smartKernel);
         smartKernel.delete();
 
-        // Lighter blur to perfectly map the shadows without bleeding them
-        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(3, 3), 0, 0);
+        // Moderate Gaussian Blur: Soft enough to avoid jagged edges on the shadow boundary, 
+        // but tight enough (5x5 instead of 11x11) to prevent the bright paper from bleeding into the shadow and causing a halo.
+        cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
 
         let smartBg = new cv.Mat();
         cv.resize(smartDownscaled, smartBg, new cv.Size(dst.cols, dst.rows), 0, 0, cv.INTER_CUBIC);
