@@ -170,83 +170,38 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         const w = sharpened.cols;
         const h = sharpened.rows;
         
-        // --- PRE-PROCESSING FOR B&W ---
-        // Boost contrast heavily so faint blue text becomes dark enough to cross a strict Sauvola threshold.
-        // This allows us to use a strict K (no pepper noise) without losing faint text!
-        let enhancedGray = new cv.Mat();
-        sharpened.convertTo(enhancedGray, -1, 1.5, -60);
+        // --- B&W Enhancement (Ultimate CamScanner Retinex Engine) ---
+        // We use Median Blur on a downscaled image to perfectly estimate background illumination (shadows)
+        // without shifting shadow edges (which causes halos). Then we divide to flatten the lighting globally!
         
-        let grayData = enhancedGray.data;
-        let bwData = bw.data;
+        let small = new cv.Mat();
+        cv.resize(sharpened, small, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
-        // 1. Integral Images for O(1) local mean and variance
-        let intImg = new Int32Array((w + 1) * (h + 1));
-        let intSqImg = new Float64Array((w + 1) * (h + 1));
+        let bgSmall = new cv.Mat();
+        // 15x15 median on 0.1 scale erases text up to 75px thick while perfectly preserving shadow edges!
+        cv.medianBlur(small, bgSmall, 15);
+        small.delete();
         
-        for (let y = 0; y < h; y++) {
-          let sum = 0;
-          let sqSum = 0;
-          for (let x = 0; x < w; x++) {
-            const val = grayData[y * w + x];
-            sum += val;
-            sqSum += val * val;
-            
-            const idx = (y + 1) * (w + 1) + (x + 1);
-            intImg[idx] = intImg[y * (w + 1) + (x + 1)] + sum;
-            intSqImg[idx] = intSqImg[y * (w + 1) + (x + 1)] + sqSum;
-          }
-        }
+        let bg = new cv.Mat();
+        cv.resize(bgSmall, bg, new cv.Size(sharpened.cols, sharpened.rows), 0, 0, cv.INTER_CUBIC);
+        bgSmall.delete();
         
-        // 3. Sauvola Local Adaptive Thresholding parameters
-        const S = 31; // Larger window to encompass whole words
-        const k = 0.12; // Strict K to guarantee ZERO pepper noise around text! (Contrast stretch saves the text)
-        const R = 128; // Dynamic range standard deviation
+        cv.GaussianBlur(bg, bg, new cv.Size(5, 5), 0, 0); // Mild smoothing for upscale artifacts
         
-        for (let y = 0; y < h; y++) {
-          for (let x = 0; x < w; x++) {
-            const idx = y * w + x;
-            const pix = grayData[idx];
-            
-            // Bounds for local window
-            const x1 = Math.max(0, x - Math.floor(S / 2));
-            const x2 = Math.min(w - 1, x + Math.floor(S / 2));
-            const y1 = Math.max(0, y - Math.floor(S / 2));
-            const y2 = Math.min(h - 1, y + Math.floor(S / 2));
-            
-            const count = (x2 - x1 + 1) * (y2 - y1 + 1);
-            
-            // Get local mean
-            let sum = intImg[(y2 + 1) * (w + 1) + (x2 + 1)] - intImg[y1 * (w + 1) + (x2 + 1)] - intImg[(y2 + 1) * (w + 1) + x1] + intImg[y1 * (w + 1) + x1];
-            
-            // Get local standard deviation
-            let sqSum = intSqImg[(y2 + 1) * (w + 1) + (x2 + 1)] - intSqImg[y1 * (w + 1) + (x2 + 1)] - intSqImg[(y2 + 1) * (w + 1) + x1] + intSqImg[y1 * (w + 1) + x1];
-            
-            const mean = sum / count;
-            const variance = (sqSum / count) - (mean * mean);
-            const std = Math.sqrt(Math.max(0, variance));
-            
-            const threshold = mean * (1 + k * (std / R - 1));
-            
-            let val = 255;
-            if (pix < threshold) {
-              val = 0; // Black
-            }
-            
-            // Force dark pixels to black to guarantee text readability
-            if (pix < 130 && mean >= 140) {
-              val = 0;
-            }
-
-            // Flat area noise rejection
-            if (std < 10) {
-              val = 255;
-            }
-            
-            bwData[idx] = val;
-          }
-        }
+        let flatGray = new cv.Mat();
+        cv.divide(sharpened, bg, flatGray, 255, -1);
+        bg.delete();
         
-        enhancedGray.delete();
+        // Now that the lighting is mathematically perfectly flat (shadows are GONE),
+        // we can use a very standard, robust Adaptive Threshold without fear of shadow blobs!
+        let bw = new cv.Mat();
+        cv.adaptiveThreshold(flatGray, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 15);
+        flatGray.delete();
+        
+        // Clean up tiny 1px pepper noise (compression artifacts) in the flat white paper
+        let noiseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+        cv.morphologyEx(bw, bw, cv.MORPH_CLOSE, noiseKernel);
+        noiseKernel.delete();
         
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
