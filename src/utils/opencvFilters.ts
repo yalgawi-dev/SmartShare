@@ -431,42 +431,56 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 1. Create a flawless binary mask of the text (ignores shadows completely)
         let grayForMask = new cv.Mat();
         cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
-        // Mild blur to remove noise before thresholding
         cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(3, 3), 0, 0);
         
         let mask = new cv.Mat();
-        // 61 block size handles thick text. C=15 ignores soft shadows.
         cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 61, 15);
         grayForMask.delete();
-        
-        // Anti-alias the mask for smooth text edges
         cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
 
-        // 2. Create the Vivid Ink layer (Boosted original image)
-        let boostedHsv = new cv.Mat();
-        cv.cvtColor(plusRgb, boostedHsv, cv.COLOR_RGB2HSV);
+        // 2. Flatten Illumination (So text in shadow doesn't turn black!)
+        let plusHsv = new cv.Mat();
+        cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
         let planes = new cv.MatVector();
-        cv.split(boostedHsv, planes);
+        cv.split(plusHsv, planes);
+        let V = planes.get(2);
         
+        // Fast, flawless background estimation using Median Blur (ignores text completely)
+        let smallV = new cv.Mat();
+        cv.resize(V, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        let bgSmall = new cv.Mat();
+        cv.medianBlur(smallV, bgSmall, 15); // Erases text, keeps shadows
+        smallV.delete();
+        
+        let bgV = new cv.Mat();
+        cv.resize(bgSmall, bgV, new cv.Size(V.cols, V.rows), 0, 0, cv.INTER_CUBIC);
+        bgSmall.delete();
+        cv.GaussianBlur(bgV, bgV, new cv.Size(31, 31), 0, 0); // Smooth
+        
+        // Divide to flatten shadows - now text in shadow is just as bright as text in light!
+        let flatV = new cv.Mat();
+        cv.divide(V, bgV, flatV, 255, -1);
+        bgV.delete(); V.delete();
+        
+        // 3. Create the Vivid Ink layer using the flattened brightness!
         // 2.5x Saturation for popping ink colors
         let S = planes.get(1);
         S.convertTo(S, -1, 2.5, 0);
         planes.set(1, S);
         S.delete();
         
-        // Darken ink to make it bold and continuous
-        let V = planes.get(2);
+        // Darken the flattened ink to make it bold
         let VCurve = new cv.Mat();
-        V.convertTo(VCurve, -1, 1.2, -40); 
+        flatV.convertTo(VCurve, -1, 1.2, -40); 
         planes.set(2, VCurve);
-        V.delete(); VCurve.delete();
+        flatV.delete(); VCurve.delete();
         
-        cv.merge(planes, boostedHsv);
+        cv.merge(planes, plusHsv);
         let boostedRgb = new cv.Mat();
-        cv.cvtColor(boostedHsv, boostedRgb, cv.COLOR_HSV2RGB);
-        boostedHsv.delete(); planes.delete();
+        cv.cvtColor(plusHsv, boostedRgb, cv.COLOR_HSV2RGB);
+        plusHsv.delete(); planes.delete();
 
-        // 3. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
+        // 4. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
         let maskFloat = new cv.Mat();
         mask.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
         mask.delete();
