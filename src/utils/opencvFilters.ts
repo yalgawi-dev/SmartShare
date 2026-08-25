@@ -428,63 +428,86 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let plusS = plusHsvPlanes.get(1);
         let plusV = plusHsvPlanes.get(2);
 
-        // 1. Ultimate Shadow Killer Background Map
-        let plusVSmall = new cv.Mat();
-        cv.resize(plusV, plusVSmall, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
+        // 1. Create a flawless binary mask of the text (ignores shadows completely)
+        let grayForMask = new cv.Mat();
+        cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
+        // Mild blur to remove noise before thresholding
+        cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(3, 3), 0, 0);
         
-        let plusBgSmall = new cv.Mat();
-        // Light dilate to eat thin text without shifting shadows
-        let plusBgKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-        cv.dilate(plusVSmall, plusBgSmall, plusBgKernel);
-        plusBgKernel.delete();
+        let mask = new cv.Mat();
+        // 61 block size handles thick text. C=15 ignores soft shadows.
+        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 61, 15);
+        grayForMask.delete();
         
-        // Massive blur to capture broad shadows perfectly
-        cv.GaussianBlur(plusBgSmall, plusBgSmall, new cv.Size(21, 21), 0, 0);
-        plusVSmall.delete();
-        
-        let plusBg = new cv.Mat();
-        cv.resize(plusBgSmall, plusBg, new cv.Size(plusV.cols, plusV.rows), 0, 0, cv.INTER_CUBIC);
-        plusBgSmall.delete();
-        cv.GaussianBlur(plusBg, plusBg, new cv.Size(31, 31), 0, 0); // Smooth upscale artifacts
-        
-        // 2. Retinex Flattening on V (Eliminates Shadows)
-        cv.divide(plusV, plusBg, plusV, 255, -1);
-        plusBg.delete();
+        // Anti-alias the mask for smooth text edges
+        cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
 
-        // 3. Magic Curve & Smart Desaturation
-        let sData = plusS.data;
-        let vData = plusV.data;
-        for (let i = 0; i < sData.length; i++) {
-            let v = vData[i];
-            let s = sData[i];
-            
-            // If it's paper/shadow (bright after division), kill its color completely
-            if (v >= 190) {
-                sData[i] = 0; 
-            } else if (v <= 140) {
-                sData[i] = Math.min(255, s * 2.5); // Vivid ink
-            } else {
-                let ratio = (190 - v) / 50.0; // Smooth blend
-                sData[i] = Math.min(255, s * 2.5) * ratio;
-            }
-            
-            // Aggressive Magic Curve: Crush faint shadows to pure white, darken text
-            // Map 40 -> 0, and 210 -> 255. Anything above 210 becomes perfectly white!
-            let newV = (v - 40) * (255.0 / (210.0 - 40.0));
-            vData[i] = Math.max(0, Math.min(255, newV));
-        }
+        // 2. Create the Vivid Ink layer (Boosted original image)
+        let boostedHsv = new cv.Mat();
+        cv.cvtColor(plusRgb, boostedHsv, cv.COLOR_RGB2HSV);
+        let planes = new cv.MatVector();
+        cv.split(boostedHsv, planes);
+        
+        // 2.5x Saturation for popping ink colors
+        let S = planes.get(1);
+        S.convertTo(S, -1, 2.5, 0);
+        planes.set(1, S);
+        S.delete();
+        
+        // Darken ink to make it bold and continuous
+        let V = planes.get(2);
+        let VCurve = new cv.Mat();
+        V.convertTo(VCurve, -1, 1.2, -40); 
+        planes.set(2, VCurve);
+        V.delete(); VCurve.delete();
+        
+        cv.merge(planes, boostedHsv);
+        let boostedRgb = new cv.Mat();
+        cv.cvtColor(boostedHsv, boostedRgb, cv.COLOR_HSV2RGB);
+        boostedHsv.delete(); planes.delete();
 
-        plusHsvPlanes.set(1, plusS);
-        plusHsvPlanes.set(2, plusV);
-        plusH.delete(); plusS.delete(); plusV.delete();
-
-        cv.merge(plusHsvPlanes, plusHsv);
-        cv.cvtColor(plusHsv, plusRgb, cv.COLOR_HSV2RGB);
-        plusHsvPlanes.delete();
-        plusHsv.delete();
+        // 3. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
+        let maskFloat = new cv.Mat();
+        mask.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
+        mask.delete();
+        
+        let mask3 = new cv.Mat();
+        cv.cvtColor(maskFloat, mask3, cv.COLOR_GRAY2RGB);
+        maskFloat.delete();
+        
+        let invMask3 = new cv.Mat();
+        let scalar1 = new cv.Mat(mask3.rows, mask3.cols, mask3.type(), new cv.Scalar(1.0, 1.0, 1.0));
+        cv.subtract(scalar1, mask3, invMask3);
+        scalar1.delete();
+        
+        let boostedFloat = new cv.Mat();
+        boostedRgb.convertTo(boostedFloat, cv.CV_32FC3);
+        boostedRgb.delete();
+        
+        let whiteRgb = new cv.Mat(plusRgb.rows, plusRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
+        let whiteFloat = new cv.Mat();
+        whiteRgb.convertTo(whiteFloat, cv.CV_32FC3);
+        whiteRgb.delete();
+        
+        let term1 = new cv.Mat();
+        cv.multiply(boostedFloat, mask3, term1);
+        boostedFloat.delete();
+        
+        let term2 = new cv.Mat();
+        cv.multiply(whiteFloat, invMask3, term2);
+        whiteFloat.delete(); invMask3.delete(); mask3.delete();
+        
+        let finalFloat = new cv.Mat();
+        cv.add(term1, term2, finalFloat);
+        term1.delete(); term2.delete();
+        
+        let finalSmartPlusRgb = new cv.Mat();
+        finalFloat.convertTo(finalSmartPlusRgb, cv.CV_8UC3);
+        finalFloat.delete();
 
         let finalSmartPlusRgba = new cv.Mat();
-        cv.cvtColor(plusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(finalSmartPlusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
+        finalSmartPlusRgb.delete();
         plusRgb.delete();
 
         cv.imshow(canvas, finalSmartPlusRgba);
