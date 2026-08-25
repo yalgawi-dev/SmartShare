@@ -458,19 +458,35 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let smartHsvPlanes = new cv.MatVector();
         cv.split(smartHsv, smartHsvPlanes);
 
-        // 1. Boost Saturation
+        // 1. Boost Saturation gently to make pen ink pop
         let smartS = smartHsvPlanes.get(1);
-        smartS.convertTo(smartS, -1, 1.5, 0);
-        cv.threshold(smartS, smartS, 70, 255, cv.THRESH_TOZERO);
+        smartS.convertTo(smartS, -1, 1.5, 10);
+        // Removed THRESH_TOZERO because it was deleting handwriting color! 
+        // Retinex already forces paper to white (0 saturation), so we don't need this threshold.
         smartHsvPlanes.set(1, smartS);
         smartS.delete();
 
-        // 2. MASSIVE Contrast Stretch to fix washed-out faint text!
-        // Moves the black point incredibly high so faint blue text becomes bold and dark.
+        // 2. Smart Darkening using the Flawless B&W Mask!
+        // Instead of a massive global contrast stretch that crushes color to pitch black,
+        // we use the B&W engine's mask to ONLY darken the text, preserving its color perfectly!
         let smartV = smartHsvPlanes.get(2);
-        smartV.convertTo(smartV, -1, 3.4, -600);
+        
+        let textMask = new cv.Mat();
+        cv.bitwise_not(bw, textMask); // Text is 255, paper is 0
+        
+        let darkenAmount = new cv.Mat();
+        // Lower brightness of text by 110. (e.g. 230 faint blue -> 120 strong dark blue)
+        textMask.convertTo(darkenAmount, -1, 110 / 255.0, 0); 
+        
+        cv.subtract(smartV, darkenAmount, smartV);
+        
+        // Gentle global stretch to ensure paper is brilliant white
+        smartV.convertTo(smartV, -1, 1.1, -10);
+        
         smartHsvPlanes.set(2, smartV);
         smartV.delete();
+        textMask.delete();
+        darkenAmount.delete();
 
         cv.merge(smartHsvPlanes, smartHsv);
         cv.cvtColor(smartHsv, smartRgb, cv.COLOR_HSV2RGB);
