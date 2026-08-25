@@ -194,7 +194,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // 3. Sauvola Local Adaptive Thresholding parameters
         const S = 31; // Larger window to encompass whole words, not just strokes
-        const k = 0.05; // Lower K to preserve very faint text (was 0.12)
         const R = 128; // Dynamic range standard deviation for 8-bit gray
         
         for (let y = 0; y < h; y++) {
@@ -226,7 +225,20 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             const variance = (sqSum / count) - (mean * mean);
             const std = Math.sqrt(Math.max(0, variance));
             
-            const threshold = mean * (1 + k * (std / R - 1));
+            // Dynamic K: The magic bullet for shadows!
+            // Sensitive (0.02) in bright areas to catch faint dot-matrix text.
+            // Strict (0.15) in dark shadows to ignore huge clumps of compression noise.
+            let dynamicK = 0.05;
+            if (mean > 160) {
+              dynamicK = 0.02; // Bright paper
+            } else if (mean < 100) {
+              dynamicK = 0.15; // Deep shadow
+            } else {
+              // Interpolate smoothly between 100 and 160
+              dynamicK = 0.15 - ((mean - 100) / 60) * (0.15 - 0.02);
+            }
+            
+            const threshold = mean * (1 + dynamicK * (std / R - 1));
             
             let val = 255;
             if (pix < threshold) {
@@ -410,13 +422,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // Downscale aggressively to ensure faint text is completely destroyed in the background estimation
         cv.resize(smartGray, smartDownscaled, new cv.Size(0, 0), 0.05, 0.05, cv.INTER_AREA);
 
-        // Use a smaller Dilation kernel instead of MORPH_CLOSE.
-        // MORPH_CLOSE (dilate then erode) spreads bright paper into dark shadows, ruining the shadow map.
-        // Dilation alone (taking local maximum) is enough to erase thin black text,
-        // while perfectly maintaining the shape and depth of large soft shadows!
-        let smartKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
-        cv.dilate(smartDownscaled, smartDownscaled, smartKernel);
-        smartKernel.delete();
+        // Use a Median Blur instead of Dilation.
+        // Dilation spreads bright paper into dark shadows, causing a bright halo around the shadow.
+        // Median Blur completely erases thin black text, but PERFECTLY preserves the exact boundary of shadows!
+        cv.medianBlur(smartDownscaled, smartDownscaled, 5);
 
         // Lighter blur to perfectly map the shadows without bleeding them
         cv.GaussianBlur(smartDownscaled, smartDownscaled, new cv.Size(5, 5), 0, 0);
