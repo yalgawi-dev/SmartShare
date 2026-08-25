@@ -419,44 +419,56 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.addWeighted(plusRgb, 2.0, plusSharp, -1.0, 0, plusRgb);
         plusSharp.delete();
 
+        // 1. RGB Background Illumination Map
+        let plusSmall = new cv.Mat();
+        cv.resize(plusRgb, plusSmall, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        
+        let plusBgSmall = new cv.Mat();
+        let plusBgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21));
+        cv.morphologyEx(plusSmall, plusBgSmall, cv.MORPH_CLOSE, plusBgKernel);
+        plusBgKernel.delete();
+        plusSmall.delete();
+        
+        let plusBg = new cv.Mat();
+        cv.resize(plusBgSmall, plusBg, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
+        plusBgSmall.delete();
+        cv.GaussianBlur(plusBg, plusBg, new cv.Size(51, 51), 0, 0); // Smooth shadows
+        
+        // 2. RGB Retinex Flattening (Paper color becomes PURE WHITE!)
+        // Divide channel by channel to neutralize yellow/blue paper colors completely.
+        let planesRgb = new cv.MatVector();
+        cv.split(plusRgb, planesRgb);
+        let planesBg = new cv.MatVector();
+        cv.split(plusBg, planesBg);
+        
+        for (let i = 0; i < 3; i++) {
+            let p = planesRgb.get(i);
+            let bgP = planesBg.get(i);
+            cv.divide(p, bgP, p, 255, -1);
+            planesRgb.set(i, p);
+            p.delete(); bgP.delete();
+        }
+        cv.merge(planesRgb, plusRgb);
+        planesRgb.delete();
+        planesBg.delete();
+        plusBg.delete();
+
+        // 3. Magic Color Curve & Saturation Boost
         let plusHsv = new cv.Mat();
         cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
         let plusHsvPlanes = new cv.MatVector();
         cv.split(plusHsv, plusHsvPlanes);
 
-        // 1. Background Illumination Map (V Channel)
         let plusV = plusHsvPlanes.get(2);
-        let plusVSmall = new cv.Mat();
-        cv.resize(plusV, plusVSmall, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        
-        let plusBgSmall = new cv.Mat();
-        let plusBgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21));
-        cv.morphologyEx(plusVSmall, plusBgSmall, cv.MORPH_CLOSE, plusBgKernel);
-        plusBgKernel.delete();
-        plusVSmall.delete();
-        
-        let plusBg = new cv.Mat();
-        cv.resize(plusBgSmall, plusBg, new cv.Size(plusV.cols, plusV.rows), 0, 0, cv.INTER_CUBIC);
-        plusBgSmall.delete();
-        cv.GaussianBlur(plusBg, plusBg, new cv.Size(51, 51), 0, 0); // Smooth shadows
-        
-        // 2. Retinex Flattening (Shadows Gone!)
-        cv.divide(plusV, plusBg, plusV, 255, -1);
-        plusBg.delete();
-
-        // 3. Magic Color Curve (Darken ink without crushing it)
-        // Shift black point to make it pop, but safely clip it.
-        // Formula: Output = (Input - 40) * (255 / (255 - 40))
         let magicCurve = new cv.Mat();
+        // Shift black point to make text bold, clip safely.
         plusV.convertTo(magicCurve, -1, 255.0 / 215.0, - (40 * 255.0 / 215.0));
         plusHsvPlanes.set(2, magicCurve);
         plusV.delete();
+        magicCurve.delete();
 
-        // 4. Boost Saturation
         let plusS = plusHsvPlanes.get(1);
-        plusS.convertTo(plusS, -1, 2.5, 0); // 2.5x saturation! Blue pen becomes VIBRANT!
-        
-        // 5. Clean up amplified paper noise (Zero out saturation if it's too weak)
+        plusS.convertTo(plusS, -1, 2.5, 0); // 2.5x saturation!
         cv.threshold(plusS, plusS, 45, 255, cv.THRESH_TOZERO);
         plusHsvPlanes.set(1, plusS);
         plusS.delete();
@@ -465,7 +477,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(plusHsv, plusRgb, cv.COLOR_HSV2RGB);
         plusHsvPlanes.delete();
         plusHsv.delete();
-        magicCurve.delete();
 
         let finalSmartPlusRgba = new cv.Mat();
         cv.cvtColor(plusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
