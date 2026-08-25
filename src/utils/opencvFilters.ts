@@ -171,22 +171,24 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         const h = sharpened.rows;
         
         // --- B&W Enhancement (Ultimate CamScanner Retinex Engine) ---
-        // We use Median Blur on a downscaled image to perfectly estimate background illumination (shadows)
-        // without shifting shadow edges (which causes halos). Then we divide to flatten the lighting globally!
+        // We use MORPH_CLOSE on a downscaled image to perfectly erase text and estimate background illumination (shadows).
+        // MORPH_CLOSE mathematically guarantees erasure of dark objects, unlike medianBlur which fails on thick text!
         
         let small = new cv.Mat();
         cv.resize(sharpened, small, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
         let bgSmall = new cv.Mat();
-        // 15x15 median on 0.1 scale erases text up to 75px thick while perfectly preserving shadow edges!
-        cv.medianBlur(small, bgSmall, 15);
+        let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21)); // 21px on 0.1 scale = 210px in original!
+        cv.morphologyEx(small, bgSmall, cv.MORPH_CLOSE, bgKernel);
+        bgKernel.delete();
         small.delete();
         
         let bg = new cv.Mat();
         cv.resize(bgSmall, bg, new cv.Size(sharpened.cols, sharpened.rows), 0, 0, cv.INTER_CUBIC);
         bgSmall.delete();
         
-        cv.GaussianBlur(bg, bg, new cv.Size(5, 5), 0, 0); // Mild smoothing for upscale artifacts
+        // Massive Gaussian blur to completely eliminate the blocky edges (halos) caused by MORPH_CLOSE
+        cv.GaussianBlur(bg, bg, new cv.Size(51, 51), 0, 0);
         
         let flatGray = new cv.Mat();
         cv.divide(sharpened, bg, flatGray, 255, -1);
@@ -406,6 +408,73 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.imshow(canvas, finalSmartRgba);
         const smartColorUrl = compressCanvas(canvas, 0.85);
 
+        // --- Smart Plus (v17.0 Pure CamScanner Magic Color) ---
+        // Completely independent of the B&W mask! Uses direct HSV manipulation.
+        let plusRgb = new cv.Mat();
+        cv.cvtColor(dst, plusRgb, cv.COLOR_RGBA2RGB);
+
+        // Enhance edges gently
+        let plusSharp = new cv.Mat();
+        cv.GaussianBlur(plusRgb, plusSharp, new cv.Size(0, 0), 1.0);
+        cv.addWeighted(plusRgb, 2.0, plusSharp, -1.0, 0, plusRgb);
+        plusSharp.delete();
+
+        let plusHsv = new cv.Mat();
+        cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
+        let plusHsvPlanes = new cv.MatVector();
+        cv.split(plusHsv, plusHsvPlanes);
+
+        // 1. Background Illumination Map (V Channel)
+        let plusV = plusHsvPlanes.get(2);
+        let plusVSmall = new cv.Mat();
+        cv.resize(plusV, plusVSmall, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        
+        let plusBgSmall = new cv.Mat();
+        let plusBgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21));
+        cv.morphologyEx(plusVSmall, plusBgSmall, cv.MORPH_CLOSE, plusBgKernel);
+        plusBgKernel.delete();
+        plusVSmall.delete();
+        
+        let plusBg = new cv.Mat();
+        cv.resize(plusBgSmall, plusBg, new cv.Size(plusV.cols, plusV.rows), 0, 0, cv.INTER_CUBIC);
+        plusBgSmall.delete();
+        cv.GaussianBlur(plusBg, plusBg, new cv.Size(51, 51), 0, 0); // Smooth shadows
+        
+        // 2. Retinex Flattening (Shadows Gone!)
+        cv.divide(plusV, plusBg, plusV, 255, -1);
+        plusBg.delete();
+
+        // 3. Magic Color Curve (Darken ink without crushing it)
+        // Shift black point to make it pop, but safely clip it.
+        // Formula: Output = (Input - 40) * (255 / (255 - 40))
+        let magicCurve = new cv.Mat();
+        plusV.convertTo(magicCurve, -1, 255.0 / 215.0, - (40 * 255.0 / 215.0));
+        plusHsvPlanes.set(2, magicCurve);
+        plusV.delete();
+
+        // 4. Boost Saturation
+        let plusS = plusHsvPlanes.get(1);
+        plusS.convertTo(plusS, -1, 2.5, 0); // 2.5x saturation! Blue pen becomes VIBRANT!
+        
+        // 5. Clean up amplified paper noise (Zero out saturation if it's too weak)
+        cv.threshold(plusS, plusS, 45, 255, cv.THRESH_TOZERO);
+        plusHsvPlanes.set(1, plusS);
+        plusS.delete();
+
+        cv.merge(plusHsvPlanes, plusHsv);
+        cv.cvtColor(plusHsv, plusRgb, cv.COLOR_HSV2RGB);
+        plusHsvPlanes.delete();
+        plusHsv.delete();
+        magicCurve.delete();
+
+        let finalSmartPlusRgba = new cv.Mat();
+        cv.cvtColor(plusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
+        plusRgb.delete();
+
+        cv.imshow(canvas, finalSmartPlusRgba);
+        const smartPlusUrl = compressCanvas(canvas, 0.85);
+
+        // --- Hybrid Color ---
         let hybridUrl = undefined;
         if (hybridMask) {
             let maskRgba = new cv.Mat();
@@ -418,7 +487,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             finalPureRgba.convertTo(pureFloat, cv.CV_32F);
             
             let smartFloat = new cv.Mat();
-            finalSmartRgba.convertTo(smartFloat, cv.CV_32F);
+            // In hybrid mode, use Smart Plus instead of Smart Color to compare
+            finalSmartPlusRgba.convertTo(smartFloat, cv.CV_32F);
             
             let oneMinusMask = new cv.Mat();
             let scalar1 = new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0, 1.0, 1.0, 1.0));
@@ -445,7 +515,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         photoRgb.delete(); finalPureRgba.delete();
-        finalSmartRgba.delete();
+        finalSmartRgba.delete(); finalSmartPlusRgba.delete();
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
@@ -458,6 +528,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           bw: bwUrl, 
           pureColor: pureColorUrl,
           smartColor: smartColorUrl,
+          smartPlus: smartPlusUrl,
           hybridColor: hybridUrl,
           detectedType
         });

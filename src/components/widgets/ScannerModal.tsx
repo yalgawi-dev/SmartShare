@@ -41,8 +41,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
+  const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'hybrid' | 'original'>('auto');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original'>('auto');
   
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -178,6 +179,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       setBwSnapshot(results.bw);
       setPureColorSnapshot(results.pureColor);
       setSmartColorSnapshot(results.smartColor);
+      if (results.smartPlus) {
+        setSmartPlusSnapshot(results.smartPlus);
+      }
       if (results.hybridColor) {
         setHybridColorSnapshot(results.hybridColor);
       }
@@ -207,6 +211,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setBwSnapshot(null);
     setPureColorSnapshot(null);
     setSmartColorSnapshot(null);
+    setSmartPlusSnapshot(null);
     setProfile('auto');
     setDetectedType(null);
   };
@@ -215,6 +220,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     let finalImage = bwSnapshot;
     if (mode === 'pure_color') finalImage = pureColorSnapshot;
     if (mode === 'smart_color') finalImage = smartColorSnapshot;
+    if (mode === 'smart_plus') finalImage = smartPlusSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
     if (mode === 'hybrid') finalImage = hybridColorSnapshot;
     if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : detectedType === 'mixed' ? hybridColorSnapshot : smartColorSnapshot;
@@ -316,7 +322,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                  <img 
-                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : mode === 'hybrid' ? hybridColorSnapshot! : smartColorSnapshot!} 
+                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : mode === 'hybrid' ? hybridColorSnapshot! : mode === 'smart_plus' ? smartPlusSnapshot! : smartColorSnapshot!} 
                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                    alt="Scanned document" 
                  />
@@ -373,6 +379,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                       {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : 'חשבונית'}
                     </span>
                   )}
+                </button>
+                <button 
+                onClick={() => setMode('smart_plus')} 
+                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_plus' ? '#fff' : 'transparent', color: mode === 'smart_plus' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                  חשבוניות+
                 </button>
                 <button 
                 onClick={() => setMode('original')} 
