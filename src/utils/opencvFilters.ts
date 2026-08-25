@@ -441,7 +441,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
         let smallRgb = new cv.Mat();
         cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        let bgSmall = new cv.Mat();
+        bgSmall = new cv.Mat();
         cv.medianBlur(smallRgb, bgSmall, 15); // Erases text, keeps shadows
         smallRgb.delete();
         
