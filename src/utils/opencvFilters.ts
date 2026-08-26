@@ -156,26 +156,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let gray = new cv.Mat();
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
         
-        // 1. Sharpening: crucial for blurry dot-matrix thermal receipts
-        let blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(0, 0), 2);
-        let sharpened = new cv.Mat();
-        // Strongly boost edges to help faint text survive the threshold
-        cv.addWeighted(gray, 2.0, blurred, -1.0, 0, sharpened);
-        blurred.delete();
-        
-        let bw = new cv.Mat();
-        bw.create(sharpened.rows, sharpened.cols, cv.CV_8UC1);
-        
-        const w = sharpened.cols;
-        const h = sharpened.rows;
-        
         // --- B&W Enhancement (Ultimate CamScanner Retinex Engine) ---
         // We use MORPH_CLOSE on a downscaled image to perfectly erase text and estimate background illumination (shadows).
-        // MORPH_CLOSE mathematically guarantees erasure of dark objects, unlike medianBlur which fails on thick text!
         
         let small = new cv.Mat();
-        cv.resize(sharpened, small, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        cv.resize(gray, small, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
         let bgSmall = new cv.Mat();
         let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21)); // 21px on 0.1 scale = 210px in original!
@@ -185,17 +170,28 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         small.delete();
         
         let bg = new cv.Mat();
-        cv.resize(bgSmall, bg, new cv.Size(sharpened.cols, sharpened.rows), 0, 0, cv.INTER_CUBIC);
+        cv.resize(bgSmall, bg, new cv.Size(gray.cols, gray.rows), 0, 0, cv.INTER_CUBIC);
         bgSmall.delete();
         
         let flatGray = new cv.Mat();
-        cv.divide(sharpened, bg, flatGray, 255, -1);
+        cv.divide(gray, bg, flatGray, 255, -1);
         bg.delete();
         
+        // 1. Sharpening AFTER flattening: crucial for blurry dot-matrix thermal receipts
+        let blurred = new cv.Mat();
+        cv.GaussianBlur(flatGray, blurred, new cv.Size(0, 0), 2);
+        let sharpened = new cv.Mat();
+        cv.addWeighted(flatGray, 2.0, blurred, -1.0, 0, sharpened);
+        blurred.delete(); flatGray.delete();
+        
+        let bw = new cv.Mat();
+        bw.create(sharpened.rows, sharpened.cols, cv.CV_8UC1);
+        
         // Now that the lighting is mathematically perfectly flat (shadows are GONE),
-        // we can use a very standard, robust Adaptive Threshold without fear of shadow blobs!
-        cv.adaptiveThreshold(flatGray, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 15);
-        flatGray.delete();
+        // we can use a robust Adaptive Threshold! 
+        // Block size 61 perfectly ignores soft smudges (21 was too sensitive and caught them!)
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 61, 15);
+        sharpened.delete();
         
         // Clean up tiny 1px pepper noise (compression artifacts) in the flat white paper
         let noiseKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
