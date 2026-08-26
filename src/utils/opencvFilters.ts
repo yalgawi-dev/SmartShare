@@ -267,6 +267,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // Auto-Detect Logic to determine default mode
         let detectedType: 'text_bw' | 'text_color' | 'photo' | 'mixed' = 'text_color';
+        
+        let aspectRatio = Math.max(dst.cols / dst.rows, dst.rows / dst.cols);
+        
         if (colorfulRatio > 0.15 || blackRatio > 0.40) {
             // Massive color or massive dark texture -> Pure Photo
             detectedType = 'photo';
@@ -279,11 +282,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
                 // No paper -> Photo
                 detectedType = 'photo';
             }
-        } else if (colorfulRatio <= 0.005) {
-            // Zero color, pure black and white (Thermal receipts or pure B&W prints)
+        } else if (colorfulRatio <= 0.005 && aspectRatio > 1.7) {
+            // Zero color AND extreme aspect ratio (long/narrow) -> Thermal Receipt
             detectedType = 'text_bw';
         } else {
-            // Very little color (e.g. blue signature, faint logo)
+            // Very little color, OR it's a standard A4 shape with no color -> SmartPlus (best shadow removal)
             detectedType = 'text_color';
         }
 
