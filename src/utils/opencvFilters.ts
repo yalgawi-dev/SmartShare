@@ -565,48 +565,56 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         const smartPlusUrl = compressCanvas(canvas, 0.85);
 
         // --- Hybrid Color (v18 Soft Document / Magazine Mode) ---
-        // Unified algorithm: Soft Retinex + Photo Enhancements. NO masking/blending.
+        // True Magazine algorithm: Flatten lighting ONLY on the brightness channel (V), preserving exact colors (H, S)
         let softRgb = new cv.Mat();
         cv.cvtColor(dst, softRgb, cv.COLOR_RGBA2RGB);
 
-        // 1. Soft Retinex (Flatten lighting without destroying shadows/colors completely)
-        let smallSoft = new cv.Mat();
-        cv.resize(softRgb, smallSoft, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        let blurredSoft = new cv.Mat();
-        cv.GaussianBlur(smallSoft, blurredSoft, new cv.Size(15, 15), 0, 0);
-        let backgroundSoft = new cv.Mat();
-        cv.resize(blurredSoft, backgroundSoft, new cv.Size(softRgb.cols, softRgb.rows), 0, 0, cv.INTER_LINEAR);
-
-        let softFloat = new cv.Mat();
-        let bgSoftFloat = new cv.Mat();
-        softRgb.convertTo(softFloat, cv.CV_32FC3);
-        backgroundSoft.convertTo(bgSoftFloat, cv.CV_32FC3);
-
-        let divSoftFloat = new cv.Mat();
-        cv.divide(softFloat, bgSoftFloat, divSoftFloat);
-        
-        // Multiplier 200 + base 25 (Softer flattening than SmartPlus which uses 255)
-        let flatSoftFloat = new cv.Mat();
-        divSoftFloat.convertTo(flatSoftFloat, -1, 200, 25);
-        let flatSoftRgb = new cv.Mat();
-        flatSoftFloat.convertTo(flatSoftRgb, cv.CV_8UC3);
-
-        // 2. Photo Enhancement (Saturation + Unsharp Mask on the flattened image)
+        // Convert to HSV to separate lighting from color
         let softHsv = new cv.Mat();
-        cv.cvtColor(flatSoftRgb, softHsv, cv.COLOR_RGB2HSV);
+        cv.cvtColor(softRgb, softHsv, cv.COLOR_RGB2HSV);
         let softHsvPlanes = new cv.MatVector();
         cv.split(softHsv, softHsvPlanes);
+        
+        let softV = softHsvPlanes.get(2);
+        
+        // Soft Retinex on V channel only
+        let smallV = new cv.Mat();
+        cv.resize(softV, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        let blurredV = new cv.Mat();
+        cv.GaussianBlur(smallV, blurredV, new cv.Size(15, 15), 0, 0);
+        let bgV = new cv.Mat();
+        cv.resize(blurredV, bgV, new cv.Size(softV.cols, softV.rows), 0, 0, cv.INTER_LINEAR);
+
+        let vFloat = new cv.Mat();
+        let bgvFloat = new cv.Mat();
+        softV.convertTo(vFloat, cv.CV_32F);
+        bgV.convertTo(bgvFloat, cv.CV_32F);
+
+        let divVFloat = new cv.Mat();
+        cv.divide(vFloat, bgvFloat, divVFloat);
+        
+        // Multiplier 220 + base 10 (Gentle flattening, preserves some depth)
+        let flatVFloat = new cv.Mat();
+        divVFloat.convertTo(flatVFloat, -1, 220, 10);
+        let flatV = new cv.Mat();
+        flatVFloat.convertTo(flatV, cv.CV_8U);
+        
+        // Replace original V with flattened V
+        softHsvPlanes.set(2, flatV);
+        
+        // Also boost saturation slightly to make the magazine colors pop
         let softSat = softHsvPlanes.get(1);
         softSat.convertTo(softSat, -1, 1.25, 0); // 25% saturation boost
         softHsvPlanes.set(1, softSat);
+        
         cv.merge(softHsvPlanes, softHsv);
         
         let enhancedSoftRgb = new cv.Mat();
         cv.cvtColor(softHsv, enhancedSoftRgb, cv.COLOR_HSV2RGB);
 
-        // Gentle Unsharp Mask
+        // Gentle Unsharp Mask for text crispness
         let blurredEnhSoft = new cv.Mat();
-        cv.GaussianBlur(enhancedSoftRgb, blurredEnhSoft, new cv.Size(0, 0), 2.0);
+        cv.GaussianBlur(enhancedSoftRgb, blurredEnhSoft, new cv.Size(0, 0), 1.5);
         let finalSoftRgb = new cv.Mat();
         cv.addWeighted(enhancedSoftRgb, 1.4, blurredEnhSoft, -0.4, 0, finalSoftRgb);
 
@@ -617,10 +625,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let hybridUrl = compressCanvas(canvas, 0.85);
 
         // Cleanup
-        softRgb.delete(); smallSoft.delete(); blurredSoft.delete(); backgroundSoft.delete();
-        softFloat.delete(); bgSoftFloat.delete(); divSoftFloat.delete(); flatSoftFloat.delete(); flatSoftRgb.delete();
-        softHsv.delete(); softHsvPlanes.delete(); softSat.delete(); enhancedSoftRgb.delete();
-        blurredEnhSoft.delete(); finalSoftRgb.delete(); finalHybrid.delete();
+        softRgb.delete(); softHsv.delete(); softHsvPlanes.delete(); softV.delete();
+        smallV.delete(); blurredV.delete(); bgV.delete();
+        vFloat.delete(); bgvFloat.delete(); divVFloat.delete(); flatVFloat.delete(); flatV.delete();
+        softSat.delete(); enhancedSoftRgb.delete(); blurredEnhSoft.delete(); finalSoftRgb.delete(); finalHybrid.delete();
         if (hybridMask) hybridMask.delete();
 
         photoRgb.delete(); finalPureRgba.delete();
