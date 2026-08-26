@@ -439,21 +439,27 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         planesRgb.delete(); planesBg.delete(); bgRgb.delete();
 
         // 3. Create the Vivid Ink layer using the color-restored image!
+        // Apply Unsharp Mask to the flattened image to thicken and darken text while strictly preserving colors!
+        let blurredFlat = new cv.Mat();
+        cv.GaussianBlur(flatRgb, blurredFlat, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(flatRgb, 1.8, blurredFlat, -0.8, 0, flatRgb);
+        blurredFlat.delete();
+
         let flatHsv = new cv.Mat();
         cv.cvtColor(flatRgb, flatHsv, cv.COLOR_RGB2HSV);
         let planes = new cv.MatVector();
         cv.split(flatHsv, planes);
         
-        // 1.25x Saturation for popping ink colors (2.5x was too aggressive and created rainbow noise)
+        // 1.25x Saturation for popping ink colors
         let S = planes.get(1);
         S.convertTo(S, -1, 1.25, 0);
         planes.set(1, S);
         S.delete();
         
-        // Darken the flattened ink slightly, but don't crush it (to prevent blue ink from turning black)
+        // Darken the flattened ink slightly (-20) so black text is strong, but blue ink stays blue!
         let V = planes.get(2);
         let VCurve = new cv.Mat();
-        V.convertTo(VCurve, -1, 1.1, -10); 
+        V.convertTo(VCurve, -1, 1.1, -20); 
         planes.set(2, VCurve);
         V.delete(); VCurve.delete();
         
@@ -461,6 +467,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let boostedRgb = new cv.Mat();
         cv.cvtColor(flatHsv, boostedRgb, cv.COLOR_HSV2RGB);
         flatHsv.delete(); planes.delete(); flatRgb.delete();
+
+        // Thicken the text mask slightly so the text doesn't look thin and "blinding"
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+        cv.dilate(mask, mask, dilateKernel);
+        dilateKernel.delete();
 
         // 4. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
         let combinedMask = new cv.Mat();
