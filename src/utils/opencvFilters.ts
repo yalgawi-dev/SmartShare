@@ -105,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' = 'auto'): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, hybridColor?: string, detectedType?: 'text' | 'photo' | 'mixed' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' = 'auto'): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, smartPlus?: string, hybridColor?: string, detectedType?: 'text_bw' | 'text_color' | 'photo' | 'mixed' }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -266,28 +266,31 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         dilateKernel.delete();
 
         // Auto-Detect Logic to determine default mode
+        let detectedType: 'text_bw' | 'text_color' | 'photo' | 'mixed' = 'text_color';
         if (colorfulRatio > 0.15 || blackRatio > 0.40) {
             // Massive color or massive dark texture -> Pure Photo
-            isPhoto = true;
+            detectedType = 'photo';
         } else if (colorfulRatio > 0.03) {
             // Moderate color
             if (paperRatio > 0.05) {
                 // There is also bright paper -> Mixed / Collage
-                isMixed = true;
+                detectedType = 'mixed';
             } else {
                 // No paper -> Photo
-                isPhoto = true;
+                detectedType = 'photo';
             }
+        } else if (colorfulRatio <= 0.005) {
+            // Zero color, pure black and white (Thermal receipts or pure B&W prints)
+            detectedType = 'text_bw';
         } else {
-            // Very little color, mostly black & white -> Text/Invoice
-            // Fallback for extremely weird edge cases, though technically it should be `isPhoto = false; isMixed = false;` which defaults to text.
+            // Very little color (e.g. blue signature, faint logo)
+            detectedType = 'text_color';
         }
 
         vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
         hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
         brightMask.delete(); nonColorMask.delete(); paperMask.delete();
         
-        let detectedType: 'text' | 'photo' | 'mixed' = isPhoto ? 'photo' : (isMixed ? 'mixed' : 'text');
         let blackMat = new cv.Mat(bw.rows, bw.cols, bw.type(), new cv.Scalar(0));
         blackMat.copyTo(bw, darkMask);
         

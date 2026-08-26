@@ -166,11 +166,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('cropping');
   };
 
-  const [profile, setProfile] = useState<'auto' | 'text' | 'photo'>('auto');
-  const [detectedType, setDetectedType] = useState<'text' | 'photo' | null>(null);
+  const [profile, setProfile] = useState<'auto' | 'text' | 'photo' | 'mixed'>('auto');
+  const [detectedType, setDetectedType] = useState<'text_bw' | 'text_color' | 'photo' | 'mixed' | null>(null);
 
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[], targetProfile?: 'auto' | 'text' | 'photo') => {
+  const performCrop = async (snapshot: string, pts: Point[], targetProfile?: 'auto' | 'text' | 'photo' | 'mixed') => {
     try {
       const activeProfile = targetProfile || profile;
       
@@ -187,9 +187,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       }
       
       if (results.detectedType) {
-        setDetectedType(results.detectedType as 'text' | 'photo' | 'mixed');
+        setDetectedType(results.detectedType as 'text_bw' | 'text_color' | 'photo' | 'mixed');
         if (activeProfile === 'auto') {
-          setProfile(results.detectedType as 'text' | 'photo' | 'mixed');
+          // Keep profile simple for internal usage ('text' vs 'photo')
+          setProfile(results.detectedType.startsWith('text') ? 'text' : (results.detectedType as 'photo' | 'mixed'));
         }
       }
     } catch (err: any) {
@@ -223,7 +224,18 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     if (mode === 'smart_plus') finalImage = smartPlusSnapshot;
     if (mode === 'original') finalImage = croppedSnapshot;
     if (mode === 'hybrid') finalImage = hybridColorSnapshot;
-    if (mode === 'auto') finalImage = detectedType === 'photo' ? pureColorSnapshot : detectedType === 'mixed' ? hybridColorSnapshot : smartColorSnapshot;
+    
+    if (mode === 'auto') {
+      if (detectedType === 'photo') {
+        finalImage = pureColorSnapshot;
+      } else if (detectedType === 'mixed') {
+        finalImage = hybridColorSnapshot;
+      } else if (detectedType === 'text_bw') {
+        finalImage = bwSnapshot; // Thermal/Pure B&W -> B&W Mode
+      } else {
+        finalImage = smartPlusSnapshot; // Colorful text -> SmartPlus Mode (new default!)
+      }
+    }
     
     // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
     if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
