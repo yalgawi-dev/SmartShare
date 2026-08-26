@@ -565,7 +565,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // Cleanup General and Pure objects
         src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-        gray.delete(); sharpened.delete(); bw.delete(); 
+        gray.delete(); bw.delete(); 
         darkMask.delete(); blackMat.delete(); bwRgba.delete();
         
         // Legacy pure objects were replaced by photo objects and already cleaned up.
