@@ -313,24 +313,24 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.split(photoHsv, photoHsvPlanes);
         let satChannel = photoHsvPlanes.get(1);
         
-        // Increase saturation by 15%
-        satChannel.convertTo(satChannel, -1, 1.15, 0);
+        // Increase saturation by 35% (was 15%)
+        satChannel.convertTo(satChannel, -1, 1.35, 0);
         photoHsvPlanes.set(1, satChannel);
         cv.merge(photoHsvPlanes, photoHsv);
         
         let popRgb = new cv.Mat();
         cv.cvtColor(photoHsv, popRgb, cv.COLOR_HSV2RGB);
 
-        // 2. Mild Contrast & Brightness Boost (Simulate professional scan lighting)
-        // alpha = 1.05 (5% contrast increase), beta = 5 (brightness bump)
-        popRgb.convertTo(popRgb, -1, 1.05, 5);
+        // 2. Pro Contrast & Brightness Boost (Simulate professional scan lighting)
+        // alpha = 1.15 (15% contrast increase), beta = 10 (brightness bump)
+        popRgb.convertTo(popRgb, -1, 1.15, 10);
 
-        // 3. Mild Unsharp Mask (Fix macro-lens blur from smartphones)
+        // 3. Strong Unsharp Mask (Fix macro-lens blur from smartphones)
         let blurredPhoto = new cv.Mat();
-        cv.GaussianBlur(popRgb, blurredPhoto, new cv.Size(0, 0), 1.5);
+        // Larger radius (3.0) for deeper depth, stronger weight (1.6 / -0.6)
+        cv.GaussianBlur(popRgb, blurredPhoto, new cv.Size(0, 0), 3.0);
         let finalPhotoRgb = new cv.Mat();
-        // original * 1.3 + blurred * (-0.3) -> Gentle crispness
-        cv.addWeighted(popRgb, 1.3, blurredPhoto, -0.3, 0, finalPhotoRgb);
+        cv.addWeighted(popRgb, 1.6, blurredPhoto, -0.6, 0, finalPhotoRgb);
 
         let finalPureRgba = new cv.Mat();
         cv.cvtColor(finalPhotoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
