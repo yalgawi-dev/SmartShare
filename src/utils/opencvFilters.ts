@@ -577,18 +577,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         let softV = softHsvPlanes.get(2);
         
-        // Soft Retinex with Morphological Background Estimation (Fixes faded colors and shadow smudges)
+        // Soft Retinex with Large Gaussian Blur (Perfect Shadow Map)
         let smallV = new cv.Mat();
         cv.resize(softV, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
-        // 1. Dilate: Expands the white paper over the dark text/drawings, erasing them and leaving only the paper's true lighting
-        let bgDilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
-        let dilatedV = new cv.Mat();
-        cv.dilate(smallV, dilatedV, bgDilateKernel);
-        
-        // 2. Blur the paper lighting to make it perfectly smooth
+        // MASSIVE Gaussian Blur to capture the true lighting gradient (shadows) perfectly without destroying shape
         let blurredV = new cv.Mat();
-        cv.GaussianBlur(dilatedV, blurredV, new cv.Size(15, 15), 0, 0);
+        cv.GaussianBlur(smallV, blurredV, new cv.Size(35, 35), 0, 0);
         let bgV = new cv.Mat();
         cv.resize(blurredV, bgV, new cv.Size(softV.cols, softV.rows), 0, 0, cv.INTER_LINEAR);
 
@@ -606,7 +601,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let flatV = new cv.Mat();
         flatVFloat.convertTo(flatV, cv.CV_8U);
         
-        // Replace original V with flattened V
+        // *** NEW: Contrast Stretch (Black Point Adjustment) ***
+        // Pushes dark grey text into deep pitch black! (alpha = 1.3, beta = -40)
+        flatV.convertTo(flatV, -1, 1.3, -40);
+        
+        // Replace original V with flattened & stretched V
         softHsvPlanes.set(2, flatV);
         
         // Also boost saturation slightly to make the magazine colors pop
@@ -619,11 +618,11 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let enhancedSoftRgb = new cv.Mat();
         cv.cvtColor(softHsv, enhancedSoftRgb, cv.COLOR_HSV2RGB);
 
-        // Gentle Unsharp Mask for text crispness
+        // Stronger Unsharp Mask for razor-sharp text
         let blurredEnhSoft = new cv.Mat();
-        cv.GaussianBlur(enhancedSoftRgb, blurredEnhSoft, new cv.Size(0, 0), 1.5);
+        cv.GaussianBlur(enhancedSoftRgb, blurredEnhSoft, new cv.Size(0, 0), 2.0);
         let finalSoftRgb = new cv.Mat();
-        cv.addWeighted(enhancedSoftRgb, 1.4, blurredEnhSoft, -0.4, 0, finalSoftRgb);
+        cv.addWeighted(enhancedSoftRgb, 1.8, blurredEnhSoft, -0.8, 0, finalSoftRgb);
 
         let finalHybrid = new cv.Mat();
         cv.cvtColor(finalSoftRgb, finalHybrid, cv.COLOR_RGB2RGBA);
@@ -633,7 +632,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // Cleanup
         softRgb.delete(); softHsv.delete(); softHsvPlanes.delete(); softV.delete();
-        smallV.delete(); bgDilateKernel.delete(); dilatedV.delete(); blurredV.delete(); bgV.delete();
+        smallV.delete(); blurredV.delete(); bgV.delete();
         vFloat.delete(); bgvFloat.delete(); divVFloat.delete(); flatVFloat.delete(); flatV.delete();
         softSat.delete(); enhancedSoftRgb.delete(); blurredEnhSoft.delete(); finalSoftRgb.delete(); finalHybrid.delete();
         if (hybridMask) hybridMask.delete();
