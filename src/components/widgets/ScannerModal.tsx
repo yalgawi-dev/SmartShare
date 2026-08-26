@@ -387,8 +387,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'auto' ? '#fff' : 'transparent', color: mode === 'auto' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer', position: 'relative' }}>
                   אוטומט ✨
                   {mode === 'auto' && detectedType && (
-                    <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px' }}>
-                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : 'חשבונית'}
+                    <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
+                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : detectedType === 'text_bw' ? 'שחור-לבן' : 'חשבוניות+'}
                     </span>
                   )}
                 </button>
