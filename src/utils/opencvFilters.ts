@@ -564,45 +564,64 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.imshow(canvas, finalSmartPlusRgba);
         const smartPlusUrl = compressCanvas(canvas, 0.85);
 
-        // --- Hybrid Color ---
-        let hybridUrl = undefined;
-        if (hybridMask) {
-            let maskRgba = new cv.Mat();
-            cv.cvtColor(hybridMask, maskRgba, cv.COLOR_GRAY2RGBA);
-            
-            let maskFloat = new cv.Mat();
-            maskRgba.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
-            
-            let pureFloat = new cv.Mat();
-            finalPureRgba.convertTo(pureFloat, cv.CV_32F);
-            
-            let smartFloat = new cv.Mat();
-            // In hybrid mode, use Smart Plus instead of Smart Color to compare
-            finalSmartPlusRgba.convertTo(smartFloat, cv.CV_32F);
-            
-            let oneMinusMask = new cv.Mat();
-            let scalar1 = new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0, 1.0, 1.0, 1.0));
-            cv.subtract(scalar1, maskFloat, oneMinusMask);
-            
-            let term1 = new cv.Mat();
-            cv.multiply(pureFloat, maskFloat, term1);
-            
-            let term2 = new cv.Mat();
-            cv.multiply(smartFloat, oneMinusMask, term2);
-            
-            let hybridFloat = new cv.Mat();
-            cv.add(term1, term2, hybridFloat);
-            
-            let finalHybrid = new cv.Mat();
-            hybridFloat.convertTo(finalHybrid, cv.CV_8U);
-            
-            cv.imshow(canvas, finalHybrid);
-            hybridUrl = compressCanvas(canvas);
-            
-            maskRgba.delete(); maskFloat.delete(); pureFloat.delete(); smartFloat.delete();
-            oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete(); finalHybrid.delete();
-            hybridMask.delete();
-        }
+        // --- Hybrid Color (v18 Soft Document / Magazine Mode) ---
+        // Unified algorithm: Soft Retinex + Photo Enhancements. NO masking/blending.
+        let softRgb = new cv.Mat();
+        cv.cvtColor(dst, softRgb, cv.COLOR_RGBA2RGB);
+
+        // 1. Soft Retinex (Flatten lighting without destroying shadows/colors completely)
+        let smallSoft = new cv.Mat();
+        cv.resize(softRgb, smallSoft, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        let blurredSoft = new cv.Mat();
+        cv.GaussianBlur(smallSoft, blurredSoft, new cv.Size(15, 15), 0, 0);
+        let backgroundSoft = new cv.Mat();
+        cv.resize(blurredSoft, backgroundSoft, new cv.Size(softRgb.cols, softRgb.rows), 0, 0, cv.INTER_LINEAR);
+
+        let softFloat = new cv.Mat();
+        let bgSoftFloat = new cv.Mat();
+        softRgb.convertTo(softFloat, cv.CV_32FC3);
+        backgroundSoft.convertTo(bgSoftFloat, cv.CV_32FC3);
+
+        let divSoftFloat = new cv.Mat();
+        cv.divide(softFloat, bgSoftFloat, divSoftFloat);
+        
+        // Multiplier 200 + base 25 (Softer flattening than SmartPlus which uses 255)
+        let flatSoftFloat = new cv.Mat();
+        divSoftFloat.convertTo(flatSoftFloat, -1, 200, 25);
+        let flatSoftRgb = new cv.Mat();
+        flatSoftFloat.convertTo(flatSoftRgb, cv.CV_8UC3);
+
+        // 2. Photo Enhancement (Saturation + Unsharp Mask on the flattened image)
+        let softHsv = new cv.Mat();
+        cv.cvtColor(flatSoftRgb, softHsv, cv.COLOR_RGB2HSV);
+        let softHsvPlanes = new cv.MatVector();
+        cv.split(softHsv, softHsvPlanes);
+        let softSat = softHsvPlanes.get(1);
+        softSat.convertTo(softSat, -1, 1.25, 0); // 25% saturation boost
+        softHsvPlanes.set(1, softSat);
+        cv.merge(softHsvPlanes, softHsv);
+        
+        let enhancedSoftRgb = new cv.Mat();
+        cv.cvtColor(softHsv, enhancedSoftRgb, cv.COLOR_HSV2RGB);
+
+        // Gentle Unsharp Mask
+        let blurredEnhSoft = new cv.Mat();
+        cv.GaussianBlur(enhancedSoftRgb, blurredEnhSoft, new cv.Size(0, 0), 2.0);
+        let finalSoftRgb = new cv.Mat();
+        cv.addWeighted(enhancedSoftRgb, 1.4, blurredEnhSoft, -0.4, 0, finalSoftRgb);
+
+        let finalHybrid = new cv.Mat();
+        cv.cvtColor(finalSoftRgb, finalHybrid, cv.COLOR_RGB2RGBA);
+
+        cv.imshow(canvas, finalHybrid);
+        let hybridUrl = compressCanvas(canvas, 0.85);
+
+        // Cleanup
+        softRgb.delete(); smallSoft.delete(); blurredSoft.delete(); backgroundSoft.delete();
+        softFloat.delete(); bgSoftFloat.delete(); divSoftFloat.delete(); flatSoftFloat.delete(); flatSoftRgb.delete();
+        softHsv.delete(); softHsvPlanes.delete(); softSat.delete(); enhancedSoftRgb.delete();
+        blurredEnhSoft.delete(); finalSoftRgb.delete(); finalHybrid.delete();
+        if (hybridMask) hybridMask.delete();
 
         photoRgb.delete(); finalPureRgba.delete();
         finalSmartRgba.delete(); finalSmartPlusRgba.delete();
