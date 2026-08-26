@@ -333,11 +333,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
-                 <img 
-                   src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : smartColorSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : mode === 'hybrid' ? hybridColorSnapshot! : mode === 'smart_plus' ? smartPlusSnapshot! : smartColorSnapshot!} 
-                   style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
-                   alt="Scanned document" 
-                 />
+                  <img 
+                    src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : detectedType === 'text_bw' ? bwSnapshot! : smartPlusSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : mode === 'hybrid' ? hybridColorSnapshot! : mode === 'smart_plus' ? smartPlusSnapshot! : smartColorSnapshot!} 
+                    style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    alt="Scanned document" 
+                  />
                </TransformComponent>
              </TransformWrapper>
            </div>
