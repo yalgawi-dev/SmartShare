@@ -302,18 +302,45 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.imshow(canvas, bwRgba);
         const bwUrl = compressCanvas(canvas, 0.85);
         
-        // --- Photo Mode (Raw Original Camera Image) ---
-        // The user asked "Why doesn't it just take what it sees?". We remove all artificial OpenCV boosts.
-        // Modern smartphones natively apply massive HDR, sharpening, and color correction.
-        // Applying our own HSV boosts on top of that creates unnatural tints (like turning gray shadows blue).
+        // --- Photo Mode (Professional Photo Enhancement) ---
         let photoRgb = new cv.Mat();
         cv.cvtColor(dst, photoRgb, cv.COLOR_RGBA2RGB);
 
+        // 1. Saturation Boost (Make colors pop, countering faded prints)
+        let photoHsv = new cv.Mat();
+        cv.cvtColor(photoRgb, photoHsv, cv.COLOR_RGB2HSV);
+        let photoHsvPlanes = new cv.MatVector();
+        cv.split(photoHsv, photoHsvPlanes);
+        let satChannel = photoHsvPlanes.get(1);
+        
+        // Increase saturation by 15%
+        satChannel.convertTo(satChannel, -1, 1.15, 0);
+        photoHsvPlanes.set(1, satChannel);
+        cv.merge(photoHsvPlanes, photoHsv);
+        
+        let popRgb = new cv.Mat();
+        cv.cvtColor(photoHsv, popRgb, cv.COLOR_HSV2RGB);
+
+        // 2. Mild Contrast & Brightness Boost (Simulate professional scan lighting)
+        // alpha = 1.05 (5% contrast increase), beta = 5 (brightness bump)
+        popRgb.convertTo(popRgb, -1, 1.05, 5);
+
+        // 3. Mild Unsharp Mask (Fix macro-lens blur from smartphones)
+        let blurredPhoto = new cv.Mat();
+        cv.GaussianBlur(popRgb, blurredPhoto, new cv.Size(0, 0), 1.5);
+        let finalPhotoRgb = new cv.Mat();
+        // original * 1.3 + blurred * (-0.3) -> Gentle crispness
+        cv.addWeighted(popRgb, 1.3, blurredPhoto, -0.3, 0, finalPhotoRgb);
+
         let finalPureRgba = new cv.Mat();
-        cv.cvtColor(photoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
+        cv.cvtColor(finalPhotoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
 
         cv.imshow(canvas, finalPureRgba);
         const pureColorUrl = compressCanvas(canvas, 0.85);
+
+        // Cleanup Photo resources
+        photoHsv.delete(); photoHsvPlanes.delete(); satChannel.delete(); 
+        popRgb.delete(); blurredPhoto.delete(); finalPhotoRgb.delete();
         
         // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
