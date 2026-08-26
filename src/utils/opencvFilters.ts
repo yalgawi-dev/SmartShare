@@ -454,10 +454,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         planes.set(1, S);
         S.delete();
         
-        // Darken the flattened ink to make it bold
+        // Darken the flattened ink slightly, but don't crush it (to prevent blue ink from turning black)
         let V = planes.get(2);
         let VCurve = new cv.Mat();
-        V.convertTo(VCurve, -1, 1.2, -40); 
+        V.convertTo(VCurve, -1, 1.1, -10); 
         planes.set(2, VCurve);
         V.delete(); VCurve.delete();
         
