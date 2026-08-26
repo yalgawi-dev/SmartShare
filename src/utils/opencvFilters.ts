@@ -469,9 +469,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         flatHsv.delete(); planes.delete(); flatRgb.delete();
 
         // Thicken the text mask slightly so the text doesn't look thin and "blinding"
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
-        cv.dilate(mask, mask, dilateKernel);
-        dilateKernel.delete();
+        let maskDilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
+        cv.dilate(mask, mask, maskDilateKernel);
+        maskDilateKernel.delete();
 
         // 4. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
         let combinedMask = new cv.Mat();
