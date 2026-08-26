@@ -582,9 +582,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.resize(softV, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
         // 1. Dilate: Expands the white paper over the dark text/drawings, erasing them and leaving only the paper's true lighting
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
+        let bgDilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(9, 9));
         let dilatedV = new cv.Mat();
-        cv.dilate(smallV, dilatedV, dilateKernel);
+        cv.dilate(smallV, dilatedV, bgDilateKernel);
         
         // 2. Blur the paper lighting to make it perfectly smooth
         let blurredV = new cv.Mat();
@@ -633,7 +633,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // Cleanup
         softRgb.delete(); softHsv.delete(); softHsvPlanes.delete(); softV.delete();
-        smallV.delete(); dilateKernel.delete(); dilatedV.delete(); blurredV.delete(); bgV.delete();
+        smallV.delete(); bgDilateKernel.delete(); dilatedV.delete(); blurredV.delete(); bgV.delete();
         vFloat.delete(); bgvFloat.delete(); divVFloat.delete(); flatVFloat.delete(); flatV.delete();
         softSat.delete(); enhancedSoftRgb.delete(); blurredEnhSoft.delete(); finalSoftRgb.delete(); finalHybrid.delete();
         if (hybridMask) hybridMask.delete();
