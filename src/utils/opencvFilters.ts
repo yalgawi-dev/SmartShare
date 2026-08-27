@@ -169,6 +169,22 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             return;
         }
 
+
+        if (forcedProfile === 'original') {
+            cv.imshow(canvas, dst);
+            const originalUrl = compressCanvas(canvas, 0.95);
+            resolve({ filtered: originalUrl, activeProfile: 'original' });
+            try {
+                src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+            } catch(e) {}
+            return;
+        }
+
+        photoRgb = new cv.Mat();
+        finalPureRgba = new cv.Mat();
+        finalSmartRgba = new cv.Mat();
+        finalSmartPlusRgba = new cv.Mat();
+        finalHybrid = undefined;
         // --- B&W Enhancement (Sauvola Adaptive Thresholding for Thermal Receipts) ---
         let gray = new cv.Mat();
         cv.cvtColor(dst, gray, cv.COLOR_RGBA2GRAY, 0);
@@ -393,8 +409,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         
         
+
+        if (forcedProfile === 'auto' || forcedProfile === 'pure_color' || forcedProfile === 'hybrid') {
         // --- Photo Mode (Professional Photo Enhancement) ---
-        let photoRgb = new cv.Mat();
+        photoRgb = new cv.Mat();
         cv.cvtColor(dst, photoRgb, cv.COLOR_RGBA2RGB);
 
         // 1. Saturation Boost (Make colors pop, countering faded prints)
@@ -423,7 +441,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let finalPhotoRgb = new cv.Mat();
         cv.addWeighted(popRgb, 1.6, blurredPhoto, -0.6, 0, finalPhotoRgb);
 
-        let finalPureRgba = new cv.Mat();
+        finalPureRgba = new cv.Mat();
         cv.cvtColor(finalPhotoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
 
         
@@ -435,6 +453,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Do not delete photoRgb and finalPureRgba yet, we need them for hybrid
 
+
+        }
+
+        if (forcedProfile === 'auto' || forcedProfile === 'smart_color') {
         // --- Smart Color (v12.5 Ultimate Masked Color Engine - CamScanner Style) ---
         // We use the flawless B&W mask to perfectly isolate text from the paper.
         // Pure paper is forced to [255, 255, 255] (zero noise, zero shadows).
@@ -482,13 +504,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         smoothMask.delete();
         smartRgb.delete();
 
-        let finalSmartRgba = new cv.Mat();
+        finalSmartRgba = new cv.Mat();
         cv.cvtColor(smartSharp, finalSmartRgba, cv.COLOR_RGB2RGBA);
         smartSharp.delete();
 
         
         
 
+
+        }
+
+        if (forcedProfile === 'auto' || forcedProfile === 'smart_plus' || forcedProfile === 'hybrid') {
         // --- Smart Plus (v17.0 Pure CamScanner Magic Color) ---
         // Completely independent of the B&W mask! Uses direct HSV manipulation.
         let plusRgb = new cv.Mat();
@@ -647,7 +673,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         finalFloat.convertTo(finalSmartPlusRgb, cv.CV_8UC3);
         finalFloat.delete();
 
-        let finalSmartPlusRgba = new cv.Mat();
+        finalSmartPlusRgba = new cv.Mat();
         cv.cvtColor(finalSmartPlusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
         finalSmartPlusRgb.delete();
         plusRgb.delete();
@@ -655,6 +681,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         
 
+
+        }
+
+        if (forcedProfile === 'auto' || forcedProfile === 'hybrid') {
         // --- Hybrid Color (Restored Masked Blending) ---
         // Uses the powerful hybridMask to perfectly blend the pure Photo engine (for drawings) 
         // with the flawless SmartPlus engine (for text and white paper)!
@@ -701,6 +731,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         
         
+
+        }
         // --- LAZY EVALUATION: Choose the active profile and encode ONLY that one! ---
         let activeProfile = forcedProfile;
         

@@ -214,7 +214,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     }
     
     setIsProcessing(true);
-    setMode(targetMode); // Optimistic UI update for the button
+    // Remove optimistic setMode so the image doesn't break while processing
     setTimeout(async () => {
       await performCrop(rawSnapshot, cropPoints, targetMode);
       setIsProcessing(false);
