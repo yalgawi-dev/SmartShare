@@ -214,14 +214,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let vCheck = hsvPlanesCheck.get(2);
         
         // 1. Identify Colorful regions 
-        // We lowered Saturation threshold from 65 to 40 to catch gentle pastel colors (light blue, light yellow).
+        // We lowered Saturation threshold from 40 to 25 to catch extreme pastel colors (faint light blue/yellow).
         let colorMask = new cv.Mat();
-        cv.threshold(sCheck, colorMask, 40, 255, cv.THRESH_BINARY);
+        cv.threshold(sCheck, colorMask, 25, 255, cv.THRESH_BINARY);
         
-        // We raised Brightness exclusion from 210 to 245. 
-        // 210 accidentally classified bright light-blue skies as "Paper" and bleached them!
+        // Exclude only absolute blinding white (V > 250)
         let notPaperMask = new cv.Mat();
-        cv.threshold(vCheck, notPaperMask, 245, 255, cv.THRESH_BINARY_INV); 
+        cv.threshold(vCheck, notPaperMask, 250, 255, cv.THRESH_BINARY_INV); 
         
         let targetMask = new cv.Mat();
         cv.bitwise_and(colorMask, notPaperMask, targetMask);
@@ -259,10 +258,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+        // Expand the mask significantly to create a large "safety halo" around drawings
+        // This ensures pale backgrounds adjacent to characters are fully protected from the invoice engine.
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(17, 17));
         cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
         
-        cv.GaussianBlur(smallMask, smallMask, new cv.Size(9, 9), 0, 0);
+        // Soften the edges of the halo for a perfectly seamless blend
+        cv.GaussianBlur(smallMask, smallMask, new cv.Size(15, 15), 0, 0);
         
         cv.resize(smallMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
         
