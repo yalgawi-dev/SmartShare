@@ -258,19 +258,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
-        // Expand the mask significantly to create a large "safety halo" around drawings
-        // This ensures pale backgrounds adjacent to characters are fully protected from the invoice engine.
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(17, 17));
-        cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
+        // HOLISTIC SOLUTION: MORPH_CLOSE (Dilation followed by Erosion).
+        // This bridges massive gaps and swallows large white objects (like the rabbit or glare spots) 
+        // that are trapped inside or adjacent to colorful areas, without bleeding outward into the invoice paper!
+        // 35x35 on 0.2 scale = 175x175 pixels in original!
+        let closeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(35, 35));
+        cv.morphologyEx(smallMask, smallMask, cv.MORPH_CLOSE, closeKernel);
         
-        // Soften the edges of the halo for a perfectly seamless blend
+        // Soften the edges of the mask for a perfectly seamless blend
         cv.GaussianBlur(smallMask, smallMask, new cv.Size(15, 15), 0, 0);
         
         cv.resize(smallMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
         
         smallMask.delete();
         cleanKernel.delete();
-        dilateKernel.delete();
+        closeKernel.delete();
 
         // Auto-Detect Logic to determine default mode
         let detectedType: 'text_bw' | 'text_color' | 'photo' | 'mixed' = 'text_color';
@@ -424,18 +426,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 1. Create a flawless binary mask of the text (ignores shadows completely)
         let grayForMask = new cv.Mat();
         cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
-        
-        // Boost local contrast to force faint text hidden under glare to pop out
-        let blurredGray = new cv.Mat();
-        cv.GaussianBlur(grayForMask, blurredGray, new cv.Size(0, 0), 2.0);
-        cv.addWeighted(grayForMask, 1.8, blurredGray, -0.8, 0, grayForMask);
-        blurredGray.delete();
-        
         cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(3, 3), 0, 0);
         
         let mask = new cv.Mat();
-        // Lowered block size to 41 and C to 9 to catch faint text inside glare reflections
-        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 41, 9);
+        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 61, 15);
         grayForMask.delete();
         cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
 
