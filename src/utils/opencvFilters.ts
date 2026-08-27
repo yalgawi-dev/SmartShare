@@ -424,10 +424,18 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 1. Create a flawless binary mask of the text (ignores shadows completely)
         let grayForMask = new cv.Mat();
         cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
+        
+        // Boost local contrast to force faint text hidden under glare to pop out
+        let blurredGray = new cv.Mat();
+        cv.GaussianBlur(grayForMask, blurredGray, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(grayForMask, 1.8, blurredGray, -0.8, 0, grayForMask);
+        blurredGray.delete();
+        
         cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(3, 3), 0, 0);
         
         let mask = new cv.Mat();
-        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 61, 15);
+        // Lowered block size to 41 and C to 9 to catch faint text inside glare reflections
+        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 41, 9);
         grayForMask.delete();
         cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
 
