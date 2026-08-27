@@ -50,14 +50,18 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       // so the server doesn't have to waste time downloading it again from Firebase.
       const { uploadImageToStorage, db } = await import('../../lib/firebase');
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
+      const { downscaleBase64 } = await import('../../utils/imageOptimizer');
+      
+      // Scale the image down to 1500px strictly for network/API speed
+      const optimizedImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
       
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       
-      const uploadPromise = uploadImageToStorage(imgUrl, filename);
+      const uploadPromise = uploadImageToStorage(optimizedImgUrl, filename);
       const ocrPromise = fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: imgUrl }) // Send base64 directly!
+        body: JSON.stringify({ imageUrl: optimizedImgUrl }) // Send optimized base64 directly!
       });
       
       const [finalImageUrl, response] = await Promise.all([uploadPromise, ocrPromise]);
@@ -202,7 +206,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div>
             <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              💰 התחשבנות (v17.9.28 Instant Crop)
+              💰 התחשבנות (v17.9.29 Max Quality)
             </h2>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
