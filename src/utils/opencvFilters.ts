@@ -258,15 +258,47 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
-        // Use a clean safety halo instead of aggressive MORPH_CLOSE, to prevent leaking onto the invoice!
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(17, 17));
-        cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
+        // --- CONVEX HULL CLUSTERING (Document Layout Analysis) ---
+        // 1. Group nearby colors so a fragmented drawing becomes one connected blob
+        let groupKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(25, 25));
+        cv.morphologyEx(smallMask, smallMask, cv.MORPH_CLOSE, groupKernel);
         
-        // Soften the edges of the mask for a perfectly seamless blend
-        cv.GaussianBlur(smallMask, smallMask, new cv.Size(15, 15), 0, 0);
+        // 2. Find the outer boundaries of these color blobs
+        let contours = new cv.MatVector();
+        let hierarchy = new cv.Mat();
+        cv.findContours(smallMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
         
-        cv.resize(smallMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
+        // 3. Draw a "rubber band" (Convex Hull) around each drawing to trap white space inside!
+        let hullMask = new cv.Mat.zeros(smallMask.rows, smallMask.cols, cv.CV_8UC1);
+        for (let i = 0; i < contours.size(); ++i) {
+            let cnt = contours.get(i);
+            let area = cv.contourArea(cnt);
+            // Filter out tiny noise (e.g. stray colored dots). Area 20 on 0.2 scale = ~500px in original
+            if (area > 20) {
+                let hull = new cv.Mat();
+                cv.convexHull(cnt, hull, false, true);
+                
+                let hullVector = new cv.MatVector();
+                hullVector.push_back(hull);
+                cv.drawContours(hullMask, hullVector, 0, new cv.Scalar(255), -1); // -1 = Filled!
+                
+                hull.delete();
+                hullVector.delete();
+            }
+            cnt.delete();
+        }
         
+        // 4. Soften the edges of the geometric hulls for a seamless blend
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+        cv.dilate(hullMask, hullMask, dilateKernel, new cv.Point(-1, -1), 1);
+        cv.GaussianBlur(hullMask, hullMask, new cv.Size(15, 15), 0, 0);
+        
+        cv.resize(hullMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
+        
+        hullMask.delete();
+        contours.delete();
+        hierarchy.delete();
+        groupKernel.delete();
         smallMask.delete();
         cleanKernel.delete();
         dilateKernel.delete();
