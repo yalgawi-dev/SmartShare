@@ -268,22 +268,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let hierarchy = new cv.Mat();
         cv.findContours(smallMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
         
-        // 3. Draw a "rubber band" (Convex Hull) around each drawing to trap white space inside!
+        // 3. Draw the exact outer boundary of each drawing and fill its internal white spaces.
+        // We avoid Convex Hull to prevent artificial straight lines from bridging empty margins.
         let hullMask = new cv.Mat.zeros(smallMask.rows, smallMask.cols, cv.CV_8UC1);
         for (let i = 0; i < contours.size(); ++i) {
             let cnt = contours.get(i);
             let area = cv.contourArea(cnt);
             // Filter out tiny noise (e.g. stray colored dots). Area 20 on 0.2 scale = ~500px in original
             if (area > 20) {
-                let hull = new cv.Mat();
-                cv.convexHull(cnt, hull, false, true);
-                
-                let hullVector = new cv.MatVector();
-                hullVector.push_back(hull);
-                cv.drawContours(hullMask, hullVector, 0, new cv.Scalar(255), -1); // -1 = Filled!
-                
-                hull.delete();
-                hullVector.delete();
+                let cntVector = new cv.MatVector();
+                cntVector.push_back(cnt);
+                // Draw the exact contour (follows the real curves) and fill it completely (-1)
+                cv.drawContours(hullMask, cntVector, 0, new cv.Scalar(255), -1);
+                cntVector.delete();
             }
             cnt.delete();
         }
