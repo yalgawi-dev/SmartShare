@@ -269,22 +269,59 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let hierarchy = new cv.Mat();
         cv.findContours(smallMask, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
         
-        // 3. Draw the exact outer boundary of each drawing and fill its internal white spaces.
-        // We avoid Convex Hull to prevent artificial straight lines from bridging empty margins.
+        // 3. Hybrid Layout Analysis (Decision Mechanism: Straight Box vs. Contour)
         let hullMask = new cv.Mat.zeros(smallMask.rows, smallMask.cols, cv.CV_8UC1);
+        
+        // Prepare text mask for collision detection (bw has text as black/0, so we invert it)
+        let smallTextMask = new cv.Mat();
+        cv.resize(bw, smallTextMask, new cv.Size(smallMask.cols, smallMask.rows), 0, 0, cv.INTER_NEAREST);
+        cv.bitwise_not(smallTextMask, smallTextMask); 
+        
         for (let i = 0; i < contours.size(); ++i) {
             let cnt = contours.get(i);
             let area = cv.contourArea(cnt);
-            // Filter out tiny noise (e.g. stray colored dots). Area 20 on 0.2 scale = ~500px in original
+            // Filter out tiny noise
             if (area > 20) {
+                // Option B: Contour (curvy, exact)
+                let contourMask = new cv.Mat.zeros(smallMask.rows, smallMask.cols, cv.CV_8UC1);
                 let cntVector = new cv.MatVector();
                 cntVector.push_back(cnt);
-                // Draw the exact contour (follows the real curves) and fill it completely (-1)
-                cv.drawContours(hullMask, cntVector, 0, new cv.Scalar(255), -1);
+                cv.drawContours(contourMask, cntVector, 0, new cv.Scalar(255), -1);
+                
+                // Option A: Bounding Box (straight lines, protects peninsulas)
+                let rect = cv.boundingRect(cnt);
+                let boxMask = new cv.Mat.zeros(smallMask.rows, smallMask.cols, cv.CV_8UC1);
+                let point1 = new cv.Point(rect.x, rect.y);
+                let point2 = new cv.Point(rect.x + rect.width, rect.y + rect.height);
+                cv.rectangle(boxMask, point1, point2, new cv.Scalar(255), -1);
+                
+                // Diff: The "Disputed Territory" (space inside Box but outside Contour)
+                let diffMask = new cv.Mat();
+                cv.bitwise_xor(boxMask, contourMask, diffMask);
+                
+                // Scan for text in the Disputed Territory
+                let collisionMask = new cv.Mat();
+                cv.bitwise_and(diffMask, smallTextMask, collisionMask);
+                let textPixels = cv.countNonZero(collisionMask);
+                let diffPixels = cv.countNonZero(diffMask);
+                
+                // If text density > 3%, it's wrapping text! Use Contour to save text. Else use Box to save peninsulas!
+                let textDensity = diffPixels > 0 ? (textPixels / diffPixels) : 0;
+                if (textDensity > 0.03) {
+                    cv.bitwise_or(hullMask, contourMask, hullMask);
+                } else {
+                    cv.bitwise_or(hullMask, boxMask, hullMask);
+                }
+                
+                contourMask.delete();
+                boxMask.delete();
+                diffMask.delete();
+                collisionMask.delete();
                 cntVector.delete();
             }
             cnt.delete();
         }
+        smallTextMask.delete();
         
         // 4. Safety Margin: Expand the contour outward to capture colorless peninsulas (like the broom/hair).
         // Reduced from 35x35 down to 15x15 per user request to find the sweet spot.
