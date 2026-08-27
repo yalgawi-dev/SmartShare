@@ -221,21 +221,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let targetMask = new cv.Mat();
         cv.bitwise_and(colorMask, notPaperMask, targetMask);
         
-        // 1b. Identify Mid-tones (Brightness between 70 and 190) to detect B&W photos, grey shirts, and gradients!
-        // This prevents the invoice engine from destroying non-colorful parts of photos.
-        let notBlackMask = new cv.Mat();
-        cv.threshold(vCheck, notBlackMask, 70, 255, cv.THRESH_BINARY);
-        let notWhiteMask = new cv.Mat();
-        cv.threshold(vCheck, notWhiteMask, 190, 255, cv.THRESH_BINARY_INV);
-        let midToneMask = new cv.Mat();
-        cv.bitwise_and(notBlackMask, notWhiteMask, midToneMask);
-        
-        let expandedTarget = new cv.Mat();
-        cv.bitwise_or(targetMask, midToneMask, expandedTarget);
-        
         let openedMask = new cv.Mat();
         let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
-        cv.morphologyEx(expandedTarget, openedMask, cv.MORPH_OPEN, openKernel);
+        cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
         let colorfulPixels = cv.countNonZero(openedMask);
         let colorfulRatio = colorfulPixels / totalPixels;
 
@@ -303,7 +291,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
-        notBlackMask.delete(); notWhiteMask.delete(); midToneMask.delete(); expandedTarget.delete();
         hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
         brightMask.delete(); nonColorMask.delete(); paperMask.delete();
         
