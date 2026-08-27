@@ -406,11 +406,25 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         let bwRgba = new cv.Mat();
         cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
+        // --- LAZY EVALUATION RESOLUTION ---
+        let activeProfile = forcedProfile;
+        if (activeProfile === 'auto' || activeProfile === 'text' || activeProfile === 'photo' || activeProfile === 'mixed') {
+          if (detectedType === 'photo') {
+            activeProfile = 'pure_color';
+          } else if (detectedType === 'mixed') {
+            activeProfile = 'hybrid';
+          } else if (detectedType === 'text_bw') {
+            activeProfile = 'bw';
+          } else {
+            activeProfile = 'smart_plus';
+          }
+        }
+
         
         
         
 
-        if (forcedProfile === 'auto' || forcedProfile === 'pure_color' || forcedProfile === 'hybrid') {
+        if (activeProfile === 'pure_color' || activeProfile === 'hybrid') {
         // --- Photo Mode (Professional Photo Enhancement) ---
         photoRgb = new cv.Mat();
         cv.cvtColor(dst, photoRgb, cv.COLOR_RGBA2RGB);
@@ -456,7 +470,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         }
 
-        if (forcedProfile === 'auto' || forcedProfile === 'smart_color') {
+        if (activeProfile === 'smart_color') {
         // --- Smart Color (v12.5 Ultimate Masked Color Engine - CamScanner Style) ---
         // We use the flawless B&W mask to perfectly isolate text from the paper.
         // Pure paper is forced to [255, 255, 255] (zero noise, zero shadows).
@@ -514,7 +528,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         }
 
-        if (forcedProfile === 'auto' || forcedProfile === 'smart_plus' || forcedProfile === 'hybrid') {
+        if (activeProfile === 'smart_plus' || activeProfile === 'hybrid') {
         // --- Smart Plus (v17.0 Pure CamScanner Magic Color) ---
         // Completely independent of the B&W mask! Uses direct HSV manipulation.
         let plusRgb = new cv.Mat();
@@ -684,7 +698,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         }
 
-        if (forcedProfile === 'auto' || forcedProfile === 'hybrid') {
+        if (activeProfile === 'hybrid') {
         // --- Hybrid Color (Restored Masked Blending) ---
         // Uses the powerful hybridMask to perfectly blend the pure Photo engine (for drawings) 
         // with the flawless SmartPlus engine (for text and white paper)!
@@ -734,7 +748,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         }
         // --- LAZY EVALUATION: Choose the active profile and encode ONLY that one! ---
-        let activeProfile = forcedProfile;
+        activeProfile = forcedProfile;
         
         // Auto-Detect Mapping
         if (activeProfile === 'auto' || activeProfile === 'text' || activeProfile === 'photo' || activeProfile === 'mixed') {
