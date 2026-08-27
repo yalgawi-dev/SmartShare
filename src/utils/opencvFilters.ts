@@ -111,32 +111,46 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
     img.src = snapshot;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      
+      // --- OPTIMIZATION: Pre-Scale to 1500px ---
+      // Scale the 12MP camera image DOWN before giving it to OpenCV.
+      // cv.imread and cv.warpPerspective on 12 million pixels in JS takes 3-4 seconds alone.
+      // Scaling it natively in the browser canvas first makes the entire OpenCV pipeline instant.
+      const MAX_DIM = 1500;
+      let scale = 1;
+      if (img.width > MAX_DIM || img.height > MAX_DIM) {
+          scale = MAX_DIM / Math.max(img.width, img.height);
+      }
+      
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject(new Error('Canvas context failed'));
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       try {
         const cv = (window as any).cv;
         let src = cv.imread(canvas);
         
-        const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
-        const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        // Scale the user's crop points to match the new canvas size
+        const scaledPts = pts.map(p => ({ x: p.x * scale, y: p.y * scale }));
+        
+        const widthA = Math.hypot(scaledPts[2].x - scaledPts[3].x, scaledPts[2].y - scaledPts[3].y);
+        const widthB = Math.hypot(scaledPts[1].x - scaledPts[0].x, scaledPts[1].y - scaledPts[0].y);
         const maxWidth = Math.round(Math.max(widthA, widthB));
 
-        const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
-        const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
+        const heightA = Math.hypot(scaledPts[1].x - scaledPts[2].x, scaledPts[1].y - scaledPts[2].y);
+        const heightB = Math.hypot(scaledPts[0].x - scaledPts[3].x, scaledPts[0].y - scaledPts[3].y);
         const maxHeight = Math.round(Math.max(heightA, heightB));
         
         let dst = new cv.Mat();
         let dsize = new cv.Size(maxWidth, maxHeight);
         
         let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          pts[0].x, pts[0].y,
-          pts[1].x, pts[1].y,
-          pts[2].x, pts[2].y,
-          pts[3].x, pts[3].y
+          scaledPts[0].x, scaledPts[0].y,
+          scaledPts[1].x, scaledPts[1].y,
+          scaledPts[2].x, scaledPts[2].y,
+          scaledPts[3].x, scaledPts[3].y
         ]);
         
         let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
@@ -149,21 +163,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let M = cv.getPerspectiveTransform(srcTri, dstTri);
         cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
         
-        // --- OPTIMIZATION: Cap Processing Resolution ---
-        // 12 Megapixel captures cause a 5-second UI freeze and huge base64 API payloads.
-        // Capping to 1500px cuts OpenCV processing time to < 1s and API upload time by 90%!
-        const MAX_DIM = 1500;
-        if (dst.cols > MAX_DIM || dst.rows > MAX_DIM) {
-            const scale = MAX_DIM / Math.max(dst.cols, dst.rows);
-            const newW = Math.round(dst.cols * scale);
-            const newH = Math.round(dst.rows * scale);
-            cv.resize(dst, dst, new cv.Size(newW, newH), 0, 0, cv.INTER_AREA);
-            canvas.width = newW;
-            canvas.height = newH;
-        } else {
-            canvas.width = dst.cols;
-            canvas.height = dst.rows;
-        }
+        // Reset canvas to match the exact cropped image dimension before showing/compressing
+        canvas.width = dst.cols;
+        canvas.height = dst.rows;
         
         cv.imshow(canvas, dst);
         const croppedUrl = compressCanvas(canvas);
