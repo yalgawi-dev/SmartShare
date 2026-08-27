@@ -221,9 +221,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let targetMask = new cv.Mat();
         cv.bitwise_and(colorMask, notPaperMask, targetMask);
         
+        // 1b. Identify Mid-tones (Brightness between 70 and 190) to detect B&W photos, grey shirts, and gradients!
+        // This prevents the invoice engine from destroying non-colorful parts of photos.
+        let notBlackMask = new cv.Mat();
+        cv.threshold(vCheck, notBlackMask, 70, 255, cv.THRESH_BINARY);
+        let notWhiteMask = new cv.Mat();
+        cv.threshold(vCheck, notWhiteMask, 190, 255, cv.THRESH_BINARY_INV);
+        let midToneMask = new cv.Mat();
+        cv.bitwise_and(notBlackMask, notWhiteMask, midToneMask);
+        
+        let expandedTarget = new cv.Mat();
+        cv.bitwise_or(targetMask, midToneMask, expandedTarget);
+        
         let openedMask = new cv.Mat();
         let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
-        cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
+        cv.morphologyEx(expandedTarget, openedMask, cv.MORPH_OPEN, openKernel);
         let colorfulPixels = cv.countNonZero(openedMask);
         let colorfulRatio = colorfulPixels / totalPixels;
 
@@ -291,6 +303,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         vCheck.delete(); colorMask.delete(); notPaperMask.delete(); targetMask.delete(); openedMask.delete(); openKernel.delete();
+        notBlackMask.delete(); notWhiteMask.delete(); midToneMask.delete(); expandedTarget.delete();
         hsvCheck.delete(); rgbCheck.delete(); hsvPlanesCheck.delete(); sCheck.delete();
         brightMask.delete(); nonColorMask.delete(); paperMask.delete();
         
@@ -564,78 +577,46 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.imshow(canvas, finalSmartPlusRgba);
         const smartPlusUrl = compressCanvas(canvas, 0.85);
 
-        // --- Hybrid Color (v18 Soft Document / Magazine Mode) ---
-        // True Magazine algorithm: Flatten lighting ONLY on the brightness channel (V), preserving exact colors (H, S)
-        let softRgb = new cv.Mat();
-        cv.cvtColor(dst, softRgb, cv.COLOR_RGBA2RGB);
-
-        // Convert to HSV to separate lighting from color
-        let softHsv = new cv.Mat();
-        cv.cvtColor(softRgb, softHsv, cv.COLOR_RGB2HSV);
-        let softHsvPlanes = new cv.MatVector();
-        cv.split(softHsv, softHsvPlanes);
-        
-        let softV = softHsvPlanes.get(2);
-        
-        // Soft Retinex with Large Gaussian Blur (Perfect Shadow Map)
-        let smallV = new cv.Mat();
-        cv.resize(softV, smallV, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
-        
-        // MASSIVE Gaussian Blur to capture the true lighting gradient (shadows) perfectly without destroying shape
-        let blurredV = new cv.Mat();
-        cv.GaussianBlur(smallV, blurredV, new cv.Size(35, 35), 0, 0);
-        let bgV = new cv.Mat();
-        cv.resize(blurredV, bgV, new cv.Size(softV.cols, softV.rows), 0, 0, cv.INTER_LINEAR);
-
-        let vFloat = new cv.Mat();
-        let bgvFloat = new cv.Mat();
-        softV.convertTo(vFloat, cv.CV_32F);
-        bgV.convertTo(bgvFloat, cv.CV_32F);
-
-        let divVFloat = new cv.Mat();
-        cv.divide(vFloat, bgvFloat, divVFloat);
-        
-        // Multiplier 255 (Forces paper to pure white, completely eliminating the shadow smudge)
-        let flatVFloat = new cv.Mat();
-        divVFloat.convertTo(flatVFloat, -1, 255, 0);
-        let flatV = new cv.Mat();
-        flatVFloat.convertTo(flatV, cv.CV_8U);
-        
-        // *** NEW: Contrast Stretch (Black Point Adjustment) ***
-        // Pushes dark grey text into deep pitch black! (alpha = 1.3, beta = -40)
-        flatV.convertTo(flatV, -1, 1.3, -40);
-        
-        // Replace original V with flattened & stretched V
-        softHsvPlanes.set(2, flatV);
-        
-        // Also boost saturation slightly to make the magazine colors pop
-        let softSat = softHsvPlanes.get(1);
-        softSat.convertTo(softSat, -1, 1.25, 0); // 25% saturation boost
-        softHsvPlanes.set(1, softSat);
-        
-        cv.merge(softHsvPlanes, softHsv);
-        
-        let enhancedSoftRgb = new cv.Mat();
-        cv.cvtColor(softHsv, enhancedSoftRgb, cv.COLOR_HSV2RGB);
-
-        // Stronger Unsharp Mask for razor-sharp text
-        let blurredEnhSoft = new cv.Mat();
-        cv.GaussianBlur(enhancedSoftRgb, blurredEnhSoft, new cv.Size(0, 0), 2.0);
-        let finalSoftRgb = new cv.Mat();
-        cv.addWeighted(enhancedSoftRgb, 1.8, blurredEnhSoft, -0.8, 0, finalSoftRgb);
-
-        let finalHybrid = new cv.Mat();
-        cv.cvtColor(finalSoftRgb, finalHybrid, cv.COLOR_RGB2RGBA);
-
-        cv.imshow(canvas, finalHybrid);
-        let hybridUrl = compressCanvas(canvas, 0.85);
-
-        // Cleanup
-        softRgb.delete(); softHsv.delete(); softHsvPlanes.delete(); softV.delete();
-        smallV.delete(); blurredV.delete(); bgV.delete();
-        vFloat.delete(); bgvFloat.delete(); divVFloat.delete(); flatVFloat.delete(); flatV.delete();
-        softSat.delete(); enhancedSoftRgb.delete(); blurredEnhSoft.delete(); finalSoftRgb.delete(); finalHybrid.delete();
-        if (hybridMask) hybridMask.delete();
+        // --- Hybrid Color (Restored Masked Blending) ---
+        // Uses the powerful hybridMask to perfectly blend the pure Photo engine (for drawings) 
+        // with the flawless SmartPlus engine (for text and white paper)!
+        let hybridUrl = undefined;
+        if (hybridMask) {
+            let maskRgba = new cv.Mat();
+            cv.cvtColor(hybridMask, maskRgba, cv.COLOR_GRAY2RGBA);
+            
+            let maskFloat = new cv.Mat();
+            maskRgba.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
+            
+            let pureFloat = new cv.Mat();
+            finalPureRgba.convertTo(pureFloat, cv.CV_32F);
+            
+            let smartFloat = new cv.Mat();
+            finalSmartPlusRgba.convertTo(smartFloat, cv.CV_32F);
+            
+            let oneMinusMask = new cv.Mat();
+            let scalar1 = new cv.Mat(maskFloat.rows, maskFloat.cols, maskFloat.type(), new cv.Scalar(1.0, 1.0, 1.0, 1.0));
+            cv.subtract(scalar1, maskFloat, oneMinusMask);
+            
+            let term1 = new cv.Mat();
+            cv.multiply(pureFloat, maskFloat, term1);
+            
+            let term2 = new cv.Mat();
+            cv.multiply(smartFloat, oneMinusMask, term2);
+            
+            let hybridFloat = new cv.Mat();
+            cv.add(term1, term2, hybridFloat);
+            
+            let finalHybrid = new cv.Mat();
+            hybridFloat.convertTo(finalHybrid, cv.CV_8U);
+            
+            cv.imshow(canvas, finalHybrid);
+            hybridUrl = compressCanvas(canvas, 0.85);
+            
+            maskRgba.delete(); maskFloat.delete(); pureFloat.delete(); smartFloat.delete();
+            oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete(); finalHybrid.delete();
+            hybridMask.delete();
+        }
 
         photoRgb.delete(); finalPureRgba.delete();
         finalSmartRgba.delete(); finalSmartPlusRgba.delete();
