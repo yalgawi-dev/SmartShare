@@ -286,8 +286,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             cnt.delete();
         }
         
-        // 4. Soften the edges of the geometric hulls for a seamless blend
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+        // 4. Safety Margin: Expand the contour outward to capture colorless peninsulas (like the broom/hair).
+        // Increased from 9x9 to 35x35 based on user request for a larger safety buffer.
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(35, 35));
         cv.dilate(hullMask, hullMask, dilateKernel, new cv.Point(-1, -1), 1);
         cv.GaussianBlur(hullMask, hullMask, new cv.Size(15, 15), 0, 0);
         
