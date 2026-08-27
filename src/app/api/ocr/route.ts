@@ -83,14 +83,14 @@ export async function POST(request: Request) {
     };
 
     while (retries > 0) {
-      if (Date.now() - totalT0 > 50000) {
-          throw new Error("FATAL: Google API is completely unresponsive (Timeout exceeded 50s). Please try again later or upgrade your API key.");
+      if (Date.now() - totalT0 > 55000) {
+          throw new Error("FATAL: Google API is completely unresponsive (Timeout exceeded 55s). Please try again later or upgrade your API key.");
       }
       
       const callT0 = Date.now();
       try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout per attempt
+        const timeoutId = setTimeout(() => controller.abort(), 45000); // Increased to 45s to avoid aborting large files/slow Gemini
         
         const res = await fetch(apiUrl, {
           method: 'POST',
