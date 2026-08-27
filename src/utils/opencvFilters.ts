@@ -214,9 +214,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let vCheck = hsvPlanesCheck.get(2);
         
         // 1. Identify Colorful regions 
-        // We lowered Saturation threshold from 40 to 25 to catch extreme pastel colors (faint light blue/yellow).
+        // We lowered Saturation threshold from 40 to 20 to catch extreme pastel colors (faint light blue/yellow/hair edge).
         let colorMask = new cv.Mat();
-        cv.threshold(sCheck, colorMask, 25, 255, cv.THRESH_BINARY);
+        cv.threshold(sCheck, colorMask, 20, 255, cv.THRESH_BINARY);
         
         // Exclude only absolute blinding white (V > 250)
         let notPaperMask = new cv.Mat();
@@ -259,8 +259,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
         // --- CONVEX HULL CLUSTERING (Document Layout Analysis) ---
-        // 1. Group nearby colors so a fragmented drawing becomes one connected blob
-        let groupKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(25, 25));
+        // 1. Group nearby colors so a fragmented drawing becomes one connected blob.
+        // Increased from 25 to 31 to bridge wider white gaps (like glare on the edge of the head).
+        let groupKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(31, 31));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_CLOSE, groupKernel);
         
         // 2. Find the outer boundaries of these color blobs
