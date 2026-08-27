@@ -324,8 +324,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         smallTextMask.delete();
         
         // 4. Safety Margin: Expand the contour outward to capture colorless peninsulas (like the broom/hair).
-        // Reduced from 35x35 down to 15x15 per user request to find the sweet spot.
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
+        // Reverted to 9x9 per user request.
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
         cv.dilate(hullMask, hullMask, dilateKernel, new cv.Point(-1, -1), 1);
         cv.GaussianBlur(hullMask, hullMask, new cv.Size(15, 15), 0, 0);
         
