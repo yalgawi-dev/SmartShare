@@ -585,8 +585,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             maskRgba.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
             
             let pureFloat = new cv.Mat();
-            // Use the RAW original camera image (dst) without the Photo Pro enhancements, as requested by the user.
-            dst.convertTo(pureFloat, cv.CV_32F);
+            finalPureRgba.convertTo(pureFloat, cv.CV_32F);
             
             let smartFloat = new cv.Mat();
             finalSmartPlusRgba.convertTo(smartFloat, cv.CV_32F);
