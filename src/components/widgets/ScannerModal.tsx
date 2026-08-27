@@ -169,6 +169,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [profile, setProfile] = useState<'auto' | 'text' | 'photo' | 'mixed'>('auto');
   const [detectedType, setDetectedType] = useState<'text_bw' | 'text_color' | 'photo' | 'mixed' | null>(null);
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   // 5. Apply Perspective Crop
   const performCrop = async (snapshot: string, pts: Point[], targetProfile?: 'auto' | 'text' | 'photo' | 'mixed') => {
     try {
@@ -199,10 +201,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     }
   };
 
-  const handleCropComplete = async () => {
+  const handleCropComplete = () => {
     if (!rawSnapshot || cropPoints.length !== 4) return;
-    await performCrop(rawSnapshot, cropPoints);
-    setStep('review');
+    setIsProcessing(true);
+    // Give browser 50ms to render the spinner before blocking the thread with OpenCV math
+    setTimeout(async () => {
+      await performCrop(rawSnapshot, cropPoints);
+      setIsProcessing(false);
+      setStep('review');
+    }, 50);
   };
 
   const handleRetake = () => {
@@ -373,8 +380,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             <button onClick={handleRetake} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
               צלם שוב
             </button>
-            <button onClick={handleCropComplete} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
-              חתוך ✂️
+            <button onClick={handleCropComplete} disabled={isProcessing} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}>
+              {isProcessing ? 'מעבד באיכות מקסימלית...' : 'אשר חיתוך'}
             </button>
           </div>
         )}
