@@ -180,10 +180,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             return;
         }
 
-        photoRgb = new cv.Mat();
-        finalPureRgba = new cv.Mat();
-        finalSmartRgba = new cv.Mat();
-        finalSmartPlusRgba = new cv.Mat();
+        let photoRgb = new cv.Mat();
+        let finalPureRgba = new cv.Mat();
+        let finalSmartRgba = new cv.Mat();
+        let finalSmartPlusRgba = new cv.Mat();
         finalHybrid = undefined;
         // --- B&W Enhancement (Sauvola Adaptive Thresholding for Thermal Receipts) ---
         let gray = new cv.Mat();
