@@ -213,11 +213,16 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let sCheck = hsvPlanesCheck.get(1);
         let vCheck = hsvPlanesCheck.get(2);
         
-        // 1. Identify Colorful regions (Saturation > 65, prevents shadows/noise from being detected as logos!)
+        // 1. Identify Colorful regions 
+        // We lowered Saturation threshold from 65 to 40 to catch gentle pastel colors (light blue, light yellow).
         let colorMask = new cv.Mat();
-        cv.threshold(sCheck, colorMask, 65, 255, cv.THRESH_BINARY);
+        cv.threshold(sCheck, colorMask, 40, 255, cv.THRESH_BINARY);
+        
+        // We raised Brightness exclusion from 210 to 245. 
+        // 210 accidentally classified bright light-blue skies as "Paper" and bleached them!
         let notPaperMask = new cv.Mat();
-        cv.threshold(vCheck, notPaperMask, 210, 255, cv.THRESH_BINARY_INV); // Exclude bright white from color
+        cv.threshold(vCheck, notPaperMask, 245, 255, cv.THRESH_BINARY_INV); 
+        
         let targetMask = new cv.Mat();
         cv.bitwise_and(colorMask, notPaperMask, targetMask);
         
