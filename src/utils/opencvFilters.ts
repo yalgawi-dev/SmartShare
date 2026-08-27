@@ -681,12 +681,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             hybridUrl = compressCanvas(canvas, 0.85);
             
             maskRgba.delete(); maskFloat.delete(); pureFloat.delete(); smartFloat.delete();
-            oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete(); finalHybrid.delete();
+            oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete();
             hybridMask.delete();
         }
 
-        photoRgb.delete(); finalPureRgba.delete();
-        finalSmartRgba.delete(); finalSmartPlusRgba.delete();
+        
+        
 
         
         
