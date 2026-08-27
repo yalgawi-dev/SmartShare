@@ -155,8 +155,19 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         canvas.width = dst.cols;
         canvas.height = dst.rows;
         
-        cv.imshow(canvas, dst);
-        const croppedUrl = compressCanvas(canvas);
+        
+        
+
+        if (forcedProfile === 'original') {
+            cv.imshow(canvas, dst);
+            const originalUrl = compressCanvas(canvas, 0.95);
+            resolve({ filtered: originalUrl, activeProfile: 'original' });
+            
+            try {
+                src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+            } catch(e) {}
+            return;
+        }
 
         // --- B&W Enhancement (Sauvola Adaptive Thresholding for Thermal Receipts) ---
         let gray = new cv.Mat();
@@ -379,8 +390,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         let bwRgba = new cv.Mat();
         cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
-        cv.imshow(canvas, bwRgba);
-        const bwUrl = compressCanvas(canvas, 0.85);
+        
+        
         
         // --- Photo Mode (Professional Photo Enhancement) ---
         let photoRgb = new cv.Mat();
@@ -415,8 +426,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let finalPureRgba = new cv.Mat();
         cv.cvtColor(finalPhotoRgb, finalPureRgba, cv.COLOR_RGB2RGBA);
 
-        cv.imshow(canvas, finalPureRgba);
-        const pureColorUrl = compressCanvas(canvas, 0.85);
+        
+        
 
         // Cleanup Photo resources
         photoHsv.delete(); photoHsvPlanes.delete(); satChannel.delete(); 
@@ -475,8 +486,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(smartSharp, finalSmartRgba, cv.COLOR_RGB2RGBA);
         smartSharp.delete();
 
-        cv.imshow(canvas, finalSmartRgba);
-        const smartColorUrl = compressCanvas(canvas, 0.85);
+        
+        
 
         // --- Smart Plus (v17.0 Pure CamScanner Magic Color) ---
         // Completely independent of the B&W mask! Uses direct HSV manipulation.
@@ -641,8 +652,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         finalSmartPlusRgb.delete();
         plusRgb.delete();
 
-        cv.imshow(canvas, finalSmartPlusRgba);
-        const smartPlusUrl = compressCanvas(canvas, 0.85);
+        
+        
 
         // --- Hybrid Color (Restored Masked Blending) ---
         // Uses the powerful hybridMask to perfectly blend the pure Photo engine (for drawings) 
@@ -677,8 +688,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             finalHybrid = new cv.Mat();
             hybridFloat.convertTo(finalHybrid, cv.CV_8U);
             
-            cv.imshow(canvas, finalHybrid);
-            hybridUrl = compressCanvas(canvas, 0.85);
+            
+            
             
             maskRgba.delete(); maskFloat.delete(); pureFloat.delete(); smartFloat.delete();
             oneMinusMask.delete(); scalar1.delete(); term1.delete(); term2.delete(); hybridFloat.delete();
@@ -723,7 +734,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           cv.imshow(canvas, finalSmartPlusRgba);
           finalUrl = compressCanvas(canvas, 0.90);
         } else if (activeProfile === 'hybrid') {
-          if (finalHybrid) {
+          if (typeof finalHybrid !== 'undefined') {
              cv.imshow(canvas, finalHybrid);
              finalUrl = compressCanvas(canvas, 0.90);
           } else {
@@ -735,7 +746,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           finalUrl = compressCanvas(canvas, 0.90);
         }
 
-        
         resolve({ 
           filtered: finalUrl,
           activeProfile: activeProfile,

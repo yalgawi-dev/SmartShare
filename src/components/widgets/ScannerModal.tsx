@@ -44,6 +44,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original'>('auto');
+  const [imageCache, setImageCache] = useState<Record<string, string>>({});
   
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -178,9 +179,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       
       const results = await applyPerspectiveAndFilters(snapshot, pts, activeProfile);
       
-      // LAZY LOADING: We only get one image back now!
-      setCroppedSnapshot(results.filtered); // Actually, we'll just save the one image and its profile
-      setMode(results.activeProfile as any);
+      const resultingProfile = results.activeProfile || activeProfile;
+      setImageCache(prev => ({ ...prev, [resultingProfile]: results.filtered }));
+      setMode(resultingProfile as any);
       
       if (results.detectedType) {
         setDetectedType(results.detectedType as 'text_bw' | 'text_color' | 'photo' | 'mixed');
@@ -205,6 +206,13 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original') => {
     if (mode === targetMode) return;
     if (!rawSnapshot || cropPoints.length !== 4) return;
+    
+    // Check if we already computed this!
+    if (imageCache[targetMode]) {
+       setMode(targetMode);
+       return;
+    }
+    
     setIsProcessing(true);
     setMode(targetMode); // Optimistic UI update for the button
     setTimeout(async () => {
@@ -216,15 +224,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const handleRetake = () => {
     setStep('scanning');
     setRawSnapshot(null);
-    setCroppedSnapshot(null);
-    setProfile('auto');
+    setImageCache({});
+    setMode('auto');
     setDetectedType(null);
   };
 
   const handleDone = () => {
-    // Only pass one argument (the filtered image) to the parent, as OCR accepts it directly now
-    if (croppedSnapshot) {
-      onComplete(croppedSnapshot, croppedSnapshot);
+    const currentImg = imageCache[mode];
+    if (currentImg) {
+      onComplete(currentImg, currentImg);
     }
   };
   return (
@@ -321,7 +329,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
-                    src={croppedSnapshot!} 
+                    src={imageCache[mode]} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     alt="Scanned document" 
                   />
