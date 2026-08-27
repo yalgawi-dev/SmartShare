@@ -204,11 +204,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       {/* Header and Controls */}
       <div style={{ padding: '1.5rem 1.5rem 0 1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div>
-            <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-              💰 התחשבנות (v17.9.31 Native 12MP)
-            </h2>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+            <div>
+              <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
+                💰 התחשבנות (v17.9.32 Lazy Priority)
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
             </p>
           </div>

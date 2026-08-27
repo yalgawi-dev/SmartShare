@@ -172,28 +172,18 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [isProcessing, setIsProcessing] = useState(false);
 
   // 5. Apply Perspective Crop
-  const performCrop = async (snapshot: string, pts: Point[], targetProfile?: 'auto' | 'text' | 'photo' | 'mixed') => {
+  const performCrop = async (snapshot: string, pts: Point[], targetProfile?: any) => {
     try {
-      const activeProfile = targetProfile || profile;
+      const activeProfile = targetProfile || mode;
       
       const results = await applyPerspectiveAndFilters(snapshot, pts, activeProfile);
-      setCroppedSnapshot(results.cropped);
-      setBwSnapshot(results.bw);
-      setPureColorSnapshot(results.pureColor);
-      setSmartColorSnapshot(results.smartColor);
-      if (results.smartPlus) {
-        setSmartPlusSnapshot(results.smartPlus);
-      }
-      if (results.hybridColor) {
-        setHybridColorSnapshot(results.hybridColor);
-      }
+      
+      // LAZY LOADING: We only get one image back now!
+      setCroppedSnapshot(results.filtered); // Actually, we'll just save the one image and its profile
+      setMode(results.activeProfile as any);
       
       if (results.detectedType) {
         setDetectedType(results.detectedType as 'text_bw' | 'text_color' | 'photo' | 'mixed');
-        if (activeProfile === 'auto') {
-          // Keep profile simple for internal usage ('text' vs 'photo')
-          setProfile(results.detectedType.startsWith('text') ? 'text' : (results.detectedType as 'photo' | 'mixed'));
-        }
       }
     } catch (err: any) {
       console.error("Crop failed:", err);
@@ -212,40 +202,30 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     }, 50);
   };
 
+  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original') => {
+    if (mode === targetMode) return;
+    if (!rawSnapshot || cropPoints.length !== 4) return;
+    setIsProcessing(true);
+    setMode(targetMode); // Optimistic UI update for the button
+    setTimeout(async () => {
+      await performCrop(rawSnapshot, cropPoints, targetMode);
+      setIsProcessing(false);
+    }, 50);
+  };
+
   const handleRetake = () => {
     setStep('scanning');
     setRawSnapshot(null);
     setCroppedSnapshot(null);
-    setBwSnapshot(null);
-    setPureColorSnapshot(null);
-    setSmartColorSnapshot(null);
-    setSmartPlusSnapshot(null);
     setProfile('auto');
     setDetectedType(null);
   };
 
   const handleDone = () => {
-    let finalImage = bwSnapshot;
-    if (mode === 'pure_color') finalImage = pureColorSnapshot;
-    if (mode === 'smart_color') finalImage = smartColorSnapshot;
-    if (mode === 'smart_plus') finalImage = smartPlusSnapshot;
-    if (mode === 'original') finalImage = croppedSnapshot;
-    if (mode === 'hybrid') finalImage = hybridColorSnapshot;
-    
-    if (mode === 'auto') {
-      if (detectedType === 'photo') {
-        finalImage = pureColorSnapshot;
-      } else if (detectedType === 'mixed') {
-        finalImage = hybridColorSnapshot;
-      } else if (detectedType === 'text_bw') {
-        finalImage = bwSnapshot; // Thermal/Pure B&W -> B&W Mode
-      } else {
-        finalImage = smartPlusSnapshot; // Colorful text -> SmartPlus Mode (new default!)
-      }
+    // Only pass one argument (the filtered image) to the parent, as OCR accepts it directly now
+    if (croppedSnapshot) {
+      onComplete(croppedSnapshot, croppedSnapshot);
     }
-    
-    // Always pass the bwSnapshot as the second argument for OCR, since Tesseract needs high-contrast B&W
-    if (finalImage) onComplete(finalImage, bwSnapshot || finalImage);
   };
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
@@ -341,7 +321,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
-                    src={mode === 'auto' ? (detectedType === 'photo' ? pureColorSnapshot! : detectedType === 'mixed' ? hybridColorSnapshot! : detectedType === 'text_bw' ? bwSnapshot! : smartPlusSnapshot!) : mode === 'original' ? croppedSnapshot! : mode === 'bw' ? bwSnapshot! : mode === 'pure_color' ? pureColorSnapshot! : mode === 'hybrid' ? hybridColorSnapshot! : mode === 'smart_plus' ? smartPlusSnapshot! : smartColorSnapshot!} 
+                    src={croppedSnapshot!} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     alt="Scanned document" 
                   />
@@ -390,42 +370,42 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
           <>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
                 <button 
-                onClick={() => setMode('auto')} 
+                onClick={() => handleFilterSwitch('auto')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'auto' ? '#fff' : 'transparent', color: mode === 'auto' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer', position: 'relative' }}>
                   אוטומט ✨
                   {mode === 'auto' && detectedType && (
                     <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
-                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : detectedType === 'text_bw' ? 'שחור-לבן' : 'חשבוניות+'}
+                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : detectedType === 'text_bw' ? 'שחור-לבן' : 'חשבונית+'}
                     </span>
                   )}
                 </button>
                 <button 
-                onClick={() => setMode('smart_plus')} 
+                onClick={() => handleFilterSwitch('smart_plus')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_plus' ? '#fff' : 'transparent', color: mode === 'smart_plus' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  חשבוניות+
+                  חשבונית+
                 </button>
                 <button 
-                onClick={() => setMode('original')} 
+                onClick={() => handleFilterSwitch('original')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   מקור
                 </button>
                 <button 
-                onClick={() => setMode('smart_color')} 
+                onClick={() => handleFilterSwitch('smart_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_color' ? '#fff' : 'transparent', color: mode === 'smart_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   חשבוניות
                 </button>
                 <button 
-                onClick={() => setMode('pure_color')} 
+                onClick={() => handleFilterSwitch('pure_color')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   תמונות
                 </button>
                 <button 
-                onClick={() => setMode('hybrid')} 
+                onClick={() => handleFilterSwitch('hybrid')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'hybrid' ? '#fff' : 'transparent', color: mode === 'hybrid' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   קולאז'
                 </button>
                 <button 
-                onClick={() => setMode('bw')} 
+                onClick={() => handleFilterSwitch('bw')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   שחור-לבן
                 </button>

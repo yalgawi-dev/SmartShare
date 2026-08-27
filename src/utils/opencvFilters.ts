@@ -105,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' = 'auto'): Promise<{ cropped: string, bw: string, pureColor: string, smartColor: string, smartPlus?: string, hybridColor?: string, detectedType?: 'text_bw' | 'text_color' | 'photo' | 'mixed' }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -119,6 +119,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
       ctx.drawImage(img, 0, 0);
 
       try {
+        let finalHybrid: any;
         const cv = (window as any).cv;
         let src = cv.imread(canvas);
         
@@ -673,7 +674,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             let hybridFloat = new cv.Mat();
             cv.add(term1, term2, hybridFloat);
             
-            let finalHybrid = new cv.Mat();
+            finalHybrid = new cv.Mat();
             hybridFloat.convertTo(finalHybrid, cv.CV_8U);
             
             cv.imshow(canvas, finalHybrid);
@@ -687,21 +688,72 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         photoRgb.delete(); finalPureRgba.delete();
         finalSmartRgba.delete(); finalSmartPlusRgba.delete();
 
-        // Cleanup General and Pure objects
-        src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-        gray.delete(); bw.delete(); 
-        darkMask.delete(); blackMat.delete(); bwRgba.delete();
         
-        // Legacy pure objects were replaced by photo objects and already cleaned up.
+        
+        // --- LAZY EVALUATION: Choose the active profile and encode ONLY that one! ---
+        let activeProfile = forcedProfile;
+        
+        // Auto-Detect Mapping
+        if (activeProfile === 'auto' || activeProfile === 'text' || activeProfile === 'photo' || activeProfile === 'mixed') {
+          if (detectedType === 'photo') {
+            activeProfile = 'pure_color';
+          } else if (detectedType === 'mixed') {
+            activeProfile = 'hybrid';
+          } else if (detectedType === 'text_bw') {
+            activeProfile = 'bw';
+          } else {
+            activeProfile = 'smart_plus';
+          }
+        }
+
+        let finalUrl = '';
+        if (activeProfile === 'original') {
+          cv.imshow(canvas, dst);
+          finalUrl = compressCanvas(canvas, 0.95);
+        } else if (activeProfile === 'bw') {
+          cv.imshow(canvas, bwRgba);
+          finalUrl = compressCanvas(canvas, 0.90);
+        } else if (activeProfile === 'pure_color') {
+          cv.imshow(canvas, finalPureRgba);
+          finalUrl = compressCanvas(canvas, 0.90);
+        } else if (activeProfile === 'smart_color') {
+          cv.imshow(canvas, finalSmartRgba);
+          finalUrl = compressCanvas(canvas, 0.90);
+        } else if (activeProfile === 'smart_plus') {
+          cv.imshow(canvas, finalSmartPlusRgba);
+          finalUrl = compressCanvas(canvas, 0.90);
+        } else if (activeProfile === 'hybrid') {
+          if (finalHybrid) {
+             cv.imshow(canvas, finalHybrid);
+             finalUrl = compressCanvas(canvas, 0.90);
+          } else {
+             cv.imshow(canvas, finalSmartPlusRgba);
+             finalUrl = compressCanvas(canvas, 0.90);
+          }
+        } else {
+          cv.imshow(canvas, dst);
+          finalUrl = compressCanvas(canvas, 0.90);
+        }
+
+        
         resolve({ 
-          cropped: croppedUrl, 
-          bw: bwUrl, 
-          pureColor: pureColorUrl,
-          smartColor: smartColorUrl,
-          smartPlus: smartPlusUrl,
-          hybridColor: hybridUrl,
-          detectedType
+          filtered: finalUrl,
+          activeProfile: activeProfile,
+          detectedType: detectedType
         });
+        
+        try {
+          src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
+          gray.delete(); bw.delete(); 
+          darkMask.delete(); blackMat.delete(); 
+          if(typeof bwRgba !== 'undefined' && !bwRgba.isDeleted()) bwRgba.delete();
+          if(typeof photoRgb !== 'undefined' && !photoRgb.isDeleted()) photoRgb.delete();
+          if(typeof finalPureRgba !== 'undefined' && !finalPureRgba.isDeleted()) finalPureRgba.delete();
+          if(typeof finalSmartRgba !== 'undefined' && !finalSmartRgba.isDeleted()) finalSmartRgba.delete();
+          if(typeof finalSmartPlusRgba !== 'undefined' && !finalSmartPlusRgba.isDeleted()) finalSmartPlusRgba.delete();
+          if(typeof finalHybrid !== 'undefined' && !finalHybrid.isDeleted()) finalHybrid.delete();
+        } catch(e) {}
+
 
       } catch (err) {
         console.error("OpenCV processing failed", err);
