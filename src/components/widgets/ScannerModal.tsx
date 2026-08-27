@@ -45,6 +45,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original'>('auto');
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
+  const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -181,6 +182,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       
       const resultingProfile = results.activeProfile || activeProfile;
       setImageCache(prev => ({ ...prev, [resultingProfile]: results.filtered }));
+      if (results.timings) {
+        setTimingCache(prev => ({ ...prev, [resultingProfile]: results.timings }));
+      }
       setMode(resultingProfile as any);
       
       if (results.detectedType) {
@@ -225,6 +229,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setStep('scanning');
     setRawSnapshot(null);
     setImageCache({});
+    setTimingCache({});
     setMode('auto');
     setDetectedType(null);
   };
@@ -325,8 +330,18 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         )}
 
         {step === 'review' && (
-           <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-             <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
+           <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#111' }}>
+             {/* TIMING TELEMETRY DISPLAY */}
+             {timingCache[mode] && (
+               <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.7)', color: '#0f0', padding: '0.5rem', borderRadius: '8px', zIndex: 100, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+                 OpenCV Math: {timingCache[mode].mathMs}ms<br/>
+                 Base64 Encode: {timingCache[mode].encodeMs}ms<br/>
+                 Total Crop Time: {timingCache[mode].totalMs}ms
+               </div>
+             )}
+             
+             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+               <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
                     src={imageCache[mode]} 
@@ -336,6 +351,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                </TransformComponent>
              </TransformWrapper>
            </div>
+         </div>
         )}
       </div>
 

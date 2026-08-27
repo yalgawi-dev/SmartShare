@@ -105,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number } }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -121,7 +121,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
       try {
         let finalHybrid: any;
         const cv = (window as any).cv;
-        let src = cv.imread(canvas);
+        const t0_math = performance.now();
+          let src = cv.imread(canvas);
         
         const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
         const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
@@ -161,7 +162,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         if (forcedProfile === 'original') {
             cv.imshow(canvas, dst);
             const originalUrl = compressCanvas(canvas, 0.95);
-            resolve({ filtered: originalUrl, activeProfile: 'original' });
+            resolve({ filtered: originalUrl, activeProfile: 'original', timings: { mathMs: 0, encodeMs: Math.round(performance.now() - t0_math), totalMs: Math.round(performance.now() - t0_total) } });
             
             try {
                 src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
