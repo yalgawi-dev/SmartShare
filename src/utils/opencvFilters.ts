@@ -258,12 +258,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
-        // HOLISTIC SOLUTION: MORPH_CLOSE (Dilation followed by Erosion).
-        // This bridges massive gaps and swallows large white objects (like the rabbit or glare spots) 
-        // that are trapped inside or adjacent to colorful areas, without bleeding outward into the invoice paper!
-        // 35x35 on 0.2 scale = 175x175 pixels in original!
-        let closeKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(35, 35));
-        cv.morphologyEx(smallMask, smallMask, cv.MORPH_CLOSE, closeKernel);
+        // Use a clean safety halo instead of aggressive MORPH_CLOSE, to prevent leaking onto the invoice!
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(17, 17));
+        cv.dilate(smallMask, smallMask, dilateKernel, new cv.Point(-1, -1), 1);
         
         // Soften the edges of the mask for a perfectly seamless blend
         cv.GaussianBlur(smallMask, smallMask, new cv.Size(15, 15), 0, 0);
@@ -272,7 +269,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         smallMask.delete();
         cleanKernel.delete();
-        closeKernel.delete();
+        dilateKernel.delete();
 
         // Auto-Detect Logic to determine default mode
         let detectedType: 'text_bw' | 'text_color' | 'photo' | 'mixed' = 'text_color';
