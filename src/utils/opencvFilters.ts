@@ -111,32 +111,53 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
     img.src = snapshot;
     img.onload = () => {
       const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
+      
+      // OPTIMIZATION: We scale down to 1500px to make processing instant.
+      // However, to prevent quality degradation (halos, erased text), we calculate
+      // a scaleRatio relative to the original 4000px tuning size, and dynamically 
+      // scale all kernel sizes (like the 61px adaptiveThreshold) below!
+      const MAX_DIM = 1500;
+      let scale = 1;
+      if (img.width > MAX_DIM || img.height > MAX_DIM) {
+          scale = MAX_DIM / Math.max(img.width, img.height);
+      }
+      
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      
+      const scaleRatio = Math.max(canvas.width, canvas.height) / 4000.0;
+      const getOdd = (val: number) => {
+          let r = Math.round(val * scaleRatio);
+          if (r % 2 === 0) r += 1;
+          return Math.max(3, r);
+      };
+      
       const ctx = canvas.getContext('2d');
       if (!ctx) return reject(new Error('Canvas context failed'));
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
       try {
         const cv = (window as any).cv;
         let src = cv.imread(canvas);
         
-        const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
-        const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        const scaledPts = pts.map(p => ({ x: p.x * scale, y: p.y * scale }));
+        
+        const widthA = Math.hypot(scaledPts[2].x - scaledPts[3].x, scaledPts[2].y - scaledPts[3].y);
+        const widthB = Math.hypot(scaledPts[1].x - scaledPts[0].x, scaledPts[1].y - scaledPts[0].y);
         const maxWidth = Math.round(Math.max(widthA, widthB));
 
-        const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
-        const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
+        const heightA = Math.hypot(scaledPts[1].x - scaledPts[2].x, scaledPts[1].y - scaledPts[2].y);
+        const heightB = Math.hypot(scaledPts[0].x - scaledPts[3].x, scaledPts[0].y - scaledPts[3].y);
         const maxHeight = Math.round(Math.max(heightA, heightB));
         
         let dst = new cv.Mat();
         let dsize = new cv.Size(maxWidth, maxHeight);
         
         let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          pts[0].x, pts[0].y,
-          pts[1].x, pts[1].y,
-          pts[2].x, pts[2].y,
-          pts[3].x, pts[3].y
+          scaledPts[0].x, scaledPts[0].y,
+          scaledPts[1].x, scaledPts[1].y,
+          scaledPts[2].x, scaledPts[2].y,
+          scaledPts[3].x, scaledPts[3].y
         ]);
         
         let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
@@ -164,12 +185,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // We use MORPH_CLOSE on a downscaled image to perfectly erase text and estimate background illumination (shadows).
         
         let small = new cv.Mat();
-        cv.resize(gray, small, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        // SCALED: Instead of 0.1, we always target ~400px for the shadow map so a 21px kernel has identical relative coverage!
+        const shadowScale = 400.0 / Math.max(gray.cols, gray.rows);
+        cv.resize(gray, small, new cv.Size(0, 0), shadowScale, shadowScale, cv.INTER_AREA);
         
         let bgSmall = new cv.Mat();
-        let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21)); // 21px on 0.1 scale = 210px in original!
+        let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21));
         cv.morphologyEx(small, bgSmall, cv.MORPH_CLOSE, bgKernel);
-        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(5, 5), 0, 0); // Fast smooth on downscaled image!
+        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(5, 5), 0, 0);
         bgKernel.delete();
         small.delete();
         
@@ -183,7 +206,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // 1. Sharpening AFTER flattening: crucial for blurry dot-matrix thermal receipts
         let blurred = new cv.Mat();
-        cv.GaussianBlur(flatGray, blurred, new cv.Size(0, 0), 2);
+        cv.GaussianBlur(flatGray, blurred, new cv.Size(0, 0), 2.0 * scaleRatio);
         let sharpened = new cv.Mat();
         cv.addWeighted(flatGray, 2.0, blurred, -1.0, 0, sharpened);
         blurred.delete(); flatGray.delete();
@@ -193,8 +216,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Now that the lighting is mathematically perfectly flat (shadows are GONE),
         // we can use a robust Adaptive Threshold! 
-        // Block size 61 perfectly ignores soft smudges (21 was too sensitive and caught them!)
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 61, 15);
+        // SCALED: Block size 61 perfectly ignores soft smudges on 4000px, we scale it down relative to image size.
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, getOdd(61), 15);
         sharpened.delete();
         
         // Clean up tiny 1px pepper noise (compression artifacts) in the flat white paper
@@ -495,16 +518,18 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 1. Create a flawless binary mask of the text (ignores shadows completely)
         let grayForMask = new cv.Mat();
         cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
-        cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(3, 3), 0, 0);
+        const blur3 = getOdd(3);
+        cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(blur3, blur3), 0, 0);
         
         let mask = new cv.Mat();
-        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 61, 15);
+        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getOdd(61), 15);
         grayForMask.delete();
-        cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
+        cv.GaussianBlur(mask, mask, new cv.Size(blur3, blur3), 0, 0);
 
         // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
         let smallRgb = new cv.Mat();
-        cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
+        // SCALED: shadow map targeting exactly 400px!
+        cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), shadowScale, shadowScale, cv.INTER_AREA);
         
         // Inpaint colorful logos so they don't become part of the background illumination map!
         // This prevents Retinex from erasing the logo, and eliminates gray halos around it.
