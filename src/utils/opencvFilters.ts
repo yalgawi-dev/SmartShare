@@ -110,6 +110,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
     const img = new Image();
     img.src = snapshot;
     img.onload = () => {
+      const t0_total = performance.now();
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
       canvas.height = img.height;
@@ -764,6 +765,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           }
         }
 
+        const t1_math = performance.now();
         let finalUrl = '';
         if (activeProfile === 'original') {
           cv.imshow(canvas, dst);
