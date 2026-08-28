@@ -182,11 +182,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const note = (formData.get('note') as string) || '';
     const vatNumber = (formData.get('vatNumber') as string) || '';
     const invoiceNumber = (formData.get('invoiceNumber') as string) || '';
-      const documentType = (formData.get('documentType') as string) || null;
-      const documentType = (formData.get('documentType') as string) || null;
-      const documentType = (formData.get('documentType') as string) || null;
-
-    // If the user clicks Save BEFORE the background upload is done, we wait for it!
+    const documentType = (formData.get('documentType') as string) || null;
+      // If the user clicks Save BEFORE the background upload is done, we wait for it!
     let finalAttachmentUrl = scannedImage;
     if (uploadPromiseRef.current) {
       try {
@@ -207,8 +204,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       note,
       vatNumber,
       invoiceNumber,
-        documentType,
-      approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
+      documentType,
+        approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
       approvalsReceived: 0,
       vatRate: space.settings?.defaultVatRate || 18,
       hasAttachment: !!finalAttachmentUrl,
