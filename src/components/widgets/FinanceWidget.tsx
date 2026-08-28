@@ -73,7 +73,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: ocrPayload }) // We send the raw base64. The API route accepts this!
+        body: JSON.stringify({ imageUrl: ocrPayload, vatRate: space?.settings?.defaultVatRate || 17 }) // We send the raw base64. The API route accepts this!
       });
       
       clearInterval(timerInterval);
@@ -224,7 +224,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                💰 התחשבנות (v17.9.54 Tuning)
+                💰 התחשבנות (v17.9.55 Smart UX Prep)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}

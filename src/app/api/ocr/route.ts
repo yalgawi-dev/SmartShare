@@ -38,6 +38,7 @@ export async function POST(request: Request) {
       Extract the following fields and return them strictly in the JSON format requested by the schema.
       - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
       - "amount": Total amount to pay as a number (סה"כ לתשלום / סכום כולל מע"מ).
+        - "vatAmount": The VAT amount extracted as a number. If not written explicitly, calculate it from the total assuming ${vatRate}% standard rate if it says includes VAT. If unsure, leave null.
       - "date": Date of invoice in YYYY-MM-DD format.
       - "invoiceNumber": Invoice number or Receipt number (מספר מסמך / חשבונית / קבלה).
       - "vatNumber": Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה / ע.מ). Usually a 9 digit number.
@@ -74,6 +75,7 @@ export async function POST(request: Request) {
           properties: {
             vendor: { type: "STRING", description: "Name of the business (ספק)" },
             amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
+              vatAmount: { type: "NUMBER", description: "The VAT amount" },
             date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
             invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
             vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
