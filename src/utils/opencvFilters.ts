@@ -35,7 +35,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     clahe.apply(gray, gray);
     clahe.delete();
     
-    let ksize = new cv.Size(getK(5), getK(5));
+    let ksize = new cv.Size(5, 5);
     cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
     cv.Canny(blurred, edged, 75, 200, 3, false);
     
