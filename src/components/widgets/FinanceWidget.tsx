@@ -53,8 +53,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
       const { downscaleBase64 } = await import('../../utils/imageOptimizer');
       
-      // Scale down to 1024px and 70% quality (cuts file size by ~60% to ~80KB, dramatically speeds up Firebase upload)
-      const optimizedImgUrl = await downscaleBase64(imgUrl, 1024, 0.70);
+      // Scale to 1500px and 85% quality to ensure high-quality archiving for printing later.
+      // This increases upload time slightly, but guarantees crystal clear receipts in the cloud.
+      const optimizedImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
       
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       
@@ -208,7 +209,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                💰 התחשבנות (v17.9.48 Turbo Upload)
+                💰 התחשבנות (v17.9.49 High Quality Archive)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
