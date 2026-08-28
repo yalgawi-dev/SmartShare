@@ -531,7 +531,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let dilateLogo = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.dilate(smallLogoMask, smallLogoMask, dilateLogo);
         dilateLogo.delete();
-        hsvLogo.delete();
         
         let inpaintedSmallRgb = new cv.Mat();
         if (colorfulRatio < 0.4 && cv.countNonZero(smallLogoMask) > 0) {
