@@ -43,7 +43,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [smartColorSnapshot, setSmartColorSnapshot] = useState<string | null>(null);
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original'>('auto');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original'>('auto');
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   
@@ -207,7 +207,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     }, 50);
   };
 
-  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original') => {
+  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original') => {
     if (mode === targetMode) return;
     if (!rawSnapshot || cropPoints.length !== 4) return;
     
@@ -420,11 +420,6 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 onClick={() => handleFilterSwitch('original')} 
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   מקור
-                </button>
-                <button 
-                onClick={() => handleFilterSwitch('smart_color')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_color' ? '#fff' : 'transparent', color: mode === 'smart_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  חשבוניות
                 </button>
                 <button 
                 onClick={() => handleFilterSwitch('pure_color')} 
