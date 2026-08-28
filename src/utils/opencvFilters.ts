@@ -35,7 +35,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     clahe.apply(gray, gray);
     clahe.delete();
     
-    let ksize = new cv.Size(5, 5);
+    let ksize = new cv.Size(getK(5), getK(5));
     cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
     cv.Canny(blurred, edged, 75, 200, 3, false);
     
@@ -201,9 +201,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.resize(gray, small, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
         let bgSmall = new cv.Mat();
-        let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(21, 21));
+        let bgKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(getK(21), getK(21)));
         cv.morphologyEx(small, bgSmall, cv.MORPH_CLOSE, bgKernel);
-        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(5, 5), 0, 0);
+        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(getK(5), getK(5)), 0, 0);
         bgKernel.delete();
         small.delete();
         
@@ -228,7 +228,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // Now that the lighting is mathematically perfectly flat (shadows are GONE),
         // we can use a robust Adaptive Threshold! 
         // Block size 61 perfectly ignores soft smudges (21 was too sensitive and caught them!)
-        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 61, 15);
+        cv.adaptiveThreshold(sharpened, bw, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, getK(61), 15);
         sharpened.delete();
         
         // Clean up tiny 1px pepper noise (compression artifacts) in the flat white paper
@@ -265,7 +265,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.bitwise_and(colorMask, notPaperMask, targetMask);
         
         let openedMask = new cv.Mat();
-        let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(15, 15));
+        let openKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(getK(15), getK(15)));
         cv.morphologyEx(targetMask, openedMask, cv.MORPH_OPEN, openKernel);
         let colorfulPixels = cv.countNonZero(openedMask);
         let colorfulRatio = colorfulPixels / totalPixels;
@@ -294,14 +294,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let smallMask = new cv.Mat();
         cv.resize(openedMask, smallMask, new cv.Size(0, 0), 0.2, 0.2, cv.INTER_NEAREST);
         
-        let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
+        let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(getK(5), getK(5)));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
         t_hsv = performance.now() - mark; mark = performance.now();
         // --- CONVEX HULL CLUSTERING (Document Layout Analysis) ---
         // 1. Group nearby colors so a fragmented drawing becomes one connected blob.
         // Increased from 25 to 31 to bridge wider white gaps (like glare on the edge of the head).
-        let groupKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(31, 31));
+        let groupKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(getK(31), getK(31)));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_CLOSE, groupKernel);
         
         // 2. Find the outer boundaries of these color blobs
@@ -365,9 +365,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // 4. Safety Margin: Expand the contour outward to capture colorless peninsulas (like the broom/hair).
         // Reverted to 9x9 per user request.
-        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(9, 9));
+        let dilateKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(getK(9), getK(9)));
         cv.dilate(hullMask, hullMask, dilateKernel, new cv.Point(-1, -1), 1);
-        cv.GaussianBlur(hullMask, hullMask, new cv.Size(15, 15), 0, 0);
+        cv.GaussianBlur(hullMask, hullMask, new cv.Size(getK(15), getK(15)), 0, 0);
         
         cv.resize(hullMask, hybridMask, new cv.Size(openedMask.cols, openedMask.rows), 0, 0, cv.INTER_LINEAR);
         
@@ -493,7 +493,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         // 2. Anti-alias the flawless B&W mask so text edges are smooth, not jagged.
         let smoothMask = new cv.Mat();
-        cv.GaussianBlur(bw, smoothMask, new cv.Size(3, 3), 0, 0);
+        cv.GaussianBlur(bw, smoothMask, new cv.Size(getK(3), getK(3)), 0, 0);
 
         let smartData = smartSharp.data;
         let maskData = smoothMask.data;
@@ -556,12 +556,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 1. Create a flawless binary mask of the text (ignores shadows completely)
         let grayForMask = new cv.Mat();
         cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
-        cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(3, 3), 0, 0);
+        cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(getK(3), getK(3)), 0, 0);
         
         let mask = new cv.Mat();
-        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 61, 15);
+        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 15);
         grayForMask.delete();
-        cv.GaussianBlur(mask, mask, new cv.Size(3, 3), 0, 0);
+        cv.GaussianBlur(mask, mask, new cv.Size(getK(3), getK(3)), 0, 0);
 
         // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
         let smallRgb = new cv.Mat();
@@ -587,7 +587,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let bgSmall2 = new cv.Mat();
         cv.medianBlur(inpaintedSmallRgb, bgSmall2, 15); // Erases text, keeps shadows (logos are inpainted out so they are protected!)
         inpaintedSmallRgb.delete();
-        cv.GaussianBlur(bgSmall2, bgSmall2, new cv.Size(3, 3), 0, 0); // Fast smooth on downscaled image!
+        cv.GaussianBlur(bgSmall2, bgSmall2, new cv.Size(getK(3), getK(3)), 0, 0); // Fast smooth on downscaled image!
         
         let bgRgb = new cv.Mat();
         cv.resize(bgSmall2, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
