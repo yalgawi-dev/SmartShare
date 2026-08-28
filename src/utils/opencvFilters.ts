@@ -793,10 +793,12 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           finalUrl = compressCanvas(canvas, 0.90);
         }
 
+        const t1_total = performance.now();
         resolve({ 
           filtered: finalUrl,
           activeProfile: activeProfile,
-          detectedType: detectedType
+          detectedType: detectedType,
+          timings: { mathMs: Math.round(t1_math - t0_math), encodeMs: Math.round(t1_total - t1_math), totalMs: Math.round(t1_total - t0_total) }
         });
         
         try {
