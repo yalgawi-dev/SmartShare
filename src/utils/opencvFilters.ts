@@ -201,7 +201,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         let photoRgb = new cv.Mat();
         let finalPureRgba = new cv.Mat();
-        let finalSmartRgba = new cv.Mat();
         let finalSmartPlusRgba = new cv.Mat();
         finalHybrid = undefined;
         
@@ -746,7 +745,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           if(typeof bwRgba !== 'undefined' && !bwRgba.isDeleted()) bwRgba.delete();
           if(typeof photoRgb !== 'undefined' && !photoRgb.isDeleted()) photoRgb.delete();
           if(typeof finalPureRgba !== 'undefined' && !finalPureRgba.isDeleted()) finalPureRgba.delete();
-          if(typeof finalSmartRgba !== 'undefined' && !finalSmartRgba.isDeleted()) finalSmartRgba.delete();
           if(typeof finalSmartPlusRgba !== 'undefined' && !finalSmartPlusRgba.isDeleted()) finalSmartPlusRgba.delete();
           if(typeof finalHybrid !== 'undefined' && !finalHybrid.isDeleted()) finalHybrid.delete();
         } catch(e) {}
