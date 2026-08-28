@@ -243,7 +243,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let vCheck = hsvPlanesCheck.get(2);
         
         let colorMask = new cv.Mat();
-        cv.threshold(sCheck, colorMask, 20, 255, cv.THRESH_BINARY);
+        cv.threshold(sCheck, colorMask, 35, 255, cv.THRESH_BINARY);
         let notPaperMask = new cv.Mat();
         cv.threshold(vCheck, notPaperMask, 250, 255, cv.THRESH_BINARY_INV); 
         
