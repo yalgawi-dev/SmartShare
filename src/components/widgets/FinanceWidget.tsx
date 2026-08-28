@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSpaces } from '../../app/context/SpacesContext';
@@ -27,6 +27,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateSpaceSettings } = useSpaces();
   const [isMounted, setIsMounted] = useState(false);
+  const uploadPromiseRef = useRef<Promise<string> | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -45,28 +46,34 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     }, 100);
 
     try {
-      // 1. Architecture Fix: Sequence is FASTER than Parallel for Mobile Networks!
-      // Sending 1MB to Firebase AND 1MB to Vercel at the same time over 4G causes upstream bandwidth saturation (buffer bloat).
-      // Instead, we upload to Firebase (1MB) ONCE, get a tiny 100-byte URL, and send THAT to Vercel.
-      // Vercel and Firebase are both on Google's 100Gbps backbone, so server-to-server download takes ~10ms!
       const { uploadImageToStorage, db } = await import('../../lib/firebase');
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
       const { downscaleBase64 } = await import('../../utils/imageOptimizer');
       
-      // Scale to 1500px and 85% quality to ensure high-quality archiving for printing later.
-      // This increases upload time slightly, but guarantees crystal clear receipts in the cloud.
-      const optimizedImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
+      // --- TRACK A (Foreground): The 40KB OCR Micro-Payload ---
+      // Scale down aggressively (800px, 60% quality) just for the AI.
+      // This guarantees an instant upload to Vercel (fraction of a second) even on a terrible 3G connection!
+      const ocrPayload = await downscaleBase64(imgUrl, 800, 0.60);
       
+      // --- TRACK B (Background): The High Quality Archive ---
+      // Scale to 1500px, 85% quality. Will be uploaded silently in the background.
+      const archiveImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
       const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       
-      // Step A: Upload image to Firebase (Mobile Upstream ~1MB)
-      const finalImageUrl = await uploadImageToStorage(optimizedImgUrl, filename);
+      // 1. Kick off the heavy Firebase upload, but DO NOT WAIT FOR IT!
+      uploadPromiseRef.current = uploadImageToStorage(archiveImgUrl, filename).then(url => {
+         setScannedImage(url); // Update state when finished silently
+         return url;
+      });
       
-      // Step B: Send tiny URL to API (Mobile Upstream ~100 bytes)
+      // Temporarily set the local preview so the user sees the image immediately
+      setScannedImage(imgUrl);
+      
+      // 2. Immediately send the microscopic payload to Vercel and block ONLY on this!
       const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageUrl: finalImageUrl }) // Send tiny URL instead of massive Base64
+        body: JSON.stringify({ imageUrl: ocrPayload }) // We send the raw base64. The API route accepts this!
       });
       
       clearInterval(timerInterval);
@@ -103,9 +110,6 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         console.error("Cloud OCR API Error:", err);
         setOcrDebugMessage(`שגיאה בשרת הפענוח: ${err.error || 'אנא נסה שוב מאוחר יותר.'}`);
       }
-
-      // 4. Save the actual Firebase Storage URL to state
-      setScannedImage(finalImageUrl);
     } catch (e: any) {
       clearInterval(timerInterval);
       setOcrElapsedTime((Date.now() - startTime) / 1000);
@@ -148,7 +152,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
 
   const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
 
-  const handleAddExpense = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const amount = Number(formData.get('amount'));
@@ -179,6 +183,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const vatNumber = (formData.get('vatNumber') as string) || '';
     const invoiceNumber = (formData.get('invoiceNumber') as string) || '';
 
+    // If the user clicks Save BEFORE the background upload is done, we wait for it!
+    let finalAttachmentUrl = scannedImage;
+    if (uploadPromiseRef.current) {
+      try {
+        finalAttachmentUrl = await uploadPromiseRef.current;
+        uploadPromiseRef.current = null; // Clear it out
+      } catch (err) {
+        console.error("Background upload failed", err);
+      }
+    }
+
     addInvoice(space.id, {
       amount,
       supplier,
@@ -192,8 +207,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
       approvalsReceived: 0,
       vatRate: space.settings?.defaultVatRate || 18,
-      hasAttachment: !!scannedImage,
-      attachmentUrl: scannedImage || undefined,
+      hasAttachment: !!finalAttachmentUrl,
+      attachmentUrl: finalAttachmentUrl || undefined,
       payerId: payerId
     });
 
@@ -209,7 +224,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                💰 התחשבנות (v17.9.50 Engine Fix)
+                💰 התחשבנות (v17.9.51 Asymmetric Upload)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
