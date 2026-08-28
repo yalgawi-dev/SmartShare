@@ -42,6 +42,65 @@ export function FinanceAddExpenseForm({
   selectedCategory,
   setSelectedCategory
 }: FinanceAddExpenseFormProps) {
+  const [formValues, setFormValues] = React.useState({
+    supplier: ocrData?.vendor || '',
+    amount: ocrData?.amount || '',
+    vatAmount: ocrData?.vatAmount || '',
+    date: ocrData?.date || new Date().toISOString().split('T')[0]
+  });
+
+  React.useEffect(() => {
+    if (ocrData) {
+      setFormValues({
+        supplier: ocrData.vendor || '',
+        amount: ocrData.amount || '',
+        vatAmount: ocrData.vatAmount || '',
+        date: ocrData.date || new Date().toISOString().split('T')[0]
+      });
+    }
+  }, [ocrData]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormValues(prev => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const isFormValid = formValues.supplier.trim() !== '' && formValues.amount.toString().trim() !== '' && formValues.date.trim() !== '';
+
+  const renderSmartInput = (name: string, type: string, label: string, placeholder: string, value: string | number, aiExtracted: boolean, required = false, step?: string) => {
+    const isMissing = required && !value && scannedImage && !isAnalyzing;
+    
+    return (
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
+        <label style={{ fontSize: '0.85rem', color: isMissing ? '#ef4444' : 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+          <span>{label} {required && '*'}</span>
+          {aiExtracted && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ תואם למקור</span>}
+        </label>
+        <div style={{ position: 'relative' }}>
+          <input 
+            required={required} 
+            name={name} 
+            type={type} 
+            step={step}
+            value={value}
+            onChange={handleChange}
+            placeholder={placeholder} 
+            style={{ 
+              width: '100%', 
+              padding: '0.875rem', 
+              borderRadius: '12px', 
+              border: isMissing ? '2px solid #ef4444' : (aiExtracted ? '2px solid #10b981' : '1px solid var(--border-light)'), 
+              fontSize: '1rem', 
+              background: isMissing ? '#fef2f2' : (aiExtracted ? '#ecfdf5' : 'rgba(0,0,0,0.02)'), 
+              color: 'var(--text-primary)',
+              transition: 'all 0.2s ease'
+            }} 
+          />
+        </div>
+        {isMissing && <span style={{ color: '#ef4444', fontSize: '0.75rem', marginTop: '0.25rem' }}>⚠️ חסר נתון, אנא השלם</span>}
+      </div>
+    );
+  };
+
   return (
     <>
       <style dangerouslySetInnerHTML={{__html: `
@@ -111,11 +170,10 @@ export function FinanceAddExpenseForm({
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>שם העסק / תיאור</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input required name="supplier" defaultValue={ocrData.vendor || ''} placeholder="שם הספק / תיאור" style={{ flex: 1, padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)', width: '100%' }} />
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
+              {renderSmartInput('supplier', 'text', 'שם העסק / תיאור', 'שם הספק / תיאור', formValues.supplier, !!ocrData.vendor, true)}
               {!scannedImage && (
-                <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
+                <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', height: '52px', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
                   📷
                 </button>
               )}
@@ -123,24 +181,28 @@ export function FinanceAddExpenseForm({
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+            {renderSmartInput('amount', 'number', 'סכום כולל מע״מ (₪)', 'סכום כולל מע״מ', formValues.amount, !!ocrData.amount, true, '0.01')}
+            {renderSmartInput('vatAmount', 'number', 'סכום מע״מ (₪)', 'אופציונלי', formValues.vatAmount, !!ocrData.vatAmount, false, '0.01')}
+          </div>
+          
+          <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+            {renderSmartInput('date', 'date', 'תאריך ההוצאה', '', formValues.date, !!ocrData.date, true)}
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סכום כולל מע״מ (₪)</label>
-              <input required name="amount" type="number" step="0.01" defaultValue={ocrData.amount || ''} placeholder="סכום כולל מע״מ" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>תאריך</label>
-              <input required name="date" type="date" defaultValue={ocrData.date || new Date().toISOString().split('T')[0]} style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+                <span>מס' חשבונית / אסמכתא</span>
+                {!!ocrData.invoiceNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ תואם למקור</span>}
+              </label>
+              <input name="invoiceNumber" defaultValue={ocrData.invoiceNumber || ''} placeholder="מספר מסמך (אופציונלי)" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: !!ocrData.invoiceNumber ? '2px solid #10b981' : '1px solid var(--border-light)', background: !!ocrData.invoiceNumber ? '#ecfdf5' : 'rgba(0,0,0,0.02)', fontSize: '1rem', color: 'var(--text-primary)' }} />
             </div>
           </div>
           
           <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>מס' חשבונית (אופציונלי)</label>
-              <input name="invoiceNumber" defaultValue={ocrData.invoiceNumber || ''} placeholder="מספר מסמך" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
-            </div>
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>ח.פ / ע.מ (אופציונלי)</label>
-              <input name="vatNumber" defaultValue={ocrData.vatNumber || ''} placeholder="מספר תאגיד" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', color: 'var(--text-primary)' }} />
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
+                <span>ח.פ / עוסק מורשה</span>
+                {!!ocrData.vatNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ תואם למקור</span>}
+              </label>
+              <input name="vatNumber" defaultValue={ocrData.vatNumber || ''} placeholder="מספר תאגיד (אופציונלי)" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: !!ocrData.vatNumber ? '2px solid #10b981' : '1px solid var(--border-light)', background: !!ocrData.vatNumber ? '#ecfdf5' : 'rgba(0,0,0,0.02)', fontSize: '1rem', color: 'var(--text-primary)' }} />
             </div>
           </div>
           
@@ -196,7 +258,7 @@ export function FinanceAddExpenseForm({
           <textarea name="note" placeholder="הערות (אופציונלי)" rows={2} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', resize: 'vertical' }}></textarea>
           
           <div style={{ marginTop: '0.5rem' }}>
-            <button type="submit" style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)' }}>
+            <button type="submit" disabled={!isFormValid && !isAnalyzing} style={{ width: '100%', background: (isFormValid || isAnalyzing) ? 'var(--primary)' : '#9ca3af', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: (isFormValid || isAnalyzing) ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', boxShadow: (isFormValid || isAnalyzing) ? '0 4px 12px rgba(79, 70, 229, 0.3)' : 'none', transition: 'all 0.2s ease' }}>
               שמור הוצאה
             </button>
           </div>
