@@ -105,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number, breakdown?: any } }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number, breakdown?: any } }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -714,9 +714,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         } else if (activeProfile === 'pure_color') {
           cv.imshow(canvas, finalPureRgba);
           finalUrl = compressCanvas(canvas, 0.90);
-        } else if (activeProfile ===) {
-          cv.imshow(canvas, finalSmartRgba);
-          finalUrl = compressCanvas(canvas, 0.90);
+
         } else if (activeProfile === 'smart_plus') {
           cv.imshow(canvas, finalSmartPlusRgba);
           finalUrl = compressCanvas(canvas, 0.90);
