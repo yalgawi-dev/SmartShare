@@ -105,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number, breakdown?: any } }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number, breakdown?: any } }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -467,64 +467,6 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         }
 
-        if (activeProfile === 'smart_color') {
-        // --- Smart Color (v12.5 Ultimate Masked Color Engine - CamScanner Style) ---
-        // We use the flawless B&W mask to perfectly isolate text from the paper.
-        // Pure paper is forced to [255, 255, 255] (zero noise, zero shadows).
-        // Text keeps its original raw camera color, but is gently darkened/sharpened to pop.
-        let smartRgb = new cv.Mat();
-        cv.cvtColor(dst, smartRgb, cv.COLOR_RGBA2RGB);
-
-        // 1. Unsharp Mask the original image to make text edges crisp
-        let smartSharp = new cv.Mat();
-        cv.GaussianBlur(smartRgb, smartSharp, new cv.Size(0, 0), 1.0);
-        cv.addWeighted(smartRgb, 2.0, smartSharp, -1.0, 0, smartSharp);
-
-        // 2. Anti-alias the flawless B&W mask so text edges are smooth, not jagged.
-        let smoothMask = new cv.Mat();
-        cv.GaussianBlur(bw, smoothMask, new cv.Size(getK(3), getK(3)), 0, 0);
-
-        let smartData = smartSharp.data;
-        let maskData = smoothMask.data;
-        let numPixels = smartSharp.rows * smartSharp.cols;
-
-        for (let i = 0; i < numPixels; i++) {
-            let maskVal = maskData[i];
-            
-            if (maskVal === 255) {
-                // Fast Path: Pure paper -> Pure Brilliant White
-                smartData[i * 3] = 255;
-                smartData[i * 3 + 1] = 255;
-                smartData[i * 3 + 2] = 255;
-            } else {
-                let alphaPaper = maskVal / 255.0; // 1.0 for paper, 0.0 for core text
-                let alphaText = 1.0 - alphaPaper; // 0.0 for paper, 1.0 for core text
-                
-                // Keep original vivid color, just darken it slightly (subtract 40) so it's bold like fresh ink.
-                let r = Math.max(0, smartData[i * 3] - 40);
-                let g = Math.max(0, smartData[i * 3 + 1] - 40);
-                let b = Math.max(0, smartData[i * 3 + 2] - 40);
-                
-                // Blend perfectly between the vivid dark ink and the pure white paper
-                smartData[i * 3] = r * alphaText + 255 * alphaPaper;
-                smartData[i * 3 + 1] = g * alphaText + 255 * alphaPaper;
-                smartData[i * 3 + 2] = b * alphaText + 255 * alphaPaper;
-            }
-        }
-        
-        smoothMask.delete();
-        smartRgb.delete();
-
-        finalSmartRgba = new cv.Mat();
-        cv.cvtColor(smartSharp, finalSmartRgba, cv.COLOR_RGB2RGBA);
-        smartSharp.delete();
-
-        
-        
-
-
-        }
-
         if (activeProfile === 'smart_plus' || activeProfile === 'hybrid') {
         // --- Smart Plus (v17.0 Pure CamScanner Magic Color) ---
         // Completely independent of the B&W mask! Uses direct HSV manipulation.
@@ -772,7 +714,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         } else if (activeProfile === 'pure_color') {
           cv.imshow(canvas, finalPureRgba);
           finalUrl = compressCanvas(canvas, 0.90);
-        } else if (activeProfile === 'smart_color') {
+        } else if (activeProfile ===) {
           cv.imshow(canvas, finalSmartRgba);
           finalUrl = compressCanvas(canvas, 0.90);
         } else if (activeProfile === 'smart_plus') {
