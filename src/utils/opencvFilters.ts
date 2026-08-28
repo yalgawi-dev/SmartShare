@@ -508,14 +508,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let sLogo = hsvLogoPlanes.get(1);
         
         let smallLogoMask = new cv.Mat();
-        // Base logo mask: Saturation > 50
-        cv.threshold(sLogo, smallLogoMask, 50, 255, cv.THRESH_BINARY);
+        // Base logo mask: Saturation > 85 (Only STRONGLY colored logos/pens, ignores medium stains!)
+        cv.threshold(sLogo, smallLogoMask, 85, 255, cv.THRESH_BINARY);
         
-        // Find warm/yellow/brown shadows (Hue 10 to 40)
+        // Find warm/yellow/brown shadows (Hue 8 to 42 - slightly widened to catch reddish/greenish edges)
         let hueHigh = new cv.Mat();
-        cv.threshold(hLogo, hueHigh, 10, 255, cv.THRESH_BINARY);
+        cv.threshold(hLogo, hueHigh, 8, 255, cv.THRESH_BINARY);
         let hueLow = new cv.Mat();
-        cv.threshold(hLogo, hueLow, 40, 255, cv.THRESH_BINARY_INV);
+        cv.threshold(hLogo, hueLow, 42, 255, cv.THRESH_BINARY_INV);
         
         let warmShadowMask = new cv.Mat();
         cv.bitwise_and(hueHigh, hueLow, warmShadowMask); // 10 < H <= 40
