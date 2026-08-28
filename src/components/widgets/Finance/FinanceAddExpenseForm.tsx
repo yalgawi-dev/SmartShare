@@ -73,7 +73,7 @@ export function FinanceAddExpenseForm({
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
         <label style={{ fontSize: '0.85rem', color: isMissing ? '#ef4444' : 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
           <span>{label} {required && '*'}</span>
-          {aiExtracted && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ תואם למקור</span>}
+          {aiExtracted && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ חולץ ע״י AI</span>}
         </label>
         <div style={{ position: 'relative' }}>
           <input 
@@ -169,6 +169,13 @@ export function FinanceAddExpenseForm({
             </div>
           )}
 
+          {ocrData?.documentType && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', gap: '0.5rem', background: '#eef2ff', color: '#4f46e5', padding: '0.5rem 1rem', borderRadius: '999px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #c7d2fe' }}>
+              📄 סוג מסמך (AI): {ocrData.documentType}
+              <input type="hidden" name="documentType" value={ocrData.documentType} />
+            </div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
               {renderSmartInput('supplier', 'text', 'שם העסק / תיאור', 'שם הספק / תיאור', formValues.supplier, !!ocrData.vendor, true)}
@@ -190,7 +197,7 @@ export function FinanceAddExpenseForm({
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                 <span>מס' חשבונית / אסמכתא</span>
-                {!!ocrData.invoiceNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ תואם למקור</span>}
+                {!!ocrData.invoiceNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ חולץ ע״י AI</span>}
               </label>
               <input name="invoiceNumber" defaultValue={ocrData.invoiceNumber || ''} placeholder="מספר מסמך (אופציונלי)" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: !!ocrData.invoiceNumber ? '2px solid #10b981' : '1px solid var(--border-light)', background: !!ocrData.invoiceNumber ? '#ecfdf5' : 'rgba(0,0,0,0.02)', fontSize: '1rem', color: 'var(--text-primary)' }} />
             </div>
@@ -200,14 +207,15 @@ export function FinanceAddExpenseForm({
             <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                 <span>ח.פ / עוסק מורשה</span>
-                {!!ocrData.vatNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ תואם למקור</span>}
+                {!!ocrData.vatNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ חולץ ע״י AI</span>}
               </label>
               <input name="vatNumber" defaultValue={ocrData.vatNumber || ''} placeholder="מספר תאגיד (אופציונלי)" style={{ width: '100%', padding: '0.875rem', borderRadius: '12px', border: !!ocrData.vatNumber ? '2px solid #10b981' : '1px solid var(--border-light)', background: !!ocrData.vatNumber ? '#ecfdf5' : 'rgba(0,0,0,0.02)', fontSize: '1rem', color: 'var(--text-primary)' }} />
             </div>
           </div>
           
           {activePartnersCount > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>מי שילם?</label>
               <select 
                 required 
                 value={selectedPayerId} 
@@ -231,7 +239,8 @@ export function FinanceAddExpenseForm({
             </div>
           )}
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>קטגוריית הוצאה</label>
             <select 
               required 
               value={selectedCategory}

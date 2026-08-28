@@ -4,7 +4,7 @@ export const maxDuration = 60; // Allow up to 60 seconds on Vercel
 
 export async function POST(request: Request) {
   try {
-    const { imageUrl } = await request.json();
+    const { imageUrl, vatRate = 17 } = await request.json();
     
     if (!imageUrl) {
       return NextResponse.json({ error: 'No image URL provided' }, { status: 400 });
@@ -39,6 +39,7 @@ export async function POST(request: Request) {
       - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
       - "amount": Total amount to pay as a number (סה"כ לתשלום / סכום כולל מע"מ).
         - "vatAmount": The VAT amount extracted as a number. If not written explicitly, calculate it from the total assuming ${vatRate}% standard rate if it says includes VAT. If unsure, leave null.
+        - "documentType": Look for words indicating the document type: "מקור" (Original), "העתק" (Copy), or "נאמן למקור" (Certified True Copy). Return exactly one of these three Hebrew strings, or null if you cannot find any indication.
       - "date": Date of invoice in YYYY-MM-DD format.
       - "invoiceNumber": Invoice number or Receipt number (מספר מסמך / חשבונית / קבלה).
       - "vatNumber": Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה / ע.מ). Usually a 9 digit number.
@@ -76,6 +77,7 @@ export async function POST(request: Request) {
             vendor: { type: "STRING", description: "Name of the business (ספק)" },
             amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
               vatAmount: { type: "NUMBER", description: "The VAT amount" },
+              documentType: { type: "STRING", description: "The type of document: מקור, העתק, or נאמן למקור" },
             date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
             invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
             vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }

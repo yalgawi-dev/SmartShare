@@ -24,6 +24,7 @@ export interface Invoice {
   attachmentUrl?: string;
   payerId?: string;
   vatNumber?: string;
+    documentType?: string;
   invoiceNumber?: string;
 }
 

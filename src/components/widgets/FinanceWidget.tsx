@@ -182,6 +182,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const note = (formData.get('note') as string) || '';
     const vatNumber = (formData.get('vatNumber') as string) || '';
     const invoiceNumber = (formData.get('invoiceNumber') as string) || '';
+      const documentType = (formData.get('documentType') as string) || null;
+      const documentType = (formData.get('documentType') as string) || null;
+      const documentType = (formData.get('documentType') as string) || null;
 
     // If the user clicks Save BEFORE the background upload is done, we wait for it!
     let finalAttachmentUrl = scannedImage;
@@ -204,6 +207,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       note,
       vatNumber,
       invoiceNumber,
+        documentType,
       approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
       approvalsReceived: 0,
       vatRate: space.settings?.defaultVatRate || 18,
@@ -224,7 +228,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                💰 התחשבנות (v17.9.56 Smart UX)
+                💰 התחשבנות (v17.9.61 Fix)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
               ניהול הוצאות {activePartnersCount > 0 ? 'ומאזן שותפים' : 'אישי'}
