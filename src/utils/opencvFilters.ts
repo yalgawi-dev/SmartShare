@@ -129,11 +129,25 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
         const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
-        const maxWidth = Math.round(Math.max(widthA, widthB));
+        let maxWidth = Math.round(Math.max(widthA, widthB));
 
         const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
         const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
-        const maxHeight = Math.round(Math.max(heightA, heightB));
+        let maxHeight = Math.round(Math.max(heightA, heightB));
+        
+        let scaleRatio = 1.0;
+        const MAX_PROCESSING_WIDTH = 2200;
+        if (maxWidth > MAX_PROCESSING_WIDTH) {
+            scaleRatio = MAX_PROCESSING_WIDTH / maxWidth;
+            maxWidth = MAX_PROCESSING_WIDTH;
+            maxHeight = Math.round(maxHeight * scaleRatio);
+        }
+        
+        const getK = (size: number) => {
+            let s = Math.round(size * scaleRatio);
+            if (s % 2 === 0) s += 1;
+            return Math.max(3, s);
+        };
         
         let dst = new cv.Mat();
         let dsize = new cv.Size(maxWidth, maxHeight);
