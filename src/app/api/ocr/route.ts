@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     let abortedTimeMs = 0;
     let rawText = '';
     
-    // Use the official gemini-1.5-flash model for blazing fast OCR
-    const model = 'gemini-1.5-flash';
+    // Use the latest flash-lite model for blazing fast OCR
+    const model = 'gemini-flash-lite-latest';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
