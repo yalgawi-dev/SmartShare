@@ -333,8 +333,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
            <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#111' }}>
              {/* TIMING TELEMETRY DISPLAY */}
              {timingCache[mode] && (
-               <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.7)', color: '#0f0', padding: '0.5rem', borderRadius: '8px', zIndex: 100, fontSize: '0.8rem', fontFamily: 'monospace' }}>
+               <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.8)', color: '#0f0', padding: '0.5rem', borderRadius: '8px', zIndex: 100, fontSize: '0.8rem', fontFamily: 'monospace' }}>
                  OpenCV Math: {timingCache[mode].mathMs}ms<br/>
+                 {timingCache[mode].breakdown && (
+                   <div style={{marginLeft:'10px', color:'#aaa', fontSize:'0.7rem'}}>
+                     Warp: {timingCache[mode].breakdown.warp}ms | BW: {timingCache[mode].breakdown.bw}ms<br/>
+                     HSV: {timingCache[mode].breakdown.hsv}ms | Hull: {timingCache[mode].breakdown.hull}ms<br/>
+                     Engine: {timingCache[mode].breakdown.engine}ms
+                   </div>
+                 )}
                  Base64 Encode: {timingCache[mode].encodeMs}ms<br/>
                  Total Crop Time: {timingCache[mode].totalMs}ms
                </div>

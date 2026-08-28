@@ -105,7 +105,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
  * Applies perspective crop and industry-standard enhancement filters.
  * Returns an object with Data URLs for cropped, bw, and color versions.
  */
-export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number } }> {
+export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_color' | 'smart_plus' | 'hybrid' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number, breakdown?: any } }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = snapshot;
@@ -123,6 +123,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let finalHybrid: any;
         const cv = (window as any).cv;
         const t0_math = performance.now();
+        let t_warp = 0, t_bw = 0, t_hsv = 0, t_hull = 0, t_engine = 0;
+        let mark = performance.now();
           let src = cv.imread(canvas);
         
         const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
@@ -153,6 +155,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let M = cv.getPerspectiveTransform(srcTri, dstTri);
         cv.warpPerspective(src, dst, M, dsize, cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar());
         
+        t_warp = performance.now() - mark; mark = performance.now();
         // Reset canvas to match the exact cropped image dimension before showing/compressing
         canvas.width = dst.cols;
         canvas.height = dst.rows;
@@ -236,6 +239,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let darkMask = new cv.Mat();
         cv.threshold(gray, darkMask, 50, 255, cv.THRESH_BINARY_INV);
         
+        t_bw = performance.now() - mark; mark = performance.now();
         // --- Auto-Detect Profile (Photo vs Text vs Mixed) ---
         let totalPixels = bw.rows * bw.cols;
         
@@ -293,6 +297,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let cleanKernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(5, 5));
         cv.morphologyEx(smallMask, smallMask, cv.MORPH_OPEN, cleanKernel);
         
+        t_hsv = performance.now() - mark; mark = performance.now();
         // --- CONVEX HULL CLUSTERING (Document Layout Analysis) ---
         // 1. Group nearby colors so a fragmented drawing becomes one connected blob.
         // Increased from 25 to 31 to bridge wider white gaps (like glare on the edge of the head).
@@ -408,6 +413,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         let bwRgba = new cv.Mat();
         cv.cvtColor(bw, bwRgba, cv.COLOR_GRAY2RGBA, 0);
+        t_hull = performance.now() - mark; mark = performance.now();
         // --- LAZY EVALUATION RESOLUTION ---
         let activeProfile = forcedProfile;
         if (activeProfile === 'auto' || activeProfile === 'text' || activeProfile === 'photo' || activeProfile === 'mixed') {
@@ -765,6 +771,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           }
         }
 
+        t_engine = performance.now() - mark; mark = performance.now();
         const t1_math = performance.now();
         let finalUrl = '';
         if (activeProfile === 'original') {
@@ -800,7 +807,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           filtered: finalUrl,
           activeProfile: activeProfile,
           detectedType: detectedType,
-          timings: { mathMs: Math.round(t1_math - t0_math), encodeMs: Math.round(t1_total - t1_math), totalMs: Math.round(t1_total - t0_total) }
+          timings: { mathMs: Math.round(t1_math - t0_math), encodeMs: Math.round(t1_total - t1_math), totalMs: Math.round(t1_total - t0_total), breakdown: { warp: Math.round(t_warp), bw: Math.round(t_bw), hsv: Math.round(t_hsv), hull: Math.round(t_hull), engine: Math.round(t_engine) } }
         });
         
         try {
