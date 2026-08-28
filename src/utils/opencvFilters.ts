@@ -503,17 +503,35 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(smallRgb, hsvLogo, cv.COLOR_RGB2HSV);
         let hsvLogoPlanes = new cv.MatVector();
         cv.split(hsvLogo, hsvLogoPlanes);
+        
+        let hLogo = hsvLogoPlanes.get(0);
         let sLogo = hsvLogoPlanes.get(1);
         
         let smallLogoMask = new cv.Mat();
-        // Saturation > 60 is strictly a logo/stamp, avoiding shadows (which are usually S < 40)
-        cv.threshold(sLogo, smallLogoMask, 60, 255, cv.THRESH_BINARY);
+        // Base logo mask: Saturation > 50
+        cv.threshold(sLogo, smallLogoMask, 50, 255, cv.THRESH_BINARY);
+        
+        // Find warm/yellow/brown shadows (Hue 10 to 40)
+        let hueHigh = new cv.Mat();
+        cv.threshold(hLogo, hueHigh, 10, 255, cv.THRESH_BINARY);
+        let hueLow = new cv.Mat();
+        cv.threshold(hLogo, hueLow, 40, 255, cv.THRESH_BINARY_INV);
+        
+        let warmShadowMask = new cv.Mat();
+        cv.bitwise_and(hueHigh, hueLow, warmShadowMask); // 10 < H <= 40
+        
+        // Exclude warm shadows from the logo mask!
+        cv.bitwise_not(warmShadowMask, warmShadowMask);
+        cv.bitwise_and(smallLogoMask, warmShadowMask, smallLogoMask);
+        
+        warmShadowMask.delete(); hueHigh.delete(); hueLow.delete();
+        hLogo.delete(); sLogo.delete(); hsvLogoPlanes.delete(); hsvLogo.delete();
         
         // Expand the logo mask slightly so inpainting covers the edges
         let dilateLogo = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
         cv.dilate(smallLogoMask, smallLogoMask, dilateLogo);
         dilateLogo.delete();
-        sLogo.delete(); hsvLogoPlanes.delete(); hsvLogo.delete();
+        hsvLogo.delete();
         
         let inpaintedSmallRgb = new cv.Mat();
         if (colorfulRatio < 0.4 && cv.countNonZero(smallLogoMask) > 0) {
