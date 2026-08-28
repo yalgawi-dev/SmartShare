@@ -55,8 +55,8 @@ export async function POST(request: Request) {
     let abortedTimeMs = 0;
     let rawText = '';
     
-    // We MUST use gemini-3.6-flash as Google deprecated 2.5 for new users
-    const model = 'gemini-3.6-flash';
+    // Use the official gemini-1.5-flash model for blazing fast OCR
+    const model = 'gemini-1.5-flash';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
