@@ -499,11 +499,21 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // Inpaint colorful logos so they don't become part of the background illumination map!
         // This prevents Retinex from erasing the logo, and eliminates gray halos around it.
-        let binaryHybrid = new cv.Mat();
-        cv.threshold(hybridMask, binaryHybrid, 50, 255, cv.THRESH_BINARY);
+        let hsvLogo = new cv.Mat();
+        cv.cvtColor(smallRgb, hsvLogo, cv.COLOR_RGB2HSV);
+        let hsvLogoPlanes = new cv.MatVector();
+        cv.split(hsvLogo, hsvLogoPlanes);
+        let sLogo = hsvLogoPlanes.get(1);
+        
         let smallLogoMask = new cv.Mat();
-        cv.resize(binaryHybrid, smallLogoMask, new cv.Size(smallRgb.cols, smallRgb.rows), 0, 0, cv.INTER_NEAREST);
-        binaryHybrid.delete();
+        // Saturation > 60 is strictly a logo/stamp, avoiding shadows (which are usually S < 40)
+        cv.threshold(sLogo, smallLogoMask, 60, 255, cv.THRESH_BINARY);
+        
+        // Expand the logo mask slightly so inpainting covers the edges
+        let dilateLogo = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        cv.dilate(smallLogoMask, smallLogoMask, dilateLogo);
+        dilateLogo.delete();
+        sLogo.delete(); hsvLogoPlanes.delete(); hsvLogo.delete();
         
         let inpaintedSmallRgb = new cv.Mat();
         if (colorfulRatio < 0.4 && cv.countNonZero(smallLogoMask) > 0) {
