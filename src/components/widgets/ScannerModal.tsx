@@ -337,6 +337,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                  OpenCV Math: {timingCache[mode].mathMs}ms<br/>
                  {timingCache[mode].breakdown && (
                    <div style={{marginLeft:'10px', color:'#aaa', fontSize:'0.7rem'}}>
+                     Res: {timingCache[mode].breakdown.res}<br/>
                      Warp: {timingCache[mode].breakdown.warp}ms | BW: {timingCache[mode].breakdown.bw}ms<br/>
                      HSV: {timingCache[mode].breakdown.hsv}ms | Hull: {timingCache[mode].breakdown.hull}ms<br/>
                      Engine: {timingCache[mode].breakdown.engine}ms

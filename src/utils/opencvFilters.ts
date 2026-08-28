@@ -136,7 +136,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let maxHeight = Math.round(Math.max(heightA, heightB));
         
         let scaleRatio = 1.0;
-        const MAX_PROCESSING_WIDTH = 2200;
+        const MAX_PROCESSING_WIDTH = 1400;
         if (maxWidth > MAX_PROCESSING_WIDTH) {
             scaleRatio = MAX_PROCESSING_WIDTH / maxWidth;
             maxWidth = MAX_PROCESSING_WIDTH;
@@ -821,7 +821,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           filtered: finalUrl,
           activeProfile: activeProfile,
           detectedType: detectedType,
-          timings: { mathMs: Math.round(t1_math - t0_math), encodeMs: Math.round(t1_total - t1_math), totalMs: Math.round(t1_total - t0_total), breakdown: { warp: Math.round(t_warp), bw: Math.round(t_bw), hsv: Math.round(t_hsv), hull: Math.round(t_hull), engine: Math.round(t_engine) } }
+          timings: { mathMs: Math.round(t1_math - t0_math), encodeMs: Math.round(t1_total - t1_math), totalMs: Math.round(t1_total - t0_total), breakdown: { warp: Math.round(t_warp), bw: Math.round(t_bw), hsv: Math.round(t_hsv), hull: Math.round(t_hull), engine: Math.round(t_engine), res: `${maxWidth}x${maxHeight}` } }
         });
         
         try {
