@@ -26,7 +26,12 @@ export function FinanceSummary({
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
-  const totalExpenses = invoices.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
+  const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
+  
+  const expensesOnly = invoices.filter((inv: any) => inv.type !== 'transfer');
+  const transfersOnly = invoices.filter((inv: any) => inv.type === 'transfer');
+  
+  const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 
   // Financial Engine Calculations
   const balances: { name: string, paid: number, expected: number, balance: number, userId?: string }[] = [];
@@ -35,22 +40,28 @@ export function FinanceSummary({
   
   if (activePartnersCount > 0) {
     const memberCount = validMembers.length + 1; // +1 for "me"
-    
-    // Get custom shares or default equally
     const myShare = space.settings?.mySharePercentage ?? (100 / memberCount);
     
-    // Me
-    const myPaid = invoices.filter((i: any) => i.payerId === user?.id || i.payerId === 'me' || (!i.payerId && (i.payerName === 'אני' || i.payerName === user?.realName))).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+    // Calculate for ME
+    const myExpensesPaid = expensesOnly.filter((i: any) => i.payerId === user?.id || i.payerId === 'me' || (!i.payerId && (i.payerName === 'אני' || i.payerName === user?.realName))).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+    const myTransfersSent = transfersOnly.filter((i: any) => i.payerId === user?.id || i.payerId === 'me').reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+    const myTransfersReceived = transfersOnly.filter((i: any) => i.targetId === user?.id || i.targetId === 'me').reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+    
+    const myPaid = myExpensesPaid;
     const myExpected = totalExpenses * myShare / 100;
-    myBalance = myPaid - myExpected;
-    balances.push({ name: 'אני', paid: myPaid, expected: myExpected, balance: myBalance, userId: 'me' });
+    myBalance = myPaid - myExpected + myTransfersSent - myTransfersReceived;
+    balances.push({ name: user?.realName || 'אני', paid: myPaid, expected: myExpected, balance: myBalance, userId: 'me' });
 
-    // Partners
+    // Calculate for Partners
     validMembers.forEach((m: any) => {
       const p = m.sharePercentage ?? (100 / memberCount);
-      const paid = invoices.filter((i: any) => i.payerId === m.userId || (!i.payerId && i.payerName === m.name)).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+      const partnerExpensesPaid = expensesOnly.filter((i: any) => i.payerId === m.userId || (!i.payerId && i.payerName === m.name)).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+      const partnerTransfersSent = transfersOnly.filter((i: any) => i.payerId === m.userId).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+      const partnerTransfersReceived = transfersOnly.filter((i: any) => i.targetId === m.userId).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
+      
       const expected = totalExpenses * p / 100;
-      balances.push({ name: m.name, paid, expected, balance: paid - expected, userId: m.userId });
+      const balance = partnerExpensesPaid - expected + partnerTransfersSent - partnerTransfersReceived;
+      balances.push({ name: m.name, paid: partnerExpensesPaid, expected, balance, userId: m.userId });
     });
   }
 
@@ -98,9 +109,13 @@ export function FinanceSummary({
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{invoices.filter((i: any) => i.status === 'pending').length}</h3>
         </div>
         {activePartnersCount > 0 && (
-          <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center' }}>
+          <div 
+            onClick={() => setShowSettlementBreakdown(true)}
+            style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+            title="לחץ לפירוט התחשבנות וקיזוזים"
+          >
             <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              {myBalance < 0 ? 'סה"כ עליך להשלים לקופה:' : myBalance > 0 ? 'סה"כ מגיע לך מהקופה:' : 'מאזן אישי מאופס'}
+              {myBalance < 0 ? 'סה״כ מגיע מהקופה אליך:' : myBalance > 0 ? 'סה״כ עליך להעביר לקופה:' : 'המאזן שלך מאופס'}
             </p>
             <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
               {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
@@ -157,22 +172,6 @@ export function FinanceSummary({
               </tbody>
               </table>
             </div>
-
-            {settlements.length > 0 && (
-              <div style={{ marginTop: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '1rem', borderRadius: '12px' }}>
-                <h4 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#059669' }}>
-                  <span>💸</span> איך מתקזזים? (Settlement)
-                </h4>
-                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {settlements.map((s, idx) => (
-                    <li key={idx} style={{ background: '#fff', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                      <div><strong style={{color: '#ef4444'}}>{s.from}</strong> צריך להעביר ל-<strong style={{color: '#10b981'}}>{s.to}</strong></div>
-                      <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }} dir="ltr">₪{s.amount.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
 
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
             💡 <strong>איך מתחשבנים?</strong> מי שהמאזן שלו באדום (מינוס) צריך להעביר את הכסף למי שהמאזן שלו בירוק (פלוס), עד שהקופה כולה מתאפסת.

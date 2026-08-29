@@ -202,7 +202,16 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const myApproval = 1; // The person uploading inherently approves it
     const finalApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount : 0;
     
+    const isTransfer = category === 'העברה/קיזוז';
+    let targetId = undefined;
+    if (isTransfer) {
+      targetId = formData.get('targetId') as string;
+      if (targetId === 'me') targetId = user?.id || 'me';
+    }
+
     addInvoice(space.id, {
+      type: isTransfer ? 'transfer' : 'expense',
+      targetId,
       amount,
       supplier,
       category,
