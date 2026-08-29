@@ -53,6 +53,29 @@ export function FinanceSummary({
     });
   }
 
+  const settlements: { from: string, to: string, amount: number }[] = [];
+  if (activePartnersCount > 0) {
+    const debtors = balances.filter(b => b.balance <= -0.5).map(b => ({ ...b, amount: Math.abs(b.balance) }));
+    const creditors = balances.filter(b => b.balance >= 0.5).map(b => ({ ...b, amount: b.balance }));
+    
+    debtors.sort((a,b) => b.amount - a.amount);
+    creditors.sort((a,b) => b.amount - a.amount);
+    
+    let i = 0, j = 0;
+    while (i < debtors.length && j < creditors.length) {
+      const debtor = debtors[i];
+      const creditor = creditors[j];
+      const amount = Math.min(debtor.amount, creditor.amount);
+      if (amount > 0.5) {
+        settlements.push({ from: debtor.name, to: creditor.name, amount });
+      }
+      debtor.amount -= amount;
+      creditor.amount -= amount;
+      if (debtor.amount < 0.5) i++;
+      if (creditor.amount < 0.5) j++;
+    }
+  }
+
   return (
     <div>
       {/* Summary Metrics */}
@@ -127,9 +150,26 @@ export function FinanceSummary({
                   )
                 })}
               </tbody>
-            </table>
-          </div>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
+              </table>
+            </div>
+
+            {settlements.length > 0 && (
+              <div style={{ marginTop: '1.5rem', background: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', padding: '1rem', borderRadius: '12px' }}>
+                <h4 style={{ margin: '0 0 0.75rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#059669' }}>
+                  <span>💸</span> איך מתקזזים? (Settlement)
+                </h4>
+                <ul style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {settlements.map((s, idx) => (
+                    <li key={idx} style={{ background: '#fff', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                      <div><strong style={{color: '#ef4444'}}>{s.from}</strong> צריך להעביר ל-<strong style={{color: '#10b981'}}>{s.to}</strong></div>
+                      <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }} dir="ltr">₪{s.amount.toLocaleString(undefined, {maximumFractionDigits: 0})}</div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
             💡 <strong>איך מתחשבנים?</strong> מי שהמאזן שלו באדום (מינוס) צריך להעביר את הכסף למי שהמאזן שלו בירוק (פלוס), עד שהקופה כולה מתאפסת.
           </p>
         </div>
