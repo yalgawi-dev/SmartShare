@@ -49,8 +49,9 @@ export function FinanceSummary({
     let matchedId = inv.payerId;
     let matchedName = inv.payerName || 'לא ידוע';
     if (!matchedId) {
-      if (matchedName === 'אני' || matchedName === myRealName) matchedId = myId;
-      else {
+      if (matchedName === 'אני' || matchedName === myRealName || matchedName.includes('(אני)')) {
+        matchedId = myId;
+      } else {
         const foundMember = validMembers.find((m: any) => m.name === matchedName);
         if (foundMember) matchedId = foundMember.userId;
         else matchedId = `historical_${matchedName}`;
@@ -67,46 +68,57 @@ export function FinanceSummary({
     if (unifiedBalances.has(receiverId)) unifiedBalances.get(receiverId)!.transfersReceived += (inv.amount || 0);
   });
 
-  const activeBalances = Array.from(unifiedBalances.values()).filter(b => b.isMember);
-  if (activePartnersCount > 0) {
-    const defaultShare = 100 / activeBalances.length;
-    activeBalances.forEach(b => {
-      let p = defaultShare;
+  const allBalancesArray = Array.from(unifiedBalances.values()).sort((a,b) => b.paid - a.paid);
+  
+  // Calculate expected & balance for ALL involved
+  const balances = allBalancesArray.filter(b => b.isMember || b.paid > 0);
+  const activeMembersCount = balances.filter(b => b.isMember).length;
+  const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
+  
+  balances.forEach(b => {
+    let p = 0;
+    if (b.isMember) {
       if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
       else {
         const m = validMembers.find((vm: any) => vm.userId === b.userId);
         if (m && m.sharePercentage !== undefined) p = m.sharePercentage;
+        else p = defaultShare;
       }
-      b.expected = totalExpenses * (p / 100);
-      b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
-    });
-  }
+    }
+    b.expected = totalExpenses * (p / 100);
+    b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
+  });
 
-  const balances = activeBalances;
-  const allBalancesArray = Array.from(unifiedBalances.values()).sort((a,b) => b.paid - a.paid);
   let myBalance = unifiedBalances.get(myId)?.balance || 0;
 
   const settlements: { from: string, to: string, amount: number }[] = [];
-  if (activePartnersCount > 0) {
-    const debtors = balances.filter(b => b.balance <= -0.5).map(b => ({ ...b, amount: Math.abs(b.balance) }));
-    const creditors = balances.filter(b => b.balance >= 0.5).map(b => ({ ...b, amount: b.balance }));
-    
-    debtors.sort((a,b) => b.amount - a.amount);
-    creditors.sort((a,b) => b.amount - a.amount);
-    
-    let i = 0, j = 0;
-    while (i < debtors.length && j < creditors.length) {
-      const debtor = debtors[i];
-      const creditor = creditors[j];
-      const amount = Math.min(debtor.amount, creditor.amount);
-      if (amount > 0.5) {
-        settlements.push({ from: debtor.name, to: creditor.name, amount });
-      }
-      debtor.amount -= amount;
-      creditor.amount -= amount;
-      if (debtor.amount < 0.5) i++;
-      if (creditor.amount < 0.5) j++;
+  
+  const debtors = balances.filter(b => b.balance <= -0.5).map(b => ({ ...b, amount: Math.abs(b.balance) }));
+  const creditors = balances.filter(b => b.balance >= 0.5).map(b => ({ ...b, amount: b.balance }));
+  
+  // Handle unallocated shares (the void)
+  const sumBalances = balances.reduce((acc, b) => acc + b.balance, 0);
+  if (sumBalances > 0.5) {
+    debtors.push({ name: 'קופה כללית (חסרים שותפים)', amount: sumBalances, balance: -sumBalances } as any);
+  } else if (sumBalances < -0.5) {
+    creditors.push({ name: 'קופה כללית (עודף אחוזים)', amount: Math.abs(sumBalances), balance: Math.abs(sumBalances) } as any);
+  }
+
+  debtors.sort((a,b) => b.amount - a.amount);
+  creditors.sort((a,b) => b.amount - a.amount);
+  
+  let i = 0, j = 0;
+  while (i < debtors.length && j < creditors.length) {
+    const debtor = debtors[i];
+    const creditor = creditors[j];
+    const amount = Math.min(debtor.amount, creditor.amount);
+    if (amount > 0.5) {
+      settlements.push({ from: debtor.name, to: creditor.name, amount });
     }
+    debtor.amount -= amount;
+    creditor.amount -= amount;
+    if (debtor.amount <= 0.5) i++;
+    if (creditor.amount <= 0.5) j++;
   }
 
   return (
@@ -129,33 +141,30 @@ export function FinanceSummary({
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתין לאישור</p>
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{invoices.filter((i: any) => i.status === 'pending').length}</h3>
         </div>
-          {activePartnersCount > 0 && (
-            <div 
-              onClick={() => setShowSettlementBreakdown(true)}
-              style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
-              title="לחץ לפירוט התחשבנות וקיזוזים"
-            >
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                {myBalance > 0 ? 'סה״כ מגיע מהקופה אליך:' : myBalance < 0 ? 'סה״כ עליך להעביר לקופה:' : 'המאזן שלך מאופס'}
-              </p>
-              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
-                {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
-              </h3>
-            </div>
-          )}
+        <div 
+          onClick={() => setShowSettlementBreakdown(true)}
+          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+          title="פירוט התחשבנויות של מי חייב למי"
+        >
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+            {myBalance > 0 ? 'מגיע מהקופה אליך:' : myBalance < 0 ? 'עליך להעביר לקופה:' : 'החשבון שלך מאוזן'}
+          </p>
+          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
+            {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
+          </h3>
+        </div>
       </div>
 
-      {activePartnersCount > 0 && (
-        <div style={{ marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-            <h4 style={{ margin: 0, fontSize: '1.1rem' }}>טבלת מאזנים</h4>
-            <button 
-              onClick={() => setIsEditingShares(true)}
-              style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              ערוך אחוזי השתתפות ✍️
-            </button>
-          </div>
+      <div style={{ marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+          <h4 style={{ margin: 0, fontSize: '1.1rem' }}>טבלת מאזנים</h4>
+          <button 
+            onClick={() => setIsEditingShares(true)}
+            style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            ✍️ ערוך אחוזי השתתפות
+          </button>
+        </div>
           
           <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.9rem' }}>
@@ -221,7 +230,10 @@ export function FinanceSummary({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {allBalancesArray.filter(b => b.paid > 0).map((b, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                  <span style={{ fontWeight: 'bold' }}>{b.name} {b.userId === myId ? '(אני)' : (!b.isMember ? '(לא פעיל)' : '')}</span>
+                  <span style={{ fontWeight: 'bold' }}>
+                    {b.name} 
+                    {b.userId === myId ? ' (אני)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(לא פעיל)</span> : '')}
+                  </span>
                   <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                 </div>
               ))}

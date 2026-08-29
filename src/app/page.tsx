@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.26 - תיקון תצוגת שותפים ממתינים וחישוב אחוזים
+        v4.5.27 - התחשבנות חכמה במצבי קצה ומיזוג שותפי עבר
       </div>
     </div>
   );
