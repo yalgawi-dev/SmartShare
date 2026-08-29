@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.12 - תיקון התחברות גוגל למובייל (PWA)</div>
+        v4.5.13 - תיקון התחברות גוגל (גרסה 3)</div>
     </div>
   );
 }

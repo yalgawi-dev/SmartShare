@@ -75,7 +75,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    // 1. Firebase Auth Listener
+      import('firebase/auth').then(({ getRedirectResult }) => {
+        getRedirectResult(auth).then((result) => {
+          if (result && result.user) {
+            console.log("Successfully logged in via redirect", result.user);
+          }
+        }).catch((e) => {
+          console.error("Redirect login error:", e);
+        });
+      });
+
+      // 1. Firebase Auth Listener
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         // Sign in anonymously if no user is found
