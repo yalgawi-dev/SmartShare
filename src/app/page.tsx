@@ -7,7 +7,7 @@ import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 
 export default function Dashboard() {
-  const { spaces } = useSpaces();
+  const { spaces, deleteSpace } = useSpaces();
   const { user, isLoaded, loginWithGoogle } = useAuth();
 
   return (
@@ -70,30 +70,60 @@ export default function Dashboard() {
 
       <div className={styles.grid}>
         {spaces.filter(s => s.status !== 'pending_deletion').map(space => (
-          <Link href={`/space/${space.id}`} key={space.id}>
-            <div className={`card ${styles.projectCard} glass-panel`}>
-              <div className={styles.projectHeader}>
-                <div className={styles.projectIcon}>{space.icon}</div>
-              </div>
-              <h2 className={styles.projectTitle}>{space.title}</h2>
-              <p className={styles.projectDesc}>{space.description}</p>
-              
-              <div className={styles.badges}>
-                {space.features.slice(0, 3).map(fId => {
-                  const feature = getFeatureById(fId);
-                  return feature ? <span key={fId} className={styles.badge}>{feature.name}</span> : null;
-                })}
-                {space.features.length > 3 && (
-                  <span className={styles.badge}>+{space.features.length - 3}</span>
-                )}
-              </div>
+          <div key={space.id} style={{ position: 'relative' }}>
+            <button 
+              onClick={(e) => {
+                e.preventDefault();
+                if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
+                  deleteSpace(space.id);
+                }
+              }}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                left: '1rem',
+                zIndex: 10,
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: '#ef4444',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'background 0.2s'
+              }}
+              title="מחק מרחב"
+            >
+              🗑️
+            </button>
+            <Link href={`/space/${space.id}`} style={{ display: 'block', textDecoration: 'none' }}>
+              <div className={`card ${styles.projectCard} glass-panel`}>
+                <div className={styles.projectHeader}>
+                  <div className={styles.projectIcon}>{space.icon}</div>
+                </div>
+                <h2 className={styles.projectTitle}>{space.title}</h2>
+                <p className={styles.projectDesc}>{space.description}</p>
+                
+                <div className={styles.badges}>
+                  {space.features.slice(0, 3).map(fId => {
+                    const feature = getFeatureById(fId);
+                    return feature ? <span key={fId} className={styles.badge}>{feature.name}</span> : null;
+                  })}
+                  {space.features.length > 3 && (
+                    <span className={styles.badge}>+{space.features.length - 3}</span>
+                  )}
+                </div>
 
-              <div className={styles.projectFooter}>
-                <span>עודכן: {space.updatedAt}</span>
-                <span>{space.features.length} פיצ'רים</span>
+                <div className={styles.projectFooter}>
+                  <span>עודכן: {space.updatedAt}</span>
+                  <span>{space.features.length} פיצ'רים</span>
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
         ))}
       </div>
       

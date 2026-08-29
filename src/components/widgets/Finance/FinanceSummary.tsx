@@ -10,6 +10,7 @@ interface FinanceSummaryProps {
   setActiveTab: (tab: 'summary' | 'transactions') => void;
   setFilter: (filter: string) => void;
   updateSpaceSettings: any;
+  updateMemberPermissions?: any;
 }
 
 export function FinanceSummary({
@@ -20,7 +21,8 @@ export function FinanceSummary({
   hasScanner,
   setActiveTab,
   setFilter,
-  updateSpaceSettings
+  updateSpaceSettings,
+  updateMemberPermissions
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const totalExpenses = invoices.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
@@ -150,6 +152,7 @@ export function FinanceSummary({
           validMembers={validMembers}
           onClose={() => setIsEditingShares(false)} 
           onSave={updateSpaceSettings}
+          updateMemberPermissions={updateMemberPermissions}
         />,
         document.body
       )}
@@ -157,7 +160,7 @@ export function FinanceSummary({
   );
 }
 
-function SharesEditorModal({ space, user, validMembers, onClose, onSave }: { space: any, user: any, validMembers: any[], onClose: () => void, onSave: any }) {
+function SharesEditorModal({ space, user, validMembers, onClose, onSave, updateMemberPermissions }: { space: any, user: any, validMembers: any[], onClose: () => void, onSave: any, updateMemberPermissions?: any }) {
   const memberCount = validMembers.length + 1;
   const defaultShare = 100 / memberCount;
   
@@ -187,8 +190,17 @@ function SharesEditorModal({ space, user, validMembers, onClose, onSave }: { spa
       return;
     }
     
+    // Save my share
     onSave(space.id, { mySharePercentage: myShare });
-    alert('שמירת אחוזים דורשת עדכון פנימי לכל משתמש במסד הנתונים. מבוצעת שמירה למשתמש הנוכחי בינתיים.');
+    
+    // Save partner shares
+    if (updateMemberPermissions) {
+      validMembers.forEach((m: any) => {
+        updateMemberPermissions(space.id, m.userId, { sharePercentage: partnerShares[m.userId] });
+      });
+    }
+    
+    alert('האחוזים עודכנו בהצלחה!');
     onClose();
   };
 
