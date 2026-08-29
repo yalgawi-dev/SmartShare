@@ -175,6 +175,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     let category = selectedCategory;
     if (selectedCategory === 'other') {
       category = (formData.get('categoryCustom') as string) || 'כללי';
+      
+      const existingCategories = space.settings?.customCategories || [];
+      if (!existingCategories.includes(category)) {
+        updateSpaceSettings(space.id, { customCategories: [...existingCategories, category] });
+      }
     }
     
     const dateVal = (formData.get('date') as string);
@@ -308,6 +313,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
           user={user}
           validMembers={validMembers}
           activePartnersCount={activePartnersCount}
+          customCategories={space.settings?.customCategories}
           ocrData={ocrData}
           scannedImage={scannedImage}
           isAnalyzing={isAnalyzing}

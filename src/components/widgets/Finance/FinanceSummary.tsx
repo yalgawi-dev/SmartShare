@@ -25,6 +25,7 @@ export function FinanceSummary({
   updateMemberPermissions
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
+  const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const totalExpenses = invoices.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 
   // Financial Engine Calculations
@@ -80,8 +81,12 @@ export function FinanceSummary({
     <div>
       {/* Summary Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center' }}>
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סך הכל שולם</p>
+        <div 
+          onClick={() => setShowTotalBreakdown(true)}
+          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+          title="לחץ לפירוט התשלומים"
+        >
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה״כ שולם</p>
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
         <div 
@@ -261,6 +266,7 @@ function SharesEditorModal({ space, user, validMembers, onClose, onSave, updateM
                 type="number" 
                 value={myShare} 
                 onChange={(e) => setMyShare(Number(e.target.value))}
+                onFocus={(e) => e.target.select()}
                 style={{ width: '60px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)' }}
               />
               <span>%</span>
@@ -275,6 +281,7 @@ function SharesEditorModal({ space, user, validMembers, onClose, onSave, updateM
                   type="number" 
                   value={partnerShares[m.userId] || 0} 
                   onChange={(e) => setPartnerShares({...partnerShares, [m.userId]: Number(e.target.value)})}
+                  onFocus={(e) => e.target.select()}
                   style={{ width: '60px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)' }}
                 />
                 <span>%</span>

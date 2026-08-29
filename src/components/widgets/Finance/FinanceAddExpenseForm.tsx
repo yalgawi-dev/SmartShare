@@ -6,6 +6,7 @@ interface FinanceAddExpenseFormProps {
   validMembers: any[];
   activePartnersCount: number;
   ocrData: any;
+  customCategories?: string[];
   scannedImage: string | null;
   isAnalyzing: boolean;
   ocrElapsedTime: number;
@@ -26,6 +27,7 @@ export function FinanceAddExpenseForm({
   user,
   validMembers,
   activePartnersCount,
+  customCategories,
   ocrData,
   scannedImage,
   isAnalyzing,
@@ -248,11 +250,14 @@ export function FinanceAddExpenseForm({
               style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
             >
               <option value="כללי">כללי</option>
-              <option value="חומרי בניין">חומרי בניין</option>
-              <option value="קבלנים">קבלנים</option>
-              <option value="חשמל">חשמל</option>
-              <option value="ריהוט">ריהוט</option>
-              <option value="other">אחר (הקלד קטגוריה)...</option>
+              <option value="רכבים ותחבורה">רכבים ותחבורה</option>
+              <option value="תקשורת">תקשורת</option>
+              <option value="חומרים">חומרים</option>
+              <option value="הנהלת חשבונות">הנהלת חשבונות</option>
+              {customCategories && customCategories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+              <option value="other">אחר (הזן קטגוריה)...</option>
             </select>
             {selectedCategory === 'other' && (
               <input 
