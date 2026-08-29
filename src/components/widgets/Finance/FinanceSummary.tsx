@@ -108,20 +108,20 @@ export function FinanceSummary({
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתין לאישור</p>
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{invoices.filter((i: any) => i.status === 'pending').length}</h3>
         </div>
-        {activePartnersCount > 0 && (
-          <div 
-            onClick={() => setShowSettlementBreakdown(true)}
-            style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
-            title="לחץ לפירוט התחשבנות וקיזוזים"
-          >
-            <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              {myBalance < 0 ? 'סה״כ מגיע מהקופה אליך:' : myBalance > 0 ? 'סה״כ עליך להעביר לקופה:' : 'המאזן שלך מאופס'}
-            </p>
-            <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
-              {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
-            </h3>
-          </div>
-        )}
+          {activePartnersCount > 0 && (
+            <div 
+              onClick={() => setShowSettlementBreakdown(true)}
+              style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+              title="לחץ לפירוט התחשבנות וקיזוזים"
+            >
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                {myBalance > 0 ? 'סה״כ מגיע מהקופה אליך:' : myBalance < 0 ? 'סה״כ עליך להעביר לקופה:' : 'המאזן שלך מאופס'}
+              </p>
+              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
+                {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
+              </h3>
+            </div>
+          )}
       </div>
 
       {activePartnersCount > 0 && (
@@ -186,6 +186,74 @@ export function FinanceSummary({
             <strong>טיפ:</strong> רוב המשתמשים מצרפים את פיצ'ר ה-<strong>סורק חשבוניות</strong> כדי למנוע אובדן קבלות ולהאיץ את ההקלדה.
           </div>
         </div>
+      )}
+
+      {/* Total Breakdown Modal */}
+      {showTotalBreakdown && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="bottom-sheet-overlay" onClick={() => setShowTotalBreakdown(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
+          <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '80vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>📊 פירוט סה״כ שולם</h3>
+              <button onClick={() => setShowTotalBreakdown(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {Array.from(
+                expensesOnly.reduce((acc: Map<string, number>, inv: any) => {
+                  const name = inv.payerName || 'לא ידוע';
+                  acc.set(name, (acc.get(name) || 0) + (inv.amount || 0));
+                  return acc;
+                }, new Map<string, number>())
+              ).sort((a, b) => b[1] - a[1]).map(([name, amount], idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                  <span style={{ fontWeight: 'bold' }}>{name}</span>
+                  <span dir="ltr">₪{amount.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowTotalBreakdown(false)} style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>סגור</button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Settlement Breakdown Modal */}
+      {showSettlementBreakdown && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="bottom-sheet-overlay" onClick={() => setShowSettlementBreakdown(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
+          <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem' }}>💸 התחשבנות וקיזוזים</h3>
+              <button onClick={() => setShowSettlementBreakdown(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {settlements.length === 0 ? (
+                <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                  <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>⚖️</span>
+                  כולם מאוזנים! אין חובות במרחב הזה.
+                </div>
+              ) : (
+                settlements.map((s: any, idx: number) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span style={{ fontWeight: 'bold' }}>{s.from === 'me' ? 'אני' : s.from}</span>
+                      <span style={{ color: 'var(--text-secondary)' }}>←</span>
+                      <span style={{ fontWeight: 'bold' }}>{s.to === 'me' ? 'אני' : s.to}</span>
+                    </div>
+                    <div style={{ fontWeight: 'bold', color: '#10b981' }} dir="ltr">
+                      {s.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <button onClick={() => setShowSettlementBreakdown(false)} style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+              סגור
+            </button>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Shares Modal */}
