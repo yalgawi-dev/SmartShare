@@ -243,6 +243,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       setIsLoaded(true);
     }, (error) => {
        console.error("Firestore error:", error);
+         alert("שגיאת התחברות למסד הנתונים: " + (error.message || ""));
+         alert("שגיאת התחברות למסד הנתונים: " + (error.message || ""));
        const savedSpaces = localStorage.getItem('smartshare_spaces');
        if (savedSpaces) {
          const parsed = JSON.parse(savedSpaces) as Space[];

@@ -98,7 +98,7 @@ export default function Dashboard() {
       </div>
       
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.14 - תיקון התחברות גוגל (גרסה 4 - חלון חכם)</div>
+        v4.5.15 - תיקון התחברות גוגל (גרסה 5 - התראות שגיאה)</div>
     </div>
   );
 }
