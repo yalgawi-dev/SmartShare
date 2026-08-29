@@ -36,11 +36,11 @@ export function FinanceSummary({
   // UNIFIED FINANCIAL ENGINE
   const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number }>();
 
-  const myRealName = user?.realName || user?.nickname || 'אני';
+  const myRealName = user?.realName || user?.nickname || 'אורח';
   const myId = user?.id || 'me';
   unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0 });
   
-  const validMembers = space.members?.filter((m: any) => m.status === 'active' && m.userId !== user?.id) || [];
+  const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending') && m.userId !== user?.id) || [];
   validMembers.forEach((m: any) => {
     unifiedBalances.set(m.userId, { name: m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0 });
   });
@@ -172,15 +172,15 @@ export function FinanceSummary({
                   const memberCount = validMembers.length + 1;
                   const defaultShare = 100 / memberCount;
                   let p = defaultShare;
-                  if (b.userId === 'me') p = space.settings?.mySharePercentage ?? defaultShare;
+                  if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
                   else {
                     const m = space.members?.find((sm: any) => sm.userId === b.userId);
                     if (m) p = m.sharePercentage ?? defaultShare;
                   }
 
                   return (
-                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === 'me' ? 'rgba(79, 70, 229, 0.05)' : 'transparent' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: b.userId === 'me' ? 'bold' : 'normal' }}>{b.name}</td>
+                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent' }}>
+                      <td style={{ padding: '0.75rem', fontWeight: b.userId === myId ? 'bold' : 'normal' }}>{b.name}</td>
                       <td style={{ padding: '0.75rem' }}>{p.toFixed(1)}%</td>
                       <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
@@ -221,7 +221,7 @@ export function FinanceSummary({
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {allBalancesArray.filter(b => b.paid > 0).map((b, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                  <span style={{ fontWeight: 'bold' }}>{b.name} {b.isMe ? '(אני)' : ''}</span>
+                  <span style={{ fontWeight: 'bold' }}>{b.name} {b.userId === myId ? '(אני)' : (!b.isMember ? '(לא פעיל)' : '')}</span>
                   <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                 </div>
               ))}
