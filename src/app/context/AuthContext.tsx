@@ -158,12 +158,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
-      const { signInWithRedirect } = await import('firebase/auth');
+      const { signInWithPopup } = await import('firebase/auth');
       const { googleProvider } = await import('@/lib/firebase');
-      // Firebase auth will trigger onAuthStateChanged which handles the firestore setup
-      await signInWithRedirect(auth, googleProvider);
+      
+      const result = await signInWithPopup(auth, googleProvider);
+      console.log('Google login success', result.user);
     } catch (e) {
-      console.error("Google login failed", e);
+      console.error('Google login failed', e);
+      alert('שגיאת התחברות (' + (e.code || 'כללי') + '):\n' + (e.message || 'לא ידוע'));
     }
   };
 
