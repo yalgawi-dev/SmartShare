@@ -199,19 +199,23 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       }
     }
 
+    const myApproval = 1; // The person uploading inherently approves it
+    const finalApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount : 0;
+    
     addInvoice(space.id, {
       amount,
       supplier,
       category,
       payerName,
       date,
-      status: 'pending',
+      createdAt: new Date().toISOString(),
+      status: finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending'),
       note,
       vatNumber,
       invoiceNumber,
       documentType,
-        approvalsNeeded: activePartnersCount > 0 ? activePartnersCount : 0,
-      approvalsReceived: 0,
+      approvalsNeeded: finalApprovalsNeeded,
+      approvalsReceived: finalApprovalsNeeded > 0 ? myApproval : 0,
       vatRate: space.settings?.defaultVatRate || 18,
       hasAttachment: !!finalAttachmentUrl,
       attachmentUrl: finalAttachmentUrl || undefined,

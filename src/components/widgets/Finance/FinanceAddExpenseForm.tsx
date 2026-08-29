@@ -46,8 +46,8 @@ export function FinanceAddExpenseForm({
 }: FinanceAddExpenseFormProps) {
   const [formValues, setFormValues] = React.useState({
     supplier: ocrData?.vendor || '',
-    amount: ocrData?.amount || '',
-    vatAmount: ocrData?.vatAmount || '',
+    amount: ocrData?.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
+    vatAmount: ocrData?.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
     date: ocrData?.date || new Date().toISOString().split('T')[0]
   });
 
@@ -55,8 +55,8 @@ export function FinanceAddExpenseForm({
     if (ocrData) {
       setFormValues({
         supplier: ocrData.vendor || '',
-        amount: ocrData.amount || '',
-        vatAmount: ocrData.vatAmount || '',
+        amount: ocrData.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
+        vatAmount: ocrData.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
         date: ocrData.date || new Date().toISOString().split('T')[0]
       });
     }
