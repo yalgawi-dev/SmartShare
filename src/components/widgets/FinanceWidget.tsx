@@ -213,9 +213,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const finalApprovalsReceived = isTransfer ? 0 : (finalApprovalsNeeded > 0 ? myApproval : 0);
     const finalStatus = isTransfer ? 'pending' : (finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending'));
 
-    addInvoice(space.id, {
+    const newInvoice: any = {
       type: isTransfer ? 'transfer' : 'expense',
-      targetId,
       amount,
       supplier,
       category,
@@ -232,9 +231,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       approvedBy: isTransfer ? [] : (user?.id ? [user.id] : []),
       vatRate: space.settings?.defaultVatRate || 18,
       hasAttachment: !!finalAttachmentUrl,
-      attachmentUrl: finalAttachmentUrl || undefined,
       payerId: payerId
-    });
+    };
+
+    if (isTransfer && targetId) {
+      newInvoice.targetId = targetId;
+    }
+    if (finalAttachmentUrl) {
+      newInvoice.attachmentUrl = finalAttachmentUrl;
+    }
+
+    addInvoice(space.id, newInvoice);
 
     handleCloseForm();
     setActiveTab('transactions'); // Move to transactions so they see the newly added item at the top!
