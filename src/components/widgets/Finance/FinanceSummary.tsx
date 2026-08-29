@@ -33,37 +33,58 @@ export function FinanceSummary({
   
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 
-  // Financial Engine Calculations
-  const balances: { name: string, paid: number, expected: number, balance: number, userId?: string }[] = [];
-  let myBalance = 0;
-  const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
-  
-  if (activePartnersCount > 0) {
-    const memberCount = validMembers.length + 1; // +1 for "me"
-    const myShare = space.settings?.mySharePercentage ?? (100 / memberCount);
-    
-    // Calculate for ME
-    const myExpensesPaid = expensesOnly.filter((i: any) => i.payerId === user?.id || i.payerId === 'me' || (!i.payerId && (i.payerName === 'אני' || i.payerName === user?.realName))).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
-    const myTransfersSent = transfersOnly.filter((i: any) => i.payerId === user?.id || i.payerId === 'me').reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
-    const myTransfersReceived = transfersOnly.filter((i: any) => i.targetId === user?.id || i.targetId === 'me').reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
-    
-    const myPaid = myExpensesPaid;
-    const myExpected = totalExpenses * myShare / 100;
-    myBalance = myPaid - myExpected + myTransfersSent - myTransfersReceived;
-    balances.push({ name: user?.realName || 'אני', paid: myPaid, expected: myExpected, balance: myBalance, userId: 'me' });
+  // UNIFIED FINANCIAL ENGINE
+  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number }>();
 
-    // Calculate for Partners
-    validMembers.forEach((m: any) => {
-      const p = m.sharePercentage ?? (100 / memberCount);
-      const partnerExpensesPaid = expensesOnly.filter((i: any) => i.payerId === m.userId || (!i.payerId && i.payerName === m.name)).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
-      const partnerTransfersSent = transfersOnly.filter((i: any) => i.payerId === m.userId).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
-      const partnerTransfersReceived = transfersOnly.filter((i: any) => i.targetId === m.userId).reduce((sum: number, i: any) => sum + (i.amount || 0), 0);
-      
-      const expected = totalExpenses * p / 100;
-      const balance = partnerExpensesPaid - expected + partnerTransfersSent - partnerTransfersReceived;
-      balances.push({ name: m.name, paid: partnerExpensesPaid, expected, balance, userId: m.userId });
+  const myRealName = user?.realName || user?.nickname || 'אני';
+  const myId = user?.id || 'me';
+  unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0 });
+  
+  const validMembers = space.members?.filter((m: any) => m.status === 'active' && m.userId !== user?.id) || [];
+  validMembers.forEach((m: any) => {
+    unifiedBalances.set(m.userId, { name: m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0 });
+  });
+
+  expensesOnly.forEach((inv: any) => {
+    let matchedId = inv.payerId;
+    let matchedName = inv.payerName || 'לא ידוע';
+    if (!matchedId) {
+      if (matchedName === 'אני' || matchedName === myRealName) matchedId = myId;
+      else {
+        const foundMember = validMembers.find((m: any) => m.name === matchedName);
+        if (foundMember) matchedId = foundMember.userId;
+        else matchedId = `historical_${matchedName}`;
+      }
+    }
+    if (!unifiedBalances.has(matchedId)) unifiedBalances.set(matchedId, { name: matchedName, paid: 0, expected: 0, balance: 0, userId: matchedId, isMember: false, transfersSent: 0, transfersReceived: 0 });
+    unifiedBalances.get(matchedId)!.paid += (inv.amount || 0);
+  });
+
+  transfersOnly.forEach((inv: any) => {
+    const senderId = inv.payerId || 'unknown_sender';
+    const receiverId = inv.targetId || 'unknown_receiver';
+    if (unifiedBalances.has(senderId)) unifiedBalances.get(senderId)!.transfersSent += (inv.amount || 0);
+    if (unifiedBalances.has(receiverId)) unifiedBalances.get(receiverId)!.transfersReceived += (inv.amount || 0);
+  });
+
+  const activeBalances = Array.from(unifiedBalances.values()).filter(b => b.isMember);
+  if (activePartnersCount > 0) {
+    const defaultShare = 100 / activeBalances.length;
+    activeBalances.forEach(b => {
+      let p = defaultShare;
+      if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
+      else {
+        const m = validMembers.find((vm: any) => vm.userId === b.userId);
+        if (m && m.sharePercentage !== undefined) p = m.sharePercentage;
+      }
+      b.expected = totalExpenses * (p / 100);
+      b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
     });
   }
+
+  const balances = activeBalances;
+  const allBalancesArray = Array.from(unifiedBalances.values()).sort((a,b) => b.paid - a.paid);
+  let myBalance = unifiedBalances.get(myId)?.balance || 0;
 
   const settlements: { from: string, to: string, amount: number }[] = [];
   if (activePartnersCount > 0) {
@@ -198,16 +219,10 @@ export function FinanceSummary({
               <button onClick={() => setShowTotalBreakdown(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {Array.from(
-                expensesOnly.reduce((acc: Map<string, number>, inv: any) => {
-                  const name = inv.payerName || 'לא ידוע';
-                  acc.set(name, (acc.get(name) || 0) + (inv.amount || 0));
-                  return acc;
-                }, new Map<string, number>())
-              ).sort((a, b) => b[1] - a[1]).map(([name, amount], idx) => (
+              {allBalancesArray.filter(b => b.paid > 0).map((b, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                  <span style={{ fontWeight: 'bold' }}>{name}</span>
-                  <span dir="ltr">₪{amount.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                  <span style={{ fontWeight: 'bold' }}>{b.name} {b.isMe ? '(אני)' : ''}</span>
+                  <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                 </div>
               ))}
             </div>
@@ -237,9 +252,9 @@ export function FinanceSummary({
                 settlements.map((s: any, idx: number) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontWeight: 'bold' }}>{s.from === 'me' ? 'אני' : s.from}</span>
+                      <span style={{ fontWeight: 'bold' }}>{s.from === myId ? myRealName : (unifiedBalances.get(s.from)?.name || s.from)}</span>
                       <span style={{ color: 'var(--text-secondary)' }}>←</span>
-                      <span style={{ fontWeight: 'bold' }}>{s.to === 'me' ? 'אני' : s.to}</span>
+                      <span style={{ fontWeight: 'bold' }}>{s.to === myId ? myRealName : (unifiedBalances.get(s.to)?.name || s.to)}</span>
                     </div>
                     <div style={{ fontWeight: 'bold', color: '#10b981' }} dir="ltr">
                       {s.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
