@@ -25,7 +25,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
-  const { addInvoice, updateSpaceSettings } = useSpaces();
+  const { addInvoice, updateInvoice, updateSpaceSettings } = useSpaces();
   const [isMounted, setIsMounted] = useState(false);
   const uploadPromiseRef = useRef<Promise<string> | null>(null);
 
@@ -200,7 +200,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     }
 
     const myApproval = 1; // The person uploading inherently approves it
-    const finalApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount : 0;
+    const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount : 0;
     
     const isTransfer = category === 'העברה/קיזוז';
     let targetId = undefined;
@@ -208,6 +208,10 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       targetId = formData.get('targetId') as string;
       if (targetId === 'me') targetId = user?.id || 'me';
     }
+
+    const finalApprovalsNeeded = isTransfer ? 1 : expenseApprovalsNeeded;
+    const finalApprovalsReceived = isTransfer ? 0 : (finalApprovalsNeeded > 0 ? myApproval : 0);
+    const finalStatus = isTransfer ? 'pending' : (finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending'));
 
     addInvoice(space.id, {
       type: isTransfer ? 'transfer' : 'expense',
@@ -218,13 +222,14 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       payerName,
       date,
       createdAt: new Date().toISOString(),
-      status: finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending'),
+      status: finalStatus,
       note,
       vatNumber,
       invoiceNumber,
       documentType,
       approvalsNeeded: finalApprovalsNeeded,
-      approvalsReceived: finalApprovalsNeeded > 0 ? myApproval : 0,
+      approvalsReceived: finalApprovalsReceived,
+      approvedBy: isTransfer ? [] : (user?.id ? [user.id] : []),
       vatRate: space.settings?.defaultVatRate || 18,
       hasAttachment: !!finalAttachmentUrl,
       attachmentUrl: finalAttachmentUrl || undefined,

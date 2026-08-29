@@ -28,8 +28,8 @@ export function FinanceSummary({
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
   
-  const expensesOnly = invoices.filter((inv: any) => inv.type !== 'transfer');
-  const transfersOnly = invoices.filter((inv: any) => inv.type === 'transfer');
+  const expensesOnly = invoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute');
+  const transfersOnly = invoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
   
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 

@@ -5,6 +5,8 @@ interface FinanceTransactionsProps {
   filteredInvoices: any[];
   activePartnersCount: number;
   user: any;
+  space?: any;
+  updateInvoice?: (spaceId: string, invoiceId: string, updates: any) => void;
   filter: string;
   setFilter: (filter: string) => void;
   expandedInvoiceId: string | null;
@@ -17,12 +19,38 @@ export function FinanceTransactions({
   filteredInvoices,
   activePartnersCount,
   user,
+  space,
+  updateInvoice,
   filter,
   setFilter,
   expandedInvoiceId,
   setExpandedInvoiceId,
   setPreviewImage
 }: FinanceTransactionsProps) {
+
+  const handleApprove = (inv: any) => {
+    if (!space || !updateInvoice) return;
+    const currentApprovedBy = inv.approvedBy || [];
+    if (user?.id && !currentApprovedBy.includes(user.id)) {
+      const newApprovedBy = [...currentApprovedBy, user.id];
+      const newApprovalsReceived = (inv.approvalsReceived || 0) + 1;
+      const newStatus = newApprovalsReceived >= inv.approvalsNeeded ? 'approved' : 'pending';
+      updateInvoice(space.id, inv.id, {
+        approvalsReceived: newApprovalsReceived,
+        approvedBy: newApprovedBy,
+        status: newStatus
+      });
+    }
+  };
+
+  const calculateCanApprove = (inv: any) => {
+    if (inv.status !== 'pending') return false;
+    if (inv.type === 'transfer') {
+      return inv.targetId === user?.id || inv.targetId === 'me';
+    }
+    return (inv.payerId !== user?.id && inv.payerId !== 'me' && !(inv.approvedBy || []).includes(user?.id));
+  };
+
   return (
     <div>
       {/* Filter Pills */}
@@ -66,7 +94,7 @@ export function FinanceTransactions({
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontSize: '1.1rem'
                   }}>
-                    {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '⚠️'}
+                    {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
                   </div>
                   <div>
                     <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -130,27 +158,34 @@ export function FinanceTransactions({
                         <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>סטטוס אישורים ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}):</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                           {inv.status === 'approved' ? (
-                            <span style={{ color: '#10b981', fontSize: '0.9rem' }}>✓ כל השותפים אישרו הוצאה זו.</span>
+                            <span style={{ color: '#10b981', fontSize: '0.9rem' }}>✓ מאושר.</span>
+                          ) : inv.status === 'dispute' ? (
+                            <span style={{ color: '#ef4444', fontSize: '0.9rem' }}>❌ נדחה / במחלוקת.</span>
                           ) : (
-                            <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור של לפחות שותף אחד.</span>
+                            <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).</span>
                           )}
                         </div>
                       </div>
 
                       {/* Action Buttons */}
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
-                        {inv.payerId !== user?.id && inv.payerId !== 'me' && inv.status === 'pending' && (
-                          <button onClick={() => alert('אושר!')} style={{ flex: 1, padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            ✓ מאשר את ההוצאה
+                        {calculateCanApprove(inv) && (
+                          <button onClick={() => handleApprove(inv)} style={{ flex: 1, padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            ✅ {inv.type === 'transfer' ? 'אשר קבלת תשלום' : 'אשר הוצאה זו'}
+                          </button>
+                        )}
+                        {calculateCanApprove(inv) && inv.type === 'transfer' && (
+                          <button onClick={() => updateInvoice && space && updateInvoice(space.id, inv.id, { status: 'dispute' })} style={{ flex: 1, padding: '0.75rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            ❌ לא קיבלתי
                           </button>
                         )}
                         {(inv.payerId === user?.id || inv.payerId === 'me') && inv.status === 'pending' && (
-                          <button onClick={() => alert('התראה נשלחה לשותפים בהצלחה!')} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            🔔 שלח התראה לשותף (Nudge)
+                          <button onClick={() => alert('תזכורת נשלחה לשותפים!')} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            🔔 שלח תזכורת לאישור
                           </button>
                         )}
-                        <button onClick={() => alert('פונקציית צ׳אט תתווסף בקרוב')} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                          💬 פתח דיון
+                        <button onClick={() => alert('פתיחת מחלוקת תתווסף בהמשך')} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          💬 פתח מחלוקת
                         </button>
                       </div>
                     </div>

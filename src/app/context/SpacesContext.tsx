@@ -126,6 +126,7 @@ interface SpacesContextType {
   updateSpaceIcon: (spaceId: string, newIcon: string) => void;
   toggleFeature: (spaceId: string, featureId: FeatureId) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
+  updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>) => void;
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
   updateMediaItem: (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => void;
@@ -366,6 +367,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       ...space,
       settings: { ...space.settings, ...newSettings },
       updatedAt: 'עודכן עכשיו'
+    }));
+  };
+
+  const updateInvoice = (spaceId: string, invoiceId: string, updates: Partial<Invoice>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      invoices: (space.invoices || []).map(inv => inv.id === invoiceId ? { ...inv, ...updates } : inv),
+      updatedAt: new Date().toISOString()
     }));
   };
 
@@ -641,7 +650,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace,
+    <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace,
       updateMemberPermissions,
       addComment,
       deleteComment,

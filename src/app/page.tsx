@@ -126,9 +126,9 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
-      
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.15 - תיקון התחברות גוגל (גרסה 5 - התראות שגיאה)</div>
+        v4.5.21 - תיקון תהליך אישור מנגנון קיזוזים (המשלם מעביר, המקבל מאשר)
+      </div>
     </div>
   );
 }
