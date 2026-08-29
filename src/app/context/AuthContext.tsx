@@ -148,10 +148,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
-      const { signInWithPopup } = await import('firebase/auth');
+      const { signInWithRedirect } = await import('firebase/auth');
       const { googleProvider } = await import('@/lib/firebase');
       // Firebase auth will trigger onAuthStateChanged which handles the firestore setup
-      await signInWithPopup(auth, googleProvider);
+      await signInWithRedirect(auth, googleProvider);
     } catch (e) {
       console.error("Google login failed", e);
     }
