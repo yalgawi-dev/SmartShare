@@ -138,6 +138,7 @@ interface SpacesContextType {
   removeMember: (spaceId: string, userId: string, performedBy: string) => void;
   restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
+  devResetSpace: (spaceId: string, currentUserId: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
@@ -423,6 +424,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const devResetSpace = (spaceId: string, currentUserId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newMembers = space.members?.filter(m => m.userId === currentUserId) || [];
+      return {
+        ...space,
+        invoices: [],
+        members: newMembers,
+        updatedAt: 'עודכן לפני רגע'
+      };
+    });
+  };
+
   const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => {
       const activeMembers = space.members?.filter(m => m.isActive !== false) || [];
@@ -657,6 +670,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       removeMember,
       restoreMember,
       autoBalanceShares,
+      devResetSpace,
       addAuditLog,
       updateAlbumSettings,
       updateAtmospherePhoto,
