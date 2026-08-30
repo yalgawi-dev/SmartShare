@@ -90,7 +90,7 @@ export interface SpaceMember {
 export interface AuditRecord {
   id: string;
   timestamp: string;
-  actionType: 'MEMBER_LEFT' | 'MEMBER_REMOVED' | 'SHARES_UPDATED' | 'AUTO_BALANCE' | 'OTHER';
+  actionType: 'MEMBER_LEFT' | 'MEMBER_REMOVED' | 'SHARES_UPDATED' | 'AUTO_BALANCE' | 'EDIT_INVOICE' | 'DELETE_INVOICE' | 'OTHER';
   performedBy: string; // userId of who performed the action
   details: string; // Human readable explanation
 }
@@ -126,7 +126,7 @@ interface SpacesContextType {
   updateSpaceIcon: (spaceId: string, newIcon: string) => void;
   toggleFeature: (spaceId: string, featureId: FeatureId) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
-  updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>) => void;
+  updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => void;
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
   updateMediaItem: (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => void;
@@ -371,12 +371,31 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const updateInvoice = (spaceId: string, invoiceId: string, updates: Partial<Invoice>) => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      invoices: (space.invoices || []).map(inv => inv.id === invoiceId ? { ...inv, ...updates } : inv),
-      updatedAt: new Date().toISOString()
-    }));
+  const updateInvoice = (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const oldInvoice = space.invoices?.find(i => i.id === invoiceId);
+      const newInvoices = (space.invoices || []).map(inv => inv.id === invoiceId ? { ...inv, ...updates } : inv);
+      
+      const newSpace = {
+        ...space,
+        invoices: newInvoices,
+        updatedAt: new Date().toISOString()
+      };
+
+      if (performedBy && actionDetail && oldInvoice) {
+        const isDelete = updates.isActive === false;
+        const newLog: AuditRecord = {
+          id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          timestamp: new Date().toISOString(),
+          actionType: isDelete ? 'DELETE_INVOICE' : 'EDIT_INVOICE',
+          performedBy,
+          details: `${isDelete ? 'מחיקת הוצאה' : 'עדכון הוצאה'} (${oldInvoice.supplier || 'כללי'}): ${actionDetail}`
+        };
+        newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
+      }
+
+      return newSpace;
+    });
   };
 
   const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {

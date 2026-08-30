@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.30 - תיקוני תצוגה וחווית משתמש בהוצאות (Modal Center, Image Preview, Filter Layout)
+        v4.5.31 - מערכת חכמה לרישום ולוגים: עריכה/מחיקת הוצאות, והצגה במרחב לפי מצב שותפים.
       </div>
     </div>
   );

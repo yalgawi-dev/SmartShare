@@ -1,13 +1,15 @@
 'use client';
 
-import { use } from 'react';
+import { use, useState } from 'react';
 import Link from 'next/link';
 import { useSpaces } from '../../../context/SpacesContext';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
 
 export default function SpaceReportsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const { spaces } = useSpaces();
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   const space = spaces.find(s => s.id === id);
 
@@ -15,7 +17,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
     return <div className={styles.container}><h1>הפרויקט לא נמצא.</h1></div>;
   }
 
-  const invoices = space.invoices || [];
+  const invoices = (space.invoices || []).filter(inv => inv.isActive !== false);
   const totalExpenses = invoices.reduce((acc, inv) => acc + (inv.amount || 0), 0);
 
   // Group by category for a simple analytics view
@@ -142,11 +144,19 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
                         color: inv.status === 'approved' ? '#065f46' : inv.status === 'pending' ? '#92400e' : '#991b1b',
                         padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem' 
                       }}>
-                        {inv.status === 'approved' ? 'מאושר' : inv.status === 'pending' ? 'ממתין' : 'בבירור'}
+                        {inv.status === 'approved' ? 'מאושר' : inv.status === 'pending' ? 'ממתין' : 'נדחה'}
                       </span>
                     </td>
                     <td style={{ padding: '1rem', fontSize: '1.25rem', textAlign: 'center' }}>
-                      {inv.hasAttachment ? '📎' : '⚠️'}
+                      {inv.hasAttachment && inv.attachmentUrl ? (
+                        <button 
+                          onClick={() => setPreviewImage(inv.attachmentUrl)}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}
+                          title="צפה בחשבונית"
+                        >
+                          📄
+                        </button>
+                      ) : '➖'}
                     </td>
                   </tr>
                 ))}
@@ -155,6 +165,29 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
           </div>
         )}
       </div>
+
+      {/* Full Screen Image Preview Modal */}
+      {previewImage && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100000, display: 'flex', flexDirection: 'column' }}>
+          <button 
+            type="button" 
+            onClick={() => setPreviewImage(null)} 
+            style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '50px', height: '50px', borderRadius: '50%', fontSize: '1.5rem', cursor: 'pointer', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="סגור תצוגה"
+          >
+            ✕
+          </button>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }} onClick={() => setPreviewImage(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', height: '100%' }}>
+              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
+                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                  <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', margin: 'auto' }} />
+                </TransformComponent>
+              </TransformWrapper>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

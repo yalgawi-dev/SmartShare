@@ -249,8 +249,10 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
                       {log.actionType === 'MEMBER_REMOVED' ? 'הסרת שותף' : 
-                       log.actionType === 'AUTO_BALANCE' ? 'איזון אחוזים אוטומטי' : 
-                       log.actionType === 'SHARES_UPDATED' ? 'עדכון אחוזים' : log.actionType}
+                       log.actionType === 'AUTO_BALANCE' ? 'איזון אוטומטי לאחוזים' : 
+                       log.actionType === 'SHARES_UPDATED' ? 'עדכון אחוזי השתתפות' : 
+                       log.actionType === 'EDIT_INVOICE' ? 'עריכת הוצאה' :
+                       log.actionType === 'DELETE_INVOICE' ? 'מחיקת הוצאה' : log.actionType}
                     </div>
                     <div style={{ fontSize: '0.9rem' }}>{log.details}</div>
                   </div>

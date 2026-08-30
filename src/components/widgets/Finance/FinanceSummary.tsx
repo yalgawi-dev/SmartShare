@@ -28,8 +28,9 @@ export function FinanceSummary({
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
   
-  const expensesOnly = invoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute');
-  const transfersOnly = invoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
+  const activeInvoices = invoices.filter((inv: any) => inv.isActive !== false);
+  const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute');
+  const transfersOnly = activeInvoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
   
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 
@@ -138,7 +139,7 @@ export function FinanceSummary({
           title="לחץ לצפייה בממתינים"
         >
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתין לאישור</p>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{invoices.filter((i: any) => i.status === 'pending').length}</h3>
+          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => i.status === 'pending').length}</h3>
         </div>
         <div 
           onClick={() => setShowSettlementBreakdown(true)}

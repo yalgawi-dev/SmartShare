@@ -146,6 +146,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const invoices = space.invoices || [];
 
   const filteredInvoices = invoices.filter((inv: any) => {
+    if (inv.isActive === false) return false;
     if (filter === 'all') return true;
     if (filter === 'pending_me') {
       return inv.status === 'pending' && inv.payerId !== user?.id && inv.payerId !== 'me';
@@ -380,7 +381,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
           <button 
             type="button" 
             onClick={() => setPreviewImage(null)} 
-            style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '50px', height: '50px', borderRadius: '50%', fontSize: '1.5rem', cursor: 'pointer', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', width: '50px', height: '50px', borderRadius: '50%', fontSize: '1.5rem', cursor: 'pointer', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             title="סגור תצוגה"
           >
             ✕

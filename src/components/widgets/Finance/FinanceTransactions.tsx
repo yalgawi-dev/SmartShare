@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -6,7 +6,7 @@ interface FinanceTransactionsProps {
   activePartnersCount: number;
   user: any;
   space?: any;
-  updateInvoice?: (spaceId: string, invoiceId: string, updates: any) => void;
+  updateInvoice?: (spaceId: string, invoiceId: string, updates: any, performedBy?: string, actionDetail?: string) => void;
   filter: string;
   setFilter: (filter: string) => void;
   expandedInvoiceId: string | null;
@@ -27,6 +27,27 @@ export function FinanceTransactions({
   setExpandedInvoiceId,
   setPreviewImage
 }: FinanceTransactionsProps) {
+
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
+  const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
+
+  const handleEditSave = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingInvoice || !space || !updateInvoice) return;
+    
+    updateInvoice(
+      space.id, 
+      editingInvoice.id, 
+      { 
+        amount: Number(editForm.amount), 
+        supplier: editForm.supplier,
+        date: editForm.date
+      },
+      user?.id,
+      `שונה סכום ל-${editForm.amount}, ספק: ${editForm.supplier}, תאריך: ${editForm.date}`
+    );
+    setEditingInvoice(null);
+  };
 
   const handleApprove = (inv: any) => {
     if (!space || !updateInvoice) return;
@@ -174,21 +195,51 @@ export function FinanceTransactions({
                             ✅ {inv.type === 'transfer' ? 'אשר קבלת תשלום' : 'אשר הוצאה זו'}
                           </button>
                         )}
-                        {calculateCanApprove(inv) && inv.type === 'transfer' && (
+                        {calculateCanApprove(inv) && inv.type === 'transfer' && activePartnersCount > 0 && (
                           <button onClick={() => updateInvoice && space && updateInvoice(space.id, inv.id, { status: 'dispute' })} style={{ flex: 1, padding: '0.75rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            ❌ לא קיבלתי
+                            פתח מחלוקת
                           </button>
                         )}
-                        {(inv.payerId === user?.id || inv.payerId === 'me') && inv.status === 'pending' && (
-                          <button onClick={() => alert('תזכורת נשלחה לשותפים!')} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            🔔 שלח תזכורת לאישור
+                        {(inv.payerId === user?.id || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
+                          <button onClick={() => alert('נשלח פוש ותזכורת לשותפים!')} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            שלח נדנוד לאישור
                           </button>
                         )}
-                        <button onClick={() => alert('פתיחת מחלוקת תתווסף בהמשך')} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                          💬 פתח מחלוקת
-                        </button>
+                        {(inv.payerId === user?.id || inv.payerId === 'me') && (
+                          <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
+                            <button onClick={() => {
+                              setEditingInvoice(inv);
+                              setEditForm({ amount: inv.amount || '', supplier: inv.supplier || '', date: inv.date || '' });
+                            }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                              ✏️ ערוך
+                            </button>
+                            <button onClick={() => {
+                              if (confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
+                                updateInvoice && space && updateInvoice(space.id, inv.id, { isActive: false }, user?.id, 'מחיקת חשבונית');
+                              }
+                            }} style={{ flex: 1, padding: '0.75rem', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                              🗑️ מחק
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
+
+                    {/* Edit Form Modal */}
+                    {editingInvoice?.id === inv.id && (
+                      <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
+                        <form onSubmit={handleEditSave} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                          <h4 style={{ margin: '0 0 0.5rem 0' }}>עריכת הוצאה</h4>
+                          <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} required />
+                          <input type="text" placeholder="ספק / שם החנות" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} required />
+                          <input type="number" placeholder="סכום (₪)" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} required />
+                          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                            <button type="button" onClick={() => setEditingInvoice(null)} style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>ביטול</button>
+                            <button type="submit" style={{ flex: 1, padding: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>שמור שינויים</button>
+                          </div>
+                        </form>
+                      </div>
+                    )}
 
                   </div>
                 </div>
