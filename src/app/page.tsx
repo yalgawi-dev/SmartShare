@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.27 - התחשבנות חכמה במצבי קצה ומיזוג שותפי עבר
+        v4.5.28 - ניקוי קוד ארכיטקטוני (Clean Architecture) הסרת פתרונות תלאי
       </div>
     </div>
   );

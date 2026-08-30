@@ -46,18 +46,17 @@ export function FinanceSummary({
   });
 
   expensesOnly.forEach((inv: any) => {
-    let matchedId = inv.payerId;
-    let matchedName = inv.payerName || 'לא ידוע';
-    if (!matchedId) {
-      if (matchedName === 'אני' || matchedName === myRealName || matchedName.includes('(אני)')) {
-        matchedId = myId;
-      } else {
-        const foundMember = validMembers.find((m: any) => m.name === matchedName);
-        if (foundMember) matchedId = foundMember.userId;
-        else matchedId = `historical_${matchedName}`;
-      }
+    const matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
+    
+    if (!unifiedBalances.has(matchedId)) {
+      unifiedBalances.set(matchedId, { 
+        name: inv.payerName || 'משתמש לא ידוע', 
+        paid: 0, expected: 0, balance: 0, 
+        userId: matchedId, 
+        isMember: false, 
+        transfersSent: 0, transfersReceived: 0 
+      });
     }
-    if (!unifiedBalances.has(matchedId)) unifiedBalances.set(matchedId, { name: matchedName, paid: 0, expected: 0, balance: 0, userId: matchedId, isMember: false, transfersSent: 0, transfersReceived: 0 });
     unifiedBalances.get(matchedId)!.paid += (inv.amount || 0);
   });
 

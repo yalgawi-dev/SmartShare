@@ -137,6 +137,11 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   };
 
   const hasScanner = space.features.includes('scanner');
+
+  const myId = user?.id || 'unknown_user';
+  
+  // STRICT ARCHITECTURE: We trust the database. No magical name matching in the UI.
+  // The UI receives exactly what is in the DB. payerId is the ONLY source of truth.
   const invoices = space.invoices || [];
 
   const filteredInvoices = invoices.filter((inv: any) => {
