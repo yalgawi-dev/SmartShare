@@ -278,8 +278,9 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Link href={`/space/${space.id}/reports`} style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none', padding: '0.5rem 1rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-full)', fontSize: '0.9rem' }}>
-                📊 דוחות
+              <Link href={`/space/${space.id}/reports`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: '600', textDecoration: 'none', padding: '0.4rem 0.75rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '0.9rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                <span>📊</span>
+                דוחות
               </Link>
             {onRemove && (
               <button 

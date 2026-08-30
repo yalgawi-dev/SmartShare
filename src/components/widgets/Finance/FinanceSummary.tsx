@@ -167,13 +167,13 @@ export function FinanceSummary({
         </div>
           
           <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.9rem' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.85rem' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)' }}>
-                  <th style={{ padding: '0.75rem' }}>שותף</th>
-                  <th style={{ padding: '0.75rem' }}>חלק באחוזים</th>
-                  <th style={{ padding: '0.75rem' }}>סך הכל שילם</th>
-                  <th style={{ padding: '0.75rem' }}>מאזן נוכחי (חובה/זכות)</th>
+                <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', whiteSpace: 'nowrap' }}>
+                  <th style={{ padding: '0.75rem' }}>שם</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
+                  <th style={{ padding: '0.75rem' }}>שולם</th>
+                  <th style={{ padding: '0.75rem' }}>מאזן</th>
                 </tr>
               </thead>
               <tbody>
@@ -181,10 +181,14 @@ export function FinanceSummary({
                   const memberCount = validMembers.length + 1;
                   const defaultShare = 100 / memberCount;
                   let p = defaultShare;
-                  if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
-                  else {
-                    const m = space.members?.find((sm: any) => sm.userId === b.userId);
-                    if (m) p = m.sharePercentage ?? defaultShare;
+                  if (memberCount === 1) {
+                    p = 100;
+                  } else {
+                    if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
+                    else {
+                      const m = space.members?.find((sm: any) => sm.userId === b.userId);
+                      if (m) p = m.sharePercentage ?? defaultShare;
+                    }
                   }
 
                   return (

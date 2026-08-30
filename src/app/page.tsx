@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.31 - מערכת חכמה לרישום ולוגים: עריכה/מחיקת הוצאות, והצגה במרחב לפי מצב שותפים.
+        v4.5.32 - שיפורי תצוגה: כפתור דוחות מרובע, טבלת מאזנים בשורה אחת, ותיקון 100% השתתפות למשתמש יחיד.
       </div>
     </div>
   );
