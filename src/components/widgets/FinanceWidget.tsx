@@ -23,6 +23,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [ocrElapsedTime, setOcrElapsedTime] = useState<number>(0);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateInvoice, updateSpaceSettings } = useSpaces();
@@ -250,11 +251,20 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
 
     handleCloseForm();
     setActiveTab('transactions'); // Move to transactions so they see the newly added item at the top!
+    
+    setToastMsg('ההוצאה נוספה בהצלחה!');
+    setTimeout(() => setToastMsg(null), 3000);
   };
 
   return (
     <div className="card glass-panel" style={{ padding: '0', marginBottom: '2rem', background: 'var(--bg-card)', position: 'relative', overflow: 'hidden' }}>
       
+      {toastMsg && (
+        <div style={{ position: 'fixed', top: '10%', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-full)', zIndex: 100000, boxShadow: 'var(--shadow-lg)', fontWeight: 'bold', animation: 'fadeIn 0.3s ease-out' }}>
+          ✓ {toastMsg}
+        </div>
+      )}
+
       {/* Header and Controls */}
       <div style={{ padding: '1.5rem 1.5rem 0 1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -365,16 +375,25 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
 
       {/* Full Screen Image Preview Modal */}
       {previewImage && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', padding: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-            <button type="button" onClick={() => setPreviewImage(null)} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.2rem', cursor: 'pointer' }}>✕ חזור לטופס</button>
-          </div>
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-            <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
-              <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
-                <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px', margin: 'auto' }} />
-              </TransformComponent>
-            </TransformWrapper>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100000, display: 'flex', flexDirection: 'column' }}>
+          
+          <button 
+            type="button" 
+            onClick={() => setPreviewImage(null)} 
+            style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', width: '50px', height: '50px', borderRadius: '50%', fontSize: '1.5rem', cursor: 'pointer', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            title="סגור תצוגה"
+          >
+            ✕
+          </button>
+
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }} onClick={() => setPreviewImage(null)}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', height: '100%' }}>
+              <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
+                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                  <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', margin: 'auto' }} />
+                </TransformComponent>
+              </TransformWrapper>
+            </div>
           </div>
         </div>
       )}
