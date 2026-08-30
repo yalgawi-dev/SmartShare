@@ -43,7 +43,7 @@ export function FinanceTransactions({
         supplier: editForm.supplier,
         date: editForm.date
       },
-      user?.id,
+      user?.id || 'me',
       `שונה סכום ל-${editForm.amount}, ספק: ${editForm.supplier}, תאריך: ${editForm.date}`
     );
     setEditingInvoice(null);
@@ -208,14 +208,27 @@ export function FinanceTransactions({
                         {(inv.payerId === user?.id || inv.payerId === 'me') && (
                           <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
                             <button onClick={() => {
-                              setEditingInvoice(inv);
-                              setEditForm({ amount: inv.amount || '', supplier: inv.supplier || '', date: inv.date || '' });
+                              if (editingInvoice?.id === inv.id) {
+                                setEditingInvoice(null);
+                              } else {
+                                setEditingInvoice(inv);
+                                // Format date to YYYY-MM-DD for the input
+                                let d = inv.date || '';
+                                if (d.includes('.')) {
+                                  const parts = d.split('.');
+                                  if (parts.length === 3) d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                } else if (d.includes('/')) {
+                                  const parts = d.split('/');
+                                  if (parts.length === 3) d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                }
+                                setEditForm({ amount: inv.amount || '', supplier: inv.supplier || '', date: d });
+                              }
                             }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                              ✏️ ערוך
+                              ✏️ {editingInvoice?.id === inv.id ? 'סגור עריכה' : 'ערוך'}
                             </button>
                             <button onClick={() => {
                               if (confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
-                                updateInvoice && space && updateInvoice(space.id, inv.id, { isActive: false }, user?.id, 'מחיקת חשבונית');
+                                updateInvoice && space && updateInvoice(space.id, inv.id, { isActive: false }, user?.id || 'me', 'מחיקת חשבונית');
                               }
                             }} style={{ flex: 1, padding: '0.75rem', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                               🗑️ מחק
@@ -230,9 +243,22 @@ export function FinanceTransactions({
                       <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
                         <form onSubmit={handleEditSave} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                           <h4 style={{ margin: '0 0 0.5rem 0' }}>עריכת הוצאה</h4>
-                          <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} required />
-                          <input type="text" placeholder="ספק / שם החנות" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} required />
-                          <input type="number" placeholder="סכום (₪)" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} required />
+                          
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            תאריך ההוצאה
+                            <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem' }} required />
+                          </label>
+
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            ספק / שם החנות
+                            <input type="text" placeholder="לדוגמה: שופרסל" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem' }} required />
+                          </label>
+
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            סכום (₪)
+                            <input type="number" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem' }} required />
+                          </label>
+
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                             <button type="button" onClick={() => setEditingInvoice(null)} style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>ביטול</button>
                             <button type="submit" style={{ flex: 1, padding: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>שמור שינויים</button>

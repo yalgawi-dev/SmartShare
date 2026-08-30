@@ -376,13 +376,13 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
       )}
 
       {/* Full Screen Image Preview Modal */}
-      {previewImage && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100000, display: 'flex', flexDirection: 'column' }}>
+      {previewImage && isMounted && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 999999, display: 'flex', flexDirection: 'column' }}>
           
           <button 
             type="button" 
             onClick={() => setPreviewImage(null)} 
-            style={{ position: 'absolute', top: '1.5rem', left: '1.5rem', background: 'rgba(0,0,0,0.6)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', width: '50px', height: '50px', borderRadius: '50%', fontSize: '1.5rem', cursor: 'pointer', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{ position: 'absolute', top: '1.5rem', right: '1.5rem', background: 'rgba(255, 255, 255, 0.2)', border: '2px solid white', color: 'white', width: '50px', height: '50px', borderRadius: '50%', fontSize: '1.5rem', cursor: 'pointer', zIndex: 9999999, display: 'flex', alignItems: 'center', justifyContent: 'center', paddingBottom: '3px' }}
             title="סגור תצוגה"
           >
             ✕
@@ -397,7 +397,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </TransformWrapper>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>
