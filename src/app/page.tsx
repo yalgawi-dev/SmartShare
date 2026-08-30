@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.40 - צמצום תצוגת מע"מ והרחבת רמת הפירוט ביומן השקיפות.
+        v4.5.41 - הסתרת קוביות המאזן והמתנה לאישור במצב של שחקן יחיד, ועמודת מאזן.
       </div>
     </div>
   );

@@ -39,6 +39,7 @@ export function FinanceSummary({
 
   const myRealName = user?.realName || user?.nickname || 'אני (שלי)';
   const myId = user?.id || 'me';
+  const hasPartners = space.features?.includes('partners') || false;
   unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
   
   const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending') && m.userId !== user?.id) || [];
@@ -140,7 +141,8 @@ export function FinanceSummary({
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה״כ שולם</p>
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
-        <div 
+        {hasPartners && <>
+<div 
           onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
           style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
           title="לחץ לצפייה בממתינים"
@@ -159,13 +161,15 @@ export function FinanceSummary({
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
             {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
           </h3>
-        </div>
+        </>
+}
+</div>
       </div>
 
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{activePartnersCount > 0 ? 'טבלת מאזנים' : 'התפלגות הוצאות'}</h4>
-          {activePartnersCount > 0 && (
+          {hasPartners && (
             <button 
               onClick={() => setIsEditingShares(true)}
               style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
@@ -182,7 +186,7 @@ export function FinanceSummary({
                   <th style={{ padding: '0.75rem' }}>שם</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
                   <th style={{ padding: '0.75rem' }}>שולם</th>
-                  <th style={{ padding: '0.75rem' }}>מאזן</th>
+                  {hasPartners && <th style={{ padding: '0.75rem' }}>מאזן</th>}
                 </tr>
               </thead>
               <tbody>
@@ -196,11 +200,12 @@ export function FinanceSummary({
                       </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                       <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                      {hasPartners && (
                       <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
                         <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
                         {b.balance > 0 ? '+' : ''}₪{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
                       </td>
-                    </tr>
+                    )}</tr>
                   )
                 })}
               </tbody>
