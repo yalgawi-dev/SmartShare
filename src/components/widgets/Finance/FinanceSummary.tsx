@@ -135,35 +135,37 @@ export function FinanceSummary({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div 
           onClick={() => setShowTotalBreakdown(true)}
-          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
-          title="לחץ לפירוט התשלומים"
+          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+          title="פירוט ההוצאות לפי קטגוריות"
         >
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה״כ שולם</p>
+          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה"כ הוצאות</p>
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
-        {hasPartners && <>
-<div 
-          onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
-          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
-          title="לחץ לצפייה בממתינים"
-        >
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתין לאישור</p>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => i.status === 'pending').length}</h3>
-        </div>
-        <div 
-          onClick={() => setShowSettlementBreakdown(true)}
-          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
-          title="פירוט התחשבנויות של מי חייב למי"
-        >
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            {myBalance > 0 ? 'מגיע מהקופה אליך:' : myBalance < 0 ? 'עליך להעביר לקופה:' : 'החשבון שלך מאוזן'}
-          </p>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
-            {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
-          </h3>
-        </>
-}
-</div>
+        
+        {hasPartners && (
+          <React.Fragment>
+            <div 
+              onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
+              style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+              title="למעבר מהיר לעמוד ההוצאות"
+            >
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישורי</p>
+              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => i.status === 'pending').length}</h3>
+            </div>
+            <div 
+              onClick={() => setShowSettlementBreakdown(true)}
+              style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+              title="פירוט של התחשבנות היתרות בין כל השותפים במרחב"
+            >
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                {myBalance > 0 ? 'שותפים חייבים לי:' : myBalance < 0 ? 'אני חייב/ת להעביר:' : 'החשבון שלי מאוזן'}
+              </p>
+              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
+                {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
+              </h3>
+            </div>
+          </React.Fragment>
+        )}
       </div>
 
       <div style={{ marginBottom: '1.5rem' }}>
