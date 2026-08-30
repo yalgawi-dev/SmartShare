@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.36 - שמירת היסטוריית שותפים לא-פעילים בטבלת מאזנים, והתראת שקיפות לפני הסרת שותפים עם Audit Log.
+        v4.5.37 - הרחבת לוג המחיקות עם פירוט מדויק, והוספת ארכיון שחזור הוצאות מחוקות.
       </div>
     </div>
   );

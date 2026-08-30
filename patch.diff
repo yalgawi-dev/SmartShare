@@ -1,0 +1,22 @@
+﻿--- src/app/context/SpacesContext.tsx
++++ src/app/context/SpacesContext.tsx
+@@ -408,12 +408,16 @@
+       };
+ 
+       if (performedBy && actionDetail && oldInvoice) {
+         const isDelete = updates.isActive === false;
++        const isRestore = updates.isActive === true;
++        let actionLabel = isDelete ? 'מחק/ה הוצאה' : isRestore ? 'שחזר/ה הוצאה מחוקה' : 'ערך/ה הוצאה';
++        const amt = oldInvoice.amount ? \ ע"ס ₪\\ : '';
++        const supplier = oldInvoice.supplier || 'ספק כללי';
++        
+         const newLog: AuditRecord = {
+           id: \udit-\-\\,
+           timestamp: new Date().toISOString(),
+           actionType: isDelete ? 'DELETE_INVOICE' : 'EDIT_INVOICE',
+           performedBy,
+-          details: \\ (\): \\
++          details: \\\ מאת (\). פירוט: \\
+         };
+         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
+       }

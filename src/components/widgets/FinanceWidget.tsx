@@ -13,7 +13,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
-  const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
