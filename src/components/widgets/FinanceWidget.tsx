@@ -25,7 +25,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
-  const { addInvoice, updateInvoice, updateSpaceSettings, devResetSpace } = useSpaces();
+  const { addInvoice, updateInvoice, updateSpaceSettings } = useSpaces();
   const [isMounted, setIsMounted] = useState(false);
   const uploadPromiseRef = useRef<Promise<string> | null>(null);
 
@@ -267,18 +267,6 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <button 
-                onClick={() => {
-                  if (confirm('אזהרה: פעולה זו תמחק את כל החשבוניות ואת כל השותפים במרחב למעט אותך. האם אתה בטוח?')) {
-                    devResetSpace(space.id, user?.id || '');
-                    alert('המרחב אופס בהצלחה! כל נתוני ההיסטוריה והשותפים נמחקו.');
-                  }
-                }}
-                style={{ color: 'white', background: '#ef4444', fontWeight: 'bold', border: 'none', padding: '0.5rem 1rem', borderRadius: 'var(--radius-full)', fontSize: '0.9rem', cursor: 'pointer' }}
-                title="איפוס מרחב (מחיקת כל החשבוניות והשותפים)"
-              >
-                ⚠️ איפוס מרחב נתונים
-              </button>
               <Link href={`/space/${space.id}/reports`} style={{ color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none', padding: '0.5rem 1rem', border: '1px solid var(--primary)', borderRadius: 'var(--radius-full)', fontSize: '0.9rem' }}>
                 📊 דוחות
               </Link>

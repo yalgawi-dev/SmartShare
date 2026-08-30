@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.28 - ניקוי קוד ארכיטקטוני (Clean Architecture) הסרת פתרונות תלאי
+        v4.5.29 - הפיכת כותרת העמוד לדביקה (Sticky) ותיקוני תצוגה
       </div>
     </div>
   );

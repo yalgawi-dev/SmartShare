@@ -137,7 +137,17 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Top Nav */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        position: 'sticky',
+        top: 0,
+        zIndex: 100,
+        background: 'var(--bg-main)',
+        padding: '1rem 0',
+        marginBottom: '0.5rem'
+      }}>
         <Link href="/" className={styles.backBtn} style={{ margin: 0 }}>
           <span>&rarr;</span> ללוח הראשי
         </Link>
