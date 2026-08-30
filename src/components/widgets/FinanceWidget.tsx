@@ -146,6 +146,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const invoices = space.invoices || [];
 
   const filteredInvoices = invoices.filter((inv: any) => {
+    if (filter === 'archive') return inv.isActive === false;
     if (inv.isActive === false) return false;
     if (filter === 'all') return true;
     if (filter === 'pending_me') {

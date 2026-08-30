@@ -76,6 +76,9 @@ export function FinanceTransactions({
     <div>
       {/* Filter Pills */}
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem', scrollbarWidth: 'none' }}>
+        <button onClick={() => setFilter('archive')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'archive' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'archive' ? 'bold' : 'normal', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          ארכיון מחוקים
+        </button>
         <button onClick={() => setFilter('all')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'all' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'all' ? 'bold' : 'normal', cursor: 'pointer', whiteSpace: 'nowrap' }}>
           הכל
         </button>
