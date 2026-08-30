@@ -91,10 +91,8 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
           
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
             <div>
-              <h4 style={{ margin: "0 0 0.2rem 0", fontSize: "1rem", color: "var(--text-primary)" }}>מע"מ (%)</h4>
-              <p style={{ margin: 0, fontSize: "0.8rem", color: "var(--text-secondary)", lineHeight: "1.2" }}>
-                יופעל אוטומטית על כל ההוצאות.
-              </p>
+              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>עריכת ה-Wall המרכזי</h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>האם שותפים למרחב מורשים להוסיף או להסיר כלים (Widgets) מהקיר?</p>
             </div>
             
             <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
@@ -187,9 +185,9 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
           
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
             <div>
-              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>מע"מ ברירת מחדל (%)</h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '400px' }}>
-                מספר זה ישמש לחישוב מע"מ עבור חשבוניות חדשות שיוזנו החל מהיום. חשבוניות ישנות שומרות את אחוז המע"מ שהיה נהוג ביום הפקתן כדי למנוע חישוב רטרואקטיבי.
+                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>מע"מ (%)</h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                יופעל אוטומטית על כל ההוצאות.
               </p>
             </div>
             
