@@ -62,9 +62,11 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
 
   return (
     <div className={styles.container} style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <Link href={`/space/${id}`} className={styles.backBtn}>
-        <span>&rarr;</span> חזרה לקיר הפרויקט
-      </Link>
+      <div style={{ position: 'sticky', top: 0, background: 'var(--bg-main, #f8fafc)', zIndex: 100, padding: '1rem 0', margin: '-1rem -1rem 1.5rem -1rem', paddingLeft: '1rem', paddingRight: '1rem', borderBottom: '1px solid var(--border-light)' }}>
+        <Link href={`/space/${id}`} className={styles.backBtn} style={{ margin: 0 }}>
+          <span>&rarr;</span> חזרה לקיר הפרויקט
+        </Link>
+      </div>
 
       <header className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1.5rem' }}>
         <div>

@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.41 - הסתרת קוביות המאזן והמתנה לאישור במצב של שחקן יחיד, ועמודת מאזן.
+        v4.5.42 - שדרוג עיצוב מסך ההגדרות לחוויית משתמש מודרנית (שמירה אוטומטית, חלוקה ברורה) והקפאת תפריט עליון בדוחות.
       </div>
     </div>
   );

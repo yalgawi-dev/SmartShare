@@ -15,44 +15,40 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
   
   const space = spaces.find(s => s.id === id);
 
-  // Local state for form
   const [vatRate, setVatRate] = useState<number>(18);
-  const [allowEdit, setAllowEdit] = useState<boolean>(false);
-  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     if (space?.settings) {
       setVatRate(space.settings.defaultVatRate);
-      setAllowEdit(space.settings.allowPartnersToEditWall);
     }
   }, [space]);
 
   if (!space) {
-    return <div className={styles.container}><h1>הפרויקט לא נמצא.</h1></div>;
+    return <div className={styles.container}><h1>המרחב לא נמצא.</h1></div>;
   }
 
-  const handleSave = () => {
-    updateSpaceSettings(id, {
-      defaultVatRate: vatRate,
-      allowPartnersToEditWall: allowEdit
-    });
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  const handleVatChange = (newVat: number) => {
+    setVatRate(newVat);
+    updateSpaceSettings(id, { defaultVatRate: newVat });
+  };
+
+  const handleToggleWallEdit = (allow: boolean) => {
+    updateSpaceSettings(id, { allowPartnersToEditWall: allow });
   };
 
   const handleInvite = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'הצטרף למרחב שלי ב-MySpace',
-          text: 'היי! אני מזמין אותך להצטרף אלי למרחב העבודה המשותף שלנו.',
+          title: 'הזמנה למרחב שותפות ב-MySpace',
+          text: 'היי! צירפתי אותך עכשיו למרחב שותפות באפליקציה שלנו.',
           url: `${window.location.origin}/space/${id}`,
         });
       } catch (err) {
         console.error('Error sharing:', err);
       }
     } else {
-      alert('אפשרות השיתוף אינה נתמכת בדפדפן זה. העתק את הקישור במקום.');
+      alert('שיתוף לא נתמך בדפדפן זה. העתק את כתובת הדף.');
     }
   };
 
@@ -60,86 +56,103 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
   const hasFinance = space.features.includes('finance');
 
   return (
-    <div className={styles.container} style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <Link href={`/space/${id}`} className={styles.backBtn}>
-        <span>&rarr;</span> חזרה לקיר הפרויקט
-      </Link>
+    <div className={styles.container} style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
+      
+      {/* Sticky Header / Back Button */}
+      <div style={{ position: 'sticky', top: 0, background: 'var(--bg-main, #f8fafc)', zIndex: 100, padding: '1rem 0', margin: '-1rem -1rem 1.5rem -1rem', paddingLeft: '1rem', paddingRight: '1rem', borderBottom: '1px solid var(--border-light)' }}>
+        <Link href={`/space/${id}`} className={styles.backBtn} style={{ margin: 0 }}>
+          <span>&rarr;</span> חזרה לקיר הפרויקט
+        </Link>
+      </div>
 
-      <header className={styles.header}>
+      <header className={styles.header} style={{ marginBottom: '2rem' }}>
         <div>
-          <h1 className={styles.title}>⚙️ הגדרות מרחב: {space.title}</h1>
-          <p className={styles.subtitle}>נהל הרשאות שותפים והגדרות פיננסיות של הפרויקט</p>
+          <h1 className={styles.title}>הגדרות המרחב: {space.title}</h1>
+          <p className={styles.subtitle}>ניהול הגדרות, הרשאות ותוספים במקום אחד (השינויים נשמרים אוטומטית).</p>
         </div>
       </header>
 
-      <div className="card glass-panel" style={{ padding: '2rem', background: 'var(--bg-card)', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         
+        {/* General Settings Section */}
+        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
+          <h2 style={{ fontSize: '1.15rem', margin: '0 0 1rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>⚙️</span> הגדרות כלליות
+          </h2>
+          <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-light)' }}>
+            <div>
+              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>שם המרחב</h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{space.title}</p>
+            </div>
+          </div>
+        </section>
+
         {/* Partners Dynamic Section */}
         {hasPartners && (
-        <section>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
-            <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)' }}>
-              👥 ניהול שותפים למרחב
+        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem', marginBottom: '1.25rem' }}>
+            <h2 style={{ fontSize: '1.15rem', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>👥</span> ניהול שותפים והרשאות
             </h2>
             <button 
               onClick={handleInvite}
-              style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
+              style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', boxShadow: 'var(--shadow-sm)' }}
             >
-              + הזמן שותפים
+              + הוסף שותף
             </button>
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
             <div>
-              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>עריכת ה-Wall המרכזי</h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>האם שותפים למרחב מורשים להוסיף או להסיר כלים (Widgets) מהקיר?</p>
+              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>עריכת ה-Wall המרכזי</h4>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', maxWidth: '280px' }}>אפשר לשותפים להוסיף ולסדר רכיבים במסך הראשי</p>
             </div>
             
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}>
               <div style={{ position: 'relative' }}>
                 <input 
                   type="checkbox" 
-                  checked={allowEdit} 
-                  onChange={(e) => setAllowEdit(e.target.checked)}
+                  checked={space.settings?.allowPartnersToEditWall || false} 
+                  onChange={(e) => handleToggleWallEdit(e.target.checked)}
                   style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} 
                 />
                 <div style={{ 
-                  width: '50px', height: '26px', 
-                  background: allowEdit ? 'var(--primary)' : '#ccc', 
-                  borderRadius: '26px', 
+                  width: '44px', height: '24px', 
+                  background: space.settings?.allowPartnersToEditWall ? 'var(--primary)' : '#ccc', 
+                  borderRadius: '24px', 
                   position: 'relative',
                   transition: 'background 0.3s'
                 }}>
                   <div style={{
-                    width: '22px', height: '22px',
+                    width: '20px', height: '20px',
                     background: 'white',
                     borderRadius: '50%',
                     position: 'absolute',
                     top: '2px',
-                    left: allowEdit ? '2px' : '26px',
+                    left: space.settings?.allowPartnersToEditWall ? '2px' : '22px',
                     transition: 'left 0.3s'
                   }} />
                 </div>
               </div>
             </label>
           </div>
-          {/* Dynamic List for Partners Permissions */}
+
           {space.members && space.members.length > 0 ? (
-            <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                <span style={{ flex: 1 }}>שם האורח</span>
-                <span style={{ width: '80px', textAlign: 'center' }}>העלאה</span>
-                <span style={{ width: '80px', textAlign: 'center' }}>מחיקה</span>
+            <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.5rem 1rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <span style={{ flex: 1 }}>שם חבר/ה</span>
+                <span style={{ width: '70px', textAlign: 'center' }}>העלאות</span>
+                <span style={{ width: '70px', textAlign: 'center' }}>מחיקות</span>
               </div>
               
               {space.members.map((m: any) => (
-                <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
-                  <div style={{ flex: 1, fontWeight: '500' }}>
-                    {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>(אתה)</span>}
+                <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+                  <div style={{ flex: 1, fontWeight: '500', fontSize: '0.95rem' }}>
+                    {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>(אני)</span>}
                   </div>
                   
                   {/* Upload Toggle */}
-                  <div style={{ width: '80px', display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
                     <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                       <input 
                         type="checkbox" 
@@ -154,7 +167,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                   </div>
                   
                   {/* Delete Toggle */}
-                  <div style={{ width: '80px', display: 'flex', justifyContent: 'center' }}>
+                  <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
                     <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                       <input 
                         type="checkbox" 
@@ -171,23 +184,25 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
               ))}
             </div>
           ) : (
-            <p style={{ color: 'var(--text-secondary)', marginTop: '1rem' }}>אין חברים במרחב עדיין.</p>
+            <div style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', marginTop: '1rem', border: '1px dashed var(--border-light)' }}>
+              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>טרם צורפו שותפים נוספים למרחב.</p>
+            </div>
           )}
         </section>
         )}
 
         {/* Finance Section */}
         {hasFinance && (
-        <section>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
-            💰 הגדרות התחשבנות
+        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
+          <h2 style={{ fontSize: '1.15rem', margin: '0 0 1rem 0', color: 'var(--text-primary)', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>💰</span> הגדרות פיננסיות
           </h2>
           
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
             <div>
-                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.05rem' }}>מע"מ (%)</h4>
+              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>מע"מ ברירת מחדל</h4>
               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                יופעל אוטומטית על כל ההוצאות.
+                יוחל אוטומטית על כל הוצאה חדשה במרחב.
               </p>
             </div>
             
@@ -196,73 +211,25 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                 type="number" 
                 value={vatRate}
                 onChange={(e) => setVatRate(Number(e.target.value))}
+                onBlur={() => handleVatChange(vatRate)}
                 style={{ 
-                  width: '80px', 
-                  padding: '0.5rem', 
-                  fontSize: '1.1rem', 
+                  width: '60px', 
+                  padding: '0.4rem', 
+                  fontSize: '1rem', 
                   textAlign: 'center', 
                   borderRadius: 'var(--radius-sm)',
-                  border: '1px solid var(--border-light)'
+                  border: '1px solid var(--border-light)',
+                  background: 'white'
                 }} 
               />
-              <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>%</span>
+              <span style={{ fontSize: '1rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>%</span>
             </div>
           </div>
         </section>
         )}
 
-        {/* Save Actions */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '1rem', marginTop: '1rem', marginBottom: '2rem' }}>
-          {isSaved && <span style={{ color: 'green', display: 'flex', alignItems: 'center', fontWeight: 'bold' }}>✓ נשמר בהצלחה</span>}
-          <button 
-            onClick={() => router.push(`/space/${id}`)}
-            style={{ padding: '0.75rem 1.5rem', background: 'transparent', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', cursor: 'pointer' }}>
-            ביטול
-          </button>
-          <button 
-            onClick={handleSave}
-            style={{ padding: '0.75rem 2rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}>
-            שמור הגדרות
-          </button>
-        </div>
-
-        {/* Audit Logs Section */}
-        <section style={{ borderTop: '1px solid var(--border-light)', paddingTop: '2rem' }}>
-          <h2 style={{ fontSize: '1.25rem', marginBottom: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>📜</span> יומן שקיפות ואמון (Audit Logs)
-          </h2>
-          <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            מערכת ה-Audit Log מתעדת פעולות קריטיות כגון עזיבה/הסרת שותפים ושינויים באחוזי חלוקת הכספים במרחב, להבטחת שקיפות מלאה.
-          </p>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {(!space.auditLogs || space.auditLogs.length === 0) ? (
-              <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                אין עדיין רשומות יומן למרחב זה.
-              </div>
-            ) : (
-              space.auditLogs.map(log => (
-                <div key={log.id} style={{ display: 'flex', gap: '1rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: 'var(--radius-md)', borderLeft: '4px solid var(--primary)', alignItems: 'flex-start' }}>
-                  <div style={{ minWidth: '80px', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {new Date(log.timestamp).toLocaleDateString('he-IL')} <br/> {new Date(log.timestamp).toLocaleTimeString('he-IL', {hour: '2-digit', minute:'2-digit'})}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '0.25rem', fontSize: '0.9rem' }}>
-                      {log.actionType === 'MEMBER_REMOVED' ? 'הסרת שותף' : 
-                       log.actionType === 'AUTO_BALANCE' ? 'איזון אוטומטי לאחוזים' : 
-                       log.actionType === 'SHARES_UPDATED' ? 'עדכון אחוזי השתתפות' : 
-                       log.actionType === 'EDIT_INVOICE' ? 'עריכת הוצאה' :
-                       log.actionType === 'DELETE_INVOICE' ? 'מחיקת הוצאה' : log.actionType}
-                    </div>
-                    <div style={{ fontSize: '0.9rem' }}>{log.details}</div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
       </div>
+
     </div>
   );
 }
