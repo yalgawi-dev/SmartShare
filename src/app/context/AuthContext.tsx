@@ -41,6 +41,7 @@ interface AuthContextType {
   updateProfile: (updates: Partial<UserProfile>) => void;
   addContact: (contact: Omit<UserContact, 'addedAt'>) => void;
   blockUser: (userId: string, block: boolean) => void; // Admin action
+  toggleAdmin: (userId: string, makeAdmin: boolean) => void;
   isLoaded: boolean;
 }
 
@@ -53,6 +54,7 @@ const AuthContext = createContext<AuthContextType>({
   updateProfile: () => {},
   addContact: () => {},
   blockUser: () => {},
+  toggleAdmin: () => {},
   isLoaded: false,
 });
 
@@ -219,6 +221,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+    const toggleAdmin = async (userId: string, makeAdmin: boolean) => {
+    if (!user?.isAdmin) return;
+    setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isAdmin: makeAdmin } : u));
+    try {
+      await updateDoc(doc(db, "users", userId), { isAdmin: makeAdmin });
+    } catch (e) {
+      console.error("Failed to toggle admin in Firestore", e);
+    }
+  };
+
   const blockUser = async (userId: string, block: boolean) => {
     if (!user?.isAdmin) return;
     setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isBlocked: block } : u));
@@ -231,7 +243,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, allUsers, login, loginWithGoogle, logout, updateProfile, addContact, blockUser, isLoaded }}>
+    <AuthContext.Provider value={{ user, allUsers, login, loginWithGoogle, logout, updateProfile, addContact, blockUser, toggleAdmin, isLoaded }}>
       {children}
     </AuthContext.Provider>
   );
