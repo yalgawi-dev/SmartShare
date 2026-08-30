@@ -331,6 +331,8 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
             filteredInvoices={filteredInvoices}
             activePartnersCount={activePartnersCount}
             user={user}
+            space={space}
+            updateInvoice={updateInvoice}
             filter={filter}
             setFilter={setFilter}
             expandedInvoiceId={expandedInvoiceId}

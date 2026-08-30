@@ -87,9 +87,11 @@ export function FinanceTransactions({
             </span>
           )}
         </button>
-        <button onClick={() => setFilter('pending_partners')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_partners' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_partners' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-          ממתין לשותפים
-        </button>
+        {activePartnersCount > 0 && (
+          <button onClick={() => setFilter('pending_partners')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_partners' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_partners' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
+            ממתין לאישור השותפים
+          </button>
+        )}
       </div>
 
       {filteredInvoices.length === 0 ? (
@@ -207,7 +209,9 @@ export function FinanceTransactions({
                         )}
                         {(inv.payerId === user?.id || inv.payerId === 'me') && (
                           <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
-                            <button onClick={() => {
+                            <button onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
                               if (editingInvoice?.id === inv.id) {
                                 setEditingInvoice(null);
                               } else {
@@ -226,9 +230,15 @@ export function FinanceTransactions({
                             }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                               ✏️ {editingInvoice?.id === inv.id ? 'סגור עריכה' : 'ערוך'}
                             </button>
-                            <button onClick={() => {
-                              if (confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
-                                updateInvoice && space && updateInvoice(space.id, inv.id, { isActive: false }, user?.id || 'me', 'מחיקת חשבונית');
+                            <button onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (window.confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
+                                if (updateInvoice && space) {
+                                  updateInvoice(space.id, inv.id, { isActive: false }, user?.id || 'me', 'מחיקת חשבונית');
+                                } else {
+                                  alert('שגיאה בתקשורת עם השרת');
+                                }
                               }
                             }} style={{ flex: 1, padding: '0.75rem', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                               🗑️ מחק

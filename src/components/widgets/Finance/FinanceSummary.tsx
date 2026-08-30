@@ -157,13 +157,15 @@ export function FinanceSummary({
 
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h4 style={{ margin: 0, fontSize: '1.1rem' }}>טבלת מאזנים</h4>
-          <button 
-            onClick={() => setIsEditingShares(true)}
-            style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
-          >
-            ✍️ ערוך אחוזי השתתפות
-          </button>
+          <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{activePartnersCount > 0 ? 'טבלת מאזנים' : 'התפלגות הוצאות'}</h4>
+          {activePartnersCount > 0 && (
+            <button 
+              onClick={() => setIsEditingShares(true)}
+              style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              ✍️ ערוך אחוזי השתתפות
+            </button>
+          )}
         </div>
           
           <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
