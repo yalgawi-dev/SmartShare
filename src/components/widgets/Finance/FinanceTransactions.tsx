@@ -43,7 +43,7 @@ export function FinanceTransactions({
         supplier: editForm.supplier,
         date: editForm.date
       },
-      user?.id || 'me',
+      user?.realName || user?.id || 'me',
       `שונה סכום ל-${editForm.amount}, ספק: ${editForm.supplier}, תאריך: ${editForm.date}`
     );
     setEditingInvoice(null);
@@ -251,7 +251,7 @@ export function FinanceTransactions({
                               e.stopPropagation();
                               if (window.confirm('האם אתה בטוח שברצונך למחוק הוצאה זו?')) {
                                 if (updateInvoice && space) {
-                                  updateInvoice(space.id, inv.id, { isActive: false }, user?.id || 'me', 'מחיקת חשבונית');
+                                  updateInvoice(space.id, inv.id, { isActive: false }, user?.realName || user?.id || 'me', 'נמחק על ידי המשתמש דרך הממשק');
                                 } else {
                                   alert('שגיאה בתקשורת עם השרת');
                                 }

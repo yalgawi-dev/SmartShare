@@ -414,12 +414,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         const amt = oldInvoice.amount ? ` ע"ס ₪${oldInvoice.amount}` : "";
         const supplier = oldInvoice.supplier || "ספק כללי";
         
+        const performer = performedBy === "me" || !performedBy ? "משתמש" : performedBy;
+        
         const newLog = {
           id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           timestamp: new Date().toISOString(),
           actionType: isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE",
           performedBy,
-          details: `${actionLabel}${amt} מאת (${supplier}). פירוט: ${actionDetail}`,
+          details: `${performer} ${actionLabel}${amt} מאת "${supplier}". פירוט: ${actionDetail}`,
           invoiceId
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];

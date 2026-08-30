@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.39 - ארגון מחדש של לוח הבקרה למנהלים: הפרדת מנהלים, הרשאות גישה, והעברת ארכיון למשתמש הכללי.
+        v4.5.40 - צמצום תצוגת מע"מ והרחבת רמת הפירוט ביומן השקיפות.
       </div>
     </div>
   );
