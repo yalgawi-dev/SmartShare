@@ -35,15 +35,15 @@ export function FinanceSummary({
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
 
   // UNIFIED FINANCIAL ENGINE
-  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number }>();
+  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, p: number }>();
 
-  const myRealName = user?.realName || user?.nickname || 'אורח';
+  const myRealName = user?.realName || user?.nickname || 'אני (שלי)';
   const myId = user?.id || 'me';
-  unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0 });
+  unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
   
   const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending') && m.userId !== user?.id) || [];
   validMembers.forEach((m: any) => {
-    unifiedBalances.set(m.userId, { name: m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0 });
+    unifiedBalances.set(m.userId, { name: m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
   });
 
   expensesOnly.forEach((inv: any) => {
@@ -51,11 +51,12 @@ export function FinanceSummary({
     
     if (!unifiedBalances.has(matchedId)) {
       unifiedBalances.set(matchedId, { 
-        name: inv.payerName || 'משתמש לא ידוע', 
+        name: inv.payerName || 'ספק חיצוני / לא מזוהה', 
         paid: 0, expected: 0, balance: 0, 
         userId: matchedId, 
         isMember: false, 
-        transfersSent: 0, transfersReceived: 0 
+        transfersSent: 0, transfersReceived: 0,
+        p: 0
       });
     }
     unifiedBalances.get(matchedId)!.paid += (inv.amount || 0);
@@ -77,14 +78,20 @@ export function FinanceSummary({
   
   balances.forEach(b => {
     let p = 0;
-    if (b.isMember) {
-      if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
-      else {
-        const m = validMembers.find((vm: any) => vm.userId === b.userId);
-        if (m && m.sharePercentage !== undefined) p = m.sharePercentage;
-        else p = defaultShare;
+    if (activePartnersCount === 0) {
+      if (b.userId === myId) p = 100;
+      else p = 0;
+    } else {
+      if (b.isMember) {
+        if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
+        else {
+          const m = validMembers.find((vm: any) => vm.userId === b.userId);
+          if (m && m.sharePercentage !== undefined) p = m.sharePercentage;
+          else p = defaultShare;
+        }
       }
     }
+    b.p = p;
     b.expected = totalExpenses * (p / 100);
     b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
   });
@@ -180,23 +187,14 @@ export function FinanceSummary({
               </thead>
               <tbody>
                 {balances.map((b) => {
-                  const memberCount = validMembers.length + 1;
-                  const defaultShare = 100 / memberCount;
-                  let p = defaultShare;
-                  if (memberCount === 1) {
-                    p = 100;
-                  } else {
-                    if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
-                    else {
-                      const m = space.members?.find((sm: any) => sm.userId === b.userId);
-                      if (m) p = m.sharePercentage ?? defaultShare;
-                    }
-                  }
-
+                  const isInactive = activePartnersCount === 0 && b.userId !== myId;
+                  
                   return (
-                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent' }}>
-                      <td style={{ padding: '0.75rem', fontWeight: b.userId === myId ? 'bold' : 'normal' }}>{b.name}</td>
-                      <td style={{ padding: '0.75rem' }}>{p.toFixed(1)}%</td>
+                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
+                      <td style={{ padding: '0.75rem', fontWeight: b.userId === myId ? 'bold' : 'normal' }}>
+                        {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                      </td>
+                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                       <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                       <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
                         <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>

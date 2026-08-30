@@ -87,7 +87,7 @@ export function FinanceTransactions({
             </span>
           )}
         </button>
-        {activePartnersCount > 0 && (
+        {(activePartnersCount > 0 || invoices.some((i: any) => i.status === 'pending' && (i.payerId === user?.id || i.payerId === 'me'))) && (
           <button onClick={() => setFilter('pending_partners')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_partners' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_partners' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
             ממתין לאישור השותפים
           </button>

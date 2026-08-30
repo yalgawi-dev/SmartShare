@@ -92,15 +92,21 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   };
 
   const handleAddFeature = (featureId: string, featureName: string) => {
-    toggleFeature(id, featureId);
+    toggleFeature(id, featureId as FeatureId, user?.id || 'me');
     setShowFeatureMenu(false);
     showToast(`נוסף בהצלחה: ${featureName}`);
   };
 
   const handleRemoveFeature = (featureId: string, featureName: string) => {
-    if (window.confirm(`האם אתה בטוח שברצונך להסיר את הפיצ'ר "${featureName}" מהקיר?\n\nאל דאגה, תוכל תמיד להחזיר אותו דרך תפריט הכלים, והמידע שלך לא יימחק.`)) {
-      toggleFeature(id, featureId);
-      showToast(`הוסר מהקיר: ${featureName}`);
+    let msg = `האם אתה בטוח שברצונך להסיר את הקומפוננטה "${featureName}" מהמרחב?\n\nהמידע לא יימחק לצמיתות ויישמר בארכיון, אך המערכת תפסיק להציג אותו עד שתוסיף אותו מחדש.`;
+    
+    if (featureId === 'partners') {
+      msg = `שים לב! הסרת רכיב השותפים תהפוך את כל השותפים הקיימים ללא-פעילים.\nמעכשיו והלאה כל ההוצאות יירשמו 100% עליך בלבד!\n(היסטוריית העבר שלהם תישמר בארכיון להתחשבנות קודמת).\n\nהאם אתה בטוח שברצונך להסיר את השותפים?`;
+    }
+
+    if (window.confirm(msg)) {
+      toggleFeature(id, featureId as FeatureId, user?.id || 'me');
+      showToast(`הוסר מהמרחב: ${featureName}`);
     }
   };
 

@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.35 - הסתרת "ממתין לשותפים" ועריכת אחוזים במצב יחיד, תיקון אירועי מחיקה בשורת התחשבנות.
+        v4.5.36 - שמירת היסטוריית שותפים לא-פעילים בטבלת מאזנים, והתראת שקיפות לפני הסרת שותפים עם Audit Log.
       </div>
     </div>
   );

@@ -336,14 +336,38 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const toggleFeature = (spaceId: string, featureId: FeatureId) => {
+  const toggleFeature = (spaceId: string, featureId: FeatureId, performedBy?: string) => {
     saveSpaceUpdate(spaceId, space => {
       const hasFeature = space.features.includes(featureId);
-      return {
+      const isRemoving = hasFeature;
+      const newFeatures = isRemoving ? space.features.filter(f => f !== featureId) : [...space.features, featureId];
+      
+      const newSpace = {
         ...space,
-        features: hasFeature ? space.features.filter(f => f !== featureId) : [...space.features, featureId],
-        updatedAt: 'ממש עכשיו'
+        features: newFeatures,
+        updatedAt: new Date().toISOString()
       };
+
+      if (performedBy) {
+        const featureNameMap: Record<string, string> = {
+          'finance': 'התחשבנות',
+          'scanner': 'סורק חכם',
+          'partners': 'שותפים',
+          'guestbook': 'ספר אורחים',
+          'gallery': 'גלריה'
+        };
+        const fName = featureNameMap[featureId] || featureId;
+        const newLog: AuditRecord = {
+          id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+          timestamp: new Date().toISOString(),
+          actionType: isRemoving ? 'SYSTEM_ALERT' : 'SYSTEM_ALERT',
+          performedBy,
+          details: isRemoving ? `הסיר/ה את תוסף "${fName}" מהמרחב` : `הוסיף/ה את תוסף "${fName}" למרחב`
+        };
+        newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
+      }
+
+      return newSpace;
     });
   };
 
