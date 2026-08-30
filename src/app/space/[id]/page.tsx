@@ -303,6 +303,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Active Widgets - Ordered by Priority */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
+          {/* Partners Widget */}
+          {hasPartners && !isGuestMode && (
+            <PartnersWidget 
+              space={space} 
+              onRemove={() => handleRemoveFeature('partners', 'שותפים')} 
+            />
+          )}
+
           {/* Finance is always at the top if active */}
           {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => handleRemoveFeature('finance', 'התחשבנות')} />}
           
