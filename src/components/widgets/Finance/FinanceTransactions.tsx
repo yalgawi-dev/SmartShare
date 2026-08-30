@@ -75,28 +75,41 @@ export function FinanceTransactions({
   return (
     <div>
       {/* Filter Pills */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', overflowX: 'auto', paddingBottom: '0.5rem', scrollbarWidth: 'none' }}>
-        <button onClick={() => setFilter('archive')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'archive' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'archive' ? 'bold' : 'normal', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          ארכיון מחוקים
-        </button>
-        <button onClick={() => setFilter('all')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'all' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'all' ? 'bold' : 'normal', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          הכל
-        </button>
-        <button onClick={() => setFilter('pending_me')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_me' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_me' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-          ממתין לאישורי
-          {invoices.filter((i: any) => i.status === 'pending' && i.payerId !== user?.id && i.payerId !== 'me').length > 0 && (
-            <span style={{ background: '#f59e0b', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem' }}>
-              {invoices.filter((i: any) => i.status === 'pending' && i.payerId !== user?.id && i.payerId !== 'me').length}
-            </span>
-          )}
-        </button>
-        {(activePartnersCount > 0 || invoices.some((i: any) => i.status === 'pending' && (i.payerId === user?.id || i.payerId === 'me'))) && (
-          <button onClick={() => setFilter('pending_partners')} style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: filter === 'pending_partners' ? 'var(--bg-hover)' : 'transparent', fontWeight: filter === 'pending_partners' ? 'bold' : 'normal', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}>
-            ממתין לאישור השותפים
-          </button>
-        )}
-      </div>
+      {(() => {
+        const hasArchive = invoices.some((i: any) => i.isActive === false);
+        const hasPendingMe = activePartnersCount > 0 || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
+        const hasPendingPartners = activePartnersCount > 0 || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+        
+        if (!hasArchive && !hasPendingMe && !hasPendingPartners) return null;
 
+        return (
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
+            <button onClick={() => setFilter("all")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "all" || filter === "archive" ? "transparent" : "var(--bg-hover)", fontWeight: filter === "all" ? "bold" : "normal", cursor: "pointer", whiteSpace: "nowrap", background: filter === "all" ? "var(--bg-hover)" : "transparent" }}>
+              הוצאות פעילות
+            </button>
+            {hasArchive && (
+              <button onClick={() => setFilter("archive")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "archive" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "archive" ? "bold" : "normal", cursor: "pointer", whiteSpace: "nowrap" }}>
+                ארכיון מחוקים
+              </button>
+            )}
+            {hasPendingMe && (
+              <button onClick={() => setFilter("pending_me")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_me" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_me" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                ממתינים לאישורי
+                {invoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length > 0 && (
+                  <span style={{ background: "#f59e0b", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
+                    {invoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length}
+                  </span>
+                )}
+              </button>
+            )}
+            {hasPendingPartners && (
+              <button onClick={() => setFilter("pending_partners")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_partners" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_partners" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                ממתין לאישור השותפים
+              </button>
+            )}
+          </div>
+        );
+      })()}
       {filteredInvoices.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
