@@ -127,7 +127,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.5.54 - אחידות עיצוב ושיפור ממשק משתמש בדף הגדרות החשבון ומסך האדמין (CRM) ושדרוג ארכיון מחוקים עם אפשרות שחזור מפורטת.
+        v4.5.55 - אחידות עיצוב ושיפור ממשק משתמש בדף הגדרות החשבון ומסך האדמין (CRM) ושדרוג ארכיון מחוקים עם אפשרות שחזור מפורטת.
       </div>
     </div>
   );

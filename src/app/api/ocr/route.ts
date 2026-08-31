@@ -37,14 +37,14 @@ export async function POST(request: Request) {
       Please read this Israeli invoice/receipt carefully.
       Extract the following fields and return them strictly in the JSON format requested by the schema.
       - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
-      - "clientName": Name of the CUSTOMER buying the service (מקבל השירות / שם הלקוח / לכבוד). Look for 'לכבוד' or 'עבור'. CRITICAL RULE: If the client name is the exact same as the vendor/business name, leave this field NULL! Do not duplicate the business name.
-      - "amount": Total amount to pay as a number (סה"כ לתשלום / סכום כולל מע"מ).
-        - "vatAmount": The VAT amount extracted as a number. If not written explicitly, calculate it from the total assuming ${vatRate}% standard rate if it says includes VAT. If unsure, leave null.
-        - "documentType": Look for words indicating the document type: "מקור" (Original), "העתק" (Copy), or "נאמן למקור" (Certified True Copy). Return exactly one of these three Hebrew strings, or null if you cannot find any indication.
+      - "clientName": Name of the CUSTOMER buying the service (לכבוד / עבור). Do not write the vendor's name here. If not found, leave null.
+      - "amount": Total amount to pay as a number (סה"כ לתשלום).
+      - "vatAmount": The VAT amount as a number. If missing, calculate from total using ${vatRate}% rate.
+      - "documentType": Document type: "מקור", "העתק", or "נאמן למקור".
       - "date": Date of invoice in YYYY-MM-DD format.
-      - "isCreditInvoice": True ONLY if the document explicitly says "חשבונית זיכוי" (Credit Invoice / Refund). False if it is a normal invoice or receipt.
-      - "invoiceNumber": Invoice number or Receipt number (מספר מסמך / חשבונית / קבלה).
-      - "vatNumber": Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה / ע.מ). Usually a 9 digit number.
+      - "isCreditInvoice": True ONLY if it says "חשבונית זיכוי" (Credit Invoice). False otherwise.
+      - "invoiceNumber": Invoice or Receipt number.
+      - "vatNumber": Company VAT Number (ח.פ / ע.מ). Usually 9 digits.
       
       If you cannot find a field, leave it null.
     `;
