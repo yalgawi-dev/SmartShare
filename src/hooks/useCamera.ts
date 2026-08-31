@@ -49,8 +49,16 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         }
         
         let constraints: MediaStreamConstraints = {
-          video: { facingMode: 'environment', width: { ideal: 4000 }, height: { ideal: 4000 } }
+          video: { 
+            facingMode: 'environment', 
+            width: { ideal: 4000 }, 
+            height: { ideal: 4000 }
+          } as any
         };
+        // Some devices require torch to be requested at stream creation to reserve the hardware
+        if (typeof window !== 'undefined') {
+          (constraints.video as any).advanced = [{ torch: false }];
+        }
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(mediaStream);
@@ -88,29 +96,22 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     const track = stream.getVideoTracks()[0];
     
     try {
-      // Always try applying it first, regardless of what getCapabilities says.
-      // Some browsers hide the capability but still apply it.
-      await track.applyConstraints({
-        advanced: [{ fillLightMode: torchOn ? 'off' : 'flash' }]
-      }).catch(() => {}); // ignore error for fillLightMode
-      
+      // 1. Try standard WebRTC torch
       await track.applyConstraints({
         advanced: [{ torch: !torchOn } as any]
       });
       setTorchOn(!torchOn);
-    } catch (err) {
-      console.warn("Direct torch application failed, checking capabilities...", err);
-      
+    } catch (err: any) {
+      console.warn("Standard torch failed:", err);
       try {
-        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
-        if ((capabilities as any).torch) {
-          await track.applyConstraints({ advanced: [{ torch: !torchOn } as any] });
-          setTorchOn(!torchOn);
-        } else {
-          alert("הפלאש כנראה לא נתמך בדפדפן או במכשיר הזה.");
-        }
-      } catch (innerErr) {
-        alert("לא ניתן להפעיל פלאש במכשיר זה.");
+        // 2. Try ImageCapture fillLightMode as fallback (some older devices/browsers)
+        await track.applyConstraints({
+          advanced: [{ fillLightMode: torchOn ? 'off' : 'flash' } as any]
+        });
+        setTorchOn(!torchOn);
+      } catch (fallbackErr: any) {
+        console.error("All torch attempts failed:", fallbackErr);
+        alert("שגיאת פלאש: העדשה הנוכחית לא תומכת בהדלקת פלאש דרך הדפדפן (או שאין לה פלאש פיזי). נסה ללחוץ על כפתור החלפת מצלמה כדי לעבור לעדשה הראשית.");
       }
     }
   };

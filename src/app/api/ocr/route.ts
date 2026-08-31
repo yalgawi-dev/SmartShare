@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       Please read this Israeli invoice/receipt carefully.
       Extract the following fields and return them strictly in the JSON format requested by the schema.
       - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
+      - "clientName": Name of the customer/recipient (מקבל השירות / שם הלקוח / לכבוד). Look carefully in the document for labels like 'לכבוד', 'עבור', or 'שם הלקוח' and extract the name next to or below them.
       - "amount": Total amount to pay as a number (סה"כ לתשלום / סכום כולל מע"מ).
         - "vatAmount": The VAT amount extracted as a number. If not written explicitly, calculate it from the total assuming ${vatRate}% standard rate if it says includes VAT. If unsure, leave null.
         - "documentType": Look for words indicating the document type: "מקור" (Original), "העתק" (Copy), or "נאמן למקור" (Certified True Copy). Return exactly one of these three Hebrew strings, or null if you cannot find any indication.
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
     let rawText = '';
     
     // Use the latest flash-lite model for blazing fast OCR
-    const model = 'gemini-flash-lite-latest';
+    const model = 'gemini-1.5-flash-latest';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
@@ -75,6 +76,7 @@ export async function POST(request: Request) {
           type: "OBJECT",
           properties: {
             vendor: { type: "STRING", description: "Name of the business (ספק)" },
+            clientName: { type: "STRING", description: "Name of the client/recipient (מקבל השירות / לכבוד)" },
             amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
               vatAmount: { type: "NUMBER", description: "The VAT amount" },
               documentType: { type: "STRING", description: "The type of document: מקור, העתק, or נאמן למקור" },
