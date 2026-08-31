@@ -11,8 +11,8 @@ export default function AdminUsersPage() {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>אין לך הרשאת גישה לדף זה. המסך מיועד למנהלים בלבד.</div>;
   }
 
-  const admins = allUsers.filter(u => u.isAdmin);
-  const regulars = allUsers.filter(u => !u.isAdmin);
+  const admins = allUsers.filter(u => u.isAdmin && (u.phone || u.email || u.realName !== "אורח"));
+  const regulars = allUsers.filter(u => !u.isAdmin && (u.phone || u.email || u.realName !== "אורח"));
 
   const UserRow = ({ u, isAdminRow }: { u: any, isAdminRow: boolean }) => (
     <tr style={{ borderBottom: '1px solid var(--border-light)', background: u.isBlocked ? 'rgba(239, 68, 68, 0.05)' : 'transparent', transition: 'background 0.2s' }}>
