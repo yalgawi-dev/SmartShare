@@ -33,6 +33,7 @@ export function FinanceSummary({
   const transfersOnly = activeInvoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
   
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
+    const totalStoreCredits = expensesOnly.filter((inv: any) => inv.isStoreCredit && inv.amount < 0).reduce((acc: number, inv: any) => acc + Math.abs(inv.amount || 0), 0);
 
   // UNIFIED FINANCIAL ENGINE
   const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, p: number }>();
@@ -60,7 +61,12 @@ export function FinanceSummary({
         p: 0
       });
     }
-    unifiedBalances.get(matchedId)!.paid += (inv.amount || 0);
+    // If it's a store credit (negative amount), the payer didn't get cash back, so their out-of-pocket paid amount shouldn't decrease!
+      if (inv.isStoreCredit && inv.amount < 0) {
+        // Do nothing to paid
+      } else {
+        unifiedBalances.get(matchedId)!.paid += (inv.amount || 0);
+      }
   });
 
   transfersOnly.forEach((inv: any) => {

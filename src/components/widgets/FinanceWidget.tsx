@@ -199,7 +199,12 @@ const runOcrPipeline = async (imgUrl: string) => {
   const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const amount = Number(formData.get('amount'));
+    let amount = Number(formData.get('amount'));
+      const isCredit = formData.get('isCredit') === 'true';
+      const isStoreCredit = formData.get('isStoreCredit') === 'true';
+      if (isCredit) {
+        amount = -Math.abs(amount);
+      }
     const supplier = formData.get('supplier') as string;
     const clientName = formData.get('clientName') as string;
     
@@ -261,9 +266,11 @@ const runOcrPipeline = async (imgUrl: string) => {
     const newInvoice: any = {
       type: isTransfer ? 'transfer' : 'expense',
       amount,
-      supplier,
+        isCredit,
+        isStoreCredit,
+        supplier,
         clientName,
-      category,
+        category,
       payerName,
       date,
       createdAt: new Date().toISOString(),

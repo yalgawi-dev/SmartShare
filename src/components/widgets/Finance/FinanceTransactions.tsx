@@ -158,9 +158,22 @@ export function FinanceTransactions({
 
                 <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div>
-                    <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-                      ₪{inv.amount?.toLocaleString()}
-                    </h3>
+                    
+                      {inv.amount < 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: '#ef4444' }}>
+                            -₪{Math.abs(inv.amount)?.toLocaleString()}
+                          </h3>
+                          <span style={{ fontSize: '0.65rem', background: '#fef2f2', color: '#ef4444', padding: '0.1rem 0.3rem', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                            {inv.isStoreCredit ? 'מקדמה (נשאר בחנות)' : 'זיכוי'}
+                          </span>
+                        </div>
+                      ) : (
+                        <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                          ₪{inv.amount?.toLocaleString()}
+                        </h3>
+                      )}
+
                     {activePartnersCount > 0 && inv.status === 'pending' && (
                       <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold' }}>
                         {inv.approvalsReceived}/{inv.approvalsNeeded} אושר

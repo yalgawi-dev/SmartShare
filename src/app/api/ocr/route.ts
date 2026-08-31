@@ -42,6 +42,7 @@ export async function POST(request: Request) {
         - "vatAmount": The VAT amount extracted as a number. If not written explicitly, calculate it from the total assuming ${vatRate}% standard rate if it says includes VAT. If unsure, leave null.
         - "documentType": Look for words indicating the document type: "מקור" (Original), "העתק" (Copy), or "נאמן למקור" (Certified True Copy). Return exactly one of these three Hebrew strings, or null if you cannot find any indication.
       - "date": Date of invoice in YYYY-MM-DD format.
+      - "isCreditInvoice": True ONLY if the document explicitly says "חשבונית זיכוי" (Credit Invoice / Refund). False if it is a normal invoice or receipt.
       - "invoiceNumber": Invoice number or Receipt number (מספר מסמך / חשבונית / קבלה).
       - "vatNumber": Company VAT Number / Osek Murshe (ח.פ / עוסק מורשה / ע.מ). Usually a 9 digit number.
       
@@ -82,7 +83,8 @@ export async function POST(request: Request) {
               documentType: { type: "STRING", description: "The type of document: מקור, העתק, or נאמן למקור" },
             date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
             invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
-            vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" }
+            vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" },
+            isCreditInvoice: { type: "BOOLEAN", description: "True if credit invoice (חשבונית זיכוי)" }
           }
         }
       }

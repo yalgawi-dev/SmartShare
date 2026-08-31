@@ -44,7 +44,16 @@ export function FinanceAddExpenseForm({
   selectedCategory,
   setSelectedCategory
 }: FinanceAddExpenseFormProps) {
-  const [formValues, setFormValues] = React.useState({
+  const [isCredit, setIsCredit] = React.useState(ocrData?.isCreditInvoice || false);
+    const [isStoreCredit, setIsStoreCredit] = React.useState(false);
+
+    React.useEffect(() => {
+      if (ocrData?.isCreditInvoice !== undefined) {
+        setIsCredit(ocrData.isCreditInvoice);
+      }
+    }, [ocrData]);
+
+    const [formValues, setFormValues] = React.useState({
     supplier: ocrData?.vendor || '',
       clientName: ocrData?.clientName || '',
     amount: ocrData?.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
