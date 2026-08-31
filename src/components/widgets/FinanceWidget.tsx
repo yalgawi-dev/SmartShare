@@ -19,7 +19,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, vatNumber?: string, invoiceNumber?: string}>({});
+  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, clientName?: string, vatNumber?: string, invoiceNumber?: string}>({});
   const [ocrDebugMessage, setOcrDebugMessage] = useState<string | null>(null);
   const [ocrElapsedTime, setOcrElapsedTime] = useState<number>(0);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
@@ -201,6 +201,7 @@ const runOcrPipeline = async (imgUrl: string) => {
     const formData = new FormData(e.currentTarget);
     const amount = Number(formData.get('amount'));
     const supplier = formData.get('supplier') as string;
+    const clientName = formData.get('clientName') as string;
     
     let payerName = user?.realName || 'אני';
     let payerId: string | undefined = user?.id || 'me';
@@ -261,6 +262,7 @@ const runOcrPipeline = async (imgUrl: string) => {
       type: isTransfer ? 'transfer' : 'expense',
       amount,
       supplier,
+        clientName,
       category,
       payerName,
       date,

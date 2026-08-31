@@ -46,6 +46,7 @@ export function FinanceAddExpenseForm({
 }: FinanceAddExpenseFormProps) {
   const [formValues, setFormValues] = React.useState({
     supplier: ocrData?.vendor || '',
+      clientName: ocrData?.clientName || '',
     amount: ocrData?.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
     vatAmount: ocrData?.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
     date: ocrData?.date || new Date().toISOString().split('T')[0]
@@ -55,6 +56,7 @@ export function FinanceAddExpenseForm({
     if (ocrData) {
       setFormValues({
         supplier: ocrData.vendor || '',
+          clientName: ocrData.clientName || '',
         amount: ocrData.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
         vatAmount: ocrData.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
         date: ocrData.date || new Date().toISOString().split('T')[0]
@@ -181,6 +183,7 @@ export function FinanceAddExpenseForm({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
               {renderSmartInput('supplier', 'text', 'שם העסק / תיאור', 'שם הספק / תיאור', formValues.supplier, !!ocrData.vendor, true)}
+                {renderSmartInput('clientName', 'text', 'מקבל השירות (לכבוד)', 'מקבל השירות', formValues.clientName, !!ocrData.clientName, false)}
               
             </div>
           </div>

@@ -86,18 +86,32 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
   const toggleTorch = async () => {
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
-    const capabilities = track.getCapabilities() as any;
-    if (capabilities.torch) {
+    
+    try {
+      // Always try applying it first, regardless of what getCapabilities says.
+      // Some browsers hide the capability but still apply it.
+      await track.applyConstraints({
+        advanced: [{ fillLightMode: torchOn ? 'off' : 'flash' }]
+      }).catch(() => {}); // ignore error for fillLightMode
+      
+      await track.applyConstraints({
+        advanced: [{ torch: !torchOn } as any]
+      });
+      setTorchOn(!torchOn);
+    } catch (err) {
+      console.warn("Direct torch application failed, checking capabilities...", err);
+      
       try {
-        await track.applyConstraints({
-          advanced: [{ torch: !torchOn } as any]
-        });
-        setTorchOn(!torchOn);
-      } catch (err) {
-        console.error("Torch failed", err);
+        const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+        if ((capabilities as any).torch) {
+          await track.applyConstraints({ advanced: [{ torch: !torchOn } as any] });
+          setTorchOn(!torchOn);
+        } else {
+          alert("הפלאש כנראה לא נתמך בדפדפן או במכשיר הזה.");
+        }
+      } catch (innerErr) {
+        alert("לא ניתן להפעיל פלאש במכשיר זה.");
       }
-    } else {
-      alert("פנס לא נתמך במכשיר זה.");
     }
   };
 
