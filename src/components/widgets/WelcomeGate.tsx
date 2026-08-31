@@ -20,8 +20,8 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
 
   if (!showGate) return null;
 
-  const space = spaces.find(s => s.id === spaceId);
-  const isRetroactive = space?.invoices?.some(inv => !(inv.excludedMembers || []).includes(inviteToken || ''));
+  const space = spaces.find((s: any) => s.id === spaceId);
+  const isRetroactive = space?.invoices?.some((inv: any) => !(inv.excludedMembers || []).includes(inviteToken || ''));
 
   const handleStart = () => {
     localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
