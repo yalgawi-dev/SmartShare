@@ -34,7 +34,24 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     setIsMounted(true);
   }, []);
 
-  const runOcrPipeline = async (imgUrl: string) => {
+  
+  const handleInvite = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'הזמנה למרחב שותפות ב-MySpace',
+          text: 'היי! צירפתי אותך עכשיו למרחב שותפות באפליקציה שלנו.',
+          url: window.location.href,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      alert('שיתוף לא נתמך בדפדפן זה. העתק את כתובת הדף.');
+    }
+  };
+
+const runOcrPipeline = async (imgUrl: string) => {
     setIsScanning(false);
     setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
@@ -279,7 +296,17 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
               </p>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <Link href={`/space/${space.id}/reports`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: '600', textDecoration: 'none', padding: '0.4rem 0.75rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '0.9rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              
+                {space.features?.includes('partners') && (
+                  <button 
+                    onClick={handleInvite}
+                    style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
+                  >
+                    <span>👥</span>
+                    הזמן שותפים
+                  </button>
+                )}
+<Link href={`/space/${space.id}/reports`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: '600', textDecoration: 'none', padding: '0.4rem 0.75rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '0.9rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                 <span>📊</span>
                 דוחות
               </Link>

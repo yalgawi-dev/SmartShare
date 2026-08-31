@@ -8,7 +8,6 @@ import { useAuth } from '../../context/AuthContext';
 import { getFeatureById, AVAILABLE_FEATURES } from '../../data/features';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import ScannerWidget from '../../../components/widgets/ScannerWidget';
-import PartnersWidget from '../../../components/widgets/PartnersWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
 import GenericWidget from '../../../components/widgets/GenericWidget';
@@ -309,34 +308,28 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Active Widgets - Ordered by Priority */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {/* Partners Widget */}
-          {hasPartners && !isGuestMode && (
-            <PartnersWidget 
-              space={space} 
-              onRemove={() => handleRemoveFeature('partners', 'שותפים')} 
-            />
-          )}
+          
 
           {/* Finance is always at the top if active */}
-          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} onRemove={() => handleRemoveFeature('finance', 'התחשבנות')} />}
+          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage}  />}
           
           {/* Scanner Widget - No remove button for templates */}
           {hasScanner && !isGuestMode && (
             <ScannerWidget 
-              onRemove={space.templateId ? undefined : () => handleRemoveFeature('scanner', 'סרוק חשבונית')} 
+               
               onScanComplete={(imgUrl) => setScannedImage(imgUrl)} 
             />
           )}
 
           {/* Other features */}
-          {hasGallery && <GalleryWidget space={space} onRemove={!isGuestMode ? () => handleRemoveFeature('gallery', 'גלריית תמונות') : undefined} isGuestMode={isGuestMode} />}
-          {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode} onRemove={!isGuestMode ? () => handleRemoveFeature('guestbook', 'ספר אורחים') : undefined} />}
+          {hasGallery && <GalleryWidget space={space}  isGuestMode={isGuestMode} />}
+          {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode}  />}
           
           {genericFeatures.map(f => (
             <GenericWidget 
               key={f.id} 
               feature={f} 
-              onRemove={!isGuestMode ? () => handleRemoveFeature(f.id, f.name) : undefined} 
+               
             />
           ))}
         </div>
