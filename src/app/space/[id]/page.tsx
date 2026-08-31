@@ -313,13 +313,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           {/* Finance is always at the top if active */}
           {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage}  />}
           
-          {/* Scanner Widget - No remove button for templates */}
-          {hasScanner && !isGuestMode && (
-            <ScannerWidget 
-               
-              onScanComplete={(imgUrl) => setScannedImage(imgUrl)} 
-            />
-          )}
+          
 
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space}  isGuestMode={isGuestMode} />}
