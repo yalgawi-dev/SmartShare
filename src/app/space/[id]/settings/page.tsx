@@ -47,38 +47,29 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
   return (
     <div className={styles.container} style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
       
-      {/* Sticky Header / Back Button */}
-      <div style={{ position: 'sticky', top: 0, background: 'var(--bg-main, #f8fafc)', zIndex: 100, padding: '1rem 0', margin: '-1rem -1rem 1.5rem -1rem', paddingLeft: '1rem', paddingRight: '1rem', borderBottom: '1px solid var(--border-light)' }}>
-        <Link href={`/space/${id}`} className={styles.backBtn} style={{ margin: 0, display: 'inline-block', color: 'var(--primary)', fontWeight: 'bold', textDecoration: 'none' }}>
-          <span>&rarr;</span> חזרה לקיר המרחב
+      
+      {/* Unified Sticky Header */}
+      <div style={{ 
+        position: 'sticky', top: 0, background: 'rgba(248, 250, 252, 0.95)', 
+        backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)',
+        zIndex: 100, padding: '1rem', margin: '-1rem -1rem 1.5rem -1rem', 
+        borderBottom: '1px solid rgba(0,0,0,0.05)', display: 'flex', 
+        alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 2px 10px rgba(0,0,0,0.02)'
+      }}>
+        <Link href={`/space/${id}`} className={styles.backBtn} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary)', fontWeight: 'bold', textDecoration: 'none', background: 'var(--bg-card)', padding: '0.4rem 0.8rem', borderRadius: '100px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+          <span>&rarr;</span> לקיר
         </Link>
-      </div>
-
-      <header className={styles.header} style={{ marginBottom: '2rem' }}>
-        <div>
-          <h1 className={styles.title}>הגדרות המרחב: {space.title}</h1>
-          <p className={styles.subtitle}>ניהול מקצועי ומתקדם של הכלים המותקנים בפרויקט שלך.</p>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: '800', color: 'var(--text-primary)', fontSize: '1.15rem' }}>
+          <span style={{ fontSize: '1.25rem' }}>{space.icon || '📁'}</span>
+          {space.title}
         </div>
-      </header>
+        
+        <div style={{ width: '80px' }}></div> {/* Spacer to center the title exactly */}
+      </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         
-        {/* General Settings Section */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
-          <h2 style={{ fontSize: '1.25rem', margin: '0 0 1.25rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>⚙️</span> הגדרות כלליות
-          </h2>
-          <div style={{ padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: '1px solid var(--border-light)' }}>
-            <div>
-              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>שם המרחב</h4>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{space.title}</p>
-            </div>
-            <div style={{ fontSize: '2rem', background: 'var(--bg-main)', width: '50px', height: '50px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border-light)' }}>
-              {space.icon || '📁'}
-            </div>
-          </div>
-        </section>
-
         {/* Dynamic Features Sections */}
         {space.features.map((featureId: string) => {
           const feature = getFeatureById(featureId);
