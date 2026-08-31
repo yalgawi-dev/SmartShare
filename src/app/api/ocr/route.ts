@@ -156,7 +156,14 @@ export async function POST(request: Request) {
         const cName = data.clientName.trim().toLowerCase();
         const vName = data.vendor.trim().toLowerCase();
         
-        if (cName === vName || cName.includes(vName) || vName.includes(cName)) {
+        // --- POST-PROCESSING: Calculate VAT if missing ---
+      if (data.amount && !data.vatAmount) {
+        // Calculate VAT component from the total amount
+        const vatComponent = data.amount - (data.amount / (1 + (vatRate / 100)));
+        data.vatAmount = Number(vatComponent.toFixed(2));
+      }
+      
+      if (cName === vName || cName.includes(vName) || vName.includes(cName)) {
           data.clientName = null;
         }
       }
