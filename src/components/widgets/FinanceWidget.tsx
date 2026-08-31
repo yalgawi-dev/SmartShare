@@ -614,75 +614,46 @@ const runOcrPipeline = async (imgUrl: string) => {
       )}
 
     
-      {showInviteModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'white', padding: '1.5rem', borderRadius: '12px', width: '90%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '1rem', color: '#1e293b' }}>
+      {showInviteModal && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'white', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '1.5rem', color: '#1e293b', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, color: '#0f172a' }}>הוספת שותף חדש</h3>
+              <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.3rem' }}>הזמנת שותף חדש</h3>
               <button onClick={() => setShowInviteModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
             </div>
             
-            {!generatedLink ? (
-              <>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.9rem', marginBottom: '0.25rem', fontWeight: 'bold' }}>שם השותף:</label>
-                  <input 
-                    type="text" 
-                    value={inviteName} 
-                    onChange={e => setInviteName(e.target.value)}
-                    placeholder="לדוגמא: יוסף"
-                    style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}
-                  />
-                </div>
+            <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>
+              איך תרצה לחשב את ההוצאות של השותף החדש?
+            </p>
                 
-                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={isRetroactive} 
-                      onChange={e => setIsRetroactive(e.target.checked)}
-                      style={{ width: '20px', height: '20px', marginTop: '2px' }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#334155' }}>חיוב רטרואקטיבי</div>
-                      <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>
-                        {isRetroactive ? 
-                          'השותף ישתתף בכל ההוצאות שהיו בפרויקט מתחילתו (מומלץ).' : 
-                          'השותף ישתתף רק בהוצאות שיתווספו מרגע זה והלאה (פטור ממה שהיה עד כה).'}
-                      </div>
-                    </div>
-                  </label>
-                </div>
-
-                <button 
-                  onClick={handleCreateInvite}
-                  style={{ background: 'var(--primary)', color: 'white', padding: '0.75rem', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}
-                >
-                  צור קישור הזמנה אישי
-                </button>
-              </>
-            ) : (
-              <>
-                <div style={{ background: '#ecfdf5', padding: '1rem', borderRadius: '8px', color: '#065f46', textAlign: 'center' }}>
-                  <strong>השותף נוסף בהצלחה!</strong><br/><br/>
-                  שלח לו את הקישור הבא כדי שיוכל להיכנס ולראות את החשבון שלו:
-                </div>
+            <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', cursor: 'pointer' }}>
                 <input 
-                  type="text" 
-                  value={generatedLink} 
-                  readOnly 
-                  style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #10b981', boxSizing: 'border-box', background: '#f8fafc', direction: 'ltr', textAlign: 'left' }}
+                  type="checkbox" 
+                  checked={isRetroactive} 
+                  onChange={e => setIsRetroactive(e.target.checked)}
+                  style={{ width: '22px', height: '22px', marginTop: '2px', accentColor: 'var(--primary)' }}
                 />
-                <button 
-                  onClick={copyToClipboard}
-                  style={{ background: '#10b981', color: 'white', padding: '0.75rem', borderRadius: '8px', border: 'none', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}
-                >
-                  העתק קישור וסגור
-                </button>
-              </>
-            )}
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '1.05rem' }}>חיוב רטרואקטיבי</div>
+                  <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.4rem', lineHeight: '1.4' }}>
+                    {isRetroactive ? 
+                      'מומלץ: השותף ישתתף בכל ההוצאות שהיו בפרויקט מתחילתו.' : 
+                      'מעכשיו והלאה: השותף פטור מתשלום על כל מה שהיה עד כה, ויחויב רק על הוצאות עתידיות.'}
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <button 
+              onClick={handleCreateInvite}
+              style={{ background: 'var(--primary)', color: 'white', padding: '1rem', borderRadius: '999px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px -1px rgba(74, 91, 240, 0.2)' }}
+            >
+              שתף קישור הזמנה (WhatsApp)
+            </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
