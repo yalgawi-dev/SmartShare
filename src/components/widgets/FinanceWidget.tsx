@@ -35,15 +35,31 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [isRetroactive, setIsRetroactive] = useState(true);
   const [generatedLink, setGeneratedLink] = useState('');
 
-  const handleCreateInvite = () => {
-    if (!inviteName.trim()) return alert('הכנס שם שותף');
+  const handleCreateInvite = async () => {
     const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
-    addGuestPartner(space.id, inviteName, isRetroactive, shadowToken);
+    addGuestPartner(space.id, 'אורח/ת', isRetroactive, shadowToken);
     
     const url = new URL(window.location.href);
     url.pathname = '/space/' + space.id;
     url.searchParams.set('invite', shadowToken);
-    setGeneratedLink(url.toString());
+    const link = url.toString();
+
+    setShowInviteModal(false);
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'הזמנה לפרויקט ' + space.title,
+          text: 'היי! צירפתי אותך עכשיו למרחב שותפות להוצאות. לחץ כאן כדי להיכנס:',
+          url: link,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      navigator.clipboard.writeText(link);
+      alert('הקישור הועתק! שלח אותו לשותף.');
+    }
   };
 
   const copyToClipboard = () => {

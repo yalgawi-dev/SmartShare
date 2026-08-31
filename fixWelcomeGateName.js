@@ -1,4 +1,7 @@
-'use client';
+const fs = require('fs');
+let content = fs.readFileSync('src/components/widgets/WelcomeGate.tsx', 'utf-8');
+
+const replacement = `'use client';
 import { useState, useEffect } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 
@@ -11,7 +14,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
   useEffect(() => {
     const token = new URLSearchParams(window.location.search).get('invite');
     if (token) {
-      const hasSeenGate = localStorage.getItem(`welcomed_${spaceId}_${token}`);
+      const hasSeenGate = localStorage.getItem(\`welcomed_\${spaceId}_\${token}\`);
       if (!hasSeenGate) {
         setShowGate(true);
         setInviteToken(token);
@@ -37,7 +40,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       updateMemberPermissions(spaceId, inviteToken, { name: guestName.trim() });
     }
 
-    localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
+    localStorage.setItem(\`welcomed_\${spaceId}_\${inviteToken}\`, 'true');
     setShowGate(false);
   };
 
@@ -114,4 +117,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       </div>
     </div>
   );
-}
+}`;
+
+fs.writeFileSync('src/components/widgets/WelcomeGate.tsx', replacement, 'utf-8');
+console.log('WelcomeGate updated');
