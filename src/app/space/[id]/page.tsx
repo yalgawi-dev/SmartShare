@@ -14,6 +14,7 @@ import GenericWidget from '../../../components/widgets/GenericWidget';
 import InviteModal from '../../../components/widgets/InviteModal';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import GuestOnboardingModal from '../../../components/widgets/GuestOnboardingModal';
+import WelcomeGate from '../../../components/widgets/WelcomeGate';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
 

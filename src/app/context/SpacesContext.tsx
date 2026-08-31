@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
+import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 
@@ -142,6 +143,7 @@ interface SpacesContextType {
   devResetSpace: (spaceId: string, currentUserId: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
+  addGuestPartner: (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
   moveMediaItem: (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => void;
@@ -439,6 +441,36 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
+  const addGuestPartner = (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      // 1. Add the shadow member
+      const newMember = {
+        userId: shadowToken, // Use token as ID until they sign up
+        name,
+        canUpload: true,
+        canDelete: false,
+        canEdit: false,
+        status: 'active'
+      };
+      const newMembers = [...(space.members || []), newMember];
+
+      // 2. Handle retroactive invoice logic
+      const newInvoices = (space.invoices || []).map(inv => {
+        if (!isRetroactive && inv.isActive !== false) {
+          // If NOT retroactive, this new partner is excluded from all existing past invoices
+          return { ...inv, excludedMembers: [...(inv.excludedMembers || []), shadowToken] };
+        }
+        return inv;
+      });
+
+      return {
+        ...space,
+        members: newMembers,
+        invoices: newInvoices
+      };
+    });
+  };
+
   const joinSpace = (spaceId: string, userId: string, name: string) => {
     saveSpaceUpdate(spaceId, space => {
       if (space.members?.some(m => m.userId === userId)) return space; 
@@ -715,7 +747,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace,
+    <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, addGuestPartner,
       updateMemberPermissions,
       addComment,
       deleteComment,
