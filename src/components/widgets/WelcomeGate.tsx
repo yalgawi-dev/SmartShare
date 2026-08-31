@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 
 export default function WelcomeGate({ spaceId }: { spaceId: string }) {
-  const { spaces, updateMemberPermissions } = useSpaces() as any;
+  const { spaces, finalizeGuestJoin } = useSpaces() as any;
   const [showGate, setShowGate] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState('');
@@ -22,20 +22,18 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
   if (!showGate) return null;
 
   const space = spaces.find((s: any) => s.id === spaceId);
-  const isRetroactive = space?.invoices?.some((inv: any) => !(inv.excludedMembers || []).includes(inviteToken || ''));
+  const isRetroactive = new URLSearchParams(window.location.search).get('retro') === 'true';
   const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
-  const needsName = currentMember && (currentMember.name === 'אורח/ת' || !currentMember.name);
+  const needsName = !currentMember;
 
   const handleStart = () => {
-    if (needsName && !guestName.trim()) {
+    if (!guestName.trim()) {
       alert('אנא הזן את שמך כדי להמשיך');
       return;
     }
 
-    if (needsName && guestName.trim()) {
-      // Update their name in the space members list
-      updateMemberPermissions(spaceId, inviteToken, { name: guestName.trim() });
-    }
+    const isRetroParam = new URLSearchParams(window.location.search).get('retro') === 'true';
+    finalizeGuestJoin(spaceId, guestName.trim(), isRetroParam, inviteToken);
 
     localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
     setShowGate(false);

@@ -29,7 +29,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [selectedCategory, setSelectedCategory] = useState('כללי');
   const { addInvoice, updateInvoice, updateSpaceSettings } = useSpaces();
 
-  const { addGuestPartner } = useSpaces() as any;
+  
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [isRetroactive, setIsRetroactive] = useState(true);
@@ -37,7 +37,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
 
   const handleCreateInvite = async () => {
     const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
-    addGuestPartner(space.id, 'אורח/ת', isRetroactive, shadowToken);
+    
     
     const url = new URL(window.location.href);
     url.pathname = '/space/' + space.id;
