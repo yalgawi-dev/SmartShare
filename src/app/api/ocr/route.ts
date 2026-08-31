@@ -35,18 +35,19 @@ export async function POST(request: Request) {
 
     const prompt = `
       Please read this Israeli invoice/receipt carefully.
-      Extract the following fields and return them strictly in the JSON format requested by the schema.
-      - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
-      - "clientName": Name of the CUSTOMER buying the service (לכבוד / עבור). Do not write the vendor's name here. If not found, leave null.
-      - "amount": Total amount to pay as a number (סה"כ לתשלום).
-      - "vatAmount": The VAT amount as a number. If missing, calculate from total using ${vatRate}% rate.
-      - "documentType": Document type: "מקור", "העתק", or "נאמן למקור".
-      - "date": Date of invoice in YYYY-MM-DD format.
-      - "isCreditInvoice": True ONLY if it says "חשבונית זיכוי" (Credit Invoice). False otherwise.
-      - "invoiceNumber": Invoice or Receipt number.
-      - "vatNumber": Company VAT Number (ח.פ / ע.מ). Usually 9 digits.
+      Return ONLY a valid JSON object with the following keys. If a field is missing, use null.
       
-      If you cannot find a field, leave it null.
+      {
+        "vendor": "Name of the business (ספק). Look for the biggest text or logo.",
+        "clientName": "Name of the CUSTOMER buying the service (לכבוד / עבור). Do not write the vendor's name here.",
+        "amount": Total amount to pay as a NUMBER (סה"כ לתשלום).,
+        "vatAmount": The VAT amount as a NUMBER.,
+        "documentType": "מקור", "העתק", or "נאמן למקור".,
+        "date": "Date of invoice in YYYY-MM-DD format",
+        "isCreditInvoice": true/false (True ONLY if it says "חשבונית זיכוי"),
+        "invoiceNumber": "Invoice or Receipt number",
+        "vatNumber": "Company VAT Number (ח.פ / ע.מ)"
+      }
     `;
 
     const totalT0 = Date.now();
@@ -72,21 +73,7 @@ export async function POST(request: Request) {
         ]
       }],
       generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            vendor: { type: "STRING", description: "Name of the business (ספק)" },
-            clientName: { type: "STRING", description: "Name of the client/recipient (מקבל השירות / לכבוד)" },
-            amount: { type: "NUMBER", description: "Total amount to pay (סה\"כ לתשלום)" },
-              vatAmount: { type: "NUMBER", description: "The VAT amount" },
-              documentType: { type: "STRING", description: "The type of document: מקור, העתק, or נאמן למקור" },
-            date: { type: "STRING", description: "Date of invoice in YYYY-MM-DD format" },
-            invoiceNumber: { type: "STRING", description: "Invoice number (מספר מסמך)" },
-            vatNumber: { type: "STRING", description: "VAT Number / Osek Murshe (ח.פ / ע.מ)" },
-            isCreditInvoice: { type: "BOOLEAN", description: "True if credit invoice (חשבונית זיכוי)" }
-          }
-        }
+        responseMimeType: "application/json"
       }
     };
 
@@ -163,6 +150,16 @@ export async function POST(request: Request) {
     let data: any = {};
     try {
       data = JSON.parse(text);
+      
+      // --- POST-PROCESSING: Fix Gemini Hallucinations ---
+      if (data.clientName && data.vendor) {
+        const cName = data.clientName.trim().toLowerCase();
+        const vName = data.vendor.trim().toLowerCase();
+        
+        if (cName === vName || cName.includes(vName) || vName.includes(cName)) {
+          data.clientName = null;
+        }
+      }
       if (!data.vendor && !data.amount && !data.date) {
          return NextResponse.json({ 
            error: 'Gemini could not find any data in the image. Raw output: ' + text, 
