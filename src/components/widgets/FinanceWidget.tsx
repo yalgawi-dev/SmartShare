@@ -284,59 +284,103 @@ const runOcrPipeline = async (imgUrl: string) => {
         </div>
       )}
 
+      
       {/* Header and Controls */}
-      <div style={{ padding: '1.5rem 1.5rem 0 1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <h2 style={{ fontSize: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>
-                  💼 התחשבנויות (v17.9.61 Fix)
-                </h2>
-                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-                ניהול הוצאות {activePartnersCount > 0 ? 'עם שותפים' : 'אישי'}
+      <div style={{ padding: '1.5rem', paddingBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <div style={{ background: 'var(--primary-light, rgba(59, 130, 246, 0.1))', color: 'var(--primary)', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
+              💳
+            </div>
+            <div>
+              <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
+                חשבוניות והתחשבנויות
+              </h2>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0.15rem 0 0 0' }}>
+                {activePartnersCount > 0 ? 'ניהול משותף עם שותפים למרחב' : 'ניהול הוצאות אישיות'}
               </p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              
-                {space.features?.includes('partners') && (
-                  <button 
-                    onClick={handleInvite}
-                    style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
-                  >
-                    <span>👥</span>
-                    הזמן שותפים
-                  </button>
-                )}
-<Link href={`/space/${space.id}/reports`} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--primary)', fontWeight: '600', textDecoration: 'none', padding: '0.4rem 0.75rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '8px', fontSize: '0.9rem', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-                <span>📊</span>
-                דוחות
-              </Link>
+          </div>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {space.features?.includes('partners') && (
+              <button 
+                onClick={handleInvite}
+                style={{ 
+                  background: 'var(--bg-main)', 
+                  color: 'var(--primary)', 
+                  border: '1px solid var(--border-light)', 
+                  padding: '0.4rem 1rem', 
+                  borderRadius: 'var(--radius-full)', 
+                  fontWeight: '600', 
+                  cursor: 'pointer', 
+                  fontSize: '0.85rem', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.4rem', 
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                <span>👥</span>
+                הזמן שותפים
+              </button>
+            )}
             {onRemove && (
               <button 
                 onClick={onRemove}
                 style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem', color: 'var(--text-secondary)', padding: '0.5rem' }}
-                title="הסר פיצ'ר מהקיר"
+                title="הסרת תצוגת הכלי"
               >
-                ✕
+                ×
               </button>
             )}
           </div>
         </div>
       </div>
 
-      {/* TABS */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border-light)', marginTop: '1rem' }}>
-        <button 
-          onClick={() => setActiveTab('summary')}
-          style={{ flex: 1, padding: '1rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'summary' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'summary' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: activeTab === 'summary' ? 'bold' : 'normal', cursor: 'pointer', fontSize: '1rem' }}
-        >
-          סיכום ותקציב
-        </button>
-        <button 
-          onClick={() => setActiveTab('transactions')}
-          style={{ flex: 1, padding: '1rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'transactions' ? '2px solid var(--primary)' : '2px solid transparent', color: activeTab === 'transactions' ? 'var(--primary)' : 'var(--text-secondary)', fontWeight: activeTab === 'transactions' ? 'bold' : 'normal', cursor: 'pointer', fontSize: '1rem' }}
-        >
-          פעולות אחרונות
-        </button>
+      
+      {/* TABS - Apple/Vercel Style Segmented Control */}
+      <div style={{ padding: '0 1.5rem', marginTop: '1rem', marginBottom: '0.5rem' }}>
+        <div style={{ display: 'flex', background: 'var(--bg-main)', padding: '0.25rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+          <button 
+            onClick={() => setActiveTab('summary')}
+            style={{ 
+              flex: 1, 
+              padding: '0.6rem 1rem', 
+              background: activeTab === 'summary' ? 'var(--bg-card)' : 'transparent', 
+              border: 'none', 
+              borderRadius: '8px',
+              color: activeTab === 'summary' ? 'var(--text-primary)' : 'var(--text-secondary)', 
+              fontWeight: activeTab === 'summary' ? 'bold' : 'normal', 
+              cursor: 'pointer', 
+              fontSize: '0.95rem',
+              boxShadow: activeTab === 'summary' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.2s ease-in-out'
+            }}
+          >
+            📊 סיכום ומאזן
+          </button>
+          <button 
+            onClick={() => setActiveTab('transactions')}
+            style={{ 
+              flex: 1, 
+              padding: '0.6rem 1rem', 
+              background: activeTab === 'transactions' ? 'var(--bg-card)' : 'transparent', 
+              border: 'none', 
+              borderRadius: '8px',
+              color: activeTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)', 
+              fontWeight: activeTab === 'transactions' ? 'bold' : 'normal', 
+              cursor: 'pointer', 
+              fontSize: '0.95rem',
+              boxShadow: activeTab === 'transactions' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+              transition: 'all 0.2s ease-in-out'
+            }}
+          >
+            🧾 פירוט הוצאות
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '1.5rem' }}>
