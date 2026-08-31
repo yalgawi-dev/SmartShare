@@ -439,7 +439,7 @@ const runOcrPipeline = async (imgUrl: string) => {
       <input type="file" accept="image/*,application/pdf" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
 
       {/* Floating Action Bar (Bottom Pill) - Apple/Modern Style */}
-      {isMounted && createPortal(
+      {isMounted && !isAddingExpense && !isScannerOpen && createPortal(
         <div style={{
           position: 'fixed',
           bottom: '2rem',

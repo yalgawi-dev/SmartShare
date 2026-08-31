@@ -181,11 +181,7 @@ export function FinanceAddExpenseForm({
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-end' }}>
               {renderSmartInput('supplier', 'text', 'שם העסק / תיאור', 'שם הספק / תיאור', formValues.supplier, !!ocrData.vendor, true)}
-              {!scannedImage && (
-                <button type="button" onClick={() => setIsScanning(true)} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '2px solid var(--border-light)', padding: '0 1rem', height: '52px', borderRadius: '12px', cursor: 'pointer', fontSize: '1.5rem', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סרוק חשבונית">
-                  📷
-                </button>
-              )}
+              
             </div>
           </div>
           
@@ -277,12 +273,7 @@ export function FinanceAddExpenseForm({
             </button>
           </div>
         </form>
-        {isScanning && (
-          <ScannerModal 
-            onClose={() => setIsScanning(false)}
-            onComplete={runOcrPipeline}
-          />
-        )}
+        
         {scannedImage && (
           <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מסמך מצורף (נסרק בהצלחה):</p>
