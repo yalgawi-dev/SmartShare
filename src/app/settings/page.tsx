@@ -7,7 +7,7 @@ import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user, updateProfile, logout } = useAuth();
-  const { spaces, restoreSpace } = useSpaces();
+  const { spaces, restoreSpace, removeMember } = useSpaces() as any;
   
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [realName, setRealName] = useState(user?.realName || '');
@@ -216,22 +216,32 @@ export default function SettingsPage() {
             
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {uniqueMembers.map(contact => (
-                  <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.01)' }}>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.25rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
-                      {contact.name.charAt(0)}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{contact.name}</div>
-                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                        שותף ב- {spaces.filter(s => s.members?.some(m => m.userId === contact.userId)).length} מרחבים
+                {uniqueMembers.map(contact => {
+                  const userSpaces = spaces.filter(s => s.members?.some(m => m.userId === contact.userId));
+                  return (
+                    <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.01)' }}>
+                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.25rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+                        {contact.name.charAt(0)}
                       </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{contact.name}</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                          שותף ב: {userSpaces.map(s => s.title || 'פרויקט ללא שם').join(', ')}
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => {
+                          if (confirm(`האם אתה בטוח שברצונך למחוק את ${contact.name} מכל הפרויקטים שלך לחלוטין?`)) {
+                            userSpaces.forEach(s => removeMember(s.id, contact.userId, user?.id || 'admin'));
+                          }
+                        }}
+                        style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid #ef4444', background: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', color: '#ef4444' }}
+                      >
+                        מחק לצמיתות
+                      </button>
                     </div>
-                    <button style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-light)', background: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                      שלח הודעה
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             );
           })()}
