@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       Please read this Israeli invoice/receipt carefully.
       Extract the following fields and return them strictly in the JSON format requested by the schema.
       - "vendor": Name of the business (ספק). Look for the biggest text or the logo at the top.
-      - "clientName": Name of the customer/recipient (מקבל השירות / שם הלקוח / לכבוד). Look carefully in the document for labels like 'לכבוד', 'עבור', or 'שם הלקוח' and extract the name next to or below them.
+      - "clientName": Name of the CUSTOMER buying the service (מקבל השירות / שם הלקוח / לכבוד). Look for 'לכבוד' or 'עבור'. CRITICAL RULE: If the client name is the exact same as the vendor/business name, leave this field NULL! Do not duplicate the business name.
       - "amount": Total amount to pay as a number (סה"כ לתשלום / סכום כולל מע"מ).
         - "vatAmount": The VAT amount extracted as a number. If not written explicitly, calculate it from the total assuming ${vatRate}% standard rate if it says includes VAT. If unsure, leave null.
         - "documentType": Look for words indicating the document type: "מקור" (Original), "העתק" (Copy), or "נאמן למקור" (Certified True Copy). Return exactly one of these three Hebrew strings, or null if you cannot find any indication.

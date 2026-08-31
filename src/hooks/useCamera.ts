@@ -95,11 +95,20 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     if (!stream) return;
     const track = stream.getVideoTracks()[0];
     
+    const verifyTorch = () => {
+      const settings = track.getSettings();
+      // If we wanted it ON, but settings say it's OFF or undefined, it failed silently
+      if (!torchOn && !settings.torch) {
+        throw new Error("Silently failed hardware application");
+      }
+    };
+    
     try {
       // 1. Try standard WebRTC torch
       await track.applyConstraints({
         advanced: [{ torch: !torchOn } as any]
       });
+      verifyTorch();
       setTorchOn(!torchOn);
     } catch (err: any) {
       console.warn("Standard torch failed:", err);
@@ -108,10 +117,11 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         await track.applyConstraints({
           advanced: [{ fillLightMode: torchOn ? 'off' : 'flash' } as any]
         });
+        // We can't easily verify fillLightMode via getSettings, so we assume success if it didn't throw
         setTorchOn(!torchOn);
       } catch (fallbackErr: any) {
         console.error("All torch attempts failed:", fallbackErr);
-        alert("שגיאת פלאש: העדשה הנוכחית לא תומכת בהדלקת פלאש דרך הדפדפן (או שאין לה פלאש פיזי). נסה ללחוץ על כפתור החלפת מצלמה כדי לעבור לעדשה הראשית.");
+        alert("שגיאת פלאש: החומרה או העדשה הנוכחית חוסמת את הפעלת הפלאש (חלק מהעדשות הרחבות לא מכילות פלאש). נסה ללחוץ על 'החלף מצלמה' כדי לעבור לעדשה הראשית.");
       }
     }
   };

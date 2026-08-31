@@ -73,7 +73,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
         <div></div>
       </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
         
         {/* Dynamic Features Sections */}
         {space.features.map((featureId: string) => {
@@ -81,7 +81,14 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
           if (!feature) return null;
 
           return (
-            <section key={featureId} className="card glass-panel" style={{ padding: '0', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            <div key={featureId} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+                  הגדרות מנוע &bull; {feature.name}
+                </span>
+                <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(0,0,0,0.1), transparent)' }}></div>
+              </div>
+              <section className="card glass-panel" style={{ padding: '0', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.05)' }}>
               
               {/* Feature Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.03)', borderBottom: '1px solid var(--border-light)', padding: '1.25rem 1.5rem' }}>
@@ -218,6 +225,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
               </div>
             </section>
+            </div>
           );
         })}
 
