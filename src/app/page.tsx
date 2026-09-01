@@ -8,7 +8,7 @@ import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 
 export default function Dashboard() {
-  const { spaces, deleteSpace } = useSpaces();
+  const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
   const { user, isLoaded, loginWithGoogle } = useAuth();
   const [guestTokens, setGuestTokens] = useState<string[]>([]);
   useEffect(() => {
@@ -77,7 +77,8 @@ export default function Dashboard() {
         {spaces.filter(s => { 
           if (s.status === 'pending_deletion') return false; 
           const myId = user?.id || 'anonymous';
-          const isCreator = (s as any).createdBy === myId || (s as any).creatorId === myId;
+          const myRole = getRoleForSpace(s.id);
+          const isCreator = myRole === 'creator';
           const isMember = s.members?.some((m: any) => m.userId === myId || guestTokens.includes(m.userId));
           return isCreator || isMember;
         }).map(space => (
