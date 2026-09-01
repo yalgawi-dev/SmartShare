@@ -207,12 +207,6 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     
     return 'none';
   };
-  const { user } = useAuth();
-  const [spacesBase, setSpacesBase] = useState<Omit<Space, 'mediaItems'>[]>([]);
-  const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
-  const [isLoaded, setIsLoaded] = useState(false);
-  const mediaUnsubscribes = useRef<Record<string, () => void>>({});
-
   useEffect(() => {
     const spacesRef = collection(db, 'spaces');
     const unsubscribeSpaces = onSnapshot(spacesRef, (snapshot) => {
