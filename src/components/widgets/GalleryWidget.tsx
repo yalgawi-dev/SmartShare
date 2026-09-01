@@ -295,7 +295,7 @@ export default function GalleryWidget({ space, onRemove, isGuestMode }: { space:
                       name: photo.authorName,
                       avatarUrl: photo.avatarUrl,
                       status: photo.authorStatus,
-                      isCurrentUser: profile?.name === photo.authorName
+                      isCurrentUser: (user?.realName || user?.nickname) === photo.authorName
                     });
                   }}
                 >

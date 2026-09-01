@@ -38,7 +38,7 @@ export function FinanceSummary({
   // UNIFIED FINANCIAL ENGINE
   const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, p: number }>();
 
-  const myRealName = user?.realName || user?.nickname || 'אני (שלי)';
+  const myRealName = user?.realName || user?.nickname || 'אורח אנונימי';
   const myId = user?.id || 'me';
   const hasPartners = space.features?.includes('partners') || false;
   

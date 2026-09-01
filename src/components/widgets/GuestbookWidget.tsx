@@ -156,7 +156,7 @@ export default function GuestbookWidget({ space, onRemove, isGuestMode }: { spac
                   name: msg.authorName,
                   avatarUrl: msg.avatarUrl,
                   status: msg.authorStatus,
-                  isCurrentUser: profile?.name === msg.authorName
+                  isCurrentUser: (user?.realName || user?.nickname) === msg.authorName
                 })}
               >
                 <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden' }}>

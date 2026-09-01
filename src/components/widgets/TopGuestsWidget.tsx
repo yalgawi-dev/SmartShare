@@ -1,12 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useGuest } from '../../app/context/GuestContext';
 import { useAuth } from '../../app/context/AuthContext';
 import ProfileModal from './ProfileModal';
 
 export default function TopGuestsWidget({ space }: { space: any }) {
-  const { profile } = useGuest();
   const { user } = useAuth();
   const [inspectedProfile, setInspectedProfile] = useState<any | null>(null);
   // Aggregate media items by authorName
@@ -98,7 +96,7 @@ export default function TopGuestsWidget({ space }: { space: any }) {
               name: guest.name,
               avatarUrl: guest.avatar,
               status: guest.status,
-              isCurrentUser: profile?.name === guest.name
+              isCurrentUser: (user?.realName || user?.nickname) === guest.name
             })}
           >
             <div style={{ 
