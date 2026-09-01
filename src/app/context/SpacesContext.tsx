@@ -148,7 +148,7 @@ interface SpacesContextType {
   devResetSpace: (spaceId: string, currentUserId: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
-  finalizeGuestJoin: (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string) => void;
+  finalizeGuestJoin: (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
   moveMediaItem: (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => void;
@@ -463,22 +463,21 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const finalizeGuestJoin = (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string) => {
+  const finalizeGuestJoin = (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => {
     saveSpaceUpdate(spaceId, space => {
-      // 1. Add the member
       const newMember = {
         userId: shadowToken,
         name,
         role: 'partner' as const,
-        status: 'pending',
         joinedAt: new Date().toISOString(),
+        isActive: true,
         canUpload: true,
-        canDelete: false,
         canEdit: false,
-        status: 'active'
+        canDelete: false,
+        status: 'pending' as const,
+        sharePercentage: customShare
       };
       
-      // 2. Process retroactive billing if needed
       let updatedInvoices = space.invoices || [];
       if (!isRetroactive) {
         updatedInvoices = updatedInvoices.map(inv => ({
@@ -489,10 +488,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       
       return {
         ...space,
-        members: [...(space.members || []), newMember as any],
+        members: [...(space.members || []), newMember],
         invoices: updatedInvoices
       };
     });
+    
+    setTimeout(() => {
+      autoBalanceShares(spaceId, shadowToken);
+    }, 100);
   };
 
   const updateMemberStatus = (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => {

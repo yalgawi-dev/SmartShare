@@ -33,6 +33,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteName, setInviteName] = useState('');
   const [isRetroactive, setIsRetroactive] = useState(true);
+  const [customShare, setCustomShare] = useState('');
   const [generatedLink, setGeneratedLink] = useState('');
 
   const handleCreateInvite = async () => {
@@ -42,6 +43,10 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
     const url = new URL(window.location.href);
     url.pathname = '/space/' + space.id;
     url.searchParams.set('invite', shadowToken);
+    url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
+    if (customShare && !isNaN(Number(customShare))) {
+      url.searchParams.set('share', customShare);
+    }
     const link = url.toString();
 
     setShowInviteModal(false);
@@ -622,7 +627,22 @@ const runOcrPipeline = async (imgUrl: string) => {
               <button onClick={() => setShowInviteModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
             </div>
             
-{space.invoices && space.invoices.length > 0 && (
+<p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', marginBottom: '0.5rem' }}>
+              אחוז השתתפות מותאם אישית (אופציונלי):
+            </p>
+            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="number" 
+                min="1" max="100"
+                placeholder="למשל 10%" 
+                value={customShare}
+                onChange={e => setCustomShare(e.target.value)}
+                style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem' }}
+              />
+              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>אם תשאיר ריק, האחוזים יתאזנו שווה בשווה.</span>
+            </div>
+
+            {space.invoices && space.invoices.length > 0 && (
               <>
                 <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>
                   איך תרצה לחשב את ההוצאות של השותף החדש?
