@@ -15,7 +15,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   if (!currentToken) return null;
 
   const currentMember = space.members?.find((m: any) => m.userId === currentToken);
-  if (!currentMember || currentMember.status === 'active') return null;
+  if (!currentMember || (currentMember.status !== 'pending' && currentMember.status !== 'disputed')) return null;
 
   const [isDisputing, setIsDisputing] = useState(false);
   const [disputeText, setDisputeText] = useState('');

@@ -46,7 +46,7 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
                   <th style={{ padding: '0.5rem', textAlign: 'center' }}>העלאה</th>
                   <th style={{ padding: '0.5rem', textAlign: 'center' }}>עריכה</th>
                   <th style={{ padding: '0.5rem', textAlign: 'center' }}>מחיקה</th>
-                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>פעולות</th>
+                  <th style={{ padding: '0.5rem', textAlign: 'center' }}>סטטוס</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,27 +94,28 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
                       />
                     </td>
                     <td style={{ padding: '0.5rem', textAlign: 'center' }}>
-                      {m.isActive === false ? (
-                        <button 
-                          onClick={() => restoreMember(space.id, m.userId, user?.id || 'unknown')}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--primary)', fontSize: '1.2rem', padding: '0.2rem' }}
-                          title="שחזר שותף"
-                        >
-                          🔄
-                        </button>
-                      ) : (
-                        <button 
-                          onClick={() => {
-                            if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהפרויקט?`)) {
-                              removeMember(space.id, m.userId, user?.id || 'unknown');
+                      <label style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer', gap: '0.5rem' }}>
+                        <div style={{ position: 'relative', width: '36px', height: '20px', background: m.isActive !== false ? '#10b981' : '#cbd5e1', borderRadius: '20px', transition: 'all 0.3s' }}>
+                          <div style={{ position: 'absolute', top: '2px', left: m.isActive !== false ? '18px' : '2px', width: '16px', height: '16px', background: 'white', borderRadius: '50%', transition: 'all 0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
+                        </div>
+                        <input 
+                          type="checkbox" 
+                          checked={m.isActive !== false} 
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהשותפות? החובות שלו מחשבוניות עבר יישמרו, אך המערכת תבצע איזון מחדש לחשבוניות הבאות.`)) {
+                                removeMember(space.id, m.userId, user?.id || 'unknown');
+                              }
+                            } else {
+                              restoreMember(space.id, m.userId, user?.id || 'unknown');
                             }
                           }}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem', padding: '0.2rem' }}
-                          title="הסר שותף"
-                        >
-                          🗑️
-                        </button>
-                      )}
+                          style={{ display: 'none' }}
+                        />
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: m.isActive !== false ? '#10b981' : '#94a3b8' }}>
+                          {m.isActive !== false ? 'פעיל' : 'לא פעיל'}
+                        </span>
+                      </label>
                     </td>
                   </tr>
                 ))}
