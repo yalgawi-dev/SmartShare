@@ -149,6 +149,7 @@ interface SpacesContextType {
   devResetSpace: (spaceId: string, currentUserId: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
+  getRoleForSpace: (spaceId: string) => 'creator' | 'partner' | 'none';
   finalizeGuestJoin: (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
@@ -179,6 +180,34 @@ const initialSpaces: Space[] = [
 const SpacesContext = createContext<SpacesContextType | undefined>(undefined);
 
 export function SpacesProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  const [spacesBase, setSpacesBase] = useState<Omit<Space, 'mediaItems'>[]>([]);
+  const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
+  const [isLoaded, setIsLoaded] = useState(false);
+  const mediaUnsubscribes = useRef<Record<string, () => void>>({});
+
+  const getRoleForSpace = (spaceId: string): 'creator' | 'partner' | 'none' => {
+    // 1. Check Auth Context (Single Source of Truth)
+    if (user && user.spaceKeys && user.spaceKeys[spaceId]) {
+      return user.spaceKeys[spaceId].role;
+    }
+    // 2. Check Local Storage (Fallback for anonymous / pre-sync users)
+    if (typeof window !== 'undefined') {
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        if (localKeys[spaceId]) return localKeys[spaceId].role;
+      } catch(e) {}
+    }
+    
+    // TEMPORARY FALLBACK DURING MIGRATION OF OLD SPACES: 
+    const space = spacesBase.find(s => s.id === spaceId);
+    if (space && !space.masterKey) {
+       if ((space as any).creatorId === (user?.id || 'me') || (space as any).createdBy === (user?.id || 'me')) return 'creator';
+    }
+    
+    return 'none';
+  };
+  const { user } = useAuth();
   const [spacesBase, setSpacesBase] = useState<Omit<Space, 'mediaItems'>[]>([]);
   const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
   const [isLoaded, setIsLoaded] = useState(false);

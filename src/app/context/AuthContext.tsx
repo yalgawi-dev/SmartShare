@@ -30,6 +30,7 @@ export interface UserProfile {
   isBlocked?: boolean;
   createdAt: string;
   hideRealName?: boolean;
+  spaceKeys?: Record<string, { role: "creator" | "partner", token: string }>;
 }
 
 interface AuthContextType {
@@ -88,6 +89,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       // 1. Firebase Auth Listener
+    // Sync Keyring
+    const handleNewKey = async (e: Event) => {
+      const { spaceId, role, token } = (e as CustomEvent).detail;
+      if (!auth.currentUser) return;
+      
+      const userRef = doc(db, 'users', auth.currentUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data() as UserProfile;
+        const currentKeys = userData.spaceKeys || {};
+        currentKeys[spaceId] = { role, token };
+        await updateDoc(userRef, { spaceKeys: currentKeys });
+        
+        setUser(prev => prev ? { ...prev, spaceKeys: currentKeys } : prev);
+      }
+    };
+    if (typeof window !== 'undefined') window.addEventListener('smartshare_new_key', handleNewKey);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         // Sign in anonymously if no user is found
@@ -155,7 +174,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribe();
+      if (typeof window !== 'undefined') window.removeEventListener('smartshare_new_key', handleNewKey);
+    };
   }, []);
 
   const loginWithGoogle = async () => {
