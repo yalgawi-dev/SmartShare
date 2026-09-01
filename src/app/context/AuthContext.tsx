@@ -160,10 +160,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithGoogle = async () => {
     try {
-      const { signInWithPopup } = await import('firebase/auth');
+      const { signInWithPopup, linkWithPopup } = await import('firebase/auth');
       const { googleProvider } = await import('@/lib/firebase');
       
-      const result = await signInWithPopup(auth, googleProvider);
+      let result;
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        try {
+          result = await linkWithPopup(auth.currentUser, googleProvider);
+        } catch (linkError) {
+          if (linkError.code === 'auth/credential-already-in-use') {
+            result = await signInWithPopup(auth, googleProvider);
+          } else {
+            throw linkError;
+          }
+        }
+      } else {
+        result = await signInWithPopup(auth, googleProvider);
+      }
       console.log('Google login success', result.user);
     } catch (e) {
       console.error('Google login failed', e);

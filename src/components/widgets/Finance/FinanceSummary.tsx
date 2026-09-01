@@ -44,7 +44,15 @@ export function FinanceSummary({
   
   // Prevent random anonymous viewers from being added to the math engine
   const creatorId = space.creatorId || space.createdBy || 'creator_unknown';
-  const isCreatorMe = creatorId === myId;
+  let isCreatorMe = creatorId === myId;
+  if (!isCreatorMe) {
+    try {
+      const savedSpaces = JSON.parse(localStorage.getItem('smartshare_spaces') || '[]');
+      if (savedSpaces.some((s: any) => s.id === space.id)) {
+        isCreatorMe = true;
+      }
+    } catch(e) {}
+  }
   const creatorName = isCreatorMe ? myRealName : 'יוצר המרחב';
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
@@ -57,7 +65,10 @@ export function FinanceSummary({
   });
 
   expensesOnly.forEach((inv: any) => {
-    const matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
+    let matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
+    if (isCreatorMe && matchedId === myId) {
+      matchedId = creatorId; // Merge split identities (e.g. anon to google auth)
+    }
     
     if (!unifiedBalances.has(matchedId)) {
       unifiedBalances.set(matchedId, { 
