@@ -51,7 +51,9 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         </p>
       ) : (
         <p style={{ margin: 0, color: '#1e3a8a', fontSize: '0.9rem' }}>
-          בחן את הוצאות הפרויקט. האם אתה מסכים לחישוב ולחלוקה הנוכחית? 
+          {space.invoices && space.invoices.length > 0 
+            ? 'בחן את הוצאות הפרויקט. האם אתה מסכים לחישוב ולחלוקה הנוכחית?' 
+            : 'הזמינו אותך להצטרף לפרויקט. האם אתה מאשר את חלוקת האחוזים והכניסה לשותפות?'}
         </p>
       )}
 
