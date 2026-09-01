@@ -204,7 +204,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                               )}
                             </div>
                             
-                            <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ width: '70px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
                               <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
                                 <input 
                                   type="checkbox" 
@@ -224,6 +224,20 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                                   <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: m.isActive !== false ? '2px' : '18px', transition: '0.3s', boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }} />
                                 </div>
                               </label>
+                              
+                              {m.isActive === false && (
+                                <button 
+                                  onClick={() => {
+                                    if (confirm(`מחיקה לצמיתות (Hard Delete): האם אתה בטוח שברצונך למחוק את ${m.name} כליל מהפרויקט? פעולה זו תמחק גם את ההיסטוריה שלו.`)) {
+                                      removeMember(space.id, m.userId, user?.id || 'unknown', true);
+                                    }
+                                  }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: '1.2rem', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                  title="מחיקה לצמיתות"
+                                >
+                                  🗑️
+                                </button>
+                              )}
                             </div>
                             
                             <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>

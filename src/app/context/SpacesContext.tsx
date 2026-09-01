@@ -142,7 +142,7 @@ interface SpacesContextType {
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   updateMemberStatus: (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => void;
   migrateGuestToRealUser: (spaceId: string, shadowToken: string, realUid: string, realName: string) => void;
-  removeMember: (spaceId: string, userId: string, performedBy: string) => void;
+  removeMember: (spaceId: string, userId: string, performedBy: string, forceHardDelete?: boolean) => void;
   restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
   devResetSpace: (spaceId: string, currentUserId: string) => void;
@@ -580,24 +580,21 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const removeMember = (spaceId: string, userId: string, performedBy: string) => {
+  const removeMember = (spaceId: string, userId: string, performedBy: string, forceHardDelete: boolean = false) => {
     saveSpaceUpdate(spaceId, space => {
       const memberToRemove = space.members?.find(m => m.userId === userId);
       if (!memberToRemove) return space;
 
-      const hasInvoices = space.invoices?.some(i => i.payerId === userId);
       let newMembers;
       let actionType: 'MEMBER_REMOVED' | 'MEMBER_LEFT' = 'MEMBER_REMOVED';
       let details = '';
 
-      if (hasInvoices) {
-        // Soft delete
-        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false } : m) || [];
-        details = `השותף ${memberToRemove.name} סומן כלא-פעיל (יש לו היסטוריית תשלומים). האחוזים יאופסו.`;
-      } else {
-        // Hard delete
+      if (forceHardDelete) {
         newMembers = space.members?.filter(m => m.userId !== userId) || [];
-        details = `השותף ${memberToRemove.name} הוסר מהמרחב לחלוטין. האחוזים יאופסו.`;
+        details = `השותף ${memberToRemove.name} נמחק לצמיתות.`;
+      } else {
+        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false, sharePercentage: undefined } : m) || [];
+        details = `השותף ${memberToRemove.name} סומן כלא-פעיל.`;
       }
       
       const newLog: AuditRecord = {
@@ -607,9 +604,12 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         performedBy,
         details
       };
+      
+      const newSettings = { ...space.settings, mySharePercentage: undefined };
 
       return {
         ...space,
+        settings: newSettings,
         members: newMembers,
         auditLogs: [newLog, ...(space.auditLogs || [])]
       };
