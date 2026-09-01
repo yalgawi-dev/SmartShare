@@ -10,6 +10,7 @@ export type FeatureId = string;
 export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
 
 export interface Invoice {
+  excludedMembers?: string[];
   id: string;
   amount: number | null;
   supplier: string | null;
@@ -77,6 +78,8 @@ export interface SpaceSettings {
 }
 
 export interface SpaceMember {
+  status?: 'active' | 'pending' | 'disputed';
+  disputeMessage?: string;
   userId: string;
   name: string; 
   canUpload: boolean;
@@ -137,6 +140,8 @@ interface SpacesContextType {
   addComment: (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => void;
   deleteComment: (spaceId: string, mediaId: string, commentId: string) => void;
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
+  updateMemberStatus: (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => void;
+  migrateGuestToRealUser: (spaceId: string, shadowToken: string, realUid: string, realName: string) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string) => void;
   restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
@@ -465,6 +470,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         userId: shadowToken,
         name,
         role: 'partner' as const,
+        status: 'pending',
         joinedAt: new Date().toISOString(),
         canUpload: true,
         canDelete: false,
@@ -486,6 +492,30 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         members: [...(space.members || []), newMember as any],
         invoices: updatedInvoices
       };
+    });
+  };
+
+  const updateMemberStatus = (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m => m.userId === userId ? { ...m, status, disputeMessage: message || m.disputeMessage } : m)
+    }));
+  };
+
+  const migrateGuestToRealUser = (spaceId: string, shadowToken: string, realUid: string, realName: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      // Replace member token with real ID and set to active
+      const updatedMembers = (space.members || []).map(m => 
+        m.userId === shadowToken ? { ...m, userId: realUid, name: realName, status: 'active' as const, disputeMessage: '' } : m
+      );
+      
+      // Update any invoices that had the shadow token in excludedMembers
+      const updatedInvoices = (space.invoices || []).map(inv => ({
+        ...inv,
+        excludedMembers: (inv.excludedMembers || []).map(id => id === shadowToken ? realUid : id)
+      }));
+      
+      return { ...space, members: updatedMembers as any, invoices: updatedInvoices };
     });
   };
 
@@ -751,6 +781,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   return (
     <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin,
       updateMemberPermissions,
+        updateMemberStatus,
+        migrateGuestToRealUser,
       addComment,
       deleteComment,
       removeMember,

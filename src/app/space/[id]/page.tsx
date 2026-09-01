@@ -14,6 +14,7 @@ import GenericWidget from '../../../components/widgets/GenericWidget';
 import InviteModal from '../../../components/widgets/InviteModal';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import GuestOnboardingModal from '../../../components/widgets/GuestOnboardingModal';
+import PendingApprovalBanner from '../../../components/widgets/PendingApprovalBanner';
 import WelcomeGate from '../../../components/widgets/WelcomeGate';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -134,6 +135,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
       {isGuestMode && <GuestOnboardingModal />}
+        <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
       
       {/* Toast Notification */}
       {toastMessage && (

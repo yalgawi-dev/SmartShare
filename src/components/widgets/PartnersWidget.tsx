@@ -52,10 +52,22 @@ export default function PartnersWidget({ space, onRemove }: { space: any, onRemo
               <tbody>
                 {space.members?.map((m: any) => (
                   <tr key={m.userId} style={{ borderBottom: '1px solid var(--border-light)', opacity: m.isActive === false ? 0.5 : 1 }}>
-                    <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>
-                      {m.name} 
-                      {m.isActive === false && ' (הוסר)'}
-                      {m.userId === user?.id && ' (את/ה)'}
+                    <td style={{ padding: '0.5rem' }}>
+                      <div style={{ fontWeight: 'bold' }}>
+                        {m.name} 
+                        {m.isActive === false && ' (הוסר)'}
+                        {m.userId === user?.id && ' (את/ה)'}
+                      </div>
+                      {m.status === 'pending' && (
+                        <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.2rem', fontWeight: 'bold' }}>
+                          ⏳ ממתין לאישור השותף
+                        </div>
+                      )}
+                      {m.status === 'disputed' && (
+                        <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '0.2rem', background: '#fef2f2', padding: '0.4rem', borderRadius: '4px' }}>
+                          <strong>יש השגה:</strong> {m.disputeMessage}
+                        </div>
+                      )}
                     </td>
                     <td style={{ padding: '0.5rem', textAlign: 'center' }}>
                       <input 
