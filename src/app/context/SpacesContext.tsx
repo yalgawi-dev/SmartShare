@@ -121,6 +121,7 @@ export interface Space {
 }
 
 interface SpacesContextType {
+  updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
   spaces: Space[];
   addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => void;
   deleteSpace: (spaceId: string) => void;
@@ -465,6 +466,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   const finalizeGuestJoin = (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => {
     saveSpaceUpdate(spaceId, space => {
+      const hasCustomShare = customShare !== undefined && customShare !== null && !isNaN(customShare);
+      
       const newMember = {
         userId: shadowToken,
         name,
@@ -475,7 +478,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         canEdit: false,
         canDelete: false,
         status: 'pending' as const,
-        sharePercentage: customShare
+        sharePercentage: hasCustomShare ? customShare : 0,
+        isCustomShare: hasCustomShare
       };
       
       let updatedInvoices = space.invoices || [];
@@ -486,16 +490,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         }));
       }
       
+      const newMembersList = [...(space.members || []), newMember];
+      
+      // Atomically balance shares
+      const { finalMembers, finalCreatorShare } = calculateBalancedShares(newMembersList, space.settings);
+      
       return {
         ...space,
-        members: [...(space.members || []), newMember],
+        members: finalMembers,
+        settings: { ...space.settings, mySharePercentage: finalCreatorShare },
         invoices: updatedInvoices
       };
     });
-    
-    setTimeout(() => {
-      autoBalanceShares(spaceId, shadowToken);
-    }, 100);
   };
 
   const updateMemberStatus = (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => {
@@ -522,7 +528,23 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const updateMemberPermissions = (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => {
+  
+  const updateSharesBulk = (spaceId: string, myShare: number, partnerShares: Record<string, number>) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newMembers = (space.members || []).map(m => {
+        if (partnerShares[m.userId] !== undefined) {
+          return { ...m, sharePercentage: partnerShares[m.userId], isCustomShare: true };
+        }
+        return m;
+      });
+      return {
+        ...space,
+        members: newMembers,
+        settings: { ...space.settings, mySharePercentage: myShare, isCustomShare: true }
+      };
+    });
+  };
+const updateMemberPermissions = (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       members: (space.members || []).map(m => m.userId === userId ? { ...m, ...permissions } : m)
@@ -555,29 +577,64 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const autoBalanceShares = (spaceId: string, performedBy: string) => {
+  
+// ==========================================
+// SMART SHARES BALANCING ENGINE
+// ==========================================
+const calculateBalancedShares = (members: any[], settings: any) => {
+  const activeMembers = members.filter(m => m.isActive !== false);
+  const totalPeople = activeMembers.length + 1; // +1 for the creator
+  
+  let lockedPercentage = 0;
+  let unlockedCount = 0;
+  
+  const isCreatorLocked = settings?.isCustomShare === true;
+  const creatorLockedValue = settings?.mySharePercentage || 0;
+  
+  if (isCreatorLocked) {
+    lockedPercentage += creatorLockedValue;
+  } else {
+    unlockedCount += 1;
+  }
+  
+  activeMembers.forEach(m => {
+    if (m.isCustomShare) {
+      lockedPercentage += (m.sharePercentage || 0);
+    } else {
+      unlockedCount += 1;
+    }
+  });
+  
+  const remainingPercentage = Math.max(0, 100 - lockedPercentage);
+  const defaultShare = unlockedCount > 0 ? (remainingPercentage / unlockedCount) : 0;
+  
+  const finalCreatorShare = isCreatorLocked ? creatorLockedValue : defaultShare;
+  
+  const finalMembers = members.map(m => {
+    if (m.isActive === false) return { ...m, sharePercentage: 0 };
+    if (m.isCustomShare) return m;
+    return { ...m, sharePercentage: defaultShare };
+  });
+  
+  return { finalMembers, finalCreatorShare, defaultShare };
+};
+
+const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => {
-      const activeMembers = space.members?.filter(m => m.isActive !== false) || [];
-      const memberCount = activeMembers.length + 1; // +1 for the creator/me
-      const defaultShare = 100 / memberCount;
-      
-      const newMembers = (space.members || []).map(m => {
-        if (m.isActive === false) return { ...m, sharePercentage: 0 };
-        return { ...m, sharePercentage: defaultShare };
-      });
+      const { finalMembers, finalCreatorShare, defaultShare } = calculateBalancedShares(space.members || [], space.settings);
 
       const newLog: AuditRecord = {
         id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         timestamp: new Date().toISOString(),
         actionType: 'AUTO_BALANCE',
         performedBy,
-        details: `המערכת חילקה את האחוזים שווה בשווה (${defaultShare.toFixed(1)}% לכל אחד) עבור ${memberCount} משתתפים פעילים.`
+        details: `המערכת חילקה את האחוזים הנותרים שווה בשווה (${defaultShare.toFixed(1)}% לכל חלק).`
       };
 
       return {
         ...space,
-        settings: { ...space.settings, mySharePercentage: defaultShare },
-        members: newMembers,
+        settings: { ...space.settings, mySharePercentage: finalCreatorShare },
+        members: finalMembers,
         auditLogs: [newLog, ...(space.auditLogs || [])]
       };
     });
@@ -783,7 +840,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   return (
     <SpacesContext.Provider value={{ spaces, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin,
-      updateMemberPermissions,
+      updateMemberPermissions, updateSharesBulk,
         updateMemberStatus,
         migrateGuestToRealUser,
       addComment,

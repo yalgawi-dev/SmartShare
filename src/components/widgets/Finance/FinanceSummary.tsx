@@ -10,7 +10,7 @@ interface FinanceSummaryProps {
   setActiveTab: (tab: 'summary' | 'transactions') => void;
   setFilter: (filter: string) => void;
   updateSpaceSettings: any;
-  updateMemberPermissions?: any;
+  updateSharesBulk?: any;
 }
 
 export function FinanceSummary({
@@ -22,7 +22,7 @@ export function FinanceSummary({
   setActiveTab,
   setFilter,
   updateSpaceSettings,
-  updateMemberPermissions
+  updateSharesBulk
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
@@ -316,8 +316,8 @@ export function FinanceSummary({
           user={user}
           validMembers={validMembers}
           onClose={() => setIsEditingShares(false)} 
-          onSave={updateSpaceSettings}
-          updateMemberPermissions={updateMemberPermissions}
+          
+          updateSharesBulk={updateSharesBulk}
         />,
         document.body
       )}
@@ -325,7 +325,7 @@ export function FinanceSummary({
   );
 }
 
-function SharesEditorModal({ space, user, validMembers, onClose, onSave, updateMemberPermissions }: { space: any, user: any, validMembers: any[], onClose: () => void, onSave: any, updateMemberPermissions?: any }) {
+function SharesEditorModal({ space, user, validMembers, onClose, updateSharesBulk }: { space: any, user: any, validMembers: any[], onClose: () => void, updateSharesBulk?: any }) {
   const memberCount = validMembers.length + 1;
   const defaultShare = 100 / memberCount;
   
@@ -355,14 +355,8 @@ function SharesEditorModal({ space, user, validMembers, onClose, onSave, updateM
       return;
     }
     
-    // Save my share
-    onSave(space.id, { mySharePercentage: myShare });
-    
-    // Save partner shares
-    if (updateMemberPermissions) {
-      validMembers.forEach((m: any) => {
-        updateMemberPermissions(space.id, m.userId, { sharePercentage: partnerShares[m.userId] });
-      });
+    if (updateSharesBulk) {
+      updateSharesBulk(space.id, myShare, partnerShares);
     }
     
     alert('האחוזים עודכנו בהצלחה!');

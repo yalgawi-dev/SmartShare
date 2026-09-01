@@ -27,7 +27,7 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
-  const { addInvoice, updateInvoice, updateSpaceSettings } = useSpaces();
+  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk } = useSpaces();
 
   
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -459,6 +459,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             setActiveTab={setActiveTab}
             setFilter={setFilter}
             updateSpaceSettings={updateSpaceSettings}
+            updateSharesBulk={updateSharesBulk}
           />
         )}
 
