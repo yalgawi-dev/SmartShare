@@ -39,6 +39,11 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     finalizeGuestJoin(spaceId, guestName.trim(), isRetroParam, inviteToken, shareParam ? Number(shareParam) : undefined);
 
     localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
+    const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+    if (inviteToken && !storedTokens.includes(inviteToken)) {
+      storedTokens.push(inviteToken);
+      localStorage.setItem('smartshare_guest_tokens', JSON.stringify(storedTokens));
+    }
     setShowGate(false);
   };
 

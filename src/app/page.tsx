@@ -1,4 +1,5 @@
 'use client';
+import { useState, useEffect } from 'react';
 
 import styles from './page.module.css';
 import Link from 'next/link';
@@ -9,6 +10,10 @@ import { getFeatureById } from './data/features';
 export default function Dashboard() {
   const { spaces, deleteSpace } = useSpaces();
   const { user, isLoaded, loginWithGoogle } = useAuth();
+  const [guestTokens, setGuestTokens] = useState<string[]>([]);
+  useEffect(() => {
+    setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
+  }, []);
 
   return (
     <div className={styles.container}>
@@ -25,7 +30,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', display: 'none' }}>
+          <div style={{ display: 'none', flexDirection: 'column', alignItems: 'flex-end' }}>
             {/* Keeping this hidden on very small screens via media queries in standard CSS, but doing it inline for now if possible. Actually, just display it. */}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', marginRight: '0.5rem', overflow: 'hidden' }}>
@@ -69,7 +74,13 @@ export default function Dashboard() {
       </Link>
 
       <div className={styles.grid}>
-        {spaces.filter(s => s.status !== 'pending_deletion').map(space => (
+        {spaces.filter(s => { 
+          if (s.status === 'pending_deletion') return false; 
+          const myId = user?.id || 'anonymous';
+          const isCreator = (s as any).createdBy === myId || (s as any).creatorId === myId;
+          const isMember = s.members?.some((m: any) => m.userId === myId || guestTokens.includes(m.userId));
+          return isCreator || isMember;
+        }).map(space => (
           <div key={space.id} style={{ position: 'relative' }}>
             <button 
               onClick={(e) => {
