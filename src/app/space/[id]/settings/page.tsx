@@ -205,10 +205,11 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                             </div>
                             
                             <div style={{ width: '70px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: m.userId === user?.id ? 'not-allowed' : 'pointer', opacity: m.userId === user?.id ? 0.5 : 1 }} title={m.userId === user?.id ? "לא ניתן להסיר את עצמך מהפרויקט" : ""}>
                                 <input 
                                   type="checkbox" 
                                   checked={m.isActive !== false} 
+                                  disabled={m.userId === user?.id}
                                   onChange={(e) => {
                                     if (!e.target.checked) {
                                       if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהשותפות? החובות שלו מחשבוניות עבר יישמרו, אך המערכת תבצע איזון מחדש לחשבוניות הבאות.`)) {
