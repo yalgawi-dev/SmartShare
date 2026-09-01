@@ -36,21 +36,24 @@ export function FinanceSummary({
     const totalStoreCredits = expensesOnly.filter((inv: any) => inv.isStoreCredit && inv.amount < 0).reduce((acc: number, inv: any) => acc + Math.abs(inv.amount || 0), 0);
 
   // UNIFIED FINANCIAL ENGINE
-  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, p: number }>();
+  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, p: number, rawP?: number, isCreator?: boolean }>();
 
   const myRealName = user?.realName || user?.nickname || 'אורח אנונימי';
   const myId = user?.id || 'me';
   const hasPartners = space.features?.includes('partners') || false;
   
   // Prevent random anonymous viewers from being added to the math engine
-  const amIMember = space.createdBy === myId || space.creatorId === myId || space.members?.some(m => m.userId === myId);
-  if (amIMember) {
-    unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
-  }
+  const creatorId = space.creatorId || space.createdBy || 'creator_unknown';
+  const isCreatorMe = creatorId === myId;
+  const creatorName = isCreatorMe ? myRealName : 'יוצר המרחב';
   
-  const validMembers = space.members?.filter((m) => (m.status === 'active' || m.status === 'pending') && m.userId !== myId) || [];
+  unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
+
+  const validMembers = space.members?.filter((m) => (m.status === 'active' || m.status === 'pending')) || [];
   validMembers.forEach((m) => {
-    unifiedBalances.set(m.userId, { name: m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
+    if (!unifiedBalances.has(m.userId)) {
+      unifiedBalances.set(m.userId, { name: m.userId === myId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: false });
+    }
   });
 
   expensesOnly.forEach((inv: any) => {
