@@ -244,11 +244,15 @@ export function FinanceSummary({
               <button onClick={() => setShowTotalBreakdown(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {allBalancesArray.filter(b => b.paid > 0).map((b, idx) => (
+              {allBalancesArray.filter(b => b.isMember || b.paid > 0).map((b, idx) => {
+                const memberObj = space.members?.find((m: any) => m.userId === b.userId);
+                const isInactive = memberObj && (memberObj.isActive === false || memberObj.status === 'disputed');
+                return (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                   <span style={{ fontWeight: 'bold' }}>
                     {b.name} 
-                    {b.userId === myId ? ' (אני)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(לא פעיל)</span> : '')}
+                    {b.userId === myId ? ' (שלי)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(אורח חיצון)</span> : '')}
+                    {isInactive && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(לא פעיל)</span>}
                   </span>
                   <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
                 </div>
