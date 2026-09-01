@@ -41,10 +41,15 @@ export function FinanceSummary({
   const myRealName = user?.realName || user?.nickname || 'אני (שלי)';
   const myId = user?.id || 'me';
   const hasPartners = space.features?.includes('partners') || false;
-  unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
   
-  const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending') && m.userId !== user?.id) || [];
-  validMembers.forEach((m: any) => {
+  // Prevent random anonymous viewers from being added to the math engine
+  const amIMember = space.createdBy === myId || space.creatorId === myId || space.members?.some(m => m.userId === myId);
+  if (amIMember) {
+    unifiedBalances.set(myId, { name: myRealName, paid: 0, expected: 0, balance: 0, userId: myId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
+  }
+  
+  const validMembers = space.members?.filter((m) => (m.status === 'active' || m.status === 'pending') && m.userId !== myId) || [];
+  validMembers.forEach((m) => {
     unifiedBalances.set(m.userId, { name: m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0 });
   });
 
