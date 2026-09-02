@@ -581,6 +581,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // 1.25x Saturation for popping ink colors
         let S = planes.get(1);
+        cv.medianBlur(S, S, 3); // Kills chroma noise (rainbow dots)
         S.convertTo(S, -1, 1.25, 0);
         planes.set(1, S);
         S.delete();
@@ -596,6 +597,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let boostedRgb = new cv.Mat();
         cv.cvtColor(flatHsv, boostedRgb, cv.COLOR_HSV2RGB);
         flatHsv.delete(); planes.delete(); flatRgb.delete();
+
+        // Remove 1-pixel salt-and-pepper noise from the mask before thickening
+        cv.medianBlur(mask, mask, 3);
 
         // Thicken the text mask slightly so the text doesn't look thin and "blinding"
         let maskDilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
