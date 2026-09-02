@@ -246,7 +246,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         <button onClick={onClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v17.1</span>
+            <span>סורק מסמכים v17.2</span>
           </h2>
         </div>
         
