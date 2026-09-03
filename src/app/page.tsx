@@ -139,7 +139,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.7.13 - תיקון אלגוריתם הלבנת צללים ורעשים במנוע הסורק (Invoice+), ופתרון באג הרשאות יצירת מרחב.
+        v4.8.0 - שכתוב ארכיטקטוני מושלם: הפרדת מודול השותפים והסורק ממודול ההתחשבנויות (Decoupling) וניקוי קוד מת.
       </div>
     </div>
   );
