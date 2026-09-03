@@ -54,7 +54,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   }, [user?.id, id]);
 
-  const [scannedImage, setScannedImage] = useState<string | null>(null);
+  
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [isEditingDate, setIsEditingDate] = useState(false);
@@ -65,6 +65,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const financeRef = useRef<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -94,7 +95,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const reader = new FileReader();
       reader.onload = (ev) => {
          const url = ev.target?.result as string;
-         setScannedImage(url);
+         financeRef.current?.processScan(url);
       };
       reader.readAsDataURL(file);
     }
@@ -327,7 +328,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           
 
           {/* Finance is always at the top if active */}
-          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onClearScannedImage={() => setScannedImage(null)}  />}
+          {hasFinance && !isGuestMode && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} />}
           
           
 
@@ -368,7 +369,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           onClose={() => setIsScannerOpen(false)}
           onComplete={(url) => {
             setIsScannerOpen(false);
-            setScannedImage(url);
+            financeRef.current?.processScan(url);
           }}
         />
       )}

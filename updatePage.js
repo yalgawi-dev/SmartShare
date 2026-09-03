@@ -1,19 +1,65 @@
 const fs = require('fs');
-let c = fs.readFileSync('src/app/page.tsx', 'utf-8');
+let lines = fs.readFileSync('src/app/space/[id]/page.tsx', 'utf-8').split('\n');
 
-c = c.replace("'use client';", "'use client';\nimport { useState, useEffect } from 'react';");
+// Add imports
+lines.splice(13, 0, "import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';");
+lines.splice(14, 0, "import ScannerModal from '../../../components/widgets/ScannerModal';");
 
-const targetState = "const { user, isLoaded, loginWithGoogle } = useAuth();";
-const stateCode = `const { user, isLoaded, loginWithGoogle } = useAuth();
-  const [guestTokens, setGuestTokens] = useState<string[]>([]);
-  useEffect(() => {
-    setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
-  }, []);`;
-c = c.replace(targetState, stateCode);
+// Add states
+let stateIdx = lines.findIndex(l => l.includes('const [toastMessage, setToastMessage] = useState'));
+lines.splice(stateIdx + 1, 0, "  const [isAddingExpense, setIsAddingExpense] = useState(false);");
+lines.splice(stateIdx + 2, 0, "  const [isScannerOpen, setIsScannerOpen] = useState(false);");
 
-const targetFilter = `const isMember = s.members?.some(m => m.userId === myId);`;
-const filterCode = `const isMember = s.members?.some((m: any) => m.userId === myId || guestTokens.includes(m.userId));`;
-c = c.replace(targetFilter, filterCode);
+// Add handleFileUpload
+let funcIdx = lines.findIndex(l => l.includes('const showToast = (msg: string)'));
+lines.splice(funcIdx, 0, `  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+         const url = ev.target?.result as string;
+         setScannedImage(url);
+      };
+      reader.readAsDataURL(file);
+    }
+  };`);
 
-fs.writeFileSync('src/app/page.tsx', c);
-console.log('Modified page.tsx');
+// Modify FinanceWidget call
+let financeIdx = lines.findIndex(l => l.includes('<FinanceWidget'));
+if (financeIdx > -1) {
+  lines[financeIdx] = lines[financeIdx].replace(
+    'initialScannedImage={scannedImage}', 
+    'initialScannedImage={scannedImage} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense}'
+  );
+}
+
+// Add FloatingActionBar and ScannerModal at the end of the return
+let endIdx = lines.lastIndexOf('    </div>');
+if (endIdx > -1) {
+  lines.splice(endIdx, 0, `
+      {(!isGuestMode && (hasFinance || hasScanner)) && (
+        <FloatingActionBar 
+          hasFinance={hasFinance}
+          hasScanner={hasScanner}
+          isAddingExpense={isAddingExpense}
+          isScannerOpen={isScannerOpen}
+          onAddExpense={() => setIsAddingExpense(true)}
+          onOpenScanner={() => setIsScannerOpen(true)}
+          onFileUpload={handleFileUpload}
+        />
+      )}
+      
+      {isScannerOpen && (
+        <ScannerModal 
+          onClose={() => setIsScannerOpen(false)}
+          onComplete={(url) => {
+            setIsScannerOpen(false);
+            setScannedImage(url);
+          }}
+        />
+      )}
+  `);
+}
+
+fs.writeFileSync('src/app/space/[id]/page.tsx', lines.join('\n'));
+console.log('page.tsx updated!');

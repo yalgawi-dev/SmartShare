@@ -1,7 +1,7 @@
 'use client';
 
 import { PartnersInviteModal } from './Partners/PartnersInviteModal';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useSpaces } from '../../app/context/SpacesContext';
@@ -11,7 +11,7 @@ import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
-export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage, isAddingExpense, setIsAddingExpense, onClearScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onClearScannedImage?: () => void }) {
+const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void }, ref) => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
   const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
@@ -151,17 +151,12 @@ const runOcrPipeline = async (imgUrl: string) => {
     setIsAnalyzing(false);
   };
 
-  // If a scan arrives from the parent (Big Blue Button ScannerWidget)
-  useEffect(() => {
-    if (initialScannedImage && initialScannedImage !== scannedImage) {
-      runOcrPipeline(initialScannedImage);
-    }
-  }, [initialScannedImage, space.id]);
+  
   
   const handleCloseForm = () => {
     if(setIsAddingExpense) setIsAddingExpense(false);
     setScannedImage(null);
-    if (onClearScannedImage) onClearScannedImage();
+    
     setOcrData({});
     setOcrDebugMessage(null);
     setOcrElapsedTime(0);
@@ -498,6 +493,9 @@ const runOcrPipeline = async (imgUrl: string) => {
 
     
       {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
+      {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
     </div>
   );
-}
+});
+
+export default FinanceWidget;
