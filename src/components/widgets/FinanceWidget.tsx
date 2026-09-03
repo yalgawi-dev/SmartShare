@@ -11,7 +11,7 @@ import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
-export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage, isAddingExpense, setIsAddingExpense }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void }) {
+export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage, isAddingExpense, setIsAddingExpense, onClearScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onClearScannedImage?: () => void }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
   const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
@@ -161,6 +161,7 @@ const runOcrPipeline = async (imgUrl: string) => {
   const handleCloseForm = () => {
     if(setIsAddingExpense) setIsAddingExpense(false);
     setScannedImage(null);
+    if (onClearScannedImage) onClearScannedImage();
     setOcrData({});
     setOcrDebugMessage(null);
     setOcrElapsedTime(0);

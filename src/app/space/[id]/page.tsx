@@ -327,7 +327,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           
 
           {/* Finance is always at the top if active */}
-          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense}  />}
+          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onClearScannedImage={() => setScannedImage(null)}  />}
           
           
 
