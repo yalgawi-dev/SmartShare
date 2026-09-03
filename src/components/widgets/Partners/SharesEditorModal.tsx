@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 
+import { useSpaces } from '../../../app/context/SpacesContext';
 export function SharesEditorModal({ 
   space, 
   user, 
@@ -28,6 +29,8 @@ export function SharesEditorModal({
   });
 
   const total = myShare + Object.values(partnerShares).reduce((a,b)=>a+b, 0);
+  const { updateSpaceSettings } = useSpaces();
+  const [expHours, setExpHours] = useState(space.settings?.pendingExpirationHours || 1);
 
   const handleAutoBalance = () => {
     setMyShare(defaultShare);
@@ -46,6 +49,9 @@ export function SharesEditorModal({
     
     if (updateSharesBulk) {
       updateSharesBulk(space.id, myShare, partnerShares);
+      if (updateSpaceSettings) {
+        updateSpaceSettings(space.id, { pendingExpirationHours: expHours });
+      }
     }
     
     alert('האחוזים עודכנו בהצלחה!');

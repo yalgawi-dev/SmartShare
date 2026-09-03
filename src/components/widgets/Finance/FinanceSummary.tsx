@@ -55,7 +55,7 @@ export function FinanceSummary({
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
 
-  const validMembers = space.members?.filter((m: any) => (m.status === 'active' || (m.status === 'pending' && (m.userId === myId || m.userId === user?.id)))) || [];
+  const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending')) || [];
   validMembers.forEach((m: any) => {
     // If the valid member in the DB has the same ID as myId, AND I'm not the creator...
     // Wait, if I am the creator, I shouldn't be listed as a regular member even if I'm in the DB by mistake!

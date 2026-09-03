@@ -72,6 +72,7 @@ export interface MediaItem {
 }
 
 export interface SpaceSettings {
+  pendingExpirationHours?: number;
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
   mySharePercentage?: number;
@@ -158,6 +159,7 @@ interface SpacesContextType {
 }
 
 const defaultSettings: SpaceSettings = {
+  pendingExpirationHours: 1,
   defaultVatRate: 18, 
   allowPartnersToEditWall: false,
 };
@@ -621,7 +623,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
 // SMART SHARES BALANCING ENGINE
 // ==========================================
 const calculateBalancedShares = (members: any[], settings: any) => {
-  const activeMembers = members.filter(m => m.isActive !== false && m.status !== 'pending');
+  const activeMembers = members.filter(m => m.isActive !== false);
   const totalPeople = activeMembers.length + 1; // +1 for the creator
   
   let lockedPercentage = 0;

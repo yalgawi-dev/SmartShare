@@ -139,7 +139,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.8.14 - שכתוב ארכיטקטוני מושלם: הפרדת מודול השותפים והסורק ממודול ההתחשבנויות (Decoupling) וניקוי קוד מת.
+        v4.8.15 - שכתוב ארכיטקטוני מושלם: הפרדת מודול השותפים והסורק ממודול ההתחשבנויות (Decoupling) וניקוי קוד מת.
       </div>
     </div>
   );
