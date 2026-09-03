@@ -11,6 +11,8 @@ import ScannerWidget from '../../../components/widgets/ScannerWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
 import GenericWidget from '../../../components/widgets/GenericWidget';
+import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
+import ScannerModal from '../../../components/widgets/ScannerModal';
 import InviteModal from '../../../components/widgets/InviteModal';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import PendingApprovalBanner from '../../../components/widgets/PendingApprovalBanner';
@@ -63,6 +65,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [showInvite, setShowInvite] = useState(false);
   const [showFeatureMenu, setShowFeatureMenu] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -86,6 +90,17 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const activePartnersCount = hasPartners ? (space.members?.length || 0) : 0; 
   const unusedFeatures = AVAILABLE_FEATURES.filter(f => !space.features.includes(f.id));
 
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+         const url = ev.target?.result as string;
+         setScannedImage(url);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3000);
@@ -314,7 +329,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           
 
           {/* Finance is always at the top if active */}
-          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage}  />}
+          {hasFinance && !isGuestMode && <FinanceWidget space={space} activePartnersCount={activePartnersCount} initialScannedImage={scannedImage} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense}  />}
           
           
 

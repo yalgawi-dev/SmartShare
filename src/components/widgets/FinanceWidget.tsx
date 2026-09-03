@@ -1,5 +1,6 @@
 'use client';
 
+import { PartnersInviteModal } from './Partners/PartnersInviteModal';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -9,14 +10,13 @@ import { FinanceSummary } from './Finance/FinanceSummary';
 import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import ScannerModal from './ScannerModal';
 
-export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null }) {
+export default function FinanceWidget({ space, activePartnersCount, onRemove, initialScannedImage }: { space: any, activePartnersCount: number, onRemove?: () => void, initialScannedImage?: string | null, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void }) {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
   const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
-  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, clientName?: string, vatNumber?: string, invoiceNumber?: string}>({});
@@ -31,49 +31,6 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
 
   
   const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteName, setInviteName] = useState('');
-  const [isRetroactive, setIsRetroactive] = useState(true);
-  const [customShare, setCustomShare] = useState('');
-  const [generatedLink, setGeneratedLink] = useState('');
-
-  const handleCreateInvite = async () => {
-    const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
-    
-    
-    const url = new URL(window.location.href);
-    url.pathname = '/space/' + space.id;
-    url.searchParams.set('invite', shadowToken);
-    url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
-    if (customShare && !isNaN(Number(customShare))) {
-      url.searchParams.set('share', customShare);
-    }
-    const link = url.toString();
-
-    setShowInviteModal(false);
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: 'הזמנה לפרויקט ' + space.title,
-          text: 'היי! צירפתי אותך עכשיו למרחב שותפות להוצאות. לחץ כאן כדי להיכנס:',
-          url: link,
-        });
-      } catch (err) {
-        console.error('Error sharing:', err);
-      }
-    } else {
-      navigator.clipboard.writeText(link);
-      alert('הקישור הועתק! שלח אותו לשותף.');
-    }
-  };
-
-  const copyToClipboard = () => {
-    navigator.clipboard.writeText(generatedLink);
-    alert('הקישור הועתק! שלח אותו לשותף.');
-    setShowInviteModal(false);
-    setGeneratedLink('');
-    setInviteName('');
-  };
 
   const handleInviteClick = () => {
     setShowInviteModal(true);
@@ -82,7 +39,6 @@ export default function FinanceWidget({ space, activePartnersCount, onRemove, in
   
   const [showFabMenu, setShowFabMenu] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -109,7 +65,7 @@ const [isMounted, setIsMounted] = useState(false);
 
 const runOcrPipeline = async (imgUrl: string) => {
     setIsScanning(false);
-    setIsAddingExpense(true); // Open the form immediately
+    if(setIsAddingExpense) setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
     setOcrData({}); // Clear old data
     setOcrElapsedTime(0);
@@ -203,7 +159,7 @@ const runOcrPipeline = async (imgUrl: string) => {
   }, [initialScannedImage, space.id]);
   
   const handleCloseForm = () => {
-    setIsAddingExpense(false);
+    if(setIsAddingExpense) setIsAddingExpense(false);
     setScannedImage(null);
     setOcrData({});
     setOcrDebugMessage(null);
@@ -485,86 +441,7 @@ const runOcrPipeline = async (imgUrl: string) => {
       {/* Hidden File Input */}
       <input type="file" accept="image/*,application/pdf" ref={fileInputRef} onChange={handleFileUpload} style={{ display: 'none' }} />
 
-      {/* Floating Action Bar (Bottom Pill) - Apple/Modern Style */}
-      {isMounted && !isAddingExpense && !isScannerOpen && createPortal(
-        <div style={{
-          position: 'fixed',
-          bottom: '2rem',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          WebkitBackdropFilter: 'blur(10px)',
-          border: '1px solid rgba(0,0,0,0.08)',
-          borderRadius: '100px',
-          padding: '0.4rem',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '0.25rem',
-          boxShadow: '0 12px 35px rgba(0,0,0,0.15)',
-          zIndex: 99999,
-          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}>
-          
-          <button 
-            onClick={() => setIsAddingExpense(true)}
-            style={{
-              background: 'transparent', border: 'none', padding: '0.5rem 1rem', borderRadius: '100px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', cursor: 'pointer',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            <span style={{ fontSize: '1.25rem' }}>✍️</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>ידני</span>
-          </button>
-          
-          <div style={{ width: '1px', height: '30px', background: 'rgba(0,0,0,0.08)', margin: '0 0.25rem' }} />
 
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              background: 'transparent', border: 'none', padding: '0.5rem 1rem', borderRadius: '100px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', cursor: 'pointer',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            <span style={{ fontSize: '1.25rem' }}>📎</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>מסמך</span>
-          </button>
-
-          {space.features?.includes('scanner') && (
-            <>
-              <div style={{ width: '1px', height: '30px', background: 'rgba(0,0,0,0.08)', margin: '0 0.25rem' }} />
-              <button 
-                onClick={() => setIsScannerOpen(true)}
-                style={{
-                  background: 'var(--primary)', border: 'none', padding: '0.5rem 1.25rem', borderRadius: '100px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', cursor: 'pointer',
-                  color: 'white', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-                }}
-              >
-                <span style={{ fontSize: '1.25rem' }}>📸</span>
-                <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>סרוק</span>
-              </button>
-            </>
-          )}
-
-        </div>,
-        document.body
-      )}
-
-      {/* Scanner Modal natively integrated */}
-      {isMounted && isScannerOpen && createPortal(
-        <ScannerModal 
-          onClose={() => setIsScannerOpen(false)}
-          onComplete={(imgUrl) => {
-            setIsScannerOpen(false);
-            setScannedImage(imgUrl);
-            runOcrPipeline(imgUrl);
-          }}
-        />,
-        document.body
-      )}
 
 
       {/* Add Expense Modal (Bottom Sheet Style) */}
@@ -620,66 +497,7 @@ const runOcrPipeline = async (imgUrl: string) => {
       )}
 
     
-      {showInviteModal && createPortal(
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'white', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', gap: '1.5rem', color: '#1e293b', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.3rem' }}>הזמנת שותף חדש</h3>
-              <button onClick={() => setShowInviteModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
-            </div>
-            
-<p style={{ margin: 0, color: '#475569', fontSize: '0.95rem', marginBottom: '0.5rem' }}>
-              אחוז השתתפות מותאם אישית (אופציונלי):
-            </p>
-            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                min="1" max="100"
-                placeholder="למשל 10%" 
-                value={customShare}
-                onChange={e => setCustomShare(e.target.value)}
-                style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem' }}
-              />
-              <span style={{ color: '#64748b', fontSize: '0.9rem' }}>אם תשאיר ריק, האחוזים יתאזנו שווה בשווה.</span>
-            </div>
-
-            {space.invoices && space.invoices.length > 0 && (
-              <>
-                <p style={{ margin: 0, color: '#475569', fontSize: '0.95rem' }}>
-                  איך תרצה לחשב את ההוצאות של השותף החדש?
-                </p>
-                    
-                <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1rem' }}>
-                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', cursor: 'pointer' }}>
-                    <input 
-                      type="checkbox" 
-                      checked={isRetroactive} 
-                      onChange={e => setIsRetroactive(e.target.checked)}
-                      style={{ width: '22px', height: '22px', marginTop: '2px', accentColor: 'var(--primary)' }}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '1.05rem' }}>חיוב רטרואקטיבי</div>
-                      <div style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '0.4rem', lineHeight: '1.4' }}>
-                        {isRetroactive ? 
-                          'מומלץ: השותף ישתתף בכל ההוצאות שהיו בפרויקט מתחילתו.' : 
-                          'מעכשיו והלאה: השותף פטור מתשלום על כל מה שהיה עד כה, ויחויב רק על הוצאות עתידיות.'}
-                      </div>
-                    </div>
-                  </label>
-                </div>
-              </>
-            )}
-
-            <button 
-              onClick={handleCreateInvite}
-              style={{ background: 'var(--primary)', color: 'white', padding: '1rem', borderRadius: '999px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 6px -1px rgba(74, 91, 240, 0.2)' }}
-            >
-              שתף קישור הזמנה (WhatsApp)
-            </button>
-          </div>
-        </div>,
-        document.body
-      )}
+      {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { createPortal } from 'react-dom';
 
@@ -339,94 +340,4 @@ export function FinanceSummary({
     </div>
   );
 }
-
-function SharesEditorModal({ space, user, validMembers, onClose, updateSharesBulk }: { space: any, user: any, validMembers: any[], onClose: () => void, updateSharesBulk?: any }) {
-  const memberCount = validMembers.length + 1;
-  const defaultShare = 100 / memberCount;
-  
-  const [myShare, setMyShare] = useState<number>(space.settings?.mySharePercentage ?? defaultShare);
-  const [partnerShares, setPartnerShares] = useState<Record<string, number>>(() => {
-    const initial: Record<string, number> = {};
-    validMembers.forEach((m: any) => {
-      initial[m.userId] = m.sharePercentage ?? defaultShare;
-    });
-    return initial;
-  });
-
-  const total = myShare + Object.values(partnerShares).reduce((a,b)=>a+b, 0);
-
-  const handleAutoBalance = () => {
-    setMyShare(defaultShare);
-    const newPartnerShares: Record<string, number> = {};
-    validMembers.forEach((m: any) => {
-      newPartnerShares[m.userId] = defaultShare;
-    });
-    setPartnerShares(newPartnerShares);
-  };
-
-  const handleSave = () => {
-    if (Math.abs(total - 100) > 0.1) {
-      alert('סך כל האחוזים חייב להיות 100%');
-      return;
-    }
-    
-    if (updateSharesBulk) {
-      updateSharesBulk(space.id, myShare, partnerShares);
-    }
-    
-    alert('האחוזים עודכנו בהצלחה!');
-    onClose();
-  };
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
-      <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>אחוזי השתתפות</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
-        </div>
-        
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-            <span style={{ fontWeight: 'bold' }}>אני ({user?.realName})</span>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                value={myShare} 
-                onChange={(e) => setMyShare(Number(e.target.value))}
-                onFocus={(e) => e.target.select()}
-                style={{ width: '60px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)' }}
-              />
-              <span>%</span>
-            </div>
-          </div>
-
-          {validMembers.map((m: any) => (
-            <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-              <span style={{ fontWeight: 'bold' }}>{m.name}</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <input 
-                  type="number" 
-                  value={partnerShares[m.userId] || 0} 
-                  onChange={(e) => setPartnerShares({...partnerShares, [m.userId]: Number(e.target.value)})}
-                  onFocus={(e) => e.target.select()}
-                  style={{ width: '60px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', background: 'rgba(0,0,0,0.02)' }}
-                />
-                <span>%</span>
-              </div>
-            </div>
-          ))}
-
-          <div style={{ padding: '1rem', textAlign: 'center', fontWeight: 'bold', color: Math.abs(total - 100) > 0.1 ? '#ef4444' : '#10b981' }}>
-            סה"כ: {total.toFixed(1)}% {Math.abs(total - 100) > 0.1 ? '(חייב להיות 100%)' : '✓'}
-          </div>
-
-          <button onClick={handleSave} style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
-            שמור שינויים
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+
