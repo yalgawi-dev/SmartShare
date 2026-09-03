@@ -7,13 +7,11 @@ import { useSpaces } from '../../context/SpacesContext';
 import { useAuth } from '../../context/AuthContext';
 import { getFeatureById, AVAILABLE_FEATURES } from '../../data/features';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
-import ScannerWidget from '../../../components/widgets/ScannerWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
 import GenericWidget from '../../../components/widgets/GenericWidget';
 import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
 import ScannerModal from '../../../components/widgets/ScannerModal';
-import InviteModal from '../../../components/widgets/InviteModal';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import PendingApprovalBanner from '../../../components/widgets/PendingApprovalBanner';
 import WelcomeGate from '../../../components/widgets/WelcomeGate';
@@ -352,7 +350,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         )}
       </div>
       
-      {showInvite && <InviteModal spaceId={id} onClose={() => setShowInvite(false)} />}
     </div>
   );
 }
