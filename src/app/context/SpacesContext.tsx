@@ -621,7 +621,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
 // SMART SHARES BALANCING ENGINE
 // ==========================================
 const calculateBalancedShares = (members: any[], settings: any) => {
-  const activeMembers = members.filter(m => m.isActive !== false);
+  const activeMembers = members.filter(m => m.isActive !== false && m.status !== 'pending');
   const totalPeople = activeMembers.length + 1; // +1 for the creator
   
   let lockedPercentage = 0;
