@@ -350,6 +350,29 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         )}
       </div>
       
+
+      {(!isGuestMode && (hasFinance || hasScanner)) && (
+        <FloatingActionBar 
+          hasFinance={hasFinance}
+          hasScanner={hasScanner}
+          isAddingExpense={isAddingExpense}
+          isScannerOpen={isScannerOpen}
+          onAddExpense={() => setIsAddingExpense(true)}
+          onOpenScanner={() => setIsScannerOpen(true)}
+          onFileUpload={handleFileUpload}
+        />
+      )}
+      
+      {isScannerOpen && (
+        <ScannerModal 
+          onClose={() => setIsScannerOpen(false)}
+          onComplete={(url) => {
+            setIsScannerOpen(false);
+            setScannedImage(url);
+          }}
+        />
+      )}
+
     </div>
   );
 }
