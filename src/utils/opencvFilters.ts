@@ -53,7 +53,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     let maxArea = 0;
     let bestContour: any = null;
     
-    for (let i = 0; i < contours.size(); ++i) {
+    let maxC = Math.min(contours.size(), 300); for (let i = 0; i < maxC; ++i) {
       let cnt = contours.get(i);
       let area = cv.contourArea(cnt);
       if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.95) { 
@@ -288,7 +288,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let smallTextMask = new cv.Mat();
         cv.bitwise_not(smallBw, smallTextMask); 
         
-        for (let i = 0; i < contours.size(); ++i) {
+        let maxC = Math.min(contours.size(), 300); for (let i = 0; i < maxC; ++i) {
             let cnt = contours.get(i);
             let area = cv.contourArea(cnt);
             if (area > 2) { 
