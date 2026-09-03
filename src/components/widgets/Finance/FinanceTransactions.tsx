@@ -113,7 +113,7 @@ export function FinanceTransactions({
       {filteredInvoices.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
-          לא נמצאו חשבוניות. לחץ על ה-➕ כדי להוסיף.
+          {filter === 'pending_me' ? 'אין חשבוניות שממתינות לאישור שלך.' : filter === 'pending_partners' ? 'אין חשבוניות שממתינות לאישור השותפים.' : 'לא נמצאו חשבוניות.'}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>

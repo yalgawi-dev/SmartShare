@@ -245,7 +245,7 @@ const runOcrPipeline = async (imgUrl: string) => {
     }
 
     const myApproval = 1; // The person uploading inherently approves it
-    const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount : 0;
+    const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
     
     const isTransfer = category === 'העברה/קיזוז';
     let targetId = undefined;
