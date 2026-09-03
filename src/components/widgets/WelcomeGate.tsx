@@ -87,7 +87,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
 
         {isRetroactive && (
           <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '12px', border: '1px solid #bfdbfe', marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem' }}>
-            <strong>לידיעתך:</strong> הוגדרת כשותף מלא מהיום הראשון, כלומר החלק שלך יחושב גם מתוך ההוצאות ההיסטוריות שהיו בפרויקט עד כה.
+            <strong>לידיעתך:</strong> הוגדרת כשותף מלא מהיום הראשון (חישוב רטרואקטיבי). אל דאגה, גם לאחר האישור תוכל תמיד לערוך אחוזים, לפתוח דיון או לשנות חשבוניות.
           </div>
         )}
 

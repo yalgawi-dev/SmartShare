@@ -59,7 +59,7 @@ export function FinanceSummary({
   validMembers.forEach((m: any) => {
     // If the valid member in the DB has the same ID as myId, AND I'm not the creator...
     // Wait, if I am the creator, I shouldn't be listed as a regular member even if I'm in the DB by mistake!
-    if (isCreatorMe && m.userId === myId) return; // Hide me from partners list if I'm the creator
+    if ((isCreatorMe && m.userId === myId) || m.userId === space.creatorId || m.userId === space.createdBy) return; // Hide creator from partners list
     
     if (!unifiedBalances.has(m.userId)) {
       unifiedBalances.set(m.userId, { name: m.userId === myId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: false });
@@ -68,8 +68,8 @@ export function FinanceSummary({
 
   expensesOnly.forEach((inv: any) => {
     let matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
-    if (isCreatorMe && matchedId === myId) {
-      matchedId = creatorId; // Merge split identities (e.g. anon to google auth)
+    if ((isCreatorMe && matchedId === myId) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
+      matchedId = creatorId; // Merge split identities globally so guests see creator correctly
     }
     
     if (!unifiedBalances.has(matchedId)) {

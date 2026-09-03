@@ -109,6 +109,25 @@ export function SharesEditorModal({
           </span>
         </div>
         
+
+        <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <span style={{ fontWeight: 'bold', display: 'block', fontSize: '0.95rem' }}>זמן פג תוקף להמתנה</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>שותף שלא אישר יימחק אוטומטית</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input 
+                type="number" 
+                min="1" max="72" 
+                value={expHours} 
+                onChange={e => setExpHours(Number(e.target.value))}
+                style={{ width: '60px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
+              />
+              <span style={{ fontSize: '0.9rem' }}>שעות</span>
+            </div>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <button 
             onClick={handleAutoBalance}
