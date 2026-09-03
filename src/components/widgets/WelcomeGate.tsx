@@ -51,8 +51,8 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(0,0,0,0.85)', zIndex: 100000,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: '1rem',
+      display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
+      padding: '2rem 1rem', overflowY: 'auto',
       animation: 'fadeIn 0.3s ease-out'
     }}>
       <div className="card glass-panel" style={{
@@ -61,6 +61,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         borderRadius: '24px',
         width: '100%',
         maxWidth: '450px',
+        margin: 'auto',
         color: '#1e293b',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         textAlign: 'center'

@@ -10,7 +10,7 @@ export function PartnersInviteModal({
   space: any; 
   onClose: () => void;
 }) {
-  const [isRetroactive, setIsRetroactive] = useState(true);
+  const [isRetroactive, setIsRetroactive] = useState(false);
   const [customShare, setCustomShare] = useState('');
 
   const handleCreateInvite = async () => {
