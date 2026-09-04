@@ -4,6 +4,12 @@
  * This keeps the Partner logic decoupled from Finance and other widgets.
  */
 
+export const isPartnerExpired = (joinedAt: string | undefined | null, expHours: number = 1): boolean => {
+  if (!joinedAt) return false;
+  const expiresMs = new Date(joinedAt).getTime() + (expHours * 3600000);
+  return expiresMs - Date.now() <= 0;
+};
+
 export const getRemainingTimeText = (joinedAt: string | undefined | null, expHours: number = 1): string => {
   if (!joinedAt) return '';
   const expiresMs = new Date(joinedAt).getTime() + (expHours * 3600000);
@@ -16,5 +22,5 @@ export const getRemainingTimeText = (joinedAt: string | undefined | null, expHou
   
   const hoursLeft = Math.floor(minutesLeft / 60);
   const minsRound = minutesLeft % 60;
-  return `נותרו ${hoursLeft} ש' ${minsRound > 0 ? 'ו-' + minsRound + ' דק\'' : ''}`;
+  return `נותרו ${hoursLeft} ש' ${minsRound > 0 ? 'ו-' + minsRound + ' דק\\'' : ''}`;
 };

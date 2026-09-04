@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
+import { isPartnerExpired } from '../../utils/partnerUtils';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
