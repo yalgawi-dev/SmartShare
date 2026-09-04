@@ -686,13 +686,13 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   const refreshMemberInvite = (spaceId: string, userId: string) => {
     saveSpaceUpdate(spaceId, space => {
-      const member = space.members?.find(m => m.userId === userId);
-      if (!member || member.status !== 'pending') return space;
-      
-      // Reset joinedAt to now, which resets the hourglass
-      member.joinedAt = new Date().toISOString();
-      
-      return { members: space.members };
+      const updatedMembers = (space.members || []).map(m => {
+        if (m.userId === userId && m.status === 'pending') {
+          return { ...m, joinedAt: new Date().toISOString() };
+        }
+        return m;
+      });
+      return { ...space, members: updatedMembers };
     });
   };
 
