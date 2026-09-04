@@ -171,11 +171,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         <Link href="/" className={styles.backBtn} style={{ margin: 0 }}>
           <span>&rarr;</span> ללוח הראשי
         </Link>
-        {!isGuestMode && (
-          <button onClick={() => setShowFeatureMenu(true)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
-            ➕ הוסף כלים
-          </button>
-        )}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {!isGuestMode && (
+            <Link href={`/space/${id}/settings`} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מקומיות">
+              ⚙️
+            </Link>
+          )}
+          {!isGuestMode && (
+            <button onClick={() => setShowFeatureMenu(true)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+              ➕ הוסף כלים
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Facebook-style Header */}
@@ -203,15 +210,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Profile Info Area */}
         <div className="glass-panel" style={{ padding: '0 1.5rem 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', position: 'relative', borderBottomLeftRadius: '24px', borderBottomRightRadius: '24px', borderTop: 'none', marginTop: '-1px' }}>
           
-          {/* Action Gear */}
-          {!isGuestMode && (
-            <div style={{ position: 'absolute', top: '1rem', left: '1.5rem', zIndex: 10 }}>
-              <Link href={`/space/${id}/settings`} style={{ background: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מרחב">
-                ⚙️
-              </Link>
-            </div>
-          )}
-
           {/* Avatar (Overlapping cover) & Partners Stack */}
           <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
              <div 

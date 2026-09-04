@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 import { useSpaces } from '../../../app/context/SpacesContext';
+import { getRemainingTimeText } from '../../../utils/partnerUtils';
 export function SharesEditorModal({ 
   space, 
   user, 
@@ -63,8 +64,8 @@ export function SharesEditorModal({
       <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
       <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v1.1)</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
+          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v1.4)</h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>&times;</button>
         </div>
         
         <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
@@ -96,8 +97,13 @@ export function SharesEditorModal({
                 {isPending && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
                     <span style={{ fontSize: '0.75rem', color: isExpired ? '#ef4444' : '#f59e0b', fontWeight: isExpired ? 'bold' : 'normal' }}>
-                      {isExpired ? '❌ פג תוקף' : '⏳ ממתין לאישור'}
+                      {isExpired ? '❌ פג תוקף' : '⏳ ממתין'}
                     </span>
+                    {!isExpired && m.joinedAt && (
+                      <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>
+                        {getRemainingTimeText(m.joinedAt, space.settings?.pendingExpirationHours || 1)}
+                      </span>
+                    )}
                     {isExpired && removeMember && refreshMemberInvite && (
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button type="button" onClick={() => removeMember(space.id, m.userId, user?.id || 'system')} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>🗑️ הסר</button>
