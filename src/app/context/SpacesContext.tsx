@@ -901,6 +901,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         migrateGuestToRealUser,
       addComment,
       deleteComment,
+      refreshMemberInvite,
       removeMember,
       restoreMember,
       autoBalanceShares,

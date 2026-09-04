@@ -29,7 +29,7 @@ export function SharesEditorModal({
   });
 
   const total = myShare + Object.values(partnerShares).reduce((a,b)=>a+b, 0);
-  const { updateSpaceSettings } = useSpaces();
+  const { updateSpaceSettings, removeMember, refreshMemberInvite } = useSpaces();
   const [expHours, setExpHours] = useState(space.settings?.pendingExpirationHours || 1);
 
   const handleAutoBalance = () => {
@@ -63,7 +63,7 @@ export function SharesEditorModal({
       <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
       <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים</h3>
+          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v1.1)</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
         </div>
         
@@ -82,24 +82,43 @@ export function SharesEditorModal({
             </div>
           </div>
           
-          {validMembers.map((m: any) => (
+          {validMembers.map((m: any) => {
+            const isPending = m.status === 'pending';
+            const isExpired = isPending && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
+            
+            return (
             <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <img src={m.photoURL || '/default-avatar.png'} alt={m.name} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
-                <span>{m.name}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <img src={m.photoURL || '/default-avatar.png'} alt={m.name} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
+                  <span>{m.name}</span>
+                </div>
+                {isPending && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: isExpired ? '#ef4444' : '#f59e0b', fontWeight: isExpired ? 'bold' : 'normal' }}>
+                      {isExpired ? '❌ פג תוקף' : '⏳ ממתין לאישור'}
+                    </span>
+                    {isExpired && removeMember && refreshMemberInvite && (
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button type="button" onClick={() => removeMember(space.id, m.userId, user?.id || 'system')} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>🗑️ הסר</button>
+                        <button type="button" onClick={() => refreshMemberInvite(space.id, m.userId)} style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '4px', color: '#3b82f6', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>🔄 חדש</button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input 
                   type="number" 
                   min="0" max="100" 
-                  value={Number(partnerShares[m.userId]).toFixed(1)} 
+                  value={Number(partnerShares[m.userId] || 0).toFixed(1)} 
                   onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
                 />
                 <span>%</span>
               </div>
             </div>
-          ))}
+          )})}
         </div>
         
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0 0.5rem' }}>

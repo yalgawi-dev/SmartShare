@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { createPortal } from 'react-dom';
-import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
+
 
 interface FinanceSummaryProps {
   space: any;
@@ -224,39 +224,15 @@ export function FinanceSummary({
                   const isInactive = activePartnersCount === 0 && b.userId !== myId;
                   
                   return (
-                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? 'rgba(239, 68, 68, 0.05)' : b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
+                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
                       <td style={{ padding: '0.75rem', fontWeight: b.userId === myId ? 'bold' : 'normal' }}>
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <span>{b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}</span>
       {(b as any).status === 'pending' && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem' }}>
-          {getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? (
-            <span style={{ fontSize: '0.75rem', color: '#ef4444', display: 'flex', alignItems: 'center', gap: '0.2rem', fontWeight: 'bold' }}>
-              ❌ פג תוקף
-            </span>
-          ) : (
-            <span style={{ fontSize: '0.7rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-              ⏳ ממתין ({(b as any).joinedAt ? getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) : 'שעון פועל'})
-            </span>
-          )}
-          {(b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-              <button 
-                onClick={() => removeMember(space.id, b.userId, user?.id || 'system')}
-                style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', padding: '0.1rem 0.3rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                title="מחק הזמנה שפגה"
-              >
-                🗑️ הסר
-              </button>
-              <button 
-                onClick={() => refreshMemberInvite(space.id, b.userId)}
-                style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '4px', color: '#3b82f6', cursor: 'pointer', fontSize: '0.75rem', padding: '0.1rem 0.3rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                title="שלח בקשה חוזרת וחדש את השעון"
-              >
-                🔄 חדש
-              </button>
-            </div>
-          )}
+          <span style={{ fontSize: '0.7rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+            ⏳ ממתין
+          </span>
         </div>
       )}
     </div>
