@@ -229,9 +229,22 @@ export function FinanceSummary({
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <span>{b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}</span>
       {(b as any).status === 'pending' && (
-        <span style={{ fontSize: '0.7rem', color: '#f59e0b', marginTop: '0.1rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-          ⏳ ממתין לאישור ({(b as any).joinedAt ? getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) : 'שעון פועל'})
-        </span>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.1rem' }}>
+          <span style={{ fontSize: '0.7rem', color: '#f59e0b', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+            ⏳ ממתין ({(b as any).joinedAt ? getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) : 'שעון פועל'})
+          </span>
+          {(b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' && (
+            <button 
+              onClick={() => removeMember(space.id, b.userId, user?.id || 'system')}
+              style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '0.8rem', padding: '0.1rem' }}
+              title="מחק הזמנה שפגה"
+            >
+              🗑️
+            </button>
+          )}
+        </div>
+
       )}
     </div>
   </td>
