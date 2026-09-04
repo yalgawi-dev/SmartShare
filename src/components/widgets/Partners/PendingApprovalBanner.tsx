@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useSpaces } from '../../app/context/SpacesContext';
-import { useAuth } from '../../app/context/AuthContext';
-import { getRemainingTimeText } from '../../utils/partnerUtils';
+import { useSpaces } from '../../../app/context/SpacesContext';
+import { useAuth } from '../../../app/context/AuthContext';
+import { getRemainingTimeText } from '../../../utils/partnerUtils';
 
 export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceId: string, inviteToken?: string | null }) {
   const { spaces, updateMemberStatus, migrateGuestToRealUser } = useSpaces() as any;

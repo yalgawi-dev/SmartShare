@@ -12,9 +12,9 @@ import GalleryWidget from '../../../components/widgets/GalleryWidget';
 import GenericWidget from '../../../components/widgets/GenericWidget';
 import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
 import ScannerModal from '../../../components/widgets/ScannerModal';
-import PendingApprovalBanner from '../../../components/widgets/PendingApprovalBanner';
+import PendingApprovalBanner from '../../../components/widgets/Partners/PendingApprovalBanner';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
-import WelcomeGate from '../../../components/widgets/WelcomeGate';
+import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
 

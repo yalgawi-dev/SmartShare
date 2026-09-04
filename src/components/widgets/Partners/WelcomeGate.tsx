@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useSpaces } from '../../app/context/SpacesContext';
+import { useSpaces } from '../../../app/context/SpacesContext';
 
 export default function WelcomeGate({ spaceId }: { spaceId: string }) {
   const { spaces, finalizeGuestJoin } = useSpaces() as any;
