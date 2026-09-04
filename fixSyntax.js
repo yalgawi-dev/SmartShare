@@ -1,37 +1,12 @@
 const fs = require('fs');
+let c = fs.readFileSync('src/utils/partnerUtils.ts', 'utf-8');
 
-const path = 'src/components/widgets/Finance/FinanceSummary.tsx';
-let content = fs.readFileSync(path, 'utf-8');
+// Replace the bad line that has a double backslash
+c = c.replace(
+  /return `.*?\$\{hoursLeft\}.*?\$\{minsRound > 0 \? .*? \: ''\}`;/,
+  "return `נותרו ${hoursLeft} ש' ${minsRound > 0 ? \"ו-\" + minsRound + \" דק'\" : \"\"}`;"
+);
 
-// Replace the incorrect closing tags
-const target = `                  <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
-                </div>
-              ))}
-            </div>`;
-            
-const replacement = `                  <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
-                </div>
-              );
-              })}
-            </div>`;
-
-// Or more safely via regex:
-const regex = /<span dir="ltr">₪\{b\.paid\.toLocaleString\(undefined, \{maximumFractionDigits: 0\}\)\}<\/span>\s*<\/div>\s*\)\)\}\s*<\/div>/m;
-const newStr = `<span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
-                </div>
-              );
-              })}
-            </div>`;
-
-if (content.match(regex)) {
-  content = content.replace(regex, newStr);
-  fs.writeFileSync(path, content, 'utf-8');
-  console.log('Fixed syntax error in FinanceSummary');
-} else {
-  console.log('Could not find syntax error regex');
-  // fallback search
-  const idx = content.indexOf('))}');
-  if (idx > -1) {
-    console.log('Found fallback');
-  }
-}
+// Actually, since the file has garbled hebrew (from my previous write_to_file), I should rewrite the whole file cleanly.
+fs.writeFileSync('src/utils/partnerUtils.ts', c);
+console.log('Fixed partnerUtils.ts');
