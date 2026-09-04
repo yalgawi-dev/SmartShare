@@ -118,7 +118,7 @@ export function SharesEditorModal({
                   type="number" 
                   min="0" max="100" 
                   value={Number(partnerShares[m.userId] || 0).toFixed(1)} 
-                  onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })}
+                  onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })} onFocus={e => e.target.select()}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
                 />
                 <span>%</span>
@@ -144,7 +144,7 @@ export function SharesEditorModal({
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input 
                 type="number" 
-                min="1" max="72" 
+                min="0.01" max="72" step="0.01" 
                 value={expHours} 
                 onChange={e => setExpHours(Number(e.target.value))}
                 style={{ width: '60px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}

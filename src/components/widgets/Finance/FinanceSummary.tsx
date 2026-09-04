@@ -227,7 +227,9 @@ export function FinanceSummary({
                     <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
                       <td style={{ padding: '0.75rem', fontWeight: b.userId === myId ? 'bold' : 'normal' }}>
     <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <span>{b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}</span>
+      <span style={{ color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
+        {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+      </span>
       {(b as any).status === 'pending' && (() => {
         const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
         return (
