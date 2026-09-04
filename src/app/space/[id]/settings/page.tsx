@@ -190,7 +190,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                             <div style={{ flex: 1, fontWeight: '500', fontSize: '0.95rem' }}>
                               <div>
                                 {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>(אני)</span>}
-                                {m.isActive === false && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}> (לא פעיל)</span>}
+                                {m.status !== 'pending' && m.isActive === false && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}> (לא פעיל)</span>}
                               </div>
                               {m.status === 'pending' && (
                                 <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.2rem', fontWeight: 'bold' }}>
@@ -205,11 +205,11 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                             </div>
                             
                             <div style={{ width: '70px', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', cursor: m.userId === user?.id ? 'not-allowed' : 'pointer', opacity: m.userId === user?.id ? 0.5 : 1 }} title={m.userId === user?.id ? "לא ניתן להסיר את עצמך מהפרויקט" : ""}>
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: (m.userId === user?.id || m.status === 'pending') ? 'not-allowed' : 'pointer', opacity: (m.userId === user?.id || m.status === 'pending') ? 0.5 : 1 }} title={m.userId === user?.id ? "לא ניתן להסיר את עצמך מהפרויקט" : ""}>
                                 <input 
                                   type="checkbox" 
                                   checked={m.isActive !== false} 
-                                  disabled={m.userId === user?.id}
+                                  disabled={m.userId === user?.id || m.status === 'pending'}
                                   onChange={(e) => {
                                     if (!e.target.checked) {
                                       if (confirm(`האם אתה בטוח שברצונך להסיר את ${m.name} מהשותפות? החובות שלו מחשבוניות עבר יישמרו, אך המערכת תבצע איזון מחדש לחשבוניות הבאות.`)) {
@@ -242,8 +242,8 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                             </div>
                             
                             <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
-                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', opacity: m.isActive === false ? 0.5 : 1 }}>
-                                <input type="checkbox" checked={m.canUpload} disabled={m.isActive === false} onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })} style={{ display: 'none' }} />
+                              <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', opacity: (m.isActive === false || m.status === 'pending') ? 0.5 : 1 }}>
+                                <input type="checkbox" checked={m.canUpload} disabled={m.isActive === false || m.status === 'pending'} onChange={e => updateMemberPermissions(space.id, m.userId, { canUpload: e.target.checked })} style={{ display: 'none' }} />
                                 <div style={{ width: '36px', height: '20px', background: m.canUpload ? 'var(--primary)' : '#ccc', borderRadius: '20px', position: 'relative', transition: '0.3s' }}>
                                   <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: m.canUpload ? '2px' : '18px', transition: '0.3s' }} />
                                 </div>
@@ -252,7 +252,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                             
                             <div style={{ width: '70px', display: 'flex', justifyContent: 'center' }}>
                               <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                                <input type="checkbox" checked={m.canDelete} onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} style={{ display: 'none' }} disabled={m.isActive === false} />
+                                <input type="checkbox" checked={m.canDelete} onChange={e => updateMemberPermissions(space.id, m.userId, { canDelete: e.target.checked })} style={{ display: 'none' }} disabled={m.isActive === false || m.status === 'pending'} />
                                 <div style={{ width: '36px', height: '20px', background: m.canDelete ? 'var(--primary)' : '#ccc', borderRadius: '20px', position: 'relative', transition: '0.3s' }}>
                                   <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: m.canDelete ? '2px' : '18px', transition: '0.3s' }} />
                                 </div>
