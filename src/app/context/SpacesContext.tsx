@@ -145,6 +145,7 @@ interface SpacesContextType {
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   updateMemberStatus: (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => void;
   migrateGuestToRealUser: (spaceId: string, shadowToken: string, realUid: string, realName: string) => void;
+  refreshMemberInvite: (spaceId: string, userId: string) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string, forceHardDelete?: boolean) => void;
   restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
@@ -679,6 +680,19 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         members: finalMembers,
         auditLogs: [newLog, ...(space.auditLogs || [])]
       };
+    });
+  };
+
+
+  const refreshMemberInvite = (spaceId: string, userId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const member = space.members?.find(m => m.userId === userId);
+      if (!member || member.status !== 'pending') return space;
+      
+      // Reset joinedAt to now, which resets the hourglass
+      member.joinedAt = new Date().toISOString();
+      
+      return { members: space.members };
     });
   };
 

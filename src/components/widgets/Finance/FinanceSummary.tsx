@@ -240,13 +240,22 @@ export function FinanceSummary({
             </span>
           )}
           {(b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' && (
-            <button 
-              onClick={() => removeMember(space.id, b.userId, user?.id || 'system')}
-              style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', padding: '0.1rem 0.3rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-              title="מחק הזמנה שפגה"
-            >
-              🗑️ הסר
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              <button 
+                onClick={() => removeMember(space.id, b.userId, user?.id || 'system')}
+                style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', fontSize: '0.75rem', padding: '0.1rem 0.3rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                title="מחק הזמנה שפגה"
+              >
+                🗑️ הסר
+              </button>
+              <button 
+                onClick={() => refreshMemberInvite(space.id, b.userId)}
+                style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '4px', color: '#3b82f6', cursor: 'pointer', fontSize: '0.75rem', padding: '0.1rem 0.3rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                title="שלח בקשה חוזרת וחדש את השעון"
+              >
+                🔄 חדש
+              </button>
+            </div>
           )}
         </div>
       )}
