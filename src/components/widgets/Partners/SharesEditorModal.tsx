@@ -42,22 +42,21 @@ export function SharesEditorModal({
     setPartnerShares(newPartnerShares);
   };
 
-  const handleSave = () => {
-    if (Math.abs(total - 100) > 0.1) {
-      alert('סך כל האחוזים חייב להיות 100%');
-      return;
-    }
-    
-    if (updateSharesBulk) {
-      updateSharesBulk(space.id, myShare, partnerShares);
-      if (updateSpaceSettings) {
-        updateSpaceSettings(space.id, { pendingExpirationHours: expHours });
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (Math.abs(total - 100) < 0.1) {
+      if (updateSharesBulk) {
+        updateSharesBulk(space.id, myShare, partnerShares);
+        if (updateSpaceSettings) {
+          updateSpaceSettings(space.id, { pendingExpirationHours: expHours });
+        }
+        setSaved(true);
+        const t = setTimeout(() => setSaved(false), 2000);
+        return () => clearTimeout(t);
       }
     }
-    
-    alert('האחוזים עודכנו בהצלחה!');
-    onClose();
-  };
+  }, [myShare, partnerShares, expHours, total, space.id, updateSharesBulk, updateSpaceSettings]);
 
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -72,7 +71,7 @@ export function SharesEditorModal({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <span style={{ fontWeight: 'bold' }}>את/ה (ברירת מחדל)</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input type="number" min="0" max="100" value={Number(myShare).toFixed(1)} onChange={e => setMyShare(Number(e.target.value))} onFocus={e => e.target.select()}
+              <input type="number" min="0" max="100" value={myShare.toString()} onChange={e => setMyShare(Number(e.target.value))} onFocus={e => e.target.select()}
                 style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
               />
               <span>%</span>
@@ -110,7 +109,7 @@ export function SharesEditorModal({
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <input type="number" min="0" max="100" value={Number(partnerShares[m.userId] || 0).toFixed(1)} onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })} onFocus={e => e.target.select()}
+                <input type="number" min="0" max="100" value={(partnerShares[m.userId] || 0).toString()} onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })} onFocus={e => e.target.select()}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
                 />
                 <span>%</span>
@@ -134,26 +133,23 @@ export function SharesEditorModal({
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>שותף שלא אישר יימחק אוטומטית</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input type="number" min="0.01" max="72" step="0.01" value={expHours} onChange={e => setExpHours(Number(e.target.value))} onFocus={e => e.target.select()}
+              <input type="number" min="0.01" max="72" step="0.01" value={expHours.toString()} onChange={e => setExpHours(Number(e.target.value))} onFocus={e => e.target.select()}
                 style={{ width: '60px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
               />
               <span style={{ fontSize: '0.9rem' }}>שעות</span>
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', alignItems: 'center' }}>
           <button 
             onClick={handleAutoBalance}
             style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
           >
             איזון שווה
           </button>
-          <button 
-            onClick={handleSave}
-            style={{ flex: 2, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', opacity: Math.abs(total - 100) > 0.1 ? 0.5 : 1 }}
-          >
-            שמור אחוזים
-          </button>
+          <div style={{ flex: 1, textAlign: 'center', fontSize: '0.9rem', color: Math.abs(total - 100) > 0.1 ? 'var(--danger)' : 'var(--success)', fontWeight: 'bold' }}>
+            {Math.abs(total - 100) > 0.1 ? 'חובה להגיע ל-100%' : (saved ? '✓ נשמר אוטומטית' : 'מאוזן 100%')}
+          </div>
         </div>
       </div>
     </div>
