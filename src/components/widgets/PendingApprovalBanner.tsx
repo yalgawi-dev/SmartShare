@@ -17,6 +17,19 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const currentMember = space.members?.find((m: any) => m.userId === currentToken);
   if (!currentMember || (currentMember.status !== 'pending' && currentMember.status !== 'disputed')) return null;
 
+  const getRemainingTimeText = (joinedAt: string) => {
+    if (!joinedAt) return '';
+    const expHours = space.settings?.pendingExpirationHours || 1;
+    const expiresMs = new Date(joinedAt).getTime() + (expHours * 3600000);
+    const diffMs = expiresMs - Date.now();
+    if (diffMs <= 0) return 'פג תוקף';
+    const minutesLeft = Math.floor(diffMs / 60000);
+    if (minutesLeft < 60) return `נותרו ${minutesLeft} דק'`;
+    const hoursLeft = Math.floor(minutesLeft / 60);
+    const minsRound = minutesLeft % 60;
+    return `נותרו ${hoursLeft} ש' ${minsRound > 0 ? 'ו-'+minsRound+' דק\'' : ''}`;
+  };
+
   const [isDisputing, setIsDisputing] = useState(false);
   const [disputeText, setDisputeText] = useState('');
 
@@ -41,6 +54,10 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
 
   return (
     <div style={{ background: currentMember.status === 'disputed' ? '#fef3c7' : '#eff6ff', border: currentMember.status === 'disputed' ? '1px solid #f59e0b' : '1px solid #3b82f6', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#e0e7ff', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#3730a3', border: '1px solid #c7d2fe' }}>
+        <span style={{ fontSize: '1.1rem' }}>⏳</span>
+        <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>שים לב: השותפות תפוג בעוד {getRemainingTimeText(currentMember.joinedAt)}</span>
+      </div>
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
         {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט' : 'ממתין לאישור השותפות שלך'}
       </h3>
