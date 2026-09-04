@@ -185,21 +185,24 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                           <span style={{ width: '70px', textAlign: 'center' }}>מחיקה</span>
                         </div>
                         
-                        {space.members.map((m: any) => (
+                        {space.members.map((m: any) => {
+                          const isPending = m.status === 'pending';
+                          const isExpired = isPending && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
+                          return (
                           <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)' }}>
                             <div style={{ flex: 1, fontWeight: '500', fontSize: '0.95rem' }}>
                               <div>
                                 {m.name} {m.userId === user?.id && <span style={{ color: 'var(--primary)', fontSize: '0.85rem' }}>(אני)</span>}
                                 {m.status !== 'pending' && m.isActive === false && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}> (לא פעיל)</span>}
                               </div>
-                              {m.status === 'pending' && (
-                                <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: '0.2rem', fontWeight: 'bold' }}>
-                                  ⏳ ממתין לאישור השותף
+                              {isPending && (
+                                <div style={{ fontSize: '0.75rem', color: isExpired ? '#ef4444' : '#f59e0b', marginTop: '0.2rem', fontWeight: 'bold' }}>
+                                  {isExpired ? '❌ פג תוקף' : '⏳ ממתין לאישור השותף'}
                                 </div>
                               )}
                               {m.status === 'disputed' && (
                                 <div style={{ fontSize: '0.8rem', color: '#ef4444', marginTop: '0.2rem', background: '#fef2f2', padding: '0.4rem', borderRadius: '4px' }}>
-                                  <strong>יש השגה:</strong> {m.disputeMessage}
+                                  <strong>נפתח סכסוך:</strong> {m.disputeMessage}
                                 </div>
                               )}
                             </div>
@@ -259,7 +262,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                               </label>
                             </div>
                           </div>
-                        ))}
+                        )})}
                       </div>
                     ) : (
                       <div style={{ padding: '1.5rem', textAlign: 'center', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-light)' }}>
