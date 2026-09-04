@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
+import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
 import { createPortal } from 'react-dom';
 
 
