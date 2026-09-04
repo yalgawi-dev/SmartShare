@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { createPortal } from 'react-dom';
+import { getRemainingTimeText } from '../../../utils/partnerUtils';
 
 interface FinanceSummaryProps {
   space: any;
