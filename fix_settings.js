@@ -1,28 +1,31 @@
+
 const fs = require("fs");
-const file = "src/app/space/[id]/settings/page.tsx";
-let text = fs.readFileSync(file, "utf8");
+let pageCode = fs.readFileSync("src/app/space/[id]/settings/page.tsx", "utf8");
 
-// Change `{m.isActive === false && ... (לא פעיל)}` 
-// to `{m.status !== "pending" && m.isActive === false && ...}`
-text = text.replace("{m.isActive === false && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}> (לא פעיל)</span>}",
-                    "{m.status !== 'pending' && m.isActive === false && <span style={{ color: '#ef4444', fontSize: '0.85rem' }}> (לא פעיל)</span>}");
+// 1. Add import
+pageCode = pageCode.replace(
+  "import { useRouter } from 'next/navigation';", 
+  "import { useRouter } from 'next/navigation';\nimport { PartnersSettingsList } from '../../../../components/widgets/Partners/PartnersSettingsList';"
+);
 
-// The same for the Delete button (מחק) which is disabled if isActive === false. We should also check for pending.
-// Actually, let's just disable all toggles for pending members!
-// `disabled={m.isActive === false || m.status === 'pending'}`
+// 2. Replace the featureId === "partners" block
+const startStr = "{featureId === 'partners' && (";
+const targetStartIndex = pageCode.indexOf(startStr);
+const endStr = "                {/* Generic features message */}";
+const targetEndIndex = pageCode.indexOf(endStr);
 
-text = text.replace(/disabled=\{m\.isActive === false\}/g, "disabled={m.isActive === false || m.status === 'pending'}");
+const chunkToReplace = pageCode.substring(targetStartIndex, targetEndIndex);
+const newChunk = `{featureId === 'partners' && (
+                  <PartnersSettingsList space={space} user={user} />
+                )}
 
-// Also, the "Status" toggle itself: 
-// `<input type="checkbox" checked={m.isActive !== false} onChange={...} />`
-// Let's disable it if pending:
-text = text.replace(/<input\s+type="checkbox"\s+checked=\{m\.isActive !== false\}/g, 
-                    "<input type=\"checkbox\" checked={m.isActive !== false} disabled={m.status === 'pending'} ");
+`;
+pageCode = pageCode.replace(chunkToReplace, newChunk);
 
-// And the opacity for the toggles
-text = text.replace(/opacity: m\.isActive === false \? 0\.5 : 1/g, 
-                    "opacity: (m.isActive === false || m.status === 'pending') ? 0.5 : 1");
+// Bump version
+pageCode = pageCode.replace("הגדרות המרחב (v1.3)", "הגדרות המרחב (v1.5)");
+pageCode = pageCode.replace("הגדרות המרחב (v1.4)", "הגדרות המרחב (v1.5)");
 
-fs.writeFileSync(file, text, "utf8");
-console.log("FIXED SETTINGS UI");
+fs.writeFileSync("src/app/space/[id]/settings/page.tsx", pageCode, "utf8");
+console.log("REPLACED");
 
