@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { getRemainingTimeText } from '../../../utils/partnerUtils';
@@ -62,7 +62,7 @@ export function SharesEditorModal({
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
-      <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+      <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', marginBottom: '80px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v1.4)</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>&times;</button>
@@ -72,11 +72,7 @@ export function SharesEditorModal({
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
             <span style={{ fontWeight: 'bold' }}>את/ה (ברירת מחדל)</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                min="0" max="100" 
-                value={Number(myShare).toFixed(1)} 
-                onChange={e => setMyShare(Number(e.target.value))}
+              <input type="number" min="0" max="100" value={Number(myShare).toFixed(1)} onChange={e => setMyShare(Number(e.target.value))} onFocus={e => e.target.select()}
                 style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
               />
               <span>%</span>
@@ -114,11 +110,7 @@ export function SharesEditorModal({
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <input 
-                  type="number" 
-                  min="0" max="100" 
-                  value={Number(partnerShares[m.userId] || 0).toFixed(1)} 
-                  onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })} onFocus={e => e.target.select()}
+                <input type="number" min="0" max="100" value={Number(partnerShares[m.userId] || 0).toFixed(1)} onChange={e => setPartnerShares({ ...partnerShares, [m.userId]: Number(e.target.value) })} onFocus={e => e.target.select()}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
                 />
                 <span>%</span>
@@ -142,11 +134,7 @@ export function SharesEditorModal({
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>שותף שלא אישר יימחק אוטומטית</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input 
-                type="number" 
-                min="0.01" max="72" step="0.01" 
-                value={expHours} 
-                onChange={e => setExpHours(Number(e.target.value))}
+              <input type="number" min="0.01" max="72" step="0.01" value={expHours} onChange={e => setExpHours(Number(e.target.value))} onFocus={e => e.target.select()}
                 style={{ width: '60px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
               />
               <span style={{ fontSize: '0.9rem' }}>שעות</span>
