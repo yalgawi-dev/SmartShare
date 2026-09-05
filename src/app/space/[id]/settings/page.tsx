@@ -17,6 +17,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
   
   const space = spaces.find(s => s.id === id);
   const [vatRate, setVatRate] = useState<number>(18);
+  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
 
   useEffect(() => {
     if (space?.settings) {
@@ -92,20 +93,29 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
               <section className="card glass-panel" style={{ padding: '0', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', boxShadow: '0 10px 40px rgba(0,0,0,0.08)', border: '1px solid rgba(0,0,0,0.05)' }}>
               
               {/* Feature Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.03)', borderBottom: '1px solid var(--border-light)', padding: '1.25rem 1.5rem' }}>
+              <div 
+                onClick={() => setExpandedFeature(expandedFeature === featureId ? null : featureId)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.03)', borderBottom: expandedFeature === featureId ? '1px solid var(--border-light)' : 'none', padding: '1.25rem 1.5rem', cursor: 'pointer', transition: 'background 0.2s' }}
+              >
                 <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.75rem', fontWeight: '800' }}>
                   <span style={{ fontSize: '1.5rem' }}>{feature.icon}</span> {feature.name}
                 </h2>
-                <button 
-                  onClick={() => removeFeature(feature.id, feature.name)}
-                  style={{ background: 'transparent', color: '#ef4444', border: '1px solid #fca5a5', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}
-                >
-                  הסרת הכלי
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); removeFeature(feature.id, feature.name); }}
+                    style={{ background: 'transparent', color: '#ef4444', border: '1px solid #fca5a5', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', transition: 'all 0.2s', backgroundColor: 'rgba(239, 68, 68, 0.05)' }}
+                  >
+                    הסרת הכלי
+                  </button>
+                  <div style={{ transform: expandedFeature === featureId ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s', fontSize: '1.2rem', color: 'var(--text-secondary)' }}>
+                     ▼
+                  </div>
+                </div>
               </div>
 
               {/* Feature Body */}
-              <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {expandedFeature === featureId && (
+                <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', animation: 'fadeIn 0.3s ease-in-out' }}>
                 
                 {/* Specific configs for Finance */}
                 {featureId === 'finance' && (
@@ -151,6 +161,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                 )}
 
               </div>
+              )}
             </section>
             </div>
           );
