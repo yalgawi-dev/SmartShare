@@ -12,7 +12,16 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const space = spaces.find((s: any) => s.id === spaceId);
   if (!space) return null;
 
-  const currentToken = user?.id || inviteToken;
+  let currentToken = user?.id || inviteToken;
+  
+  if (!currentToken && typeof window !== 'undefined') {
+    const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+    const matchingMember = space.members?.find((m: any) => storedTokens.includes(m.userId));
+    if (matchingMember) {
+      currentToken = matchingMember.userId;
+    }
+  }
+
   if (!currentToken) return null;
 
   const currentMember = space.members?.find((m: any) => m.userId === currentToken);

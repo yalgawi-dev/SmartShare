@@ -147,7 +147,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
-              <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
+
       
       {/* Toast Notification */}
       {toastMessage && (

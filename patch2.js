@@ -1,20 +1,35 @@
 ﻿const fs = require('fs');
-let content = fs.readFileSync('src/components/widgets/Partners/SharesEditorModal.tsx', 'utf8');
+const file = 'src/app/context/SpacesContext.tsx';
+let content = fs.readFileSync(file, 'utf8');
 
-content = content.replace(
-    'const [expHours, setExpHours] = useState(space.settings?.pendingExpirationHours || 1);',
-    'const [expHours, setExpHours] = useState((space.settings?.pendingExpirationHours || 1).toString());'
-);
+if (!content.includes('Fix legacy creator issues')) {
+  content = content.replace(
+    'let spacesToUpload: Space[] = [];',
+    // Fix legacy creator issues automatically
+      dbSpaces.forEach(space => {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        const localRole = localKeys?.[space.id]?.role;
+        let needsUpdate = false;
+        let updates = {};
+        
+        if (localRole === 'creator' && user?.id) {
+          if (!space.creatorId) {
+            updates.creatorId = user.id;
+            updates.createdBy = user.realName || user.nickname || 'יוצר המרחב';
+            needsUpdate = true;
+          }
+          if (space.members?.some(m => m.userId === user.id)) {
+            updates.members = space.members.filter(m => m.userId !== user.id);
+            needsUpdate = true;
+          }
+        }
+        
+        if (needsUpdate) {
+          updateDoc(doc(db, 'spaces', space.id), updates).catch(console.error);
+        }
+      });
 
-content = content.replace(
-    'value={expHours.toString()} onChange={e => setExpHours(Number(e.target.value))}',
-    'value={expHours} onChange={e => setExpHours(e.target.value)}'
-);
-
-content = content.replace(
-    'updateSpaceSettings(space.id, { pendingExpirationHours: expHours });',
-    'const parsedHours = parseFloat(expHours);\n          if (!isNaN(parsedHours) && parsedHours > 0) {\n            updateSpaceSettings(space.id, { pendingExpirationHours: parsedHours });\n          }'
-);
-
-fs.writeFileSync('src/components/widgets/Partners/SharesEditorModal.tsx', content, 'utf8');
-console.log('Updated SharesEditorModal.tsx successfully.');
+      let spacesToUpload: Space[] = [];
+  );
+  fs.writeFileSync(file, content, 'utf8');
+}

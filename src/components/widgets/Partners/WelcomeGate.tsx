@@ -44,7 +44,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       storedTokens.push(inviteToken);
       localStorage.setItem('smartshare_guest_tokens', JSON.stringify(storedTokens));
     }
-    setShowGate(false);
+    window.location.href = '/';
   };
 
   return (

@@ -223,6 +223,28 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       
       // Look for any spaces in localStorage that aren't in Firestore yet
       let spacesToUpload: Space[] = [];
+      const localKeys = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('smartshare_keys') || '{}') : {};
+      
+      dbSpaces.forEach(space => {
+        const localRole = localKeys?.[space.id]?.role;
+        let needsUpdate = false;
+        let updates: any = {};
+        
+        if (localRole === 'creator' && user?.id) {
+          if (!space.creatorId) {
+            updates.creatorId = user.id;
+            updates.createdBy = user.realName || user.nickname || 'יוצר המרחב';
+            needsUpdate = true;
+          }
+          if (space.members?.some((m: any) => m.userId === user.id)) {
+            updates.members = space.members.filter((m: any) => m.userId !== user.id);
+            needsUpdate = true;
+          }
+        }
+        if (needsUpdate) {
+          updateDoc(doc(db, 'spaces', space.id), updates).catch(console.error);
+        }
+      });
       const savedSpaces = localStorage.getItem('smartshare_spaces');
       if (savedSpaces) {
         try {
@@ -341,6 +363,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       invoices: [],
       members: [],
       masterKey: masterKey,
+      creatorId: user?.id || undefined,
+      createdBy: user?.realName || user?.nickname || 'יוצר המרחב'
     };
     
     // 1. Save to LocalStorage keyring (for guests / robust fallback)

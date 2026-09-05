@@ -50,10 +50,11 @@ export function FinanceSummary({
     // READ ROLES DIRECTLY FROM THE PARTNERS ENGINE (SINGLE SOURCE OF TRUTH)
   const { getRoleForSpace } = useSpaces();
   const myRole = getRoleForSpace(space.id);
-  const isCreatorMe = myRole === 'creator';
+  let isCreatorMe = myRole === 'creator';
+  if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
   
-  const creatorId = isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.creatorId || space.createdBy || 'creator_unknown'));
-  const creatorName = isCreatorMe ? myRealName : 'יוצר המרחב';
+  const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
+  const creatorName = isCreatorMe ? myRealName : (space.createdBy || 'יוצר המרחב');
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
 

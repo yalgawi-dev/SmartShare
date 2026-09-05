@@ -1,10 +1,25 @@
 ﻿const fs = require('fs');
-let content = fs.readFileSync('src/app/context/SpacesContext.tsx', 'utf8');
+const file = 'src/components/widgets/Finance/FinanceTransactions.tsx';
+let content = fs.readFileSync(file, 'utf8');
 
-content = content.replace(
-    'const newSettings = { ...space.settings, mySharePercentage: undefined };',
-    'const newSettings = { ...space.settings, mySharePercentage: undefined, isCustomShare: false };'
-);
+if (!content.includes('finance-tab-')) {
+  content = content.replace('import React, { useState } from', 'import React, { useState, useEffect } from');
+  
+  content = content.replace(
+    'const minSwipeDistance = 50;',
+    const minSwipeDistance = 50;
+  useEffect(() => {
+    const el = document.getElementById('finance-tab-' + filter);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
+  }, [filter]);
+  );
 
-fs.writeFileSync('src/app/context/SpacesContext.tsx', content, 'utf8');
-console.log('Updated SpacesContext.tsx successfully.');
+  content = content.replace('<button onClick={() => setFilter("all")}', '<button id="finance-tab-all" onClick={() => setFilter("all")}');
+  content = content.replace('<button onClick={() => setFilter("archive")}', '<button id="finance-tab-archive" onClick={() => setFilter("archive")}');
+  content = content.replace('<button onClick={() => setFilter("pending_me")}', '<button id="finance-tab-pending_me" onClick={() => setFilter("pending_me")}');
+  content = content.replace('<button onClick={() => setFilter("pending_partners")}', '<button id="finance-tab-pending_partners" onClick={() => setFilter("pending_partners")}');
+
+  fs.writeFileSync(file, content, 'utf8');
+}
