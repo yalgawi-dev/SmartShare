@@ -3,8 +3,14 @@
 import { useSpaces } from "../../../app/context/SpacesContext";
 
 export function PartnersSettingsList({ space, user }: { space: any, user: any }) {
-  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings } = useSpaces();
+  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace } = useSpaces();
   
+  const myRole = getRoleForSpace(space.id);
+  const isCreatorMe = myRole === 'creator';
+  const creatorId = isCreatorMe ? (user?.id || 'me') : (space.creatorId || space.createdBy || 'creator_unknown');
+  
+  const partners = (space.members || []).filter((m: any) => m.userId !== creatorId);
+
   const handleEditWallToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateSpaceSettings(space.id, { allowPartnersToEditWall: e.target.checked });
   };
@@ -43,7 +49,7 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
         </label>
       </div>
 
-      {space.members && space.members.length > 0 ? (
+      {partners && partners.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 1rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
             <span style={{ flex: 1 }}>שם השותף</span>
@@ -52,7 +58,7 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
             <span style={{ width: "70px", textAlign: "center" }}>מחיקה</span>
           </div>
           
-          {space.members.map((m: any) => {
+          {partners.map((m: any) => {
             const isPending = m.status === "pending";
             const isExpired = isPending && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
             return (

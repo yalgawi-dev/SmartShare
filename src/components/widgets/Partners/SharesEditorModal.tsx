@@ -4,7 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 
 export function SharesEditorModal({ space, user, onClose }: { space: any, user: any, onClose: () => void }) {
-  const validMembers = (space.members || []).filter((m: any) => m.isActive !== false);
+  const { getRoleForSpace, updateSpaceSettings, removeMember, refreshMemberInvite, updateSharesBulk } = useSpaces();
+  const myRole = getRoleForSpace(space.id);
+  const isCreatorMe = myRole === 'creator';
+  const creatorId = isCreatorMe ? (user?.id || 'me') : (space.creatorId || space.createdBy || 'creator_unknown');
+  
+  const validMembers = (space.members || []).filter((m: any) => m.isActive !== false && m.userId !== creatorId);
   const defaultShare = validMembers.length > 0 ? (100 / (validMembers.length + 1)) : 100;
 
   const [myShare, setMyShare] = useState<string | number>(space.settings?.mySharePercentage ?? defaultShare);
@@ -42,7 +47,6 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
 
   let total = Number(myShare);
   Object.values(partnerShares).forEach(val => { total += Number(val); });
-  const { updateSpaceSettings, removeMember, refreshMemberInvite, updateSharesBulk } = useSpaces();
   
   const [expHours, setExpHours] = useState((space.settings?.pendingExpirationHours || 1).toString());
   const [saved, setSaved] = useState(false);
@@ -93,13 +97,13 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
       <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
       <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', marginBottom: '80px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v1.6)</h3>
+          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v1.7)</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>&times;</button>
         </div>
         
         <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', marginBottom: '1rem' }}>
-            <span style={{ fontWeight: 'bold' }}>{user?.name || 'אני'} (אני)</span>
+            <span style={{ fontWeight: 'bold' }}>{isCreatorMe ? (user?.name || 'אני') + ' (אני)' : 'יוצר המרחב'}</span>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input type="text" inputMode="decimal" value={myShare} onChange={e => {
                 const val = e.target.value;
