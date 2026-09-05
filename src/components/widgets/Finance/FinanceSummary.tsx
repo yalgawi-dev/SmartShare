@@ -110,11 +110,11 @@ export function FinanceSummary({
   balances.forEach(b => {
     let p = 0;
     if (activePartnersCount === 0) {
-      if (b.userId === myId) p = 100;
+      if (b.userId === myId || b.isCreator) p = 100;
       else p = 0;
     } else {
       if (b.isMember) {
-        if (b.userId === myId) p = space.settings?.mySharePercentage ?? defaultShare;
+        if (b.userId === myId || b.isCreator) p = space.settings?.mySharePercentage ?? defaultShare;
         else {
           const m = validMembers.find((vm: any) => vm.userId === b.userId);
           if (m && m.sharePercentage !== undefined) p = m.sharePercentage;
@@ -123,7 +123,23 @@ export function FinanceSummary({
       }
     }
     b.p = p;
-    b.expected = totalExpenses * (p / 100);
+  });
+
+  balances.forEach(b => { b.expected = 0; });
+  
+  expensesOnly.forEach((inv) => {
+    const invAmount = inv.amount || 0;
+    const excluded = inv.excludedMembers || [];
+    const participating = balances.filter(b => b.isMember && !excluded.includes(b.userId));
+    const totalParticipatingShares = participating.reduce((sum, b) => sum + b.p, 0);
+    if (totalParticipatingShares > 0) {
+      participating.forEach(b => {
+        b.expected += invAmount * (b.p / totalParticipatingShares);
+      });
+    }
+  });
+
+  balances.forEach(b => {
     b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
   });
 
