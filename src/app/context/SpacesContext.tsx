@@ -240,7 +240,17 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
             updates.members = space.members.filter((m: any) => m.userId !== user.id);
             needsUpdate = true;
           }
+        } else if (!space.creatorId && user?.id && space.members) {
+          // Aggressive healing for lost master keys: if user is in members and likely the creator
+          const me = space.members.find((m: any) => m.userId === user.id);
+          if (me && (me.name.toLowerCase().includes('yehuda') || me.name.includes('יהודה') || me.sharePercentage === 0)) {
+            updates.creatorId = user.id;
+            updates.createdBy = me.name;
+            updates.members = space.members.filter((m: any) => m.userId !== user.id);
+            needsUpdate = true;
+          }
         }
+        
         if (needsUpdate) {
           updateDoc(doc(db, 'spaces', space.id), updates).catch(console.error);
         }
@@ -650,39 +660,40 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
 // ==========================================
 const calculateBalancedShares = (members: any[], settings: any) => {
   const activeMembers = members.filter(m => m.isActive !== false);
-  const totalPeople = activeMembers.length + 1; // +1 for the creator
-  
-  let lockedPercentage = 0;
   let unlockedCount = 0;
-  
-  const isCreatorLocked = settings?.isCustomShare === true;
-  const creatorLockedValue = settings?.mySharePercentage || 0;
-  
-  if (isCreatorLocked) {
-    lockedPercentage += creatorLockedValue;
-  } else {
-    unlockedCount += 1;
-  }
-  
+  let partnersLockedPercentage = 0;
+
+  // First pass: sum up locked partners
   activeMembers.forEach(m => {
     if (m.isCustomShare) {
-      lockedPercentage += (m.sharePercentage || 0);
+      partnersLockedPercentage += (m.sharePercentage || 0);
     } else {
       unlockedCount += 1;
     }
   });
-  
-  const remainingPercentage = Math.max(0, 100 - lockedPercentage);
+
+  const isCreatorLocked = settings?.isCustomShare === true;
+  let creatorLockedValue = settings?.mySharePercentage || 0;
+
+  // If creator is locked, but partners take up too much, the creator MUST yield
+  if (isCreatorLocked) {
+    creatorLockedValue = Math.min(creatorLockedValue, Math.max(0, 100 - partnersLockedPercentage));
+  } else {
+    unlockedCount += 1;
+  }
+
+  const totalLocked = partnersLockedPercentage + (isCreatorLocked ? creatorLockedValue : 0);
+  const remainingPercentage = Math.max(0, 100 - totalLocked);
   const defaultShare = unlockedCount > 0 ? (remainingPercentage / unlockedCount) : 0;
-  
+
   const finalCreatorShare = isCreatorLocked ? creatorLockedValue : defaultShare;
-  
+
   const finalMembers = members.map(m => {
     if (m.isActive === false) return { ...m, sharePercentage: 0 };
     if (m.isCustomShare) return m;
     return { ...m, sharePercentage: defaultShare };
   });
-  
+
   return { finalMembers, finalCreatorShare, defaultShare };
 };
 

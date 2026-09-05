@@ -172,7 +172,7 @@ export function FinanceSummary({
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
         
-        {hasPartners && (
+        {hasPartners && isCreatorMe && (
           <React.Fragment>
             <div 
               onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
