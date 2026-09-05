@@ -1,10 +1,14 @@
-"use client";
+﻿# -*- coding: utf-8 -*-
+import io
+
+content = '''"use client";
 
 import { useSpaces } from "../../../app/context/SpacesContext";
 
 export function PartnersSettingsList({ space, user }: { space: any, user: any }) {
   const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings } = useSpaces();
   
+  // Re-use logic for edit wall toggle
   const handleEditWallToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateSpaceSettings(space.id, { allowPartnersToEditWall: e.target.checked });
   };
@@ -82,7 +86,7 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
                     disabled={m.userId === user?.id || isPending}
                     onChange={(e) => {
                       if (!e.target.checked) {
-                        if (window.confirm('האם אתה בטוח שברצונך להסיר את ' + m.name + ' מהשותפות? החובות שלו מחשבוניות עבר יישמרו, אך המערכת תבצע איזון מחדש לחשבוניות הבאות.')) {
+                        if (confirm(האם אתה בטוח שברצונך להסיר את  + m.name +  מהשותפות? החובות שלו מחשבוניות עבר יישמרו, אך המערכת תבצע איזון מחדש לחשבוניות הבאות.)) {
                           removeMember(space.id, m.userId, user?.id || "unknown");
                         }
                       } else {
@@ -99,7 +103,7 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
                 {m.isActive === false && (
                   <button 
                     onClick={() => {
-                      if (window.confirm('הסרת משתמש לצמיתות (Hard Delete): האם אתה בטוח שברצונך למחוק לחלוטין את ' + m.name + ' מהמערכת? פעולה זו בלתי הפיכה ותמחק גם את היסטוריית החובות שלו.')) {
+                      if (confirm(הסרת משתמש לצמיתות (Hard Delete): האם אתה בטוח שברצונך למחוק לחלוטין את  + m.name +  מהמערכת? פעולה זו בלתי הפיכה ותמחק גם את היסטוריית החובות שלו.)) {
                         removeMember(space.id, m.userId, user?.id || "unknown", true);
                       }
                     }}
@@ -139,3 +143,8 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
     </>
   );
 }
+'''
+
+with io.open('src/components/widgets/Partners/PartnersSettingsList.tsx', 'w', encoding='utf-8') as f:
+    f.write(content)
+print("done")

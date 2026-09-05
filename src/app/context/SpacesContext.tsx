@@ -721,7 +721,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         details
       };
       
-      const newSettings = { ...space.settings, mySharePercentage: undefined };
+      const newSettings = { ...space.settings, mySharePercentage: undefined, isCustomShare: false };
 
       return {
         ...space,
