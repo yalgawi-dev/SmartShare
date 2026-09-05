@@ -27,22 +27,28 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
     setPartnerShares(prev => {
       const next = { ...prev };
       let changed = false;
+      let freedShares = 0;
       Object.keys(next).forEach(id => {
         if (!activeIds.has(id)) {
+          freedShares += Number(next[id] || 0);
           delete next[id];
           changed = true;
         }
       });
+      
+      // Auto-absorb freed shares into the creator's share
+      if (changed && freedShares > 0) {
+        setMyShare(current => {
+          const newShare = Number(current) + freedShares;
+          return Number.isInteger(newShare) ? newShare.toString() : newShare.toFixed(1);
+        });
+      }
+      
       return changed ? next : prev;
     });
   }, [space.members]);
 
-  // When validMembers shrinks (e.g. someone deleted) and we are the only one left, force 100%
-  useEffect(() => {
-    if (validMembers.length === 0 && Number(myShare) !== 100) {
-      setMyShare(100);
-    }
-  }, [validMembers.length]);
+
 
 
   let total = Number(myShare);
@@ -97,7 +103,7 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
       <div className="bottom-sheet-overlay" onClick={onClose} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
       <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', marginBottom: '80px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v2.0)</h3>
+          <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הגדרת חלוקת אחוזים (v2.2)</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
         </div>
         
@@ -148,7 +154,17 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input type="text" inputMode="decimal" value={partnerShares[m.userId] ?? ''} onChange={e => {
                   const val = e.target.value;
-                  if (val === '' || /^\d*\.?\d*$/.test(val)) setPartnerShares({ ...partnerShares, [m.userId]: val });
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                    setPartnerShares({ ...partnerShares, [m.userId]: val });
+                    // Auto-adjust creator so total remains 100
+                    let otherSum = 0;
+                    Object.entries(partnerShares).forEach(([id, share]) => {
+                      if (id !== m.userId) otherSum += Number(share);
+                    });
+                    const newPartnerVal = Number(val);
+                    const remaining = Math.max(0, 100 - otherSum - newPartnerVal);
+                    setMyShare(Number.isInteger(remaining) ? remaining.toString() : remaining.toFixed(1));
+                  }
                 }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
                 />

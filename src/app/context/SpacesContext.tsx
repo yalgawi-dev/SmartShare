@@ -696,7 +696,11 @@ const calculateBalancedShares = (members: any[], settings: any) => {
   const remainingPercentage = Math.max(0, 100 - totalLocked);
   const defaultShare = unlockedCount > 0 ? (remainingPercentage / unlockedCount) : 0;
 
-  const finalCreatorShare = isCreatorLocked ? creatorLockedValue : defaultShare;
+  // If there are no unlocked members left to absorb the remainder, the creator MUST absorb it to ensure 100% total
+  let finalCreatorShare = isCreatorLocked ? creatorLockedValue : defaultShare;
+  if (unlockedCount === 0 && remainingPercentage > 0) {
+    finalCreatorShare += remainingPercentage;
+  }
 
   const finalMembers = members.map(m => {
     if (m.isActive === false) return { ...m, sharePercentage: 0 };
