@@ -154,6 +154,14 @@ interface SpacesContextType {
   joinSpace: (spaceId: string, userId: string, name: string) => void;
   getRoleForSpace: (spaceId: string) => 'creator' | 'partner' | 'none';
   finalizeGuestJoin: (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => void;
+  createPendingInvite: (spaceId: string, inviteData: {
+    shadowToken: string;
+    name?: string;
+    isRetroactive: boolean;
+    guestShare: number;
+    creatorShare: number;
+    partnerShares?: Record<string, number>;
+  }) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
   moveMediaItem: (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => void;
@@ -553,6 +561,20 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   const finalizeGuestJoin = (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => {
     saveSpaceUpdate(spaceId, space => {
+      // If shadow member was already created at invite time, just update their name
+      const existingMemberIndex = (space.members || []).findIndex(m => m.userId === shadowToken);
+      if (existingMemberIndex >= 0) {
+        const updatedMembers = [...(space.members || [])];
+        updatedMembers[existingMemberIndex] = {
+          ...updatedMembers[existingMemberIndex],
+          name: name || updatedMembers[existingMemberIndex].name
+        };
+        return {
+          ...space,
+          members: updatedMembers
+        };
+      }
+
       const hasCustomShare = customShare !== undefined && customShare !== null && !isNaN(customShare);
       
       const newMember = {
@@ -586,6 +608,62 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         ...space,
         members: finalMembers,
         settings: { ...space.settings, mySharePercentage: finalCreatorShare },
+        invoices: updatedInvoices
+      };
+    });
+  };
+
+  const createPendingInvite = (spaceId: string, inviteData: {
+    shadowToken: string;
+    name?: string;
+    isRetroactive: boolean;
+    guestShare: number;
+    creatorShare: number;
+    partnerShares?: Record<string, number>;
+  }) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newMember = {
+        userId: inviteData.shadowToken,
+        name: inviteData.name?.trim() || 'שותף מוזמן',
+        role: 'partner' as const,
+        joinedAt: new Date().toISOString(),
+        isActive: true,
+        canUpload: true,
+        canEdit: false,
+        canDelete: false,
+        status: 'pending' as const,
+        sharePercentage: inviteData.guestShare,
+        isCustomShare: true
+      };
+
+      const updatedMembers = (space.members || []).map(m => {
+        if (inviteData.partnerShares && inviteData.partnerShares[m.userId] !== undefined) {
+          return {
+            ...m,
+            sharePercentage: inviteData.partnerShares[m.userId],
+            isCustomShare: true
+          };
+        }
+        return m;
+      });
+      updatedMembers.push(newMember);
+
+      let updatedInvoices = space.invoices || [];
+      if (!inviteData.isRetroactive) {
+        updatedInvoices = updatedInvoices.map(inv => ({
+          ...inv,
+          excludedMembers: [...(inv.excludedMembers || []), inviteData.shadowToken]
+        }));
+      }
+
+      return {
+        ...space,
+        members: updatedMembers,
+        settings: {
+          ...space.settings,
+          mySharePercentage: inviteData.creatorShare,
+          isCustomShare: true
+        },
         invoices: updatedInvoices
       };
     });
@@ -944,7 +1022,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
       updateMemberPermissions, updateSharesBulk,
         updateMemberStatus,
         migrateGuestToRealUser,

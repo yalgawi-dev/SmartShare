@@ -24,10 +24,11 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
   const space = spaces.find((s: any) => s.id === spaceId);
   const isRetroactive = new URLSearchParams(window.location.search).get('retro') === 'true';
   const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
-  const needsName = !currentMember;
+  const needsName = !currentMember || !currentMember.name || currentMember.name === 'שותף מוזמן';
 
   const handleStart = () => {
-    if (!guestName.trim()) {
+    const finalName = guestName.trim() || (currentMember?.name !== 'שותף מוזמן' ? currentMember?.name : '');
+    if (!finalName) {
       alert('אנא הזן את שמך כדי להמשיך');
       return;
     }
@@ -36,7 +37,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     const isRetroParam = urlParams.get('retro') === 'true';
     const shareParam = urlParams.get('share');
     
-    finalizeGuestJoin(spaceId, guestName.trim(), isRetroParam, inviteToken, shareParam ? Number(shareParam) : undefined);
+    finalizeGuestJoin(spaceId, finalName, isRetroParam, inviteToken, shareParam ? Number(shareParam) : undefined);
 
     localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
     const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
