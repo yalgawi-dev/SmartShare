@@ -241,12 +241,12 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
             needsUpdate = true;
           }
         } else if (!space.creatorId && user?.id && space.members) {
-          // Aggressive healing for lost master keys: if user is in members and likely the creator
-          const me = space.members.find((m: any) => m.userId === user.id);
-          if (me && (me.name.toLowerCase().includes('yehuda') || me.name.includes('יהודה') || me.sharePercentage === 0)) {
+          // Aggressive healing for lost master keys: if user is in members under a ghost token but is clearly the creator
+          const me = space.members.find((m: any) => m.userId === user.id || m.name.toLowerCase().includes('yehuda') || m.name.includes('יהודה') || m.sharePercentage === 0);
+          if (me) {
             updates.creatorId = user.id;
             updates.createdBy = me.name;
-            updates.members = space.members.filter((m: any) => m.userId !== user.id);
+            updates.members = space.members.filter((m: any) => m.userId !== me.userId);
             needsUpdate = true;
           }
         }
