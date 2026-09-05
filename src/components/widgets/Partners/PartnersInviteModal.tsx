@@ -41,16 +41,18 @@ export function PartnersInviteModal({
     const totalCount = validMembers.length + 2; // existing partners + creator + new guest
 
     if (allocationMode === 'equal') {
-      const equalShare = Number((100 / totalCount).toFixed(1));
+      const totalPeople = validMembers.length + 2; // existing partners + creator + new guest
+      const eachShare = Number((100 / totalPeople).toFixed(1));
       const pShares: Record<string, number> = {};
+      let partnersSum = 0;
       validMembers.forEach((m: any) => {
-        pShares[m.userId] = equalShare;
+        pShares[m.userId] = eachShare;
+        partnersSum += eachShare;
       });
-      // Adjust creator to ensure exact 100%
-      const partnersTotal = equalShare * (validMembers.length + 1);
-      const cShare = Number((100 - partnersTotal + equalShare).toFixed(1));
+      const gShare = eachShare;
+      const cShare = Number((100 - partnersSum - gShare).toFixed(1));
       return {
-        plannedGuestShare: equalShare,
+        plannedGuestShare: gShare,
         plannedCreatorShare: cShare,
         plannedPartnerShares: pShares
       };
@@ -116,21 +118,20 @@ export function PartnersInviteModal({
 
     const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
     
-    // Atomically create the pending partner in the space
-    createPendingInvite(space.id, {
-      shadowToken,
-      name: partnerName.trim() || 'שותף מוזמן',
-      isRetroactive,
-      guestShare: plannedGuestShare,
-      creatorShare: plannedCreatorShare,
-      partnerShares: plannedPartnerShares
-    });
-
+    // Encode planned shares into the invite link.
+    // The DB update and countdown timer will only start when the guest accepts in WelcomeGate!
     const url = new URL(window.location.href);
     url.pathname = '/space/' + space.id;
     url.searchParams.set('invite', shadowToken);
     url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
     url.searchParams.set('share', plannedGuestShare.toString());
+    if (partnerName.trim()) {
+      url.searchParams.set('name', partnerName.trim());
+    }
+    url.searchParams.set('plan', JSON.stringify({
+      creator: plannedCreatorShare,
+      partners: plannedPartnerShares
+    }));
     const link = url.toString();
 
     onClose();
@@ -162,7 +163,7 @@ export function PartnersInviteModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
-              הזמנת שותף חדש (v2.4)
+              הזמנת שותף חדש (v2.5)
             </h3>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               הגדרת שותפות ואחוזים מראש

@@ -153,7 +153,14 @@ interface SpacesContextType {
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
   getRoleForSpace: (spaceId: string) => 'creator' | 'partner' | 'none';
-  finalizeGuestJoin: (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => void;
+  finalizeGuestJoin: (
+    spaceId: string, 
+    name: string, 
+    isRetroactive: boolean, 
+    shadowToken: string, 
+    customShare?: number,
+    sharesPlan?: { creator: number; partners?: Record<string, number> }
+  ) => void;
   createPendingInvite: (spaceId: string, inviteData: {
     shadowToken: string;
     name?: string;
@@ -559,22 +566,15 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const finalizeGuestJoin = (spaceId: string, name: string, isRetroactive: boolean, shadowToken: string, customShare?: number) => {
+  const finalizeGuestJoin = (
+    spaceId: string, 
+    name: string, 
+    isRetroactive: boolean, 
+    shadowToken: string, 
+    customShare?: number,
+    sharesPlan?: { creator: number; partners?: Record<string, number> }
+  ) => {
     saveSpaceUpdate(spaceId, space => {
-      // If shadow member was already created at invite time, just update their name
-      const existingMemberIndex = (space.members || []).findIndex(m => m.userId === shadowToken);
-      if (existingMemberIndex >= 0) {
-        const updatedMembers = [...(space.members || [])];
-        updatedMembers[existingMemberIndex] = {
-          ...updatedMembers[existingMemberIndex],
-          name: name || updatedMembers[existingMemberIndex].name
-        };
-        return {
-          ...space,
-          members: updatedMembers
-        };
-      }
-
       const hasCustomShare = customShare !== undefined && customShare !== null && !isNaN(customShare);
       
       const newMember = {
@@ -588,7 +588,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         canDelete: false,
         status: 'pending' as const,
         sharePercentage: hasCustomShare ? customShare : 0,
-        isCustomShare: hasCustomShare
+        isCustomShare: true
       };
       
       let updatedInvoices = space.invoices || [];
@@ -598,16 +598,30 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           excludedMembers: [...(inv.excludedMembers || []), shadowToken]
         }));
       }
-      
-      const newMembersList = [...(space.members || []), newMember];
-      
-      // Atomically balance shares
-      const { finalMembers, finalCreatorShare } = calculateBalancedShares(newMembersList, space.settings);
+
+      let finalMembersList: any[];
+      let finalCreatorShare: number;
+
+      if (sharesPlan) {
+        finalCreatorShare = sharesPlan.creator;
+        finalMembersList = (space.members || []).map(m => {
+          if (sharesPlan.partners && sharesPlan.partners[m.userId] !== undefined) {
+            return { ...m, sharePercentage: sharesPlan.partners[m.userId], isCustomShare: true };
+          }
+          return m;
+        });
+        finalMembersList.push(newMember);
+      } else {
+        const newMembersList = [...(space.members || []), newMember];
+        const { finalMembers, finalCreatorShare: calculatedCreatorShare } = calculateBalancedShares(newMembersList, space.settings);
+        finalMembersList = finalMembers;
+        finalCreatorShare = calculatedCreatorShare;
+      }
       
       return {
         ...space,
-        members: finalMembers,
-        settings: { ...space.settings, mySharePercentage: finalCreatorShare },
+        members: finalMembersList,
+        settings: { ...space.settings, mySharePercentage: finalCreatorShare, isCustomShare: true },
         invoices: updatedInvoices
       };
     });

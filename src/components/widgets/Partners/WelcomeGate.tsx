@@ -36,8 +36,29 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     const urlParams = new URLSearchParams(window.location.search);
     const isRetroParam = urlParams.get('retro') === 'true';
     const shareParam = urlParams.get('share');
+    const planParam = urlParams.get('plan');
+
+    let sharesPlan: { creator: number; partners?: Record<string, number> } | undefined;
+    if (planParam) {
+      try {
+        sharesPlan = JSON.parse(decodeURIComponent(planParam));
+      } catch (e) {
+        try {
+          sharesPlan = JSON.parse(planParam);
+        } catch (e2) {
+          console.error('Error parsing planParam', e2);
+        }
+      }
+    }
     
-    finalizeGuestJoin(spaceId, finalName, isRetroParam, inviteToken, shareParam ? Number(shareParam) : undefined);
+    finalizeGuestJoin(
+      spaceId, 
+      finalName, 
+      isRetroParam, 
+      inviteToken, 
+      shareParam ? Number(shareParam) : undefined,
+      sharesPlan
+    );
 
     localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
     const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
