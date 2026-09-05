@@ -58,20 +58,26 @@ export function PartnersInviteModal({
       };
     }
 
-    if (allocationMode === 'proportional') {
-      const gShare = Math.min(100, Math.max(1, Number(customShare) || 10));
+    if (allocationMode === 'proportional' && validMembers.length > 0) {
+      const gShare = Math.min(99, Math.max(1, Number(customShare) || 10));
       const remaining = Math.max(0, 100 - gShare);
       
+      let totalExisting = currentCreatorShare;
+      validMembers.forEach((m: any) => {
+        totalExisting += (m.sharePercentage ?? 0);
+      });
+      if (totalExisting <= 0) totalExisting = 100;
+
       const pShares: Record<string, number> = {};
-      let totalAssigned = 0;
+      let partnersAssigned = 0;
       validMembers.forEach((m: any) => {
         const curr = m.sharePercentage ?? (100 / (validMembers.length + 1));
-        const newP = Number((remaining * (curr / 100)).toFixed(1));
+        const newP = Number(((curr / totalExisting) * remaining).toFixed(1));
         pShares[m.userId] = newP;
-        totalAssigned += newP;
+        partnersAssigned += newP;
       });
 
-      const cShare = Number((remaining - totalAssigned).toFixed(1));
+      const cShare = Number((100 - partnersAssigned - gShare).toFixed(1));
       return {
         plannedGuestShare: gShare,
         plannedCreatorShare: Math.max(0, cShare),
@@ -163,7 +169,7 @@ export function PartnersInviteModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
-              הזמנת שותף חדש (v2.5)
+              הזמנת שותף חדש (v2.6)
             </h3>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               הגדרת שותפות ואחוזים מראש
@@ -182,6 +188,8 @@ export function PartnersInviteModal({
             placeholder="למשל: תומר, דנה, שותף 2..." 
             value={partnerName}
             onChange={e => setPartnerName(e.target.value)}
+            onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+            onClick={e => (e.target as HTMLInputElement).select()}
             style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', boxSizing: 'border-box' }}
           />
         </div>
@@ -226,23 +234,25 @@ export function PartnersInviteModal({
             >
               ⚖️ שווה בשווה
             </button>
-            <button
-              type="button"
-              onClick={() => setAllocationMode('proportional')}
-              style={{
-                padding: '0.6rem 0.5rem',
-                borderRadius: '10px',
-                border: allocationMode === 'proportional' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
-                background: allocationMode === 'proportional' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
-                color: allocationMode === 'proportional' ? 'var(--primary, #3b82f6)' : '#475569',
-                fontWeight: allocationMode === 'proportional' ? 'bold' : 'normal',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                textAlign: 'center'
-              }}
-            >
-              📉 דילול יחסי
-            </button>
+            {validMembers.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setAllocationMode('proportional')}
+                style={{
+                  padding: '0.6rem 0.5rem',
+                  borderRadius: '10px',
+                  border: allocationMode === 'proportional' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
+                  background: allocationMode === 'proportional' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
+                  color: allocationMode === 'proportional' ? 'var(--primary, #3b82f6)' : '#475569',
+                  fontWeight: allocationMode === 'proportional' ? 'bold' : 'normal',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  textAlign: 'center'
+                }}
+              >
+                📉 דילול יחסי (3+)
+              </button>
+            )}
             <button
               type="button"
               onClick={() => setAllocationMode('custom')}
@@ -255,7 +265,8 @@ export function PartnersInviteModal({
                 fontWeight: allocationMode === 'custom' ? 'bold' : 'normal',
                 cursor: 'pointer',
                 fontSize: '0.8rem',
-                textAlign: 'center'
+                textAlign: 'center',
+                gridColumn: validMembers.length === 0 ? 'span 2' : 'auto'
               }}
             >
               ✍️ התאמה ידנית
@@ -277,6 +288,8 @@ export function PartnersInviteModal({
                   max="99"
                   value={customShare}
                   onChange={e => setCustomShare(e.target.value)}
+                  onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                  onClick={e => (e.target as HTMLInputElement).select()}
                   style={{ width: '65px', padding: '0.4rem', borderRadius: '8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
                 />
                 <span style={{ fontWeight: 'bold', color: '#64748b' }}>%</span>
@@ -300,7 +313,9 @@ export function PartnersInviteModal({
                   type="number" 
                   value={manualCreatorShare} 
                   onChange={e => setManualCreatorShare(Number(e.target.value) || 0)}
-                  style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}
+                  onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                  onClick={e => (e.target as HTMLInputElement).select()}
+                  style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
                 />
                 <span>%</span>
               </div>
@@ -313,7 +328,9 @@ export function PartnersInviteModal({
                     type="number" 
                     value={manualShares[m.userId] ?? 0} 
                     onChange={e => setManualShares({ ...manualShares, [m.userId]: Number(e.target.value) || 0 })}
-                    style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center' }}
+                    onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                    style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
                   />
                   <span>%</span>
                 </div>
@@ -326,6 +343,8 @@ export function PartnersInviteModal({
                   type="number" 
                   value={manualGuestShare} 
                   onChange={e => setManualGuestShare(Number(e.target.value) || 0)}
+                  onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                  onClick={e => (e.target as HTMLInputElement).select()}
                   style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
                 />
                 <span>%</span>
