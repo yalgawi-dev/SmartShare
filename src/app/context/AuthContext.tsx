@@ -244,6 +244,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
+  const syncProviderData = async (firebaseUser: any) => {
+    if (!firebaseUser || firebaseUser.isAnonymous) return;
+    try {
+      const userRef = doc(db, 'users', firebaseUser.uid);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        let activeUser = userSnap.data() as UserProfile;
+        let needsUpdate = false;
+        
+        const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+        const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+        const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+
+        if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && bestName) {
+          activeUser.realName = bestName;
+          activeUser.nickname = bestName.split(' ')[0];
+          needsUpdate = true;
+        }
+        if (!activeUser.avatarUrl && bestPhoto) {
+          activeUser.avatarUrl = bestPhoto;
+          needsUpdate = true;
+        }
+        if (!activeUser.email && bestEmail) {
+          activeUser.email = bestEmail;
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          await updateDoc(userRef, { 
+            realName: activeUser.realName,
+            nickname: activeUser.nickname || '',
+            avatarUrl: activeUser.avatarUrl || null,
+            email: activeUser.email || ''
+          });
+          setUser(prev => prev ? { ...prev, ...activeUser } : activeUser);
+        }
+      }
+    } catch (err) {
+      console.error("Failed to sync provider data", err);
+    }
+  };
+
   const loginWithGoogle = async () => {
     try {
       const { signInWithPopup, linkWithPopup } = await import('firebase/auth');
@@ -264,6 +306,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         result = await signInWithPopup(auth, googleProvider);
       }
       console.log('Google login success', result.user);
+      await syncProviderData(result.user);
       return result.user;
     } catch (e: any) {
       console.error('Google login failed', e);
@@ -295,6 +338,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         result = await signInWithPopup(auth, provider);
       }
       console.log('Facebook login success', result.user);
+      await syncProviderData(result.user);
       return result.user;
     } catch (e: any) {
       console.error('Facebook login failed', e);
