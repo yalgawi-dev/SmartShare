@@ -1,11 +1,13 @@
 'use client';
 
+import { useState } from 'react';
 import { useAuth } from '../../../app/context/AuthContext';
 import { useSpaces } from '../../../app/context/SpacesContext';
 
 export default function CreatorDisputesBanner({ space }: { space: any }) {
   const { user } = useAuth();
   const { updateMemberStatus, removeMember } = useSpaces();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   
   if (!space || !space.members) return null;
 
@@ -20,9 +22,33 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
   
   if (disputedMembers.length === 0) return null;
 
+  if (isCollapsed) {
+    return (
+      <div 
+        onClick={() => setIsCollapsed(false)}
+        style={{ background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '12px', padding: '0.75rem 1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', boxShadow: '0 2px 8px rgba(239,68,68,0.1)' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{ fontSize: '1.25rem' }}>🚨</span>
+          <span style={{ color: '#991b1b', fontWeight: 'bold' }}>{disputedMembers.length} פניות משותפים ממתינות לטיפולך</span>
+        </div>
+        <button style={{ background: 'none', border: 'none', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>הצג ▾</button>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem', boxShadow: '0 4px 12px rgba(239,68,68,0.1)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
+    <div style={{ background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem', boxShadow: '0 4px 12px rgba(239,68,68,0.1)', position: 'relative' }}>
+      
+      <button 
+        onClick={() => setIsCollapsed(true)}
+        style={{ position: 'absolute', top: '16px', left: '16px', background: 'white', border: '1px solid #fca5a5', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(239,68,68,0.1)', color: '#991b1b' }}
+        title="הקטן"
+      >
+        ▴
+      </button>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', paddingRight: '2.5rem' }}>
         <span style={{ fontSize: '1.5rem' }}>🚨</span>
         <h3 style={{ margin: 0, color: '#991b1b', fontSize: '1.25rem', fontWeight: 'bold' }}>
           התקבלה פנייה/מחלוקת משותף (v3.9)

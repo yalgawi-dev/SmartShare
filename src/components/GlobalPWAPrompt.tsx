@@ -62,7 +62,6 @@ export default function GlobalPWAPrompt() {
       setDeferredPrompt(null);
     } else {
       setShowInstructions(true);
-      setShowPrompt(false);
     }
   };
 

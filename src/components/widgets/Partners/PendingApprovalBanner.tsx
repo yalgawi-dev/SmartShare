@@ -197,21 +197,23 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
               onClick={handleApproveClick}
               style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1.5, boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
             >
-              מאשר, הכנס אותי
+              {currentMember.status === 'disputed' ? 'התחרטתי, אני מאשר' : 'מסכים, אישור שותפות'}
             </button>
-            <button 
-              onClick={() => setIsDisputing(true)}
-              style={{ background: 'white', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.6rem 1rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
-            >
-              יש לי מחלוקת
-            </button>
+            {currentMember.status !== 'disputed' && (
+              <button 
+                onClick={() => setIsDisputing(true)}
+                style={{ background: 'white', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.6rem 1rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
+              >
+                יש לי מחלוקת
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <textarea 
               value={disputeText}
               onChange={e => setDisputeText(e.target.value)}
-              placeholder="כתוב מה הבעיה באחוזים (לדוגמה: סוכם איתי על 30%)"
+              placeholder="מה הבעיה? פרט כאן (לדוגמה: סיכמנו על 30% / לא מבין משהו)"
               style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', resize: 'none', minHeight: '80px', boxSizing: 'border-box' }}
             />
             <div style={{ display: 'flex', gap: '0.75rem' }}>
@@ -219,7 +221,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
                 onClick={handleDispute}
                 style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}
               >
-                שלח למנהל
+                דווח למנהל
               </button>
               <button 
                 onClick={() => setIsDisputing(false)}
