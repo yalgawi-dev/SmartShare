@@ -1,9 +1,11 @@
 'use client';
 
 import { useAuth } from '../../../app/context/AuthContext';
+import { useSpaces } from '../../../app/context/SpacesContext';
 
 export default function CreatorDisputesBanner({ space }: { space: any }) {
   const { user } = useAuth();
+  const { updateMemberStatus, removeMember } = useSpaces();
   
   if (!space || !space.members) return null;
 
@@ -23,7 +25,7 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
         <span style={{ fontSize: '1.5rem' }}>🚨</span>
         <h3 style={{ margin: 0, color: '#991b1b', fontSize: '1.25rem', fontWeight: 'bold' }}>
-          שותף דיווח על מחלוקת באחוזים! (v3.9)
+          התקבלה פנייה/מחלוקת משותף (v3.9)
         </h3>
       </div>
       
@@ -32,23 +34,47 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
           <div key={idx} style={{ background: 'white', padding: '1rem', borderRadius: '12px', border: '1px solid #fca5a5' }}>
             <p style={{ margin: '0 0 0.5rem 0', fontWeight: 'bold', color: '#7f1d1d' }}>{m.name || m.email || 'שותף'}</p>
             <p style={{ margin: '0 0 1rem 0', color: '#b91c1c', fontSize: '0.95rem' }}>
-              <strong>הודעה מהשותף:</strong> "{m.disputeMessage}"
+              <strong>תוכן הפנייה:</strong> "{m.disputeMessage}"
             </p>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
+            
+            {/* Generic Resolution Actions */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
               <button 
                 onClick={() => {
-                  window.dispatchEvent(new CustomEvent('open-shares-editor'));
+                  alert("מערכת 'ניהול הודעות וצ'אט' נמצאת כרגע בפיתוח ותצורף למנוע התקשורת בקרוב! בינתיים, תוכל ליצור איתו קשר מחוץ לאפליקציה.");
                 }}
-                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}
+                style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: '1 1 auto', fontSize: '0.9rem' }}
               >
-                ערוך אחוזים עכשיו
+                💬 השב (בקרוב)
+              </button>
+              
+              <button 
+                onClick={() => {
+                  if (confirm('האם אתה בטוח שברצונך לאפס את הסטטוס שלו כדי שיוכל לנסות לאשר שוב?')) {
+                     updateMemberStatus(space.id, m.userId, 'pending');
+                  }
+                }}
+                style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: '1 1 auto', fontSize: '0.9rem' }}
+              >
+                ✅ סמן כטופל (אפס סטטוס)
+              </button>
+
+              <button 
+                onClick={() => {
+                  if (confirm('מחיקת השותף תסיר אותו מהקיר לחלוטין. האם אתה בטוח?')) {
+                     removeMember(space.id, m.userId);
+                  }
+                }}
+                style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: '1 1 auto', fontSize: '0.9rem' }}
+              >
+                🗑️ הסר שותף
               </button>
             </div>
           </div>
         ))}
       </div>
       <p style={{ margin: '1rem 0 0 0', fontSize: '0.85rem', color: '#991b1b' }}>
-        * ברגע שתערוך ותשמור את האחוזים דרך "ערוך אחוזים", הסטטוס של השותף יתאפס והוא יוכל לאשר שוב.
+        * שים לב: ניתן לערוך אחוזים דרך אזור הפיננסים (אם קיים). מערכת ההודעות המלאה תגיע בעדכון הבא.
       </p>
     </div>
   );
