@@ -21,14 +21,37 @@ export default function GlobalPWAPrompt() {
       const ua = window.navigator.userAgent;
       setIsIOS(/iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream);
 
+      let savedPrompt: any = null;
       window.addEventListener('beforeinstallprompt', (e) => {
         e.preventDefault();
+        savedPrompt = e;
         setDeferredPrompt(e);
       });
+
+      const manualTrigger = async () => {
+        if (savedPrompt) {
+          savedPrompt.prompt();
+          const { outcome } = await savedPrompt.userChoice;
+          if (outcome === 'accepted') {
+            setShowPrompt(false);
+          }
+          savedPrompt = null;
+          setDeferredPrompt(null);
+        } else {
+          setShowInstructions(true);
+          setShowPrompt(false);
+        }
+      };
+      
+      window.addEventListener('trigger-pwa-install', manualTrigger);
+      
+      return () => {
+        window.removeEventListener('trigger-pwa-install', manualTrigger);
+      };
     }
   }, []);
 
-  if (!showPrompt) return null;
+  if (!showPrompt && !showInstructions) return null;
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -52,36 +75,38 @@ export default function GlobalPWAPrompt() {
 
   return (
     <>
-      <div style={{
-        position: 'fixed',
-        top: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'white',
-        padding: '0.75rem 1rem',
-        borderRadius: '24px',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '1rem',
-        zIndex: 9999,
-        border: '1px solid #e2e8f0',
-        width: '90%',
-        maxWidth: '400px'
-      }}>
-        <div style={{ flex: 1, fontSize: '0.9rem', fontWeight: 'bold', color: '#1e293b' }}>
-          התקן את האפליקציה (חינם)
+      {showPrompt && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'white',
+          padding: '0.75rem 1rem',
+          borderRadius: '24px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '1rem',
+          zIndex: 9999,
+          border: '1px solid #e2e8f0',
+          width: '90%',
+          maxWidth: '400px'
+        }}>
+          <div style={{ flex: 1, fontSize: '0.9rem', fontWeight: 'bold', color: '#1e293b' }}>
+            התקן את חלל הפרויקט (מומלץ)
+          </div>
+          <button 
+            onClick={handleInstallClick}
+            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            התקן כעת
+          </button>
+          <button onClick={handleDismiss} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer', padding: 0 }}>
+            ×
+          </button>
         </div>
-        <button 
-          onClick={handleInstallClick}
-          style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
-        >
-          התקן
-        </button>
-        <button onClick={handleDismiss} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer', padding: 0 }}>
-          ×
-        </button>
-      </div>
+      )}
 
       {showInstructions && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>

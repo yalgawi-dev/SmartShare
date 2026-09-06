@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { getRemainingTimeText } from '../../../utils/partnerUtils';
@@ -53,6 +53,16 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const [isDisputing, setIsDisputing] = useState(false);
   const [disputeText, setDisputeText] = useState('');
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+
+  useEffect(() => {
+    const handleOpen = () => {
+      setIsMinimized(false);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    window.addEventListener('open-approval-banner', handleOpen);
+    return () => window.removeEventListener('open-approval-banner', handleOpen);
+  }, []);
 
   const remainingText = getRemainingTimeText(currentMember.joinedAt, space.settings?.pendingExpirationHours || 1);
   const isExpired = remainingText === 'הזמן פג' && currentMember.status !== 'extension_requested';
@@ -100,9 +110,36 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     }
   };
 
+  if (isMinimized) {
+    return (
+      <div 
+        onClick={() => setIsMinimized(false)}
+        style={{
+          position: 'fixed',
+          top: '80px',
+          right: '20px',
+          background: '#f59e0b',
+          color: 'white',
+          padding: '0.75rem 1rem',
+          borderRadius: '30px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+          zIndex: 5000,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          fontWeight: 'bold'
+        }}
+        title="אישור שותפות בהמתנה"
+      >
+        <span style={{ fontSize: '1.2rem' }}>⭐</span> שותפות
+      </div>
+    );
+  }
+
   return (
-    <div style={{ background: currentMember.status === 'disputed' ? '#fef3c7' : '#eff6ff', border: currentMember.status === 'disputed' ? '1px solid #f59e0b' : '1px solid #3b82f6', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-      {currentMember.status === 'extension_requested' ? (
+    <div style={{ position: 'relative', background: currentMember.status === 'disputed' ? '#fef3c7' : '#eff6ff', border: currentMember.status === 'disputed' ? '1px solid #f59e0b' : '1px solid #3b82f6', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+      <button onClick={() => setIsMinimized(true)} style={{ position: 'absolute', top: '10px', left: '10px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="מזער">➖</button>      {currentMember.status === 'extension_requested' ? (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#fef3c7', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#92400e', border: '1px solid #fcd34d' }}>
           <span style={{ fontSize: '1.1rem' }}>⏳</span>
           <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>ביקשת הארכת זמן - ממתין לאישור המזמין...</span>
@@ -225,4 +262,6 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     </div>
   );
 }
+
+
 

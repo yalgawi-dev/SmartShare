@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { use, useState, useEffect, useRef } from 'react';
 import styles from './page.module.css';
@@ -38,10 +38,45 @@ function EmptyStateCarousel() {
       <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '1.1rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
         הוסף פיצ'רים מתפריט "➕ הוסף כלים" למעלה.
       </p>
+      {/* Restricted Action Modal */}
+      {showRestrictedActionModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
+          <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.3s ease-out' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a' }}>פעולה חסומה</h3>
+            <p style={{ color: '#475569', marginBottom: '2rem', lineHeight: 1.5 }}>
+              כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.
+            </p>
+            <button 
+              onClick={() => {
+                setShowRestrictedActionModal(false);
+                window.dispatchEvent(new CustomEvent('open-approval-banner'));
+              }}
+              style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '1rem' }}
+            >
+              אישור שותפות (גלול למעלה)
+            </button>
+            <button 
+              onClick={() => {
+                setShowRestrictedActionModal(false);
+                window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+              }}
+              style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '1rem' }}
+            >
+              הורדת האפליקציה
+            </button>
+            <button 
+              onClick={() => setShowRestrictedActionModal(false)}
+              style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              ביטול
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
 export default function SpaceWallPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
@@ -58,6 +93,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [showInvite, setShowInvite] = useState(false);
   const [showFeatureMenu, setShowFeatureMenu] = useState(false);
   const [showPartnersModal, setShowPartnersModal] = useState(false);
+  const [showRestrictedActionModal, setShowRestrictedActionModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -156,7 +192,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   const handleRestrictedAction = (action: () => void) => {
     if (isRestricted) {
-      alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+      setShowRestrictedActionModal(true);
     } else {
       action();
     }
@@ -261,7 +297,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                <div 
                  onClick={() => {
                    if (isRestricted) {
-                     alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+                     setShowRestrictedActionModal(true);
                    } else {
                      setShowPartnersModal(true);
                    }
@@ -420,6 +456,45 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
+      {/* Restricted Action Modal */}
+      {showRestrictedActionModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
+          <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.3s ease-out' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
+            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a' }}>פעולה חסומה</h3>
+            <p style={{ color: '#475569', marginBottom: '2rem', lineHeight: 1.5 }}>
+              כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.
+            </p>
+            <button 
+              onClick={() => {
+                setShowRestrictedActionModal(false);
+                window.dispatchEvent(new CustomEvent('open-approval-banner'));
+              }}
+              style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '1rem' }}
+            >
+              אישור שותפות (גלול למעלה)
+            </button>
+            <button 
+              onClick={() => {
+                setShowRestrictedActionModal(false);
+                window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+              }}
+              style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '1rem' }}
+            >
+              הורדת האפליקציה
+            </button>
+            <button 
+              onClick={() => setShowRestrictedActionModal(false)}
+              style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              ביטול
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
+
