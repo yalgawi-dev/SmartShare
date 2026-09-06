@@ -424,50 +424,44 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
       {/* Restricted Action Modal */}
       {showRestrictedActionModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.6)' }}>
-          <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '2rem', textAlign: 'center', animation: 'scaleIn 0.3s ease-out', position: 'relative' }}>
-            <button 
-              onClick={() => setShowRestrictedActionModal(false)}
-              style={{ position: 'absolute', top: '16px', right: '16px', background: 'transparent', border: 'none', fontSize: '1.5rem', color: '#94a3b8', cursor: 'pointer', padding: '0.5rem' }}
-              title="סגור חלון"
-            >
-              ✕
-            </button>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🔒</div>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a' }}>פעולה חסומה</h3>
-            <p style={{ color: '#475569', marginBottom: '2rem', lineHeight: 1.5 }}>
-              כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.
-            </p>
-            <button 
-              onClick={() => {
-                setShowRestrictedActionModal(false);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }}
-              style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '1rem' }}
-            >
-              אישור שותפות (גלול למעלה)
-            </button>
-            <button 
-              onClick={() => {
-                setShowRestrictedActionModal(false);
-                window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
-              }}
-              style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', marginBottom: '1rem' }}
-            >
-              הורדת האפליקציה
-            </button>
-            <button 
-              onClick={() => setShowRestrictedActionModal(false)}
-              style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontWeight: 'bold', cursor: 'pointer', padding: '0.5rem', marginTop: '0.5rem' }}
-            >
-              הבנתי, חזור לסיור באפליקציה
-            </button>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(8px)', padding: '1rem' }}>
+          <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '2.5rem 1.5rem', textAlign: 'center', animation: 'scaleIn 0.3s ease-out', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: '4rem', margin: '0 auto', background: '#fef2f2', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>🔒</div>
+            
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.5rem', fontWeight: 'bold' }}>פעולה חסומה</h3>
+              <p style={{ color: '#475569', margin: 0, lineHeight: 1.6, fontSize: '1.05rem' }}>
+                אינך יכול לגשת לאזור זה כרגע. כדי לבצע פעולות, לערוך הגדרות או להוסיף נתונים, עליך <strong>לאשר את הצטרפותך כשותף</strong> במסך הראשי.
+              </p>
+            </div>
+
+            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', textAlign: 'right' }}>
+              <h4 style={{ margin: '0 0 0.5rem 0', color: '#334155', fontSize: '1rem' }}>מה עליי לעשות עכשיו?</h4>
+              <ol style={{ margin: 0, paddingRight: '1.2rem', color: '#475569', lineHeight: 1.6, fontSize: '0.95rem' }}>
+                <li>חזור למסך הראשי (בעזרת הכפתור למטה)</li>
+                <li>חפש את כרטיס האישור שלך בראש העמוד</li>
+                <li>לחץ על <strong>"מסכים, אישור שותפות"</strong></li>
+                <li>לאחר מכן כל האזורים ייפתחו עבורך!</li>
+              </ol>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '0.5rem' }}>
+              <button 
+                onClick={() => {
+                  setShowRestrictedActionModal(false);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1.2rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
+              >
+                &larr; הבנתי, חזור למסך הראשי
+              </button>
+            </div>
           </div>
         </div>
       )}
     </div>
   );
+
+
+
 }
-
-
-

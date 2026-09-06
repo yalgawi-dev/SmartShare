@@ -212,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (auth.currentUser && auth.currentUser.isAnonymous) {
         try {
           result = await linkWithPopup(auth.currentUser, googleProvider);
-        } catch (linkError) {
+        } catch (linkError: any) {
           if (linkError.code === 'auth/credential-already-in-use') {
             result = await signInWithPopup(auth, googleProvider);
           } else {
@@ -223,9 +223,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         result = await signInWithPopup(auth, googleProvider);
       }
       console.log('Google login success', result.user);
-    } catch (e) {
+      return result.user;
+    } catch (e: any) {
       console.error('Google login failed', e);
-      alert('שגיאת התחברות (' + (e.code || 'כללי') + '):\n' + (e.message || 'לא ידוע'));
+      // We don't alert here anymore so the caller can decide, or we can just alert and throw
+      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+        alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
+      }
+      throw e;
     }
   };
 
