@@ -15,6 +15,7 @@ import ScannerModal from '../../../components/widgets/ScannerModal';
 import PendingApprovalBanner from '../../../components/widgets/Partners/PendingApprovalBanner';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
+import { PartnersSettingsList } from '../../../components/widgets/Partners/PartnersSettingsList';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
 
@@ -56,6 +57,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   const [showInvite, setShowInvite] = useState(false);
   const [showFeatureMenu, setShowFeatureMenu] = useState(false);
+  const [showPartnersModal, setShowPartnersModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
@@ -256,8 +258,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
              
              {/* Partners Bubble */}
              {hasPartners && activePartnersCount > 0 && (
-               <div style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', cursor: 'help' }} title={`${activePartnersCount} שותפים בפרויקט`}>
-                 <div style={{ padding: '0.2rem 0.75rem', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', boxShadow: 'var(--shadow-sm)' }}>
+               <div 
+                 onClick={() => {
+                   if (isRestricted) {
+                     alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+                   } else {
+                     setShowPartnersModal(true);
+                   }
+                 }}
+                 style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', cursor: 'pointer' }} 
+                 title="ניהול שותפים והרשאות"
+               >
+                 <div style={{ padding: '0.2rem 0.75rem', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}>
                    <span>👥</span> {activePartnersCount} שותפים
                  </div>
                </div>
@@ -393,6 +405,19 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             financeRef.current?.processScan(url);
           }}
         />
+      )}
+
+      {/* Unified Partners Management Modal (v3.5 Shortcut) */}
+      {showPartnersModal && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.5)', padding: '1rem' }}>
+           <div style={{ background: 'var(--bg-main)', borderRadius: '24px', padding: '1.5rem', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>ניהול שותפים והרשאות</h3>
+                <button onClick={() => setShowPartnersModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
+              </div>
+              <PartnersSettingsList space={space} user={user} />
+           </div>
+        </div>
       )}
 
     </div>
