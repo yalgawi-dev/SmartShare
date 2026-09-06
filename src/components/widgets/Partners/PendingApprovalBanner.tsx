@@ -281,21 +281,6 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
             </button>
 
             <button 
-              onClick={async () => {
-                try {
-                  await loginWithApple();
-                  finalizeApproval();
-                  setShowRegisterPrompt(false);
-                } catch (e) {
-                }
-              }}
-              style={{ width: '100%', background: '#000000', color: 'white', border: 'none', padding: '1.2rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>🍏</span>
-              התחבר עם Apple
-            </button>
-
-            <button 
               onClick={() => setShowRegisterPrompt(false)}
               style={{ background: 'transparent', border: 'none', color: '#64748b', fontWeight: 'bold', cursor: 'pointer', padding: '1rem', fontSize: '1rem', marginTop: '0.5rem' }}
             >
