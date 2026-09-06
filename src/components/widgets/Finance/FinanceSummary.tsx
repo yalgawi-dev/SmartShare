@@ -31,6 +31,20 @@ export function FinanceSummary({
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
+
+  // Determine if user is pending/restricted
+  let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
+  if (!myPartnerToken && user?.spaceKeys?.[space.id]?.token) myPartnerToken = user.spaceKeys[space.id].token;
+  if (!myPartnerToken && typeof window !== 'undefined') {
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (localKeys[space.id]?.token) myPartnerToken = localKeys[space.id].token;
+    } catch(e){}
+  }
+  const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+  const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
+  const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
+  const isRestricted = isGuestMode || isPending;
   
   const activeInvoices = invoices.filter((inv: any) => inv.isActive !== false);
   const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute');
@@ -220,19 +234,6 @@ export function FinanceSummary({
           {hasPartners && (
             <button 
               onClick={() => {
-                let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
-                if (!myPartnerToken && user?.spaceKeys?.[space.id]?.token) myPartnerToken = user.spaceKeys[space.id].token;
-                if (!myPartnerToken && typeof window !== 'undefined') {
-                  try {
-                    const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-                    if (localKeys[space.id]?.token) myPartnerToken = localKeys[space.id].token;
-                  } catch(e){}
-                }
-                const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
-                const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
-                const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
-                const isRestricted = isGuestMode || isPending;
-
                 if (isRestricted) {
                   alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
                 } else if (myMember && myMember.canEditShares === false) {
@@ -400,4 +401,5 @@ export function FinanceSummary({
     </div>
   );
 }
-
+
+
