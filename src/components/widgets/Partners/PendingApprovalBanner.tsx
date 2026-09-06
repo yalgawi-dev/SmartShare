@@ -12,43 +12,59 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const space = spaces.find((s: any) => s.id === spaceId);
   if (!space) return null;
 
-  let currentToken = user?.id || inviteToken;
+  // Creators never see the partner pending approval banner
+  const isCreatorMe = Boolean(
+    (user?.id && space.creatorId && user.id === space.creatorId) ||
+    (space.createdBy && user?.realName && space.createdBy === user.realName)
+  );
+  if (isCreatorMe) return null;
+
+  // Resolve partner's unique token from URL, user spaceKeys, or local storage
+  const tokenFromUrl = inviteToken || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null);
   
-  if (!currentToken && typeof window !== 'undefined') {
-    const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
-    const matchingMember = space.members?.find((m: any) => storedTokens.includes(m.userId));
-    if (matchingMember) {
-      currentToken = matchingMember.userId;
-    }
+  let myPartnerToken = tokenFromUrl;
+  if (!myPartnerToken && user?.spaceKeys?.[spaceId]?.token) {
+    myPartnerToken = user.spaceKeys[spaceId].token;
+  }
+  if (!myPartnerToken && typeof window !== 'undefined') {
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (localKeys[spaceId]?.token) {
+        myPartnerToken = localKeys[spaceId].token;
+      }
+    } catch (e) {}
+  }
+  if (!myPartnerToken && typeof window !== 'undefined') {
+    try {
+      const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+      const matchingMember = space.members?.find((m: any) => storedTokens.includes(m.userId));
+      if (matchingMember) myPartnerToken = matchingMember.userId;
+    } catch (e) {}
   }
 
-  if (!currentToken) return null;
+  // Find the partner member record in space.members
+  const currentMember = space.members?.find((m: any) => 
+    (myPartnerToken && m.userId === myPartnerToken) || 
+    (user?.id && m.userId === user.id)
+  );
 
-  const currentMember = space.members?.find((m: any) => m.userId === currentToken);
   if (!currentMember || (currentMember.status !== 'pending' && currentMember.status !== 'disputed')) return null;
-
-  
 
   const [isDisputing, setIsDisputing] = useState(false);
   const [disputeText, setDisputeText] = useState('');
 
-  const handleApprove = async () => {
-    if (user?.id === currentToken) {
-      updateMemberStatus(spaceId, user.id, 'active');
-      return;
-    }
-    try {
-      await loginWithGoogle();
-      alert('אנא התחבר כדי להשלים את ההרשמה. לאחר ההתחברות, הפרויקט יעודכן.');
-    } catch (e) {
-      console.error(e);
+  const handleApprove = () => {
+    if (currentMember) {
+      updateMemberStatus(spaceId, currentMember.userId, 'active');
     }
   };
 
   const handleDispute = () => {
     if (!disputeText.trim()) return alert('אנא כתוב את ההשגה שלך');
-    updateMemberStatus(spaceId, currentToken, 'disputed', disputeText);
-    setIsDisputing(false);
+    if (currentMember) {
+      updateMemberStatus(spaceId, currentMember.userId, 'disputed', disputeText.trim());
+      setIsDisputing(false);
+    }
   };
 
   return (
@@ -65,7 +81,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         </div>
       )}
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט' : 'ממתין לאישור השותפות שלך'}
+        {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט (v3.1)' : 'ממתין לאישור השותפות שלך (v3.1)'}
       </h3>
       
       {currentMember.status === 'disputed' ? (

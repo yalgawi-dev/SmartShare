@@ -25,7 +25,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.0)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.1)</p>
           </div>
         </div>
 
@@ -37,35 +37,13 @@ export default function Dashboard() {
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>
               {user?.realName || user?.nickname || 'אורח'}
             </span>
-            {(!user?.email) ? (
-              <div style={{ display: 'flex', gap: '0.25rem' }}>
-                <button 
-                  onClick={() => {
-                    if (confirm('לאפס את מפתחות הבדיקה המקומיים במכשיר זה? (המרחבים בענן לא יימחקו)')) {
-                      localStorage.clear();
-                      window.location.reload();
-                    }
-                  }}
-                  style={{ fontSize: '0.65rem', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer' }}
-                  title="איפוס מפתחות מקומיים לבדיקה נקייה כאורח"
-                >
-                  🧹 איפוס
-                </button>
-                <button 
-                  onClick={() => loginWithGoogle()}
-                  style={{ fontSize: '0.65rem', background: '#4285F4', color: 'white', border: 'none', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                  title="התחברות עם Google לשמירת נתונים"
-                >
-                  <span>G</span> התחבר
-                </button>
-              </div>
-            ) : (
+            {(!user?.email) && (
               <button 
-                onClick={() => logout()}
-                style={{ fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer' }}
-                title="התנתק מהחשבון ונקה נתוני מכשיר"
+                onClick={() => loginWithGoogle()}
+                style={{ fontSize: '0.65rem', background: '#4285F4', color: 'white', border: 'none', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                title="התחברות עם Google לשמירת נתונים"
               >
-                התנתק
+                <span>G</span> התחבר
               </button>
             )}
           </div>
