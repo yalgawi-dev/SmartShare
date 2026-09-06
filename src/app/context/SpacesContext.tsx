@@ -555,10 +555,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
       let finalMembersList: any[];
       let finalCreatorShare: number;
+      const existingMembersWithoutThis = (space.members || []).filter(m => m.userId !== shadowToken);
 
       if (sharesPlan) {
         finalCreatorShare = sharesPlan.creator;
-        finalMembersList = (space.members || []).map(m => {
+        finalMembersList = existingMembersWithoutThis.map(m => {
           if (sharesPlan.partners && sharesPlan.partners[m.userId] !== undefined) {
             return { ...m, sharePercentage: sharesPlan.partners[m.userId], isCustomShare: true };
           }
@@ -566,7 +567,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         });
         finalMembersList.push(newMember);
       } else {
-        const newMembersList = [...(space.members || []), newMember];
+        const newMembersList = [...existingMembersWithoutThis, newMember];
         const { finalMembers, finalCreatorShare: calculatedCreatorShare } = calculateBalancedShares(newMembersList, space.settings);
         finalMembersList = finalMembers;
         finalCreatorShare = calculatedCreatorShare;

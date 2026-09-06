@@ -4,13 +4,20 @@ import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 
 export default function WelcomeGate({ spaceId }: { spaceId: string }) {
-  const { spaces, finalizeGuestJoin } = useSpaces() as any;
-  const { updateProfile } = useAuth();
+  const { spaces, finalizeGuestJoin, getRoleForSpace } = useSpaces() as any;
+  const { user, updateProfile } = useAuth();
   const [showGate, setShowGate] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState('');
 
+  const space = spaces.find((s: any) => s.id === spaceId);
+  const isCreatorOfThisSpace = Boolean(
+    (user?.id && space?.creatorId && user.id === space.creatorId) || 
+    (getRoleForSpace && getRoleForSpace(spaceId) === 'creator')
+  );
+
   useEffect(() => {
+    if (isCreatorOfThisSpace) return;
     const token = new URLSearchParams(window.location.search).get('invite');
     if (token) {
       const hasSeenGate = localStorage.getItem(`welcomed_${spaceId}_${token}`);
@@ -19,11 +26,10 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         setInviteToken(token);
       }
     }
-  }, [spaceId]);
+  }, [spaceId, isCreatorOfThisSpace]);
 
-  if (!showGate) return null;
+  if (!showGate || isCreatorOfThisSpace) return null;
 
-  const space = spaces.find((s: any) => s.id === spaceId);
   const isRetroactive = new URLSearchParams(window.location.search).get('retro') === 'true';
   const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
   const needsName = !currentMember || !currentMember.name || currentMember.name === 'שותף מוזמן';
@@ -84,7 +90,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       window.history.replaceState({}, document.title, cleanUrl);
     }
 
-    if (finalName) {
+    if (finalName && (!user?.email || user.realName === 'אורח')) {
       try {
         updateProfile({ realName: finalName });
       } catch (e) {}
@@ -115,7 +121,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
         
         <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא ל-SmartShare! (v2.8)
+          ברוך הבא ל-SmartShare! (v2.9)
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>

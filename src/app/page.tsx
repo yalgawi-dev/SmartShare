@@ -9,7 +9,7 @@ import { getFeatureById } from './data/features';
 
 export default function Dashboard() {
   const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
-  const { user, isLoaded, loginWithGoogle } = useAuth();
+  const { user, isLoaded, loginWithGoogle, logout } = useAuth();
   const [guestTokens, setGuestTokens] = useState<string[]>([]);
   useEffect(() => {
     setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
@@ -37,13 +37,21 @@ export default function Dashboard() {
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>
               {user?.realName || user?.nickname || 'אורח'}
             </span>
-            {(!user?.email) && (
+            {(!user?.email) ? (
               <button 
                 onClick={() => loginWithGoogle()}
                 style={{ fontSize: '0.65rem', background: '#4285F4', color: 'white', border: 'none', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
                 title="התחברות עם Google לשמירת נתונים"
               >
                 <span>G</span> התחבר
+              </button>
+            ) : (
+              <button 
+                onClick={() => logout()}
+                style={{ fontSize: '0.65rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer' }}
+                title="התנתק מהחשבון"
+              >
+                התנתק
               </button>
             )}
           </div>

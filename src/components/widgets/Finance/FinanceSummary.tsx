@@ -54,7 +54,7 @@ export function FinanceSummary({
   if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
   
   const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
-  const creatorName = isCreatorMe ? myRealName : (space.createdBy || 'יוצר המרחב');
+  const creatorName = space.createdBy || (isCreatorMe ? myRealName : 'יוצר המרחב');
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
 
