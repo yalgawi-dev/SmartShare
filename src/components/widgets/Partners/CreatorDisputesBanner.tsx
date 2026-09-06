@@ -85,16 +85,6 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
                 ✅ סמן כטופל (אפס סטטוס)
               </button>
 
-              <button 
-                onClick={() => {
-                  if (confirm('מחיקת השותף תסיר אותו מהקיר לחלוטין. האם אתה בטוח?')) {
-                     removeMember(space.id, m.userId);
-                  }
-                }}
-                style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fca5a5', padding: '0.6rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: '1 1 auto', fontSize: '0.9rem' }}
-              >
-                🗑️ הסר שותף
-              </button>
             </div>
           </div>
         ))}
