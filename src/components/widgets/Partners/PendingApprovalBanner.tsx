@@ -7,7 +7,7 @@ import { getRemainingTimeText } from '../../../utils/partnerUtils';
 
 export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceId: string, inviteToken?: string | null }) {
   const { spaces, updateMemberStatus, migrateGuestToRealUser } = useSpaces() as any;
-  const { user, loginWithGoogle } = useAuth();
+  const { user, loginWithGoogle, loginWithFacebook, loginWithApple } = useAuth();
   
   const space = spaces.find((s: any) => s.id === spaceId);
   if (!space) return null;
@@ -266,7 +266,14 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
             </button>
 
             <button 
-              onClick={() => alert("יש להפעיל את 'Facebook Login' דרך מסוף Firebase לפני שנוכל להשתמש באפשרות זו.")}
+              onClick={async () => {
+                try {
+                  await loginWithFacebook();
+                  finalizeApproval();
+                  setShowRegisterPrompt(false);
+                } catch (e) {
+                }
+              }}
               style={{ width: '100%', background: '#1877F2', color: 'white', border: 'none', padding: '1.2rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', boxShadow: '0 4px 12px rgba(24,119,242,0.3)' }}
             >
               <span style={{ fontSize: '1.2rem' }}>📘</span>
@@ -274,7 +281,14 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
             </button>
 
             <button 
-              onClick={() => alert("יש להפעיל את 'Apple Sign-In' דרך מסוף Firebase לפני שנוכל להשתמש באפשרות זו.")}
+              onClick={async () => {
+                try {
+                  await loginWithApple();
+                  finalizeApproval();
+                  setShowRegisterPrompt(false);
+                } catch (e) {
+                }
+              }}
               style={{ width: '100%', background: '#000000', color: 'white', border: 'none', padding: '1.2rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}
             >
               <span style={{ fontSize: '1.2rem' }}>🍏</span>

@@ -37,7 +37,9 @@ interface AuthContextType {
   user: UserProfile | null;
   allUsers: UserProfile[]; // For Admin CRM simulation
   login: (phone: string, realName: string) => void;
-  loginWithGoogle: () => Promise<void>;
+  loginWithGoogle: () => Promise<any>;
+  loginWithFacebook: () => Promise<any>;
+  loginWithApple: () => Promise<any>;
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
   addContact: (contact: Omit<UserContact, 'addedAt'>) => void;
@@ -51,6 +53,8 @@ const AuthContext = createContext<AuthContextType>({
   allUsers: [],
   login: () => {},
   loginWithGoogle: async () => {},
+  loginWithFacebook: async () => {},
+  loginWithApple: async () => {},
   logout: () => {},
   updateProfile: () => {},
   addContact: () => {},
@@ -234,6 +238,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithFacebook = async () => {
+    try {
+      const { signInWithPopup, linkWithPopup, FacebookAuthProvider } = await import('firebase/auth');
+      const provider = new FacebookAuthProvider();
+      
+      let result;
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        try {
+          result = await linkWithPopup(auth.currentUser, provider);
+        } catch (linkError: any) {
+          if (linkError.code === 'auth/credential-already-in-use') {
+            result = await signInWithPopup(auth, provider);
+          } else {
+            throw linkError;
+          }
+        }
+      } else {
+        result = await signInWithPopup(auth, provider);
+      }
+      console.log('Facebook login success', result.user);
+      return result.user;
+    } catch (e: any) {
+      console.error('Facebook login failed', e);
+      if (e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/unauthorized-domain' || e.message?.includes('configuration')) {
+         alert('Facebook Login עדיין לא הוגדר במסוף Firebase. אנא עקוב אחר ההוראות להגדרת Facebook Developer App.');
+      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+        alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
+      }
+      throw e;
+    }
+  };
+
+  const loginWithApple = async () => {
+    try {
+      const { signInWithPopup, linkWithPopup, OAuthProvider } = await import('firebase/auth');
+      const provider = new OAuthProvider('apple.com');
+      
+      let result;
+      if (auth.currentUser && auth.currentUser.isAnonymous) {
+        try {
+          result = await linkWithPopup(auth.currentUser, provider);
+        } catch (linkError: any) {
+          if (linkError.code === 'auth/credential-already-in-use') {
+            result = await signInWithPopup(auth, provider);
+          } else {
+            throw linkError;
+          }
+        }
+      } else {
+        result = await signInWithPopup(auth, provider);
+      }
+      console.log('Apple login success', result.user);
+      return result.user;
+    } catch (e: any) {
+      console.error('Apple login failed', e);
+      if (e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/unauthorized-domain' || e.message?.includes('configuration')) {
+         alert('Apple Sign-In עדיין לא הוגדר במסוף Firebase. אנא הגדר Apple Developer Service ID.');
+      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+        alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
+      }
+      throw e;
+    }
+  };
+
   const login = async (phone: string, realName: string) => {
     if (!user) return;
     
@@ -314,7 +382,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, allUsers, login, loginWithGoogle, logout, updateProfile, addContact, blockUser, toggleAdmin, isLoaded }}>
+    <AuthContext.Provider value={{ user, allUsers, login, loginWithGoogle, loginWithFacebook, loginWithApple, logout, updateProfile, addContact, blockUser, toggleAdmin, isLoaded }}>
       {children}
     </AuthContext.Provider>
   );
