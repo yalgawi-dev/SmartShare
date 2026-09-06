@@ -40,7 +40,7 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.25rem", background: "rgba(0,0,0,0.02)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)", marginBottom: "1.25rem" }}>
         <div>
-          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>עריכת הקיר הראשי (v3.7)</h4>
+          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>עריכת הקיר הראשי (v3.8)</h4>
           <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", maxWidth: "280px" }}>מאפשר לשותפים לערוך את כותרת ותאריך המרחב</p>
         </div>
         <label style={{ display: "flex", alignItems: "center", cursor: "pointer", flexShrink: 0 }}>
@@ -175,25 +175,25 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
                     onChange={(val: boolean) => updateMemberPermissions(space.id, m.userId, { canDelete: val })} 
                   />
                   <PermissionToggle 
-                    label="עריכת אחוזים במניות (v3.7)" 
+                    label="עריכת אחוזים במניות (v3.8)" 
                     checked={m.canEditShares ?? true} 
                     disabled={m.isActive === false || isPending} 
                     onChange={(val: boolean) => updateMemberPermissions(space.id, m.userId, { canEditShares: val })} 
                   />
                   <PermissionToggle 
-                    label="הוספת/הסרת כלים (v3.7)" 
+                    label="הוספת/הסרת כלים (v3.8)" 
                     checked={m.canAddPlugins ?? true} 
                     disabled={m.isActive === false || isPending} 
                     onChange={(val: boolean) => updateMemberPermissions(space.id, m.userId, { canAddPlugins: val })} 
                   />
                   <PermissionToggle 
-                    label="שינוי הגדרות מרחב (v3.7)" 
+                    label="שינוי הגדרות מרחב (v3.8)" 
                     checked={m.canEditSettings ?? true} 
                     disabled={m.isActive === false || isPending} 
                     onChange={(val: boolean) => updateMemberPermissions(space.id, m.userId, { canEditSettings: val })} 
                   />
                   <PermissionToggle 
-                    label="הזמנת שותפים חדשים (v3.7)" 
+                    label="הזמנת שותפים חדשים (v3.8)" 
                     checked={m.canInvitePartners ?? true} 
                     disabled={m.isActive === false || isPending} 
                     onChange={(val: boolean) => updateMemberPermissions(space.id, m.userId, { canInvitePartners: val })} 

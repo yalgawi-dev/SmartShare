@@ -139,7 +139,12 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         ▴
       </button>
 
-      {currentMember.status === 'extension_requested' ? (
+      {currentMember.status === 'disputed' ? (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#fef3c7', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#92400e', border: '1px solid #fcd34d' }}>
+          <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+          <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>מוקפא - בהמתנה להחלטת המנהל</span>
+        </div>
+      ) : currentMember.status === 'extension_requested' ? (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#fef3c7', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#92400e', border: '1px solid #fcd34d' }}>
           <span style={{ fontSize: '1.1rem' }}>⏳</span>
           <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>פג תוקף - ממתין לאישור מחדש...</span>
@@ -157,7 +162,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
       )}
       
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
-        {currentMember.status === 'disputed' ? '⚠️ מחלוקת על אחוזי השתתפות (v3.7)' : '🤝 אישור הצטרפות כשותף (v3.7)'}
+        {currentMember.status === 'disputed' ? '⚠️ מחלוקת על אחוזי השתתפות (v3.8)' : '🤝 אישור הצטרפות כשותף (v3.8)'}
       </h3>
       
       {currentMember.status === 'disputed' ? (

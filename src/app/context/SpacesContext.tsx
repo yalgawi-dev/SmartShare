@@ -689,7 +689,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     saveSpaceUpdate(spaceId, space => {
       const newMembers = (space.members || []).map(m => {
         if (partnerShares[m.userId] !== undefined) {
-          return { ...m, sharePercentage: partnerShares[m.userId], isCustomShare: true };
+          let newStatus = m.status;
+          let newJoinedAt = m.joinedAt;
+          if (m.status === 'disputed') {
+            newStatus = 'pending';
+            newJoinedAt = new Date().toISOString(); // Reset timer
+          }
+          return { 
+            ...m, 
+            sharePercentage: partnerShares[m.userId], 
+            isCustomShare: true,
+            status: newStatus,
+            joinedAt: newJoinedAt
+          };
         }
         return m;
       });
