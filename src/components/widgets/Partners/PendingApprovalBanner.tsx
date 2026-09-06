@@ -81,7 +81,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         </div>
       )}
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט (v3.1)' : 'ממתין לאישור השותפות שלך (v3.1)'}
+        {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט (v3.2)' : 'ממתין לאישור השותפות שלך (v3.2)'}
       </h3>
       
       {currentMember.status === 'disputed' ? (

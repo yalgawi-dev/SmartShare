@@ -16,23 +16,31 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     (getRoleForSpace && getRoleForSpace(spaceId) === 'creator')
   );
 
+  const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
+
   useEffect(() => {
     if (isCreatorOfThisSpace) return;
     const token = new URLSearchParams(window.location.search).get('invite');
     if (token) {
-      const hasSeenGate = localStorage.getItem(`welcomed_${spaceId}_${token}`);
-      if (!hasSeenGate) {
-        setShowGate(true);
-        setInviteToken(token);
+      const member = space?.members?.find((m: any) => m.userId === token);
+      // If already an active approved partner, no need for welcome gate
+      if (member && member.status === 'active') {
+        return;
       }
+      setShowGate(true);
+      setInviteToken(token);
     }
-  }, [spaceId, isCreatorOfThisSpace]);
+  }, [spaceId, isCreatorOfThisSpace, space?.members]);
+
+  useEffect(() => {
+    if (currentMember?.name && currentMember.name !== 'שותף מוזמן' && !guestName) {
+      setGuestName(currentMember.name);
+    }
+  }, [currentMember, guestName]);
 
   if (!showGate || isCreatorOfThisSpace) return null;
 
   const isRetroactive = new URLSearchParams(window.location.search).get('retro') === 'true';
-  const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
-  const needsName = !currentMember || !currentMember.name || currentMember.name === 'שותף מוזמן';
 
   const handleStart = () => {
     const finalName = guestName.trim() || (currentMember?.name !== 'שותף מוזמן' ? currentMember?.name : '');
@@ -68,8 +76,6 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       sharesPlan
     );
 
-    localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
-    
     // Save unique partner key directly into smartshare_keys (Single Source of Truth)
     try {
       const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
@@ -121,7 +127,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
         
         <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא ל-SmartShare! (v3.1)
+          ברוך הבא ל-SmartShare! (v3.2)
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
@@ -143,18 +149,16 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
           </div>
         )}
 
-        {needsName && (
-          <div style={{ marginBottom: '1.5rem', textAlign: 'right' }}>
-            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#334155' }}>איך קוראים לך?</label>
-            <input 
-              type="text" 
-              value={guestName}
-              onChange={e => setGuestName(e.target.value)}
-              placeholder="הכנס שם מלא או כינוי"
-              style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '1.1rem', boxSizing: 'border-box' }}
-            />
-          </div>
-        )}
+        <div style={{ marginBottom: '1.5rem', textAlign: 'right' }}>
+          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#334155' }}>איך קוראים לך?</label>
+          <input 
+            type="text" 
+            value={guestName}
+            onChange={e => setGuestName(e.target.value)}
+            placeholder="הכנס שם מלא או כינוי"
+            style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '1.1rem', boxSizing: 'border-box' }}
+          />
+        </div>
 
         <button 
           onClick={handleStart}
