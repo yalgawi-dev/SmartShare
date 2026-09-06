@@ -206,11 +206,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const mediaUnsubscribes = useRef<Record<string, () => void>>({});
 
   const getRoleForSpace = (spaceId: string): 'creator' | 'partner' | 'none' => {
-    // 1. Check Auth Context (Single Source of Truth)
+    // 1. Check Auth Context (Single Source of Truth in Firestore)
     if (user && user.spaceKeys && user.spaceKeys[spaceId]) {
       return user.spaceKeys[spaceId].role;
     }
-    // 2. Check Local Storage (Fallback for anonymous / pre-sync users)
+    // 2. Check Local Storage (Fallback for pre-sync / anonymous users)
     if (typeof window !== 'undefined') {
       try {
         const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
@@ -218,10 +218,15 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       } catch(e) {}
     }
     
-    // TEMPORARY FALLBACK DURING MIGRATION OF OLD SPACES: 
+    // 3. Strict DB entity matching by unique ID only
     const space = spacesBase.find(s => s.id === spaceId);
-    if (space && !space.masterKey) {
-       if ((space as any).creatorId === (user?.id || 'me') || (space as any).createdBy === (user?.id || 'me')) return 'creator';
+    if (space) {
+      if (user?.id && space.creatorId && user.id === space.creatorId) {
+        return 'creator';
+      }
+      if (user?.id && space.members?.some((m: any) => m.userId === user.id)) {
+        return 'partner';
+      }
     }
     
     return 'none';
@@ -235,49 +240,6 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         delete data.mediaItems; 
         return { id: doc.id, ...data } as Omit<Space, 'mediaItems'>;
       });
-      
-      // Look for any spaces in localStorage that aren't in Firestore yet
-      let spacesToUpload: Space[] = [];
-      const localKeys = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('smartshare_keys') || '{}') : {};
-      
-
-      const savedSpaces = localStorage.getItem('smartshare_spaces');
-      if (savedSpaces) {
-        try {
-          const parsed = JSON.parse(savedSpaces);
-          if (Array.isArray(parsed)) {
-            parsed.forEach(localSpace => {
-              if (!dbSpaces.find(dbS => dbS.id === localSpace.id)) {
-                spacesToUpload.push(localSpace);
-              }
-            });
-          }
-        } catch (e) {
-          console.error("Failed to parse local spaces during migration", e);
-        }
-      }
-
-      if (dbSpaces.length === 0 && spacesToUpload.length === 0) {
-        spacesToUpload = initialSpaces;
-      }
-
-      if (spacesToUpload.length > 0) {
-        spacesToUpload.forEach(space => {
-          const spaceWithoutMedia = { ...space };
-          const legacyMediaItems = spaceWithoutMedia.mediaItems || [];
-          delete (spaceWithoutMedia as any).mediaItems;
-
-          setDoc(doc(db, 'spaces', space.id), spaceWithoutMedia).catch(console.error);
-          dbSpaces.push(spaceWithoutMedia);
-          
-          // Migrate legacy mediaItems to subcollection
-          if (legacyMediaItems.length > 0) {
-            legacyMediaItems.forEach(item => {
-               setDoc(doc(db, 'spaces', space.id, 'mediaItems', item.id), item).catch(console.error);
-            });
-          }
-        });
-      }
 
       setSpacesBase(dbSpaces);
       
@@ -370,14 +332,6 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         }
         if (space.members?.some((m: any) => m.userId === user.id)) {
           updates.members = space.members.filter((m: any) => m.userId !== user.id);
-          needsUpdate = true;
-        }
-      } else if (!space.creatorId && space.members) {
-        const me = space.members.find((m: any) => m.userId === user.id || m.name.toLowerCase().includes('yehuda') || m.name.includes('יהודה') || m.sharePercentage === 0);
-        if (me) {
-          updates.creatorId = user.id;
-          updates.createdBy = me.name;
-          updates.members = space.members.filter((m: any) => m.userId !== me.userId);
           needsUpdate = true;
         }
       }

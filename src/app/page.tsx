@@ -76,11 +76,17 @@ export default function Dashboard() {
       <div className={styles.grid}>
         {spaces.filter(s => { 
           if (s.status === 'pending_deletion') return false; 
-          const myId = user?.id || 'anonymous';
           const myRole = getRoleForSpace(s.id);
-          const isCreator = myRole === 'creator';
-          const isMember = s.members?.some((m: any) => m.userId === myId || guestTokens.includes(m.userId));
-          return isCreator || isMember;
+          if (myRole === 'creator' || myRole === 'partner') return true;
+          
+          const localKeys = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('smartshare_keys') || '{}') : {};
+          const partnerToken = user?.spaceKeys?.[s.id]?.token || localKeys[s.id]?.token;
+          const isMember = s.members?.some((m: any) => {
+            if (user?.id && m.userId === user.id) return true;
+            if (partnerToken && m.userId === partnerToken) return true;
+            return false;
+          });
+          return isMember;
         }).map(space => (
           <div key={space.id} style={{ position: 'relative' }}>
             <button 

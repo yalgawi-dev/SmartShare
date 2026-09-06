@@ -240,6 +240,7 @@ export function FinanceSummary({
               <tbody>
                 {balances.map((b) => {
                   const isInactive = activePartnersCount === 0 && b.userId !== myId;
+                  const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every(inv => (inv.excludedMembers || []).includes(b.userId));
                   
                   return (
                     <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
@@ -248,6 +249,11 @@ export function FinanceSummary({
       <span style={{ color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
         {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
       </span>
+      {isExcludedFromPast && (
+        <span style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.15rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
+          🛡️ ללא הוצאות עבר
+        </span>
+      )}
       {(b as any).status === 'pending' && (() => {
         const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
         return (

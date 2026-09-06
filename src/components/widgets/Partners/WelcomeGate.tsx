@@ -61,12 +61,28 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     );
 
     localStorage.setItem(`welcomed_${spaceId}_${inviteToken}`, 'true');
-    const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
-    if (inviteToken && !storedTokens.includes(inviteToken)) {
-      storedTokens.push(inviteToken);
-      localStorage.setItem('smartshare_guest_tokens', JSON.stringify(storedTokens));
+    
+    // Save unique partner key directly into smartshare_keys (Single Source of Truth)
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      localKeys[spaceId] = { role: 'partner', token: inviteToken };
+      localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+    } catch (e) {}
+
+    // Dispatch event so AuthContext immediately saves it to Firestore user document
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
+        detail: { spaceId, role: 'partner', token: inviteToken } 
+      }));
     }
-    window.location.href = '/';
+
+    // Keep guest in this space: clean the invite query params from the URL so modal doesn't pop up again
+    if (typeof window !== 'undefined') {
+      const cleanUrl = window.location.pathname;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+    
+    onClose();
   };
 
   return (

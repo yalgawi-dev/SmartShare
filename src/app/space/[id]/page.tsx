@@ -45,14 +45,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, joinSpace } = useSpaces();
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon } = useSpaces();
   const { user } = useAuth();
-  
-  useEffect(() => {
-    if (user && id) {
-      joinSpace(id, user.id, user.realName || user.nickname || 'אורח');
-    }
-  }, [user?.id, id]);
 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
