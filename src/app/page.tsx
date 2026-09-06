@@ -81,11 +81,11 @@ export default function Dashboard() {
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>
               {user?.realName || user?.nickname || 'אורח'}
             </span>
-            {(!user?.email) && (
+            {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
               <button 
                 onClick={() => loginWithGoogle()}
                 style={{ fontSize: '0.65rem', background: '#4285F4', color: 'white', border: 'none', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                title="התחברות עם Google לשמירת נתונים"
+                title="התחברות עם Google לשמירת הנתונים"
               >
                 <span>G</span> התחבר
               </button>
@@ -113,11 +113,11 @@ export default function Dashboard() {
       </header>
 
       {/* Floating Action Button for New Space */}
-      {!user?.email ? (
+      {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) ? (
         <button 
-          onClick={() => alert('כדי לפתוח מרחב אישי משלך, עליך להירשם לאפליקציה תחילה (חינם).')}
+          onClick={() => alert('כדי לפתוח מרחב וירטואלי משלך, עליך להזדהות תחילה (התחבר).')}
           className="fab" 
-          title="צור מרחב חדש"
+          title="פתח מרחב חדש"
           style={{ border: 'none', cursor: 'pointer' }}
         >
           ➕

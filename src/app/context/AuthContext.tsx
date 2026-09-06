@@ -129,10 +129,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           if (userSnap.exists()) {
             activeUser = userSnap.data() as UserProfile;
+            let needsUpdate = false;
+            
             // Force Admin for prototype or specific emails
             if (!activeUser.isAdmin) {
               activeUser.isAdmin = true;
-              await updateDoc(userRef, { isAdmin: true });
+              needsUpdate = true;
+            }
+
+            // If they linked a provider (Google/Facebook) but their profile still says 'אורח', update it!
+            if (!firebaseUser.isAnonymous) {
+              if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && firebaseUser.displayName) {
+                activeUser.realName = firebaseUser.displayName;
+                activeUser.nickname = firebaseUser.displayName.split(' ')[0];
+                needsUpdate = true;
+              }
+              if (!activeUser.avatarUrl && firebaseUser.photoURL) {
+                activeUser.avatarUrl = firebaseUser.photoURL;
+                needsUpdate = true;
+              }
+              if (!activeUser.email && firebaseUser.email) {
+                activeUser.email = firebaseUser.email;
+                needsUpdate = true;
+              }
+            }
+
+            if (needsUpdate) {
+              await updateDoc(userRef, { 
+                isAdmin: activeUser.isAdmin,
+                realName: activeUser.realName,
+                nickname: activeUser.nickname || '',
+                avatarUrl: activeUser.avatarUrl || null,
+                email: activeUser.email || ''
+              });
             }
           } else {
             // Check if there is a local storage user we can migrate (from before the cloud refactor)
