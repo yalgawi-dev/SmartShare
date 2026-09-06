@@ -42,7 +42,7 @@ export function FinanceSummary({
     } catch(e){}
   }
   const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
-  const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
+  const isPending = myMember?.status === "pending" || myMember?.status === "extension_requested" || myMember?.status === "disputed";
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   const isRestricted = isGuestMode || isPending;
   

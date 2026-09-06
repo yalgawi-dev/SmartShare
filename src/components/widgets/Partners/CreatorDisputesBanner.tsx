@@ -23,7 +23,7 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem' }}>
         <span style={{ fontSize: '1.5rem' }}>🚨</span>
         <h3 style={{ margin: 0, color: '#991b1b', fontSize: '1.25rem', fontWeight: 'bold' }}>
-          שותף דיווח על מחלוקת באחוזים! (v3.8)
+          שותף דיווח על מחלוקת באחוזים! (v3.9)
         </h3>
       </div>
       

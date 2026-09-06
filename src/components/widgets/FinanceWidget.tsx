@@ -24,7 +24,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     } catch(e){}
   }
   const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
-  const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
+  const isPending = myMember?.status === "pending" || myMember?.status === "extension_requested" || myMember?.status === "disputed";
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   const isRestricted = isGuestMode || isPending;
 
@@ -347,7 +347,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             </div>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                חשבוניות והתחשבנויות (v3.8)
+                חשבוניות והתחשבנויות (v3.9)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0.15rem 0 0 0' }}>
                 {activePartnersCount > 0 ? 'ניהול משותף עם שותפים למרחב' : 'ניהול הוצאות אישיות'}
