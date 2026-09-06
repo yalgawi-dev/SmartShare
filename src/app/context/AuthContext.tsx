@@ -158,8 +158,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             await setDoc(userRef, activeUser);
           }
 
-          // Fundamental Fix: Merge local cache keys into Firebase so they never get lost
-          if (typeof window !== 'undefined') {
+          // Fundamental Fix: Merge local cache keys into Firebase ONLY for authenticated Google accounts (never leak to anonymous guests)
+          if (typeof window !== 'undefined' && firebaseUser.email) {
             try {
               const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
               const currentKeys = activeUser.spaceKeys || {};
@@ -245,9 +245,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    // Logout means they become a new anonymous user next time
-    auth.signOut();
+  const logout = async () => {
+    // Complete device isolation: wipe local keys and guest tokens upon logout
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem('smartshare_keys');
+        localStorage.removeItem('smartshare_guest_tokens');
+        localStorage.removeItem('smartshare_users');
+        localStorage.removeItem('smartshare_session_id');
+      } catch (e) {}
+    }
+    await auth.signOut();
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {

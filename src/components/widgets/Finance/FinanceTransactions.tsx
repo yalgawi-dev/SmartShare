@@ -179,11 +179,6 @@ export function FinanceTransactions({
                   <div>
                     <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {inv.supplier}
-                        {inv.clientName && (
-                          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>
-                            (עבור: {inv.clientName})
-                          </span>
-                        )}
                       {inv.hasAttachment ? (
                         <span title="מצורפת חשבונית" style={{ fontSize: '0.9rem' }}>📎</span>
                       ) : (

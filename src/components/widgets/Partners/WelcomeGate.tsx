@@ -121,7 +121,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
         
         <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא ל-SmartShare! (v2.9)
+          ברוך הבא ל-SmartShare! (v3.0)
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
