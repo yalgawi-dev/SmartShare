@@ -198,6 +198,22 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
                     disabled={m.isActive === false || isPending} 
                     onChange={(val: boolean) => updateMemberPermissions(space.id, m.userId, { canInvitePartners: val })} 
                   />
+                  
+                  {/* אזור פיתוח */}
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px dashed #fca5a5', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#dc2626', fontWeight: 'bold' }}>⚠️ אזור מפתח (DEV)</span>
+                    <button 
+                      onClick={() => {
+                        if (window.confirm('מחיקת פיתוח (DEV): האם למחוק את השותף לחלוטין כולל מחיקת מידע? השותף יימחק לתמיד ולא יוכל לחזור!')) {
+                          removeMember(space.id, m.userId, user?.id || 'unknown', true);
+                        }
+                      }}
+                      style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '0.3rem 0.6rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
+                      title='מחיקת פיתוח - מחיקת הרדקור'
+                    >
+                      מחק שותף (Hard Delete)
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
