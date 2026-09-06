@@ -91,6 +91,8 @@ export interface SpaceMember {
   useNickname?: boolean; 
   sharePercentage?: number;
   isActive?: boolean;
+  welcomed?: boolean;
+  joinedAt?: string;
 }
 
 export interface AuditRecord {
@@ -530,18 +532,20 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   ) => {
     saveSpaceUpdate(spaceId, space => {
       const hasCustomShare = customShare !== undefined && customShare !== null && !isNaN(customShare);
+      const existingMember = (space.members || []).find(m => m.userId === shadowToken);
       
       const newMember = {
         userId: shadowToken,
-        name,
+        name: name.trim() || existingMember?.name || 'שותף מוזמן',
         role: 'partner' as const,
-        joinedAt: new Date().toISOString(),
+        joinedAt: existingMember?.joinedAt || new Date().toISOString(),
         isActive: true,
         canUpload: true,
         canEdit: false,
         canDelete: false,
-        status: 'pending' as const,
-        sharePercentage: hasCustomShare ? customShare : 0,
+        status: existingMember?.status || 'pending' as const,
+        welcomed: true,
+        sharePercentage: hasCustomShare ? customShare : (existingMember?.sharePercentage ?? 0),
         isCustomShare: true
       };
       
@@ -601,6 +605,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         canEdit: false,
         canDelete: false,
         status: 'pending' as const,
+        welcomed: false,
         sharePercentage: inviteData.guestShare,
         isCustomShare: true
       };

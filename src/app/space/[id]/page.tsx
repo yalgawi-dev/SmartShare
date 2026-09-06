@@ -308,7 +308,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
       {/* The Unified Wall (Single Column Centered) */}
       <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        <WelcomeGate spaceId={id} />
+        <WelcomeGate spaceId={id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
         <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
         
         {/* Gamification / Wall of Fame */}

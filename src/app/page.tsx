@@ -10,8 +10,22 @@ import { getFeatureById } from './data/features';
 export default function Dashboard() {
   const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
   const { user, isLoaded, loginWithGoogle, logout } = useAuth();
-  const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>({});
-  const [guestTokens, setGuestTokens] = useState<string[]>([]);
+  const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      } catch (e) {}
+    }
+    return {};
+  });
+  const [guestTokens, setGuestTokens] = useState<string[]>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        return JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+      } catch (e) {}
+    }
+    return [];
+  });
 
   useEffect(() => {
     const loadKeys = () => {
@@ -35,9 +49,13 @@ export default function Dashboard() {
 
     window.addEventListener('smartshare_new_key', onKeyChange);
     window.addEventListener('storage', loadKeys);
+    window.addEventListener('focus', loadKeys);
+    document.addEventListener('visibilitychange', loadKeys);
     return () => {
       window.removeEventListener('smartshare_new_key', onKeyChange);
       window.removeEventListener('storage', loadKeys);
+      window.removeEventListener('focus', loadKeys);
+      document.removeEventListener('visibilitychange', loadKeys);
     };
   }, []);
 
@@ -51,7 +69,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.3)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.4)</p>
           </div>
         </div>
 

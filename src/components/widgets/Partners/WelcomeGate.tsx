@@ -1,14 +1,19 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 
-export default function WelcomeGate({ spaceId }: { spaceId: string }) {
+export default function WelcomeGate({ 
+  spaceId, 
+  inviteToken: propToken 
+}: { 
+  spaceId: string; 
+  inviteToken?: string | null;
+}) {
   const { spaces, finalizeGuestJoin } = useSpaces() as any;
   const { user, updateProfile } = useAuth();
   const [showGate, setShowGate] = useState(false);
-  const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState('');
   const [mounted, setMounted] = useState(false);
 
@@ -20,55 +25,80 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
   // An anonymous guest without an email is NEVER the creator of a registered space
   const isCreatorOfThisSpace = Boolean(user?.email && space?.creatorId && user.id === space.creatorId);
 
-  const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
+  // Deterministic token resolution chain:
+  // 1. Prop token
+  // 2. URL search params
+  // 3. smartshare_keys in localStorage
+  // 4. smartshare_guest_tokens in localStorage
+  const resolvedToken = useMemo(() => {
+    if (propToken) return propToken;
+    if (typeof window !== 'undefined') {
+      const urlToken = new URLSearchParams(window.location.search).get('invite');
+      if (urlToken) return urlToken;
+
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        if (localKeys[spaceId]?.token) return localKeys[spaceId].token;
+      } catch (e) {}
+
+      try {
+        const storedTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        const match = space?.members?.find((m: any) => storedTokens.includes(m.userId));
+        if (match) return match.userId;
+      } catch (e) {}
+    }
+    return null;
+  }, [propToken, spaceId, space?.members]);
+
+  const currentMember = space?.members?.find((m: any) => m.userId === resolvedToken);
+  const isAlreadyWelcomedOrActive = Boolean(
+    currentMember && (currentMember.status === 'active' || currentMember.welcomed === true)
+  );
 
   useEffect(() => {
-    if (isCreatorOfThisSpace || typeof window === 'undefined') return;
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('invite');
-    const nameParam = urlParams.get('name');
+    if (isCreatorOfThisSpace || typeof window === 'undefined' || !resolvedToken) return;
 
+    // Immediately cache in localStorage for cross-page persistence
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (!localKeys[spaceId] || localKeys[spaceId].token !== resolvedToken) {
+        localKeys[spaceId] = { role: 'partner', token: resolvedToken };
+        localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+      }
+      const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+      if (!guestTokens.includes(resolvedToken)) {
+        guestTokens.push(resolvedToken);
+        localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
+      }
+      window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
+        detail: { spaceId, role: 'partner', token: resolvedToken } 
+      }));
+    } catch (e) {}
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const nameParam = urlParams.get('name');
     if (nameParam && !guestName) {
       setGuestName(nameParam);
     }
 
-    if (token) {
-      // Immediately register the partner key in this browser's localStorage
-      try {
-        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-        if (!localKeys[spaceId] || localKeys[spaceId].token !== token) {
-          localKeys[spaceId] = { role: 'partner', token };
-          localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
-        }
-        const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
-        if (!guestTokens.includes(token)) {
-          guestTokens.push(token);
-          localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
-        }
-        window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
-          detail: { spaceId, role: 'partner', token } 
-        }));
-      } catch (e) {}
-
-      const member = space?.members?.find((m: any) => m.userId === token);
-      // If already an active approved partner, no need for welcome gate
-      if (member && member.status === 'active') {
-        return;
-      }
+    if (isAlreadyWelcomedOrActive) {
+      setShowGate(false);
+    } else {
       setShowGate(true);
-      setInviteToken(token);
     }
-  }, [spaceId, isCreatorOfThisSpace, space?.members]);
+  }, [spaceId, isCreatorOfThisSpace, resolvedToken, isAlreadyWelcomedOrActive]);
 
   useEffect(() => {
     if (currentMember?.name && currentMember.name !== 'שותף מוזמן' && !guestName) {
       setGuestName(currentMember.name);
     }
-  }, [currentMember, guestName]);
+  }, [currentMember?.name, guestName]);
 
-  if (!mounted || !showGate || isCreatorOfThisSpace) return null;
+  if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || !resolvedToken) return null;
 
-  const isRetroactive = new URLSearchParams(window.location.search).get('retro') === 'true';
+  const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
+  const isRetroactive = urlParams.get('retro') === 'true';
+  const displayShare = currentMember?.sharePercentage ?? (urlParams.get('share') ? Number(urlParams.get('share')) : undefined);
 
   const handleStart = () => {
     const finalName = guestName.trim() || (currentMember?.name !== 'שותף מוזמן' ? currentMember?.name : '');
@@ -77,7 +107,6 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       return;
     }
 
-    const urlParams = new URLSearchParams(window.location.search);
     const isRetroParam = urlParams.get('retro') === 'true';
     const shareParam = urlParams.get('share');
     const planParam = urlParams.get('plan');
@@ -99,29 +128,23 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       spaceId, 
       finalName, 
       isRetroParam, 
-      inviteToken, 
-      shareParam ? Number(shareParam) : undefined,
+      resolvedToken, 
+      shareParam ? Number(shareParam) : (currentMember?.sharePercentage ?? undefined),
       sharesPlan
     );
 
     // Save unique partner key directly into smartshare_keys (Single Source of Truth)
     try {
       const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-      localKeys[spaceId] = { role: 'partner', token: inviteToken };
+      localKeys[spaceId] = { role: 'partner', token: resolvedToken };
       localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
     } catch (e) {}
 
     // Dispatch event so AuthContext immediately saves it to Firestore user document
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
-        detail: { spaceId, role: 'partner', token: inviteToken } 
+        detail: { spaceId, role: 'partner', token: resolvedToken } 
       }));
-    }
-
-    // Keep guest in this space: clean the invite query params from the URL so modal doesn't pop up again
-    if (typeof window !== 'undefined') {
-      const cleanUrl = window.location.pathname;
-      window.history.replaceState({}, document.title, cleanUrl);
     }
 
     if (finalName && (!user?.email || user.realName === 'אורח')) {
@@ -155,11 +178,12 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
         
         <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא ל-SmartShare! (v3.3)
+          ברוך הבא ל-SmartShare! (v3.4)
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
-          הוזמנת להצטרף לפרויקט <strong>"{space?.title || 'המשותף'}"</strong>.
+          הוזמנת להצטרף לפרויקט <strong>"{space?.title || 'המשותף'}"</strong>
+          {displayShare ? ` עם חלק של ${displayShare}%.` : '.'}
         </p>
         
         <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '16px', textAlign: 'right', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
