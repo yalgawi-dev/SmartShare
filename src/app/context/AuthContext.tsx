@@ -322,6 +322,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const { signInWithPopup, linkWithPopup, FacebookAuthProvider } = await import('firebase/auth');
       const provider = new FacebookAuthProvider();
+      provider.addScope('email');
+      provider.addScope('public_profile');
       
       let result;
       if (auth.currentUser && auth.currentUser.isAnonymous) {
