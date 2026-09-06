@@ -1,27 +1,55 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 
 export default function WelcomeGate({ spaceId }: { spaceId: string }) {
-  const { spaces, finalizeGuestJoin, getRoleForSpace } = useSpaces() as any;
+  const { spaces, finalizeGuestJoin } = useSpaces() as any;
   const { user, updateProfile } = useAuth();
   const [showGate, setShowGate] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const space = spaces.find((s: any) => s.id === spaceId);
-  const isCreatorOfThisSpace = Boolean(
-    (user?.id && space?.creatorId && user.id === space.creatorId) || 
-    (getRoleForSpace && getRoleForSpace(spaceId) === 'creator')
-  );
+  // An anonymous guest without an email is NEVER the creator of a registered space
+  const isCreatorOfThisSpace = Boolean(user?.email && space?.creatorId && user.id === space.creatorId);
 
   const currentMember = space?.members?.find((m: any) => m.userId === inviteToken);
 
   useEffect(() => {
-    if (isCreatorOfThisSpace) return;
-    const token = new URLSearchParams(window.location.search).get('invite');
+    if (isCreatorOfThisSpace || typeof window === 'undefined') return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('invite');
+    const nameParam = urlParams.get('name');
+
+    if (nameParam && !guestName) {
+      setGuestName(nameParam);
+    }
+
     if (token) {
+      // Immediately register the partner key in this browser's localStorage
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        if (!localKeys[spaceId] || localKeys[spaceId].token !== token) {
+          localKeys[spaceId] = { role: 'partner', token };
+          localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+        }
+        const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        if (!guestTokens.includes(token)) {
+          guestTokens.push(token);
+          localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
+        }
+        window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
+          detail: { spaceId, role: 'partner', token } 
+        }));
+      } catch (e) {}
+
       const member = space?.members?.find((m: any) => m.userId === token);
       // If already an active approved partner, no need for welcome gate
       if (member && member.status === 'active') {
@@ -38,7 +66,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     }
   }, [currentMember, guestName]);
 
-  if (!showGate || isCreatorOfThisSpace) return null;
+  if (!mounted || !showGate || isCreatorOfThisSpace) return null;
 
   const isRetroactive = new URLSearchParams(window.location.search).get('retro') === 'true';
 
@@ -105,7 +133,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
     setShowGate(false);
   };
 
-  return (
+  return createPortal(
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(0,0,0,0.85)', zIndex: 100000,
@@ -127,7 +155,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
         
         <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא ל-SmartShare! (v3.2)
+          ברוך הבא ל-SmartShare! (v3.3)
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
@@ -175,6 +203,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
           בוא נתחיל!
         </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -56,6 +56,19 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const handleApprove = () => {
     if (currentMember) {
       updateMemberStatus(spaceId, currentMember.userId, 'active');
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        localKeys[spaceId] = { role: 'partner', token: currentMember.userId };
+        localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+        const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        if (!guestTokens.includes(currentMember.userId)) {
+          guestTokens.push(currentMember.userId);
+          localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
+        }
+        window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
+          detail: { spaceId, role: 'partner', token: currentMember.userId } 
+        }));
+      } catch (e) {}
     }
   };
 
@@ -81,7 +94,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         </div>
       )}
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט (v3.2)' : 'ממתין לאישור השותפות שלך (v3.2)'}
+        {currentMember.status === 'disputed' ? 'ההשגה שלך נשלחה למנהל הפרויקט (v3.3)' : 'ממתין לאישור השותפות שלך (v3.3)'}
       </h3>
       
       {currentMember.status === 'disputed' ? (

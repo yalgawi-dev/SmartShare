@@ -10,9 +10,35 @@ import { getFeatureById } from './data/features';
 export default function Dashboard() {
   const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
   const { user, isLoaded, loginWithGoogle, logout } = useAuth();
+  const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>({});
   const [guestTokens, setGuestTokens] = useState<string[]>([]);
+
   useEffect(() => {
-    setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
+    const loadKeys = () => {
+      try {
+        setClientKeys(JSON.parse(localStorage.getItem('smartshare_keys') || '{}'));
+        setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
+      } catch (e) {}
+    };
+    loadKeys();
+
+    const onKeyChange = (e: any) => {
+      const { spaceId, role, token } = e.detail || {};
+      if (spaceId) {
+        setClientKeys(prev => ({ ...prev, [spaceId]: { role, token } }));
+      }
+      if (token) {
+        setGuestTokens(prev => prev.includes(token) ? prev : [...prev, token]);
+      }
+      loadKeys();
+    };
+
+    window.addEventListener('smartshare_new_key', onKeyChange);
+    window.addEventListener('storage', loadKeys);
+    return () => {
+      window.removeEventListener('smartshare_new_key', onKeyChange);
+      window.removeEventListener('storage', loadKeys);
+    };
   }, []);
 
   return (
@@ -25,7 +51,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.2)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.3)</p>
           </div>
         </div>
 
@@ -76,14 +102,21 @@ export default function Dashboard() {
       <div className={styles.grid}>
         {spaces.filter(s => { 
           if (s.status === 'pending_deletion') return false; 
-          const myRole = getRoleForSpace(s.id);
-          if (myRole === 'creator' || myRole === 'partner') return true;
           
-          const localKeys = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('smartshare_keys') || '{}') : {};
-          const partnerToken = user?.spaceKeys?.[s.id]?.token || localKeys[s.id]?.token;
+          // 1. Creator check (strictly verified)
+          if (user?.id && s.creatorId && user.id === s.creatorId) return true;
+          if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
+          if (clientKeys[s.id]?.role === 'creator') return true;
+          
+          // 2. Partner check (key or token)
+          if (user?.spaceKeys?.[s.id]?.role === 'partner') return true;
+          if (clientKeys[s.id]?.role === 'partner') return true;
+          
+          const partnerToken = user?.spaceKeys?.[s.id]?.token || clientKeys[s.id]?.token;
           const isMember = s.members?.some((m: any) => {
             if (user?.id && m.userId === user.id) return true;
             if (partnerToken && m.userId === partnerToken) return true;
+            if (guestTokens.includes(m.userId)) return true;
             return false;
           });
           return isMember;
