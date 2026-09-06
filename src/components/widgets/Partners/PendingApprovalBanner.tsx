@@ -120,7 +120,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
       )}
       
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        {currentMember.status === 'disputed' ? 'הגשת השגה על ההתחשבנות במרחב (v3.5)' : 'ממתין לאישורך על חלוקת ההוצאות (v3.5)'}
+        {currentMember.status === 'disputed' ? 'הגשת השגה על ההתחשבנות במרחב (v3.6)' : 'ממתין לאישורך על חלוקת ההוצאות (v3.6)'}
       </h3>
       
       {currentMember.status === 'disputed' ? (
@@ -225,3 +225,4 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     </div>
   );
 }
+

@@ -177,7 +177,7 @@ export function PartnersInviteModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
-              הזמנת שותף חדש (v3.5)
+              הזמנת שותף חדש (v3.6)
             </h3>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               הגדרת שותפות ואחוזים מראש
@@ -440,3 +440,4 @@ export function PartnersInviteModal({
     document.body
   );
 }
+
