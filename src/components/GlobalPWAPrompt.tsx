@@ -9,7 +9,6 @@ export default function GlobalPWAPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
 
   useEffect(() => {
-    // Check if already installed
     if (typeof window !== 'undefined') {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
       const isDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true';
@@ -62,7 +61,6 @@ export default function GlobalPWAPrompt() {
       }
       setDeferredPrompt(null);
     } else {
-      // Native prompt not available (e.g. iOS Safari), show instructions
       setShowInstructions(true);
       setShowPrompt(false);
     }
@@ -77,59 +75,76 @@ export default function GlobalPWAPrompt() {
     <>
       {showPrompt && (
         <div style={{
-          position: 'fixed',
-          top: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          background: 'white',
+          position: 'relative',
+          width: '100%',
+          background: 'linear-gradient(90deg, #eff6ff 0%, #e0e7ff 100%)',
           padding: '0.75rem 1rem',
-          borderRadius: '24px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
           display: 'flex',
           alignItems: 'center',
-          gap: '1rem',
-          zIndex: 9999,
-          border: '1px solid #e2e8f0',
-          width: '90%',
-          maxWidth: '400px'
+          justifyContent: 'space-between',
+          borderBottom: '1px solid #c7d2fe',
+          boxSizing: 'border-box',
+          zIndex: 50
         }}>
-          <div style={{ flex: 1, fontSize: '0.9rem', fontWeight: 'bold', color: '#1e293b' }}>
-            התקן את חלל הפרויקט (מומלץ)
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+            <div style={{ width: '36px', height: '36px', background: 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 'bold', fontSize: '1.2rem', boxShadow: '0 2px 5px rgba(0,0,0,0.15)' }}>
+              ✦
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#1e3a8a', lineHeight: 1.2 }}>SmartShare</span>
+              <span style={{ fontSize: '0.75rem', color: '#3b82f6', lineHeight: 1.2 }}>אפליקציה לחוויה מהירה</span>
+            </div>
           </div>
-          <button 
-            onClick={handleInstallClick}
-            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            התקן כעת
-          </button>
-          <button onClick={handleDismiss} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer', padding: 0 }}>
-            ×
-          </button>
+          
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button 
+              onClick={handleInstallClick}
+              style={{ background: '#2563eb', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', boxShadow: '0 2px 4px rgba(37,99,235,0.2)' }}
+            >
+              התקן
+            </button>
+            <button onClick={handleDismiss} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.2rem', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="סגור">
+              ✕
+            </button>
+          </div>
         </div>
       )}
 
       {showInstructions && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '2rem', boxSizing: 'border-box', animation: 'slideUp 0.3s ease-out' }}>
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', textAlign: 'center' }}>איך להתקין את האפליקציה?</h3>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', zIndex: 10000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center', backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '2rem', boxSizing: 'border-box', animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '4px', margin: '0 auto 1.5rem auto' }} />
+            <h3 style={{ margin: '0 0 1.5rem 0', color: '#0f172a', textAlign: 'center', fontSize: '1.25rem' }}>איך להתקין את האפליקציה?</h3>
+            
             {isIOS ? (
-              <div style={{ fontSize: '1.1rem', color: '#334155', textAlign: 'center', lineHeight: 1.6 }}>
-                <p>1. לחץ על כפתור ה<strong>שיתוף</strong> (Share) בתחתית המסך <span>(ריבוע עם חץ למעלה)</span></p>
-                <p>2. בחר באפשרות <strong>"הוסף למסך הבית"</strong> (Add to Home Screen)</p>
-                <p>3. אשר למעלה (Add)</p>
+              <div style={{ fontSize: '1.05rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '1.5rem', background: 'white', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>📤</span>
+                  <p style={{ margin: 0 }}>1. לחץ על כפתור ה<strong>שיתוף</strong> בתחתית המסך</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '1.5rem', background: 'white', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>➕</span>
+                  <p style={{ margin: 0 }}>2. בחר באפשרות <strong>"הוסף למסך הבית"</strong> (Add to Home Screen)</p>
+                </div>
               </div>
             ) : (
-              <div style={{ fontSize: '1.1rem', color: '#334155', textAlign: 'center', lineHeight: 1.6 }}>
-                <p>1. לחץ על <strong>תפריט 3 הנקודות</strong> למעלה</p>
-                <p>2. בחר באפשרות <strong>"התקן אפליקציה"</strong> או "הוסף למסך הבית"</p>
-                <p>3. אשר את ההתקנה</p>
+              <div style={{ fontSize: '1.05rem', color: '#334155', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '1.5rem', background: 'white', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>⋮</span>
+                  <p style={{ margin: 0 }}>1. לחץ על <strong>תפריט 3 הנקודות</strong> של הדפדפן</p>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: '#f8fafc', padding: '1rem', borderRadius: '12px' }}>
+                  <span style={{ fontSize: '1.5rem', background: 'white', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>📱</span>
+                  <p style={{ margin: 0 }}>2. בחר באפשרות <strong>"התקן אפליקציה"</strong> או "הוסף למסך הבית"</p>
+                </div>
               </div>
             )}
+            
             <button 
               onClick={() => setShowInstructions(false)}
-              style={{ width: '100%', padding: '1rem', background: '#e2e8f0', color: '#475569', border: 'none', borderRadius: '12px', fontWeight: 'bold', marginTop: '2rem', cursor: 'pointer', fontSize: '1rem' }}
+              style={{ width: '100%', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '16px', fontWeight: 'bold', marginTop: '2rem', cursor: 'pointer', fontSize: '1.1rem', boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
             >
-              הבנתי, סגור
+              הבנתי, תודה!
             </button>
           </div>
         </div>
