@@ -294,6 +294,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     mediaItems: mediaItemsBySpace[base.id] || []
   }));
 
+  const sanitizeForFirestore = (obj: any): any => {
+    if (obj === undefined) return null;
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(sanitizeForFirestore);
+    const res: any = {};
+    for (const key of Object.keys(obj)) {
+      if (obj[key] !== undefined) {
+        res[key] = sanitizeForFirestore(obj[key]);
+      }
+    }
+    return res;
+  };
+
   // Helper function to update Space ROOT document
   const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>) => {
     let updatedSpace: Omit<Space, 'mediaItems'> | null = null;
@@ -310,7 +323,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
     if (updatedSpace) {
       try {
-        await setDoc(doc(db, 'spaces', spaceId), updatedSpace);
+        await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
       } catch (e) {
         console.error("Error updating Firestore space root", e);
       }
@@ -371,7 +384,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     
     // 2. Save Space to DB
     setSpacesBase(prev => [newSpace, ...prev]);
-    await setDoc(doc(db, 'spaces', newSpace.id), newSpace);
+    await setDoc(doc(db, 'spaces', newSpace.id), sanitizeForFirestore(newSpace));
     
     // 3. Dispatch an event so AuthContext can sync it to the User Profile
     if (typeof window !== 'undefined') {

@@ -11,7 +11,7 @@ export function PartnersInviteModal({
   space: any; 
   onClose: () => void;
 }) {
-  const { createPendingInvite } = useSpaces();
+  const { } = useSpaces();
   const [partnerName, setPartnerName] = useState('');
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
@@ -124,17 +124,7 @@ export function PartnersInviteModal({
 
     const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
     
-    // 1. Immediately persist pending member to Firestore (Single Source of Truth)
-    createPendingInvite(space.id, {
-      shadowToken,
-      name: partnerName.trim() || 'שותף מוזמן',
-      isRetroactive,
-      guestShare: plannedGuestShare,
-      creatorShare: plannedCreatorShare,
-      partnerShares: plannedPartnerShares
-    });
-
-    // 2. Build clean invite link
+    // Build clean invite link
     const url = new URL('/space/' + space.id, window.location.origin);
     url.searchParams.set('invite', shadowToken);
     url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
