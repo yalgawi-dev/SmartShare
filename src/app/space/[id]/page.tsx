@@ -139,6 +139,27 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  // Determine if user is pending/restricted
+  let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
+  if (!myPartnerToken && user?.spaceKeys?.[id]?.token) myPartnerToken = user.spaceKeys[id].token;
+  if (!myPartnerToken && typeof window !== 'undefined') {
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (localKeys[id]?.token) myPartnerToken = localKeys[id].token;
+    } catch(e){}
+  }
+  const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+  const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
+  const isRestricted = isGuestMode || isPending;
+
+  const handleRestrictedAction = (action: () => void) => {
+    if (isRestricted) {
+      alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+    } else {
+      action();
+    }
+  };
+
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
 
@@ -166,16 +187,24 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           <span>&rarr;</span> ללוח הראשי
         </Link>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {!isGuestMode && (
-            <Link href={`/space/${id}/settings`} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מקומיות">
-              ⚙️
-            </Link>
-          )}
-          {!isGuestMode && (
-            <button onClick={() => setShowFeatureMenu(true)} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
-              ➕ הוסף כלים
-            </button>
-          )}
+          <button onClick={() => {
+            if (myMember && myMember.canEditSettings === false) {
+              alert('אין לך הרשאה לגשת להגדרות במרחב זה.');
+            } else {
+              handleRestrictedAction(() => { window.location.href = `/space/${id}/settings`; })
+            }
+          }} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מקומיות">
+            ⚙️
+          </button>
+          <button onClick={() => {
+            if (myMember && myMember.canAddPlugins === false) {
+              alert('אין לך הרשאה להוסיף או להסיר כלים במרחב זה.');
+            } else {
+              handleRestrictedAction(() => setShowFeatureMenu(true))
+            }
+          }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
+            ➕ הוסף כלים
+          </button>
         </div>
       </div>
 
@@ -320,7 +349,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           
 
           {/* Finance is always at the top if active */}
-          {hasFinance && !isGuestMode && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} />}
+          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} />}
           
           
 
@@ -350,8 +379,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           hasScanner={hasScanner}
           isAddingExpense={isAddingExpense}
           isScannerOpen={isScannerOpen}
-          onAddExpense={() => setIsAddingExpense(true)}
-          onOpenScanner={() => setIsScannerOpen(true)}
+          onAddExpense={() => handleRestrictedAction(() => setIsAddingExpense(true))}
+          onOpenScanner={() => handleRestrictedAction(() => setIsScannerOpen(true))}
           onFileUpload={handleFileUpload}
         />
       )}

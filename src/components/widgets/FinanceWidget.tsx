@@ -13,6 +13,29 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void }, ref) => {
   const { user } = useAuth();
+  
+  // Determine if user is pending/restricted
+  let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
+  if (!myPartnerToken && user?.spaceKeys?.[space.id]?.token) myPartnerToken = user.spaceKeys[space.id].token;
+  if (!myPartnerToken && typeof window !== 'undefined') {
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (localKeys[space.id]?.token) myPartnerToken = localKeys[space.id].token;
+    } catch(e){}
+  }
+  const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+  const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
+  const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
+  const isRestricted = isGuestMode || isPending;
+
+  const handleRestrictedAction = (action: () => void) => {
+    if (isRestricted) {
+      alert('כדי לבצע פעולה זו, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+    } else {
+      action();
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
   useImperativeHandle(ref, () => ({
     processScan: (url: string) => {
@@ -39,7 +62,13 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   const handleInviteClick = () => {
-    setShowInviteModal(true);
+    if (isRestricted) {
+      alert('כדי לבצע פעולה זו, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+    } else if (myMember && myMember.canInvitePartners === false) {
+      alert('אין לך הרשאה להזמין שותפים במרחב זה.');
+    } else {
+      setShowInviteModal(true);
+    }
   };
 
   
@@ -318,7 +347,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             </div>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                חשבוניות והתחשבנויות (v3.4)
+                חשבוניות והתחשבנויות (v3.5)
               </h2>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0.15rem 0 0 0' }}>
                 {activePartnersCount > 0 ? 'ניהול משותף עם שותפים למרחב' : 'ניהול הוצאות אישיות'}
@@ -428,7 +457,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             activePartnersCount={activePartnersCount}
             user={user}
             space={space}
-            updateInvoice={updateInvoice}
+            updateInvoice={(sId, iId, updates, perf, det) => handleRestrictedAction(() => updateInvoice(sId, iId, updates, perf, det))}
             filter={filter}
             setFilter={setFilter}
             expandedInvoiceId={expandedInvoiceId}

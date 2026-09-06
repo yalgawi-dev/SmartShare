@@ -38,6 +38,8 @@ export const viewport: Viewport = {
 
 import { Providers } from "./Providers";
 
+import GlobalPWAPrompt from "../components/GlobalPWAPrompt";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -54,6 +56,7 @@ export default function RootLayout({
       <body>
         <Providers>
           {children}
+          <GlobalPWAPrompt />
         </Providers>
       </body>
     </html>

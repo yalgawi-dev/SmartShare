@@ -219,7 +219,28 @@ export function FinanceSummary({
           <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{activePartnersCount > 0 ? 'טבלת מאזנים' : 'התפלגות הוצאות'}</h4>
           {hasPartners && (
             <button 
-              onClick={() => setIsEditingShares(true)}
+              onClick={() => {
+                let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
+                if (!myPartnerToken && user?.spaceKeys?.[space.id]?.token) myPartnerToken = user.spaceKeys[space.id].token;
+                if (!myPartnerToken && typeof window !== 'undefined') {
+                  try {
+                    const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+                    if (localKeys[space.id]?.token) myPartnerToken = localKeys[space.id].token;
+                  } catch(e){}
+                }
+                const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+                const isPending = myMember?.status === 'pending' || myMember?.status === 'extension_requested';
+                const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
+                const isRestricted = isGuestMode || isPending;
+
+                if (isRestricted) {
+                  alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+                } else if (myMember && myMember.canEditShares === false) {
+                  alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
+                } else {
+                  setIsEditingShares(true);
+                }
+              }}
               style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
             >
               ✍️ ערוך אחוזי השתתפות
@@ -234,7 +255,7 @@ export function FinanceSummary({
                   <th style={{ padding: '0.75rem' }}>שם</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
                   <th style={{ padding: '0.75rem' }}>שולם</th>
-                  {hasPartners && <th style={{ padding: '0.75rem' }}>מאזן</th>}
+                  {hasPartners && !isRestricted && <th style={{ padding: '0.75rem' }}>מאזן</th>}
                 </tr>
               </thead>
               <tbody>
@@ -268,7 +289,7 @@ export function FinanceSummary({
   </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                       <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                      {hasPartners && (
+                      {hasPartners && !isRestricted && (
                       <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
                         <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
                         {b.balance > 0 ? '+' : ''}₪{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}

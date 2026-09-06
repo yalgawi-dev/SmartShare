@@ -69,7 +69,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.4)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>המרחבים שלי (v3.5)</p>
           </div>
         </div>
 
@@ -113,9 +113,20 @@ export default function Dashboard() {
       </header>
 
       {/* Floating Action Button for New Space */}
-      <Link href="/space/new" className="fab" title="צור מרחב חדש">
-        ➕
-      </Link>
+      {!user?.email ? (
+        <button 
+          onClick={() => alert('כדי לפתוח מרחב אישי משלך, עליך להירשם לאפליקציה תחילה (חינם).')}
+          className="fab" 
+          title="צור מרחב חדש"
+          style={{ border: 'none', cursor: 'pointer' }}
+        >
+          ➕
+        </button>
+      ) : (
+        <Link href="/space/new" className="fab" title="צור מרחב חדש">
+          ➕
+        </Link>
+      )}
 
       <div className={styles.grid}>
         {spaces.filter(s => { 

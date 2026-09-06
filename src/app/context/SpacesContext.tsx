@@ -87,6 +87,10 @@ export interface SpaceMember {
   canUpload: boolean;
   canDelete: boolean;
   canEdit: boolean;
+  canEditShares?: boolean;
+  canAddPlugins?: boolean;
+  canEditSettings?: boolean;
+  canInvitePartners?: boolean;
   localAvatarUrl?: string; 
   useNickname?: boolean; 
   sharePercentage?: number;
