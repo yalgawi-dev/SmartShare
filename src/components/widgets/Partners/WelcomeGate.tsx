@@ -1,9 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
+import { useAuth } from '../../../app/context/AuthContext';
 
 export default function WelcomeGate({ spaceId }: { spaceId: string }) {
   const { spaces, finalizeGuestJoin } = useSpaces() as any;
+  const { updateProfile } = useAuth();
   const [showGate, setShowGate] = useState(false);
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [guestName, setGuestName] = useState('');
@@ -81,8 +83,14 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
       const cleanUrl = window.location.pathname;
       window.history.replaceState({}, document.title, cleanUrl);
     }
+
+    if (finalName) {
+      try {
+        updateProfile({ realName: finalName });
+      } catch (e) {}
+    }
     
-    onClose();
+    setShowGate(false);
   };
 
   return (
@@ -107,7 +115,7 @@ export default function WelcomeGate({ spaceId }: { spaceId: string }) {
         <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
         
         <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא ל-SmartShare!
+          ברוך הבא ל-SmartShare! (v2.8)
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>

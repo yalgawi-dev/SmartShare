@@ -7,15 +7,10 @@ import styles from './RegistrationModal.module.css';
 import { auth } from '@/lib/firebase';
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 
+// Decommissioned: Partner registration is handled exclusively by WelcomeGate
 export default function RegistrationModal() {
-  const { user, login, updateProfile, isLoaded } = useAuth();
-  const [phone, setPhone] = useState('');
-  const [realName, setRealName] = useState('');
-  const [nickname, setNickname] = useState('');
-  const [status, setStatus] = useState<any>('hidden');
-
-  // Show modal only if user is logged in anonymously but hasn't filled their details
-  if (!isLoaded || !user || user.realName !== 'אורח') return null;
+  return null;
+}
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
