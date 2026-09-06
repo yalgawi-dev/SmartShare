@@ -139,17 +139,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // If they linked a provider (Google/Facebook) but their profile still says 'אורח', update it!
             if (!firebaseUser.isAnonymous) {
-              if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && firebaseUser.displayName) {
-                activeUser.realName = firebaseUser.displayName;
-                activeUser.nickname = firebaseUser.displayName.split(' ')[0];
+              const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+              const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+              const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+
+              if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && bestName) {
+                activeUser.realName = bestName;
+                activeUser.nickname = bestName.split(' ')[0];
                 needsUpdate = true;
               }
-              if (!activeUser.avatarUrl && firebaseUser.photoURL) {
-                activeUser.avatarUrl = firebaseUser.photoURL;
+              if (!activeUser.avatarUrl && bestPhoto) {
+                activeUser.avatarUrl = bestPhoto;
                 needsUpdate = true;
               }
-              if (!activeUser.email && firebaseUser.email) {
-                activeUser.email = firebaseUser.email;
+              if (!activeUser.email && bestEmail) {
+                activeUser.email = bestEmail;
                 needsUpdate = true;
               }
             }
@@ -176,13 +180,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             
             // Create new user profile in Firestore
+            const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+            const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+            const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+            
             activeUser = {
               id: firebaseUser.uid,
-              realName: firebaseUser.displayName || legacyLocalUser?.realName || 'אורח',
+              realName: bestName || legacyLocalUser?.realName || 'אורח',
               phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
-              email: firebaseUser.email || legacyLocalUser?.email || '',
-              nickname: legacyLocalUser?.nickname || (firebaseUser.displayName ? firebaseUser.displayName.split(' ')[0] : ''),
-              avatarUrl: firebaseUser.photoURL || undefined,
+              email: bestEmail || legacyLocalUser?.email || '',
+              nickname: legacyLocalUser?.nickname || (bestName ? bestName.split(' ')[0] : ''),
+              avatarUrl: bestPhoto || undefined,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
               isAdmin: true,
