@@ -663,7 +663,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const updateMemberStatus = (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      members: (space.members || []).map(m => m.userId === userId ? { ...m, status, disputeMessage: message || m.disputeMessage } : m)
+      members: (space.members || []).map(m => {
+        if (m.userId === userId) {
+          const isResolving = m.status === 'disputed' && status === 'pending';
+          return { 
+            ...m, 
+            status, 
+            disputeMessage: message || m.disputeMessage,
+            disputeResolved: isResolving ? true : m.disputeResolved
+          };
+        }
+        return m;
+      })
     }));
   };
 
@@ -691,16 +702,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         if (partnerShares[m.userId] !== undefined) {
           let newStatus = m.status;
           let newJoinedAt = m.joinedAt;
+          let isResolving = false;
           if (m.status === 'disputed') {
             newStatus = 'pending';
             newJoinedAt = new Date().toISOString(); // Reset timer
+            isResolving = true;
           }
           return { 
             ...m, 
             sharePercentage: partnerShares[m.userId], 
             isCustomShare: true,
             status: newStatus,
-            joinedAt: newJoinedAt
+            joinedAt: newJoinedAt,
+            disputeResolved: isResolving ? true : m.disputeResolved
           };
         }
         return m;
