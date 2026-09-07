@@ -8,11 +8,13 @@ import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 import AuthModal from '../components/auth/AuthModal';
 import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
+import AppShareModal from '../components/widgets/AppShareModal';
 
 export default function Dashboard() {
   const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
   const { user, isLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -117,6 +119,9 @@ export default function Dashboard() {
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem 0.6rem', background: 'var(--bg-card)', border: 'none', borderLeft: '1px solid var(--border-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-primary)' }} title="הזמן חברים">
+              🎁 <span className="hide-mobile">שתף</span>
+            </button>
             {user?.isAdmin && (
               <Link href="/admin/users" style={{ padding: '0.4rem 0.6rem', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '1rem', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border-light)' }} title="ניהול מערכת">
                 🛡️
@@ -220,7 +225,9 @@ export default function Dashboard() {
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
+      {showShareModal && (
+        <AppShareModal onClose={() => setShowShareModal(false)} />
+      )}
     </div>
   );
 }
-
