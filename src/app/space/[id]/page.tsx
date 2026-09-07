@@ -16,6 +16,7 @@ import PendingApprovalBanner from '../../../components/widgets/Partners/PendingA
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
 import CreatorDisputesBanner from '../../../components/widgets/Partners/CreatorDisputesBanner';
+import PendingInvoicesBanner from '../../../components/widgets/Finance/PendingInvoicesBanner';
 import { PartnersSettingsList } from '../../../components/widgets/Partners/PartnersSettingsList';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -350,6 +351,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
       {/* The Unified Wall (Single Column Centered) */}
       <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <PendingInvoicesBanner 
+          space={space} 
+          onScrollToFinance={() => {
+            financeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Let the FinanceWidget know we want to jump to pending tab
+            financeRef.current?.setFilter('pending_me');
+          }} 
+        />
         <WelcomeGate spaceId={id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
         <CreatorDisputesBanner space={space} />
         <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />

@@ -324,7 +324,12 @@ export function FinanceTransactions({
                           </button>
                         )}
                         {(inv.payerId === user?.id || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
-                          <button onClick={() => alert('נשלח פוש ותזכורת לשותפים!')} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                          <button onClick={() => {
+                            if (updateInvoice && space) {
+                              updateInvoice(space.id, inv.id, { nudgedAt: Date.now() }, user?.realName || user?.id || 'me', `שלח/ה נדנוד לשותפים לאישור הוצאה מול '${inv.supplier}'`);
+                              alert('התזכורת נשלחה בהצלחה! השותפים יראו התראה אדומה בולטת.');
+                            }
+                          }} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                             שלח נדנוד לאישור
                           </button>
                         )}

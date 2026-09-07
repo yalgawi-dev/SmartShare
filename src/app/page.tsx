@@ -208,7 +208,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.6 - תצוגת למי מחכים שיאשר גם בכותרת (התצוגה הממוזערת)
+        v5.0.7 - מרכז התראות צף וכפתור נדנוד חכם לשותפים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

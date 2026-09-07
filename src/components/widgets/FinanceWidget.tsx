@@ -39,9 +39,18 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   };
 
   const [activeTab, setActiveTab] = useState<'summary' | 'transactions'>('summary');
+  const rootRef = useRef<HTMLDivElement>(null);
+  
   useImperativeHandle(ref, () => ({
     processScan: (url: string) => {
       runOcrPipeline(url);
+    },
+    setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => {
+      setActiveTab('transactions');
+      setFilter(newFilter);
+    },
+    scrollIntoView: (options: any) => {
+      rootRef.current?.scrollIntoView(options);
     }
   }));
 
@@ -336,7 +345,7 @@ const runOcrPipeline = async (imgUrl: string) => {
   };
 
   return (
-    <div className="card glass-panel" style={{ padding: '0', marginBottom: '2rem', background: 'var(--bg-card)', position: 'relative', overflow: 'hidden' }}>
+    <div ref={rootRef} className="card glass-panel" style={{ padding: '0', marginBottom: '2rem', background: 'var(--bg-card)', position: 'relative', overflow: 'hidden' }}>
       
       {toastMsg && (
         <div style={{ position: 'fixed', top: '10%', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-full)', zIndex: 100000, boxShadow: 'var(--shadow-lg)', fontWeight: 'bold', animation: 'fadeIn 0.3s ease-out' }}>
