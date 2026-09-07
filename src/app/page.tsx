@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 
 import styles from './page.module.css';
@@ -71,7 +71,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>׳₪׳׳˜׳₪׳•׳¨׳׳× ׳©׳™׳×׳•׳£ (v4.5)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>פלטפורמת שיתוף (v4.6)</p>
           </div>
         </div>
 
@@ -81,31 +81,31 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', marginRight: '0.5rem', overflow: 'hidden' }}>
             <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>
-              {user?.realName || user?.nickname || '׳׳•׳¨׳—'}
+              {user?.realName || user?.nickname || 'אורח'}
             </span>
-            {(user?.realName === '׳׳•׳¨׳—' || user?.realName === '׳׳•׳¨׳— ׳׳ ׳•׳ ׳™׳׳™' || !user?.realName) && (
+            {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
               <button 
                 onClick={() => setShowAuthModal(true)}
                 style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', padding: '0.3rem 0.75rem', cursor: 'pointer', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}
               >
-                ׳”׳×׳—׳‘׳¨
+                התחבר
               </button>
             )}
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
             {user?.isAdmin && (
-              <Link href="/admin/users" style={{ padding: '0.4rem 0.6rem', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '1rem', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border-light)' }} title="׳ ׳™׳”׳•׳ ׳׳¢׳¨׳›׳×">
-                נ›¡ן¸
+              <Link href="/admin/users" style={{ padding: '0.4rem 0.6rem', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '1rem', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border-light)' }} title="ניהול מערכת">
+                🛡️
               </Link>
             )}
-            <Link href="/settings" style={{ padding: '0.4rem 0.6rem', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="׳”׳’׳“׳¨׳•׳× ׳₪׳¨׳•׳₪׳™׳">
-              <span style={{ fontSize: '1.2rem' }}>ג™ן¸</span>
+            <Link href="/settings" style={{ padding: '0.4rem 0.6rem', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="הגדרות פרופיל">
+              <span style={{ fontSize: '1.2rem' }}>⚙️</span>
               <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
-                  <span style={{ fontSize: '1rem' }}>{user?.gender === 'male' ? 'נ‘¦' : user?.gender === 'female' ? 'נ‘§' : 'נ‘₪'}</span>
+                  <span style={{ fontSize: '1rem' }}>{user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}</span>
                 )}
               </div>
             </Link>
@@ -114,18 +114,18 @@ export default function Dashboard() {
       </header>
 
       {/* Floating Action Button for New Space */}
-      {(user?.realName === '׳׳•׳¨׳—' || user?.realName === '׳׳•׳¨׳— ׳׳ ׳•׳ ׳™׳׳™' || !user?.realName) ? (
+      {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) ? (
         <button 
-          onClick={() => alert('׳›׳“׳™ ׳׳₪׳×׳•׳— ׳׳¨׳—׳‘ ׳•׳™׳¨׳˜׳•׳׳׳™ ׳׳©׳׳, ׳¢׳׳™׳ ׳׳”׳–׳“׳”׳•׳× ׳×׳—׳™׳׳” (׳”׳×׳—׳‘׳¨).')}
+          onClick={() => alert('כדי לפתוח מרחב וירטואלי משלך, עליך להזדהות תחילה (התחבר).')}
           className="fab" 
-          title="׳₪׳×׳— ׳׳¨׳—׳‘ ׳—׳“׳©"
+          title="פתח מרחב חדש"
           style={{ border: 'none', cursor: 'pointer' }}
         >
-          ג•
+          ➕
         </button>
       ) : (
-        <Link href="/space/new" className="fab" title="׳¦׳•׳¨ ׳׳¨׳—׳‘ ׳—׳“׳©">
-          ג•
+        <Link href="/space/new" className="fab" title="צור מרחב חדש">
+          ➕
         </Link>
       )}
 
@@ -155,7 +155,7 @@ export default function Dashboard() {
             <button 
               onClick={(e) => {
                 e.preventDefault();
-                if (confirm('׳׳׳—׳•׳§ ׳׳× ׳”׳׳¨׳—׳‘ "' + space.title + '"? ׳”׳₪׳¢׳•׳׳” ׳×׳¢׳‘׳™׳¨ ׳׳•׳×׳• ׳׳׳¨׳›׳™׳•׳ ׳”׳׳—׳™׳§׳”.')) {
+                if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
                   deleteSpace(space.id);
                 }
               }}
@@ -176,9 +176,9 @@ export default function Dashboard() {
                 cursor: 'pointer',
                 transition: 'background 0.2s'
               }}
-              title="׳׳—׳§ ׳׳¨׳—׳‘"
+              title="מחק מרחב"
             >
-              נ—‘ן¸
+              🗑️
             </button>
             <Link href={`/space/${space.id}`} style={{ display: 'block', textDecoration: 'none' }}>
               <div className={`card ${styles.projectCard} glass-panel`}>
@@ -199,8 +199,8 @@ export default function Dashboard() {
                 </div>
 
                 <div className={styles.projectFooter}>
-                  <span>׳¢׳•׳“׳›׳: {space.updatedAt}</span>
-                  <span>{space.features.length} ׳₪׳™׳¦'׳¨׳™׳</span>
+                  <span>עודכן: {space.updatedAt}</span>
+                  <span>{space.features.length} פיצ'רים</span>
                 </div>
               </div>
             </Link>
@@ -208,12 +208,12 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.8.29 - ׳¨׳’׳¢, ׳׳ ׳×׳©׳›׳— ׳׳§׳“׳ ׳׳× ׳׳¡׳₪׳¨ ׳”׳’׳¨׳¡׳”: ׳”׳׳ ׳”׳”׳₪׳¨׳“׳” ׳‘׳™׳ ׳”׳׳ ׳•׳¢׳™׳ ׳ ׳©׳׳¨׳” ׳‘׳¦׳•׳¨׳” ׳׳•׳—׳׳˜׳×? ׳׳™׳ ׳׳”׳×׳₪׳©׳¨ ׳¢׳ Decoupling ׳‘׳©׳•׳ ׳₪׳ ׳™׳ ׳•׳׳•׳₪׳.
+        v4.8.29 - שכתוב ארכיטקטוני מושלם: הפרדת מודול השותפים והסורק ממודול ההתחשבנויות (Decoupling) וניקוי קוד מת.
       </div>
-      
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
     </div>
   );
 }
+

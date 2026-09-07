@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import Link from 'next/link';
 
 export default function AdminUsersPage() {
-  const { user, allUsers, blockUser, toggleAdmin } = useAuth();
+  const { user, allUsers, blockUser, toggleAdmin, deleteUserDoc } = useAuth();
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -55,6 +55,25 @@ export default function AdminUsersPage() {
               }}
             >
               {u.isBlocked ? 'שחרר חסימה' : 'חסום'}
+            </button>
+            <button 
+              onClick={() => {
+                if (window.confirm('האם אתה בטוח שברצונך למחוק משתמש זה לצמיתות מבסיס הנתונים? פעולה זו נועדה לצרכי פיתוח בלבד ותאפשר למשתמש להירשם מחדש כאילו זו הפעם הראשונה.')) {
+                  deleteUserDoc(u.id);
+                }
+              }}
+              style={{ 
+                background: 'transparent', 
+                color: '#EF4444', 
+                border: '1px solid #EF4444', 
+                padding: '0.4rem 1rem', 
+                borderRadius: 'var(--radius-full)', 
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '0.85rem'
+              }}
+            >
+              מחק משתמש
             </button>
           </>
         )}

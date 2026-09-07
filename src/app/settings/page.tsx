@@ -96,8 +96,8 @@ export default function SettingsPage() {
               <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
             </div>
             <div>
-              <h3 style={{ margin: '0 0 0.25rem 0' }}>{realName || 'אורח'}</h3>
-              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>{phone || 'מספר טלפון לא הוזן'}</p>
+              <h3 style={{ margin: '0 0 0.25rem 0' }}>{realName || user.id}</h3>
+              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>{phone || 'אין טלפון'}</p>
             </div>
           </div>
 

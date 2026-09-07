@@ -357,32 +357,34 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Gamification / Wall of Fame */}
         <TopGuestsWidget space={space} />
 
-        {/* Active Widgets - Ordered by Priority */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-          
-          
-
-          {/* Finance is always at the top if active */}
-          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} />}
-          
-          
-
-          {/* Other features */}
-          {hasGallery && <GalleryWidget space={space}  isGuestMode={isGuestMode} />}
-          {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode}  />}
-          
-          {genericFeatures.map(f => (
-            <GenericWidget 
-              key={f.id} 
-              feature={f} 
-               
-            />
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {space.features.length === 0 && (
-          <EmptyStateCarousel />
+        {/* Active Widgets - Hidden if Pending Approval */}
+        {!isPending ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+            {/* Finance is always at the top if active */}
+            {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} />}
+            
+            {/* Other features */}
+            {hasGallery && <GalleryWidget space={space}  isGuestMode={isGuestMode} />}
+            {hasGuestbook && <AlbumWidget space={space} isGuestMode={isGuestMode}  />}
+            
+            {genericFeatures.map(f => (
+              <GenericWidget 
+                key={f.id} 
+                spaceId={id} 
+                feature={f}
+              />
+            ))}
+            
+            {space.features?.length === 0 && (
+              <EmptyStateCarousel />
+            )}
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.5 }}>🔒</div>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)' }}>התוכן נעול</h3>
+            <p style={{ margin: 0 }}>כדי לגשת לכלים ולהגדרות המרחב, עליך לאשר את השותפות תחילה.</p>
+          </div>
         )}
       </div>
       

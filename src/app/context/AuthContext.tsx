@@ -48,6 +48,7 @@ interface AuthContextType {
   addContact: (contact: Omit<UserContact, 'addedAt'>) => void;
   blockUser: (userId: string, block: boolean) => void; // Admin action
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
+  deleteUserDoc: (userId: string) => void; // Admin action
   isLoaded: boolean;
 }
 
@@ -66,6 +67,7 @@ const AuthContext = createContext<AuthContextType>({
   addContact: () => {},
   blockUser: () => {},
   toggleAdmin: () => {},
+  deleteUserDoc: () => {},
   isLoaded: false,
 });
 
@@ -196,7 +198,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               avatarUrl: bestPhoto || undefined,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
-              isAdmin: (firebaseUser.email === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
+              isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
               createdAt: new Date().toISOString(),
             };
             await setDoc(userRef, activeUser);
@@ -503,12 +505,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const deleteUserDoc = async (userId: string) => {
+    if (!user?.isAdmin) return;
+    try {
+      const { deleteDoc } = await import('firebase/firestore');
+      await deleteDoc(doc(db, 'users', userId));
+      setAllUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (e) {
+      console.error("Failed to delete user", e);
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
-      logout, updateProfile, addContact, blockUser, toggleAdmin, isLoaded 
+      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded 
     }}>
       {children}
     </AuthContext.Provider>

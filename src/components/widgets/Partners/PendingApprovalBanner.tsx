@@ -242,8 +242,11 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
       {showRegisterPrompt && (
         <AuthModal 
           onClose={() => setShowRegisterPrompt(false)} 
-          onSuccess={() => finalizeApproval()} 
-          title="רגע לפני שמתחילים..." 
+          onSuccess={() => {
+            finalizeApproval();
+            setShowRegisterPrompt(false);
+          }}
+          title="ברוך הבא!"
         />
       )}
     </div>
