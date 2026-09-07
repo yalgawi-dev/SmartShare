@@ -173,13 +173,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               });
             }
           } else {
-            // Check if there is a local storage user we can migrate (from before the cloud refactor)
+            // --- Firestore document is missing ---
+            // CASE 1: Anonymous user → normal, create profile for them
+            // CASE 2: Non-anonymous (Google/Facebook) → document was DELETED by admin.
+            //         We must NOT silently recreate it — that defeats the purpose of deletion.
+            //         Sign them out so they go through the full onboarding again.
+            if (!firebaseUser.isAnonymous) {
+              console.warn('[Auth] Firebase Auth user exists but Firestore doc was deleted — signing out to force re-onboarding.');
+              const { signOut } = await import('firebase/auth');
+              await signOut(auth);
+              // Clear local caches too
+              if (typeof window !== 'undefined') {
+                localStorage.removeItem('smartshare_keys');
+                localStorage.removeItem('smartshare_guest_tokens');
+              }
+              setUser(null);
+              setIsLoaded(true);
+              return;
+            }
+
+            // Anonymous user — build a minimal guest profile (no Firestore doc needed)
             const savedUsers = localStorage.getItem('smartshare_users');
             let legacyLocalUser: UserProfile | undefined;
             if (savedUsers) {
               try {
                 const parsed = JSON.parse(savedUsers) as UserProfile[];
-                // We just take the first local user as the migrated one since we don't have their local ID
                 legacyLocalUser = parsed[0];
               } catch (e) {}
             }
