@@ -11,28 +11,30 @@ import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
-const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void }, ref) => {
+const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void }, ref) => {
   const { user } = useAuth();
   
-  // Determine if user is pending/restricted
-  let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
-  if (!myPartnerToken && user?.spaceKeys?.[space.id]?.token) myPartnerToken = user.spaceKeys[space.id].token;
-  if (!myPartnerToken && typeof window !== 'undefined') {
+  // Check if current user is a restricted partner (pending / guest)
+  // NOTE: isRestricted logic lives in page.tsx (Single Source of Truth).
+  // FinanceWidget receives it as a callback to avoid duplication.
+  const myPartnerToken = (() => {
+    if (typeof window === 'undefined') return null;
+    const fromUrl = new URLSearchParams(window.location.search).get('invite');
+    if (fromUrl) return fromUrl;
+    if (user?.spaceKeys?.[space.id]?.token) return user.spaceKeys[space.id].token;
     try {
-      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-      if (localKeys[space.id]?.token) myPartnerToken = localKeys[space.id].token;
+      const local = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (local[space.id]?.token) return local[space.id].token;
     } catch(e){}
-  }
+    return null;
+  })();
   const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
-  const isPending = myMember?.status === "pending" || myMember?.status === "extension_requested" || myMember?.status === "disputed";
-  const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
-  const isRestricted = isGuestMode || isPending;
 
   const handleRestrictedAction = (action: () => void) => {
-    if (isRestricted) {
-      alert('כדי לבצע פעולה זו, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+    if (onRestrictedAction) {
+      onRestrictedAction(action);
     } else {
-      action();
+      action(); // fallback if prop not supplied
     }
   };
 
@@ -62,8 +64,14 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   const handleInviteClick = () => {
-    if (isRestricted) {
-      alert('כדי לבצע פעולה זו, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+    if (onRestrictedAction) {
+      onRestrictedAction(() => {
+        if (myMember && myMember.canInvitePartners === false) {
+          alert('אין לך הרשאה להזמין שותפים במרחב זה.');
+        } else {
+          setShowInviteModal(true);
+        }
+      });
     } else if (myMember && myMember.canInvitePartners === false) {
       alert('אין לך הרשאה להזמין שותפים במרחב זה.');
     } else {
@@ -447,6 +455,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             setFilter={setFilter}
             updateSpaceSettings={updateSpaceSettings}
             updateSharesBulk={updateSharesBulk}
+            onRestrictedAction={onRestrictedAction}
           />
         )}
 

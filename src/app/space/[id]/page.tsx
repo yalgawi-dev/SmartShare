@@ -361,7 +361,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {!isPending ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
             {/* Finance is always at the top if active */}
-            {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} />}
+            {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} />}
             
             {/* Other features */}
             {hasGallery && <GalleryWidget space={space}  isGuestMode={isGuestMode} />}

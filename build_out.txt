@@ -1,0 +1,42 @@
+
+> smart-share@0.1.0 build
+> next build
+
+⚠ `eslint` configuration in next.config.ts is no longer supported. See more info here: https://nextjs.org/docs/app/api-reference/cli/next#next-lint-options
+⚠ Invalid next.config.ts options detected: 
+⚠     Unrecognized key(s) in object: 'eslint'
+⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+▲ Next.js 16.2.12 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 9.5s
+  Skipping validation of types
+  Finished TypeScript config validation in 203ms ...
+  Collecting page data using 11 workers ...
+  Generating static pages using 11 workers (0/10) ...
+  Generating static pages using 11 workers (2/10) 
+  Generating static pages using 11 workers (4/10) 
+  Generating static pages using 11 workers (7/10) 
+✓ Generating static pages using 11 workers (10/10) in 450ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /admin/users
+├ ƒ /api/env-test
+├ ƒ /api/ocr
+├ ƒ /api/ocr-test
+├ ○ /settings
+├ ƒ /space/[id]
+├ ƒ /space/[id]/features
+├ ƒ /space/[id]/finance
+├ ƒ /space/[id]/reports
+├ ƒ /space/[id]/settings
+└ ○ /space/new
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

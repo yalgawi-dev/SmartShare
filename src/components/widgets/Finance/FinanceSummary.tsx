@@ -15,6 +15,7 @@ interface FinanceSummaryProps {
   setFilter: (filter: string) => void;
   updateSpaceSettings: any;
   updateSharesBulk?: any;
+  onRestrictedAction?: (action: () => void) => void;
 }
 
 export function FinanceSummary({
@@ -26,25 +27,28 @@ export function FinanceSummary({
   setActiveTab,
   setFilter,
   updateSpaceSettings,
-  updateSharesBulk
+  updateSharesBulk,
+  onRestrictedAction
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
 
-  // Determine if user is pending/restricted
-  let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
-  if (!myPartnerToken && user?.spaceKeys?.[space.id]?.token) myPartnerToken = user.spaceKeys[space.id].token;
-  if (!myPartnerToken && typeof window !== 'undefined') {
+  // Resolve current member (for per-member permission checks like canEditShares)
+  // NOTE: isRestricted is NOT computed here — it lives in page.tsx as the Single Source of Truth.
+  // Actions that need restriction go through onRestrictedAction callback.
+  const myPartnerToken = (() => {
+    if (typeof window === 'undefined') return null;
+    const fromUrl = new URLSearchParams(window.location.search).get('invite');
+    if (fromUrl) return fromUrl;
+    if (user?.spaceKeys?.[space.id]?.token) return user.spaceKeys[space.id].token;
     try {
-      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-      if (localKeys[space.id]?.token) myPartnerToken = localKeys[space.id].token;
+      const local = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (local[space.id]?.token) return local[space.id].token;
     } catch(e){}
-  }
+    return null;
+  })();
   const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
-  const isPending = myMember?.status === "pending" || myMember?.status === "extension_requested" || myMember?.status === "disputed";
-  const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
-  const isRestricted = isGuestMode || isPending;
   
   const activeInvoices = invoices.filter((inv: any) => inv.isActive !== false);
   const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute');
@@ -234,8 +238,14 @@ export function FinanceSummary({
           {hasPartners && (
             <button 
               onClick={() => {
-                if (isRestricted) {
-                  alert('כדי לנהל הגדרות, אחוזים וכלים במרחב, עליך לאשר קודם את השותפות ולהירשם לאפליקציה.');
+                if (onRestrictedAction) {
+                  onRestrictedAction(() => {
+                    if (myMember && myMember.canEditShares === false) {
+                      alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
+                    } else {
+                      setIsEditingShares(true);
+                    }
+                  });
                 } else if (myMember && myMember.canEditShares === false) {
                   alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
                 } else {
@@ -256,7 +266,7 @@ export function FinanceSummary({
                   <th style={{ padding: '0.75rem' }}>שם</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
                   <th style={{ padding: '0.75rem' }}>שולם</th>
-                  {hasPartners && !isRestricted && <th style={{ padding: '0.75rem' }}>מאזן</th>}
+                  {hasPartners && !onRestrictedAction && <th style={{ padding: '0.75rem' }}>מאזן</th>}
                 </tr>
               </thead>
               <tbody>
@@ -290,7 +300,7 @@ export function FinanceSummary({
   </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                       <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                      {hasPartners && !isRestricted && (
+                      {hasPartners && !onRestrictedAction && (
                       <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
                         <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
                         {b.balance > 0 ? '+' : ''}₪{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
