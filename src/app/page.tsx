@@ -215,7 +215,7 @@ export default function Dashboard() {
       </div>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.7 - מרכז התראות צף וכפתור נדנוד חכם לשותפים
+        v5.0.8 - מסך פתיחה חכם למשתמשים חדשים (Onboarding)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
