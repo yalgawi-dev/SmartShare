@@ -39,6 +39,9 @@ interface AuthContextType {
   login: (phone: string, realName: string) => void;
   loginWithGoogle: () => Promise<any>;
   loginWithFacebook: () => Promise<any>;
+  loginWithEmail: (email: string, pass: string) => Promise<any>;
+  registerWithEmail: (email: string, pass: string, name: string) => Promise<any>;
+  resetPassword: (email: string) => Promise<void>;
   loginWithApple: () => Promise<any>;
   logout: () => void;
   updateProfile: (updates: Partial<UserProfile>) => void;
@@ -54,6 +57,9 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   loginWithGoogle: async () => {},
   loginWithFacebook: async () => {},
+  loginWithEmail: async () => {},
+  registerWithEmail: async () => {},
+  resetPassword: async () => {},
   loginWithApple: async () => {},
   logout: () => {},
   updateProfile: () => {},
@@ -74,30 +80,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchAllUsers = async () => {
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
-      const users = usersSnap.docs.map(d => d.data() as UserProfile);
-      setAllUsers(users);
+      setAllUsers(usersSnap.docs.map(d => d.data() as UserProfile));
     } catch (e) {
-      console.error("Failed to fetch all users", e);
+      console.error("Failed to fetch CRM users", e);
     }
   };
 
   useEffect(() => {
-      import('firebase/auth').then(({ getRedirectResult }) => {
-        getRedirectResult(auth).then((result) => {
-          if (result && result.user) {
-            console.log("Successfully logged in via redirect", result.user);
-          }
-        }).catch((e) => {
-          console.error("Redirect login error:", e);
-        });
-      });
+    if (user?.isAdmin) {
+      fetchAllUsers();
+    }
+  }, [user?.isAdmin]);
 
-      // 1. Firebase Auth Listener
-    // Sync Keyring
+  useEffect(() => {
+    // Sync local keys from localStorage to Firestore whenever they change
     const handleNewKey = async (e: Event) => {
-      const { spaceId, role, token } = (e as CustomEvent).detail;
-      if (!auth.currentUser) return;
+      if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+      const detail = (e as CustomEvent).detail;
+      if (!detail) return;
       
+      const { spaceId, role, token } = detail;
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userSnap = await getDoc(userRef);
       if (userSnap.exists()) {
@@ -200,7 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           // Fundamental Fix: Merge local cache keys into Firebase ONLY for authenticated Google accounts (never leak to anonymous guests)
-          if (typeof window !== 'undefined' && firebaseUser.email) {
+          if (typeof window !== 'undefined' && !firebaseUser.isAnonymous) {
             try {
               const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
               const currentKeys = activeUser.spaceKeys || {};
@@ -225,16 +227,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (!activeUser.isBlocked) {
             setUser(activeUser);
           }
-          
-          // Also fetch all users for admin
-          if (activeUser.isAdmin) {
-             fetchAllUsers();
-          }
-        } catch (e) {
-          console.error("Error fetching user from Firestore", e);
+          setIsLoaded(true);
+        } catch (error) {
+          console.error("Auth context error:", error);
+          setIsLoaded(true);
         }
-
-        setIsLoaded(true);
       }
     });
 
@@ -244,7 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  const syncProviderData = async (firebaseUser: any) => {
+  const syncProviderData = async (firebaseUser: any, forcedName?: string) => {
     if (!firebaseUser || firebaseUser.isAnonymous) return;
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
@@ -253,7 +250,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let activeUser = userSnap.data() as UserProfile;
         let needsUpdate = false;
         
-        const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+        const bestName = forcedName || firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
         const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
         const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
@@ -286,6 +283,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const loginWithEmail = async (email: string, pass: string) => {
+    const { signInWithEmailAndPassword, linkWithCredential, EmailAuthProvider } = await import('firebase/auth');
+    let result;
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
+      const credential = EmailAuthProvider.credential(email, pass);
+      try {
+        result = await linkWithCredential(auth.currentUser, credential);
+      } catch (linkError: any) {
+        if (linkError.code === 'auth/credential-already-in-use' || linkError.code === 'auth/email-already-in-use') {
+          result = await signInWithEmailAndPassword(auth, email, pass);
+        } else {
+          throw linkError;
+        }
+      }
+    } else {
+      result = await signInWithEmailAndPassword(auth, email, pass);
+    }
+    await syncProviderData(result.user);
+    return result.user;
+  };
+
+  const registerWithEmail = async (email: string, pass: string, name: string) => {
+    const { createUserWithEmailAndPassword, linkWithCredential, EmailAuthProvider, updateProfile: updateFirebaseProfile } = await import('firebase/auth');
+    let result;
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
+      const credential = EmailAuthProvider.credential(email, pass);
+      try {
+        result = await linkWithCredential(auth.currentUser, credential);
+      } catch (linkError: any) {
+        if (linkError.code === 'auth/credential-already-in-use' || linkError.code === 'auth/email-already-in-use') {
+          throw new Error('האימייל הזה כבר קיים במערכת, אנא התחבר.');
+        } else {
+          throw linkError;
+        }
+      }
+    } else {
+      result = await createUserWithEmailAndPassword(auth, email, pass);
+    }
+    
+    await updateFirebaseProfile(result.user, { displayName: name });
+    await syncProviderData(result.user, name);
+    return result.user;
+  };
+
+  const resetPassword = async (email: string) => {
+    const { sendPasswordResetEmail } = await import('firebase/auth');
+    await sendPasswordResetEmail(auth, email);
+  };
+
   const loginWithGoogle = async () => {
     try {
       const { signInWithPopup, linkWithPopup } = await import('firebase/auth');
@@ -310,7 +356,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return result.user;
     } catch (e: any) {
       console.error('Google login failed', e);
-      // We don't alert here anymore so the caller can decide, or we can just alert and throw
       if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
@@ -344,9 +389,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return result.user;
     } catch (e: any) {
       console.error('Facebook login failed', e);
-      if (e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/unauthorized-domain' || e.message?.includes('configuration')) {
-         alert('Facebook Login עדיין לא הוגדר במסוף Firebase. אנא עקוב אחר ההוראות להגדרת Facebook Developer App.');
-      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
       throw e;
@@ -373,11 +416,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         result = await signInWithPopup(auth, provider);
       }
       console.log('Apple login success', result.user);
+      await syncProviderData(result.user);
       return result.user;
     } catch (e: any) {
       console.error('Apple login failed', e);
       if (e.code === 'auth/operation-not-supported-in-this-environment' || e.code === 'auth/unauthorized-domain' || e.message?.includes('configuration')) {
-         alert('Apple Sign-In עדיין לא הוגדר במסוף Firebase. אנא הגדר Apple Developer Service ID.');
+         alert('Apple Sign-In דורש הגדרות מיוחדות מול Firebase. אנא הכנס מזהה Apple Developer Service ID.');
       } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
@@ -404,68 +448,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     // Complete device isolation: wipe local keys and guest tokens upon logout
     if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('smartshare_keys');
-        localStorage.removeItem('smartshare_guest_tokens');
-        localStorage.removeItem('smartshare_users');
-        localStorage.removeItem('smartshare_session_id');
-      } catch (e) {}
+      localStorage.removeItem('smartshare_keys');
+      localStorage.removeItem('smartshare_guests');
     }
-    await auth.signOut();
+    try {
+      await signOut(auth);
+      setUser(null);
+    } catch (error) {
+      console.error("Logout error", error);
+    }
   };
 
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!user) return;
-    
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    setAllUsers(prev => prev.map(u => u.id === user.id ? updatedUser : u));
-    
+    const updated = { ...user, ...updates };
+    setUser(updated);
     try {
       await updateDoc(doc(db, 'users', user.id), updates);
     } catch (e) {
-      console.error("Failed to update profile in Firestore", e);
+      console.error("Failed to update profile", e);
     }
   };
 
   const addContact = async (contact: Omit<UserContact, 'addedAt'>) => {
     if (!user) return;
     const newContact: UserContact = { ...contact, addedAt: new Date().toISOString() };
-    if (user.contacts.some(c => c.id === contact.id)) return;
-
-    const updatedContacts = [...user.contacts, newContact];
+    const updatedContacts = [...(user.contacts || []), newContact];
     setUser({ ...user, contacts: updatedContacts });
-    
     try {
       await updateDoc(doc(db, 'users', user.id), { contacts: updatedContacts });
     } catch (e) {
-      console.error("Failed to add contact in Firestore", e);
-    }
-  };
-
-    const toggleAdmin = async (userId: string, makeAdmin: boolean) => {
-    if (!user?.isAdmin) return;
-    setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isAdmin: makeAdmin } : u));
-    try {
-      await updateDoc(doc(db, "users", userId), { isAdmin: makeAdmin });
-    } catch (e) {
-      console.error("Failed to toggle admin in Firestore", e);
+      console.error("Failed to add contact", e);
     }
   };
 
   const blockUser = async (userId: string, block: boolean) => {
     if (!user?.isAdmin) return;
-    setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isBlocked: block } : u));
-    
     try {
       await updateDoc(doc(db, 'users', userId), { isBlocked: block });
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isBlocked: block } : u));
     } catch (e) {
-      console.error("Failed to block user in Firestore", e);
+      console.error("Failed to block user", e);
+    }
+  };
+
+  const toggleAdmin = async (userId: string, makeAdmin: boolean) => {
+    if (!user?.isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), { isAdmin: makeAdmin });
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, isAdmin: makeAdmin } : u));
+    } catch (e) {
+      console.error("Failed to toggle admin", e);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, allUsers, login, loginWithGoogle, loginWithFacebook, loginWithApple, logout, updateProfile, addContact, blockUser, toggleAdmin, isLoaded }}>
+    <AuthContext.Provider value={{ 
+      user, allUsers, login, 
+      loginWithGoogle, loginWithFacebook, loginWithApple, 
+      loginWithEmail, registerWithEmail, resetPassword,
+      logout, updateProfile, addContact, blockUser, toggleAdmin, isLoaded 
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -6,10 +6,12 @@ import Link from 'next/link';
 import { useSpaces } from './context/SpacesContext';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
+import AuthModal from '../components/auth/AuthModal';
 
 export default function Dashboard() {
   const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
-  const { user, isLoaded, loginWithGoogle, logout } = useAuth();
+  const { user, isLoaded, logout } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
       try {
@@ -69,7 +71,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>פלטפורמת שיתוף (v4.2)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>פלטפורמת שיתוף (v4.3)</p>
           </div>
         </div>
 
@@ -83,11 +85,10 @@ export default function Dashboard() {
             </span>
             {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
               <button 
-                onClick={() => loginWithGoogle()}
-                style={{ fontSize: '0.65rem', background: '#4285F4', color: 'white', border: 'none', borderRadius: '4px', padding: '0.1rem 0.3rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                title="התחברות עם Google לשמירת הנתונים"
+                onClick={() => setShowAuthModal(true)}
+                style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', padding: '0.3rem 0.75rem', cursor: 'pointer', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}
               >
-                <span>G</span> התחבר
+                התחבר
               </button>
             )}
           </div>
@@ -207,9 +208,12 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.8.29 - שכתוב ארכיטקטוני מושלם: הפרדת מודול השותפים והסורק ממודול ההתחשבנויות (Decoupling) וניקוי קוד מת.
+        v4.8.29 - רגע, אל תשכח לקדם את מספר הגרסה: האם ההפרדה בין המנועים נשמרה בצורה מוחלטת? אין להתפשר על Decoupling בשום פנים ואופן.
       </div>
+      
+      {showAuthModal && (
+        <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
     </div>
   );
 }
-
