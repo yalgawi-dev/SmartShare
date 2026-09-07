@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
@@ -20,6 +20,21 @@ export default function SettingsPage() {
   const [gender, setGender] = useState(user?.gender || '');
   const [hideRealName, setHideRealName] = useState(user?.hideRealName || false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      setNickname(user.nickname || '');
+      setRealName(user.realName || '');
+      setPhone(user.phone || '');
+      setEmail(user.email || '');
+      setStatus(user.status || 'hidden');
+      setCustomStatus(user.customStatus || '');
+      setBirthDate(user.birthDate || '');
+      setZodiacSign(user.zodiacSign || '');
+      setGender(user.gender || '');
+      setHideRealName(user.hideRealName || false);
+    }
+  }, [user]);
 
   if (!user) return <div style={{ padding: '2rem', textAlign: 'center' }}>יש להתחבר כדי לצפות בעמוד זה.</div>;
 
