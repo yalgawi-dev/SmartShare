@@ -10,7 +10,7 @@ interface AuthModalProps {
   title?: string;
 }
 
-export default function AuthModal({ onClose, onSuccess, title = 'δϊηαψεϊ μξςψλϊ' }: AuthModalProps) {
+export default function AuthModal({ onClose, onSuccess, title = 'Χ”ΧªΧ—Χ‘Χ¨Χ•Χª ΧΧΧΆΧ¨Χ›Χª' }: AuthModalProps) {
   const { loginWithGoogle, loginWithFacebook, loginWithEmail, registerWithEmail, resetPassword } = useAuth();
   
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
@@ -33,21 +33,21 @@ export default function AuthModal({ onClose, onSuccess, title = 'δϊηαψεϊ μξςψλϊ'
         onSuccess?.();
         onClose();
       } else if (mode === 'register') {
-        if (!name.trim()) throw new Error('ιω μδζιο ων ξμΰ');
-        if (password.length < 6) throw new Error('δριρξδ ηιιαϊ μδλιμ μτηεϊ 6 ϊεειν');
+        if (!name.trim()) throw new Error('Χ™Χ© ΧΧ”Χ–Χ™Χ Χ©Χ ΧΧΧ');
+        if (password.length < 6) throw new Error('Χ”Χ΅Χ™Χ΅ΧΧ” Χ—Χ™Χ™Χ‘Χª ΧΧ”Χ›Χ™Χ ΧΧ¤Χ—Χ•Χª 6 ΧªΧ•Χ•Χ™Χ');
         await registerWithEmail(email, password, name);
         onSuccess?.();
         onClose();
       } else if (mode === 'forgot') {
-        if (!email.trim()) throw new Error('ιω μδζιο λϊεαϊ ΰιξιιμ');
+        if (!email.trim()) throw new Error('Χ™Χ© ΧΧ”Χ–Χ™Χ Χ›ΧªΧ•Χ‘Χª ΧΧ™ΧΧ™Χ™Χ');
         await resetPassword(email);
-        setMsg('πωμη χιωεψ μΰιτερ ριρξδ μξιιμ ωμκ. αγεχ ΰϊ ϊιαϊ δγεΰψ.');
+        setMsg('Χ Χ©ΧΧ— Χ§Χ™Χ©Χ•Χ¨ ΧΧΧ™Χ¤Χ•Χ΅ Χ΅Χ™Χ΅ΧΧ” ΧΧΧ™Χ™Χ Χ©ΧΧ. Χ‘Χ“Χ•Χ§ ΧΧª ΧªΧ™Χ‘Χª Χ”Χ“Χ•ΧΧ¨.');
       }
     } catch (err: any) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-         setError('ΰιξιιμ ΰε ριρξδ ωβειιν.');
+         setError('ΧΧ™ΧΧ™Χ™Χ ΧΧ• Χ΅Χ™Χ΅ΧΧ” Χ©Χ’Χ•Χ™Χ™Χ.');
       } else {
-         setError(err.message || 'ΰιψςδ ωβιΰδ. πρδ ωεα.');
+         setError(err.message || 'ΧΧ™Χ¨ΧΆΧ” Χ©Χ’Χ™ΧΧ”. Χ Χ΅Χ” Χ©Χ•Χ‘.');
       }
     } finally {
       setLoading(false);
@@ -72,9 +72,9 @@ export default function AuthModal({ onClose, onSuccess, title = 'δϊηαψεϊ μξςψλϊ'
         
         <div className={styles.header}>
           <div className={styles.logo}>?</div>
-          <h2 className={styles.title}>{mode === 'register' ? 'φεψ ηωαεο ηγω' : mode === 'forgot' ? 'ΰιτερ ριρξδ' : title}</h2>
+          <h2 className={styles.title}>{mode === 'register' ? 'Χ¦Χ•Χ¨ Χ—Χ©Χ‘Χ•Χ Χ—Χ“Χ©' : mode === 'forgot' ? 'ΧΧ™Χ¤Χ•Χ΅ Χ΅Χ™Χ΅ΧΧ”' : title}</h2>
           <p className={styles.subtitle}>
-            {mode === 'register' ? 'δφθψσ ςλωιε αηιπν λγι μωξεψ ΰϊ δπϊεπιν ωμκ' : mode === 'forgot' ? 'δζο ΰϊ δξιιμ ωμκ επωμη μκ χιωεψ ??ιτερ' : 'δϊηαψ λγι μβωϊ μξψηαιν δΰιωιιν ωμκ'}
+            {mode === 'register' ? 'Χ”Χ¦ΧΧ¨Χ£ ΧΆΧ›Χ©Χ™Χ• Χ‘Χ—Χ™Χ Χ Χ›Χ“Χ™ ΧΧ©ΧΧ•Χ¨ ΧΧª Χ”Χ ΧªΧ•Χ Χ™Χ Χ©ΧΧ' : mode === 'forgot' ? 'Χ”Χ–Χ ΧΧª Χ”ΧΧ™Χ™Χ Χ©ΧΧ Χ•Χ Χ©ΧΧ— ΧΧ Χ§Χ™Χ©Χ•Χ¨ ??Χ™Χ¤Χ•Χ΅' : 'Χ”ΧªΧ—Χ‘Χ¨ Χ›Χ“Χ™ ΧΧ’Χ©Χª ΧΧΧ¨Χ—Χ‘Χ™Χ Χ”ΧΧ™Χ©Χ™Χ™Χ Χ©ΧΧ'}
           </p>
         </div>
 
@@ -84,38 +84,38 @@ export default function AuthModal({ onClose, onSuccess, title = 'δϊηαψεϊ μξςψλϊ'
         <form className={styles.form} onSubmit={handleSubmit}>
           {mode === 'register' && (
             <div className={styles.inputGroup}>
-              <label>ων ξμΰ</label>
-              <input type="text" placeholder="ιωψΰμ ιωψΰμι" value={name} onChange={e => setName(e.target.value)} disabled={loading} required />
+              <label>Χ©Χ ΧΧΧ</label>
+              <input type="text" placeholder="Χ™Χ©Χ¨ΧΧ Χ™Χ©Χ¨ΧΧΧ™" value={name} onChange={e => setName(e.target.value)} disabled={loading} required />
             </div>
           )}
           
           <div className={styles.inputGroup}>
-            <label>ΰιξιιμ</label>
+            <label>ΧΧ™ΧΧ™Χ™Χ</label>
             <input type="email" placeholder="name@example.com" value={email} onChange={e => setEmail(e.target.value)} disabled={loading} required />
           </div>
 
           {mode !== 'forgot' && (
             <div className={styles.inputGroup}>
-              <label>ριρξδ</label>
-              <input type="password" placeholder="••••••••" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} required />
+              <label>Χ΅Χ™Χ΅ΧΧ”</label>
+              <input type="password" placeholder="" value={password} onChange={e => setPassword(e.target.value)} disabled={loading} required />
             </div>
           )}
 
           {mode === 'login' && (
             <button type="button" className={styles.textBtn} onClick={() => setMode('forgot')} style={{ alignSelf: 'flex-start', marginTop: '-0.5rem' }}>
-              ωληϊ ριρξδ?
+              Χ©Χ›Χ—Χª Χ΅Χ™Χ΅ΧΧ”?
             </button>
           )}
 
           <button type="submit" className={styles.primaryBtn} disabled={loading}>
-            {loading ? 'ξςαγ...' : mode === 'register' ? 'δψωξδ αηιπν' : mode === 'forgot' ? 'ωμη χιωεψ ΰιτερ' : 'δϊηαψεϊ'}
+            {loading ? 'ΧΧΆΧ‘Χ“...' : mode === 'register' ? 'Χ”Χ¨Χ©ΧΧ” Χ‘Χ—Χ™Χ Χ' : mode === 'forgot' ? 'Χ©ΧΧ— Χ§Χ™Χ©Χ•Χ¨ ΧΧ™Χ¤Χ•Χ΅' : 'Χ”ΧªΧ—Χ‘Χ¨Χ•Χª'}
           </button>
         </form>
 
         {mode !== 'forgot' && (
           <>
             <div className={styles.divider}>
-              <span>ΰε δϊηαψ αΰξφςεϊ</span>
+              <span>ΧΧ• Χ”ΧªΧ—Χ‘Χ¨ Χ‘ΧΧΧ¦ΧΆΧ•Χª</span>
             </div>
 
             <div className={styles.socialGrid}>
@@ -133,9 +133,9 @@ export default function AuthModal({ onClose, onSuccess, title = 'δϊηαψεϊ μξςψλϊ'
 
         <div className={styles.footer}>
           {mode === 'login' ? (
-            <p>ΰιο μκ ηωαεο ςγιιο? <button className={styles.switchBtn} onClick={() => setMode('register')}>δψων ςλωιε αηιπν</button></p>
+            <p>ΧΧ™Χ ΧΧ Χ—Χ©Χ‘Χ•Χ ΧΆΧ“Χ™Χ™Χ? <button className={styles.switchBtn} onClick={() => setMode('register')}>Χ”Χ¨Χ©Χ ΧΆΧ›Χ©Χ™Χ• Χ‘Χ—Χ™Χ Χ</button></p>
           ) : (
-            <p>λαψ ιω μκ ηωαεο? <button className={styles.switchBtn} onClick={() => setMode('login')}>δϊηαψ ςλωιε</button></p>
+            <p>Χ›Χ‘Χ¨ Χ™Χ© ΧΧ Χ—Χ©Χ‘Χ•Χ? <button className={styles.switchBtn} onClick={() => setMode('login')}>Χ”ΧªΧ—Χ‘Χ¨ ΧΆΧ›Χ©Χ™Χ•</button></p>
           )}
         </div>
       </div>
