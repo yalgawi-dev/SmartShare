@@ -141,12 +141,7 @@ export function FinanceTransactions({
       return true;
     }).map((m: any) => m.name).filter(Boolean);
     
-    if (waitingFor.length === 0) {
-      // If we got here, someone should have been waiting but wasn't found.
-      // Print debug info so we can see who was filtered and why
-      const debugMembers = everyone.map(m => `${m.name}(${m.userId})`).join(' | ');
-      return `DEBUG: ev=[${debugMembers}], payer=${inv.payerId}, appr=[${approvedBy.join(',')}]`;
-    }
+    if (waitingFor.length === 0) return null;
     return waitingFor.join(', ');
   };
 
@@ -248,8 +243,17 @@ export function FinanceTransactions({
                       )}
 
                     {activePartnersCount > 0 && inv.status === 'pending' && (
-                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold' }}>
-                        {inv.approvalsReceived}/{inv.approvalsNeeded} אושר
+                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                        <span>{inv.approvalsReceived}/{inv.approvalsNeeded} אושר</span>
+                        {(() => {
+                          const waitingText = getPendingApproversText(inv);
+                          // Do not render "DEBUG..." in the small preview, just normal text
+                          return waitingText && !waitingText.startsWith('DEBUG:') ? (
+                            <span style={{ fontSize: '0.7rem', color: '#b45309' }}>
+                              מחכה ל: {waitingText}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                     )}
                   </div>
