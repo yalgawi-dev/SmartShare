@@ -127,7 +127,7 @@ export function FinanceSummary({
   
   balances.forEach(b => {
     let p = 0;
-    if (activePartnersCount === 0) {
+    if (activeMembersCount <= 1) { // Only creator or nobody
       if (b.userId === myId || b.isCreator) p = 100;
       else p = 0;
     } else {

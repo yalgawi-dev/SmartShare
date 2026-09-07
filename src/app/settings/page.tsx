@@ -36,7 +36,22 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  if (!user) return <div style={{ padding: '2rem', textAlign: 'center' }}>יש להתחבר כדי לצפות בעמוד זה.</div>;
+  if (!user || user.isAnonymous) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main, #f8fafc)', padding: '2rem' }}>
+        <div style={{ background: 'white', maxWidth: '500px', width: '100%', borderRadius: '24px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
+          <div style={{ fontSize: '4rem', margin: '0 auto 1.5rem', width: '80px', height: '80px', background: '#fef2f2', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>🔒</div>
+          <h2 style={{ fontSize: '1.75rem', marginBottom: '1rem', color: '#0f172a' }}>פעולה חסומה</h2>
+          <p style={{ color: '#475569', fontSize: '1.1rem', lineHeight: '1.6', marginBottom: '2rem' }}>
+            על מנת לגשת להגדרות הפרופיל והמערכת, עליך להיות משתמש מחובר (רשום). אנא חזור למסך הראשי והתחבר או הירשם בחינם.
+          </p>
+          <Link href="/" style={{ display: 'inline-block', padding: '1rem 2rem', background: 'var(--primary)', color: 'white', borderRadius: '16px', fontWeight: 'bold', textDecoration: 'none', boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}>
+            &rarr; חזרה למסך הראשי
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   // Auto-save logic
   const saveField = (field: string, value: any) => {
