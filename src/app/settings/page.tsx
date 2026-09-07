@@ -218,7 +218,8 @@ export default function SettingsPage() {
           </p>
 
           {(() => {
-            const allSpaceMembers = spaces.flatMap(s => s.members || []);
+            const myCreatedSpaces = spaces.filter(s => s.createdBy === user?.id);
+            const allSpaceMembers = myCreatedSpaces.flatMap(s => s.members || []);
             const uniqueMembers = Array.from(new Map(allSpaceMembers.map(m => [m.userId, m])).values()).filter(m => m.userId !== user?.id);
             
             if (uniqueMembers.length === 0) {
@@ -283,7 +284,7 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {spaces.filter(s => s.status === 'pending_deletion').map(s => (
+                {spaces.filter(s => s.status === 'pending_deletion' && s.createdBy === user?.id).map(s => (
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold' }}>{s.icon} {s.title}</td>
                     <td style={{ padding: '1rem' }}>{s.members?.length || 0}</td>
@@ -310,7 +311,7 @@ export default function SettingsPage() {
                     </td>
                   </tr>
                 ))}
-                {spaces.filter(s => s.status === 'pending_deletion').length === 0 && (
+                {spaces.filter(s => s.status === 'pending_deletion' && s.createdBy === user?.id).length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                       אין מרחבים בארכיון כרגע.

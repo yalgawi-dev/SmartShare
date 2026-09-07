@@ -66,13 +66,13 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const handleInviteClick = () => {
     if (onRestrictedAction) {
       onRestrictedAction(() => {
-        if (myMember && myMember.canInvitePartners === false) {
+        if (myMember && myMember.canInvitePartners === false && !user?.isAdmin) {
           alert('אין לך הרשאה להזמין שותפים במרחב זה.');
         } else {
           setShowInviteModal(true);
         }
       });
-    } else if (myMember && myMember.canInvitePartners === false) {
+    } else if (myMember && myMember.canInvitePartners === false && !user?.isAdmin) {
       alert('אין לך הרשאה להזמין שותפים במרחב זה.');
     } else {
       setShowInviteModal(true);

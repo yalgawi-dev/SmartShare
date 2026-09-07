@@ -153,7 +153,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }
   const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
   const isPending = myMember?.status === "pending" || myMember?.status === "extension_requested" || myMember?.status === "disputed";
-  const isRestricted = isGuestMode || isPending;
+  const isRestricted = (isGuestMode || isPending) && !user?.isAdmin;
 
   const handleRestrictedAction = (action: () => void) => {
     if (isRestricted) {
@@ -191,7 +191,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         </Link>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <button onClick={() => {
-            if (myMember && myMember.canEditSettings === false) {
+            if (myMember && myMember.canEditSettings === false && !user?.isAdmin) {
               alert('אין לך הרשאה לגשת להגדרות במרחב זה.');
             } else {
               handleRestrictedAction(() => { window.location.href = `/space/${id}/settings`; })

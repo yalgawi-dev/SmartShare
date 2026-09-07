@@ -240,13 +240,13 @@ export function FinanceSummary({
               onClick={() => {
                 if (onRestrictedAction) {
                   onRestrictedAction(() => {
-                    if (myMember && myMember.canEditShares === false) {
+                    if (myMember && myMember.canEditShares === false && !user?.isAdmin) {
                       alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
                     } else {
                       setIsEditingShares(true);
                     }
                   });
-                } else if (myMember && myMember.canEditShares === false) {
+                } else if (myMember && myMember.canEditShares === false && !user?.isAdmin) {
                   alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
                 } else {
                   setIsEditingShares(true);

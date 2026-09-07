@@ -39,6 +39,7 @@ export const viewport: Viewport = {
 import { Providers } from "./Providers";
 
 import GlobalPWAPrompt from "../components/GlobalPWAPrompt";
+import GlobalPhonePrompt from "../components/GlobalPhonePrompt";
 
 export default function RootLayout({
   children,
@@ -57,6 +58,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <GlobalPWAPrompt />
+          <GlobalPhonePrompt />
         </Providers>
       </body>
     </html>

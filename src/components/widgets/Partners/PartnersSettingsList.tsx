@@ -104,43 +104,48 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
                 </div>
                 
                 <div style={{ width: "80px", display: "flex", justifyContent: "center", alignItems: "center", gap: "0.5rem" }}>
-                  <label style={{ display: "flex", alignItems: "center", cursor: (m.userId === user?.id || isPending) ? "not-allowed" : "pointer", opacity: (m.userId === user?.id || isPending) ? 0.5 : 1 }} title={m.userId === user?.id ? "אינך יכול לשנות את הסטטוס של עצמך" : ""}>
-                    <input 
-                      type="checkbox" 
-                      checked={m.isActive !== false} 
-                      disabled={m.userId === user?.id || isPending}
-                      onChange={(e) => {
-                        if (!e.target.checked) {
-                          if (window.confirm('האם אתה בטוח שברצונך להשהות שותף זה? הוא לא יוכל לצפות בנתונים או לבצע פעולות עד שתחזיר אותו.')) {
-                            removeMember(space.id, m.userId, user?.id || "unknown");
-                          }
-                        } else {
-                          restoreMember(space.id, m.userId, user?.id || "unknown");
-                        }
-                      }}
-                      style={{ display: "none" }}
-                    />
-                    <div style={{ width: "36px", height: "20px", background: m.isActive !== false ? "#10b981" : "#cbd5e1", borderRadius: "20px", position: "relative", transition: "0.3s" }}>
-                      <div style={{ width: "16px", height: "16px", background: "white", borderRadius: "50%", position: "absolute", top: "2px", left: m.isActive !== false ? "2px" : "18px", transition: "0.3s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
-                    </div>
-                  </label>
-                  
-                  {m.isActive === false && (
-                    <button 
-                      onClick={() => {
-                        if (window.confirm('מחיקה לצמיתות (Hard Delete): האם אתה בטוח שברצונך למחוק לחלוטין שותף זה? פעולה זו תסיר אותו מכל ההיסטוריה והחלוקות.')) {
-                          removeMember(space.id, m.userId, user?.id || "unknown", true);
-                        }
-                      }}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: "1.2rem", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}
-                      title="מחיקה לצמיתות"
-                    >
-                      🗑️
-                    </button>
+                  {(user?.isAdmin || user?.id === space.createdBy) && (
+                    <>
+                      <label style={{ display: "flex", alignItems: "center", cursor: (m.userId === user?.id || isPending) ? "not-allowed" : "pointer", opacity: (m.userId === user?.id || isPending) ? 0.5 : 1 }} title={m.userId === user?.id ? "אינך יכול לשנות את הסטטוס של עצמך" : ""}>
+                        <input 
+                          type="checkbox" 
+                          checked={m.isActive !== false} 
+                          disabled={m.userId === user?.id || isPending}
+                          onChange={(e) => {
+                            if (!e.target.checked) {
+                              if (window.confirm('האם אתה בטוח שברצונך להשהות שותף זה? הוא לא יוכל לצפות בנתונים או לבצע פעולות עד שתחזיר אותו.')) {
+                                removeMember(space.id, m.userId, user?.id || "unknown");
+                              }
+                            } else {
+                              restoreMember(space.id, m.userId, user?.id || "unknown");
+                            }
+                          }}
+                          style={{ display: "none" }}
+                        />
+                        <div style={{ width: "36px", height: "20px", background: m.isActive !== false ? "#10b981" : "#cbd5e1", borderRadius: "20px", position: "relative", transition: "0.3s" }}>
+                          <div style={{ width: "16px", height: "16px", background: "white", borderRadius: "50%", position: "absolute", top: "2px", left: m.isActive !== false ? "2px" : "18px", transition: "0.3s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+                        </div>
+                      </label>
+                      
+                      {m.isActive === false && (
+                        <button 
+                          onClick={() => {
+                            if (window.confirm('מחיקה לצמיתות (Hard Delete): האם אתה בטוח שברצונך למחוק לחלוטין שותף זה? פעולה זו תסיר אותו מכל ההיסטוריה והחלוקות.')) {
+                              removeMember(space.id, m.userId, user?.id || "unknown", true);
+                            }
+                          }}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: "1.2rem", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}
+                          title="מחיקה לצמיתות"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
                 
                 <div style={{ width: "90px", display: "flex", justifyContent: "flex-end" }}>
+                  {(user?.isAdmin || user?.id === space.createdBy) && (
                    <button 
                       onClick={() => setExpandedMember(isExpanded ? null : m.userId)}
                       style={{ 
@@ -156,6 +161,7 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
                     >
                       {isExpanded ? "סגור" : "ניהול"}
                    </button>
+                  )}
                 </div>
               </div>
 
