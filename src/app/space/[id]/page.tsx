@@ -216,16 +216,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         
         {/* Cover Photo Background */}
         <div 
-          style={{ height: '160px', width: '100%', background: 'var(--border-light)', position: 'relative', cursor: !isGuestMode ? 'pointer' : 'default', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', overflow: 'hidden' }}
-          onClick={() => !isGuestMode && fileInputRef.current?.click()}
-          title={!isGuestMode ? "שנה תמונת נושא" : ""}
+          style={{ height: '160px', width: '100%', background: 'var(--border-light)', position: 'relative', cursor: !isRestricted ? 'pointer' : 'default', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', overflow: 'hidden' }}
+          onClick={() => !isRestricted && fileInputRef.current?.click()}
+          title={!isRestricted ? "שנה תמונת נושא" : ""}
         >
           {space.coverImage ? (
              <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           ) : (
              <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)', opacity: 0.8 }}></div>
           )}
-          {!isGuestMode && (
+          {!isRestricted && (
              <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.5)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                📷
              </div>
@@ -240,19 +240,19 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
              <div 
                onClick={() => {
-                  if (!isGuestMode) {
+                  if (!isRestricted) {
                     const newIcon = window.prompt('הזן אימוג׳י חדש (השתמש במקלדת האימוג׳י בטלפון שלך כדי לבחור סמל):', space.icon);
                     if (newIcon) {
                       updateSpaceIcon(id, newIcon);
                     }
                   }
                }}
-               title={!isGuestMode ? "לחץ להחלפת אימוג׳י" : ""}
+               title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
                style={{ 
                 width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-main)', 
                 boxShadow: '0 4px 10px rgba(0,0,0,0.1)', border: '4px solid var(--bg-card)', 
                 display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-                cursor: !isGuestMode ? 'pointer' : 'default'
+                cursor: !isRestricted ? 'pointer' : 'default'
               }}>
                 <span style={{ fontSize: '2.5rem' }}>{space.icon || space.title.charAt(0)}</span>
              </div>
@@ -279,7 +279,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
           {/* Title & Date */}
           <div style={{ flex: 1 }}>
-            {isEditingTitle && !isGuestMode ? (
+            {isEditingTitle && !isRestricted ? (
               <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
                 <input 
                   type="text" value={editTitleValue} onChange={(e) => setEditTitleValue(e.target.value)}
@@ -290,15 +290,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               </div>
             ) : (
               <h1 
-                onClick={() => { if(!isGuestMode) { setEditTitleValue(space.title); setIsEditingTitle(true); } }} 
-                style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-primary)', cursor: !isGuestMode ? 'pointer' : 'default', letterSpacing: '-0.02em' }}
-                title={!isGuestMode ? "לחץ לעריכה" : ""}
+                onClick={() => { if(!isRestricted) { setEditTitleValue(space.title); setIsEditingTitle(true); } }} 
+                style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-primary)', cursor: !isRestricted ? 'pointer' : 'default', letterSpacing: '-0.02em' }}
+                title={!isRestricted ? "לחץ לעריכה" : ""}
               >
                 {space.title}
               </h1>
             )}
 
-            {isEditingDate && !isGuestMode ? (
+            {isEditingDate && !isRestricted ? (
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <input 
                   type="date" value={editDateValue} onChange={(e) => setEditDateValue(e.target.value)}
@@ -308,9 +308,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               </div>
             ) : (
               <p 
-                onClick={() => { if(!isGuestMode) { setEditDateValue(space.date || ''); setIsEditingDate(true); } }}
-                style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem', cursor: !isGuestMode ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                title={!isGuestMode ? "לחץ לעריכה" : ""}
+                onClick={() => { if(!isRestricted) { setEditDateValue(space.date || ''); setIsEditingDate(true); } }}
+                style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                title={!isRestricted ? "לחץ לעריכה" : ""}
               >
                 {space.date ? new Date(space.date).toLocaleDateString('he-IL') : 'הגדר תאריך'}
               </p>

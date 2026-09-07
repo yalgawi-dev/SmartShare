@@ -71,7 +71,7 @@ export default function Dashboard() {
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.2rem, 4vw, 1.75rem)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>MySpace</h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>פלטפורמת שיתוף (v4.8)</p>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.85rem', whiteSpace: 'nowrap' }}>פלטפורמת שיתוף (v5.0)</p>
           </div>
         </div>
 
@@ -208,7 +208,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v4.8.29 - שכתוב ארכיטקטוני מושלם: הפרדת מודול השותפים והסורק ממודול ההתחשבנויות (Decoupling) וניקוי קוד מת.
+        v5.0 - שקיפות מוחלטת למוזמנים לפני אישור והגדרות חסומות
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
