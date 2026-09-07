@@ -208,7 +208,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0 - שקיפות מוחלטת למוזמנים לפני אישור והגדרות חסומות
+        v5.0.1 - הסרת נעילה מלאה (המוזמן רואה מאזן והתפלגות) ונעילת הגדרות הקיר לעריכה
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

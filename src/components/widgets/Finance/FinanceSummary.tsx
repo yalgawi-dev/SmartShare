@@ -266,7 +266,7 @@ export function FinanceSummary({
                   <th style={{ padding: '0.75rem' }}>שם</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
                   <th style={{ padding: '0.75rem' }}>שולם</th>
-                  {hasPartners && !onRestrictedAction && <th style={{ padding: '0.75rem' }}>מאזן</th>}
+                  {hasPartners && <th style={{ padding: '0.75rem' }}>מאזן</th>}
                 </tr>
               </thead>
               <tbody>
@@ -288,19 +288,16 @@ export function FinanceSummary({
       )}
       {(b as any).status === 'pending' && (() => {
         const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
-        return (
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.1rem" }}>
-            <span style={{ fontSize: "0.7rem", color: isExpired ? "#ef4444" : "#f59e0b", display: "flex", alignItems: "center", gap: "0.2rem", fontWeight: isExpired ? "bold" : "normal" }}>
-              {isExpired ? "\u274c \u05e4\u05d2 \u05ea\u05d5\u05e7\u05e3" : "\u23f3 \u05de\u05de\u05ea\u05d9\u05df"}
-            </span>
-          </div>
-        );
+        if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
+        return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>ממתין לאישור...</span>;
       })()}
+      {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
+      {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>בקשת הארכה</span>}
     </div>
   </td>
                       <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                       <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                      {hasPartners && !onRestrictedAction && (
+                      {hasPartners && (
                       <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
                         <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
                         {b.balance > 0 ? '+' : ''}₪{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
