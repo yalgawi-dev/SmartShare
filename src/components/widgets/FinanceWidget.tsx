@@ -28,7 +28,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     } catch(e){}
     return null;
   })();
-  const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+  const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
 
   const handleRestrictedAction = (action: () => void) => {
     if (onRestrictedAction) {

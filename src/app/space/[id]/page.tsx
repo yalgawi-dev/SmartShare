@@ -151,7 +151,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       if (localKeys[id]?.token) myPartnerToken = localKeys[id].token;
     } catch(e){}
   }
-  const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+  const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
   const isPending = myMember?.status === "pending" || myMember?.status === "extension_requested" || myMember?.status === "disputed";
   const isRestricted = isGuestMode || isPending;
 
@@ -444,6 +444,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 <li>חפש את כרטיס האישור שלך בראש העמוד</li>
                 <li>לחץ על <strong>"מסכים, אישור שותפות"</strong></li>
                 <li>לאחר מכן כל האזורים ייפתחו עבורך!</li>
+                <li><strong>מומלץ:</strong> התקן את האפליקציה במידה ותתבקש לחוויה מושלמת וגישה מהירה.</li>
               </ol>
             </div>
 

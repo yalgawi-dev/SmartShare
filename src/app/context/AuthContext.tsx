@@ -352,7 +352,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return result.user;
     } catch (e: any) {
       console.error('Google login failed', e);
-      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      if (e.code === 'auth/popup-blocked') {
+        alert('שגיאה: חוסם החלונות הקופצים בדפדפן מופעל. אנא אפשר חלונות קופצים (Pop-ups) עבור אתר זה כדי להתחבר.');
+      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
       throw e;
@@ -384,7 +386,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return result.user;
     } catch (e: any) {
       console.error('Facebook login failed', e);
-      if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+      if (e.code === 'auth/popup-blocked') {
+        alert('שגיאה: חוסם החלונות הקופצים בדפדפן מופעל. אנא אפשר חלונות קופצים (Pop-ups) עבור אתר זה כדי להתחבר.');
+      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
       throw e;

@@ -48,7 +48,7 @@ export function FinanceSummary({
     } catch(e){}
     return null;
   })();
-  const myMember = space.members?.find((m: any) => m.userId === (user?.id || myPartnerToken));
+  const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
   
   const activeInvoices = invoices.filter((inv: any) => inv.isActive !== false);
   const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute');

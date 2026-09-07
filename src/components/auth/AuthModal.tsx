@@ -128,6 +128,10 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
                 Facebook
               </button>
             </div>
+            <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#64748b', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <span style={{ fontSize: '1.1rem' }}>⚠️</span>
+              אם החלון אינו נפתח, אנא אשרו "חלונות קופצים" (Pop-ups) או פיתחו בדפדפן הראשי.
+            </div>
           </>
         )}
 
