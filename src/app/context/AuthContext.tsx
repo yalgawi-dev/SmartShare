@@ -1,9 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { auth, db } from '@/lib/firebase';
-import { signInAnonymously, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import { auth, db, googleProvider } from '@/lib/firebase';
+import { signInAnonymously, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 
 export interface UserContact {
   id: string;
@@ -180,7 +180,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             //         Sign them out so they go through the full onboarding again.
             if (!firebaseUser.isAnonymous) {
               console.warn('[Auth] Firebase Auth user exists but Firestore doc was deleted — signing out to force re-onboarding.');
-              const { signOut } = await import('firebase/auth');
               await signOut(auth);
               // Clear local caches too
               if (typeof window !== 'undefined') {
@@ -305,7 +304,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    const { signInWithEmailAndPassword, linkWithCredential, EmailAuthProvider } = await import('firebase/auth');
     let result;
     if (auth.currentUser && auth.currentUser.isAnonymous) {
       const credential = EmailAuthProvider.credential(email, pass);
@@ -326,7 +324,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const registerWithEmail = async (email: string, pass: string, name: string) => {
-    const { createUserWithEmailAndPassword, linkWithCredential, EmailAuthProvider, updateProfile: updateFirebaseProfile } = await import('firebase/auth');
     let result;
     if (auth.currentUser && auth.currentUser.isAnonymous) {
       const credential = EmailAuthProvider.credential(email, pass);
@@ -349,15 +346,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    const { sendPasswordResetEmail } = await import('firebase/auth');
     await sendPasswordResetEmail(auth, email);
   };
 
   const loginWithGoogle = async () => {
     try {
-      const { signInWithPopup, linkWithPopup } = await import('firebase/auth');
-      const { googleProvider } = await import('@/lib/firebase');
-      
       let result;
       if (auth.currentUser && auth.currentUser.isAnonymous) {
         try {
@@ -386,7 +379,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithFacebook = async () => {
     try {
-      const { signInWithPopup, linkWithPopup, FacebookAuthProvider } = await import('firebase/auth');
       const provider = new FacebookAuthProvider();
       provider.addScope('email');
       provider.addScope('public_profile');
@@ -419,7 +411,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithApple = async () => {
     try {
-      const { signInWithPopup, linkWithPopup, OAuthProvider } = await import('firebase/auth');
       const provider = new OAuthProvider('apple.com');
       
       let result;
@@ -526,7 +517,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const deleteUserDoc = async (userId: string) => {
     if (!user?.isAdmin) return;
     try {
-      const { deleteDoc } = await import('firebase/firestore');
       await deleteDoc(doc(db, 'users', userId));
       setAllUsers(prev => prev.filter(u => u.id !== userId));
     } catch (e) {
