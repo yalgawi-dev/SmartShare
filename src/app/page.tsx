@@ -7,6 +7,7 @@ import { useSpaces } from './context/SpacesContext';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 import AuthModal from '../components/auth/AuthModal';
+import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
 
 export default function Dashboard() {
   const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
@@ -60,6 +61,28 @@ export default function Dashboard() {
       document.removeEventListener('visibilitychange', loadKeys);
     };
   }, []);
+
+  const visibleSpaces = spaces.filter(s => { 
+    if (s.status === 'pending_deletion') return false; 
+    
+    // 1. Creator check (strictly verified)
+    if (user?.id && s.creatorId && user.id === s.creatorId) return true;
+    if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
+    if (clientKeys[s.id]?.role === 'creator') return true;
+    
+    // 2. Partner check (key or token)
+    if (user?.spaceKeys?.[s.id]?.role === 'partner') return true;
+    if (clientKeys[s.id]?.role === 'partner') return true;
+    
+    const partnerToken = user?.spaceKeys?.[s.id]?.token || clientKeys[s.id]?.token;
+    const isMember = s.members?.some((m: any) => {
+      if (user?.id && m.userId === user.id) return true;
+      if (partnerToken && m.userId === partnerToken) return true;
+      if (guestTokens.includes(m.userId)) return true;
+      return false;
+    });
+    return isMember;
+  });
 
   return (
     <div className={styles.container}>
@@ -129,28 +152,11 @@ export default function Dashboard() {
         </Link>
       )}
 
+      {visibleSpaces.length === 0 ? (
+        <WelcomeEmptyState />
+      ) : (
       <div className={styles.grid}>
-        {spaces.filter(s => { 
-          if (s.status === 'pending_deletion') return false; 
-          
-          // 1. Creator check (strictly verified)
-          if (user?.id && s.creatorId && user.id === s.creatorId) return true;
-          if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
-          if (clientKeys[s.id]?.role === 'creator') return true;
-          
-          // 2. Partner check (key or token)
-          if (user?.spaceKeys?.[s.id]?.role === 'partner') return true;
-          if (clientKeys[s.id]?.role === 'partner') return true;
-          
-          const partnerToken = user?.spaceKeys?.[s.id]?.token || clientKeys[s.id]?.token;
-          const isMember = s.members?.some((m: any) => {
-            if (user?.id && m.userId === user.id) return true;
-            if (partnerToken && m.userId === partnerToken) return true;
-            if (guestTokens.includes(m.userId)) return true;
-            return false;
-          });
-          return isMember;
-        }).map(space => (
+        {visibleSpaces.map(space => (
           <div key={space.id} style={{ position: 'relative' }}>
             <button 
               onClick={(e) => {
@@ -207,6 +213,7 @@ export default function Dashboard() {
           </div>
         ))}
       </div>
+      )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
         v5.0.7 - מרכז התראות צף וכפתור נדנוד חכם לשותפים
       </div>
