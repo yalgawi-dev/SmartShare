@@ -113,6 +113,37 @@ export function FinanceTransactions({
     return (inv.payerId !== user?.id && inv.payerId !== 'me' && !(inv.approvedBy || []).includes(user?.id));
   };
 
+  const getPendingApproversText = (inv: any) => {
+    if (inv.status !== 'pending') return null;
+    if (!space.members) return null;
+    
+    if (inv.type === 'transfer') {
+      const targetId = inv.targetId;
+      if (!targetId) return 'המקבל';
+      const targetName = targetId === space.creatorId ? (space.createdBy || 'יוצר המרחב') : space.members.find((m: any) => m.userId === targetId)?.name || 'השותף';
+      return targetName;
+    }
+    
+    const creatorId = space.creatorId || (space.masterKey ? 'creator_master' : space.createdBy);
+    const creatorObj = { userId: creatorId, name: space.createdBy || 'יוצר המרחב' };
+    
+    const allValidMembers = space.members.filter((m: any) => m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested');
+    const everyone = [creatorObj, ...allValidMembers];
+    
+    const excluded = inv.excludedMembers || [];
+    const approvedBy = inv.approvedBy || [];
+    
+    const waitingFor = everyone.filter(m => 
+      m.userId !== inv.payerId &&
+      m.userId !== 'me' &&
+      !approvedBy.includes(m.userId) &&
+      !excluded.includes(m.userId)
+    ).map(m => m.name);
+    
+    if (waitingFor.length === 0) return null;
+    return waitingFor.join(', ');
+  };
+
   return (
     <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEndHandler}>
       {/* Filter Pills */}
@@ -255,7 +286,17 @@ export function FinanceTransactions({
                           ) : inv.status === 'dispute' ? (
                             <span style={{ color: '#ef4444', fontSize: '0.9rem' }}>❌ נדחה / במחלוקת.</span>
                           ) : (
-                            <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).</span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                              <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).</span>
+                              {(() => {
+                                const waitingText = getPendingApproversText(inv);
+                                return waitingText ? (
+                                  <span style={{ color: '#b45309', fontSize: '0.85rem', background: '#fef3c7', padding: '0.25rem 0.5rem', borderRadius: '6px', display: 'inline-block', border: '1px solid #fde68a' }}>
+                                    מחכה לאישור של: <strong>{waitingText}</strong>
+                                  </span>
+                                ) : null;
+                              })()}
+                            </div>
                           )}
                         </div>
                       </div>
