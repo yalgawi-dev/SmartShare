@@ -233,8 +233,9 @@ export default function SettingsPage() {
           </p>
 
           {(() => {
-            const myCreatedSpaces = spaces.filter(s => s.createdBy === user?.id);
-            const allSpaceMembers = myCreatedSpaces.flatMap(s => s.members || []);
+            // Include ANY space where the current user is a member
+            const mySpaces = spaces.filter(s => s.members?.some(m => m.userId === user?.id));
+            const allSpaceMembers = mySpaces.flatMap(s => s.members || []);
             const uniqueMembers = Array.from(new Map(allSpaceMembers.map(m => [m.userId, m])).values()).filter(m => m.userId !== user?.id);
             
             if (uniqueMembers.length === 0) {

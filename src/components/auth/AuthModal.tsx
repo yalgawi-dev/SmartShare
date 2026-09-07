@@ -180,19 +180,20 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
                 animation-delay: 0.5s;
               }
             `}</style>
-            <div className={popupBlocked ? "animated-popup-warning-blocked" : providerLoading ? "animated-popup-warning-active" : "animated-popup-warning"} style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.75rem', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', transition: 'all 0.3s ease' }}>
-              <span className="animated-popup-icon" style={{ fontSize: '1.5rem', flexShrink: 0 }}>
-                {popupBlocked ? '🚨' : providerLoading ? '⏳' : '💡'}
-              </span>
-              <div style={{ lineHeight: '1.4' }}>
-                <strong style={{ display: 'block', color: popupBlocked ? '#ef4444' : '#0f172a', fontSize: '0.9rem', margin: '0 0 0.1rem 0' }}>
+            <div className={popupBlocked ? "animated-popup-warning-blocked" : providerLoading ? "animated-popup-warning-active" : "animated-popup-warning"} style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569', textAlign: 'right', display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', transition: 'all 0.3s ease' }}>
+              <div style={{ lineHeight: '1.5', flex: 1 }}>
+                <strong style={{ display: 'block', color: popupBlocked ? '#ef4444' : '#0f172a', fontSize: '0.9rem', margin: '0 0 0.25rem 0' }}>
                   {popupBlocked ? 'הדפדפן חסם את חלון ההתחברות!' : providerLoading ? 'פותח חלון חיבור...' : 'חלון ההתחברות לא נפתח?'}
                 </strong>
-                {popupBlocked 
-                  ? 'אנא לחץ על הסימון בשורת הכתובת למעלה (Pop-up Blocker) ואשר פתיחת חלונות מהאתר.'
-                  : providerLoading 
-                    ? 'אם חלון לא קפץ כעת, ייתכן שהדפדפן חסם אותו. אנא אשר חלונות קופצים למעלה.'
-                    : 'יש לאשר "חלונות קופצים" (Pop-ups) בשורת הכתובת של הדפדפן.'}
+                {popupBlocked || providerLoading ? (
+                  <span>
+                    חפש סמל קטן בשורת הכתובת למעלה (לרוב בקצה השמאלי), ולחץ עליו כדי לבחור: <strong>"תמיד אפשר חלונות קופצים (Pop-ups)"</strong>.
+                  </span>
+                ) : (
+                  <span>
+                    אם הדפדפן חוסם חלונות קופצים (Pop-ups), שים לב לשורת הכתובת למעלה ואשר פתיחת חלונות מהאתר.
+                  </span>
+                )}
               </div>
             </div>
           </>

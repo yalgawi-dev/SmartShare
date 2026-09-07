@@ -288,6 +288,22 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  // Auto-sync authentic user name to spaces
+  useEffect(() => {
+    if (!user?.id || !user?.realName || user.realName === 'אורח' || user.realName === 'אורח אנונימי' || spacesBase.length === 0) return;
+    
+    // Find spaces where we are a member but our name doesn't match our authenticated realName
+    spacesBase.forEach(space => {
+      const myMember = space.members?.find((m: any) => m.userId === user.id);
+      if (myMember && myMember.name !== user.realName) {
+        const updatedMembers = space.members!.map((m: any) => 
+          m.userId === user.id ? { ...m, name: user.realName! } : m
+        );
+        updateDoc(doc(db, 'spaces', space.id), { members: updatedMembers }).catch(console.error);
+      }
+    });
+  }, [user?.id, user?.realName, spacesBase]);
+
   // Compute final spaces array for context consumers
   const spaces: Space[] = spacesBase.map(base => ({
     ...base,

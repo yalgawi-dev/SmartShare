@@ -208,7 +208,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.2 - אנימציית אזהרת התחברות חכמה רב-שלבית
+        v5.0.3 - סנכרון שמות משתמשים אמיתיים והנחיות התחברות מדויקות
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
