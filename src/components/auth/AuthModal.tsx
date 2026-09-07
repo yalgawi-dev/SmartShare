@@ -128,9 +128,38 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
                 Facebook
               </button>
             </div>
-            <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#64748b', textAlign: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontSize: '1.1rem' }}>⚠️</span>
-              אם החלון אינו נפתח, אנא אשרו "חלונות קופצים" (Pop-ups) או פיתחו בדפדפן הראשי.
+            <style>{`
+              @keyframes popUpGlowAlert {
+                0% { background: #f8fafc; border-color: #e2e8f0; box-shadow: 0 0 0 rgba(59, 130, 246, 0); transform: translateY(0) scale(1); }
+                10% { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4); transform: translateY(-4px) scale(1.02); }
+                20% { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); transform: translateY(-2px) scale(1.01); }
+                35% { background: #f8fafc; border-color: #e2e8f0; box-shadow: 0 0 0 rgba(59, 130, 246, 0); transform: translateY(0) scale(1); }
+                100% { background: #f8fafc; border-color: #e2e8f0; box-shadow: 0 0 0 rgba(59, 130, 246, 0); transform: translateY(0) scale(1); }
+              }
+              @keyframes popUpIconWiggle {
+                0% { transform: scale(1); }
+                10% { transform: scale(1.3) rotate(-15deg); }
+                15% { transform: scale(1.3) rotate(15deg); }
+                20% { transform: scale(1.3) rotate(-10deg); }
+                25% { transform: scale(1) rotate(0deg); }
+                100% { transform: scale(1); }
+              }
+              .animated-popup-warning {
+                animation: popUpGlowAlert 6s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+                animation-delay: 0.5s; 
+              }
+              .animated-popup-icon {
+                display: inline-block;
+                animation: popUpIconWiggle 6s ease-in-out infinite;
+                animation-delay: 0.5s;
+              }
+            `}</style>
+            <div className="animated-popup-warning" style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.75rem', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
+              <span className="animated-popup-icon" style={{ fontSize: '1.5rem', flexShrink: 0 }}>💡</span>
+              <div style={{ lineHeight: '1.4' }}>
+                <strong style={{ display: 'block', color: '#0f172a', fontSize: '0.9rem', margin: '0 0 0.1rem 0' }}>חלון ההתחברות לא נפתח?</strong>
+                יש לאשר "חלונות קופצים" (Pop-ups) בשורת הכתובת של הדפדפן.
+              </div>
             </div>
           </>
         )}
