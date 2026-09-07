@@ -208,7 +208,7 @@ export default function Dashboard() {
         ))}
       </div>
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.4 - תצוגת למי מחכים שיאשר ותיקון וידג׳טים כלליים בקיר
+        v5.0.5 - תצוגת אישורים (מצב דיבאג)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

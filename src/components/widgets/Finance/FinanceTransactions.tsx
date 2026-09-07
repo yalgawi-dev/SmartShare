@@ -133,14 +133,20 @@ export function FinanceTransactions({
     const excluded = inv.excludedMembers || [];
     const approvedBy = inv.approvedBy || [];
     
-    const waitingFor = everyone.filter(m => 
-      m.userId !== inv.payerId &&
-      m.userId !== 'me' &&
-      !approvedBy.includes(m.userId) &&
-      !excluded.includes(m.userId)
-    ).map(m => m.name);
+    const waitingFor = everyone.filter((m: any) => {
+      if (m.userId === inv.payerId) return false;
+      if (m.userId === 'me') return false;
+      if (approvedBy.includes(m.userId)) return false;
+      if (excluded.includes(m.userId)) return false;
+      return true;
+    }).map((m: any) => m.name).filter(Boolean);
     
-    if (waitingFor.length === 0) return null;
+    if (waitingFor.length === 0) {
+      // If we got here, someone should have been waiting but wasn't found.
+      // Print debug info so we can see who was filtered and why
+      const debugMembers = everyone.map(m => `${m.name}(${m.userId})`).join(' | ');
+      return `DEBUG: ev=[${debugMembers}], payer=${inv.payerId}, appr=[${approvedBy.join(',')}]`;
+    }
     return waitingFor.join(', ');
   };
 
