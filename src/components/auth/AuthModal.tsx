@@ -54,14 +54,23 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
     }
   };
 
+  const [providerLoading, setProviderLoading] = useState<'google' | 'facebook' | null>(null);
+  const [popupBlocked, setPopupBlocked] = useState(false);
+
   const handleProviderLogin = async (providerName: 'google' | 'facebook') => {
+    setProviderLoading(providerName);
+    setPopupBlocked(false);
     try {
       if (providerName === 'google') await loginWithGoogle();
       if (providerName === 'facebook') await loginWithFacebook();
       onSuccess?.();
       onClose();
     } catch (err: any) {
-      // Handled in context
+      if (err?.code === 'auth/popup-blocked') {
+        setPopupBlocked(true);
+      }
+    } finally {
+      setProviderLoading(null);
     }
   };
 
@@ -148,17 +157,42 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
                 animation: popUpGlowAlert 6s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
                 animation-delay: 0.5s; 
               }
+              .animated-popup-warning-active {
+                animation: popUpGlowAlert 1.5s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+                background: #eff6ff !important;
+                border-color: #3b82f6 !important;
+                box-shadow: 0 4px 20px rgba(59, 130, 246, 0.4) !important;
+              }
+              .animated-popup-warning-blocked {
+                animation: popUpGlowAlertBlocked 1.5s cubic-bezier(0.25, 0.8, 0.25, 1) infinite;
+                background: #fef2f2 !important;
+                border-color: #ef4444 !important;
+                box-shadow: 0 4px 20px rgba(239, 68, 68, 0.5) !important;
+              }
+              @keyframes popUpGlowAlertBlocked {
+                0% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); transform: translateY(0) scale(1); }
+                50% { box-shadow: 0 4px 20px rgba(239, 68, 68, 0.6); transform: translateY(-4px) scale(1.02); }
+                100% { box-shadow: 0 0 0 rgba(239, 68, 68, 0); transform: translateY(0) scale(1); }
+              }
               .animated-popup-icon {
                 display: inline-block;
                 animation: popUpIconWiggle 6s ease-in-out infinite;
                 animation-delay: 0.5s;
               }
             `}</style>
-            <div className="animated-popup-warning" style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.75rem', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc' }}>
-              <span className="animated-popup-icon" style={{ fontSize: '1.5rem', flexShrink: 0 }}>💡</span>
+            <div className={popupBlocked ? "animated-popup-warning-blocked" : providerLoading ? "animated-popup-warning-active" : "animated-popup-warning"} style={{ marginTop: '1rem', fontSize: '0.85rem', color: '#475569', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '0.75rem', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0', background: '#f8fafc', transition: 'all 0.3s ease' }}>
+              <span className="animated-popup-icon" style={{ fontSize: '1.5rem', flexShrink: 0 }}>
+                {popupBlocked ? '🚨' : providerLoading ? '⏳' : '💡'}
+              </span>
               <div style={{ lineHeight: '1.4' }}>
-                <strong style={{ display: 'block', color: '#0f172a', fontSize: '0.9rem', margin: '0 0 0.1rem 0' }}>חלון ההתחברות לא נפתח?</strong>
-                יש לאשר "חלונות קופצים" (Pop-ups) בשורת הכתובת של הדפדפן.
+                <strong style={{ display: 'block', color: popupBlocked ? '#ef4444' : '#0f172a', fontSize: '0.9rem', margin: '0 0 0.1rem 0' }}>
+                  {popupBlocked ? 'הדפדפן חסם את חלון ההתחברות!' : providerLoading ? 'פותח חלון חיבור...' : 'חלון ההתחברות לא נפתח?'}
+                </strong>
+                {popupBlocked 
+                  ? 'אנא לחץ על הסימון בשורת הכתובת למעלה (Pop-up Blocker) ואשר פתיחת חלונות מהאתר.'
+                  : providerLoading 
+                    ? 'אם חלון לא קפץ כעת, ייתכן שהדפדפן חסם אותו. אנא אשר חלונות קופצים למעלה.'
+                    : 'יש לאשר "חלונות קופצים" (Pop-ups) בשורת הכתובת של הדפדפן.'}
               </div>
             </div>
           </>
