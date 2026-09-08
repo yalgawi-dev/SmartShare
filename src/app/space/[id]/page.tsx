@@ -5,7 +5,7 @@ import styles from './page.module.css';
 import Link from 'next/link';
 import { useSpaces } from '../../context/SpacesContext';
 import { useAuth } from '../../context/AuthContext';
-import { getFeatureById, AVAILABLE_FEATURES } from '../../data/features';
+import { getFeatureById, AVAILABLE_FEATURES, FeatureId } from '../../data/features';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
@@ -47,7 +47,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const { id } = use(params);
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon } = useSpaces();
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace } = useSpaces();
   const { user } = useAuth();
 
   
@@ -72,25 +72,27 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   if (!isLoaded) return <div className={styles.container} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><h2>טוען מרחב...</h2></div>;
   if (!space) return <div className={styles.container}><h1>המרחב לא נמצא.</h1></div>;
 
-  const hasFinance = space.features.includes('finance');
-  const hasScanner = space.features.includes('scanner');
-  const hasPartners = space.features.includes('partners');
-  const hasGuestbook = space.features.includes('guestbook');
-  const hasGallery = space.features.includes('gallery');
+  const spaceFeatures = space.features || [];
+
+  const hasFinance = spaceFeatures.includes('finance');
+  const hasScanner = spaceFeatures.includes('scanner');
+  const hasPartners = spaceFeatures.includes('partners');
+  const hasGuestbook = spaceFeatures.includes('guestbook');
+  const hasGallery = spaceFeatures.includes('gallery');
   
   const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery'];
-  const genericFeatures = space.features
+  const genericFeatures = spaceFeatures
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))
     .filter(f => f !== undefined) as { id: string; name: string; desc: string; icon: string }[];
 
   const activePartnersCount = hasPartners ? (space.members?.length || 0) : 0; 
-  const unusedFeatures = AVAILABLE_FEATURES.filter(f => !space.features.includes(f.id));
+  const unusedFeatures = AVAILABLE_FEATURES.filter(f => !spaceFeatures.includes(f.id));
 
   const missingDependenciesMap = new Map<string, string[]>();
-  space.features.forEach(fId => {
+  spaceFeatures.forEach(fId => {
     const fData = getFeatureById(fId);
-    const missing = fData?.requires?.filter(reqId => !space.features.includes(reqId)) || [];
+    const missing = fData?.requires?.filter(reqId => !spaceFeatures.includes(reqId)) || [];
     if (missing.length > 0) {
       missingDependenciesMap.set(fId, missing);
     }
@@ -424,7 +426,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 <>
                   {/* Recommended Features */}
                   {unusedFeatures.filter(f => {
-                    const recommendedByActive = space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id));
+                    const recommendedByActive = spaceFeatures.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id));
                     return recommendedByActive;
                   }).length > 0 && (
                     <div style={{ marginBottom: '2rem' }}>
@@ -432,7 +434,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                         <span>💡</span> משתמשים כמוך הוסיפו גם:
                       </h4>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                        {unusedFeatures.filter(f => space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
+                        {unusedFeatures.filter(f => spaceFeatures.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
                           <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '2px dashed var(--primary)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(99, 102, 241, 0.05)', transition: 'transform 0.2s', boxShadow: 'var(--shadow-sm)' }}>
                             <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
                             <div>
@@ -447,11 +449,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
                   {/* Other Features */}
                   <div>
-                    {unusedFeatures.filter(f => !space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).length > 0 && (
+                    {unusedFeatures.filter(f => !spaceFeatures.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).length > 0 && (
                       <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)' }}>כל הכלים:</h4>
                     )}
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                      {unusedFeatures.filter(f => !space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
+                      {unusedFeatures.filter(f => !spaceFeatures.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
                         <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '1px solid var(--border-light)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--bg-main)', transition: 'transform 0.2s' }}>
                           <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
                           <div>
@@ -527,7 +529,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             />
           ))}
           
-          {space.features?.length === 0 && (
+          {spaceFeatures.length === 0 && (
             <EmptyStateCarousel />
           )}
         </div>

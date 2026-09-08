@@ -257,7 +257,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.17 - תיקון תצוגת חלונות חכמים ומערכת תלויות לא חוסמת
+        v5.0.18 - תיקון שורשי לקריסות (מסך שחור) בעת טעינת מרחבים ישנים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

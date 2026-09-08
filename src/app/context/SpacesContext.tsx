@@ -138,7 +138,7 @@ interface SpacesContextType {
   updateSpaceDate: (spaceId: string, newDate: string) => void;
   updateSpaceCover: (spaceId: string, newCoverUrl: string) => void;
   updateSpaceIcon: (spaceId: string, newIcon: string) => void;
-  toggleFeature: (spaceId: string, featureId: FeatureId) => void;
+  toggleFeature: (spaceId: string, featureId: FeatureId, performedBy?: string) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
   updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => void;
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
