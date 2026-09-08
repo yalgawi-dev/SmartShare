@@ -104,6 +104,20 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   };
 
   const handleAddFeature = (featureId: string, featureName: string) => {
+    const featureData = getFeatureById(featureId);
+    const missingDependencies = featureData?.requires?.filter(reqId => !space.features.includes(reqId)) || [];
+    
+    if (missingDependencies.length > 0) {
+      const depNames = missingDependencies.map(d => getFeatureById(d)?.name || d).join(' ו-');
+      if (window.confirm(`כדי להשתמש ב-${featureName}, המערכת צריכה להפעיל גם את ${depNames}.\n\nהאם להפעיל את שניהם עכשיו?`)) {
+        missingDependencies.forEach(depId => toggleFeature(id, depId as FeatureId, user?.id || 'me'));
+        toggleFeature(id, featureId as FeatureId, user?.id || 'me');
+        setShowFeatureMenu(false);
+        showToast(`הופעלו בהצלחה: ${featureName} ו-${depNames}`);
+      }
+      return;
+    }
+
     toggleFeature(id, featureId as FeatureId, user?.id || 'me');
     setShowFeatureMenu(false);
     showToast(`נוסף בהצלחה: ${featureName}`);
@@ -164,19 +178,27 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   };
 
-  const [tooltipData, setTooltipData] = useState<{ id: string, text: string } | null>(null);
+  const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const hasSeenTools = localStorage.getItem('tutorial_add_tools');
       const hasSeenUpsell = localStorage.getItem('tutorial_upsell_partners');
+      const hasSeenArchive = localStorage.getItem('tutorial_feature_archive');
       
       if (!hasSeenTools) {
-        setTooltipData({ id: 'tutorial_add_tools', text: 'הידעת? מכאן אפשר להוסיף שותפים וכלים!' });
+        setTooltipData({ id: 'tutorial_add_tools', text: 'הידעת? מכאן אפשר להוסיף שותפים וכלים!', target: 'tools' });
+      } else if (!hasSeenArchive && (space?.features?.includes('partners') || space?.features?.includes('finance') || space?.features?.length > 1)) {
+        setTooltipData({ 
+          id: 'tutorial_feature_archive', 
+          text: 'הידעת? מכאן ניתן לכבות פיצ\'רים לניקוי המסך. המידע שלך נשמר בארכיון ותמיד ניתן להחזירו מאותה נקודה!', 
+          target: 'settings' 
+        });
       } else if (!hasSeenUpsell && space?.features?.includes('finance') && !space?.features?.includes('partners') && getRoleForSpace(id) === 'creator') {
         setTooltipData({ 
           id: 'tutorial_upsell_partners', 
-          text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!'
+          text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!',
+          target: 'tools'
         });
       }
     }
@@ -220,22 +242,34 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           <span>&rarr;</span> ללוח הראשי
         </Link>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          <button onClick={() => {
-            if (myMember && myMember.canEditSettings === false && !user?.isAdmin) {
-              alert('אין לך הרשאה לגשת להגדרות במרחב זה.');
-            } else {
-              handleRestrictedAction(() => { window.location.href = `/space/${id}/settings`; })
-            }
-          }} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מקומיות">
-            ⚙️
-          </button>
-            <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative' }}>
+            <button onClick={() => {
+              if (myMember && myMember.canEditSettings === false && !user?.isAdmin) {
+                alert('אין לך הרשאה לגשת להגדרות במרחב זה.');
+              } else {
+                handleRestrictedAction(() => { 
+                  if (tooltipData?.target === 'settings') dismissTooltip();
+                  window.location.href = `/space/${id}/settings`; 
+                })
+              }
+            }} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem', animation: tooltipData?.target === 'settings' ? 'pulseGlow 2.5s infinite' : 'none' }} title="הגדרות מקומיות">
+              ⚙️
+            </button>
+            {tooltipData?.target === 'settings' && (
+              <div style={{ position: 'absolute', top: '100%', right: '0', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ position: 'absolute', bottom: '100%', right: '15px', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid var(--primary)' }}></div>
+                <span>{tooltipData.text}</span>
+                <button onClick={dismissTooltip} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0 0.2rem', fontSize: '1.2rem', opacity: 0.8 }} title="הבנתי, אל תציג שוב">×</button>
+              </div>
+            )}
+          </div>
+          <div style={{ position: 'relative' }}>
               <button onClick={() => {
                 if (myMember && myMember.canAddPlugins === false) {
                   alert('אין לך הרשאה להוסיף או להסיר כלים במרחב זה.');
                 } else {
                   handleRestrictedAction(() => {
-                    if (tooltipData) dismissTooltip();
+                    if (tooltipData?.target === 'tools') dismissTooltip();
                     setShowFeatureMenu(true);
                   });
                 }
@@ -248,11 +282,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 fontWeight: 'bold', 
                 cursor: 'pointer', 
                 boxShadow: 'var(--shadow-sm)',
-                animation: tooltipData ? 'pulseGlow 2.5s infinite' : 'none' 
+                animation: tooltipData?.target === 'tools' ? 'pulseGlow 2.5s infinite' : 'none' 
               }}>
                 ➕ הוסף כלים
               </button>
-              {tooltipData && (
+              {tooltipData?.target === 'tools' && (
                 <div style={{ position: 'absolute', top: '100%', right: '50%', transform: 'translateX(50%)', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid var(--primary)' }}></div>
                   <span>{tooltipData.text}</span>
@@ -389,21 +423,52 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               <button onClick={() => setShowFeatureMenu(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>✕</button>
             </div>
             
-            {unusedFeatures.length === 0 ? (
-              <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>כל הפיצ'רים כבר פעילים במרחב זה!</p>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
-                {unusedFeatures.map(mod => (
-                  <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '1px solid var(--border-light)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--bg-main)', transition: 'transform 0.2s' }}>
-                    <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
-                    <div>
-                      <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{mod.name}</h4>
-                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{mod.desc}</p>
+              {unusedFeatures.length === 0 ? (
+                <p style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>כל הפיצ'רים כבר פעילים במרחב זה!</p>
+              ) : (
+                <>
+                  {/* Recommended Features */}
+                  {unusedFeatures.filter(f => {
+                    const recommendedByActive = space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id));
+                    return recommendedByActive;
+                  }).length > 0 && (
+                    <div style={{ marginBottom: '2rem' }}>
+                      <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span>💡</span> משתמשים כמוך הוסיפו גם:
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                        {unusedFeatures.filter(f => space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
+                          <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '2px dashed var(--primary)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(99, 102, 241, 0.05)', transition: 'transform 0.2s', boxShadow: 'var(--shadow-sm)' }}>
+                            <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
+                            <div>
+                              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{mod.name}</h4>
+                              <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{mod.desc}</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Other Features */}
+                  <div>
+                    {unusedFeatures.filter(f => !space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).length > 0 && (
+                      <h4 style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)' }}>כל הכלים:</h4>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
+                      {unusedFeatures.filter(f => !space.features.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
+                        <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '1px solid var(--border-light)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--bg-main)', transition: 'transform 0.2s' }}>
+                          <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
+                          <div>
+                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{mod.name}</h4>
+                            <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{mod.desc}</p>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
+                </>
+              )}
           </div>
         </>
       )}
