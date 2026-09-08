@@ -7,22 +7,46 @@ import { useRouter } from 'next/navigation';
 import { useSpaces } from '../../context/SpacesContext';
 import { AVAILABLE_FEATURES } from '../../data/features';
 
+import { useSearchParams } from 'next/navigation';
+import { useEffect } from 'react';
+
 const TEMPLATES = [
-  { id: 'roommates', title: 'שותפים ומשק בית', desc: 'ניהול תקציב, הוצאות דירה, משימות ורשימות קניות.', icon: '🏠', features: ['finance', 'tasks', 'lists'] },
-  { id: 'event', title: 'תכנון אירועים', desc: 'לארגון מסיבה, חתונה או אירוע חברה. ניהול מוזמנים (RSVP) והוצאות ספקים.', icon: '🎉', features: ['guests', 'finance', 'suppliers', 'tasks'] },
-  { id: 'trip', title: 'תכנון טיול', desc: 'ארגון טיול משותף, מסלול יומי, קופה משותפת ושמירת כרטיסים.', icon: '✈️', features: ['finance', 'journal', 'vault'] },
-  { id: 'construction', title: 'פרויקט בנייה / שיפוץ', desc: 'ניהול קבלנים, קופת מזומן, סריקת חשבוניות ותוכניות אדריכליות.', icon: '🏗️', features: ['finance', 'suppliers', 'vault', 'scanner', 'cashbox'] },
-  { id: 'live', title: 'אירוע לייב (Live Media)', desc: 'מרחב ייעודי ליום האירוע למוזמנים בלבד: גלריית תמונות חיה וברכות.', icon: '📸', features: ['gallery', 'guestbook'] },
-  { id: 'custom', title: 'קיר מותאם אישית', desc: 'קיר חלק ונקי. בנה בעצמך והוסף ווידג\'טים מתוך רשימת הפיצ\'רים המלאה.', icon: '✨', features: [] }
+  { id: 'finance', title: 'ניהול הוצאות / התחשבנויות', desc: 'המרחב החכם לניהול תקציב, סריקת קבלות, והתחשבנויות שותפים.', icon: '💰', features: ['finance'] },
+  { id: 'medical', title: 'תיק רפואי משפחתי (בקרוב)', desc: 'סיכומי מחלה, מעקב תרופות והפניות. מרוכז במקום אחד.', icon: '🩺', features: [] },
+  { id: 'event', title: 'תכנון אירוע / חתונה (בקרוב)', desc: 'לארגון מסיבה, חתונה או אירוע חברה. ניהול מוזמנים (RSVP) והוצאות ספקים.', icon: '🎉', features: ['finance'] },
+  { id: 'construction', title: 'פרויקט בנייה / שיפוץ (בקרוב)', desc: 'ניהול קבלנים, קופת מזומן, סריקת חשבוניות ותוכניות אדריכליות.', icon: '🏗️', features: ['finance'] },
+  { id: 'custom', title: 'הרכב בעצמך (Custom)', desc: 'מרחב נקי. התחל מאפס והוסף כלי ניהול בהתאם לצורך שלך.', icon: '🧩', features: [] }
 ];
 
+import { Suspense } from 'react';
+
 export default function CreateSpacePage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center' }}>טוען...</div>}>
+      <CreateSpaceContent />
+    </Suspense>
+  );
+}
+
+function CreateSpaceContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { addSpace } = useSpaces();
   
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [spaceName, setSpaceName] = useState('');
   const [selectedFeatures, setSelectedFeatures] = useState<string[]>([]); // Only used for custom
+
+  useEffect(() => {
+    const tmpl = searchParams?.get('template');
+    if (tmpl && TEMPLATES.find(t => t.id === tmpl)) {
+      handleSelectTemplate(tmpl);
+      // Auto scroll down to the bottom (where the form is)
+      setTimeout(() => {
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+      }, 300);
+    }
+  }, [searchParams]);
 
   const handleSelectTemplate = (templateId: string) => {
     setSelectedTemplate(templateId);

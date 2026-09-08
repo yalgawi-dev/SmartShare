@@ -11,7 +11,7 @@ export default function WelcomeGate({
   spaceId: string; 
   inviteToken?: string | null;
 }) {
-  const { spaces, finalizeGuestJoin } = useSpaces() as any;
+  const { spaces, finalizeGuestJoin, getRoleForSpace } = useSpaces() as any;
   const { user, updateProfile } = useAuth();
   const [showGate, setShowGate] = useState(false);
   const [guestName, setGuestName] = useState('');
@@ -22,8 +22,8 @@ export default function WelcomeGate({
   }, []);
 
   const space = spaces.find((s: any) => s.id === spaceId);
-  // An anonymous guest without an email is NEVER the creator of a registered space
-  const isCreatorOfThisSpace = Boolean(user?.email && space?.creatorId && user.id === space.creatorId);
+  const role = getRoleForSpace(spaceId);
+  const isCreatorOfThisSpace = role === 'creator';
 
   // Deterministic token resolution chain:
   // 1. Prop token

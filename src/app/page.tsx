@@ -136,20 +136,40 @@ export default function Dashboard() {
       </header>
 
       {/* Floating Action Button for New Space */}
-      {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) ? (
-        <button 
-          onClick={() => alert('כדי לפתוח מרחב וירטואלי משלך, עליך להזדהות תחילה (התחבר).')}
-          className="fab" 
-          title="פתח מרחב חדש"
-          style={{ border: 'none', cursor: 'pointer' }}
-        >
-          ➕
-        </button>
-      ) : (
-        <Link href="/space/new" className="fab" title="צור מרחב חדש">
-          ➕
-        </Link>
-      )}
+      <>
+        {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) ? (
+          <button 
+            onClick={() => setShowAuthModal(true)}
+            className="fab" 
+            title="פתח מרחב חדש"
+            style={{ border: 'none', cursor: 'pointer', animation: visibleSpaces.length === 0 ? 'pulseGlow 2s infinite' : 'none' }}
+          >
+            ➕
+            {visibleSpaces.length === 0 && isSpacesLoaded && (
+              <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', animation: 'bounce 2s infinite', pointerEvents: 'none' }}>
+                התחל מכאן! 👇
+              </div>
+            )}
+          </button>
+        ) : (
+          <Link href="/space/new" className="fab" title="צור מרחב חדש" style={{ animation: visibleSpaces.length === 0 ? 'pulseGlow 2s infinite' : 'none', textDecoration: 'none' }}>
+            ➕
+            {visibleSpaces.length === 0 && isSpacesLoaded && (
+              <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', animation: 'bounce 2s infinite', pointerEvents: 'none' }}>
+                התחל מכאן! 👇
+              </div>
+            )}
+          </Link>
+        )}
+      </>
+
+      <style>{`
+        @keyframes pulseGlow {
+          0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+          70% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+      `}</style>
 
       {(!isAuthLoaded || !isSpacesLoaded) ? (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>

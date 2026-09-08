@@ -22,7 +22,7 @@ export default function WelcomeEmptyState() {
         marginBottom: '0.5rem',
         letterSpacing: '-0.02em'
       }}>
-        ברוכים הבאים ל-SmartShare
+        ברוכים הבאים ל-MySpace
       </div>
       <p style={{
         fontSize: '1.2rem',
@@ -86,7 +86,7 @@ export default function WelcomeEmptyState() {
         </Link>
 
         {/* Blank Canvas Option */}
-        <Link href="/space/new?template=blank" style={{ textDecoration: 'none' }}>
+        <Link href="/space/new?template=custom" style={{ textDecoration: 'none' }}>
           <div style={{
             background: 'var(--bg-card)',
             border: '2px dashed var(--border-light)',
