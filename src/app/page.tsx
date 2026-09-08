@@ -64,6 +64,16 @@ export default function Dashboard() {
     };
   }, []);
 
+  // Mark tutorials as seen for veteran users
+  useEffect(() => {
+    if (visibleSpaces.length > 1) {
+      try {
+        if (!localStorage.getItem('tutorial_enter_space')) localStorage.setItem('tutorial_enter_space', '1');
+        if (!localStorage.getItem('tutorial_add_tools')) localStorage.setItem('tutorial_add_tools', '1');
+      } catch(e){}
+    }
+  }, [visibleSpaces.length]);
+
   const visibleSpaces = spaces.filter(s => { 
     if (s.status === 'pending_deletion') return false; 
     
@@ -166,7 +176,7 @@ export default function Dashboard() {
         )}
       <div className={styles.grid}>
         {visibleSpaces.map((space, index) => {
-          const showFirstSpaceTip = index === 0 && typeof window !== 'undefined' && !localStorage.getItem('tutorial_enter_space');
+          const showFirstSpaceTip = visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined' && !localStorage.getItem('tutorial_enter_space');
           return (
           <div key={space.id} style={{ position: 'relative' }}>
             <button 
@@ -246,7 +256,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.13 - הדרכת משתמש חכמה וסימולציות משופרות
+        v5.0.14 - עדכון מנגנון הדרכה למשתמשים ותיקים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
