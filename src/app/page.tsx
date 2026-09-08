@@ -257,7 +257,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.15 - טיפים קונטקסטואליים ותיקוני תצוגה
+        v5.0.16 - מנוע המלצות חכם ותלויות פיצ'רים (Smart Dependencies)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
