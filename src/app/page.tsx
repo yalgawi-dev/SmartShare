@@ -101,35 +101,29 @@ export default function Dashboard() {
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
-          <div style={{ display: 'none', flexDirection: 'column', alignItems: 'flex-end' }}>
-            {/* Keeping this hidden on very small screens via media queries in standard CSS, but doing it inline for now if possible. Actually, just display it. */}
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem', marginRight: '0.5rem', overflow: 'hidden' }}>
-            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', maxWidth: '80px' }}>
-              {user?.realName || user?.nickname || 'אורח'}
-            </span>
-            {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
-              <button 
-                onClick={() => setShowAuthModal(true)}
-                style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', padding: '0.3rem 0.75rem', cursor: 'pointer', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}
-              >
-                התחבר
-              </button>
-            )}
-          </div>
+          {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
+            <button 
+              onClick={() => setShowAuthModal(true)}
+              style={{ fontSize: '0.85rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '20px', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}
+            >
+              התחבר
+            </button>
+          )}
           
-          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem 0.6rem', background: 'var(--bg-card)', border: 'none', borderLeft: '1px solid var(--border-light)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-primary)' }} title="הזמן חברים">
-              🎁 <span className="hide-mobile">שתף</span>
+          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.2rem', gap: '0.2rem' }}>
+            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              🎁
             </button>
             {user?.isAdmin && (
-              <Link href="/admin/users" style={{ padding: '0.4rem 0.6rem', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 'bold', textDecoration: 'none', fontSize: '1rem', display: 'flex', alignItems: 'center', borderLeft: '1px solid var(--border-light)' }} title="ניהול מערכת">
+              <Link href="/admin/users" style={{ padding: '0.4rem', color: '#EF4444', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="ניהול מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 🛡️
               </Link>
             )}
-            <Link href="/settings" style={{ padding: '0.4rem 0.6rem', color: 'var(--text-primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="הגדרות פרופיל">
-              <span style={{ fontSize: '1.2rem' }}>⚙️</span>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Link href="/settings" style={{ padding: '0.4rem', color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="הגדרות" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              ⚙️
+            </Link>
+            <Link href="/settings" style={{ padding: '0.2rem', textDecoration: 'none' }} title={`פרופיל - ${user?.realName || 'אורח'}`}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
@@ -220,7 +214,7 @@ export default function Dashboard() {
       </div>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.8 - מסך פתיחה חכם למשתמשים חדשים (Onboarding)
+        v5.0.9 - עיצוב כותרת נקי ומסך שיתוף גלובלי משופר
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

@@ -7,12 +7,11 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
 
-  // The viral sharing link
   const shareUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/?ref=${user?.id || 'guest'}` 
     : '';
 
-  const shareText = 'היי! מצאתי פלטפורמה מדהימה לניהול משותף (התחשבנויות, מסמכים ועוד). בוא נפתח מרחב יחד:';
+  const shareText = 'היי! מצאתי פלטפורמה מעולה לניהול חכם של הוצאות, מסמכים, ועוד – לבד או עם שותפים. שווה בדיקה:';
   const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText + '\n' + shareUrl)}`;
 
   const handleCopy = async () => {
@@ -22,6 +21,22 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
       setTimeout(() => setCopied(false), 2000);
     } catch (e) {
       console.error('Failed to copy', e);
+    }
+  };
+
+  const handleNativeShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'SmartShare',
+          text: shareText,
+          url: shareUrl
+        });
+      } catch (err) {
+        console.error('Share failed', err);
+      }
+    } else {
+      alert('שיתוף מובנה לא נתמך בדפדפן זה. השתמש בהעתקת הקישור.');
     }
   };
 
@@ -35,9 +50,9 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'bounce 2s infinite' }}>🎁</div>
-          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.5rem' }}>הזמן חברים לאפליקציה</h2>
+          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.5rem' }}>שתף את SmartShare</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
-            שתף את הקישור שלך. כשחברים יצטרפו, תוכלו לנהל יחד מרחבים חכמים בקלות.
+            הזמן חברים ומשפחה לנהל יחד מרחבים חכמים בקלות, או לנהל את שלהם בעצמם.
           </p>
         </div>
 
@@ -49,6 +64,12 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {typeof navigator !== 'undefined' && navigator.share && (
+            <button onClick={handleNativeShare} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--primary)', color: 'white', padding: '1rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+              <span>📤</span> שתף באפליקציה (פייסבוק, אינסטגרם, טיקטוק...)
+            </button>
+          )}
+
           <a href={whatsappUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#25D366', color: 'white', padding: '1rem', borderRadius: '12px', textDecoration: 'none', fontWeight: 'bold', fontSize: '1rem' }}>
             <span>💬</span> שתף בוואטסאפ
           </a>
