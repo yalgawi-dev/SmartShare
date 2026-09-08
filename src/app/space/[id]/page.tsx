@@ -164,6 +164,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   };
 
+  const showToolsTip = typeof window !== 'undefined' && !localStorage.getItem('tutorial_add_tools');
+
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
 
@@ -200,17 +202,45 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           }} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem' }} title="הגדרות מקומיות">
             ⚙️
           </button>
-          <button onClick={() => {
-            if (myMember && myMember.canAddPlugins === false) {
-              alert('אין לך הרשאה להוסיף או להסיר כלים במרחב זה.');
-            } else {
-              handleRestrictedAction(() => setShowFeatureMenu(true))
-            }
-          }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', boxShadow: 'var(--shadow-sm)' }}>
-            ➕ הוסף כלים
-          </button>
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => {
+                if (myMember && myMember.canAddPlugins === false) {
+                  alert('אין לך הרשאה להוסיף או להסיר כלים במרחב זה.');
+                } else {
+                  handleRestrictedAction(() => {
+                    try { localStorage.setItem('tutorial_add_tools', '1'); } catch(e){}
+                    setShowFeatureMenu(true);
+                  });
+                }
+              }} style={{ 
+                background: 'var(--primary)', 
+                color: 'white', 
+                border: 'none', 
+                padding: '0.6rem 1.25rem', 
+                borderRadius: '50px', 
+                fontWeight: 'bold', 
+                cursor: 'pointer', 
+                boxShadow: 'var(--shadow-sm)',
+                animation: showToolsTip ? 'pulseGlow 2.5s infinite' : 'none' 
+              }}>
+                ➕ הוסף כלים
+              </button>
+              {showToolsTip && (
+                <div style={{ position: 'absolute', top: '100%', right: '0', marginTop: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)' }}>
+                  הידעת? מכאן אפשר להוסיף שותפים וכלים! 👆
+                </div>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
+
+        <style>{`
+          @keyframes pulseGlow {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+            70% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+          }
+        `}</style>
 
       {/* Facebook-style Header */}
       <header className={`card`} style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', position: 'relative', border: 'none', background: 'transparent' }}>

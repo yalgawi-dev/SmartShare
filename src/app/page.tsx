@@ -137,13 +137,8 @@ export default function Dashboard() {
 
       {/* Floating Action Button for New Space */}
       <>
-        <Link href="/space/new" className="fab" title="צור מרחב חדש" style={{ animation: visibleSpaces.length === 0 ? 'pulseGlow 2s infinite' : 'none', textDecoration: 'none' }}>
+        <Link href="/space/new" className="fab" title="צור מרחב חדש" style={{ textDecoration: 'none' }}>
           ➕
-          {visibleSpaces.length === 0 && isSpacesLoaded && (
-            <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', animation: 'bounce 2s infinite', pointerEvents: 'none' }}>
-              התחל מכאן! 👇
-            </div>
-          )}
         </Link>
       </>
 
@@ -163,8 +158,16 @@ export default function Dashboard() {
       ) : visibleSpaces.length === 0 ? (
         <WelcomeEmptyState />
       ) : (
+      <>
+        {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
+          <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', color: '#b45309', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => setShowAuthModal(true)}>
+            <strong>שימו לב:</strong> אתם מחוברים כאורח! כדי לגבות את המרחבים שלכם ולמנוע איבוד נתונים, <span style={{ textDecoration: 'underline' }}>לחצו כאן להרשמה קצרה בחינם (10 שניות)</span>.
+          </div>
+        )}
       <div className={styles.grid}>
-        {visibleSpaces.map(space => (
+        {visibleSpaces.map((space, index) => {
+          const showFirstSpaceTip = index === 0 && typeof window !== 'undefined' && !localStorage.getItem('tutorial_enter_space');
+          return (
           <div key={space.id} style={{ position: 'relative' }}>
             <button 
               onClick={(e) => {
@@ -195,13 +198,31 @@ export default function Dashboard() {
               🗑️
             </button>
             <Link href={`/space/${space.id}`} style={{ display: 'block', textDecoration: 'none' }}>
-              <div className={`card ${styles.projectCard} glass-panel`}>
+              <div 
+                className={`card ${styles.projectCard} glass-panel`}
+                onClick={() => {
+                  if (showFirstSpaceTip) {
+                    try { localStorage.setItem('tutorial_enter_space', '1'); } catch(e){}
+                  }
+                }}
+                style={{
+                  animation: showFirstSpaceTip ? 'pulseGlow 2.5s infinite' : 'none',
+                  border: showFirstSpaceTip ? '2px solid var(--primary)' : undefined,
+                  position: 'relative'
+                }}
+              >
+                {showFirstSpaceTip && (
+                  <div style={{ position: 'absolute', top: '-15px', right: '1rem', background: 'var(--primary)', color: 'white', padding: '0.4rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 20, animation: 'bounce 2s infinite', boxShadow: '0 4px 12px rgba(99,102,241,0.4)' }}>
+                    היכנס למרחב שלך כדי להתחיל! 👇
+                  </div>
+                )}
                 <div className={styles.projectHeader}>
                   <div className={styles.projectIcon}>{space.icon}</div>
+                  <h3 className={styles.projectTitle}>{space.title}</h3>
                 </div>
-                <h2 className={styles.projectTitle}>{space.title}</h2>
-                <p className={styles.projectDesc}>{space.description}</p>
                 
+                <p className={styles.projectDesc}>{space.description}</p>
+
                 <div className={styles.badges}>
                   {space.features.slice(0, 3).map(fId => {
                     const feature = getFeatureById(fId);
@@ -219,11 +240,13 @@ export default function Dashboard() {
               </div>
             </Link>
           </div>
-        ))}
+        );
+        })}
       </div>
+      </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.12 - שיפור פסיכולוגיית משתמש וסימולציית תבניות
+        v5.0.13 - הדרכת משתמש חכמה וסימולציות משופרות
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

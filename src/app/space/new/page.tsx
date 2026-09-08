@@ -116,10 +116,10 @@ function CreateSpaceContent() {
           <div className={styles.formGroup} style={{ marginTop: '2rem', animation: 'fadeIn 0.5s ease-out' }}>
             <div style={{ background: 'var(--bg-card)', padding: '2rem', borderRadius: '16px', border: '1px solid var(--border-light)', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
               <div style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'float 3s ease-in-out infinite' }}>🧩</div>
-              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)', fontSize: '1.4rem' }}>בונים מאפס (כמו פאזל!)</h3>
+              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)', fontSize: '1.4rem' }}>מרחב חדש נבנה עבורך</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '1rem', lineHeight: '1.5', maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>
-                המרחב שלך ייווצר כדיור נקי וחלק. 
-                מיד לאחר הכניסה, תוכל לגשת ל<strong>מחסן הכלים</strong> ולהדליק רק את הפיצ'רים שאתה באמת צריך (למשל: סורק מסמכים, ניהול משימות, ארכיון).
+                המרחב שלך ייווצר כקיר נקי וחלק. 
+                מיד לאחר הכניסה למרחב, תוכל לגשת ל<strong>מחסן הכלים</strong> ולהדליק רק את הפיצ'רים שאתה באמת צריך (למשל: סורק מסמכים, ניהול משימות, ארכיון שותפים ועוד).
               </p>
               
               {/* Mini visual simulation */}
