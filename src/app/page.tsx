@@ -239,7 +239,7 @@ export default function Dashboard() {
       </div>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.10 - תיקון טעינת מסך הפתיחה לאורחים (FOUC Fix)
+        v5.0.11 - תיקון מסך פתיחה, תבניות, וניהול יוצרים אורחים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
