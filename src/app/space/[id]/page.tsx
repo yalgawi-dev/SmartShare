@@ -63,6 +63,33 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      let hasSeenTools = false;
+      let hasSeenUpsell = false;
+      let hasSeenArchive = false;
+      try {
+        hasSeenTools = !!localStorage.getItem('tutorial_add_tools');
+        hasSeenUpsell = !!localStorage.getItem('tutorial_upsell_partners');
+        hasSeenArchive = !!localStorage.getItem('tutorial_feature_archive');
+      } catch (e) {}
+      
+      const hasEverUsedPartners = spaces.some(s => (s.features || []).includes('partners'));
+      const spaceFeatures = spaces.find(s => s.id === id)?.features || [];
+      const role = getRoleForSpace(id);
+
+      if (!hasSeenTools) {
+        setTooltipData({ id: 'tutorial_add_tools', text: '׳”׳×׳—׳œ ׳ž׳›׳ ׳Ÿ: ׳”׳•׳¡׳£ ׳›׳œ׳™׳  ׳—׳›׳ž׳™׳  (׳ž׳ ׳•׳¢׳™׳ ) ׳œ׳ž׳¨׳—׳‘ ׳©׳œ׳š ׳›׳“׳™ ׳œ׳”׳×׳—׳™׳œ ׳œ׳¢׳‘׳•׳“', target: 'tools' });
+      } else if (!hasSeenArchive && spaceFeatures.length > 0 && role === 'creator') {
+        setTooltipData({ id: 'tutorial_feature_archive', text: '׳”׳™׳“׳¢׳×? ׳ž׳›׳ ׳Ÿ ׳ ׳™׳×׳Ÿ ׳œ׳›׳‘׳•׳× ׳₪׳™׳¦\'׳¨׳™׳  ׳œ׳ ׳™׳§׳•׳™ ׳”׳ž׳¡׳š. ׳”׳ž׳™׳“׳¢ ׳©׳œ׳š ׳ ׳©׳ž׳¨ ׳‘׳ ׳¨׳›׳™׳•׳Ÿ ׳•׳×׳ž׳™׳“ ׳ ׳™׳×׳Ÿ ׳œ׳”׳—׳–׳™׳¨׳• ׳ž׳ ׳•׳×׳” ׳ ׳§׳•׳“׳”!', target: 'settings' });
+      } else if (!hasSeenUpsell && spaceFeatures.includes('finance') && !hasEverUsedPartners && role === 'creator') {
+        setTooltipData({ id: 'tutorial_upsell_partners', text: '׳”׳™׳“׳¢׳×? ׳ ׳₪׳©׳¨ ׳œ׳”׳•׳¡׳™׳£ ׳©׳•׳×׳₪׳™׳  ׳œ׳ž׳¨׳—׳‘. ׳”׳ž׳¢׳¨׳›׳× ׳×׳ ׳”׳œ ׳ ׳•׳˜׳•׳ž׳˜׳™׳× ׳ž׳™ ׳©׳™׳œ׳  ׳•׳›׳ž׳” ׳—׳™׳™׳‘׳™׳  ׳ ׳—׳“ ׳œ׳©׳ ׳™!', target: 'tools' });
+      }
+    }
+  }, [id, spaces, getRoleForSpace]);
+
   const financeRef = useRef<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -174,44 +201,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       action();
     }
   };
-
-  const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      let hasSeenTools = false;
-      let hasSeenUpsell = false;
-      let hasSeenArchive = false;
-      try {
-        hasSeenTools = !!localStorage.getItem('tutorial_add_tools');
-        hasSeenUpsell = !!localStorage.getItem('tutorial_upsell_partners');
-        hasSeenArchive = !!localStorage.getItem('tutorial_feature_archive');
-      } catch (e) {}
-      
-      // Check if user has ever used partners in ANY space
-      const hasEverUsedPartners = spaces.some(s => (s.features || []).includes('partners'));
-
-      if (!hasSeenTools) {
-        setTooltipData({ 
-          id: 'tutorial_add_tools', 
-          text: 'התחל מכאן: הוסף כלים חכמים (מנועים) למרחב שלך כדי להתחיל לעבוד', 
-          target: 'tools' 
-        });
-      } else if (!hasSeenArchive && spaceFeatures.length > 0 && getRoleForSpace(id) === 'creator') {
-        setTooltipData({ 
-          id: 'tutorial_feature_archive', 
-          text: 'הידעת? מכאן ניתן לכבות פיצ\'רים לניקוי המסך. המידע שלך נשמר בארכיון ותמיד ניתן להחזירו מאותה נקודה!', 
-          target: 'settings' 
-        });
-      } else if (!hasSeenUpsell && spaceFeatures.includes('finance') && !hasEverUsedPartners && getRoleForSpace(id) === 'creator') {
-        setTooltipData({ 
-          id: 'tutorial_upsell_partners', 
-          text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!',
-          target: 'tools'
-        });
-      }
-    }
-  }, [id, spaces, spaceFeatures]);
 
   const dismissTooltip = (e?: React.MouseEvent) => {
     if (e) {

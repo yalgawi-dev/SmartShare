@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.23 - תיקון שגיאות React (Hook Order) ופיירבייס (undefined avatar) במסכי אורח
+        v5.0.24 - תיקון שגיאת React נוספת במסך המרחב של השותף
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
