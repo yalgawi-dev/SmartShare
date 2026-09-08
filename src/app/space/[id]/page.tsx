@@ -183,15 +183,22 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const hasSeenUpsell = localStorage.getItem('tutorial_upsell_partners');
       const hasSeenArchive = localStorage.getItem('tutorial_feature_archive');
       
+      // Check if user has ever used partners in ANY space
+      const hasEverUsedPartners = spaces.some(s => (s.features || []).includes('partners'));
+
       if (!hasSeenTools) {
-        setTooltipData({ id: 'tutorial_add_tools', text: 'הידעת? מכאן אפשר להוסיף שותפים וכלים!', target: 'tools' });
-      } else if (!hasSeenArchive && (space?.features?.includes('partners') || space?.features?.includes('finance') || space?.features?.length > 1)) {
+        setTooltipData({ 
+          id: 'tutorial_add_tools', 
+          text: 'התחל מכאן: הוסף כלים חכמים (מנועים) למרחב שלך כדי להתחיל לעבוד', 
+          target: 'tools' 
+        });
+      } else if (!hasSeenArchive && spaceFeatures.length > 0 && getRoleForSpace(id) === 'creator') {
         setTooltipData({ 
           id: 'tutorial_feature_archive', 
           text: 'הידעת? מכאן ניתן לכבות פיצ\'רים לניקוי המסך. המידע שלך נשמר בארכיון ותמיד ניתן להחזירו מאותה נקודה!', 
           target: 'settings' 
         });
-      } else if (!hasSeenUpsell && space?.features?.includes('finance') && !space?.features?.includes('partners') && getRoleForSpace(id) === 'creator') {
+      } else if (!hasSeenUpsell && spaceFeatures.includes('finance') && !hasEverUsedPartners && getRoleForSpace(id) === 'creator') {
         setTooltipData({ 
           id: 'tutorial_upsell_partners', 
           text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!',
@@ -199,7 +206,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         });
       }
     }
-  }, [space, id]);
+  }, [id, spaces, spaceFeatures]);
 
   const dismissTooltip = (e?: React.MouseEvent) => {
     if (e) {
@@ -284,10 +291,10 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 ➕ הוסף כלים
               </button>
               {tooltipData?.target === 'tools' && (
-                <div style={{ position: 'absolute', top: '100%', right: '50%', transform: 'translateX(50%)', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ position: 'absolute', top: '100%', right: '50%', transform: 'translateX(50%)', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', width: 'max-content', maxWidth: 'min(280px, calc(100vw - 32px))', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                   <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid var(--primary)' }}></div>
-                  <span>{tooltipData.text}</span>
-                  <button onClick={dismissTooltip} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0 0.2rem', fontSize: '1.2rem', opacity: 0.8 }} title="הבנתי, אל תציג שוב">×</button>
+                  <span style={{ flex: 1, whiteSpace: 'normal', lineHeight: '1.4' }}>{tooltipData.text}</span>
+                  <button onClick={dismissTooltip} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0 0.2rem', fontSize: '1.2rem', opacity: 0.8, marginTop: '-2px' }} title="הבנתי, אל תציג שוב">×</button>
                 </div>
               )}
             </div>

@@ -131,7 +131,7 @@ export interface Space {
 interface SpacesContextType {
   updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
   spaces: Space[];
-  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => void;
+  addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => Promise<string>;
   deleteSpace: (spaceId: string) => void;
   restoreSpace: (spaceId: string) => void;
   updateSpaceTitle: (spaceId: string, newTitle: string) => void;
@@ -377,7 +377,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   }, [user, spacesBase]);
 
-  const addSpace = async (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => {
+  const addSpace = async (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>): Promise<string> => {
     const masterKey = 'master_' + crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');
     const newSpace: Omit<Space, 'mediaItems'> = {
       ...spaceData,
@@ -406,6 +406,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('smartshare_new_key', { detail: { spaceId: newSpace.id, role: 'creator', token: masterKey } }));
     }
+    
+    return newSpace.id;
   };
 
   const deleteSpace = (spaceId: string) => {

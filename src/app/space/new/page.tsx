@@ -71,7 +71,7 @@ function CreateSpaceContent() {
     );
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!spaceName.trim()) {
       alert('יש להזין שם למרחב');
       return;
@@ -80,14 +80,14 @@ function CreateSpaceContent() {
     const template = TEMPLATES.find(t => t.id === selectedTemplate);
     if (!template) return;
 
-    addSpace({
+    const newId = await addSpace({
       title: spaceName,
       description: template.id === 'custom' ? 'מרחב מותאם אישית' : `מרחב מבוסס על תבנית ${template.title}`,
       icon: template.icon,
       features: selectedFeatures,
     });
 
-    router.push('/');
+    router.push(`/?highlight=${newId}`);
   };
 
   if (selectedTemplate) {

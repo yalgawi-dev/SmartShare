@@ -64,6 +64,30 @@ export default function Dashboard() {
     };
   }, []);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isSpacesLoaded) {
+      const searchParams = new URLSearchParams(window.location.search);
+      const highlight = searchParams.get('highlight');
+      if (highlight) {
+        setTimeout(() => {
+          const el = document.getElementById(`space-${highlight}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.style.transition = 'all 0.5s ease-out';
+            el.style.boxShadow = '0 0 0 4px var(--primary), 0 0 30px rgba(99, 102, 241, 0.6)';
+            el.style.transform = 'scale(1.02)';
+            setTimeout(() => {
+              el.style.transform = 'scale(1)';
+              setTimeout(() => {
+                 el.style.boxShadow = 'var(--shadow-md)';
+              }, 2000);
+            }, 1000);
+          }
+        }, 500); // Wait for render
+      }
+    }
+  }, [isSpacesLoaded, spaces.length]);
+
   const visibleSpaces = spaces.filter(s => { 
     if (s.status === 'pending_deletion') return false; 
     
@@ -178,7 +202,7 @@ export default function Dashboard() {
         {visibleSpaces.map((space, index) => {
           const showFirstSpaceTip = visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined' && !localStorage.getItem('tutorial_enter_space');
           return (
-          <div key={space.id} style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div id={`space-${space.id}`} key={space.id} style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <button 
               onClick={(e) => {
                 e.preventDefault();
@@ -257,7 +281,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.18 - תיקון שורשי לקריסות (מסך שחור) בעת טעינת מרחבים ישנים
+        v5.0.19 - שיפורי חוויית משתמש: פוקוס על מרחב חדש והתאמת טיפים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
