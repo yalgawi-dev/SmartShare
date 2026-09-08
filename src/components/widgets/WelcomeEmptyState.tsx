@@ -42,7 +42,7 @@ export default function WelcomeEmptyState() {
         maxWidth: '700px'
       }}>
         {/* Template Option */}
-        <Link href="/space/new?template=finance" style={{ textDecoration: 'none' }}>
+        <Link href="/space/new?highlight=finance" style={{ textDecoration: 'none' }}>
           <div style={{
             background: 'var(--bg-card)',
             border: '2px solid transparent',
@@ -86,7 +86,7 @@ export default function WelcomeEmptyState() {
         </Link>
 
         {/* Blank Canvas Option */}
-        <Link href="/space/new?template=custom" style={{ textDecoration: 'none' }}>
+        <Link href="/space/new?highlight=custom" style={{ textDecoration: 'none' }}>
           <div style={{
             background: 'var(--bg-card)',
             border: '2px dashed var(--border-light)',

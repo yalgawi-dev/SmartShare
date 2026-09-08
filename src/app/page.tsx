@@ -137,30 +137,14 @@ export default function Dashboard() {
 
       {/* Floating Action Button for New Space */}
       <>
-        {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) ? (
-          <button 
-            onClick={() => setShowAuthModal(true)}
-            className="fab" 
-            title="פתח מרחב חדש"
-            style={{ border: 'none', cursor: 'pointer', animation: visibleSpaces.length === 0 ? 'pulseGlow 2s infinite' : 'none' }}
-          >
-            ➕
-            {visibleSpaces.length === 0 && isSpacesLoaded && (
-              <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', animation: 'bounce 2s infinite', pointerEvents: 'none' }}>
-                התחל מכאן! 👇
-              </div>
-            )}
-          </button>
-        ) : (
-          <Link href="/space/new" className="fab" title="צור מרחב חדש" style={{ animation: visibleSpaces.length === 0 ? 'pulseGlow 2s infinite' : 'none', textDecoration: 'none' }}>
-            ➕
-            {visibleSpaces.length === 0 && isSpacesLoaded && (
-              <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', animation: 'bounce 2s infinite', pointerEvents: 'none' }}>
-                התחל מכאן! 👇
-              </div>
-            )}
-          </Link>
-        )}
+        <Link href="/space/new" className="fab" title="צור מרחב חדש" style={{ animation: visibleSpaces.length === 0 ? 'pulseGlow 2s infinite' : 'none', textDecoration: 'none' }}>
+          ➕
+          {visibleSpaces.length === 0 && isSpacesLoaded && (
+            <div style={{ position: 'absolute', bottom: '100%', left: '0', marginBottom: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', whiteSpace: 'nowrap', boxShadow: 'var(--shadow-md)', animation: 'bounce 2s infinite', pointerEvents: 'none' }}>
+              התחל מכאן! 👇
+            </div>
+          )}
+        </Link>
       </>
 
       <style>{`
@@ -239,7 +223,7 @@ export default function Dashboard() {
       </div>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.11 - תיקון מסך פתיחה, תבניות, וניהול יוצרים אורחים
+        v5.0.12 - שיפור פסיכולוגיית משתמש וסימולציית תבניות
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
