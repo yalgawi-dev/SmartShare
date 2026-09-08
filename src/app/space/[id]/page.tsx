@@ -81,11 +81,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const role = getRoleForSpace(id);
 
       if (!hasSeenTools) {
-        setTooltipData({ id: 'tutorial_add_tools', text: '׳”׳×׳—׳œ ׳ž׳›׳ ׳Ÿ: ׳”׳•׳¡׳£ ׳›׳œ׳™׳  ׳—׳›׳ž׳™׳  (׳ž׳ ׳•׳¢׳™׳ ) ׳œ׳ž׳¨׳—׳‘ ׳©׳œ׳š ׳›׳“׳™ ׳œ׳”׳×׳—׳™׳œ ׳œ׳¢׳‘׳•׳“', target: 'tools' });
+        setTooltipData({ id: 'tutorial_add_tools', text: 'התחל מכאן: הוסף כלים חכמים (מנועים) למרחב שלך כדי להתחיל לעבוד', target: 'tools' });
       } else if (!hasSeenArchive && spaceFeatures.length > 0 && role === 'creator') {
-        setTooltipData({ id: 'tutorial_feature_archive', text: '׳”׳™׳“׳¢׳×? ׳ž׳›׳ ׳Ÿ ׳ ׳™׳×׳Ÿ ׳œ׳›׳‘׳•׳× ׳₪׳™׳¦\'׳¨׳™׳  ׳œ׳ ׳™׳§׳•׳™ ׳”׳ž׳¡׳š. ׳”׳ž׳™׳“׳¢ ׳©׳œ׳š ׳ ׳©׳ž׳¨ ׳‘׳ ׳¨׳›׳™׳•׳Ÿ ׳•׳×׳ž׳™׳“ ׳ ׳™׳×׳Ÿ ׳œ׳”׳—׳–׳™׳¨׳• ׳ž׳ ׳•׳×׳” ׳ ׳§׳•׳“׳”!', target: 'settings' });
+        setTooltipData({ id: 'tutorial_feature_archive', text: 'הידעת? מכאן ניתן לכבות פיצ\'רים לניקוי המסך. המידע שלך נשמר בארכיון ותמיד ניתן להחזירו מאותה נקודה!', target: 'settings' });
       } else if (!hasSeenUpsell && spaceFeatures.includes('finance') && !hasEverUsedPartners && role === 'creator') {
-        setTooltipData({ id: 'tutorial_upsell_partners', text: '׳”׳™׳“׳¢׳×? ׳ ׳₪׳©׳¨ ׳œ׳”׳•׳¡׳™׳£ ׳©׳•׳×׳₪׳™׳  ׳œ׳ž׳¨׳—׳‘. ׳”׳ž׳¢׳¨׳›׳× ׳×׳ ׳”׳œ ׳ ׳•׳˜׳•׳ž׳˜׳™׳× ׳ž׳™ ׳©׳™׳œ׳  ׳•׳›׳ž׳” ׳—׳™׳™׳‘׳™׳  ׳ ׳—׳“ ׳œ׳©׳ ׳™!', target: 'tools' });
+        setTooltipData({ id: 'tutorial_upsell_partners', text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!', target: 'tools' });
       }
     }
   }, [id, spaces, getRoleForSpace]);
