@@ -219,7 +219,7 @@ export default function Dashboard() {
       </div>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.9 - עיצוב כותרת נקי ומסך שיתוף גלובלי משופר
+        v5.0.10 - תיקון טעינת מסך הפתיחה לאורחים (FOUC Fix)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
