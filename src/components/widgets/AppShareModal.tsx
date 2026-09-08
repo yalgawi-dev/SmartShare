@@ -28,7 +28,7 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'SmartShare',
+          title: 'MySpace',
           text: shareText,
           url: shareUrl
         });
@@ -50,7 +50,7 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '3rem', marginBottom: '1rem', animation: 'bounce 2s infinite' }}>🎁</div>
-          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.5rem' }}>שתף את SmartShare</h2>
+          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.5rem' }}>שתף את MySpace</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
             הזמן חברים ומשפחה לנהל יחד מרחבים חכמים בקלות, או לנהל את שלהם בעצמם.
           </p>
