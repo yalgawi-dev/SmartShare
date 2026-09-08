@@ -64,16 +64,6 @@ export default function Dashboard() {
     };
   }, []);
 
-  // Mark tutorials as seen for veteran users
-  useEffect(() => {
-    if (visibleSpaces.length > 1) {
-      try {
-        if (!localStorage.getItem('tutorial_enter_space')) localStorage.setItem('tutorial_enter_space', '1');
-        if (!localStorage.getItem('tutorial_add_tools')) localStorage.setItem('tutorial_add_tools', '1');
-      } catch(e){}
-    }
-  }, [visibleSpaces.length]);
-
   const visibleSpaces = spaces.filter(s => { 
     if (s.status === 'pending_deletion') return false; 
     
@@ -95,6 +85,16 @@ export default function Dashboard() {
     });
     return isMember;
   });
+
+  // Mark tutorials as seen for veteran users
+  useEffect(() => {
+    if (visibleSpaces.length > 1) {
+      try {
+        if (!localStorage.getItem('tutorial_enter_space')) localStorage.setItem('tutorial_enter_space', '1');
+        if (!localStorage.getItem('tutorial_add_tools')) localStorage.setItem('tutorial_add_tools', '1');
+      } catch(e){}
+    }
+  }, [visibleSpaces.length]);
 
   return (
     <div className={styles.container}>
@@ -178,7 +178,7 @@ export default function Dashboard() {
         {visibleSpaces.map((space, index) => {
           const showFirstSpaceTip = visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined' && !localStorage.getItem('tutorial_enter_space');
           return (
-          <div key={space.id} style={{ position: 'relative' }}>
+          <div key={space.id} style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <button 
               onClick={(e) => {
                 e.preventDefault();
@@ -207,7 +207,7 @@ export default function Dashboard() {
             >
               🗑️
             </button>
-            <Link href={`/space/${space.id}`} style={{ display: 'block', textDecoration: 'none' }}>
+            <Link href={`/space/${space.id}`} style={{ display: 'flex', flexDirection: 'column', flex: 1, textDecoration: 'none' }}>
               <div 
                 className={`card ${styles.projectCard} glass-panel`}
                 onClick={() => {
@@ -218,7 +218,8 @@ export default function Dashboard() {
                 style={{
                   animation: showFirstSpaceTip ? 'pulseGlow 2.5s infinite' : 'none',
                   border: showFirstSpaceTip ? '2px solid var(--primary)' : undefined,
-                  position: 'relative'
+                  position: 'relative',
+                  flex: 1
                 }}
               >
                 {showFirstSpaceTip && (
@@ -231,7 +232,7 @@ export default function Dashboard() {
                   <h3 className={styles.projectTitle}>{space.title}</h3>
                 </div>
                 
-                <p className={styles.projectDesc}>{space.description}</p>
+                <p className={styles.projectDesc} style={{ flex: 1 }}>{space.description}</p>
 
                 <div className={styles.badges}>
                   {space.features.slice(0, 3).map(fId => {
@@ -256,7 +257,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.14 - עדכון מנגנון הדרכה למשתמשים ותיקים
+        v5.0.15 - טיפים קונטקסטואליים ותיקוני תצוגה
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

@@ -11,7 +11,7 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
 const TEMPLATES = [
-  { id: 'finance', title: 'ניהול הוצאות / התחשבנויות', desc: 'המרחב החכם לניהול תקציב, סריקת קבלות, והתחשבנויות שותפים.', icon: '💰', features: ['finance'] },
+  { id: 'finance', title: 'ניהול הוצאות / התחשבנויות', desc: 'המרחב החכם לניהול תקציב, סריקת קבלות, והתחשבנויות שותפים.', icon: '💰', features: ['finance', 'scanner'] },
   { id: 'medical', title: 'תיק רפואי משפחתי (בקרוב)', desc: 'סיכומי מחלה, מעקב תרופות והפניות. מרוכז במקום אחד.', icon: '🩺', features: [] },
   { id: 'event', title: 'תכנון אירוע / חתונה (בקרוב)', desc: 'לארגון מסיבה, חתונה או אירוע חברה. ניהול מוזמנים (RSVP) והוצאות ספקים.', icon: '🎉', features: ['finance'] },
   { id: 'construction', title: 'פרויקט בנייה / שיפוץ (בקרוב)', desc: 'ניהול קבלנים, קופת מזומן, סריקת חשבוניות ותוכניות אדריכליות.', icon: '🏗️', features: ['finance'] },
@@ -123,12 +123,12 @@ function CreateSpaceContent() {
               </p>
               
               {/* Mini visual simulation */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px', border: '1px dashed var(--border-light)', maxWidth: '300px', margin: '0 auto' }}>
-                <div style={{ width: '100%', height: '40px', background: 'var(--bg-main)', borderRadius: '8px', opacity: 0.5 }}></div>
-                <div style={{ width: '100%', height: '80px', background: 'var(--primary)', opacity: 0.2, borderRadius: '8px', border: '2px dashed var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 'bold' }}>
-                  + הוסף כלי ניהול
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center', background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', border: '1px dashed var(--border-light)', maxWidth: '300px', margin: '0 auto' }}>
+                <div style={{ width: '100%', height: '40px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-light)' }}></div>
+                <div style={{ width: '100%', height: '80px', background: 'rgba(99, 102, 241, 0.1)', borderRadius: '8px', border: '2px dashed var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', fontWeight: 'bold', fontSize: '1.1rem' }}>
+                  ➕ מחסן הכלים
                 </div>
-                <div style={{ width: '100%', height: '40px', background: 'var(--bg-main)', borderRadius: '8px', opacity: 0.5 }}></div>
+                <div style={{ width: '100%', height: '40px', background: 'var(--bg-card)', borderRadius: '8px', border: '1px solid var(--border-light)' }}></div>
               </div>
             </div>
           </div>

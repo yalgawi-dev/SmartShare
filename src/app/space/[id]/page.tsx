@@ -164,7 +164,34 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   };
 
-  const showToolsTip = typeof window !== 'undefined' && !localStorage.getItem('tutorial_add_tools');
+  const [tooltipData, setTooltipData] = useState<{ id: string, text: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasSeenTools = localStorage.getItem('tutorial_add_tools');
+      const hasSeenUpsell = localStorage.getItem('tutorial_upsell_partners');
+      
+      if (!hasSeenTools) {
+        setTooltipData({ id: 'tutorial_add_tools', text: 'הידעת? מכאן אפשר להוסיף שותפים וכלים!' });
+      } else if (!hasSeenUpsell && space?.features?.includes('finance') && !space?.features?.includes('partners') && getRoleForSpace(id) === 'creator') {
+        setTooltipData({ 
+          id: 'tutorial_upsell_partners', 
+          text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!'
+        });
+      }
+    }
+  }, [space, id]);
+
+  const dismissTooltip = (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    if (tooltipData) {
+      try { localStorage.setItem(tooltipData.id, '1'); } catch(e){}
+    }
+    setTooltipData(null);
+  };
 
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
@@ -208,7 +235,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                   alert('אין לך הרשאה להוסיף או להסיר כלים במרחב זה.');
                 } else {
                   handleRestrictedAction(() => {
-                    try { localStorage.setItem('tutorial_add_tools', '1'); } catch(e){}
+                    if (tooltipData) dismissTooltip();
                     setShowFeatureMenu(true);
                   });
                 }
@@ -221,13 +248,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 fontWeight: 'bold', 
                 cursor: 'pointer', 
                 boxShadow: 'var(--shadow-sm)',
-                animation: showToolsTip ? 'pulseGlow 2.5s infinite' : 'none' 
+                animation: tooltipData ? 'pulseGlow 2.5s infinite' : 'none' 
               }}>
                 ➕ הוסף כלים
               </button>
-              {showToolsTip && (
-                <div style={{ position: 'absolute', top: '100%', right: '0', marginTop: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)' }}>
-                  הידעת? מכאן אפשר להוסיף שותפים וכלים! 👆
+              {tooltipData && (
+                <div style={{ position: 'absolute', top: '100%', right: '50%', transform: 'translateX(50%)', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid var(--primary)' }}></div>
+                  <span>{tooltipData.text}</span>
+                  <button onClick={dismissTooltip} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0 0.2rem', fontSize: '1.2rem', opacity: 0.8 }} title="הבנתי, אל תציג שוב">×</button>
                 </div>
               )}
             </div>
