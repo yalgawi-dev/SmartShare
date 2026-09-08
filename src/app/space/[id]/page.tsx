@@ -87,6 +87,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const activePartnersCount = hasPartners ? (space.members?.length || 0) : 0; 
   const unusedFeatures = AVAILABLE_FEATURES.filter(f => !space.features.includes(f.id));
 
+  const missingDependenciesMap = new Map<string, string[]>();
+  space.features.forEach(fId => {
+    const fData = getFeatureById(fId);
+    const missing = fData?.requires?.filter(reqId => !space.features.includes(reqId)) || [];
+    if (missing.length > 0) {
+      missingDependenciesMap.set(fId, missing);
+    }
+  });
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -104,20 +113,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   };
 
   const handleAddFeature = (featureId: string, featureName: string) => {
-    const featureData = getFeatureById(featureId);
-    const missingDependencies = featureData?.requires?.filter(reqId => !space.features.includes(reqId)) || [];
-    
-    if (missingDependencies.length > 0) {
-      const depNames = missingDependencies.map(d => getFeatureById(d)?.name || d).join(' ו-');
-      if (window.confirm(`כדי להשתמש ב-${featureName}, המערכת צריכה להפעיל גם את ${depNames}.\n\nהאם להפעיל את שניהם עכשיו?`)) {
-        missingDependencies.forEach(depId => toggleFeature(id, depId as FeatureId, user?.id || 'me'));
-        toggleFeature(id, featureId as FeatureId, user?.id || 'me');
-        setShowFeatureMenu(false);
-        showToast(`הופעלו בהצלחה: ${featureName} ו-${depNames}`);
-      }
-      return;
-    }
-
     toggleFeature(id, featureId as FeatureId, user?.id || 'me');
     setShowFeatureMenu(false);
     showToast(`נוסף בהצלחה: ${featureName}`);
@@ -256,10 +251,10 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               ⚙️
             </button>
             {tooltipData?.target === 'settings' && (
-              <div style={{ position: 'absolute', top: '100%', right: '0', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', whiteSpace: 'nowrap', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ position: 'absolute', top: '100%', right: '0', marginTop: '1rem', background: 'var(--primary)', color: 'white', padding: '0.75rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 100, animation: 'bounce 2s infinite', width: '250px', boxShadow: '0 4px 12px rgba(99,102,241,0.4)', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
                 <div style={{ position: 'absolute', bottom: '100%', right: '15px', borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderBottom: '8px solid var(--primary)' }}></div>
-                <span>{tooltipData.text}</span>
-                <button onClick={dismissTooltip} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0 0.2rem', fontSize: '1.2rem', opacity: 0.8 }} title="הבנתי, אל תציג שוב">×</button>
+                <span style={{ flex: 1, whiteSpace: 'normal', lineHeight: '1.4' }}>{tooltipData.text}</span>
+                <button onClick={dismissTooltip} style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0', fontSize: '1.2rem', opacity: 0.8, marginTop: '-2px' }} title="הבנתי, אל תציג שוב">×</button>
               </div>
             )}
           </div>
@@ -492,6 +487,31 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
         {/* Active Widgets */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+          
+          {/* Missing Dependencies Banner */}
+          {Array.from(missingDependenciesMap.entries()).map(([fId, missingIds]) => {
+             const feature = getFeatureById(fId);
+             const missingFeatures = missingIds.map(mId => getFeatureById(mId));
+             return (
+               <div key={`missing-deps-${fId}`} style={{ background: 'rgba(239, 68, 68, 0.05)', border: '2px dashed var(--danger)', padding: '1.5rem', borderRadius: '16px', textAlign: 'center', boxShadow: 'var(--shadow-sm)' }}>
+                 <h3 style={{ margin: '0 0 1rem 0', color: 'var(--danger)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                   <span>⚠️</span> {feature?.name} ממתין להשלמת התקנה
+                 </h3>
+                 <p style={{ margin: '0 0 1.5rem 0', color: 'var(--text-secondary)' }}>כדי שהכלי יוכל לפעול כראוי, המערכת דורשת את הכלים הבאים. לחיצה תתקין אותם מיד:</p>
+                 <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                   {missingFeatures.map(m => (
+                     <button key={m?.id} onClick={() => toggleFeature(id, m?.id as FeatureId, user?.id || 'me')} style={{ background: 'var(--bg-main)', border: '1px solid var(--danger)', color: 'var(--danger)', padding: '0.5rem 1.5rem', borderRadius: '50px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold', transition: 'all 0.2s', boxShadow: 'var(--shadow-sm)' }}>
+                       <span style={{ fontSize: '1.2rem' }}>{m?.icon}</span> התקן את {m?.name}
+                     </button>
+                   ))}
+                   <button onClick={() => toggleFeature(id, feature?.id as FeatureId, user?.id || 'me')} style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline', padding: '0.5rem' }}>
+                     או לחץ כאן כדי לבטל את בחירת {feature?.name}
+                   </button>
+                 </div>
+               </div>
+             );
+          })}
+
           {/* Finance is always at the top if active */}
           {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} />}
           
