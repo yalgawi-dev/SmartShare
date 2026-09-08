@@ -11,8 +11,8 @@ import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
 import AppShareModal from '../components/widgets/AppShareModal';
 
 export default function Dashboard() {
-  const { spaces, deleteSpace, getRoleForSpace } = useSpaces();
-  const { user, isLoaded, logout } = useAuth();
+  const { spaces, deleteSpace, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();
+  const { user, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
@@ -151,7 +151,12 @@ export default function Dashboard() {
         </Link>
       )}
 
-      {visibleSpaces.length === 0 ? (
+      {(!isAuthLoaded || !isSpacesLoaded) ? (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
+          <div className={styles.loader} style={{ border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      ) : visibleSpaces.length === 0 ? (
         <WelcomeEmptyState />
       ) : (
       <div className={styles.grid}>
