@@ -11,7 +11,10 @@ export default function GlobalPWAPrompt() {
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
-      const isDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true';
+      let isDismissed = false;
+      try {
+        isDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true';
+      } catch (e) {}
       
       if (!isStandalone && !isDismissed) {
         setShowPrompt(true);

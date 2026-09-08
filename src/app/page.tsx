@@ -286,7 +286,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.20 - תיקון קריסת מסך שחור בגישת Incognito (טיפול ב-localStorage)
+        v5.0.21 - תיקון קריסות (מסך שחור) בדפדפנים פנימיים בנייד (WhatsApp/In-app)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

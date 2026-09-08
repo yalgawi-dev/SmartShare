@@ -350,7 +350,12 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   // Fix identity mismatch when user logs in and spaces are loaded
   useEffect(() => {
     if (!user || !user.id || spacesBase.length === 0) return;
-    const localKeys = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('smartshare_keys') || '{}') : {};
+    let localKeys: any = {};
+    if (typeof window !== 'undefined') {
+      try {
+        localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      } catch (e) {}
+    }
     
     spacesBase.forEach(space => {
       const localRole = localKeys?.[space.id]?.role;

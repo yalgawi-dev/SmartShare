@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '../app/context/AuthContext';
@@ -11,8 +11,10 @@ export default function GlobalPhonePrompt() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    // Only check once per session or if user explicitly dismisses
-    const isDismissed = sessionStorage.getItem('phone_prompt_dismissed') === 'true';
+    let isDismissed = false;
+    try {
+      isDismissed = sessionStorage.getItem('phone_prompt_dismissed') === 'true';
+    } catch (e) {}
     if (isLoaded && user && !user.phone && !isDismissed && !user.isAnonymous) {
       // Don't show immediately on load to prevent jumping, wait a sec
       const timer = setTimeout(() => setShowPrompt(true), 2000);
@@ -41,7 +43,7 @@ export default function GlobalPhonePrompt() {
   };
 
   const handleDismiss = () => {
-    sessionStorage.setItem('phone_prompt_dismissed', 'true');
+    try { sessionStorage.setItem('phone_prompt_dismissed', 'true'); } catch (e) {}
     setShowPrompt(false);
   };
 
