@@ -200,7 +200,12 @@ export default function Dashboard() {
         )}
       <div className={styles.grid}>
         {visibleSpaces.map((space, index) => {
-          const showFirstSpaceTip = visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined' && !localStorage.getItem('tutorial_enter_space');
+          let showFirstSpaceTip = false;
+          if (visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined') {
+            try {
+              showFirstSpaceTip = !localStorage.getItem('tutorial_enter_space');
+            } catch(e) {}
+          }
           return (
           <div id={`space-${space.id}`} key={space.id} style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
             <button 
@@ -281,7 +286,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.19 - שיפורי חוויית משתמש: פוקוס על מרחב חדש והתאמת טיפים
+        v5.0.20 - תיקון קריסת מסך שחור בגישת Incognito (טיפול ב-localStorage)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

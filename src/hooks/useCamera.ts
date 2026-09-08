@@ -10,15 +10,17 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
 
   // Load saved zoom on mount
   useEffect(() => {
-    const savedZoom = localStorage.getItem('myspace_scanner_zoom');
-    if (savedZoom) {
-      setZoom(parseFloat(savedZoom));
-    }
+    try {
+      const savedZoom = localStorage.getItem('myspace_scanner_zoom');
+      if (savedZoom) {
+        setZoom(parseFloat(savedZoom));
+      }
+    } catch(e) {}
   }, []);
 
   // Save zoom when changed and attempt native hardware zoom
   useEffect(() => {
-    localStorage.setItem('myspace_scanner_zoom', zoom.toString());
+    try { localStorage.setItem('myspace_scanner_zoom', zoom.toString()); } catch(e) {}
     
     if (stream) {
       const track = stream.getVideoTracks()[0];

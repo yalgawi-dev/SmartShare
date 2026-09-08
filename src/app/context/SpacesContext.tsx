@@ -268,17 +268,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }, (error) => {
        console.error("Firestore error:", error);
          alert("שגיאת התחברות למסד הנתונים: " + (error.message || ""));
-         alert("שגיאת התחברות למסד הנתונים: " + (error.message || ""));
-       const savedSpaces = localStorage.getItem('smartshare_spaces');
-       if (savedSpaces) {
-         const parsed = JSON.parse(savedSpaces) as Space[];
-         setSpacesBase(parsed.map(s => {
-           const sc = {...s}; delete (sc as any).mediaItems; return sc;
-         }));
-         const mediaMap: Record<string, MediaItem[]> = {};
-         parsed.forEach(s => mediaMap[s.id] = s.mediaItems || []);
-         setMediaItemsBySpace(mediaMap);
-       }
+       try {
+         const savedSpaces = localStorage.getItem('smartshare_spaces');
+         if (savedSpaces) {
+           const parsed = JSON.parse(savedSpaces) as Space[];
+           setSpacesBase(parsed.map(s => {
+             const sc = {...s}; delete (sc as any).mediaItems; return sc;
+           }));
+           const mediaMap: Record<string, MediaItem[]> = {};
+           parsed.forEach(s => mediaMap[s.id] = s.mediaItems || []);
+           setMediaItemsBySpace(mediaMap);
+         }
+       } catch (e) {}
        setIsLoaded(true);
     });
 

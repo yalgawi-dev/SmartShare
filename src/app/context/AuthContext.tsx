@@ -174,14 +174,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           } else {
             // Check if there is a local storage user we can migrate (from before the cloud refactor)
-            const savedUsers = localStorage.getItem('smartshare_users');
             let legacyLocalUser: UserProfile | undefined;
-            if (savedUsers) {
-              try {
+            try {
+              const savedUsers = localStorage.getItem('smartshare_users');
+              if (savedUsers) {
                 const parsed = JSON.parse(savedUsers) as UserProfile[];
                 legacyLocalUser = parsed[0];
-              } catch (e) {}
-            }
+              }
+            } catch (e) {}
             
             // Create new user profile in Firestore
             const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
@@ -446,8 +446,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     // Complete device isolation: wipe local keys and guest tokens upon logout
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('smartshare_keys');
-      localStorage.removeItem('smartshare_guests');
+      try {
+        localStorage.removeItem('smartshare_keys');
+        localStorage.removeItem('smartshare_guests');
+      } catch(e) {}
     }
     try {
       await signOut(auth);

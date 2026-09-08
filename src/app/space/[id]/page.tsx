@@ -179,9 +179,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hasSeenTools = localStorage.getItem('tutorial_add_tools');
-      const hasSeenUpsell = localStorage.getItem('tutorial_upsell_partners');
-      const hasSeenArchive = localStorage.getItem('tutorial_feature_archive');
+      let hasSeenTools = false;
+      let hasSeenUpsell = false;
+      let hasSeenArchive = false;
+      try {
+        hasSeenTools = !!localStorage.getItem('tutorial_add_tools');
+        hasSeenUpsell = !!localStorage.getItem('tutorial_upsell_partners');
+        hasSeenArchive = !!localStorage.getItem('tutorial_feature_archive');
+      } catch (e) {}
       
       // Check if user has ever used partners in ANY space
       const hasEverUsedPartners = spaces.some(s => (s.features || []).includes('partners'));
