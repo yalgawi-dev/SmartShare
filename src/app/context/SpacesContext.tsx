@@ -418,23 +418,26 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteSpace = (spaceId: string) => {
-    saveSpaceUpdate(spaceId, space => {
-      if (!space.invoices || space.invoices.length === 0) {
-        // Hard Delete
-        deleteDoc(doc(db, 'spaces', spaceId)).catch(console.error);
-        setSpacesBase(prev => prev.filter(s => s.id !== spaceId));
-        return space;
-      }
-      
-      // Soft Delete / Archive
-      const futureDate = new Date();
-      futureDate.setDate(futureDate.getDate() + 14); // 14 days grace period
-      return {
-        ...space,
-        status: 'pending_deletion',
-        deletionScheduledFor: futureDate.toISOString()
-      };
-    });
+    const spaceToDel = spacesBase.find(s => s.id === spaceId);
+    if (!spaceToDel) return;
+
+    if (!spaceToDel.invoices || spaceToDel.invoices.length === 0) {
+      // Hard Delete: immediately delete from DB and state.
+      // Do NOT use saveSpaceUpdate here because it would call setDoc and recreate the document!
+      deleteDoc(doc(db, 'spaces', spaceId)).catch(console.error);
+      setSpacesBase(prev => prev.filter(s => s.id !== spaceId));
+    } else {
+      // Soft Delete / Archive: update the status
+      saveSpaceUpdate(spaceId, space => {
+        const futureDate = new Date();
+        futureDate.setDate(futureDate.getDate() + 14); // 14 days grace period
+        return {
+          ...space,
+          status: 'pending_deletion',
+          deletionScheduledFor: futureDate.toISOString()
+        };
+      });
+    }
   };
 
   const restoreSpace = (spaceId: string) => {

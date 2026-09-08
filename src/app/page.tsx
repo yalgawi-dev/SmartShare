@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.27 - תיקון עומק למנגנון מחיקת שותפים ואיזון אחוזים רטרואקטיבי
+        v5.0.28 - תיקון באג שגרם למרחבים לחזור לחיים אחרי מחיקה (Race Condition)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
