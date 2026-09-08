@@ -206,7 +206,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Fundamental Fix: Merge local cache keys into Firebase ONLY for authenticated Google accounts (never leak to anonymous guests)
           if (typeof window !== 'undefined' && !firebaseUser.isAnonymous) {
             try {
-              const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+              const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+              const localKeys = parsed || {};
               const currentKeys = activeUser.spaceKeys || {};
               let keysUpdated = false;
               

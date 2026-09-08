@@ -37,7 +37,8 @@ export default function WelcomeGate({
       if (urlToken) return urlToken;
 
       try {
-        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        const localKeys = parsed || {};
         if (localKeys[spaceId]?.token) return localKeys[spaceId].token;
       } catch (e) {}
 
@@ -60,7 +61,8 @@ export default function WelcomeGate({
 
     // Immediately cache in localStorage for cross-page persistence
     try {
-      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      const parsedKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      const localKeys = parsedKeys || {};
       if (!localKeys[spaceId] || localKeys[spaceId].token !== resolvedToken) {
         localKeys[spaceId] = { role: 'partner', token: resolvedToken };
         localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
@@ -135,7 +137,8 @@ export default function WelcomeGate({
 
     // Save unique partner key directly into smartshare_keys (Single Source of Truth)
     try {
-      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      const localKeys = parsed || {};
       localKeys[spaceId] = { role: 'partner', token: resolvedToken };
       localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
     } catch (e) {}

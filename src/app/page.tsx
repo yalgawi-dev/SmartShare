@@ -18,7 +18,8 @@ export default function Dashboard() {
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
       try {
-        return JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        return parsed || {};
       } catch (e) {}
     }
     return {};
@@ -26,7 +27,8 @@ export default function Dashboard() {
   const [guestTokens, setGuestTokens] = useState<string[]>(() => {
     if (typeof window !== 'undefined') {
       try {
-        return JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        const parsed = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        return Array.isArray(parsed) ? parsed : [];
       } catch (e) {}
     }
     return [];
@@ -35,8 +37,11 @@ export default function Dashboard() {
   useEffect(() => {
     const loadKeys = () => {
       try {
-        setClientKeys(JSON.parse(localStorage.getItem('smartshare_keys') || '{}'));
-        setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
+        const pKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        setClientKeys(pKeys || {});
+        
+        const pTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        setGuestTokens(Array.isArray(pTokens) ? pTokens : []);
       } catch (e) {}
     };
     loadKeys();
@@ -286,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.21 - תיקון קריסות (מסך שחור) בדפדפנים פנימיים בנייד (WhatsApp/In-app)
+        v5.0.22 - פתרון שורש מלא לקריסת האפליקציה (מסך שחור) שנגרמה כתוצאה ממבנה נתונים פגום ב-localStorage 
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

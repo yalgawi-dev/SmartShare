@@ -353,7 +353,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     let localKeys: any = {};
     if (typeof window !== 'undefined') {
       try {
-        localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        localKeys = parsed || {};
       } catch (e) {}
     }
     
