@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.25 - תיקון קידוד ג'יבריש בהודעות ההדרכה
+        v5.0.26 - מניעת הקפצת טיפ "הוסף כלים" למוזמנים או במרחבים מלאים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

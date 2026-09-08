@@ -80,7 +80,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const spaceFeatures = spaces.find(s => s.id === id)?.features || [];
       const role = getRoleForSpace(id);
 
-      if (!hasSeenTools) {
+      if (!hasSeenTools && spaceFeatures.length === 0 && role === 'creator') {
         setTooltipData({ id: 'tutorial_add_tools', text: 'התחל מכאן: הוסף כלים חכמים (מנועים) למרחב שלך כדי להתחיל לעבוד', target: 'tools' });
       } else if (!hasSeenArchive && spaceFeatures.length > 0 && role === 'creator') {
         setTooltipData({ id: 'tutorial_feature_archive', text: 'הידעת? מכאן ניתן לכבות פיצ\'רים לניקוי המסך. המידע שלך נשמר בארכיון ותמיד ניתן להחזירו מאותה נקודה!', target: 'settings' });
