@@ -612,6 +612,12 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           return m;
         });
         finalMembersList.push(newMember);
+
+        // Safety check: if a partner was deleted between invite creation and acceptance, the snapshot is outdated.
+        const totalPartners = finalMembersList.reduce((acc, m) => acc + (m.isActive !== false && typeof m.sharePercentage === 'number' ? m.sharePercentage : 0), 0);
+        if (Math.abs(finalCreatorShare + totalPartners - 100) > 0.01) {
+          finalCreatorShare = Math.max(0, 100 - totalPartners);
+        }
       } else {
         const newMembersList = [...existingMembersWithoutThis, newMember];
         const { finalMembers, finalCreatorShare: calculatedCreatorShare } = calculateBalancedShares(newMembersList, space.settings);
@@ -890,7 +896,20 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         details
       };
       
-      const newSettings = { ...space.settings, mySharePercentage: undefined, isCustomShare: false };
+      // If shares were custom, give the removed member's share back to the creator.
+      // Do NOT wipe isCustomShare, as other partners might still have their custom shares!
+      let newCreatorShare = space.settings?.mySharePercentage;
+      if (space.settings?.isCustomShare) {
+        const removedShare = memberToRemove.sharePercentage || 0;
+        if (newCreatorShare !== undefined) {
+          newCreatorShare = Math.min(100, newCreatorShare + removedShare);
+        }
+      }
+
+      const newSettings = { 
+        ...space.settings, 
+        mySharePercentage: space.settings?.isCustomShare ? newCreatorShare : undefined 
+      };
 
       return {
         ...space,
