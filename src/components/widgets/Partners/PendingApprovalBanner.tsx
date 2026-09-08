@@ -10,14 +10,13 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const { spaces, updateMemberStatus, migrateGuestToRealUser } = useSpaces() as any;
   const { user, loginWithGoogle, loginWithFacebook, loginWithApple } = useAuth();
   
-  const space = spaces.find((s: any) => s.id === spaceId);
-  if (!space) return null;
+  const [isExpanded, setIsExpanded] = useState(true);
+  const [isDisputing, setIsDisputing] = useState(false);
+  const [disputeText, setDisputeText] = useState('');
+  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
+  const [remainingText, setRemainingText] = useState('');
 
-  const isCreatorMe = Boolean(
-    (user?.id && space.creatorId && user.id === space.creatorId) ||
-    (space.createdBy && user?.realName && space.createdBy === user.realName)
-  );
-  if (isCreatorMe) return null;
+  const space = spaces.find((s: any) => s.id === spaceId);
 
   const tokenFromUrl = inviteToken || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null);
   
@@ -36,20 +35,14 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   if (!myPartnerToken && typeof window !== 'undefined') {
     try {
       const storedTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
-      const matchingMember = space.members?.find((m: any) => storedTokens.includes(m.userId));
+      const matchingMember = space?.members?.find((m: any) => storedTokens.includes(m.userId));
       if (matchingMember) {
         myPartnerToken = matchingMember.userId;
       }
     } catch (e) {}
   }
 
-  const currentMember = space.members?.find((m: any) => m.userId === myPartnerToken);
-  
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [isDisputing, setIsDisputing] = useState(false);
-  const [disputeText, setDisputeText] = useState('');
-  const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
-  const [remainingText, setRemainingText] = useState('');
+  const currentMember = space?.members?.find((m: any) => m.userId === myPartnerToken);
 
   useEffect(() => {
     if (!currentMember || currentMember.status === 'active') return;
@@ -59,6 +52,14 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     setRemainingText(getRemainingTimeText(currentMember.joinedAt));
     return () => clearInterval(interval);
   }, [currentMember]);
+
+  if (!space) return null;
+
+  const isCreatorMe = Boolean(
+    (user?.id && space.creatorId && user.id === space.creatorId) ||
+    (space.createdBy && user?.realName && space.createdBy === user.realName)
+  );
+  if (isCreatorMe) return null;
 
   if (!currentMember || currentMember.status === 'active') return null;
 

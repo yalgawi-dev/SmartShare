@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.22 - פתרון שורש מלא לקריסת האפליקציה (מסך שחור) שנגרמה כתוצאה ממבנה נתונים פגום ב-localStorage 
+        v5.0.23 - תיקון שגיאות React (Hook Order) ופיירבייס (undefined avatar) במסכי אורח
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

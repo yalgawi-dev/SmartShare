@@ -194,7 +194,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
               email: bestEmail || legacyLocalUser?.email || '',
               nickname: legacyLocalUser?.nickname || (bestName ? bestName.split(' ')[0] : ''),
-              avatarUrl: bestPhoto || undefined,
+              avatarUrl: bestPhoto || null,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
               isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
