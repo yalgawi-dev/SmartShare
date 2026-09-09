@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.41 - תיקון באגים מלא: שחזור פלוס קופה, מבנה 3 שורות בהוצאות, שילוב כפתור עריכה בדשבורד
+        v5.0.42 - לוגיקה עסקית אמיתית לקופה (הלוואה/אקוויטי/שותף), הפרדת מנוע CashboxEngine, מניעת חוב שגוי בסולו
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
