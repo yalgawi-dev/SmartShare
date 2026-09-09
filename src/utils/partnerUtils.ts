@@ -24,3 +24,27 @@ export const getRemainingTimeText = (joinedAt: string | undefined | null, expHou
   const minsRound = minutesLeft % 60;
   return `נותרו ${hoursLeft} ש' ${minsRound > 0 ? "ו-" + minsRound + " דק'" : ""}`;
 };
+
+export const calculateCurrentSharesSnapshot = (space: any): Record<string, number> => {
+  const snapshot: Record<string, number> = {};
+  if (!space) return snapshot;
+
+  const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
+  const creatorId = space.creatorId || space.createdBy || 'creator_unknown';
+  
+  const uniqueMembers = validMembers.filter((m: any) => m.userId !== creatorId);
+  const activeMembersCount = uniqueMembers.length + 1; // +1 for creator
+  
+  const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
+  
+  if (activeMembersCount <= 1) {
+    snapshot[creatorId] = 100;
+  } else {
+    snapshot[creatorId] = space.settings?.mySharePercentage ?? defaultShare;
+    uniqueMembers.forEach((m: any) => {
+      snapshot[m.userId] = m.sharePercentage !== undefined ? m.sharePercentage : defaultShare;
+    });
+  }
+  
+  return snapshot;
+};

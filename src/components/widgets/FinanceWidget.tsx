@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { FinanceSummary } from './Finance/FinanceSummary';
+import { calculateCurrentSharesSnapshot } from '../../../utils/partnerUtils';
 import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { FinanceTransferModal } from './Finance/FinanceTransferModal';
