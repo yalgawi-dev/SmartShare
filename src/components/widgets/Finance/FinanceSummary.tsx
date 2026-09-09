@@ -275,14 +275,7 @@ export function FinanceSummary({
               <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
                 {!unifiedBalances.has(myLookupId) ? <span style={{fontSize: '1.1rem', textDecoration:'underline'}}>פירוט חובות</span> : `${Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪`}
               </h3>
-              {unifiedBalances.has(myLookupId) && Math.abs(myBalance) > 0.5 && onTriggerTransfer && (
-                <button 
-                  onClick={(e) => { e.stopPropagation(); onTriggerTransfer(); }}
-                  style={{ marginTop: '0.5rem', background: myBalance < -0.5 ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '0.3rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  {myBalance < -0.5 ? '💸 שלם חוב' : '💸 בקש תשלום / העבר'}
-                </button>
-              )}
+              
             </div>
 
           </div>
