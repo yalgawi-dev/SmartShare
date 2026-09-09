@@ -44,6 +44,12 @@ export function FinanceTransactions({
     return inv.type !== 'transfer' && inv.type !== 'income';
   });
 
+  const finallyFiltered = filteredInvoices.filter((inv: any) => {
+    if (typeFilter === 'transfer') return inv.type === 'transfer';
+    if (typeFilter === 'income') return inv.type === 'income';
+    return inv.type !== 'transfer' && inv.type !== 'income';
+  });
+
   useEffect(() => {
     const el = document.getElementById('finance-tab-' + filter);
     if (el) {
