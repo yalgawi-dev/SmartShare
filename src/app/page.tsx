@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.29 - הוספת מנגנון התקנה חכמה (Smart Bundling) וטיפים חכמים למרחבים
+        v5.0.30 - החזרת אופציית התקנת שותפים נפרדת והוספת הודעת הפעלה אקטיבית באדום
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

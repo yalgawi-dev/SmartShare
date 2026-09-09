@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSpaces } from "../../../app/context/SpacesContext";
 
 export function PartnersSettingsList({ space, user }: { space: any, user: any }) {
-  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace } = useSpaces();
+  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace, toggleFeature } = useSpaces();
   
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === 'creator';
@@ -38,6 +38,23 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
 
   return (
     <>
+      {!(space.features || []).includes('finance') && (
+        <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '12px', padding: '1.25rem', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>⚠️</span>
+            <strong style={{ color: '#b91c1c', fontSize: '1.1rem' }}>מנוע התחשבנויות כבוי!</strong>
+          </div>
+          <p style={{ margin: 0, fontSize: '0.95rem', color: '#991b1b', lineHeight: '1.4' }}>
+            כדי לראות את מאזן החובות של השותפים ולנהל הוצאות משותפות, יש להפעיל את רכיב ההתחשבנויות.
+          </p>
+          <button 
+            onClick={() => toggleFeature(space.id, 'finance', user?.id || 'me')}
+            style={{ alignSelf: 'flex-start', background: '#dc2626', color: 'white', border: 'none', padding: '0.5rem 1.25rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', transition: '0.2s', marginTop: '0.25rem' }}>
+            הפעל עכשיו
+          </button>
+        </div>
+      )}
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.25rem", background: "rgba(0,0,0,0.02)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)", marginBottom: "1.25rem" }}>
         <div>
           <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>עריכת הקיר הראשי (v3.9)</h4>

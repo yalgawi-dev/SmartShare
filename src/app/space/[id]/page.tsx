@@ -142,26 +142,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   };
 
   const handleAddFeature = (featureId: string, featureName: string) => {
-    const featureDef = getFeatureById(featureId);
-    if (featureDef?.requires) {
-      const missingReqs = featureDef.requires.filter(reqId => !spaceFeatures.includes(reqId));
-      if (missingReqs.length > 0) {
-        if (featureId === 'partners' && missingReqs.includes('finance')) {
-          if (window.confirm('כדי להשתמש בניהול שותפים, עלינו להפעיל גם את מנוע ההתחשבנויות. האם להפעיל את שניהם?')) {
-            toggleFeature(id, 'finance', user?.id || 'me');
-            setTimeout(() => {
-              toggleFeature(id, 'partners', user?.id || 'me');
-            }, 100);
-            setShowFeatureMenu(false);
-            showToast(`הופעלו בהצלחה: התחשבנויות ושותפים`);
-            return;
-          } else {
-            return; // Cancelled
-          }
-        }
-      }
-    }
-
     toggleFeature(id, featureId as FeatureId, user?.id || 'me');
     setShowFeatureMenu(false);
     showToast(`נוסף בהצלחה: ${featureName}`);
