@@ -62,11 +62,7 @@ export function FinanceTransactions({
       
       
       
-        const relevantInvoices = invoices.filter((inv: any) => {
-          if (typeFilter === 'transfer') return inv.type === 'transfer';
-          if (typeFilter === 'income') return inv.type === 'income';
-          return inv.type !== 'transfer' && inv.type !== 'income';
-        });
+
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
         const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
         const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
@@ -161,9 +157,9 @@ export function FinanceTransactions({
     <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEndHandler}>
       {/* Filter Pills */}
       {(() => {
-        const hasArchive = invoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = true || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
-        const hasPendingPartners = true || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+        const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
+        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
+        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
         
         if (!hasArchive && !hasPendingMe && !hasPendingPartners) return null;
 
