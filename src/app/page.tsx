@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.51 - תיקון תצוגת מאזן אישי לשותפים לאחר התחברות
+        v5.0.52 - שלב 4: מנוע התחשבנויות, הלוואות פנימיות והכנסות עסק (Double-Entry)
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

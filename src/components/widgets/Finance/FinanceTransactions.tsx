@@ -30,6 +30,9 @@ export function FinanceTransactions({
 
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
+  const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
+  const showIncome = space?.features?.includes('income');
+  const showTransfers = space?.features?.includes('partners') && activePartnersCount > 0;
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
@@ -56,9 +59,18 @@ export function FinanceTransactions({
     const isRightSwipe = distance < -minSwipeDistance;
     if (isLeftSwipe || isRightSwipe) {
       const tabs = ["all"];
-      const hasArchive = invoices.some((i: any) => i.isActive === false);
-      const hasPendingMe = true || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
-      const hasPendingPartners = true || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+      
+      
+      
+        const relevantInvoices = invoices.filter((inv: any) => {
+          if (typeFilter === 'transfer') return inv.type === 'transfer';
+          if (typeFilter === 'income') return inv.type === 'income';
+          return inv.type !== 'transfer' && inv.type !== 'income';
+        });
+        const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
+        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
+        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+
       if (hasArchive) tabs.push("archive");
       if (hasPendingMe) tabs.push("pending_me");
       if (hasPendingPartners) tabs.push("pending_partners");
@@ -168,9 +180,9 @@ export function FinanceTransactions({
             {hasPendingMe && (
               <button id="finance-tab-pending_me" onClick={() => setFilter("pending_me")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_me" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_me" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
                 ממתינים לאישורי
-                {invoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length > 0 && (
+                {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length > 0 && (
                   <span style={{ background: "#f59e0b", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
-                    {invoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length}
+                    {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length}
                   </span>
                 )}
               </button>
@@ -183,7 +195,7 @@ export function FinanceTransactions({
           </div>
         );
       })()}
-      {filteredInvoices.length === 0 ? (
+      {finallyFiltered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
           {filter === 'pending_me' ? 'אין חשבוניות שממתינות לאישור שלך.' : filter === 'pending_partners' ? 'אין חשבוניות שממתינות לאישור השותפים.' : 'לא נמצאו חשבוניות.'}

@@ -59,14 +59,15 @@ export function FinanceSummary({
   const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
   
   const activeInvoices = invoices.filter((inv: any) => inv.isActive !== false);
-  const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.status !== 'dispute' && inv.category !== 'cashbox_equity' && inv.category !== 'cashbox_withdrawal');
+  const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.type !== 'income' && inv.status !== 'dispute' && inv.category !== 'cashbox_equity' && inv.category !== 'cashbox_withdrawal');
+  const incomesOnly = activeInvoices.filter((inv: any) => inv.type === 'income' && inv.status !== 'dispute');
   const transfersOnly = activeInvoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
   
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
     const totalStoreCredits = expensesOnly.filter((inv: any) => inv.isStoreCredit && inv.amount < 0).reduce((acc: number, inv: any) => acc + Math.abs(inv.amount || 0), 0);
 
   // UNIFIED FINANCIAL ENGINE
-  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, p: number, rawP?: number, isCreator?: boolean }>();
+  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, incomeExpected: number, incomeHeld: number, p: number, rawP?: number, isCreator?: boolean }>();
 
   const myRealName = user?.realName || user?.nickname || 'אורח אנונימי';
   const myId = user?.id || 'me';
@@ -82,14 +83,14 @@ export function FinanceSummary({
   const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
   const creatorName = space.createdBy || (isCreatorMe ? myRealName : 'יוצר המרחב');
   
-  unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
+  unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: true });
 
   const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
   validMembers.forEach((m: any) => {
     if ((isCreatorMe && m.userId === myId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
-      unifiedBalances.set(m.userId, { name: m.userId === myId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+      unifiedBalances.set(m.userId, { name: m.userId === myId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
 
@@ -161,7 +162,7 @@ export function FinanceSummary({
     b.p = p;
   });
 
-  balances.forEach(b => { b.expected = 0; });
+  balances.forEach(b => { b.expected = 0; b.incomeExpected = 0; });
   
   expensesOnly.forEach((inv) => {
     const invAmount = inv.amount || 0;
@@ -176,7 +177,7 @@ export function FinanceSummary({
   });
 
   balances.forEach(b => {
-    b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
+    b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived + b.incomeExpected - b.incomeHeld;
   });
 
   
@@ -261,18 +262,28 @@ export function FinanceSummary({
               <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => i.status === 'pending').length}</h3>
             </div>
             
+            
             <div 
               onClick={() => setShowSettlementBreakdown(true)}
-              style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+              style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', position: 'relative' }}
               title="פירוט של התחשבנות היתרות בין כל השותפים במרחב"
             >
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                {myBalance > 0 ? 'שותפים חייבים לי:' : myBalance < 0 ? 'אני חייב/ת להעביר:' : 'החשבון שלי מאוזן'}
+                {!unifiedBalances.has(myLookupId) ? 'התחשבנות כוללת' : (myBalance > 0.5 ? 'שותפים חייבים לי:' : (myBalance < -0.5 ? 'אני חייב/ת להעביר:' : 'החשבון שלי מאוזן'))}
               </p>
               <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
-                {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
+                {!unifiedBalances.has(myLookupId) ? <span style={{fontSize: '1.1rem', textDecoration:'underline'}}>פירוט חובות</span> : `${Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪`}
               </h3>
+              {unifiedBalances.has(myLookupId) && Math.abs(myBalance) > 0.5 && onTriggerTransfer && (
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onTriggerTransfer(); }}
+                  style={{ marginTop: '0.5rem', background: myBalance < -0.5 ? '#ef4444' : '#10b981', color: 'white', border: 'none', borderRadius: 'var(--radius-full)', padding: '0.3rem 0.8rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  {myBalance < -0.5 ? '💸 שלם חוב' : '💸 בקש תשלום / העבר'}
+                </button>
+              )}
             </div>
+
           </div>
         )}
 

@@ -271,7 +271,7 @@ export function FinanceAddExpenseForm({
           
           {validMembers.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{selectedCategory === 'העברה/קיזוז' ? 'מאת (משלם)' : 'מי שילם?'}</label>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{selectedCategory === 'העברה/קיזוז' ? 'מאת (משלם)' : selectedCategory === 'הכנסת עסק' ? 'מי שמר את הכסף? (מוחזק אצל)' : 'מי שילם?'}</label>
               <select 
                 required 
                 value={selectedPayerId} 
@@ -312,6 +312,7 @@ export function FinanceAddExpenseForm({
                 <option key={cat} value={cat}>{cat}</option>
               ))}
               {validMembers.some(m => m.userId === 'virtual_treasury_member') && (
+                <option value="הכנסת עסק">הכנסת עסק</option>
                 <option value="העברה/קיזוז">העברה/קיזוז (קופה/שותף)</option>
               )}
               <option value="other">אחר (הזן קטגוריה)...</option>

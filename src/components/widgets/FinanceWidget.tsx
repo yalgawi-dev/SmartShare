@@ -298,6 +298,7 @@ const runOcrPipeline = async (imgUrl: string) => {
     const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
     
     const isTransfer = category === 'העברה/קיזוז';
+    const isIncome = category === 'הכנסת עסק';
     let targetId = undefined;
     if (isTransfer) {
       targetId = formData.get('targetId') as string;
@@ -309,7 +310,7 @@ const runOcrPipeline = async (imgUrl: string) => {
     const finalStatus = isTransfer ? 'pending' : (finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending'));
 
     const newInvoice: any = {
-      type: isTransfer ? 'transfer' : 'expense',
+      type: isIncome ? 'income' : (isTransfer ? 'transfer' : 'expense'),
       amount,
         isCredit,
         isStoreCredit,
