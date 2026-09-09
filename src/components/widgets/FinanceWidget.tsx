@@ -9,6 +9,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { FinanceSummary } from './Finance/FinanceSummary';
 import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
+import { FinanceTransferModal } from './Finance/FinanceTransferModal';
 import { isCashboxEnabled, createVirtualTreasury } from './Cashbox/CashboxEngine';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 

@@ -11,7 +11,7 @@ import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
 import AppShareModal from '../components/widgets/AppShareModal';
 
 export default function Dashboard() {
-  const { spaces, deleteSpace, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();
+  const { spaces, deleteSpace, updateSpaceTitle, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();
   const { user, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -269,7 +269,23 @@ export default function Dashboard() {
                 <div className={styles.projectHeader} style={{ position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                     <div className={styles.projectIcon}>{space.icon}</div>
-                    <h3 className={styles.projectTitle} style={{ margin: 0 }}>{space.title}</h3>
+                    <h3 className={styles.projectTitle} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      {space.title}
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          const newTitle = prompt('ערוך שם למרחב:', space.title);
+                          if (newTitle && newTitle.trim()) {
+                            updateSpaceTitle(space.id, newTitle.trim());
+                          }
+                        }}
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, padding: '0.2rem', fontSize: '1rem' }}
+                        title="ערוך שם"
+                      >
+                        ✏️
+                      </button>
+                    </h3>
                   </div>
                   
                 </div>
