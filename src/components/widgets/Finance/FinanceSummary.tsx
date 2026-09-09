@@ -217,29 +217,33 @@ export function FinanceSummary({
   return (
     <div>
       {/* Summary Metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+        
+        {/* Row 1: Total Expenses */}
         <div 
           onClick={() => setShowTotalBreakdown(true)}
-          style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+          style={{ background: 'rgba(0,0,0,0.02)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', width: '100%' }}
           title="פירוט ההוצאות לפי קטגוריות"
         >
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה"כ הוצאות</p>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2.5rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
 
+        {/* Row 2: Pending and Balances */}
         {hasPartners && isCreatorMe && (
-          <React.Fragment>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div 
               onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
-              style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+              style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
               title="למעבר מהיר לעמוד ההוצאות"
             >
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישורי</p>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישור</p>
               <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => i.status === 'pending').length}</h3>
             </div>
+            
             <div 
               onClick={() => setShowSettlementBreakdown(true)}
-              style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0 }}
+              style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
               title="פירוט של התחשבנות היתרות בין כל השותפים במרחב"
             >
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
@@ -249,17 +253,16 @@ export function FinanceSummary({
                 {Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
               </h3>
             </div>
-          </React.Fragment>
+          </div>
         )}
-      </div>
 
-      {isCashboxEnabled(space) && treasuryBalanceObj && (
-        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-start' }}>
-          <div style={{ maxWidth: '250px' }}>
+        {/* Row 3: Cashbox */}
+        {isCashboxEnabled(space) && treasuryBalanceObj && (
+          <div style={{ width: '100%' }}>
             <CashboxWidget balance={treasuryBalanceObj.balance} onDeposit={() => setShowDepositModal(true)} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
@@ -417,6 +420,56 @@ export function FinanceSummary({
             <button onClick={() => setShowSettlementBreakdown(false)} style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
               סגור
             </button>
+          </div>
+        </div>,
+        document.body
+      )}
+
+
+      {/* Cashbox Deposit Modal */}
+      {showDepositModal && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }} onClick={() => setShowDepositModal(false)}>
+          <div style={{ background: 'var(--bg-main)', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '350px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>💰 הפקדה לקופה</h3>
+            
+            <div style={{ marginBottom: '1rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>סכום הפקדה (₪)</label>
+              <input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="0" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1.5rem', textAlign: 'center', fontWeight: 'bold' }} autoFocus />
+            </div>
+
+            <div style={{ marginBottom: '2rem' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>תיאור (אופציונלי)</label>
+              <input type="text" value={depositDesc} onChange={e => setDepositDesc(e.target.value)} placeholder="לדוגמה: יתרת מזומן מאירוע" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button onClick={() => setShowDepositModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: 'var(--text-secondary)' }}>ביטול</button>
+              <button 
+                onClick={() => {
+                  const amt = parseFloat(depositAmount);
+                  if (isNaN(amt) || amt <= 0) { alert('אנא הזן סכום תקין (גדול מ-0)'); return; }
+                  
+                  const newExpense = {
+                    id: 'deposit_' + Date.now().toString(),
+                    desc: depositDesc || 'הפקדה לקופה',
+                    amount: amt,
+                    payer: user?.uid || user?.id || 'unknown',
+                    category: 'העברה/קיזוז (קופה/שותף)',
+                    targetId: TREASURY_MEMBER_ID,
+                    date: new Date().toISOString(),
+                    isActive: true
+                  };
+                  
+                  addInvoice(space.id, newExpense);
+                  setShowDepositModal(false);
+                  setDepositAmount('');
+                  setDepositDesc('');
+                }} 
+                style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}
+              >
+                הפקד
+              </button>
+            </div>
           </div>
         </div>,
         document.body

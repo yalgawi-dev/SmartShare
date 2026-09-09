@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.40 - תיקוני UI: עיפרון עריכה, שחזור מסך שותפים, מיקום הקופה וכפתור ההפקדה
+        v5.0.41 - תיקון באגים מלא: שחזור פלוס קופה, מבנה 3 שורות בהוצאות, שילוב כפתור עריכה בדשבורד
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

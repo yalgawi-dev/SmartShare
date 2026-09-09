@@ -370,35 +370,34 @@ const runOcrPipeline = async (imgUrl: string) => {
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
                 ניהול הוצאות
               </h2>
-              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '0.15rem 0 0 0' }}>
-                {activePartnersCount > 0 ? 'ניהול משותף עם שותפים למרחב' : 'ניהול הוצאות אישיות'}
-              </p>
+              
             </div>
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {space.features?.includes('partners') && (
-              <button 
-                onClick={handleInviteClick}
-                style={{ 
-                  background: 'var(--bg-main)', 
-                  color: 'var(--primary)', 
-                  border: '1px solid var(--border-light)', 
-                  padding: '0.4rem 1rem', 
-                  borderRadius: 'var(--radius-full)', 
-                  fontWeight: '600', 
-                  cursor: 'pointer', 
-                  fontSize: '0.85rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.4rem', 
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <span>👥</span>
-                הזמן שותפים
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-full)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
+                <div 
+                  onClick={() => {
+                    if (onOpenPartnersModal) {
+                      onOpenPartnersModal();
+                    } else {
+                      handleInviteClick();
+                    }
+                  }}
+                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  title="ניהול שותפים"
+                >
+                  <span>👥</span> {activePartnersCount} שותפים
+                </div>
+                <button 
+                  onClick={handleInviteClick}
+                  style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRight: '1px solid var(--border-light)', padding: '0.4rem 0.8rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  title="הזמן שותף חדש"
+                >
+                  +
+                </button>
+              </div>
             )}
             {onRemove && (
               <button 
