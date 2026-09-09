@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.43 - פיצול הפקדה/משיכה לקופה, הסתרת משתמשים וירטואלים (Equity/Solo), כפתור קיזוז והעברה בין שותפים
+        v5.0.44 - תיקון קריסת שרת (מסך שחור) עקב שגיאת Syntax ב-FinanceSummary
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

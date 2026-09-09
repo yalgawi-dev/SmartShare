@@ -1,4 +1,4 @@
-const balances = allBalancesArray.filter(b => (b.isMember || b.paid > 0) && !b.userId.startsWith('equity_') && b.userId !== 'none' && b.userId !== TREASURY_MEMBER_ID);import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
@@ -137,7 +137,7 @@ export function FinanceSummary({
   const allBalancesArray = Array.from(unifiedBalances.values()).sort((a,b) => b.paid - a.paid);
   
   // Calculate expected & balance for ALL involved
-  const balances = allBalancesArray.filter(b => b.isMember || b.paid > 0);
+  const balances = allBalancesArray.filter(b => (b.isMember || b.paid > 0) && !b.userId.startsWith('equity_') && b.userId !== 'none' && b.userId !== TREASURY_MEMBER_ID);
   const activeMembersCount = balances.filter(b => b.isMember && b.userId !== TREASURY_MEMBER_ID).length;
   const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
   
