@@ -68,6 +68,12 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
+
+  const onTriggerTransfer = (targetId?: string) => {
+    setSelectedCategory('העברה/קיזוז');
+    if (targetId) setSelectedPayerId(targetId);
+    if (setIsAddingExpense) setIsAddingExpense(true);
+  };
   const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk } = useSpaces();
 
   
@@ -465,6 +471,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             updateSpaceSettings={updateSpaceSettings}
             updateSharesBulk={updateSharesBulk}
             onRestrictedAction={onRestrictedAction}
+            onTriggerTransfer={onTriggerTransfer}
           />
         )}
 
