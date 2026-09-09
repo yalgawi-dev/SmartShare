@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.34 - תיקון קריסה בתצוגת הקופה (שגיאת תחביר בקוד שהפילה את האפליקציה)
+        v5.0.35 - תיקון קידוד בקבצי הקופה, האפליקציה חזרה לאוויר
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
