@@ -38,6 +38,12 @@ export function FinanceTransactions({
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const minSwipeDistance = 50;
 
+  const relevantInvoices = invoices.filter((inv: any) => {
+    if (typeFilter === 'transfer') return inv.type === 'transfer';
+    if (typeFilter === 'income') return inv.type === 'income';
+    return inv.type !== 'transfer' && inv.type !== 'income';
+  });
+
   useEffect(() => {
     const el = document.getElementById('finance-tab-' + filter);
     if (el) {
