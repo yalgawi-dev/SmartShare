@@ -269,9 +269,9 @@ export function FinanceAddExpenseForm({
             </div>
           </div>
           
-          {activePartnersCount > 0 && (
+          {validMembers.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>מי שילם?</label>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{selectedCategory === 'העברה/קיזוז' ? 'מאת (משלם)' : 'מי שילם?'}</label>
               <select 
                 required 
                 value={selectedPayerId} 
@@ -328,7 +328,7 @@ export function FinanceAddExpenseForm({
           
           {selectedCategory === 'העברה/קיזוז' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>למי הועבר הכסף?</label>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>אל (מקבל)</label>
               <select 
                 required 
                 name="targetId"

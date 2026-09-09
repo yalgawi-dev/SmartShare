@@ -9,6 +9,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { FinanceSummary } from './Finance/FinanceSummary';
 import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
+import { isCashboxEnabled, createVirtualTreasury } from './Cashbox/CashboxEngine';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void }, ref) => {
@@ -236,13 +237,8 @@ const runOcrPipeline = async (imgUrl: string) => {
   });
 
   const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
-  if (space.features?.includes('cashbox')) {
-    validMembers.push({
-      userId: 'virtual_treasury_member',
-      name: 'קופה קטנה',
-      status: 'active',
-      sharePercentage: 0
-    });
+  if (isCashboxEnabled(space)) {
+    validMembers.push(createVirtualTreasury());
   }
 
   const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>) => {

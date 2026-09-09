@@ -3,6 +3,8 @@ import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
 import { createPortal } from 'react-dom';
+import { isCashboxEnabled, TREASURY_MEMBER_ID, createVirtualTreasury } from '../Cashbox/CashboxEngine';
+import { CashboxWidget } from '../Cashbox/CashboxWidget';
 
 
 interface FinanceSummaryProps {
@@ -85,14 +87,13 @@ export function FinanceSummary({
     }
   });
 
-  if (space.features?.includes('cashbox')) {
-    unifiedBalances.set('virtual_treasury_member', { 
-      name: 'קופה קטנה (וירטואלית)', 
+  if (isCashboxEnabled(space)) {
+    unifiedBalances.set(TREASURY_MEMBER_ID, { 
+      ...createVirtualTreasury(),
       paid: 0, expected: 0, balance: 0, 
-      userId: 'virtual_treasury_member', 
       isMember: true, 
       transfersSent: 0, transfersReceived: 0, 
-      p: 0, rawP: 0, isCreator: false, status: 'active' 
+      p: 0, rawP: 0, isCreator: false
     });
   }
 
@@ -131,12 +132,12 @@ export function FinanceSummary({
   
   // Calculate expected & balance for ALL involved
   const balances = allBalancesArray.filter(b => b.isMember || b.paid > 0);
-  const activeMembersCount = balances.filter(b => b.isMember && b.userId !== 'virtual_treasury_member').length;
+  const activeMembersCount = balances.filter(b => b.isMember && b.userId !== TREASURY_MEMBER_ID).length;
   const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
   
   balances.forEach(b => {
     let p = 0;
-    if (b.userId === 'virtual_treasury_member') {
+    if (b.userId === TREASURY_MEMBER_ID) {
       p = 0;
     } else if (activeMembersCount <= 1) { // Only creator or nobody
       if (b.userId === myId || b.isCreator) p = 100;
@@ -176,8 +177,8 @@ export function FinanceSummary({
 
   const settlements: { from: string, to: string, amount: number }[] = [];
   
-  const debtors = balances.filter(b => b.balance <= -0.5).map(b => ({ ...b, amount: Math.abs(b.balance) }));
-  const creditors = balances.filter(b => b.balance >= 0.5).map(b => ({ ...b, amount: b.balance }));
+  const debtors = balances.filter(b => b.balance <= -0.5 && b.userId !== TREASURY_MEMBER_ID).map(b => ({ ...b, amount: Math.abs(b.balance) }));
+  const creditors = balances.filter(b => b.balance >= 0.5 && b.userId !== TREASURY_MEMBER_ID).map(b => ({ ...b, amount: b.balance }));
   
   // Handle unallocated shares (the void)
   const sumBalances = balances.reduce((acc, b) => acc + b.balance, 0);
@@ -187,25 +188,35 @@ export function FinanceSummary({
     creditors.push({ name: 'קופה כללית (עודף אחוזים)', amount: Math.abs(sumBalances), balance: Math.abs(sumBalances) } as any);
   }
 
+  // Greedy Settlement Algorithm
   debtors.sort((a,b) => b.amount - a.amount);
   creditors.sort((a,b) => b.amount - a.amount);
   
   let i = 0, j = 0;
-  while (i < debtors.length && j < creditors.length) {
-    const debtor = debtors[i];
-    const creditor = creditors[j];
-    const amount = Math.min(debtor.amount, creditor.amount);
-    if (amount > 0.5) {
-      settlements.push({ from: debtor.name, to: creditor.name, amount });
+  while(i < debtors.length && j < creditors.length) {
+    const d = debtors[i];
+    const c = creditors[j];
+    const amount = Math.min(d.amount, c.amount);
+    
+    if (amount >= 0.5) {
+      settlements.push({ from: d.name, to: c.name, amount });
     }
-    debtor.amount -= amount;
-    creditor.amount -= amount;
-    if (debtor.amount <= 0.5) i++;
-    if (creditor.amount <= 0.5) j++;
+    
+    d.amount -= amount;
+    c.amount -= amount;
+    
+    if (d.amount < 0.5) i++;
+    if (c.amount < 0.5) j++;
   }
+
+  const treasuryBalanceObj = balances.find(b => b.userId === TREASURY_MEMBER_ID);
 
   return (
     <div>
+      {isCashboxEnabled(space) && treasuryBalanceObj && (
+        <CashboxWidget balance={treasuryBalanceObj.balance} />
+      )}
+
       {/* Summary Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div 
@@ -281,7 +292,7 @@ export function FinanceSummary({
                 </tr>
               </thead>
               <tbody>
-                {balances.map((b) => {
+                {balances.filter(b => b.userId !== TREASURY_MEMBER_ID).map((b) => {
                   const isInactive = activePartnersCount === 0 && b.userId !== myId;
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every(inv => (inv.excludedMembers || []).includes(b.userId));
                   
