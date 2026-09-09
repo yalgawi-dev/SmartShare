@@ -411,7 +411,7 @@ export function FinanceSummary({
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{ fontWeight: 'bold' }}>{s.from === myId ? myRealName : (unifiedBalances.get(s.from)?.name || s.from)}</span>
-                      <span style={{ color: 'var(--text-secondary)' }}>←</span>
+                      <span style={{ color: 'var(--text-secondary)', margin: '0 0.5rem' }}>חייב/ת ל-</span>
                       <span style={{ fontWeight: 'bold' }}>{s.to === myId ? myRealName : (unifiedBalances.get(s.to)?.name || s.to)}</span>
                     </div>
                     <div style={{ fontWeight: 'bold', color: '#10b981' }} dir="ltr">

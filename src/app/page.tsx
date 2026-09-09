@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.49 - עיצוב הייטקיסטי לכפתור השותפים, העלמת שותף רפאים וסידור המאזן
+        v5.0.50 - הבהרת חובות בהתחשבנות (החלפת חץ במלל מפורש) וטיפול בתצוגת אורח
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
