@@ -266,21 +266,29 @@ export default function Dashboard() {
                     <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 )}
-                {space.coverImage && (
-                  <div style={{ height: '120px', width: 'calc(100% + 3rem)', margin: '-1.5rem -1.5rem 1rem -1.5rem', background: 'var(--border-light)', overflow: 'hidden', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
-                    <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div className={styles.projectHeader} style={{ position: 'relative' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
+                    <div className={styles.projectIcon}>{space.icon}</div>
+                    <h3 className={styles.projectTitle} style={{ margin: 0 }}>{space.title}</h3>
                   </div>
-                )}
-                <div className={styles.projectHeader}>
-                  <div className={styles.projectIcon}>{space.icon}</div>
-                  <h3 className={styles.projectTitle}>{space.title}</h3>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const newTitle = window.prompt("ערוך שם פרויקט:", space.title);
+                      if (newTitle && newTitle.trim()) {
+                        updateSpaceTitle(space.id, newTitle.trim());
+                      }
+                    }}
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.5, padding: '0.2rem' }}
+                    title="ערוך שם"
+                  >
+                    ✏️
+                  </button>
                 </div>
                 
                 <p className={styles.projectDesc} style={{ flex: 1 }}>{space.description}</p>
 
-                <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
-                </p>
                 <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                   נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
                 </p>
@@ -307,7 +315,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.38 - החזרת שורת הניווט, הוספת הפקדה מהירה לקופה קטנה ועריכת שם פרויקט
+        v5.0.39 - כפתור שותפים משולב, מינימליזם בכותרת (שורה אחת) ועריכה מהלוח הראשי
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

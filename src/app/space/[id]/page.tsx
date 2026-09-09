@@ -303,74 +303,31 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           }
         `}</style>
 
-      {/* Project Title Row (Replaces old massive cover) */}
-      <header style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
-            <div 
-               onClick={() => {
-                  if (!isRestricted) {
-                    const newIcon = window.prompt('הזן אימוג׳י חדש (השתמש במקלדת האימוג׳י בטלפון שלך כדי לבחור סמל):', space.icon);
-                    if (newIcon) {
-                      updateSpaceIcon(id, newIcon);
-                    }
-                  }
-               }}
-               title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
-               style={{ 
-                width: '48px', height: '48px', borderRadius: '12px', background: 'var(--bg-card)', 
-                boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-light)', 
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-                cursor: !isRestricted ? 'pointer' : 'default', fontSize: '1.75rem'
-              }}>
-                {space.icon || space.title.charAt(0)}
-            </div>
-
-            <div style={{ flex: 1 }}>
-              {isEditingTitle && !isRestricted ? (
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <input 
-                    type="text" value={editTitleValue} onChange={(e) => setEditTitleValue(e.target.value)}
-                    style={{ fontSize: '1.5rem', fontWeight: 'bold', border: '1px solid var(--primary)', borderRadius: '8px', padding: '0.2rem 0.5rem', width: '100%', maxWidth: '300px' }}
-                    autoFocus
-                  />
-                  <button onClick={() => { if(editTitleValue.trim()) updateSpaceTitle(id, editTitleValue); setIsEditingTitle(false); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '8px', cursor: 'pointer' }}>✓</button>
-                </div>
-              ) : (
-                <h1 
-                  onClick={() => { if(!isRestricted) { setEditTitleValue(space.title); setIsEditingTitle(true); } }} 
-                  style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)', cursor: !isRestricted ? 'pointer' : 'default', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                  title={!isRestricted ? "לחץ לעריכה" : ""}
-                >
-                  {space.title}
-                  {!isRestricted && <span style={{ fontSize: '1rem', opacity: 0.5 }}>✏️</span>}
-                </h1>
-              )}
-
-              <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>
-                נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
-              </p>
-            </div>
-          </div>
-
-          {/* Partners Bubble */}
-          {hasPartners && (
-            <div 
-              onClick={() => {
-                if (isRestricted) {
-                  setShowRestrictedActionModal(true);
-                } else {
-                  setShowPartnersModal(true);
-                }
-              }}
-              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }} 
-              title="ניהול שותפים והרשאות"
-            >
-              <div style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}>
-                <span>👥</span> {activePartnersCount} שותפים
-              </div>
-            </div>
-          )}
+      {/* Project Title Row */}
+      <header style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+        <div 
+           onClick={() => {
+              if (!isRestricted) {
+                const newIcon = window.prompt('הזן אימוג׳י חדש:', space.icon);
+                if (newIcon) updateSpaceIcon(id, newIcon);
+              }
+           }}
+           title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
+           style={{ 
+            width: '42px', height: '42px', borderRadius: '10px', background: 'var(--bg-card)', 
+            boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-light)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            cursor: !isRestricted ? 'pointer' : 'default', fontSize: '1.5rem'
+          }}>
+            {space.icon || space.title.charAt(0)}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <h1 style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em' }}>
+            {space.title}
+          </h1>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+            ({space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')})
+          </span>
         </div>
       </header>
       
