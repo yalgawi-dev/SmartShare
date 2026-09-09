@@ -159,6 +159,7 @@ interface SpacesContextType {
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
   getRoleForSpace: (spaceId: string) => 'creator' | 'partner' | 'none';
+  getTokenForSpace: (spaceId: string) => string | null;
   finalizeGuestJoin: (
     spaceId: string, 
     name: string, 
@@ -210,6 +211,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const mediaUnsubscribes = useRef<Record<string, () => void>>({});
+
+  const getTokenForSpace = (spaceId: string): string | null => {
+    if (user && user.spaceKeys && user.spaceKeys[spaceId]) {
+      return user.spaceKeys[spaceId].token || null;
+    }
+    if (typeof window !== 'undefined') {
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        if (localKeys[spaceId]) return localKeys[spaceId].token || null;
+      } catch(e) {}
+    }
+    return null;
+  };
 
   const getRoleForSpace = (spaceId: string): 'creator' | 'partner' | 'none' => {
     // 1. Check Auth Context (Single Source of Truth in Firestore)
@@ -1086,7 +1100,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
       updateMemberPermissions, updateSharesBulk,
         updateMemberStatus,
         migrateGuestToRealUser,

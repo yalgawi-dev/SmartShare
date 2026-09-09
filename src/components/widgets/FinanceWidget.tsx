@@ -516,8 +516,9 @@ const runOcrPipeline = async (imgUrl: string) => {
           user={user}
           validMembers={validMembers}
           handleAddExpense={handleAddExpense}
-          handleCloseForm={handleCloseForm}
-          preselectedTargetId={selectedPayerId !== 'me' && selectedPayerId !== user?.id ? selectedPayerId : ''}
+          onClose={handleCloseForm}
+          preselectedTargetId={selectedPayerId !== 'me' && selectedPayerId !== user?.id && selectedPayerId !== myEffectiveId ? selectedPayerId : ''}
+          spaceId={space.id}
         />,
         document.body
       )}

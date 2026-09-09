@@ -88,10 +88,10 @@ export function FinanceSummary({
 
   const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
   validMembers.forEach((m: any) => {
-    if ((isCreatorMe && m.userId === myId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
+    if ((isCreatorMe && m.userId === myEffectiveId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
-      unifiedBalances.set(m.userId, { name: m.userId === myId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+      unifiedBalances.set(m.userId, { name: m.userId === myEffectiveId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
 
@@ -107,7 +107,7 @@ export function FinanceSummary({
 
   expensesOnly.forEach((inv: any) => {
     let matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
-    if ((isCreatorMe && matchedId === myId) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
+    if ((isCreatorMe && matchedId === myEffectiveId) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
       matchedId = creatorId; // Merge split identities globally so guests see creator correctly
     }
     
@@ -148,7 +148,7 @@ export function FinanceSummary({
     if (b.userId === TREASURY_MEMBER_ID) {
       p = 0;
     } else if (activeMembersCount <= 1) { // Only creator or nobody
-      if (b.userId === myId || b.isCreator) p = 100;
+      if (b.userId === myEffectiveId || b.isCreator) p = 100;
       else p = 0;
     } else {
       if (b.isMember) {
@@ -332,8 +332,8 @@ export function FinanceSummary({
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every(inv => (inv.excludedMembers || []).includes(b.userId));
                   
                   return (
-                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
-                      <td style={{ padding: '0.75rem', fontWeight: b.userId === myId ? 'bold' : 'normal' }}>
+                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
+                      <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
     <div style={{ display: 'flex', flexDirection: 'column' }}>
       <span style={{ color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
         {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
@@ -397,7 +397,7 @@ export function FinanceSummary({
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                   <span style={{ fontWeight: 'bold' }}>
                     {b.name} 
-                    {b.userId === myId ? ' (שלי)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(אורח חיצון)</span> : '')}
+                    {b.userId === myEffectiveId ? ' (שלי)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(אורח חיצון)</span> : '')}
                     {isInactive && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(לא פעיל)</span>}
                   </span>
                   <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>

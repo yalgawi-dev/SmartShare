@@ -102,7 +102,7 @@ export function FinanceTransferModal({
                   onChange={e => setPayerId(e.target.value)}
                   style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
                 >
-                  <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
+                  <option value={myEffectiveId}>{user?.realName || 'אני'}</option>
                   {validMembers.filter((m: any) => m.userId !== 'virtual_treasury_member').map((m: any) => (
                     <option key={'from_'+m.userId} value={m.userId}>{m.name}</option>
                   ))}
@@ -118,7 +118,7 @@ export function FinanceTransferModal({
                   style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
                 >
                   <option value="" disabled>בחר מקבל</option>
-                  <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
+                  <option value={myEffectiveId}>{user?.realName || 'אני'}</option>
                   {validMembers.filter((m: any) => m.userId !== 'virtual_treasury_member').map((m: any) => (
                     <option key={'to_'+m.userId} value={m.userId}>{m.name}</option>
                   ))}
@@ -134,7 +134,7 @@ export function FinanceTransferModal({
                 onChange={e => setIncomeHolderId(e.target.value)}
                 style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
               >
-                <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
+                <option value={myEffectiveId}>{user?.realName || 'אני'}</option>
                 {validMembers.filter((m: any) => m.userId !== 'virtual_treasury_member').map((m: any) => (
                   <option key={'held_'+m.userId} value={m.userId}>{m.name}</option>
                 ))}
