@@ -168,7 +168,17 @@ export function FinanceSummary({
   expensesOnly.forEach((inv) => {
     const invAmount = inv.amount || 0;
     const excluded = inv.excludedMembers || [];
-    const participating = balances.filter(b => b.isMember && !excluded.includes(b.userId));
+    const invDate = new Date(inv.createdAt || Date.now()).getTime();
+    const participating = balances.filter(b => {
+      if (!b.isMember) return false;
+      if (excluded.includes(b.userId)) return false;
+      if (b.joinedAt) {
+        const joinedTime = new Date(b.joinedAt).getTime();
+        // If they joined after this expense was added, they don't participate
+        if (joinedTime > invDate) return false;
+      }
+      return true;
+    });
     const totalParticipatingShares = participating.reduce((sum, b) => sum + Number(b.p), 0);
     if (totalParticipatingShares > 0) {
       participating.forEach(b => {

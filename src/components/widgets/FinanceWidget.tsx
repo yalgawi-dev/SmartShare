@@ -500,8 +500,20 @@ const runOcrPipeline = async (imgUrl: string) => {
 
 
 
+      {/* Transfer Modal */}
+      {isMounted && isAddingExpense && selectedCategory === 'העברה/קיזוז' && createPortal(
+        <FinanceTransferModal 
+          user={user}
+          validMembers={validMembers}
+          handleAddExpense={handleAddExpense}
+          handleCloseForm={handleCloseForm}
+          preselectedTargetId={selectedPayerId !== 'me' && selectedPayerId !== user?.id ? selectedPayerId : ''}
+        />,
+        document.body
+      )}
+
       {/* Add Expense Modal (Bottom Sheet Style) */}
-      {isMounted && isAddingExpense && createPortal(
+      {isMounted && isAddingExpense && selectedCategory !== 'העברה/קיזוז' && createPortal(
         <FinanceAddExpenseForm 
           user={user}
           validMembers={validMembers}
