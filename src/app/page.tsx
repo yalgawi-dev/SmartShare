@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.47 - אכיפת טיפוסי מספרים בחישובי מנוע חלוקת ההוצאות
+        v5.0.48 - הנגשת קוביות המאזן לשותפים ועיצוב מחדש של כפתור השותפים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

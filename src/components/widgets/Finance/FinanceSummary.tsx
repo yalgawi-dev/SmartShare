@@ -233,7 +233,7 @@ export function FinanceSummary({
         </div>
 
         {/* Row 2: Pending and Balances */}
-        {hasPartners && isCreatorMe && (
+        {hasPartners && activeMembersCount > 1 && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div 
               onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
