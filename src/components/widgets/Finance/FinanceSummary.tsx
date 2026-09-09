@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+const balances = allBalancesArray.filter(b => (b.isMember || b.paid > 0) && !b.userId.startsWith('equity_') && b.userId !== 'none' && b.userId !== TREASURY_MEMBER_ID);import React, { useState, useEffect } from 'react';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
@@ -38,6 +38,7 @@ export function FinanceSummary({
   const [depositAmount, setDepositAmount] = useState('');
   const [depositDesc, setDepositDesc] = useState('');
   const [depositType, setDepositType] = useState('loan');
+  const [transactionAction, setTransactionAction] = useState('deposit');
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
 
@@ -428,53 +429,96 @@ export function FinanceSummary({
       )}
 
 
-      {/* Cashbox Deposit Modal */}
+      {/* Cashbox Deposit/Withdrawal Modal */}
       {showDepositModal && typeof document !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }} onClick={() => setShowDepositModal(false)}>
-          <div style={{ background: 'var(--bg-main)', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '380px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-primary)' }}>💰 הפקדה לקופה</h3>
+          <div style={{ background: 'var(--bg-main)', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '420px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            
+            <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '0.25rem', marginBottom: '1.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
+              <button 
+                onClick={() => setTransactionAction('deposit')} 
+                style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', border: 'none', background: transactionAction === 'deposit' ? 'var(--primary)' : 'transparent', color: transactionAction === 'deposit' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                הפקדה לקופה
+              </button>
+              <button 
+                onClick={() => setTransactionAction('withdraw')} 
+                style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', border: 'none', background: transactionAction === 'withdraw' ? '#ef4444' : 'transparent', color: transactionAction === 'withdraw' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+              >
+                משיכה מהקופה
+              </button>
+            </div>
             
             <div style={{ marginBottom: '1rem' }}>
-              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>סכום הפקדה (₪)</label>
+              <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>סכום (₪)</label>
               <input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="0" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1.5rem', textAlign: 'center', fontWeight: 'bold' }} autoFocus />
             </div>
 
-            {hasPartners ? (
-              <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>סוג הפקדה</label>
+            {activeMembersCount > 1 ? (
+              <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סוג פעולה</label>
                 
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-                  <input type="radio" checked={depositType === 'loan'} onChange={() => setDepositType('loan')} />
-                  השקעה בעסק (הלוואת בעלים - הקופה תהיה חייבת לך)
-                </label>
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-                  <input type="radio" checked={depositType === 'partner'} onChange={() => setDepositType('partner')} />
-                  תשלום עבור שותף אחר (השותף יהיה חייב לך)
-                </label>
-
-                {depositType === 'partner' && (
-                  <select 
-                    value={depositPartnerId} 
-                    onChange={e => setDepositPartnerId(e.target.value)}
-                    style={{ marginLeft: '1.5rem', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}
-                  >
-                    <option value="">בחר שותף...</option>
-                    {activeMembersCount > 0 && balances.filter(b => b.isMember && b.userId !== myId && b.userId !== TREASURY_MEMBER_ID).map(b => (
-                      <option key={b.userId} value={b.userId}>{b.name}</option>
-                    ))}
-                  </select>
+                {transactionAction === 'deposit' ? (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={depositType === 'loan'} onChange={() => setDepositType('loan')} style={{ marginTop: '0.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>השקעה בעסק (הלוואת בעלים)</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הקופה תחזיר לך את הסכום מתוך הרווחים לפני חלוקתם. השותפים האחרים לא חייבים לך כסף מכיסם.</div>
+                      </div>
+                    </label>
+                    
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={depositType === 'partner'} onChange={() => setDepositType('partner')} style={{ marginTop: '0.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>תשלום עבור שותף אחר</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>אתה משלם את חלקו של שותף אחר. הוא ייכנס לחוב אישי כלפיך ועליו להחזיר לך את הכסף.</div>
+                        {depositType === 'partner' && (
+                          <select 
+                            value={depositPartnerId} 
+                            onChange={e => setDepositPartnerId(e.target.value)}
+                            style={{ width: '100%', marginTop: '0.5rem', padding: '0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}
+                          >
+                            <option value="">בחר שותף חיב...</option>
+                            {balances.filter(b => b.isMember && b.userId !== myId).map(b => (
+                              <option key={b.userId} value={b.userId}>{b.name}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </label>
+                    
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={depositType === 'equity'} onChange={() => setDepositType('equity')} style={{ marginTop: '0.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>הזרמת הון / אקוויטי</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הכסף נשאר בעסק ולא נוצר חוב לאף אחד (חלוקה שווה וללא פנקסנות עתידית).</div>
+                      </div>
+                    </label>
+                  </>
+                ) : (
+                  <>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={depositType === 'loan'} onChange={() => setDepositType('loan')} style={{ marginTop: '0.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>משיכת בעלים / דיבידנד</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הקופה תשלם לך. (מקטין את החוב של הקופה כלפיך).</div>
+                      </div>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input type="radio" checked={depositType === 'equity'} onChange={() => setDepositType('equity')} style={{ marginTop: '0.2rem' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>הוצאת אקוויטי</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הכסף יוצא מהעסק ולא נוצר חוב לאף אחד.</div>
+                      </div>
+                    </label>
+                  </>
                 )}
-                
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
-                  <input type="radio" checked={depositType === 'equity'} onChange={() => setDepositType('equity')} />
-                  הזרמת הון / אקוויטי (ללא רישום חוב לאיש)
-                </label>
               </div>
             ) : (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                הפקדה זו תגדיל את יתרת הקופה. כיוון שאין שותפים נוספים, לא יירשם חוב.
-              </p>
+              <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '8px', color: '#047857', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+                <strong>מצב יחיד (Solo):</strong> {transactionAction === 'deposit' ? 'הפקדה זו תגדיל את יתרת הקופה. כיוון שאין שותפים פעילים, לא יירשם שום חוב במאזן האישי.' : 'משיכה זו תקטין את יתרת הקופה. לא יירשם חוב.'}
+              </div>
             )}
 
             <div style={{ marginBottom: '2rem' }}>
@@ -489,40 +533,55 @@ export function FinanceSummary({
                   const amt = parseFloat(depositAmount);
                   if (isNaN(amt) || amt <= 0) { alert('אנא הזן סכום תקין (גדול מ-0)'); return; }
                   
-                  if (hasPartners && depositType === 'partner' && !depositPartnerId) {
+                  if (activeMembersCount > 1 && transactionAction === 'deposit' && depositType === 'partner' && !depositPartnerId) {
                     alert('יש לבחור שותף עבורו מתבצעת ההפקדה.');
                     return;
                   }
                   
                   let newExpense: any = {
-                    id: 'deposit_' + Date.now().toString(),
-                    desc: depositDesc || 'הפקדה לקופה',
+                    id: 'cashbox_' + Date.now().toString(),
+                    desc: depositDesc || (transactionAction === 'deposit' ? 'הפקדה לקופה' : 'משיכה מהקופה'),
                     amount: amt,
                     date: new Date().toISOString(),
-                    isActive: true
+                    isActive: true,
+                    metadata: {}
                   };
 
-                  if (!hasPartners || depositType === 'equity') {
-                    // Option 3 / Solo: Equity injection. No personal debt.
-                    newExpense.category = 'הזרמת הון';
-                    newExpense.payer = 'equity_injection'; // Excludes from normal balancing for the user
-                    newExpense.payerId = 'equity_injection';
-                    newExpense.metadata = { isCashboxDeposit: true };
-                  } else if (depositType === 'loan') {
-                    // Option 1: Owner's Loan to Treasury
-                    newExpense.type = 'transfer';
-                    newExpense.status = 'approved';
-                    newExpense.payerId = user?.uid || user?.id || 'unknown';
-                    newExpense.targetId = TREASURY_MEMBER_ID;
-                    newExpense.category = 'הלוואת בעלים / השקעה';
-                  } else if (depositType === 'partner') {
-                    // Option 2: Pay for another partner (cashbox gets the money)
-                    newExpense.type = 'transfer';
-                    newExpense.status = 'approved';
-                    newExpense.payerId = user?.uid || user?.id || 'unknown';
-                    newExpense.targetId = depositPartnerId;
-                    newExpense.category = 'תשלום עבור שותף לקופה';
-                    newExpense.metadata = { isCashboxDeposit: true };
+                  const isSolo = activeMembersCount <= 1;
+
+                  if (transactionAction === 'deposit') {
+                    if (isSolo || depositType === 'equity') {
+                      newExpense.type = 'expense'; // Force it as expense so 'transfersSent' doesn't apply
+                      newExpense.category = 'cashbox_equity';
+                      newExpense.payer = 'equity_injection'; 
+                      newExpense.payerId = 'equity_injection';
+                    } else if (depositType === 'loan') {
+                      newExpense.type = 'transfer';
+                      newExpense.status = 'approved';
+                      newExpense.payerId = myId;
+                      newExpense.targetId = TREASURY_MEMBER_ID;
+                      newExpense.category = 'הלוואת בעלים / השקעה';
+                    } else if (depositType === 'partner') {
+                      newExpense.type = 'transfer';
+                      newExpense.status = 'approved';
+                      newExpense.payerId = myId;
+                      newExpense.targetId = depositPartnerId;
+                      newExpense.category = 'cashbox_partner';
+                    }
+                  } else {
+                    // Withdrawal
+                    if (isSolo || depositType === 'equity') {
+                      newExpense.type = 'expense';
+                      newExpense.category = 'cashbox_withdrawal';
+                      newExpense.payer = 'equity_withdrawal';
+                      newExpense.payerId = 'equity_withdrawal';
+                    } else {
+                      newExpense.type = 'transfer';
+                      newExpense.status = 'approved';
+                      newExpense.payerId = TREASURY_MEMBER_ID;
+                      newExpense.targetId = myId;
+                      newExpense.category = 'משיכת בעלים / החזר הלוואה';
+                    }
                   }
                   
                   addInvoice(space.id, newExpense);
@@ -530,9 +589,9 @@ export function FinanceSummary({
                   setDepositAmount('');
                   setDepositDesc('');
                 }} 
-                style={{ flex: 1, padding: '0.8rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(16, 185, 129, 0.3)' }}
+                style={{ flex: 1, padding: '0.8rem', background: transactionAction === 'deposit' ? '#10b981' : '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
               >
-                הפקד
+                {transactionAction === 'deposit' ? 'הפקד לקופה' : 'משוך מהקופה'}
               </button>
             </div>
           </div>

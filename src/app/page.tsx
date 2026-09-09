@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.42 - לוגיקה עסקית אמיתית לקופה (הלוואה/אקוויטי/שותף), הפרדת מנוע CashboxEngine, מניעת חוב שגוי בסולו
+        v5.0.43 - פיצול הפקדה/משיכה לקופה, הסתרת משתמשים וירטואלים (Equity/Solo), כפתור קיזוז והעברה בין שותפים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

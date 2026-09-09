@@ -8,18 +8,23 @@ export function calculateCashboxBalance(invoices: any[]): number {
   invoices.forEach(inv => {
     if (inv.isActive === false) return;
     
-    // Transfers TO the treasury (Owner's Loan)
+    // Deposits INTO the cashbox
     if (inv.type === 'transfer' && inv.status === 'approved' && inv.targetId === TREASURY_MEMBER_ID) {
       balance += (inv.amount || 0);
     }
     
-    // Direct Cashbox Deposits (Equity or Pay for Partner)
-    if (inv.metadata?.isCashboxDeposit) {
+    // Fallback/Special categories for deposits (Equity, Pay for Partner)
+    if (inv.category === 'cashbox_equity' || inv.category === 'cashbox_partner' || inv.metadata?.isCashboxDeposit) {
       balance += (inv.amount || 0);
     }
 
-    // Cashbox spending (if Cashbox pays for something)
+    // Withdrawals FROM the cashbox (or cashbox paying for an expense)
     if (inv.payerId === TREASURY_MEMBER_ID || inv.payer === TREASURY_MEMBER_ID) {
+      balance -= (inv.amount || 0);
+    }
+    
+    // Explicit withdrawal category (Equity withdrawal)
+    if (inv.category === 'cashbox_withdrawal') {
       balance -= (inv.amount || 0);
     }
   });
