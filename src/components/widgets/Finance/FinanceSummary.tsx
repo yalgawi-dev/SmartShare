@@ -76,10 +76,11 @@ export function FinanceSummary({
   
   // Prevent random anonymous viewers from being added to the math engine
     // READ ROLES DIRECTLY FROM THE PARTNERS ENGINE (SINGLE SOURCE OF TRUTH)
-  const { getRoleForSpace, addInvoice } = useSpaces();
+  const { getRoleForSpace, getTokenForSpace, addInvoice } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
+  const myEffectiveId = isCreatorMe ? myId : (getTokenForSpace(space.id) || myId);
   
   const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
   const creatorName = space.createdBy || (isCreatorMe ? myRealName : 'יוצר המרחב');
