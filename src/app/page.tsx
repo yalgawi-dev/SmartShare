@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.50 - הבהרת חובות בהתחשבנות (החלפת חץ במלל מפורש) וטיפול בתצוגת אורח
+        v5.0.51 - תיקון תצוגת מאזן אישי לשותפים לאחר התחברות
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

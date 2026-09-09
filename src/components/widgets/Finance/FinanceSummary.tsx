@@ -179,7 +179,23 @@ export function FinanceSummary({
     b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
   });
 
-  const myLookupId = isCreatorMe ? creatorId : myId;
+  
+  let myLookupId = myId;
+  if (isCreatorMe) {
+    myLookupId = creatorId;
+  } else {
+    if (user?.spaceKeys?.[space.id]?.token) {
+      myLookupId = user.spaceKeys[space.id].token;
+    } else if (typeof window !== 'undefined') {
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        if (localKeys[space.id]?.token) {
+          myLookupId = localKeys[space.id].token;
+        }
+      } catch(e) {}
+    }
+  }
+
   let myBalance = unifiedBalances.get(myLookupId)?.balance || 0;
 
   const settlements: { from: string, to: string, amount: number }[] = [];
