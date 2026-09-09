@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.35 - תיקון קידוד בקבצי הקופה, האפליקציה חזרה לאוויר
+        v5.0.36 - עיצוב ה"קופה הקטנה" מחדש ברמת Grid Tile למניעת עומס וניקוי קוד ישן
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

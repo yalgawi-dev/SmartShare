@@ -107,7 +107,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
-  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery'];
+  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox'];
   const genericFeatures = spaceFeatures
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))

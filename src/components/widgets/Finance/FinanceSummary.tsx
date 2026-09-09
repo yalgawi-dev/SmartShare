@@ -213,10 +213,6 @@ export function FinanceSummary({
 
   return (
     <div>
-      {isCashboxEnabled(space) && treasuryBalanceObj && (
-        <CashboxWidget balance={treasuryBalanceObj.balance} />
-      )}
-
       {/* Summary Metrics */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
         <div 
@@ -227,6 +223,10 @@ export function FinanceSummary({
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה"כ הוצאות</p>
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
+
+        {isCashboxEnabled(space) && treasuryBalanceObj && (
+          <CashboxWidget balance={treasuryBalanceObj.balance} />
+        )}
         
         {hasPartners && isCreatorMe && (
           <React.Fragment>
