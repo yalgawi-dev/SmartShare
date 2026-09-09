@@ -57,8 +57,8 @@ export function FinanceTransactions({
     if (isLeftSwipe || isRightSwipe) {
       const tabs = ["all"];
       const hasArchive = invoices.some((i: any) => i.isActive === false);
-      const hasPendingMe = activePartnersCount > 0 || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
-      const hasPendingPartners = activePartnersCount > 0 || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+      const hasPendingMe = true || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
+      const hasPendingPartners = true || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
       if (hasArchive) tabs.push("archive");
       if (hasPendingMe) tabs.push("pending_me");
       if (hasPendingPartners) tabs.push("pending_partners");
@@ -150,8 +150,8 @@ export function FinanceTransactions({
       {/* Filter Pills */}
       {(() => {
         const hasArchive = invoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = activePartnersCount > 0 || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
-        const hasPendingPartners = activePartnersCount > 0 || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+        const hasPendingMe = true || invoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
+        const hasPendingPartners = true || invoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
         
         if (!hasArchive && !hasPendingMe && !hasPendingPartners) return null;
 

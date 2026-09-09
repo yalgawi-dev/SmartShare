@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.44 - תיקון קריסת שרת (מסך שחור) עקב שגיאת Syntax ב-FinanceSummary
+        v5.0.45 - מניעת רישום חובה במאזן אישי בעת הפקדת אקוויטי/משיכה והחזרת כפתורי הסינון
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
