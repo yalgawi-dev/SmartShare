@@ -271,20 +271,7 @@ export default function Dashboard() {
                     <div className={styles.projectIcon}>{space.icon}</div>
                     <h3 className={styles.projectTitle} style={{ margin: 0 }}>{space.title}</h3>
                   </div>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const newTitle = window.prompt("ערוך שם פרויקט:", space.title);
-                      if (newTitle && newTitle.trim()) {
-                        updateSpaceTitle(space.id, newTitle.trim());
-                      }
-                    }}
-                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', opacity: 0.5, padding: '0.2rem' }}
-                    title="ערוך שם"
-                  >
-                    ✏️
-                  </button>
+                  
                 </div>
                 
                 <p className={styles.projectDesc} style={{ flex: 1 }}>{space.description}</p>
@@ -315,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.39 - כפתור שותפים משולב, מינימליזם בכותרת (שורה אחת) ועריכה מהלוח הראשי
+        v5.0.40 - תיקוני UI: עיפרון עריכה, שחזור מסך שותפים, מיקום הקופה וכפתור ההפקדה
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

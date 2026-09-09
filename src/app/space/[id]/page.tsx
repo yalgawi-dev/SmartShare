@@ -439,7 +439,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           })}
 
           {/* Finance is always at the top if active */}
-          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} />}
+          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} />}
           
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space} isGuestMode={isRestricted} />}

@@ -227,10 +227,6 @@ export function FinanceSummary({
           <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
         </div>
 
-        {isCashboxEnabled(space) && treasuryBalanceObj && (
-          <CashboxWidget balance={treasuryBalanceObj.balance} onDeposit={() => setShowDepositModal(true)} />
-        )}
-        
         {hasPartners && isCreatorMe && (
           <React.Fragment>
             <div 
@@ -256,6 +252,14 @@ export function FinanceSummary({
           </React.Fragment>
         )}
       </div>
+
+      {isCashboxEnabled(space) && treasuryBalanceObj && (
+        <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'flex-start' }}>
+          <div style={{ maxWidth: '250px' }}>
+            <CashboxWidget balance={treasuryBalanceObj.balance} onDeposit={() => setShowDepositModal(true)} />
+          </div>
+        </div>
+      )}
 
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
