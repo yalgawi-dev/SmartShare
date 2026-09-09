@@ -34,6 +34,9 @@ export function FinanceSummary({
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositAmount, setDepositAmount] = useState('');
+  const [depositDesc, setDepositDesc] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
 
   // Resolve current member (for per-member permission checks like canEditShares)
@@ -68,7 +71,7 @@ export function FinanceSummary({
   
   // Prevent random anonymous viewers from being added to the math engine
     // READ ROLES DIRECTLY FROM THE PARTNERS ENGINE (SINGLE SOURCE OF TRUTH)
-  const { getRoleForSpace } = useSpaces();
+  const { getRoleForSpace, addInvoice } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
@@ -225,7 +228,7 @@ export function FinanceSummary({
         </div>
 
         {isCashboxEnabled(space) && treasuryBalanceObj && (
-          <CashboxWidget balance={treasuryBalanceObj.balance} />
+          <CashboxWidget balance={treasuryBalanceObj.balance} onDeposit={() => setShowDepositModal(true)} />
         )}
         
         {hasPartners && isCreatorMe && (

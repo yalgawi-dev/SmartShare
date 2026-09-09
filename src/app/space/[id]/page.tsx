@@ -233,24 +233,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         top: 0,
         zIndex: 100,
         background: 'var(--bg-main)',
-        padding: '0.75rem 0',
-        marginBottom: '1.5rem',
-        borderBottom: '1px solid var(--border-light)'
+        padding: '1rem 0',
+        marginBottom: '0.5rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Link href="/" style={{ fontSize: '1.5rem', textDecoration: 'none', color: 'var(--text-primary)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'rgba(0,0,0,0.03)' }}>
-            &rarr;
-          </Link>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem' }}>{space.icon || space.title.charAt(0)}</span>
-              <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>{space.title}</h1>
-            </div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
-            </span>
-          </div>
-        </div>
+        <Link href="/" className={styles.backBtn} style={{ margin: 0 }}>
+          <span>&rarr;</span> ללוח הראשי
+        </Link>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <button onClick={() => {
@@ -314,6 +302,80 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
           }
         `}</style>
+
+      {/* Project Title Row (Replaces old massive cover) */}
+      <header style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1 }}>
+            <div 
+               onClick={() => {
+                  if (!isRestricted) {
+                    const newIcon = window.prompt('הזן אימוג׳י חדש (השתמש במקלדת האימוג׳י בטלפון שלך כדי לבחור סמל):', space.icon);
+                    if (newIcon) {
+                      updateSpaceIcon(id, newIcon);
+                    }
+                  }
+               }}
+               title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
+               style={{ 
+                width: '48px', height: '48px', borderRadius: '12px', background: 'var(--bg-card)', 
+                boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-light)', 
+                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
+                cursor: !isRestricted ? 'pointer' : 'default', fontSize: '1.75rem'
+              }}>
+                {space.icon || space.title.charAt(0)}
+            </div>
+
+            <div style={{ flex: 1 }}>
+              {isEditingTitle && !isRestricted ? (
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" value={editTitleValue} onChange={(e) => setEditTitleValue(e.target.value)}
+                    style={{ fontSize: '1.5rem', fontWeight: 'bold', border: '1px solid var(--primary)', borderRadius: '8px', padding: '0.2rem 0.5rem', width: '100%', maxWidth: '300px' }}
+                    autoFocus
+                  />
+                  <button onClick={() => { if(editTitleValue.trim()) updateSpaceTitle(id, editTitleValue); setIsEditingTitle(false); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '8px', cursor: 'pointer' }}>✓</button>
+                </div>
+              ) : (
+                <h1 
+                  onClick={() => { if(!isRestricted) { setEditTitleValue(space.title); setIsEditingTitle(true); } }} 
+                  style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800', color: 'var(--text-primary)', cursor: !isRestricted ? 'pointer' : 'default', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                  title={!isRestricted ? "לחץ לעריכה" : ""}
+                >
+                  {space.title}
+                  {!isRestricted && <span style={{ fontSize: '1rem', opacity: 0.5 }}>✏️</span>}
+                </h1>
+              )}
+
+              <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0 0', fontSize: '0.9rem' }}>
+                נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
+              </p>
+            </div>
+          </div>
+
+          {/* Partners Bubble */}
+          {hasPartners && (
+            <div 
+              onClick={() => {
+                if (isRestricted) {
+                  setShowRestrictedActionModal(true);
+                } else {
+                  setShowPartnersModal(true);
+                }
+              }}
+              style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }} 
+              title="ניהול שותפים והרשאות"
+            >
+              <div style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}>
+                <span>👥</span> {activePartnersCount} שותפים
+              </div>
+            </div>
+          )}
+        </div>
+      </header>
+      
+      {/* Hidden file input for cover upload in case we need it elsewhere later */}
+      <input type="file" accept="image/*" ref={fileInputRef} onChange={handleCoverUpload} style={{ display: 'none' }} />
 
       {/* Feature Menu Modal (Bottom Sheet) */}
       {showFeatureMenu && (
