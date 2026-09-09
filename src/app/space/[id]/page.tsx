@@ -233,12 +233,24 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         top: 0,
         zIndex: 100,
         background: 'var(--bg-main)',
-        padding: '1rem 0',
-        marginBottom: '0.5rem'
+        padding: '0.75rem 0',
+        marginBottom: '1.5rem',
+        borderBottom: '1px solid var(--border-light)'
       }}>
-        <Link href="/" className={styles.backBtn} style={{ margin: 0 }}>
-          <span>&rarr;</span> ללוח הראשי
-        </Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          <Link href="/" style={{ fontSize: '1.5rem', textDecoration: 'none', color: 'var(--text-primary)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%', background: 'rgba(0,0,0,0.03)' }}>
+            &rarr;
+          </Link>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.25rem' }}>{space.icon || space.title.charAt(0)}</span>
+              <h1 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold' }}>{space.title}</h1>
+            </div>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
+            </span>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <button onClick={() => {
@@ -302,114 +314,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
           }
         `}</style>
-
-      {/* Facebook-style Header */}
-      <header className={`card`} style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', position: 'relative', border: 'none', background: 'transparent' }}>
-        
-        {/* Cover Photo Background */}
-        <div 
-          style={{ height: '160px', width: '100%', background: 'var(--border-light)', position: 'relative', cursor: !isRestricted ? 'pointer' : 'default', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', overflow: 'hidden' }}
-          onClick={() => !isRestricted && fileInputRef.current?.click()}
-          title={!isRestricted ? "שנה תמונת נושא" : ""}
-        >
-          {space.coverImage ? (
-             <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          ) : (
-             <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, var(--primary) 0%, #3b82f6 100%)', opacity: 0.8 }}></div>
-          )}
-          {!isRestricted && (
-             <div style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(0,0,0,0.5)', color: 'white', width: '32px', height: '32px', borderRadius: '50%', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               📷
-             </div>
-          )}
-        </div>
-        <input type="file" accept="image/*" ref={fileInputRef} onChange={handleCoverUpload} style={{ display: 'none' }} />
-        
-        {/* Profile Info Area */}
-        <div className="glass-panel" style={{ padding: '0 1.5rem 1.5rem 1.5rem', display: 'flex', flexDirection: 'column', position: 'relative', borderBottomLeftRadius: '24px', borderBottomRightRadius: '24px', borderTop: 'none', marginTop: '-1px' }}>
-          
-          {/* Avatar (Overlapping cover) & Partners Stack */}
-          <div style={{ marginTop: '-40px', marginBottom: '0.75rem', display: 'flex', alignItems: 'flex-end', gap: '1rem' }}>
-             <div 
-               onClick={() => {
-                  if (!isRestricted) {
-                    const newIcon = window.prompt('הזן אימוג׳י חדש (השתמש במקלדת האימוג׳י בטלפון שלך כדי לבחור סמל):', space.icon);
-                    if (newIcon) {
-                      updateSpaceIcon(id, newIcon);
-                    }
-                  }
-               }}
-               title={!isRestricted ? "לחץ להחלפת אימוג׳י" : ""}
-               style={{ 
-                width: '80px', height: '80px', borderRadius: '50%', background: 'var(--bg-main)', 
-                boxShadow: '0 4px 10px rgba(0,0,0,0.1)', border: '4px solid var(--bg-card)', 
-                display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0,
-                cursor: !isRestricted ? 'pointer' : 'default'
-              }}>
-                <span style={{ fontSize: '2.5rem' }}>{space.icon || space.title.charAt(0)}</span>
-             </div>
-             
-             {/* Partners Bubble */}
-             {hasPartners && (
-               <div 
-                 onClick={() => {
-                   if (isRestricted) {
-                     setShowRestrictedActionModal(true);
-                   } else {
-                     setShowPartnersModal(true);
-                   }
-                 }}
-                 style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem', cursor: 'pointer' }} 
-                 title="ניהול שותפים והרשאות"
-               >
-                 <div style={{ padding: '0.2rem 0.75rem', borderRadius: 'var(--radius-full)', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', fontWeight: 'bold', border: '2px solid var(--bg-card)', boxShadow: 'var(--shadow-sm)', transition: 'transform 0.2s' }}>
-                   <span>👥</span> {activePartnersCount} שותפים
-                 </div>
-               </div>
-             )}
-          </div>
-
-          {/* Title & Date */}
-          <div style={{ flex: 1 }}>
-            {isEditingTitle && !isRestricted ? (
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                <input 
-                  type="text" value={editTitleValue} onChange={(e) => setEditTitleValue(e.target.value)}
-                  style={{ fontSize: '1.75rem', fontWeight: 'bold', border: '1px solid var(--primary)', borderRadius: '8px', padding: '0.2rem 0.5rem', width: '100%', maxWidth: '300px' }}
-                  autoFocus
-                />
-                <button onClick={() => { if(editTitleValue.trim()) updateSpaceTitle(id, editTitleValue); setIsEditingTitle(false); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '8px', cursor: 'pointer' }}>✓</button>
-              </div>
-            ) : (
-              <h1 
-                onClick={() => { if(!isRestricted) { setEditTitleValue(space.title); setIsEditingTitle(true); } }} 
-                style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem', fontWeight: '800', color: 'var(--text-primary)', cursor: !isRestricted ? 'pointer' : 'default', letterSpacing: '-0.02em' }}
-                title={!isRestricted ? "לחץ לעריכה" : ""}
-              >
-                {space.title}
-              </h1>
-            )}
-
-            {isEditingDate && !isRestricted ? (
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                <input 
-                  type="date" value={editDateValue} onChange={(e) => setEditDateValue(e.target.value)}
-                  style={{ padding: '0.2rem 0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}
-                />
-                <button onClick={() => { updateSpaceDate(id, editDateValue); setIsEditingDate(false); }} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 1rem', borderRadius: '8px', cursor: 'pointer' }}>✓</button>
-              </div>
-            ) : (
-              <p 
-                onClick={() => { if(!isRestricted) { setEditDateValue(space.date || ''); setIsEditingDate(true); } }}
-                style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.95rem', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                title={!isRestricted ? "לחץ לעריכה" : ""}
-              >
-                {space.date ? new Date(space.date).toLocaleDateString('he-IL') : 'הגדר תאריך'}
-              </p>
-            )}
-          </div>
-        </div>
-      </header>
 
       {/* Feature Menu Modal (Bottom Sheet) */}
       {showFeatureMenu && (
