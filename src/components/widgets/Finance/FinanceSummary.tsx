@@ -84,7 +84,7 @@ export function FinanceSummary({
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: true });
 
-  const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
+  const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
   validMembers.forEach((m: any) => {
     if ((isCreatorMe && m.userId === myId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
@@ -179,7 +179,8 @@ export function FinanceSummary({
     b.balance = b.paid - b.expected + b.transfersSent - b.transfersReceived;
   });
 
-  let myBalance = unifiedBalances.get(myId)?.balance || 0;
+  const myLookupId = isCreatorMe ? creatorId : myId;
+  let myBalance = unifiedBalances.get(myLookupId)?.balance || 0;
 
   const settlements: { from: string, to: string, amount: number }[] = [];
   
