@@ -302,7 +302,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.45 - מניעת רישום חובה במאזן אישי בעת הפקדת אקוויטי/משיכה והחזרת כפתורי הסינון
+        v5.0.46 - תיקון שגיאת חישוב אחוזים למשתמש שותף שצפה במסך, ומניעת ReferenceError בהזמנת שותף
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

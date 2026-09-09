@@ -150,7 +150,7 @@ export function FinanceSummary({
       else p = 0;
     } else {
       if (b.isMember) {
-        if (b.userId === myId || b.isCreator) p = space.settings?.mySharePercentage ?? defaultShare;
+        if (b.isCreator) p = space.settings?.mySharePercentage ?? defaultShare;
         else {
           const m = validMembers.find((vm: any) => vm.userId === b.userId);
           if (m && m.sharePercentage !== undefined) p = m.sharePercentage;

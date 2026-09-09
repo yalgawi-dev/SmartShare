@@ -379,11 +379,7 @@ const runOcrPipeline = async (imgUrl: string) => {
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-full)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                 <div 
                   onClick={() => {
-                    if (onOpenPartnersModal) {
-                      onOpenPartnersModal();
-                    } else {
-                      handleInviteClick();
-                    }
+                    handleInviteClick();
                   }}
                   style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                   title="ניהול שותפים"
