@@ -167,10 +167,10 @@ export function FinanceSummary({
     const invAmount = inv.amount || 0;
     const excluded = inv.excludedMembers || [];
     const participating = balances.filter(b => b.isMember && !excluded.includes(b.userId));
-    const totalParticipatingShares = participating.reduce((sum, b) => sum + b.p, 0);
+    const totalParticipatingShares = participating.reduce((sum, b) => sum + Number(b.p), 0);
     if (totalParticipatingShares > 0) {
       participating.forEach(b => {
-        b.expected += invAmount * (b.p / totalParticipatingShares);
+        b.expected += invAmount * (Number(b.p) / totalParticipatingShares);
       });
     }
   });
