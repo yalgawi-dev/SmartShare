@@ -30,7 +30,8 @@ export function FinanceSummary({
   setFilter,
   updateSpaceSettings,
   updateSharesBulk,
-  onRestrictedAction
+  onRestrictedAction,
+  onTriggerTransfer
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
