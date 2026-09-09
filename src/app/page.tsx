@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.28 - תיקון באג שגרם למרחבים לחזור לחיים אחרי מחיקה (Race Condition)
+        v5.0.29 - הוספת מנגנון התקנה חכמה (Smart Bundling) וטיפים חכמים למרחבים
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

@@ -83,7 +83,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       if (!hasSeenTools && spaceFeatures.length === 0 && role === 'creator') {
         setTooltipData({ id: 'tutorial_add_tools', text: 'התחל מכאן: הוסף כלים חכמים (מנועים) למרחב שלך כדי להתחיל לעבוד', target: 'tools' });
       } else if (!hasSeenArchive && spaceFeatures.length > 0 && role === 'creator') {
-        setTooltipData({ id: 'tutorial_feature_archive', text: 'הידעת? מכאן ניתן לכבות פיצ\'רים לניקוי המסך. המידע שלך נשמר בארכיון ותמיד ניתן להחזירו מאותה נקודה!', target: 'settings' });
+        setTooltipData({ id: 'tutorial_feature_archive', text: 'הידעת? כיבוי פיצ\'ר לא מוחק את הנתונים שלו! אפשר לכבות כדי לנקות את המסך ולהדליק שוב מתי שתרצה, הכל יישמר בדיוק איפה שעצרת.', target: 'settings' });
       } else if (!hasSeenUpsell && spaceFeatures.includes('finance') && !hasEverUsedPartners && role === 'creator') {
         setTooltipData({ id: 'tutorial_upsell_partners', text: 'הידעת? אפשר להוסיף שותפים למרחב. המערכת תנהל אוטומטית מי שילם וכמה חייבים אחד לשני!', target: 'tools' });
       }
@@ -142,6 +142,26 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   };
 
   const handleAddFeature = (featureId: string, featureName: string) => {
+    const featureDef = getFeatureById(featureId);
+    if (featureDef?.requires) {
+      const missingReqs = featureDef.requires.filter(reqId => !spaceFeatures.includes(reqId));
+      if (missingReqs.length > 0) {
+        if (featureId === 'partners' && missingReqs.includes('finance')) {
+          if (window.confirm('כדי להשתמש בניהול שותפים, עלינו להפעיל גם את מנוע ההתחשבנויות. האם להפעיל את שניהם?')) {
+            toggleFeature(id, 'finance', user?.id || 'me');
+            setTimeout(() => {
+              toggleFeature(id, 'partners', user?.id || 'me');
+            }, 100);
+            setShowFeatureMenu(false);
+            showToast(`הופעלו בהצלחה: התחשבנויות ושותפים`);
+            return;
+          } else {
+            return; // Cancelled
+          }
+        }
+      }
+    }
+
     toggleFeature(id, featureId as FeatureId, user?.id || 'me');
     setShowFeatureMenu(false);
     showToast(`נוסף בהצלחה: ${featureName}`);
@@ -432,7 +452,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                   }).length > 0 && (
                     <div style={{ marginBottom: '2rem' }}>
                       <h4 style={{ margin: '0 0 1rem 0', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span>💡</span> משתמשים כמוך הוסיפו גם:
+                        <span>💡</span> כלים נוספים שיכולים לייעל לך את העבודה:
                       </h4>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem' }}>
                         {unusedFeatures.filter(f => spaceFeatures.some(activeFid => getFeatureById(activeFid)?.recommends?.includes(f.id))).map(mod => (
