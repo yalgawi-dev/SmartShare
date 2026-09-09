@@ -236,6 +236,14 @@ const runOcrPipeline = async (imgUrl: string) => {
   });
 
   const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
+  if (space.features?.includes('cashbox')) {
+    validMembers.push({
+      userId: 'virtual_treasury_member',
+      name: 'קופה קטנה',
+      status: 'active',
+      sharePercentage: 0
+    });
+  }
 
   const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

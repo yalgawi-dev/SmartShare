@@ -311,6 +311,9 @@ export function FinanceAddExpenseForm({
               {customCategories && customCategories.map(cat => (
                 <option key={cat} value={cat}>{cat}</option>
               ))}
+              {validMembers.some(m => m.userId === 'virtual_treasury_member') && (
+                <option value="העברה/קיזוז">העברה/קיזוז (קופה/שותף)</option>
+              )}
               <option value="other">אחר (הזן קטגוריה)...</option>
             </select>
             {selectedCategory === 'other' && (
@@ -322,6 +325,23 @@ export function FinanceAddExpenseForm({
               />
             )}
           </div>
+          
+          {selectedCategory === 'העברה/קיזוז' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>למי הועבר הכסף?</label>
+              <select 
+                required 
+                name="targetId"
+                style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)' }}
+              >
+                <option value="" disabled selected>בחר מקבל...</option>
+                <option value={user?.id || 'me'}>{user?.realName || 'אני'}</option>
+                {validMembers.map((m: any) => (
+                  <option key={`target_${m.userId}`} value={m.userId}>{m.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           
           <textarea name="note" placeholder="הערות (אופציונלי)" rows={2} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', resize: 'vertical' }}></textarea>
           

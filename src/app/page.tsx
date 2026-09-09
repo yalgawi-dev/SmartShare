@@ -291,7 +291,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.31 - הסרת אילתורים והחזרת מערכת חיווי התלויות המקורית שפועלת מהקיר הראשי
+        v5.0.32 - הפעלת הקופה הקטנה הוירטואלית בשיטת Derived State ללא כפילויות קוד!
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />

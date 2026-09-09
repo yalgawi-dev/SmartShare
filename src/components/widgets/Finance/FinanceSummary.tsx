@@ -78,14 +78,23 @@ export function FinanceSummary({
 
   const validMembers = space.members?.filter((m: any) => (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
   validMembers.forEach((m: any) => {
-    // If the valid member in the DB has the same ID as myId, AND I'm not the creator...
-    // Wait, if I am the creator, I shouldn't be listed as a regular member even if I'm in the DB by mistake!
-    if ((isCreatorMe && m.userId === myId) || m.userId === space.creatorId || m.userId === space.createdBy) return; // Hide creator from partners list
+    if ((isCreatorMe && m.userId === myId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
       unifiedBalances.set(m.userId, { name: m.userId === myId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
+
+  if (space.features?.includes('cashbox')) {
+    unifiedBalances.set('virtual_treasury_member', { 
+      name: 'קופה קטנה (וירטואלית)', 
+      paid: 0, expected: 0, balance: 0, 
+      userId: 'virtual_treasury_member', 
+      isMember: true, 
+      transfersSent: 0, transfersReceived: 0, 
+      p: 0, rawP: 0, isCreator: false, status: 'active' 
+    });
+  }
 
   expensesOnly.forEach((inv: any) => {
     let matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
@@ -122,12 +131,14 @@ export function FinanceSummary({
   
   // Calculate expected & balance for ALL involved
   const balances = allBalancesArray.filter(b => b.isMember || b.paid > 0);
-  const activeMembersCount = balances.filter(b => b.isMember).length;
+  const activeMembersCount = balances.filter(b => b.isMember && b.userId !== 'virtual_treasury_member').length;
   const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
   
   balances.forEach(b => {
     let p = 0;
-    if (activeMembersCount <= 1) { // Only creator or nobody
+    if (b.userId === 'virtual_treasury_member') {
+      p = 0;
+    } else if (activeMembersCount <= 1) { // Only creator or nobody
       if (b.userId === myId || b.isCreator) p = 100;
       else p = 0;
     } else {
