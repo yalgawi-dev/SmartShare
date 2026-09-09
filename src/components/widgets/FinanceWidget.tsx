@@ -385,6 +385,15 @@ const runOcrPipeline = async (imgUrl: string) => {
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {space.features?.includes('partners') && (
+              <button 
+                onClick={() => onTriggerTransfer()}
+                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-full)', padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: 'var(--shadow-sm)' }}
+                title="רישום העברה או קבלת הכנסה מהעסק"
+              >
+                💸 העברה/הכנסה
+              </button>
+            )}
+            {space.features?.includes('partners') && (
               <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-full)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
                 <div 
                   onClick={() => {

@@ -442,7 +442,14 @@ export function FinanceSummary({
                 ))
               )}
             </div>
-            <button onClick={() => setShowSettlementBreakdown(false)} style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+            {onTriggerTransfer && (
+              <button 
+                onClick={() => { setShowSettlementBreakdown(false); onTriggerTransfer(); }} 
+                style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.05rem', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
+                💸 בצע העברה / רישום הכנסה
+              </button>
+            )}
+            <button onClick={() => setShowSettlementBreakdown(false)} style={{ width: '100%', marginTop: '0.75rem', padding: '1rem', background: 'transparent', color: 'var(--text-secondary)', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}>
               סגור
             </button>
           </div>
