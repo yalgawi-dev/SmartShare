@@ -1,13 +1,13 @@
-import { ensureCommandCenterFlag } from '@/src/lib/partnerUtils';
+import { ensureCommandCenterFlag } from './partnerUtils';
 import { collection, getDocs, updateDoc } from 'firebase/firestore';
-import { db } from '@/src/lib/firebase';
+import { db } from '../../src/lib/firebase';
 
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   getDocs: jest.fn(),
   updateDoc: jest.fn(),
 }));
-jest.mock('@/src/lib/firebase', () => ({
+jest.mock('./firebase', () => ({
   db: {},
 }));
 

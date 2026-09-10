@@ -76,97 +76,94 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
             <span style={{ flex: 1 }}>שם השותף</span>
             <span style={{ width: "80px", textAlign: "center" }}>סטטוס</span>
             <span style={{ width: "90px", textAlign: "center" }}>הרשאות</span>
+
+
+import { useState } from "react";
+import { useSpaces } from "../../../app/context/SpacesContext";
+
+export function PartnersSettingsList({ space, user }: { space: any, user: any }) {
+  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace, toggleFeature, refreshMemberInvite, updateMemberStatus } = useSpaces();
+  
+  const myRole = getRoleForSpace(space.id);
+  const isCreatorMe = myRole === 'creator';
+  const creatorId = isCreatorMe ? (user?.id || 'me') : (space.creatorId || space.createdBy || 'creator_unknown');
+  
+  const partners = (space.members || []).filter((m: any) => m.userId !== creatorId);
+
+  const [expandedMember, setExpandedMember] = useState<string | null>(null);
+
+  const handleEditWallToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
+    updateSpaceSettings(space.id, { allowPartnersToEditWall: e.target.checked });
+  };
+
+  const PermissionToggle = ({ label, checked, onChange, disabled }: any) => (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+      <span style={{ fontSize: "0.9rem", color: disabled ? "#94a3b8" : "var(--text-main)" }}>{label}</span>
+      <label style={{ display: "flex", alignItems: "center", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}>
+        <input 
+          type="checkbox" 
+          checked={checked || false} 
+          disabled={disabled}
+          onChange={e => onChange(e.target.checked)} 
+          style={{ display: "none" }} 
+        />
+        <div style={{ width: "36px", height: "20px", background: checked ? "var(--primary)" : "#ccc", borderRadius: "20px", position: "relative", transition: "0.3s" }}>
+          <div style={{ width: "16px", height: "16px", background: "white", borderRadius: "50%", position: "absolute", top: "2px", left: checked ? "2px" : "18px", transition: "0.3s" }} />
+        </div>
+      </label>
+    </div>
+  );
+
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.25rem", background: "rgba(0,0,0,0.02)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)", marginBottom: "1.25rem" }}>
+        <div>
+          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>עריכת הקיר הראשי (v3.9)</h4>
+          <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", maxWidth: "280px" }}>מאפשר לשותפים לערוך את כותרת ותאריך המרחב</p>
+        </div>
+        <label style={{ display: "flex", alignItems: "center", cursor: "pointer", flexShrink: 0 }}>
+          <input 
+            type="checkbox" 
+            checked={space.settings?.allowPartnersToEditWall || false}
+            onChange={handleEditWallToggle}
+            style={{ opacity: 0, width: 0, height: 0, position: "absolute" }} 
+          />
+          <div style={{ 
+            width: "44px", height: "24px", 
+            background: space.settings?.allowPartnersToEditWall ? "var(--primary)" : "#ccc", 
+            borderRadius: "24px", 
+            position: "relative",
+            transition: "background 0.3s"
+          }}>
+            <div style={{
+              width: "20px", height: "20px",
+              background: "white",
+              borderRadius: "50%",
+              position: "absolute",
+              top: "2px",
+              left: space.settings?.allowPartnersToEditWall ? "2px" : "22px",
+              transition: "left 0.3s"
+            }} />
+          </div>
+        </label>
+      </div>
+
+      {partners && partners.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 1rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+            <span style={{ flex: 1 }}>שם השותף</span>
+            <span style={{ width: "80px", textAlign: "center" }}>סטטוס</span>
+            <span style={{ width: "90px", textAlign: "center" }}>הרשאות</span>
           </div>
           
           {partners.map((m: any) => {
-            const isPending = m.status === "pending" || m.status === "extension_requested";
-            const isExpired = m.status === "pending" && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
-            const isExpanded = expandedMember === m.userId;
-            
-            return (
-            <div key={m.userId} style={{ display: "flex", flexDirection: "column", background: "var(--bg-main)", border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.75rem 1rem" }}>
-                <div style={{ flex: 1, fontWeight: "500", fontSize: "0.95rem" }}>
-                  <div>
-                    {m.name} {m.userId === user?.id && <span style={{ color: "var(--primary)", fontSize: "0.85rem" }}>(אני)</span>}
-                    {m.status !== "pending" && m.status !== "extension_requested" && m.isActive === false && <span style={{ color: "#ef4444", fontSize: "0.85rem" }}> (לא פעיל)</span>}
-                  </div>
-                  {isPending && (
-                    <div style={{ fontSize: "0.75rem", color: isExpired ? "#ef4444" : "#f59e0b", marginTop: "0.2rem", fontWeight: "bold" }}>
-                      {m.status === "extension_requested" ? "⏳ מבקש הארכת זמן" : (isExpired ? "❌ פג תוקף" : "⏳ ממתין לאישור השותף")}
-                    </div>
-                  )}
-                  {m.status === "disputed" && (
-                    <div style={{ fontSize: "0.8rem", color: "#ef4444", marginTop: "0.2rem", background: "#fef2f2", padding: "0.4rem", borderRadius: "4px" }}>
-                      <strong>נפתח סכסוך:</strong> {m.disputeMessage}
-                    </div>
-                  )}
-                </div>
-                
-                <div style={{ width: "80px", display: "flex", justifyContent: "center", alignItems: "center", gap: "0.5rem" }}>
-                  {(user?.isAdmin || user?.id === space.createdBy) && (
-                    <>
-                      <label style={{ display: "flex", alignItems: "center", cursor: (m.userId === user?.id || isPending) ? "not-allowed" : "pointer", opacity: (m.userId === user?.id || isPending) ? 0.5 : 1 }} title={m.userId === user?.id ? "אינך יכול לשנות את הסטטוס של עצמך" : ""}>
-                        <input 
-                          type="checkbox" 
-                          checked={m.isActive !== false} 
-                          disabled={m.userId === user?.id || isPending}
-                          onChange={(e) => {
-                            if (!e.target.checked) {
-                              if (window.confirm('האם אתה בטוח שברצונך להשהות שותף זה? הוא לא יוכל לצפות בנתונים או לבצע פעולות עד שתחזיר אותו.')) {
-                                removeMember(space.id, m.userId, user?.id || "unknown");
-                              }
-                            } else {
-                              restoreMember(space.id, m.userId, user?.id || "unknown");
-                            }
-                          }}
-                          style={{ display: "none" }}
-                        />
-                        <div style={{ width: "36px", height: "20px", background: m.isActive !== false ? "#10b981" : "#cbd5e1", borderRadius: "20px", position: "relative", transition: "0.3s" }}>
-                          <div style={{ width: "16px", height: "16px", background: "white", borderRadius: "50%", position: "absolute", top: "2px", left: m.isActive !== false ? "2px" : "18px", transition: "0.3s", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
-                        </div>
-                      </label>
-                      
-                      {m.isActive === false && (
-                        <button 
-                          onClick={() => {
-                            if (window.confirm('מחיקה לצמיתות (Hard Delete): האם אתה בטוח שברצונך למחוק לחלוטין שותף זה? פעולה זו תסיר אותו מכל ההיסטוריה והחלוקות.')) {
-                              removeMember(space.id, m.userId, user?.id || "unknown", true);
-                            }
-                          }}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#ef4444", fontSize: "1.2rem", padding: "0", display: "flex", alignItems: "center", justifyContent: "center" }}
-                          title="מחיקה לצמיתות"
-                        >
-                          🗑️
-                        </button>
-                      )}
-                    </>
-                  )}
-                </div>
-                
-                <div style={{ width: "90px", display: "flex", justifyContent: "flex-end" }}>
-                  {(user?.isAdmin || user?.id === space.createdBy) && (
-                   <button 
-                      onClick={() => setExpandedMember(isExpanded ? null : m.userId)}
-                      style={{ 
-                        background: isExpanded ? "var(--primary)" : "transparent", 
-                        color: isExpanded ? "white" : "var(--primary)", 
-                        border: "1px solid var(--primary)", 
-                        padding: "0.3rem 0.6rem", 
-                        borderRadius: "6px", 
-                        fontSize: "0.8rem",
-                        cursor: "pointer",
-                        transition: "0.2s"
-                      }}
-                    >
-                      {isExpanded ? "סגור" : "ניהול"}
-                   </button>
-                  )}
-                </div>
-              </div>
-
-              {isExpanded && (
-                <div style={{ background: "#f8fafc", padding: "1rem", borderTop: "1px solid var(--border-light)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+  const isPending = m.status === "pending" || m.status === "extension_requested";
+  const isExpired = m.status === "pending" && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
+  const isExpanded = expandedMember === m.userId;
+  
+  return (
+    <div key={m.userId} style={{ border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
+      <div onClick={(e) => { const target = e.target as HTMLElement; if (target.closest('button') || target.closest('input')) return; setExpandedMember(expandedMember === m.userId ? null : m.userId); }} style={{ cursor: "pointer", background: "#f8fafc", padding: "1rem", borderTop: "1px solid var(--border-light)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
                   
                   
                   {m.status === 'disputed' && (
