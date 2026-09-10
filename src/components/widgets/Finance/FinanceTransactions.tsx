@@ -86,8 +86,8 @@ export function FinanceTransactions({
         const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
 
       if (hasArchive) tabs.push("archive");
-      if (hasPendingMe) tabs.push("pending_me");
-      if (hasPendingPartners) tabs.push("pending_partners");
+      if (activePartnersCount > 0) tabs.push("pending_me");
+      if (activePartnersCount > 0) tabs.push("pending_partners");
       
       const currentIndex = tabs.indexOf(filter);
       if (isRightSwipe && currentIndex < tabs.length - 1) {
@@ -179,7 +179,7 @@ export function FinanceTransactions({
         const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me");
         const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
         
-        if (!hasArchive && !hasPendingMe && !hasPendingPartners) return null;
+        
 
         return (
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
@@ -191,7 +191,7 @@ export function FinanceTransactions({
                 ארכיון מחוקים
               </button>
             )}
-            {hasPendingMe && (
+            {activePartnersCount > 0 && (
               <button id="finance-tab-pending_me" onClick={() => setFilter("pending_me")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_me" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_me" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
                 ממתינים לאישורי
                 {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me").length > 0 && (
@@ -201,7 +201,7 @@ export function FinanceTransactions({
                 )}
               </button>
             )}
-            {hasPendingPartners && (
+            {activePartnersCount > 0 && (
               <button id="finance-tab-pending_partners" onClick={() => setFilter("pending_partners")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_partners" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_partners" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
                 ממתין לאישור השותפים
               </button>

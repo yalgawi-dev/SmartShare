@@ -375,9 +375,6 @@ const runOcrPipeline = async (imgUrl: string) => {
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ background: 'var(--primary-light, rgba(59, 130, 246, 0.1))', color: 'var(--primary)', width: '40px', height: '40px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>
-              💳
-            </div>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
                 ניהול הוצאות <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>v0.60</span>
@@ -390,31 +387,25 @@ const runOcrPipeline = async (imgUrl: string) => {
             {space.features?.includes('partners') && (
               <button 
                 onClick={() => onTriggerTransfer()}
-                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-full)', padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: 'var(--shadow-sm)' }}
+                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
                 title="רישום העברה או קבלת הכנסה מהעסק"
               >
-                💳 תשלום
+                <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>💳</span> 
+                <span>תשלום</span>
               </button>
             )}
             {space.features?.includes('partners') && (
-              <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-full)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' }}>
-                <div 
-                  onClick={() => {
-                    handleInviteClick();
-                  }}
-                  style={{ padding: '0.4rem 0.8rem', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                  title="ניהול שותפים"
-                >
-                  <span>👥</span> {activePartnersCount} שותפים
+              <button 
+                onClick={() => handleInviteClick()}
+                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
+                title="ניהול שותפים / הוספת שותף"
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', lineHeight: '1' }}>
+                  <span style={{ fontSize: '1.2rem' }}>👥</span>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--primary)', fontWeight: 'bold' }}>{activePartnersCount}</span>
                 </div>
-                <button 
-                  onClick={handleInviteClick}
-                  style={{ background: 'var(--primary)', color: 'white', border: 'none', borderRight: '1px solid var(--border-light)', padding: '0.4rem 0.8rem', cursor: 'pointer', fontWeight: 'bold', fontSize: '1.1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  title="הזמן שותף חדש"
-                >
-                  +
-                </button>
-              </div>
+                <span>שותפים</span>
+              </button>
             )}
             {onRemove && (
               <button 
