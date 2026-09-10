@@ -1,5 +1,8 @@
+// scripts/migrateCommandCenterFlag.js
+
 const { initializeApp, getApps } = require('firebase/app');
-const { getFirestore, collection, getDocs, updateDoc, doc } = require('firebase/firestore');
+const { getFirestore, collection, getDocs } = require('firebase/firestore');
+const { ensureCommandCenterFlag } = require('../src/lib/partnerUtils');
 
 // Firebase config – same as src/lib/firebase.ts
 const firebaseConfig = {
@@ -9,7 +12,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'dummy',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'dummy',
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || 'dummy',
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
@@ -19,19 +22,7 @@ const db = getFirestore(app);
   try {
     const spacesSnap = await getDocs(collection(db, 'spaces'));
     for (const spaceDoc of spacesSnap.docs) {
-      const spaceData = spaceDoc.data();
-      const members = spaceData.members;
-      if (!members) continue;
-      const updatedMembers = members.map(m => {
-        if (m.canAccessCommandCenter === undefined) {
-          return { ...m, canAccessCommandCenter: true };
-        }
-        return m;
-      });
-      if (JSON.stringify(updatedMembers) !== JSON.stringify(members)) {
-        await updateDoc(doc(db, 'spaces', spaceDoc.id), { members: updatedMembers });
-        console.log(`Space ${spaceDoc.id} members updated`);
-      }
+      await ensureCommandCenterFlag(spaceDoc.id);
     }
     console.log('Migration completed');
   } catch (e) {
