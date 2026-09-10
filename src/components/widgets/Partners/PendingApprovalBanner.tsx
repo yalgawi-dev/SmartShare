@@ -63,6 +63,17 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
 
   if (!currentMember || currentMember.status === 'active') return null;
 
+  
+  useEffect(() => {
+    if (user?.email && typeof window !== 'undefined') {
+      const pendingSpace = sessionStorage.getItem('pending_approval_space');
+      if (pendingSpace === spaceId && currentMember?.status === 'pending') {
+        sessionStorage.removeItem('pending_approval_space');
+        finalizeApproval();
+      }
+    }
+  }, [user?.email, currentMember?.status, spaceId]);
+
   const isExpired = remainingText === 'פג תוקף';
 
   const finalizeApproval = () => {
@@ -73,6 +84,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     if (user?.email) {
       finalizeApproval();
     } else {
+      sessionStorage.setItem("pending_approval_space", spaceId);
       setShowRegisterPrompt(true);
     }
   };
