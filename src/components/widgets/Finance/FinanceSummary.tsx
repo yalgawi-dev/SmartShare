@@ -70,7 +70,14 @@ export function FinanceSummary({
   // UNIFIED FINANCIAL ENGINE
   const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, incomeExpected: number, incomeHeld: number, p: number, rawP?: number, isCreator?: boolean }>();
 
-  const myRealName = user?.realName || user?.nickname || 'אורח אנונימי';
+  // Smart name resolution: avoid showing stale 'אורח' name if Google/Facebook already provided a real name.
+  // AuthContext updates Firestore async, but the render may happen before that round-trip completes.
+  const GUEST_PLACEHOLDERS = ['אורח', 'אורח אנונימי', 'Guest'];
+  const myRealName = (user?.realName && !GUEST_PLACEHOLDERS.includes(user.realName))
+    ? user.realName
+    : (user?.nickname && !GUEST_PLACEHOLDERS.includes(user.nickname))
+      ? user.nickname
+      : '';
   const myId = user?.id || 'me';
   const hasPartners = space.features?.includes('partners') || false;
   

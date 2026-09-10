@@ -572,10 +572,13 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         members: [...(space.members || []), {
           userId,
           name,
+          role: 'partner' as const,
+          status: 'active' as const,
+          isActive: true,
           canUpload: true,
           canDelete: false,
           canEdit: false,
-          isActive: true
+          joinedAt: new Date().toISOString()
         } as any]
       };
     });
