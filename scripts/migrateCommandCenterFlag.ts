@@ -1,12 +1,12 @@
-import { collection, getDocs, updateDoc, doc } from 'firebase/firestore';
-import { db } from '../src/lib/firebase';
+const { collection, getDocs, updateDoc, doc } = require('firebase/firestore');
+const { db } = require('../src/lib/firebase');
 
-async function migrate() {
+(async () => {
   try {
     const spacesSnap = await getDocs(collection(db, 'spaces'));
     for (const spaceDoc of spacesSnap.docs) {
-      const spaceData = spaceDoc.data() as any;
-      const members = spaceData.members as any[] | undefined;
+      const spaceData = spaceDoc.data();
+      const members = spaceData.members;
       if (!members) continue;
       const updatedMembers = members.map(m => {
         if (m.canAccessCommandCenter === undefined) {
@@ -14,7 +14,6 @@ async function migrate() {
         }
         return m;
       });
-      // Only write if any member changed
       if (JSON.stringify(updatedMembers) !== JSON.stringify(members)) {
         await updateDoc(doc(db, 'spaces', spaceDoc.id), { members: updatedMembers });
         console.log(`Space ${spaceDoc.id} members updated`);
@@ -24,6 +23,4 @@ async function migrate() {
   } catch (e) {
     console.error('Migration error', e);
   }
-}
-
-migrate();
+})();
