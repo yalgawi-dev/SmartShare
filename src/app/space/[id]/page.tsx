@@ -507,8 +507,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       {/* Restricted Action Modal */}
       {showRestrictedActionModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(8px)', padding: '1rem' }}>
-          <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '2.5rem 1.5rem', textAlign: 'center', animation: 'scaleIn 0.3s ease-out', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
-            <div style={{ fontSize: '4rem', margin: '0 auto', background: '#fef2f2', width: '80px', height: '80px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>🔒</div>
+          <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '1.5rem 1rem', textAlign: 'center', animation: 'scaleIn 0.3s ease-out', position: 'relative', display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '95vh', overflowY: 'auto' }}>
+            <div style={{ fontSize: '2.5rem', margin: '0 auto', background: '#fef2f2', width: '60px', height: '60px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }}>🔒</div>
             
             <div>
               <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', fontSize: '1.5rem', fontWeight: 'bold' }}>פעולה חסומה</h3>
@@ -534,7 +534,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                   setShowRestrictedActionModal(false);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1.2rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
+                style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '1rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
               >
                 &larr; הבנתי, חזור למסך הראשי
               </button>
