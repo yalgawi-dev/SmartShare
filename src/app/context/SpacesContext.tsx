@@ -879,8 +879,8 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   const refreshMemberInvite = (spaceId: string, userId: string) => {
     saveSpaceUpdate(spaceId, space => {
       const updatedMembers = (space.members || []).map(m => {
-        if (m.userId === userId && m.status === 'pending') {
-          return { ...m, joinedAt: new Date().toISOString() };
+        if (m.userId === userId && (m.status === 'pending' || m.status === 'extension_requested')) {
+          return { ...m, status: 'pending', joinedAt: new Date().toISOString() };
         }
         return m;
       });

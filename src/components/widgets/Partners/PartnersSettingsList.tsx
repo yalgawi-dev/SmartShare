@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useSpaces } from "../../../app/context/SpacesContext";
 
 export function PartnersSettingsList({ space, user }: { space: any, user: any }) {
-  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace, toggleFeature } = useSpaces();
+  const { removeMember, restoreMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace, toggleFeature, refreshMemberInvite, updateMemberStatus } = useSpaces();
   
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === 'creator';
@@ -167,6 +167,43 @@ export function PartnersSettingsList({ space, user }: { space: any, user: any })
 
               {isExpanded && (
                 <div style={{ background: "#f8fafc", padding: "1rem", borderTop: "1px solid var(--border-light)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
+                  
+                  
+                  {m.status === 'disputed' && (
+                    <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--radius-md)" }}>
+                      <h5 style={{ margin: "0 0 0.5rem 0", color: "#dc2626" }}>פעולות סכסוך:</h5>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm('האם אתה בטוח שברצונך לפתור סכסוך זה ולהחזיר את השותף לפעילות?')) {
+                            // Can't use updateMemberStatus directly here if we didn't import it, but wait, updateMemberStatus was not imported!
+                            // I need to import updateMemberStatus!
+                            updateMemberStatus(space.id, m.userId, 'active');
+                          }
+                        }}
+                        style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                      >
+                        ✅ פתור סכסוך (החזר לפעיל)
+                      </button>
+                    </div>
+                  )}
+
+                  {(m.status === 'extension_requested' || isExpired) && (
+                    <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "var(--radius-md)" }}>
+                      <h5 style={{ margin: "0 0 0.5rem 0", color: "#b45309" }}>פעולות:</h5>
+                      <button 
+                        onClick={() => {
+                          if (window.confirm('האם לאשר הארכת זמן של 24 שעות לשותף זה?')) {
+                            refreshMemberInvite(space.id, m.userId);
+                            alert('הזמן הוארך בהצלחה!');
+                          }
+                        }}
+                        style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}
+                      >
+                        ⏳ אישור הארכת זמן (24 שעות)
+                      </button>
+                    </div>
+                  )}
+
                   <h5 style={{ margin: "0 0 0.5rem 0", color: "var(--text-secondary)" }}>הרשאות שותף:</h5>
                   <PermissionToggle 
                     label="העלאת קבצים / תמונות" 
