@@ -1,10 +1,13 @@
-// scripts/migrateCommandCenterFlag.js
+// src/lib/firebase.js
+
+// CommonJS version of Firebase initialization for Node scripts.
+// Mirrors src/lib/firebase.ts but uses require and module.exports.
 
 const { initializeApp, getApps } = require('firebase/app');
-const { getFirestore, collection, getDocs } = require('firebase/firestore');
-const { ensureCommandCenterFlag } = require('../src/lib/partnerUtils');
+const { getAuth } = require('firebase/auth');
+const { getFirestore } = require('firebase/firestore');
+const { getStorage } = require('firebase/storage');
 
-// Firebase config – same as src/lib/firebase.ts
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'dummy',
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'dummy',
@@ -16,16 +19,9 @@ const firebaseConfig = {
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
 
-(async () => {
-  try {
-    const spacesSnap = await getDocs(collection(db, 'spaces'));
-    for (const spaceDoc of spacesSnap.docs) {
-      await ensureCommandCenterFlag(spaceDoc.id);
-    }
-    console.log('Migration completed');
-  } catch (e) {
-    console.error('Migration error', e);
-  }
-})();
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
+
+module.exports = { auth, db, storage, app };
