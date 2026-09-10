@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSpaces } from '../../../app/context/SpacesContext';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -27,6 +28,11 @@ export function FinanceTransactions({
   setExpandedInvoiceId,
   setPreviewImage
 }: FinanceTransactionsProps) {
+
+  const { getTokenForSpace, getRoleForSpace } = useSpaces();
+  const myRole = space ? getRoleForSpace(space.id) : 'none';
+  const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
+  const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (space ? (getTokenForSpace(space.id) || user?.id || 'me') : (user?.id || 'me'));
 
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
@@ -76,8 +82,8 @@ export function FinanceTransactions({
       
 
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
-        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me");
+        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
 
       if (hasArchive) tabs.push("archive");
       if (hasPendingMe) tabs.push("pending_me");
@@ -170,8 +176,8 @@ export function FinanceTransactions({
       {/* Filter Pills */}
       {(() => {
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me");
-        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === user?.id || i.payerId === "me"));
+        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me");
+        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
         
         if (!hasArchive && !hasPendingMe && !hasPendingPartners) return null;
 
@@ -188,9 +194,9 @@ export function FinanceTransactions({
             {hasPendingMe && (
               <button id="finance-tab-pending_me" onClick={() => setFilter("pending_me")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_me" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_me" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
                 ממתינים לאישורי
-                {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length > 0 && (
+                {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me").length > 0 && (
                   <span style={{ background: "#f59e0b", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
-                    {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== user?.id && i.payerId !== "me").length}
+                    {relevantInvoices.filter((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me").length}
                   </span>
                 )}
               </button>
@@ -343,7 +349,7 @@ export function FinanceTransactions({
                             פתח מחלוקת
                           </button>
                         )}
-                        {(inv.payerId === user?.id || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
+                        {(inv.payerId === myEffectiveId || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
                           <button onClick={() => {
                             if (updateInvoice && space) {
                               updateInvoice(space.id, inv.id, { nudgedAt: Date.now() }, user?.realName || user?.id || 'me', `שלח/ה נדנוד לשותפים לאישור הוצאה מול '${inv.supplier}'`);
@@ -353,7 +359,7 @@ export function FinanceTransactions({
                             שלח נדנוד לאישור
                           </button>
                         )}
-                        {(inv.payerId === user?.id || inv.payerId === 'me') && (
+                        {(inv.payerId === myEffectiveId || inv.payerId === 'me') && (
                           <div style={{ display: 'flex', gap: '0.5rem', flex: 1 }}>
                             {inv.isActive === false ? (
                               <button onClick={(e) => {

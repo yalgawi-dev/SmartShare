@@ -1,19 +1,26 @@
 'use client';
 
 import { useAuth } from '../../../app/context/AuthContext';
+import { useSpaces } from '../../../app/context/SpacesContext';
 
 export default function PendingInvoicesBanner({ space, onScrollToFinance }: { space: any, onScrollToFinance: () => void }) {
   const { user } = useAuth();
+  const { getTokenForSpace, getRoleForSpace } = useSpaces();
+  
   if (!user || !user.id || !space?.invoices) return null;
+
+  const myRole = space ? getRoleForSpace(space.id) : 'none';
+  const isCreatorMe = myRole === 'creator' || (space?.creatorId && user.id === space.creatorId);
+  const myEffectiveId = isCreatorMe ? (user.id || 'me') : (getTokenForSpace(space.id) || user.id || 'me');
 
   const pendingInvoices = space.invoices.filter((inv: any) => {
     if (inv.status !== 'pending' || inv.isActive === false) return false;
     if (inv.type === 'transfer') {
-      return inv.targetId === user.id;
+      return inv.targetId === myEffectiveId;
     }
     const approvedBy = inv.approvedBy || [];
     const excluded = inv.excludedMembers || [];
-    return inv.payerId !== user.id && inv.payerId !== 'me' && !approvedBy.includes(user.id) && !excluded.includes(user.id);
+    return inv.payerId !== myEffectiveId && inv.payerId !== 'me' && !approvedBy.includes(myEffectiveId) && !excluded.includes(myEffectiveId);
   });
 
   const pendingCount = pendingInvoices.length;
@@ -57,8 +64,8 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
           </p>
         </div>
       </div>
-      <div style={{ color: descColor, fontSize: '1.5rem', animation: 'bounceLeft 1s infinite' }}>
-        👈
+      <div style={{ color: descColor, fontSize: '1.5rem', animation: 'bounceDown 1s infinite' }}>
+        👇
       </div>
       <style>{`
         @keyframes pulseGlow {
@@ -71,9 +78,9 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
           50% { box-shadow: 0 4px 30px rgba(239, 68, 68, 0.6); transform: scale(1.02); }
           100% { box-shadow: 0 4px 15px rgba(239, 68, 68, 0.25); transform: scale(1); }
         }
-        @keyframes bounceLeft {
-          0%, 100% { transform: translateX(0); }
-          50% { transform: translateX(-5px); }
+        @keyframes bounceDown {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(5px); }
         }
       `}</style>
     </div>
