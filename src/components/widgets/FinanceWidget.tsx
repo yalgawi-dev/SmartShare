@@ -76,7 +76,10 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     if (targetId) setSelectedPayerId(targetId);
     if (setIsAddingExpense) setIsAddingExpense(true);
   };
-  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk } = useSpaces();
+  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace } = useSpaces();
+  const myRole = getRoleForSpace(space.id);
+  const isCreatorMe = myRole === 'creator' || (space.creatorId && user?.id === space.creatorId);
+  const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (getTokenForSpace(space.id) || user?.id || 'me');
 
   
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -262,12 +265,12 @@ const runOcrPipeline = async (imgUrl: string) => {
     const clientName = formData.get('clientName') as string;
     
     let payerName = user?.realName || 'אני';
-    let payerId: string | undefined = user?.id || 'me';
+    let payerId: string | undefined = myEffectiveId;
     
     if (selectedPayerId === 'other') {
       payerName = (formData.get('payerNameCustom') as string) || 'אחר';
       payerId = undefined;
-    } else if (selectedPayerId !== 'me' && selectedPayerId !== user?.id) {
+    } else if (selectedPayerId !== 'me' && selectedPayerId !== user?.id && selectedPayerId !== myEffectiveId) {
       const partner = validMembers.find((m: any) => m.userId === selectedPayerId);
       if (partner) {
         payerName = partner.name;
