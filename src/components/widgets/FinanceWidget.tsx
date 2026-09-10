@@ -239,13 +239,16 @@ const runOcrPipeline = async (imgUrl: string) => {
     if (inv.isActive === false) return false;
     if (filter === 'all') return true;
     if (filter === 'pending_me') {
-      return inv.status === 'pending' && inv.payerId !== user?.id && inv.payerId !== 'me';
+      // Invoices I need to approve = payer is someone else (not me)
+      return inv.status === 'pending' && inv.payerId !== myEffectiveId && inv.payerId !== 'me';
     }
     if (filter === 'pending_partners') {
-      return inv.status === 'pending' && (inv.payerId === user?.id || inv.payerId === 'me');
+      // Invoices I submitted that await partner approval
+      return inv.status === 'pending' && (inv.payerId === myEffectiveId || inv.payerId === 'me');
     }
     return inv.status === filter;
   });
+
 
   const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
   if (isCashboxEnabled(space)) {

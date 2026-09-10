@@ -335,8 +335,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithGoogle = async () => {
+    const isMobile = typeof window !== 'undefined' && /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     try {
       let result;
+      if (isMobile) {
+        // Mobile: use redirect (avoids popup-blocked entirely)
+        if (auth.currentUser && auth.currentUser.isAnonymous) {
+          await linkWithRedirect(auth.currentUser, googleProvider);
+        } else {
+          await signInWithRedirect(auth, googleProvider);
+        }
+        // Result handled by getRedirectResult in useEffect below
+        return;
+      }
+      // Desktop: popup is fine
       if (auth.currentUser && auth.currentUser.isAnonymous) {
         try {
           result = await linkWithPopup(auth.currentUser, googleProvider);
@@ -356,7 +368,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e: any) {
       console.error('Google login failed', e);
       if (e.code === 'auth/popup-blocked') {
-        alert('שגיאה: חוסם החלונות הקופצים בדפדפן מופעל. אנא אפשר חלונות קופצים (Pop-ups) עבור אתר זה כדי להתחבר.');
+        // Fallback to redirect if popup was blocked even on desktop
+        await signInWithRedirect(auth, googleProvider);
       } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
