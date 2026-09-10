@@ -1,17 +1,25 @@
 import React, { useState } from 'react';
+import { useSpaces } from '../../../app/context/SpacesContext';
 
 export function FinanceTransferModal({
   user,
   validMembers,
   handleAddExpense,
   handleCloseForm,
-  preselectedTargetId
+  preselectedTargetId,
+  spaceId
 }: any) {
   const [tab, setTab] = useState<'transfer' | 'income'>('transfer');
+
+  const { getTokenForSpace, getRoleForSpace, spaces } = useSpaces();
+  const space = spaces.find(s => s.id === spaceId);
+  const myRole = space ? getRoleForSpace(space.id) : 'none';
+  const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
+  const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (space ? (getTokenForSpace(space.id) || user?.id || 'me') : (user?.id || 'me'));
   
-  const [payerId, setPayerId] = useState(user?.id || 'me');
+  const [payerId, setPayerId] = useState(myEffectiveId);
   const [targetId, setTargetId] = useState(preselectedTargetId || '');
-  const [incomeHolderId, setIncomeHolderId] = useState(user?.id || 'me');
+  const [incomeHolderId, setIncomeHolderId] = useState(myEffectiveId);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
 
