@@ -1,5 +1,5 @@
 'use client';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -53,12 +53,33 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
-  const [showMsgField, setShowMsgField] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const messagesRaw = member?.messages || [];
+  const messagesArray = Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw);
+
+  // Auto-mark messages as read when opening the panel
+  useEffect(() => {
+    if (!mounted) return;
+    const unreadMsgs = messagesArray.filter((m: any) => m?.from !== viewMode && !m?.readAt);
+    if (unreadMsgs.length > 0 && typeof markMessageRead === 'function') {
+      unreadMsgs.forEach((msg: any) => {
+        markMessageRead(space.id, member.userId, msg.id);
+      });
+    }
+  }, [messagesRaw.length, mounted]);
+
+  // Auto-scroll to bottom of chat
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messagesRaw.length, mounted]);
 
   if (!mounted || typeof document === 'undefined') return null;
   if (!member || !space) return null;
@@ -69,13 +90,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const handleApproveExtension = () => {
     if(typeof approveExtension === 'function') approveExtension(space.id, member.userId);
-    onClose();
   };
 
   const handleResetStatus = () => {
     if (confirm(`לאפס את סטטוס "${memberName}" לממתין?`)) {
       if(typeof updateMemberStatus === 'function') updateMemberStatus(space.id, member.userId, 'pending');
-      onClose();
     }
   };
 
@@ -90,17 +109,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     if (!messageText.trim()) return;
     if(typeof sendMessageToMember === 'function') sendMessageToMember(space.id, member.userId, messageText.trim(), viewMode);
     setMessageText('');
-    setShowMsgField(false);
   };
-
-  const handleMarkRead = (msgId: string) => {
-    if (msgId && typeof markMessageRead === 'function') markMessageRead(space.id, member.userId, msgId);
-  };
-
-  const messagesRaw = member?.messages || [];
-  const messagesArray = Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw);
-  
-  const unreadCount = messagesArray.filter((m: any) => m?.from === (viewMode === 'creator' ? 'partner' : 'creator') && !m?.readAt).length;
 
   const statusLabel: Record<string, string> = {
     active: '✅ פעיל',
@@ -133,138 +142,156 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           left: 0,
           right: 0,
           zIndex: 99999,
-          background: '#ffffff',
+          background: '#e5ded8', // WhatsApp background color
           color: '#0f172a',
           borderRadius: '24px 24px 0 0',
-          padding: '1.5rem',
           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
+          height: '85vh',
           maxHeight: '85vh',
-          overflowY: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
           direction: 'rtl',
-          fontFamily: 'inherit'
+          fontFamily: 'inherit',
+          overflow: 'hidden'
         }}
       >
-        <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '2px', margin: '0 auto 1.25rem auto' }} />
+        {/* Header Area */}
+        <div style={{ background: '#ffffff', padding: '1.25rem 1.5rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0, borderRadius: '24px 24px 0 0' }}>
+          <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '2px', margin: '0 auto 1rem auto' }} />
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-          <div>
-            <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>{viewMode === 'creator' ? `🧑‍💼 ${memberName}` : 'האזור האישי שלך'}</div>
-            <div style={{ fontSize: '0.825rem', color: '#64748b', marginTop: '0.2rem' }}>
-              {statusLabel[memberStatus] || memberStatus}
-              {viewMode === 'creator' && joinedDateText && ` · הצטרף: ${joinedDateText}`}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>{viewMode === 'creator' ? `🧑‍💼 ${memberName}` : 'האזור האישי שלך'}</div>
+              <div style={{ fontSize: '0.825rem', color: '#64748b', marginTop: '0.2rem' }}>
+                {statusLabel[memberStatus] || memberStatus}
+                {viewMode === 'creator' && joinedDateText && ` · הצטרף: ${joinedDateText}`}
+              </div>
             </div>
+            <button
+              onClick={onClose}
+              style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
+            >✕</button>
           </div>
-          <button
-            onClick={onClose}
-            style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
-          >✕</button>
-        </div>
 
-        {viewMode === 'partner' && (
-          <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', fontSize: '0.9rem', color: '#475569', marginBottom: '1rem' }}>
-            כאן ניתן לתקשר ישירות עם מנהל המרחב. לחץ על הודעה מהבהבת כדי לסמן אותה כנקראה.
-          </div>
-        )}
-
-        {viewMode === 'creator' && member?.extensionMessage && (
-          <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#92400e', marginBottom: '0.75rem' }}>
-            💬 הסבר מהשותף: <strong>{member.extensionMessage}</strong>
-          </div>
-        )}
-        {viewMode === 'creator' && member?.disputeMessage && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#991b1b', marginBottom: '0.75rem' }}>
-            ⚠️ מחלוקת: <strong>{member.disputeMessage}</strong>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
-          {viewMode === 'creator' && memberStatus === 'extension_requested' && (
-            <button onClick={handleApproveExtension} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
-              ✅ אשר הארכת זמן לשותף
-            </button>
-          )}
-          {viewMode === 'creator' && (memberStatus === 'disputed' || memberStatus === 'extension_requested') && (
-            <button onClick={handleResetStatus} style={{ background: '#6366f1', color: '#ffffff', border: 'none', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
-              🔄 אפס סטטוס לממתין
-            </button>
-          )}
-          <button
-            onClick={() => setShowMsgField(v => !v)}
-            style={{ background: showMsgField ? '#e0e7ff' : '#f8fafc', color: '#4f46e5', border: '1px solid #c7d2fe', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-          >
-            <span>{viewMode === 'creator' ? '✉️ שלח הודעה לשותף' : '✉️ שלח הודעה למנהל'}</span>
-            {unreadCount > 0 && (
-              <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                {unreadCount}
-              </span>
-            )}
-          </button>
+          {/* Action Buttons (Visible only to creator, horizontal scroll if many) */}
           {viewMode === 'creator' && (
-            <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
-              🗑️ הסר שותף מהמרחב
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+              {memberStatus === 'extension_requested' && (
+                <button onClick={handleApproveExtension} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  ✅ אשר הארכה
+                </button>
+              )}
+              {(memberStatus === 'disputed' || memberStatus === 'extension_requested') && (
+                <button onClick={handleResetStatus} style={{ background: '#6366f1', color: '#ffffff', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  🔄 אפס סטטוס
+                </button>
+              )}
+              <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                🗑️ הסר
+              </button>
+            </div>
           )}
         </div>
 
-        {showMsgField && (
-          <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #e2e8f0' }}>
-            <textarea
-              value={messageText}
-              onChange={e => setMessageText(e.target.value)}
-              placeholder={viewMode === 'creator' ? "כתוב הודעה לשותף..." : "כתוב הודעה למנהל המרחב..."}
-              rows={3}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', resize: 'none', boxSizing: 'border-box', fontSize: '0.95rem', direction: 'rtl', fontFamily: 'inherit' }}
-            />
-            <button onClick={handleSendMessage} disabled={!messageText.trim()} style={{ marginTop: '0.6rem', background: '#4f46e5', color: '#ffffff', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', cursor: messageText.trim() ? 'pointer' : 'not-allowed', opacity: messageText.trim() ? 1 : 0.5, fontWeight: 'bold', float: 'left' }}>
-              שלח ←
-            </button>
-          </div>
-        )}
-
-        {messagesArray.length > 0 && (
-          <div>
-            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.6rem' }}>📨 היסטוריית הודעות</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
-              {messagesArray.reverse().map((msg: any) => {
-                if (!msg) return null;
-                const isMyMsg = msg.from === viewMode;
-                const isUnreadForMe = !isMyMsg && !msg.readAt;
-                const timeStr = formatTimeSafe(msg.createdAt);
-                
-                return (
-                  <div
-                    key={msg.id || Math.random()}
-                    onClick={() => isUnreadForMe && handleMarkRead(msg.id)}
-                    style={{
-                      background: isMyMsg ? '#e0e7ff' : isUnreadForMe ? '#fef3c7' : '#f1f5f9',
-                      padding: '0.6rem 0.85rem',
-                      borderRadius: '12px',
-                      fontSize: '0.875rem',
-                      color: isMyMsg ? '#3730a3' : isUnreadForMe ? '#92400e' : '#334155',
-                      border: isUnreadForMe ? '1px solid #fcd34d' : 'none',
-                      cursor: isUnreadForMe ? 'pointer' : 'default',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'flex-start',
-                      gap: '0.5rem'
-                    }}
-                  >
-                    <div>
-                      <span style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
-                        {isMyMsg ? '👤 אתה' : (msg.from === 'creator' ? '👤 מנהל המרחב' : `👤 ${memberName}`)}:
-                      </span>{' '}
-                      {msg.text || ''}
-                      {isUnreadForMe && (
-                        <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '4px', padding: '0 5px', fontSize: '0.65rem', marginRight: '6px', fontWeight: 'bold' }}>חדש</span>
-                      )}
-                    </div>
-                    {timeStr && <span style={{ fontSize: '0.7rem', color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>{timeStr}</span>}
-                  </div>
-                );
-              })}
+        {/* Chat Messages Area */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          {viewMode === 'creator' && member?.extensionMessage && (
+            <div style={{ alignSelf: 'center', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
+              💬 <strong>בקשת הארכה:</strong> {member.extensionMessage}
             </div>
-          </div>
-        )}
+          )}
+          {viewMode === 'creator' && member?.disputeMessage && (
+            <div style={{ alignSelf: 'center', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#991b1b', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
+              ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
+            </div>
+          )}
+
+          {messagesArray.map((msg: any) => {
+            if (!msg) return null;
+            const isMyMsg = msg.from === viewMode;
+            const timeStr = formatTimeSafe(msg.createdAt);
+            
+            return (
+              <div
+                key={msg.id || Math.random()}
+                style={{
+                  background: isMyMsg ? '#dcf8c6' : '#ffffff',
+                  alignSelf: isMyMsg ? 'flex-end' : 'flex-start',
+                  borderRadius: isMyMsg ? '12px 12px 0 12px' : '12px 12px 12px 0',
+                  padding: '0.5rem 0.6rem 0.2rem 0.6rem',
+                  maxWidth: '85%',
+                  boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ fontSize: '0.9rem', color: '#111b21', lineHeight: '1.4', paddingBottom: '2px', wordBreak: 'break-word' }}>
+                  {msg.text || ''}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', alignSelf: 'flex-end', marginTop: '1px' }}>
+                  <span style={{ fontSize: '0.65rem', color: '#667781' }}>{timeStr}</span>
+                  {isMyMsg && (
+                    <span style={{ color: msg.readAt ? '#53bdeb' : '#8696a0', fontSize: '0.8rem', letterSpacing: '-2.5px', marginRight: '2px', fontWeight: 'bold' }}>
+                      ✓✓
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Input Area */}
+        <div style={{ background: '#f0f2f5', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
+          <textarea
+            value={messageText}
+            onChange={e => setMessageText(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            placeholder="הקלד הודעה..."
+            rows={1}
+            style={{
+              flex: 1,
+              padding: '0.6rem 1rem',
+              borderRadius: '24px',
+              border: 'none',
+              background: '#ffffff',
+              fontSize: '0.95rem',
+              outline: 'none',
+              resize: 'none',
+              maxHeight: '100px',
+              fontFamily: 'inherit',
+              boxShadow: '0 1px 1px rgba(0,0,0,0.05)'
+            }}
+          />
+          <button
+            onClick={handleSendMessage}
+            disabled={!messageText.trim()}
+            style={{
+              background: messageText.trim() ? '#00a884' : '#a7a7a7',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '50%',
+              width: '42px',
+              height: '42px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: messageText.trim() ? 'pointer' : 'default',
+              transition: 'background 0.2s'
+            }}
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </>,
     document.body
