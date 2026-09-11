@@ -356,7 +356,8 @@ export function FinanceSummary({
                                   ? (memberObj?.messages || []).filter((m: any) => m.from === (isCreatorMe ? 'partner' : 'creator') && !m.readAt).length
                                   : 0;
                                 return myUnreadCount > 0 ? (
-                                  <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'50%', width:'16px', height:'16px', fontSize:'0.6rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite' }}>
+                                  <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'20px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '4px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>
+                                    <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
                                     {myUnreadCount}
                                   </span>
                                 ) : null;

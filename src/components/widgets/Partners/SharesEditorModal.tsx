@@ -182,6 +182,12 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
             {Number(total).toFixed(1)}%
           </span>
         </div>
+
+        {Math.abs(Number(total) - 100) > 0.1 && (
+          <div style={{ background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.85rem' }}>
+            <strong>שים לב:</strong> סך כל האחוזים חייב להיות בדיוק 100% כדי להישמר. אנא ודא שהסכום המצטבר תקין. ייתכן שישנם שותפים ממתינים שתופסים אחוזים, יש למחוק אותם או לאפס את חלקם.
+          </div>
+        )}
         
 
         <div style={{ background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem' }}>
