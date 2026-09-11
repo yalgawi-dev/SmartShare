@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useState } from 'react';
-import { useAuth } from '../../../app/context/AuthContext';
+import { useAuth } from '../../app/context/AuthContext';
 
 export interface SelectedContact {
   name: string;
