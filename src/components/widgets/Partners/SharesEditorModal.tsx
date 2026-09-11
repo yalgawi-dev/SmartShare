@@ -115,7 +115,21 @@ export function SharesEditorModal({ space, user, onClose }: { space: any, user: 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input type="text" inputMode="decimal" value={myShare} onChange={e => {
                 const val = e.target.value;
-                if (val === '' || /^\d*\.?\d*$/.test(val)) setMyShare(val);
+                if (val === '' || /^\d*\.?\d*$/.test(val)) {
+                  setMyShare(val);
+                  // Auto-adjust partners
+                  const newMyShare = Number(val);
+                  if (validMembers.length > 0) {
+                    const remainingForPartners = Math.max(0, 100 - newMyShare);
+                    const newPartnerShares = { ...partnerShares };
+                    // Simply divide the remaining share equally among all valid partners
+                    const eachPartnerShare = Number((remainingForPartners / validMembers.length).toFixed(1));
+                    validMembers.forEach(m => {
+                      newPartnerShares[m.userId] = eachPartnerShare;
+                    });
+                    setPartnerShares(newPartnerShares);
+                  }
+                }
               }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                 style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
               />

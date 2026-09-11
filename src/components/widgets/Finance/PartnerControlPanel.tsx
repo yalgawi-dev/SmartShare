@@ -50,7 +50,7 @@ interface Props {
 }
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator' }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead } = useSpaces() as any;
+  const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead, approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -206,6 +206,21 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             </div>
           )}
 
+
+          {member?.shareChangeRequest && (
+            <div style={{ alignSelf: 'center', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', marginBottom: '1rem', maxWidth: '95%', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <strong>בקשה לשינוי אחוזים 📊</strong><br/>
+              יוצר המרחב הציע לעדכן את האחוזים שלך ל-{member.shareChangeRequest.proposedShare}%.
+              {viewMode === 'partner' ? (
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
+                  <button onClick={() => approveShareChange(space.id, member.userId)} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>אישור</button>
+                  <button onClick={() => rejectShareChange(space.id, member.userId)} style={{ background: 'white', color: '#0ea5e9', border: '1px solid #0ea5e9', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>דחייה</button>
+                </div>
+              ) : (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>ממתין לאישור השותף...</div>
+              )}
+            </div>
+          )}
           {messagesArray.map((msg: any) => {
             if (!msg) return null;
             const isMyMsg = msg.from === viewMode;

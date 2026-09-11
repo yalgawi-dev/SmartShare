@@ -97,6 +97,7 @@ export interface SpaceMember {
   isActive?: boolean;
   welcomed?: boolean;
   joinedAt?: string;
+  shareChangeRequest?: { proposedShare: number; creatorShare: number; timestamp: string; };
 }
 
 export interface AuditRecord {
@@ -130,6 +131,8 @@ export interface Space {
 
 interface SpacesContextType {
   updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
+  approveShareChange: (spaceId: string, userId: string) => void;
+  rejectShareChange: (spaceId: string, userId: string) => void;
   spaces: Space[];
   addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => Promise<string>;
   deleteSpace: (spaceId: string) => void;
@@ -748,36 +751,98 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   
-  const updateSharesBulk = (spaceId: string, myShare: number, partnerShares: Record<string, number>) => {
+  const approveShareChange = (spaceId: string, userId: string) => {
     saveSpaceUpdate(spaceId, space => {
+      const member = (space.members || []).find(m => m.userId === userId);
+      if (!member || !member.shareChangeRequest) return space;
+      
+      const { proposedShare, creatorShare } = member.shareChangeRequest;
       const newMembers = (space.members || []).map(m => {
-        if (partnerShares[m.userId] !== undefined) {
-          let newStatus = m.status;
-          let newJoinedAt = m.joinedAt;
-          let isResolving = false;
-          if (m.status === 'disputed') {
-            newStatus = 'pending';
-            newJoinedAt = new Date().toISOString(); // Reset timer
-            isResolving = true;
-          }
-          return { 
-            ...m, 
-            sharePercentage: partnerShares[m.userId], 
-            isCustomShare: true,
-            status: newStatus,
-            joinedAt: newJoinedAt,
-            disputeResolved: isResolving ? true : m.disputeResolved
-          };
+        if (m.userId === userId) {
+          const mCopy = { ...m, sharePercentage: proposedShare };
+          delete mCopy.shareChangeRequest;
+          return mCopy;
         }
         return m;
       });
       return {
         ...space,
         members: newMembers,
-        settings: { ...space.settings, mySharePercentage: myShare, isCustomShare: true }
+        settings: {
+          ...space.settings,
+          mySharePercentage: creatorShare,
+          isCustomShare: true
+        }
       };
     });
   };
+
+  const rejectShareChange = (spaceId: string, userId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newMembers = (space.members || []).map(m => {
+        if (m.userId === userId && m.shareChangeRequest) {
+          const mCopy = { ...m };
+          delete mCopy.shareChangeRequest;
+          return mCopy;
+        }
+        return m;
+      });
+      return {
+        ...space,
+        members: newMembers
+      };
+    });
+  };
+
+  const updateSharesBulk = (spaceId: string, myShare: number, partnerShares: Record<string, number>) => {
+    saveSpaceUpdate(spaceId, space => {
+      let requiresApproval = false;
+      const newMembers = (space.members || []).map(m => {
+        if (partnerShares[m.userId] !== undefined) {
+          const newShare = partnerShares[m.userId];
+          if (m.status === 'active' && m.sharePercentage !== newShare) {
+            requiresApproval = true;
+            return {
+              ...m,
+              shareChangeRequest: {
+                proposedShare: newShare,
+                creatorShare: myShare,
+                timestamp: new Date().toISOString()
+              }
+            };
+          } else {
+            let newStatus = m.status;
+            let newJoinedAt = m.joinedAt;
+            let isResolving = false;
+            if (m.status === 'disputed') {
+              newStatus = 'pending';
+              newJoinedAt = new Date().toISOString(); // Reset timer
+              isResolving = true;
+            }
+            return { 
+              ...m, 
+              sharePercentage: newShare, 
+              isCustomShare: true,
+              status: newStatus,
+              joinedAt: newJoinedAt,
+              disputeResolved: isResolving ? true : m.disputeResolved
+            };
+          }
+        }
+        return m;
+      });
+      return {
+        ...space,
+        members: newMembers,
+        settings: { 
+          ...space.settings, 
+          mySharePercentage: requiresApproval ? space.settings?.mySharePercentage : myShare, 
+          isCustomShare: true 
+        }
+      };
+    });
+  };
+
 const updateMemberPermissions = (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
@@ -1163,6 +1228,8 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       markMessageRead,
       approveExtension,
       setExtensionMessage, updateSharesBulk,
+    approveShareChange,
+    rejectShareChange,
         updateMemberStatus,
         migrateGuestToRealUser,
       addComment,
