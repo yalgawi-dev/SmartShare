@@ -46,9 +46,10 @@ interface Props {
   member: any;
   space: any;
   onClose: () => void;
+  viewMode?: 'creator' | 'partner';
 }
 
-function PartnerControlPanelInner({ member, space, onClose }: Props) {
+function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator' }: Props) {
   const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
@@ -87,7 +88,7 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
-    if(typeof sendMessageToMember === 'function') sendMessageToMember(space.id, member.userId, messageText.trim(), 'creator');
+    if(typeof sendMessageToMember === 'function') sendMessageToMember(space.id, member.userId, messageText.trim(), viewMode);
     setMessageText('');
     setShowMsgField(false);
   };
@@ -99,7 +100,7 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
   const messagesRaw = member?.messages || [];
   const messagesArray = Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw);
   
-  const unreadCount = messagesArray.filter((m: any) => m?.from === 'partner' && !m?.readAt).length;
+  const unreadCount = messagesArray.filter((m: any) => m?.from === (viewMode === 'creator' ? 'partner' : 'creator') && !m?.readAt).length;
 
   const statusLabel: Record<string, string> = {
     active: '✅ פעיל',
@@ -147,10 +148,10 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
           <div>
-            <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>🧑‍💼 {memberName}</div>
+            <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>{viewMode === 'creator' ? `🧑‍💼 ${memberName}` : 'האזור האישי שלך'}</div>
             <div style={{ fontSize: '0.825rem', color: '#64748b', marginTop: '0.2rem' }}>
               {statusLabel[memberStatus] || memberStatus}
-              {joinedDateText && ` · הצטרף: ${joinedDateText}`}
+              {viewMode === 'creator' && joinedDateText && ` · הצטרף: ${joinedDateText}`}
             </div>
           </div>
           <button
@@ -159,24 +160,30 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
           >✕</button>
         </div>
 
-        {member?.extensionMessage && (
+        {viewMode === 'partner' && (
+          <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', fontSize: '0.9rem', color: '#475569', marginBottom: '1rem' }}>
+            כאן ניתן לתקשר ישירות עם מנהל המרחב. לחץ על הודעה מהבהבת כדי לסמן אותה כנקראה.
+          </div>
+        )}
+
+        {viewMode === 'creator' && member?.extensionMessage && (
           <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#92400e', marginBottom: '0.75rem' }}>
             💬 הסבר מהשותף: <strong>{member.extensionMessage}</strong>
           </div>
         )}
-        {member?.disputeMessage && (
+        {viewMode === 'creator' && member?.disputeMessage && (
           <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#991b1b', marginBottom: '0.75rem' }}>
             ⚠️ מחלוקת: <strong>{member.disputeMessage}</strong>
           </div>
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
-          {memberStatus === 'extension_requested' && (
+          {viewMode === 'creator' && memberStatus === 'extension_requested' && (
             <button onClick={handleApproveExtension} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
               ✅ אשר הארכת זמן לשותף
             </button>
           )}
-          {(memberStatus === 'disputed' || memberStatus === 'extension_requested') && (
+          {viewMode === 'creator' && (memberStatus === 'disputed' || memberStatus === 'extension_requested') && (
             <button onClick={handleResetStatus} style={{ background: '#6366f1', color: '#ffffff', border: 'none', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
               🔄 אפס סטטוס לממתין
             </button>
@@ -185,16 +192,18 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
             onClick={() => setShowMsgField(v => !v)}
             style={{ background: showMsgField ? '#e0e7ff' : '#f8fafc', color: '#4f46e5', border: '1px solid #c7d2fe', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
-            <span>✉️ שלח הודעה לשותף</span>
+            <span>{viewMode === 'creator' ? '✉️ שלח הודעה לשותף' : '✉️ שלח הודעה למנהל'}</span>
             {unreadCount > 0 && (
               <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
                 {unreadCount}
               </span>
             )}
           </button>
-          <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
-            🗑️ הסר שותף מהמרחב
-          </button>
+          {viewMode === 'creator' && (
+            <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
+              🗑️ הסר שותף מהמרחב
+            </button>
+          )}
         </div>
 
         {showMsgField && (
@@ -202,7 +211,7 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
             <textarea
               value={messageText}
               onChange={e => setMessageText(e.target.value)}
-              placeholder="כתוב הודעה לשותף..."
+              placeholder={viewMode === 'creator' ? "כתוב הודעה לשותף..." : "כתוב הודעה למנהל המרחב..."}
               rows={3}
               style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', resize: 'none', boxSizing: 'border-box', fontSize: '0.95rem', direction: 'rtl', fontFamily: 'inherit' }}
             />
@@ -218,21 +227,22 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
               {messagesArray.reverse().map((msg: any) => {
                 if (!msg) return null;
-                const isCreatorMsg = msg.from === 'creator';
-                const isUnreadPartnerMsg = msg.from === 'partner' && !msg.readAt;
+                const isMyMsg = msg.from === viewMode;
+                const isUnreadForMe = !isMyMsg && !msg.readAt;
                 const timeStr = formatTimeSafe(msg.createdAt);
+                
                 return (
                   <div
                     key={msg.id || Math.random()}
-                    onClick={() => isUnreadPartnerMsg && handleMarkRead(msg.id)}
+                    onClick={() => isUnreadForMe && handleMarkRead(msg.id)}
                     style={{
-                      background: isCreatorMsg ? '#e0e7ff' : isUnreadPartnerMsg ? '#fef3c7' : '#f1f5f9',
+                      background: isMyMsg ? '#e0e7ff' : isUnreadForMe ? '#fef3c7' : '#f1f5f9',
                       padding: '0.6rem 0.85rem',
                       borderRadius: '12px',
                       fontSize: '0.875rem',
-                      color: isCreatorMsg ? '#3730a3' : isUnreadPartnerMsg ? '#92400e' : '#334155',
-                      border: isUnreadPartnerMsg ? '1px solid #fcd34d' : 'none',
-                      cursor: isUnreadPartnerMsg ? 'pointer' : 'default',
+                      color: isMyMsg ? '#3730a3' : isUnreadForMe ? '#92400e' : '#334155',
+                      border: isUnreadForMe ? '1px solid #fcd34d' : 'none',
+                      cursor: isUnreadForMe ? 'pointer' : 'default',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'flex-start',
@@ -240,9 +250,11 @@ function PartnerControlPanelInner({ member, space, onClose }: Props) {
                     }}
                   >
                     <div>
-                      <span style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>{isCreatorMsg ? '👤 אתה' : `👤 ${memberName}`}:</span>{' '}
+                      <span style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
+                        {isMyMsg ? '👤 אתה' : (msg.from === 'creator' ? '👤 מנהל המרחב' : `👤 ${memberName}`)}:
+                      </span>{' '}
                       {msg.text || ''}
-                      {isUnreadPartnerMsg && (
+                      {isUnreadForMe && (
                         <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '4px', padding: '0 5px', fontSize: '0.65rem', marginRight: '6px', fontWeight: 'bold' }}>חדש</span>
                       )}
                     </div>
