@@ -213,6 +213,17 @@ export default function Dashboard() {
           }
           return (
           <div id={`space-${space.id}`} key={space.id} style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {/* Unread messages badge */}
+            {(() => {
+              const totalUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
+              const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
+              const count = totalUnread + (hasExtension ? 1 : 0);
+              return count > 0 ? (
+                <div style={{ position: 'absolute', top: '-8px', right: '-8px', zIndex: 20, background: '#ef4444', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold', boxShadow: '0 2px 6px rgba(239,68,68,0.5)', border: '2px solid white' }}>
+                  {count}
+                </div>
+              ) : null;
+            })()}
             <button 
               onClick={(e) => {
                 e.preventDefault();

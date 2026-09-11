@@ -785,6 +785,59 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     }));
   };
 
+  // ─── Operational Messages (2-way private creator↔partner) ───────────
+  const sendMessageToMember = (spaceId: string, memberId: string, text: string, from: 'creator' | 'partner') => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m => {
+        if (m.userId !== memberId) return m;
+        const newMsg = {
+          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2,5)}`,
+          text: text.trim(),
+          from,
+          createdAt: new Date().toISOString(),
+          readAt: undefined as string | undefined
+        };
+        return { ...m, messages: [...(m.messages || []), newMsg] };
+      })
+    }));
+  };
+
+  const markMessageRead = (spaceId: string, memberId: string, messageId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m => {
+        if (m.userId !== memberId) return m;
+        return {
+          ...m,
+          messages: (m.messages || []).map(msg =>
+            msg.id === messageId && !msg.readAt ? { ...msg, readAt: new Date().toISOString() } : msg
+          )
+        };
+      })
+    }));
+  };
+
+  const approveExtension = (spaceId: string, memberId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m => {
+        if (m.userId !== memberId) return m;
+        return { ...m, status: 'pending' as const, joinedAt: new Date().toISOString(), extensionMessage: '' };
+      })
+    }));
+  };
+
+  const setExtensionMessage = (spaceId: string, memberId: string, message: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m =>
+        m.userId === memberId ? { ...m, extensionMessage: message } : m
+      )
+    }));
+  };
+
+
   const addAuditLog = (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => {
     saveSpaceUpdate(spaceId, space => {
       const newLog: AuditRecord = {
@@ -1105,7 +1158,11 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   return (
     <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
-      updateMemberPermissions, updateSharesBulk,
+      updateMemberPermissions,
+      sendMessageToMember,
+      markMessageRead,
+      approveExtension,
+      setExtensionMessage, updateSharesBulk,
         updateMemberStatus,
         migrateGuestToRealUser,
       addComment,

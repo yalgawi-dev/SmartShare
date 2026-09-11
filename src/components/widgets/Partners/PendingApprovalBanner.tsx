@@ -7,12 +7,14 @@ import { getRemainingTimeText } from '../../../utils/partnerUtils';
 import AuthModal from '../../auth/AuthModal';
 
 export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceId: string, inviteToken?: string | null }) {
-  const { spaces, updateMemberStatus, migrateGuestToRealUser } = useSpaces() as any;
+  const { spaces, updateMemberStatus, migrateGuestToRealUser, setExtensionMessage } = useSpaces() as any;
   const { user, loginWithGoogle, loginWithFacebook, loginWithApple } = useAuth();
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDisputing, setIsDisputing] = useState(false);
   const [disputeText, setDisputeText] = useState('');
+  const [extensionText, setExtensionText] = useState('');
+  const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
   const [remainingText, setRemainingText] = useState('');
 
@@ -201,14 +203,30 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
 
       {currentMember.status !== 'extension_requested' && (
         isExpired ? (
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-            <button 
-              onClick={handleRequestExtension}
-              style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(245,158,11,0.2)' }}
-            >
-              בקש הארכת זמן
-            </button>
-          </div>
+          <>
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+              <button
+                onClick={() => setShowExtensionForm(v => !v)}
+                style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(245,158,11,0.2)' }}
+              >
+                {showExtensionForm ? 'ביטול הבקשה' : 'בקש הארכת זמן'}
+              </button>
+            </div>
+            {showExtensionForm && (
+              <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <textarea
+                  value={extensionText}
+                  onChange={e => setExtensionText(e.target.value)}
+                  placeholder="הסבר קצר מדוע אתה מבקש הארכה (לא חובה)"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #fcd34d', resize: 'none', minHeight: '60px', boxSizing: 'border-box', fontSize: '0.9rem' }}
+                />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button onClick={handleRequestExtension} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}>שלח בקשה</button>
+                  <button onClick={() => setShowExtensionForm(false)} style={{ background: 'transparent', border: '1px solid #fcd34d', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#92400e' }}>ביטול</button>
+                </div>
+              </div>
+            )}
+          </>
         ) : !isDisputing ? (
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
             <button 

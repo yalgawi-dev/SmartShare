@@ -34,6 +34,7 @@ export function FinanceSummary({
   onTriggerTransfer
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
+  const [expandedPartnerId, setExpandedPartnerId] = useState<string | null>(null);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
@@ -337,37 +338,52 @@ export function FinanceSummary({
               <tbody>
                 {balances.filter(b => b.userId !== TREASURY_MEMBER_ID).map((b) => {
                   const isInactive = activePartnersCount === 0 && b.userId !== myId;
-                  const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every(inv => (inv.excludedMembers || []).includes(b.userId));
-                  
+                  const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
+                  const memberObj = space.members?.find((m: any) => m.userId === b.userId);
+                  const unreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
                   return (
-                    <tr key={b.name} style={{ borderBottom: '1px solid var(--border-light)', background: b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1 }}>
-                      <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      <span style={{ color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
-        {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
-      </span>
-      {isExcludedFromPast && (
-        <span style={{ fontSize: "0.7rem", color: "#64748b", marginTop: "0.15rem", display: "inline-flex", alignItems: "center", gap: "0.25rem" }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
-          🛡️ ללא הוצאות עבר
-        </span>
-      )}
-      {(b as any).status === 'pending' && (() => {
-        const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
-        if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
-        return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>ממתין לאישור...</span>;
-      })()}
-      {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
-      {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>בקשת הארכה</span>}
-    </div>
-  </td>
-                      <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
-                      <td style={{ padding: '0.75rem' }}>₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                      {hasPartners && (
-                      <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
-                        <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
-                        {b.balance > 0 ? '+' : ''}₪{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
-                      </td>
-                    )}</tr>
+                    <React.Fragment key={b.userId || b.name}>
+                      <tr
+                        onClick={() => isCreatorMe && b.isMember && !b.isCreator ? setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId) : undefined}
+                        style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe && b.isMember && !b.isCreator ? 'pointer' : 'default', transition: 'background 0.15s' }}>
+                        <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
+                              {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                              {unreadCount > 0 && <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'50%', width:'16px', height:'16px', fontSize:'0.6rem', fontWeight:'bold', flexShrink:0 }}>{unreadCount}</span>}
+                              {(b as any).status === 'extension_requested' && <span style={{fontSize:'0.75rem'}}>🔔</span>}
+                            </span>
+                            {isExcludedFromPast && (
+                              <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
+                                🛡️ ללא הוצאות עבר
+                              </span>
+                            )}
+                            {(b as any).status === 'pending' && (() => {
+                              const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
+                              if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
+                              return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>ממתין לאישור...</span>;
+                            })()}
+                            {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
+                            {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
+                          </div>
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
+                        <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                        {hasPartners && (
+                          <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                            <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
+                            {b.balance > 0 ? '+' : ''}{'₪'}{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                          </td>
+                        )}
+                      </tr>
+                      {isCreatorMe && expandedPartnerId === b.userId && memberObj && (
+                        <PartnerControlPanel
+                          member={memberObj}
+                          space={space}
+                          onClose={() => setExpandedPartnerId(null)}
+                        />
+                      )}
+                    </React.Fragment>
                   )
                 })}
               </tbody>

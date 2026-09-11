@@ -92,10 +92,16 @@ export default function WelcomeGate({
   }, [spaceId, isCreatorOfThisSpace, resolvedToken, isAlreadyWelcomedOrActive]);
 
   useEffect(() => {
-    if (currentMember?.name && currentMember.name !== 'שותף מוזמן' && !guestName) {
+    // Priority: auth realName > currentMember name
+    const PLACEHOLDERS = ['אורח', 'אורח אנונימי', 'Guest', 'שותף מוזמן'];
+    const authName = (user?.realName && !PLACEHOLDERS.includes(user.realName)) ? user.realName
+      : (user?.nickname && !PLACEHOLDERS.includes(user.nickname)) ? user.nickname : '';
+    if (authName && !guestName) {
+      setGuestName(authName);
+    } else if (currentMember?.name && currentMember.name !== 'שותף מוזמן' && !guestName) {
       setGuestName(currentMember.name);
     }
-  }, [currentMember?.name, guestName]);
+  }, [currentMember?.name, guestName, user?.realName, user?.nickname]);
 
   if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || !resolvedToken) return null;
 
@@ -206,15 +212,30 @@ export default function WelcomeGate({
           </div>
         )}
 
+        {/* If user has a real name from Google/Facebook, show it as a read-only confirmation. Otherwise show editable field */}
         <div style={{ marginBottom: '1.5rem', textAlign: 'right' }}>
-          <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#334155' }}>איך קוראים לך?</label>
-          <input 
-            type="text" 
-            value={guestName}
-            onChange={e => setGuestName(e.target.value)}
-            placeholder="הכנס שם מלא או כינוי"
-            style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '1.1rem', boxSizing: 'border-box' }}
-          />
+          {guestName && !['אורח', 'אורח אנונימי', 'Guest', 'שותף מוזמן'].includes(guestName) ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f0fdf4', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #86efac' }}>
+              <span style={{ fontSize: '1.5rem' }}>✅</span>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '0.8rem', color: '#166534' }}>תופיע בשם:</div>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#166534' }}>{guestName}</div>
+              </div>
+              <button onClick={() => setGuestName('')} style={{ marginRight: 'auto', background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}>שנה שם</button>
+            </div>
+          ) : (
+            <>
+              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#334155' }}>איך קוראים לך?</label>
+              <input
+                type="text"
+                value={guestName}
+                onChange={e => setGuestName(e.target.value)}
+                placeholder="הכנס שם מלא או כינוי"
+                style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '1.1rem', boxSizing: 'border-box' }}
+                autoFocus
+              />
+            </>
+          )}
         </div>
 
         <button 
