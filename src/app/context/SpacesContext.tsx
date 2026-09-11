@@ -403,6 +403,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     const newSpace: Omit<Space, 'mediaItems'> = {
       ...spaceData,
       id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
       updatedAt: 'נוצר הרגע',
       settings: defaultSettings,
       invoices: [],

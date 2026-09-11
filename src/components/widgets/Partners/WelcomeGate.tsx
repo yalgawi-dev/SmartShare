@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -16,6 +16,7 @@ export default function WelcomeGate({
   const [showGate, setShowGate] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [mounted, setMounted] = useState(false);
+  const submittedRef = useRef(false); // prevents re-open after submit
 
   useEffect(() => {
     setMounted(true);
@@ -83,7 +84,7 @@ export default function WelcomeGate({
       setGuestName(nameParam);
     }
 
-    if (isAlreadyWelcomedOrActive) {
+    if (isAlreadyWelcomedOrActive || submittedRef.current) {
       setShowGate(false);
     } else {
       setShowGate(true);
@@ -156,6 +157,7 @@ export default function WelcomeGate({
       } catch (e) {}
     }
     
+    submittedRef.current = true;
     setShowGate(false);
   };
 

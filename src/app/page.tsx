@@ -222,7 +222,7 @@ export default function Dashboard() {
               }}
               style={{
                 position: 'absolute',
-                top: '1rem',
+                bottom: '1rem',
                 left: '1rem',
                 zIndex: 10,
                 background: 'rgba(239, 68, 68, 0.1)',
