@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import ContactSelector, { SelectedContact } from '../../common/ContactSelector';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 
@@ -13,8 +12,7 @@ export function PartnersInviteModal({
   onClose: () => void;
 }) {
   const { } = useSpaces();
-  const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
-  const partnerName = selectedContact ? selectedContact.name : '';
+  const [partnerName, setPartnerName] = useState('');
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
   const [customShare, setCustomShare] = useState('10');
@@ -180,7 +178,18 @@ export function PartnersInviteModal({
 
         {/* Partner Name (Optional) */}
         <div>
-          
+          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.35rem' }}>
+            שם השותף (אופציונלי):
+          </label>
+          <input 
+            type="text" 
+            placeholder="למשל: תומר, דנה, שותף 2..." 
+            value={partnerName}
+            onChange={e => setPartnerName(e.target.value)}
+            onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+            onClick={e => (e.target as HTMLInputElement).select()}
+            style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', boxSizing: 'border-box' }}
+          />
         </div>
 
         {/* Allocation Modes */}
