@@ -138,7 +138,7 @@ export default function WelcomeGate({
       finalName, 
       isRetroParam, 
       resolvedToken, 
-      shareParam ? Number(shareParam) : (currentMember?.sharePercentage ?? undefined),
+      currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : (shareParam ? Number(shareParam) : undefined),
       sharesPlan
     );
 
