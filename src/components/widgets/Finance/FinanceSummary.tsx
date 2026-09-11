@@ -1,4 +1,4 @@
-import PartnerControlPanel from './PartnerControlPanel';
+import PartnerControlPanel from '../Partners/PartnerControlPanel';
 import React, { useState, useEffect } from 'react';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
