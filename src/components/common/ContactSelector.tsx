@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
@@ -6,7 +6,7 @@ import { useAuth } from '../../app/context/AuthContext';
 export interface SelectedContact {
   name: string;
   phone: string;
-  userId?: string; // If registered in DB
+  userId?: string;
 }
 
 interface ContactSelectorProps {
@@ -14,7 +14,7 @@ interface ContactSelectorProps {
   title?: string;
 }
 
-export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ ׳™׳© ׳§׳©׳¨' }: ContactSelectorProps) {
+export default function ContactSelector({ onSelect, title = 'בחר איש קשר' }: ContactSelectorProps) {
   const { user, findUserByPhone } = useAuth();
   const [mode, setMode] = useState<'list' | 'new'>('list');
   const [newName, setNewName] = useState('');
@@ -40,7 +40,7 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
   const handleAddNew = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim() || newPhone.replace(/\D/g, '').length < 9) {
-      alert('׳ ׳ ׳  ׳”׳–׳Ÿ ׳©׳  ׳•׳ž׳¡׳₪׳¨ ׳˜׳œ׳₪׳•׳Ÿ ׳×׳§׳™׳ ׳™׳ ');
+      alert('אנא הזן שם ומספר טלפון תקינים');
       return;
     }
     
@@ -60,8 +60,8 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
   if (isSearching) {
     return (
       <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-        <div style={{ fontSize: '2rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>נŸ”Ž</div>
-        <div>׳‘׳•׳“׳§ ׳ ׳  ׳”׳ž׳¡׳₪׳¨ ׳§׳™׳™׳  ׳‘׳ž׳¢׳¨׳›׳×...</div>
+        <div style={{ fontSize: '2rem', marginBottom: '1rem', animation: 'spin 1s linear infinite' }}>🔍</div>
+        <div>בודק אם המספר קיים במערכת...</div>
       </div>
     );
   }
@@ -74,7 +74,7 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
         <>
           {contacts.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-              {contacts.map(c => (
+              {contacts.map((c: any) => (
                 <button
                   key={c.id}
                   onClick={() => handleSelectExisting(c)}
@@ -85,14 +85,14 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{c.name}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{c.phone || '׳œ׳œ׳  ׳ž׳¡׳₪׳¨'}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{c.phone || 'ללא מספר'}</div>
                   </div>
                 </button>
               ))}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-              ׳ ׳™׳Ÿ ׳œ׳š ׳¢׳“׳™׳™׳Ÿ ׳ ׳ ׳©׳™ ׳§׳©׳¨ ׳©׳ž׳•׳¨׳™׳ 
+              אין לך עדיין אנשי קשר שמורים
             </div>
           )}
           
@@ -100,8 +100,8 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
             onClick={() => setMode('new')}
             style={{ padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
           >
-            <span>נŸ†•</span>
-            ׳”׳–׳ ׳ ׳× ׳ž׳¡׳₪׳¨ ׳—׳“׳©
+            <span>🆕</span>
+            הזמנת מספר חדש
           </button>
         </>
       )}
@@ -110,18 +110,18 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
         <form onSubmit={handleAddNew} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <input
             type="text"
-            placeholder="׳©׳  ׳”׳©׳•׳×׳£"
+            placeholder="שם השותף"
             value={newName}
             onChange={e => setNewName(e.target.value)}
-            style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '1rem' }}
+            style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '1rem', boxSizing: 'border-box' }}
             required
           />
           <input
             type="tel"
-            placeholder="׳ž׳¡׳₪׳¨ ׳˜׳œ׳₪׳•׳Ÿ (׳œ׳“׳•׳’׳ž׳” 050-1234567)"
+            placeholder="מספר טלפון (לדוגמה 050-1234567)"
             value={newPhone}
             onChange={e => setNewPhone(e.target.value)}
-            style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '1rem', direction: 'ltr' }}
+            style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '2px solid #e2e8f0', fontSize: '1rem', direction: 'ltr', boxSizing: 'border-box' }}
             required
           />
           
@@ -131,13 +131,13 @@ export default function ContactSelector({ onSelect, title = '׳‘׳—׳¨ ׳ �
               onClick={() => setMode('list')}
               style={{ flex: 1, padding: '1rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
             >
-              ׳—׳–׳•׳¨ ׳œ׳¨׳©׳™׳ž׳”
+              חזור לרשימה
             </button>
             <button
               type="submit"
               style={{ flex: 2, padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
             >
-              ׳”׳ž׳©׳š
+              המשך
             </button>
           </div>
         </form>
