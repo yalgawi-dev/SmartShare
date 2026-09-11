@@ -34,7 +34,7 @@ export function PartnersInviteModal({
   if (allocationMode === 'from_creator') {
     plannedGuestShare = Number(customShare) || 0;
     plannedCreatorShare = currentCreatorShare - plannedGuestShare;
-    validMembers.forEach(m => {
+    validMembers.forEach((m: any) => {
       plannedPartnerShares[m.userId] = m.shares || 0;
     });
   } else if (allocationMode === 'equal') {
@@ -42,20 +42,20 @@ export function PartnersInviteModal({
     const equalShare = Number((100 / totalPeople).toFixed(1));
     plannedGuestShare = equalShare;
     plannedCreatorShare = equalShare;
-    validMembers.forEach(m => {
+    validMembers.forEach((m: any) => {
       plannedPartnerShares[m.userId] = equalShare;
     });
   } else if (allocationMode === 'proportional') {
     plannedGuestShare = Number(customShare) || 0;
     const remaining = 100 - plannedGuestShare;
     plannedCreatorShare = Number((currentCreatorShare * (remaining / 100)).toFixed(1));
-    validMembers.forEach(m => {
+    validMembers.forEach((m: any) => {
       plannedPartnerShares[m.userId] = Number(((m.shares || 0) * (remaining / 100)).toFixed(1));
     });
   } else {
     // custom mode will just take whatever is in the inputs
     plannedGuestShare = Number(customShare) || 0;
-    validMembers.forEach(m => {
+    validMembers.forEach((m: any) => {
       plannedPartnerShares[m.userId] = m.shares || 0;
     });
   }
