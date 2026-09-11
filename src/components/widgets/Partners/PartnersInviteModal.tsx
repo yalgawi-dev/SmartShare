@@ -180,18 +180,7 @@ export function PartnersInviteModal({
 
         {/* Partner Name (Optional) */}
         <div>
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.35rem' }}>
-            שם השותף (אופציונלי):
-          </label>
-          <input 
-            type="text" 
-            placeholder="למשל: תומר, דנה, שותף 2..." 
-            value={partnerName}
-            onChange={e => setPartnerName(e.target.value)}
-            onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
-            onClick={e => (e.target as HTMLInputElement).select()}
-            style={{ width: '100%', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', boxSizing: 'border-box' }}
-          />
+          
         </div>
 
         {/* Allocation Modes */}
