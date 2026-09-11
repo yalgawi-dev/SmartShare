@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import ContactSelector, { SelectedContact } from '../../common/ContactSelector';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 
@@ -12,7 +13,8 @@ export function PartnersInviteModal({
   onClose: () => void;
 }) {
   const { } = useSpaces();
-  const [partnerName, setPartnerName] = useState('');
+  const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
+  const partnerName = selectedContact ? selectedContact.name : '';
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
   const [customShare, setCustomShare] = useState('10');

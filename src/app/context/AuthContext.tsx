@@ -50,6 +50,8 @@ interface AuthContextType {
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
   deleteUserDoc: (userId: string) => void; // Admin action
   isLoaded: boolean;
+  linkPhoneNumberMock: (phone: string) => Promise<void>;
+  findUserByPhone: (phone: string) => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -69,6 +71,8 @@ const AuthContext = createContext<AuthContextType>({
   toggleAdmin: () => {},
   deleteUserDoc: () => {},
   isLoaded: false,
+    linkPhoneNumberMock: async () => {},
+    findUserByPhone: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -518,6 +522,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  
+  const linkPhoneNumberMock = async (phone: string) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, 'users', user.id);
+      await updateDoc(userRef, { phone });
+      setUser(prev => prev ? { ...prev, phone } : prev);
+      
+      setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, phone } : u));
+    } catch (e) {
+      console.error('Error linking phone:', e);
+      throw e;
+    }
+  };
+
+  const findUserByPhone = async (phone: string): Promise<UserProfile | null> => {
+    try {
+      const q = collection(db, 'users');
+      const snapshot = await getDocs(q);
+      let foundUser = null;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const cleanDbPhone = (data.phone || '').replace(/\D/g, '');
+        const cleanQueryPhone = phone.replace(/\D/g, '');
+        if (cleanDbPhone && cleanDbPhone === cleanQueryPhone) {
+          foundUser = { ...data, id: docSnap.id };
+        }
+      });
+      return foundUser;
+    } catch (e) {
+      console.error('Error finding user by phone:', e);
+      return null;
+    }
+  };
+
+
   const deleteUserDoc = async (userId: string) => {
     if (!user?.isAdmin) return;
     try {
@@ -533,7 +573,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
-      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded 
+      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded, linkPhoneNumberMock, findUserByPhone 
     }}>
       {children}
     </AuthContext.Provider>

@@ -329,7 +329,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.0.52 - שלב 4: מנוע התחשבנויות, הלוואות פנימיות והכנסות עסק (Double-Entry)
+        v5.1.0 - שלב 5: מנוע הזמנות חכם, זיהוי טלפוני (Phone Auth) ומאגר אנשי קשר
       </div>
       {showAuthModal && (
         <AuthModal onClose={() => setShowAuthModal(false)} />
