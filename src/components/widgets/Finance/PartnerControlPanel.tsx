@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -10,13 +10,42 @@ interface Props {
   onClose: () => void;
 }
 
+const formatDateSafe = (d: any) => {
+  if (!d) return '';
+  try {
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? '' : dt.toLocaleDateString('he-IL');
+  } catch (e) {
+    return '';
+  }
+};
+
+const formatTimeSafe = (d: any) => {
+  if (!d) return '';
+  try {
+    const dt = new Date(d);
+    return isNaN(dt.getTime()) ? '' : dt.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  } catch (e) {
+    return '';
+  }
+};
+
 export default function PartnerControlPanel({ member, space, onClose }: Props) {
   const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
   const [showMsgField, setShowMsgField] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (typeof document === 'undefined') return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || typeof document === 'undefined' || !member || !space) return null;
+
+  const memberName = member?.name || 'שותף';
+  const memberStatus = member?.status || 'active';
+  const joinedDateText = formatDateSafe(member?.joinedAt);
 
   const handleApproveExtension = () => {
     approveExtension(space.id, member.userId);
@@ -24,14 +53,14 @@ export default function PartnerControlPanel({ member, space, onClose }: Props) {
   };
 
   const handleResetStatus = () => {
-    if (confirm(`לאפס את סטטוס "${member.name}" לממתין?`)) {
+    if (confirm(`לאפס את סטטוס "${memberName}" לממתין?`)) {
       updateMemberStatus(space.id, member.userId, 'pending');
       onClose();
     }
   };
 
   const handleRemove = () => {
-    if (confirm(`להסיר את "${member.name}" מהמרחב?`)) {
+    if (confirm(`להסיר את "${memberName}" מהמרחב?`)) {
       removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
       onClose();
     }
@@ -45,10 +74,10 @@ export default function PartnerControlPanel({ member, space, onClose }: Props) {
   };
 
   const handleMarkRead = (msgId: string) => {
-    markMessageRead(space.id, member.userId, msgId);
+    if (msgId) markMessageRead(space.id, member.userId, msgId);
   };
 
-  const unreadCount = (member.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
+  const unreadCount = (member?.messages || []).filter((m: any) => m?.from === 'partner' && !m?.readAt).length;
 
   const statusLabel: Record<string, string> = {
     active: '✅ פעיל',
@@ -62,125 +91,179 @@ export default function PartnerControlPanel({ member, space, onClose }: Props) {
       {/* Overlay */}
       <div
         onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 9000 }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          zIndex: 99998,
+          backdropFilter: 'blur(2px)'
+        }}
       />
-      {/* Bottom Sheet */}
-      <div style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9001,
-        background: 'var(--bg-card, white)',
-        borderRadius: '24px 24px 0 0',
-        padding: '1.5rem',
-        boxShadow: '0 -8px 40px rgba(0,0,0,0.2)',
-        maxHeight: '80vh',
-        overflowY: 'auto',
-        animation: 'slideUp 0.25s ease-out',
-        direction: 'rtl'
-      }}>
-        <style>{`
-          @keyframes slideUp {
-            from { transform: translateY(100%); opacity: 0; }
-            to   { transform: translateY(0);    opacity: 1; }
-          }
-        `}</style>
-
+      {/* Bottom Sheet Modal */}
+      <div
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 99999,
+          background: '#ffffff',
+          color: '#0f172a',
+          borderRadius: '24px 24px 0 0',
+          padding: '1.5rem',
+          boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
+          maxHeight: '85vh',
+          overflowY: 'auto',
+          direction: 'rtl',
+          fontFamily: 'inherit'
+        }}
+      >
         {/* Handle bar */}
-        <div style={{ width: '40px', height: '4px', background: '#e2e8f0', borderRadius: '2px', margin: '0 auto 1.25rem auto' }} />
+        <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '2px', margin: '0 auto 1.25rem auto' }} />
 
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
           <div>
-            <div style={{ fontWeight: 'bold', fontSize: '1.15rem' }}>🧑‍💼 {member.name}</div>
-            <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.2rem' }}>
-              {statusLabel[member.status] || member.status}
-              {member.joinedAt && ` · הצטרף: ${new Date(member.joinedAt).toLocaleDateString('he-IL')}`}
+            <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>🧑‍💼 {memberName}</div>
+            <div style={{ fontSize: '0.825rem', color: '#64748b', marginTop: '0.2rem' }}>
+              {statusLabel[memberStatus] || memberStatus}
+              {joinedDateText && ` · הצטרף: ${joinedDateText}`}
             </div>
           </div>
-          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+          <button
+            onClick={onClose}
+            style={{
+              background: '#f1f5f9',
+              border: 'none',
+              borderRadius: '50%',
+              width: '36px',
+              height: '36px',
+              cursor: 'pointer',
+              fontSize: '1.1rem',
+              color: '#64748b',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontWeight: 'bold'
+            }}
+          >
+            ✕
+          </button>
         </div>
 
         {/* Alerts */}
-        {member.extensionMessage && (
-          <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '10px', padding: '0.6rem 0.8rem', fontSize: '0.85rem', color: '#92400e', marginBottom: '0.75rem' }}>
+        {member?.extensionMessage && (
+          <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#92400e', marginBottom: '0.75rem' }}>
             💬 הסבר מהשותף: <strong>{member.extensionMessage}</strong>
           </div>
         )}
-        {member.disputeMessage && (
-          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '0.6rem 0.8rem', fontSize: '0.85rem', color: '#991b1b', marginBottom: '0.75rem' }}>
+        {member?.disputeMessage && (
+          <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.9rem', color: '#991b1b', marginBottom: '0.75rem' }}>
             ⚠️ מחלוקת: <strong>{member.disputeMessage}</strong>
           </div>
         )}
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
-          {member.status === 'extension_requested' && (
-            <button onClick={handleApproveExtension} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.25rem' }}>
+          {memberStatus === 'extension_requested' && (
+            <button
+              onClick={handleApproveExtension}
+              style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right', boxShadow: '0 2px 8px rgba(16,185,129,0.2)' }}
+            >
               ✅ אשר הארכת זמן לשותף
             </button>
           )}
-          {(member.status === 'disputed' || member.status === 'extension_requested') && (
-            <button onClick={handleResetStatus} style={{ background: '#6366f1', color: 'white', border: 'none', padding: '0.75rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
+          {(memberStatus === 'disputed' || memberStatus === 'extension_requested') && (
+            <button
+              onClick={handleResetStatus}
+              style={{ background: '#6366f1', color: '#ffffff', border: 'none', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right', boxShadow: '0 2px 8px rgba(99,102,241,0.2)' }}
+            >
               🔄 אפס סטטוס לממתין
             </button>
           )}
           <button
             onClick={() => setShowMsgField(v => !v)}
-            style={{ background: showMsgField ? '#e0e7ff' : '#f8fafc', color: '#4f46e5', border: '1px solid #c7d2fe', padding: '0.75rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            style={{ background: showMsgField ? '#e0e7ff' : '#f8fafc', color: '#4f46e5', border: '1px solid #c7d2fe', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
           >
             <span>✉️ שלח הודעה לשותף</span>
-            {unreadCount > 0 && <span style={{ background: '#ef4444', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>{unreadCount}</span>}
+            {unreadCount > 0 && (
+              <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                {unreadCount}
+              </span>
+            )}
           </button>
-          <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.75rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}>
+          <button
+            onClick={handleRemove}
+            style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.85rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', textAlign: 'right' }}
+          >
             🗑️ הסר שותף מהמרחב
           </button>
         </div>
 
         {/* Message Field */}
         {showMsgField && (
-          <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '0.75rem', marginBottom: '1rem', border: '1px solid #e2e8f0' }}>
+          <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '1rem', marginBottom: '1.25rem', border: '1px solid #e2e8f0' }}>
             <textarea
               value={messageText}
               onChange={e => setMessageText(e.target.value)}
               placeholder="כתוב הודעה לשותף..."
               rows={3}
-              style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #c7d2fe', resize: 'none', boxSizing: 'border-box', fontSize: '0.9rem', direction: 'rtl' }}
+              style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', resize: 'none', boxSizing: 'border-box', fontSize: '0.95rem', direction: 'rtl', fontFamily: 'inherit' }}
             />
-            <button onClick={handleSendMessage} disabled={!messageText.trim()} style={{ marginTop: '0.5rem', background: '#4f46e5', color: 'white', border: 'none', padding: '0.5rem 1.25rem', borderRadius: '8px', cursor: messageText.trim() ? 'pointer' : 'not-allowed', opacity: messageText.trim() ? 1 : 0.5, fontWeight: 'bold', float: 'left' }}>
+            <button
+              onClick={handleSendMessage}
+              disabled={!messageText.trim()}
+              style={{ marginTop: '0.6rem', background: '#4f46e5', color: '#ffffff', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', cursor: messageText.trim() ? 'pointer' : 'not-allowed', opacity: messageText.trim() ? 1 : 0.5, fontWeight: 'bold', float: 'left' }}
+            >
               שלח ←
             </button>
           </div>
         )}
 
         {/* Message Thread */}
-        {(member.messages || []).length > 0 && (
+        {(member?.messages || []).length > 0 && (
           <div>
-            <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.5rem' }}>📨 היסטוריית הודעות</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '200px', overflowY: 'auto' }}>
-              {[...(member.messages || [])].reverse().map((msg: any) => (
-                <div
-                  key={msg.id}
-                  onClick={() => msg.from === 'partner' && !msg.readAt && handleMarkRead(msg.id)}
-                  style={{
-                    background: msg.from === 'creator' ? '#e0e7ff' : (msg.readAt ? '#f1f5f9' : '#fef3c7'),
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '10px',
-                    fontSize: '0.85rem',
-                    color: msg.from === 'creator' ? '#3730a3' : (msg.readAt ? '#475569' : '#92400e'),
-                    border: msg.from === 'partner' && !msg.readAt ? '1px solid #fcd34d' : 'none',
-                    cursor: msg.from === 'partner' && !msg.readAt ? 'pointer' : 'default',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'flex-start',
-                    gap: '0.5rem'
-                  }}
-                >
-                  <div>
-                    <span style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>{msg.from === 'creator' ? '👤 אתה' : `👤 ${member.name}`}:</span>{' '}
-                    {msg.text}
-                    {msg.from === 'partner' && !msg.readAt && <span style={{ background: '#ef4444', color: 'white', borderRadius: '4px', padding: '0 4px', fontSize: '0.65rem', marginRight: '4px' }}>חדש</span>}
+            <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.6rem' }}>📨 היסטוריית הודעות</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '220px', overflowY: 'auto' }}>
+              {[...(member.messages || [])].reverse().map((msg: any) => {
+                if (!msg) return null;
+                const isCreatorMsg = msg.from === 'creator';
+                const isUnreadPartnerMsg = msg.from === 'partner' && !msg.readAt;
+                const timeStr = formatTimeSafe(msg.createdAt);
+                return (
+                  <div
+                    key={msg.id || Math.random()}
+                    onClick={() => isUnreadPartnerMsg && handleMarkRead(msg.id)}
+                    style={{
+                      background: isCreatorMsg ? '#e0e7ff' : isUnreadPartnerMsg ? '#fef3c7' : '#f1f5f9',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '12px',
+                      fontSize: '0.875rem',
+                      color: isCreatorMsg ? '#3730a3' : isUnreadPartnerMsg ? '#92400e' : '#334155',
+                      border: isUnreadPartnerMsg ? '1px solid #fcd34d' : 'none',
+                      cursor: isUnreadPartnerMsg ? 'pointer' : 'default',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      gap: '0.5rem'
+                    }}
+                  >
+                    <div>
+                      <span style={{ fontWeight: 'bold', fontSize: '0.75rem' }}>{isCreatorMsg ? '👤 אתה' : `👤 ${memberName}`}:</span>{' '}
+                      {msg.text || ''}
+                      {isUnreadPartnerMsg && (
+                        <span style={{ background: '#ef4444', color: '#ffffff', borderRadius: '4px', padding: '0 5px', fontSize: '0.65rem', marginRight: '6px', fontWeight: 'bold' }}>
+                          חדש
+                        </span>
+                      )}
+                    </div>
+                    {timeStr && <span style={{ fontSize: '0.7rem', color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>{timeStr}</span>}
                   </div>
-                  <span style={{ fontSize: '0.7rem', color: '#94a3b8', whiteSpace: 'nowrap', flexShrink: 0 }}>{new Date(msg.createdAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
