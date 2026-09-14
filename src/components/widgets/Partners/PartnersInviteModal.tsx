@@ -118,10 +118,10 @@ export function PartnersInviteModal({
 
   const isBalanced = Math.abs(totalCalculated - 100) < 0.2;
 
-  const handleCreateInvite = async () => {
+  const handleGenerateLink = async (contactName?: string) => {
     if (!isBalanced) {
       alert('סך כל האחוזים חייב להגיע בדיוק ל-100% לפני יצירת ההזמנה');
-      return;
+      return null;
     }
 
     const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
@@ -131,8 +131,8 @@ export function PartnersInviteModal({
     url.searchParams.set('invite', shadowToken);
     url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
     url.searchParams.set('share', plannedGuestShare.toString());
-    if (partnerName.trim()) {
-      url.searchParams.set('name', partnerName.trim());
+    if (contactName) {
+      url.searchParams.set('name', contactName.trim());
     }
     url.searchParams.set('plan', JSON.stringify({
       creator: plannedCreatorShare,
@@ -142,35 +142,49 @@ export function PartnersInviteModal({
 
     await createPendingInvite(space.id, {
       shadowToken,
-      name: partnerName,
+      name: contactName || '',
       isRetroactive,
       guestShare: plannedGuestShare,
       creatorShare: plannedCreatorShare,
       partnerShares: plannedPartnerShares
     });
 
-    const shareTitle = 'הזמנה לפרויקט ' + space.title;
-    const shareText = `היי! צירפתי אותך לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}`;
+    return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: `היי! צירפתי אותך לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` };
+  };
 
-    if (selectedContact && selectedContact.phone) {
-      const whatsappUrl = `https://wa.me/${selectedContact.phone.replace(/\D/g, '')}?text=${encodeURIComponent(shareText)}`;
-      window.open(whatsappUrl, '_blank');
-    } else if (navigator.share) {
+  const handleContactSelect = async (contact: SelectedContact) => {
+    const data = await handleGenerateLink(contact.name);
+    if (!data) return;
+    const whatsappUrl = `https://wa.me/${contact.phone.replace(/\D/g, '')}?text=${encodeURIComponent(data.shareText)}`;
+    window.open(whatsappUrl, '_blank');
+    onClose();
+  };
+
+  const handleNativeShare = async () => {
+    const data = await handleGenerateLink();
+    if (!data) return;
+    if (navigator.share) {
       try {
         await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: link,
+          title: data.shareTitle,
+          text: data.shareText,
+          url: data.link,
         });
       } catch (err) {
         console.error('Error sharing:', err);
       }
     } else {
-      navigator.clipboard.writeText(link);
-      alert('הקישור הועתק ללוח! שתף אותו עם השותף.');
+      handleCopy();
     }
-    
     onClose();
+  };
+
+  const handleCopy = async () => {
+    const data = await handleGenerateLink();
+    if (!data) return;
+    navigator.clipboard.writeText(data.link);
+    setCopied(true);
+    setTimeout(() => { setCopied(false); onClose(); }, 1500);
   };
 
   return createPortal(
