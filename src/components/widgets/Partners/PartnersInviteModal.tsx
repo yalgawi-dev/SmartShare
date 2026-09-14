@@ -13,8 +13,8 @@ export function PartnersInviteModal({
   onClose: () => void;
 }) {
   const { createPendingInvite } = useSpaces();
-  const [selectedContact, setSelectedContact] = useState<SelectedContact | null>(null);
-  const partnerName = selectedContact ? selectedContact.name : '';
+  const [copied, setCopied] = useState(false);
+  const partnerName = '';
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
   const [customShare, setCustomShare] = useState('10');
@@ -189,20 +189,6 @@ export function PartnersInviteModal({
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
-
-        {!selectedContact ? (
-          <ContactSelector onSelect={setSelectedContact} title="בחר שותף להזמנה:" />
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <div style={{ padding: '1rem', background: '#eff6ff', borderRadius: '12px', border: '1px solid #bfdbfe', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <div style={{ fontSize: '0.85rem', color: '#3b82f6', fontWeight: 'bold', marginBottom: '0.2rem' }}>שותף מוזמן:</div>
-                <div style={{ color: '#1e3a8a', fontWeight: 'bold', fontSize: '1.1rem' }}>{selectedContact.name} ({selectedContact.phone || 'ללא מספר'})</div>
-              </div>
-              <button onClick={() => setSelectedContact(null)} style={{ background: 'white', border: '1px solid #bfdbfe', color: '#3b82f6', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
-                שנה
-              </button>
-            </div>
 
         {/* Allocation Modes */}
         <div>
@@ -414,31 +400,27 @@ export function PartnersInviteModal({
         )}
 
         {/* Submit / Share Button */}
-        <button 
-          onClick={handleCreateInvite}
-          disabled={!isBalanced}
-          style={{ 
-            background: isBalanced ? 'var(--primary, #3b82f6)' : '#94a3b8', 
-            color: 'white', 
-            padding: '0.85rem', 
-            borderRadius: '999px', 
-            border: 'none', 
-            fontWeight: 'bold', 
-            fontSize: '1rem', 
-            cursor: isBalanced ? 'pointer' : 'not-allowed', 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            boxShadow: isBalanced ? '0 4px 10px rgba(59, 130, 246, 0.3)' : 'none',
-            transition: 'all 0.2s'
-          }}
-        >
-          <span>💬</span>
-          צור הזמנה ושתף (WhatsApp)
-          </button>
+        <div style={{ borderTop: '2px solid #f1f5f9', paddingTop: '1.25rem', marginTop: '0.5rem' }}>
+          <div style={{ marginBottom: '1.5rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
+            <ContactSelector onSelect={handleContactSelect} title="בחר איש קשר להזמנה בווטסאפ:" />
           </div>
-        )}
+
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
+            <div style={{ fontSize: '0.85rem', color: '#64748b', textAlign: 'center' }}>או שתף קישור כללי:</div>
+            
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              { typeof navigator !== 'undefined' && 'share' in navigator && (
+                <button onClick={handleNativeShare} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--primary, #3b82f6)', color: 'white', padding: '1rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                  שתף
+                </button>
+              )}
+              <button onClick={handleCopy} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#f8fafc', color: '#0f172a', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                {copied ? '✓ הועתק!' : '🔗 העתק קישור'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>,
     document.body
