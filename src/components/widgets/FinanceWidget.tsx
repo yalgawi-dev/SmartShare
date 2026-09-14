@@ -319,18 +319,36 @@ const runOcrPipeline = async (imgUrl: string) => {
       if (targetId === 'me') targetId = user?.id || 'me';
     }
 
-    const finalApprovalsNeeded = isTransfer ? 1 : expenseApprovalsNeeded;
-    const finalApprovalsReceived = isTransfer ? 0 : (finalApprovalsNeeded > 0 ? myApproval : 0);
-    const finalStatus = isTransfer ? 'pending' : (finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending'));
+    let finalApprovalsNeeded = expenseApprovalsNeeded;
+    let finalApprovalsReceived = finalApprovalsNeeded > 0 ? myApproval : 0;
+    let finalStatus = finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending');
+    let finalApprovedBy = user?.id ? [user.id] : [];
+
+    if (isTransfer) {
+      finalApprovalsNeeded = 1;
+      
+      // If the person receiving the money is the one logging it, it's auto-approved.
+      // Alternatively, if the Creator logs it, we can auto-approve it to avoid friction with offline partners.
+      if (targetId === user?.id || targetId === myEffectiveId || isCreatorMe) {
+        finalApprovalsReceived = 1;
+        finalStatus = 'approved';
+        finalApprovedBy = user?.id ? [user.id] : (myEffectiveId ? [myEffectiveId] : []);
+      } else {
+        // I am the payer, and I am not the creator. The receiver must approve.
+        finalApprovalsReceived = 0;
+        finalStatus = 'pending';
+        finalApprovedBy = [];
+      }
+    }
 
     const newInvoice: any = {
       type: isIncome ? 'income' : (isTransfer ? 'transfer' : 'expense'),
       amount,
-        isCredit,
-        isStoreCredit,
-        supplier,
-        clientName,
-        category,
+      isCredit,
+      isStoreCredit,
+      supplier,
+      clientName,
+      category,
       payerName,
       date,
       createdAt: new Date().toISOString(),
@@ -341,7 +359,7 @@ const runOcrPipeline = async (imgUrl: string) => {
       documentType,
       approvalsNeeded: finalApprovalsNeeded,
       approvalsReceived: finalApprovalsReceived,
-      approvedBy: isTransfer ? [] : (user?.id ? [user.id] : []),
+      approvedBy: finalApprovedBy,
       vatRate: space.settings?.defaultVatRate || 18,
       hasAttachment: !!finalAttachmentUrl,
       payerId: payerId

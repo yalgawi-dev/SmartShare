@@ -134,9 +134,12 @@ export function FinanceTransactions({
   const calculateCanApprove = (inv: any) => {
     if (inv.status !== 'pending') return false;
     if (inv.type === 'transfer') {
-      return inv.targetId === user?.id || inv.targetId === 'me';
+      if (inv.targetId === user?.id || inv.targetId === myEffectiveId) return true;
+      if (isCreatorMe) return true;
+      return false;
     }
-    return (inv.payerId !== user?.id && inv.payerId !== 'me' && !(inv.approvedBy || []).includes(user?.id));
+    if (isCreatorMe) return true;
+    return (inv.payerId !== user?.id && inv.payerId !== myEffectiveId && !(inv.approvedBy || []).includes(user?.id) && !(inv.approvedBy || []).includes(myEffectiveId));
   };
 
   const getPendingApproversText = (inv: any) => {
