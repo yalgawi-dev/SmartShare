@@ -119,15 +119,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     if (typeof window !== 'undefined') window.addEventListener('smartshare_new_key', handleNewKey);
 
-    getRedirectResult(auth)
-      .then(res => { 
-        if (res && res.user) { 
-          console.log('Redirect result:', res.user); 
-          syncProviderData(res.user); 
-        } 
-      })
-      .catch(async (err: any) => { 
-        console.error('Redirect Error:', err); 
+    // Process any pending Google redirect result FIRST, before setting up the auth state listener.
+    // This prevents the race condition where:
+    // 1. Redirect returns → Firebase emits auth state change with new user
+    // 2. But we also try to sign in anonymously because the user appears null momentarily
+    let redirectProcessed = false;
+    
+    const initAuth = async () => {
+      try {
+        const res = await getRedirectResult(auth);
+        if (res && res.user) {
+          console.log('Redirect result (Google):', res.user.displayName || res.user.uid);
+          // onAuthStateChanged will fire immediately after with the correct user
+          // We just need to ensure syncProviderData is called
+          redirectProcessed = true;
+        }
+      } catch (err: any) {
+        console.error('Redirect Error:', err);
         if (err.code === 'auth/credential-already-in-use') {
           try {
             const { signInWithCredential, GoogleAuthProvider } = await import('firebase/auth');
@@ -135,24 +143,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (credential) {
               const res = await signInWithCredential(auth, credential);
               if (res && res.user) {
-                console.log('Fallback sign-in result:', res.user);
-                syncProviderData(res.user);
+                console.log('Fallback sign-in result:', res.user.displayName);
+                redirectProcessed = true;
               }
             }
           } catch (fallbackErr) {
             console.error('Fallback sign in failed', fallbackErr);
           }
         }
-      });
+      }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (!firebaseUser) {
-        // Sign in anonymously if no user is found
-        try {
-          await signInAnonymously(auth);
-        } catch (error) {
-          console.error("Firebase Anonymous Auth Error:", error);
-        }
+      const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+        if (!firebaseUser) {
+          // Only sign in anonymously if we didn't just process a redirect
+          if (!redirectProcessed) {
+            try {
+              await signInAnonymously(auth);
+            } catch (error) {
+              console.error("Firebase Anonymous Auth Error:", error);
+            }
+          }
       } else {
         // We have a firebase user, check Firestore for their profile
         try {
@@ -224,7 +234,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
               email: bestEmail || legacyLocalUser?.email || '',
               nickname: legacyLocalUser?.nickname || (bestName ? bestName.split(' ')[0] : ''),
-              avatarUrl: bestPhoto || null,
+              avatarUrl: bestPhoto || undefined,
               status: legacyLocalUser?.status || 'hidden',
               contacts: legacyLocalUser?.contacts || [],
               isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
@@ -272,6 +282,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe();
       if (typeof window !== 'undefined') window.removeEventListener('smartshare_new_key', handleNewKey);
     };
+  };
+
+    initAuth();
   }, []);
 
   const syncProviderData = async (firebaseUser: any, forcedName?: string) => {
