@@ -113,7 +113,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const statusLabel: Record<string, string> = {
     active: '✅ פעיל',
-    pending: '⏳ ממתין לאישור',
+    pending: member?.welcomed ? '⏳ ממתין שיאשר' : '✉️ הזמנה נשלחה (טרם הצטרף)',
     extension_requested: '🔔 מבקש הארכה',
     disputed: '⚠️ במחלוקת',
   };
