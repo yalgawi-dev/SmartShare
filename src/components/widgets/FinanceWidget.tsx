@@ -239,7 +239,10 @@ const runOcrPipeline = async (imgUrl: string) => {
     if (inv.isActive === false) return false;
     if (filter === 'all') return true;
     if (filter === 'pending_me') {
-      // Invoices I need to approve = payer is someone else (not me)
+      // Invoices I need to approve
+      if (inv.type === 'transfer') {
+        return inv.status === 'pending' && (inv.targetId === myEffectiveId || inv.targetId === 'me' || inv.targetId === user?.id);
+      }
       return inv.status === 'pending' && inv.payerId !== myEffectiveId && inv.payerId !== 'me';
     }
     if (filter === 'pending_partners') {

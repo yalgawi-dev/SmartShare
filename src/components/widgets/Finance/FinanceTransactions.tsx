@@ -70,6 +70,17 @@ export function FinanceTransactions({
   const onTouchMove = (e: React.TouchEvent) => {
     setTouchEnd(e.targetTouches[0].clientX);
   };
+  const calculateCanApprove = (inv: any) => {
+    if (inv.status !== 'pending') return false;
+    if (inv.type === 'transfer') {
+      if (inv.targetId === user?.id || inv.targetId === myEffectiveId) return true;
+      if (isCreatorMe) return true;
+      return false;
+    }
+    if (isCreatorMe) return true;
+    return (inv.payerId !== user?.id && inv.payerId !== myEffectiveId && !(inv.approvedBy || []).includes(user?.id) && !(inv.approvedBy || []).includes(myEffectiveId));
+  };
+
   const onTouchEndHandler = () => {
     if (!touchStart || !touchEnd) return;
     const distance = touchStart - touchEnd;
@@ -82,7 +93,7 @@ export function FinanceTransactions({
       
 
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me");
+        const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
         const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
 
       if (hasArchive) tabs.push("archive");
@@ -131,16 +142,7 @@ export function FinanceTransactions({
     }
   };
 
-  const calculateCanApprove = (inv: any) => {
-    if (inv.status !== 'pending') return false;
-    if (inv.type === 'transfer') {
-      if (inv.targetId === user?.id || inv.targetId === myEffectiveId) return true;
-      if (isCreatorMe) return true;
-      return false;
-    }
-    if (isCreatorMe) return true;
-    return (inv.payerId !== user?.id && inv.payerId !== myEffectiveId && !(inv.approvedBy || []).includes(user?.id) && !(inv.approvedBy || []).includes(myEffectiveId));
-  };
+
 
   const getPendingApproversText = (inv: any) => {
     if (inv.status !== 'pending') return null;
@@ -179,7 +181,7 @@ export function FinanceTransactions({
       {/* Filter Pills */}
       {(() => {
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = relevantInvoices.some((i: any) => i.status === "pending" && i.payerId !== myEffectiveId && i.payerId !== "me");
+        const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
         const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
         
         
