@@ -440,16 +440,24 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     const spaceToDel = spacesBase.find(s => s.id === spaceId);
     if (!spaceToDel) return;
 
-    const doSoftDelete = () => {
-      saveSpaceUpdate(spaceId, space => {
-        const futureDate = new Date();
-        futureDate.setDate(futureDate.getDate() + 14); // 14 days grace period
-        return {
-          ...space,
+    const doSoftDelete = async () => {
+      const futureDate = new Date();
+      futureDate.setDate(futureDate.getDate() + 14);
+      try {
+        await updateDoc(doc(db, 'spaces', spaceId), {
           status: 'pending_deletion',
           deletionScheduledFor: futureDate.toISOString()
-        };
-      });
+        });
+        // Update local state ONLY on success
+        setSpacesBase(prev => prev.map(s => s.id === spaceId ? { 
+          ...s, 
+          status: 'pending_deletion', 
+          deletionScheduledFor: futureDate.toISOString() 
+        } : s));
+      } catch (e: any) {
+        console.error("Soft delete failed", e);
+        alert("שגיאה במחיקת המרחב (ייתכן שאין לך הרשאות מחיקה): " + (e.message || ""));
+      }
     };
 
     if (!spaceToDel.invoices || spaceToDel.invoices.length === 0) {
@@ -457,11 +465,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         await deleteDoc(doc(db, 'spaces', spaceId));
         setSpacesBase(prev => prev.filter(s => s.id !== spaceId));
       } catch (e) {
-        console.warn("Hard delete failed (likely permissions), falling back to soft delete", e);
-        doSoftDelete();
+        console.warn("Hard delete failed, falling back to soft delete", e);
+        await doSoftDelete();
       }
     } else {
-      doSoftDelete();
+      await doSoftDelete();
     }
   };
 

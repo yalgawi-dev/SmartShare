@@ -127,25 +127,25 @@ export default function Dashboard() {
 
   // Restore scroll position when coming back from a space
   useEffect(() => {
-    if (isSpacesLoaded) {
+    if (isSpacesLoaded && visibleSpaces.length > 0) {
       try {
         const lastVisited = sessionStorage.getItem('lastSpaceVisited');
         if (lastVisited) {
+          // Increase timeout slightly to allow DOM to render the list
           setTimeout(() => {
             const el = document.getElementById(`space-${lastVisited}`);
             if (el) {
               el.scrollIntoView({ behavior: 'auto', block: 'center' });
-              // Optional: Highlight it briefly
               el.style.transition = 'box-shadow 0.5s ease';
               el.style.boxShadow = '0 0 0 2px var(--primary)';
               setTimeout(() => el.style.boxShadow = '', 2000);
+              sessionStorage.removeItem('lastSpaceVisited');
             }
-            sessionStorage.removeItem('lastSpaceVisited');
-          }, 100);
+          }, 200);
         }
       } catch(e) {}
     }
-  }, [isSpacesLoaded, spaces.length]);
+  }, [isSpacesLoaded, visibleSpaces.length]);
 
   return (
     <div className={styles.container}>
