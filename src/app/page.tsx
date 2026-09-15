@@ -125,6 +125,28 @@ export default function Dashboard() {
     }
   }, [visibleSpaces.length]);
 
+  // Restore scroll position when coming back from a space
+  useEffect(() => {
+    if (isSpacesLoaded) {
+      try {
+        const lastVisited = sessionStorage.getItem('lastSpaceVisited');
+        if (lastVisited) {
+          setTimeout(() => {
+            const el = document.getElementById(`space-${lastVisited}`);
+            if (el) {
+              el.scrollIntoView({ behavior: 'auto', block: 'center' });
+              // Optional: Highlight it briefly
+              el.style.transition = 'box-shadow 0.5s ease';
+              el.style.boxShadow = '0 0 0 2px var(--primary)';
+              setTimeout(() => el.style.boxShadow = '', 2000);
+            }
+            sessionStorage.removeItem('lastSpaceVisited');
+          }, 100);
+        }
+      } catch(e) {}
+    }
+  }, [isSpacesLoaded, spaces.length]);
+
   return (
     <div className={styles.container}>
       <header className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem' }}>
@@ -256,6 +278,7 @@ export default function Dashboard() {
               <div 
                 className={`card ${styles.projectCard} glass-panel`}
                 onClick={() => {
+                  try { sessionStorage.setItem('lastSpaceVisited', space.id); } catch(e){}
                   if (showFirstSpaceTip) {
                     try { localStorage.setItem('tutorial_enter_space', '1'); } catch(e){}
                   }
