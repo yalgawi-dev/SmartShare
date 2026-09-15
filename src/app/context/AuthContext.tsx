@@ -119,7 +119,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     if (typeof window !== 'undefined') window.addEventListener('smartshare_new_key', handleNewKey);
 
-    getRedirectResult(auth).then(res => { if (res && res.user) { console.log('Redirect result:', res.user); syncProviderData(res.user); } }).catch(err => console.error('Redirect Error:', err));
+    getRedirectResult(auth)
+      .then(res => { 
+        if (res && res.user) { 
+          console.log('Redirect result:', res.user); 
+          syncProviderData(res.user); 
+        } 
+      })
+      .catch(async (err: any) => { 
+        console.error('Redirect Error:', err); 
+        if (err.code === 'auth/credential-already-in-use') {
+          try {
+            const { signInWithCredential, GoogleAuthProvider } = await import('firebase/auth');
+            const credential = err.credential || GoogleAuthProvider.credentialFromError(err);
+            if (credential) {
+              const res = await signInWithCredential(auth, credential);
+              if (res && res.user) {
+                console.log('Fallback sign-in result:', res.user);
+                syncProviderData(res.user);
+              }
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback sign in failed', fallbackErr);
+          }
+        }
+      });
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
