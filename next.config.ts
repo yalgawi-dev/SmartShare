@@ -15,6 +15,17 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  // Firebase Auth reverse proxy:
+  // Required since mid-2024 browsers block cross-origin iframes used by Firebase redirect flow.
+  // By proxying /__/auth/* through our own domain, Firebase's signInWithRedirect works correctly.
+  async rewrites() {
+    return [
+      {
+        source: '/__/auth/:path*',
+        destination: `https://myspace-da215.firebaseapp.com/__/auth/:path*`,
+      },
+    ];
+  },
 } as any;
 
 export default withPWA(nextConfig);

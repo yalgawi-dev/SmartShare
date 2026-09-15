@@ -7,7 +7,9 @@ import { getStorage } from "firebase/storage";
 // Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || 'dummy',
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'dummy',
+  // Use the custom app domain as authDomain when available (required for redirect-based auth in modern browsers).
+  // This works with the /__/auth/* reverse proxy configured in next.config.ts.
+  authDomain: process.env.NEXT_PUBLIC_AUTH_DOMAIN || process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || 'dummy',
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || 'dummy',
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || 'dummy',
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || 'dummy',
