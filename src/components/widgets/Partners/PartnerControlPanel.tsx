@@ -99,8 +99,8 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   };
 
   const handleRemove = () => {
-    if (confirm(`להסיר את "${memberName}" מהמרחב?`)) {
-      if(typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
+    if (confirm(`להסיר את "${memberName}" לחלוטין מהמרחב (מחיקה מלאה)?`)) {
+      if(typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', true);
       onClose();
     }
   };
