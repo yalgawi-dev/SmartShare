@@ -71,8 +71,8 @@ const AuthContext = createContext<AuthContextType>({
   toggleAdmin: () => {},
   deleteUserDoc: () => {},
   isLoaded: false,
-    linkPhoneNumberMock: async () => {},
-    findUserByPhone: async () => null,
+  linkPhoneNumberMock: async () => {},
+  findUserByPhone: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -104,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!auth.currentUser || auth.currentUser.isAnonymous) return;
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
+      
       const { spaceId, role, token } = detail;
       const userRef = doc(db, 'users', auth.currentUser.uid);
       const userSnap = await getDoc(userRef);
@@ -112,187 +113,142 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const currentKeys = userData.spaceKeys || {};
         currentKeys[spaceId] = { role, token };
         await updateDoc(userRef, { spaceKeys: currentKeys });
+        
         setUser(prev => prev ? { ...prev, spaceKeys: currentKeys } : prev);
       }
     };
     if (typeof window !== 'undefined') window.addEventListener('smartshare_new_key', handleNewKey);
 
-    let unsubscribe: (() => void) | null = null;
+    getRedirectResult(auth).then(res => { if (res && res.user) { console.log('Redirect result:', res.user); syncProviderData(res.user); } }).catch(err => console.error('Redirect Error:', err));
 
-    const handleFirebaseUser = async (firebaseUser: any) => {
-      if (!firebaseUser) return; // anonymous login handled below
-      try {
-        const userRef = doc(db, 'users', firebaseUser.uid);
-        const userSnap = await getDoc(userRef);
-        let activeUser: UserProfile;
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (!firebaseUser) {
+        // Sign in anonymously if no user is found
+        try {
+          await signInAnonymously(auth);
+        } catch (error) {
+          console.error("Firebase Anonymous Auth Error:", error);
+        }
+      } else {
+        // We have a firebase user, check Firestore for their profile
+        try {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
+          
+          let activeUser: UserProfile;
+          
+          if (userSnap.exists()) {
+            activeUser = userSnap.data() as UserProfile;
+            let needsUpdate = false;
+            
+            // Force Admin ONLY for specific emails or phone numbers
+            const shouldBeAdmin = activeUser.phone === '0500000000' || activeUser.email === 'yehuda.algawi@gmail.com';
+            if (activeUser.isAdmin !== shouldBeAdmin && !activeUser.isAdmin) {
+              activeUser.isAdmin = shouldBeAdmin;
+              needsUpdate = true;
+            }
 
-        if (userSnap.exists()) {
-          activeUser = userSnap.data() as UserProfile;
-          let needsUpdate = false;
+            // If they linked a provider (Google/Facebook) but their profile still says 'אורח', update it!
+            if (!firebaseUser.isAnonymous) {
+              const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+              const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+              const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
-          // Force Admin ONLY for specific emails or phone numbers
-          const shouldBeAdmin = activeUser.phone === '0500000000' || activeUser.email === 'yehuda.algawi@gmail.com';
-          if (activeUser.isAdmin !== shouldBeAdmin && !activeUser.isAdmin) {
-            activeUser.isAdmin = shouldBeAdmin;
-            needsUpdate = true;
-          }
+              if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && bestName) {
+                activeUser.realName = bestName;
+                activeUser.nickname = bestName.split(' ')[0];
+                needsUpdate = true;
+              }
+              if (!activeUser.avatarUrl && bestPhoto) {
+                activeUser.avatarUrl = bestPhoto;
+                needsUpdate = true;
+              }
+              if (!activeUser.email && bestEmail) {
+                activeUser.email = bestEmail;
+                needsUpdate = true;
+              }
+            }
 
-          // If they linked a provider (Google/Facebook) update profile from provider data
-          if (!firebaseUser.isAnonymous) {
+            if (needsUpdate) {
+              await updateDoc(userRef, { 
+                isAdmin: activeUser.isAdmin,
+                realName: activeUser.realName,
+                nickname: activeUser.nickname || '',
+                avatarUrl: activeUser.avatarUrl || null,
+                email: activeUser.email || ''
+              });
+            }
+          } else {
+            // Check if there is a local storage user we can migrate (from before the cloud refactor)
+            let legacyLocalUser: UserProfile | undefined;
+            try {
+              const savedUsers = localStorage.getItem('smartshare_users');
+              if (savedUsers) {
+                const parsed = JSON.parse(savedUsers) as UserProfile[];
+                legacyLocalUser = parsed[0];
+              }
+            } catch (e) {}
+            
+            // Create new user profile in Firestore
             const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
             const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
             const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
-
-            if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && bestName) {
-              activeUser.realName = bestName;
-              activeUser.nickname = bestName.split(' ')[0];
-              needsUpdate = true;
-            }
-            if (!activeUser.avatarUrl && bestPhoto) {
-              activeUser.avatarUrl = bestPhoto;
-              needsUpdate = true;
-            }
-            if (!activeUser.email && bestEmail) {
-              activeUser.email = bestEmail;
-              needsUpdate = true;
-            }
+            
+            activeUser = {
+              id: firebaseUser.uid,
+              realName: bestName || legacyLocalUser?.realName || 'אורח',
+              phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
+              email: bestEmail || legacyLocalUser?.email || '',
+              nickname: legacyLocalUser?.nickname || (bestName ? bestName.split(' ')[0] : ''),
+              avatarUrl: bestPhoto || undefined,
+              status: legacyLocalUser?.status || 'hidden',
+              contacts: legacyLocalUser?.contacts || [],
+              isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
+              createdAt: new Date().toISOString(),
+            };
+            await setDoc(userRef, activeUser);
           }
 
-          if (needsUpdate) {
-            await updateDoc(userRef, {
-              isAdmin: activeUser.isAdmin,
-              realName: activeUser.realName,
-              nickname: activeUser.nickname || '',
-              avatarUrl: activeUser.avatarUrl || null,
-              email: activeUser.email || ''
-            });
-          }
-        } else {
-          // New user - create profile
-          let legacyLocalUser: UserProfile | undefined;
-          try {
-            const savedUsers = localStorage.getItem('smartshare_users');
-            if (savedUsers) legacyLocalUser = JSON.parse(savedUsers)[0];
-          } catch (e) {}
-
-          const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
-          const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
-          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
-
-          activeUser = {
-            id: firebaseUser.uid,
-            realName: bestName || legacyLocalUser?.realName || 'אורח',
-            phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
-            email: bestEmail || legacyLocalUser?.email || '',
-            nickname: legacyLocalUser?.nickname || (bestName ? bestName.split(' ')[0] : ''),
-            avatarUrl: bestPhoto || undefined,
-            status: legacyLocalUser?.status || 'hidden',
-            contacts: legacyLocalUser?.contacts || [],
-            isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
-            createdAt: new Date().toISOString(),
-          };
-          await setDoc(userRef, activeUser);
-        }
-
-        // Merge local cache keys into Firestore for authenticated accounts
-        if (typeof window !== 'undefined' && !firebaseUser.isAnonymous) {
-          try {
-            const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-            const localKeys = parsed || {};
-            const currentKeys = activeUser.spaceKeys || {};
-            let keysUpdated = false;
-            Object.keys(localKeys).forEach(spaceId => {
-              if (!currentKeys[spaceId]) {
-                currentKeys[spaceId] = localKeys[spaceId];
-                keysUpdated = true;
-              }
-            });
-            if (keysUpdated) {
-              activeUser.spaceKeys = currentKeys;
-              await updateDoc(userRef, { spaceKeys: currentKeys });
-            }
-          } catch (e) {
-            console.error('Failed to merge local keys', e);
-          }
-        }
-
-        if (!activeUser.isBlocked) {
-          setUser(activeUser);
-        }
-        setIsLoaded(true);
-      } catch (error) {
-        console.error('Auth context error:', error);
-        setIsLoaded(true);
-      }
-    };
-
-    const initAuth = async () => {
-      // Step 1: Process any pending redirect result BEFORE setting up the listener.
-      // This is critical on mobile - avoids race conditions where anonymous login
-      // fires before we recognize the returning Google user.
-      let redirectUser: any = null;
-      try {
-        const res = await getRedirectResult(auth);
-        if (res && res.user) {
-          console.log('[Auth] Google redirect success:', res.user.displayName || res.user.email);
-          redirectUser = res.user;
-        }
-      } catch (err: any) {
-        console.error('[Auth] Redirect error:', err.code, err.message);
-        if (err.code === 'auth/credential-already-in-use') {
-          try {
-            const { signInWithCredential, GoogleAuthProvider } = await import('firebase/auth');
-            const credential = err.credential || GoogleAuthProvider.credentialFromError(err);
-            if (credential) {
-              const res = await signInWithCredential(auth, credential);
-              if (res && res.user) {
-                console.log('[Auth] Fallback signInWithCredential success');
-                redirectUser = res.user;
-              }
-            }
-          } catch (fallbackErr) {
-            console.error('[Auth] Fallback failed', fallbackErr);
-          }
-        }
-      }
-
-      // Step 2: If redirect produced a user, handle them immediately
-      if (redirectUser) {
-        await handleFirebaseUser(redirectUser);
-      }
-
-      // Step 3: Set up persistent auth state listener
-      unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (!firebaseUser) {
-          // Sign in anonymously ONLY if we're not returning from a redirect
-          if (!redirectUser) {
+          // Fundamental Fix: Merge local cache keys into Firebase ONLY for authenticated Google accounts (never leak to anonymous guests)
+          if (typeof window !== 'undefined' && !firebaseUser.isAnonymous) {
             try {
-              await signInAnonymously(auth);
-            } catch (error) {
-              console.error('Firebase Anonymous Auth Error:', error);
+              const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+              const localKeys = parsed || {};
+              const currentKeys = activeUser.spaceKeys || {};
+              let keysUpdated = false;
+              
+              Object.keys(localKeys).forEach(spaceId => {
+                if (!currentKeys[spaceId]) {
+                  currentKeys[spaceId] = localKeys[spaceId];
+                  keysUpdated = true;
+                }
+              });
+              
+              if (keysUpdated) {
+                activeUser.spaceKeys = currentKeys;
+                await updateDoc(userRef, { spaceKeys: currentKeys });
+              }
+            } catch(e) {
+              console.error('Failed to merge local keys', e);
             }
           }
-          return;
+
+          if (!activeUser.isBlocked) {
+            setUser(activeUser);
+          }
+          setIsLoaded(true);
+        } catch (error) {
+          console.error("Auth context error:", error);
+          setIsLoaded(true);
         }
-
-        // Skip if this is the same user we already processed from redirect
-        if (redirectUser && firebaseUser.uid === redirectUser.uid) {
-          console.log('[Auth] Skipping duplicate onAuthStateChanged for redirect user');
-          return;
-        }
-
-        await handleFirebaseUser(firebaseUser);
-      });
-    };
-
-    initAuth();
+      }
+    });
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      unsubscribe();
       if (typeof window !== 'undefined') window.removeEventListener('smartshare_new_key', handleNewKey);
     };
   }, []);
-
 
   const syncProviderData = async (firebaseUser: any, forcedName?: string) => {
     if (!firebaseUser || firebaseUser.isAnonymous) return;
@@ -566,42 +522,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  
-  const linkPhoneNumberMock = async (phone: string) => {
-    if (!user) return;
-    try {
-      const userRef = doc(db, 'users', user.id);
-      await updateDoc(userRef, { phone });
-      setUser(prev => prev ? { ...prev, phone } : prev);
-      
-      setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, phone } : u));
-    } catch (e) {
-      console.error('Error linking phone:', e);
-      throw e;
-    }
-  };
-
-  const findUserByPhone = async (phone: string): Promise<UserProfile | null> => {
-    try {
-      const q = collection(db, 'users');
-      const snapshot = await getDocs(q);
-      let foundUser = null;
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data();
-        const cleanDbPhone = (data.phone || '').replace(/\D/g, '');
-        const cleanQueryPhone = phone.replace(/\D/g, '');
-        if (cleanDbPhone && cleanDbPhone === cleanQueryPhone) {
-          foundUser = { ...data, id: docSnap.id };
-        }
-      });
-      return foundUser;
-    } catch (e) {
-      console.error('Error finding user by phone:', e);
-      return null;
-    }
-  };
-
-
   const deleteUserDoc = async (userId: string) => {
     if (!user?.isAdmin) return;
     try {
@@ -612,12 +532,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const linkPhoneNumberMock = async (phone: string) => {
+    if (!user) return;
+    try {
+      const userRef = doc(db, 'users', user.id);
+      await updateDoc(userRef, { phone });
+      setUser(prev => prev ? { ...prev, phone } : prev);
+      setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, phone } : u));
+    } catch (e) {
+      console.error('Error linking phone:', e);
+      throw e;
+    }
+  };
+
+  const findUserByPhone = async (phone: string): Promise<UserProfile | null> => {
+    try {
+      const snapshot = await getDocs(collection(db, 'users'));
+      let foundUser: UserProfile | null = null;
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        const cleanDbPhone = (data.phone || '').replace(/\D/g, '');
+        const cleanQueryPhone = phone.replace(/\D/g, '');
+        if (cleanDbPhone && cleanDbPhone === cleanQueryPhone) {
+          foundUser = { ...data, id: docSnap.id } as UserProfile;
+        }
+      });
+      return foundUser;
+    } catch (e) {
+      console.error('Error finding user by phone:', e);
+      return null;
+    }
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
-      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded, linkPhoneNumberMock, findUserByPhone 
+      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded,
+      linkPhoneNumberMock, findUserByPhone
     }}>
       {children}
     </AuthContext.Provider>
