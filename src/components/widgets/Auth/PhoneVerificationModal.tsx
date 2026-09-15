@@ -1,8 +1,10 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../app/context/AuthContext';
+
+import { auth } from '@/lib/firebase';
 
 export default function PhoneVerificationModal() {
   const { user, linkPhoneNumberMock, isLoaded } = useAuth();
@@ -12,12 +14,13 @@ export default function PhoneVerificationModal() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [forceClose, setForceClose] = useState(false);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => { setMounted(true); }, []);
 
-  const shouldShow = isLoaded && user && !user.phone;
+  const shouldShow = !forceClose && isLoaded && user && !user.phone && auth.currentUser && !auth.currentUser.isAnonymous;
   if (!mounted || !shouldShow) return null;
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -88,6 +91,12 @@ export default function PhoneVerificationModal() {
         
         {/* Header Graphic */}
         <div style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', padding: '2.5rem 2rem 1.5rem', textAlign: 'center', position: 'relative' }}>
+          <button 
+            onClick={() => setForceClose(true)}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.7)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1.2rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b' }}
+          >
+            ×
+          </button>
           <div style={{ width: '80px', height: '80px', background: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem', boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.3)' }}>
             <span style={{ fontSize: '2.5rem' }}>{step === 1 ? '🛡️' : '💬'}</span>
           </div>

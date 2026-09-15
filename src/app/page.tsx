@@ -327,7 +327,7 @@ export default function Dashboard() {
                 <p className={styles.projectDesc} style={{ flex: 1 }}>{space.description}</p>
 
                 <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  נוצר ב-{space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL') : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : Date.now()).toLocaleDateString('he-IL')}
+                  נוצר ב-{(space as any).createdAt ? new Date((space as any).createdAt).toLocaleDateString('he-IL') : (space.date ? space.date : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : 1725148800000).toLocaleDateString('he-IL'))}
                 </p>
                 <div className={styles.badges}>
                   {space.features.slice(0, 3).map(fId => {

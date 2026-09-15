@@ -407,6 +407,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       ...spaceData,
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
+      date: new Date().toLocaleDateString('he-IL'),
       updatedAt: 'נוצר הרגע',
       settings: defaultSettings,
       invoices: [],
