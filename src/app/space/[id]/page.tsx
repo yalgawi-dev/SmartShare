@@ -213,6 +213,26 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     setTooltipData(null);
   };
 
+  const isPendingInvite = (space.pendingInvites || []).some((i: any) => i.token === myPartnerToken);
+  const isRemovedPartner = role === 'partner' && !myMember && !isPendingInvite;
+
+  if (isRemovedPartner) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: '2rem' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '2rem', borderRadius: '24px', textAlign: 'center', maxWidth: '400px', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', border: '1px solid var(--border-light)' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🚫</div>
+          <h2 style={{ margin: '0 0 1rem 0', color: '#ef4444' }}>הגישה נחסמה</h2>
+          <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '2rem' }}>
+            הוצאת מהמרחב הזה על ידי מנהל המערכת, או שההזמנה שלך בוטלה ואינה רלוונטית יותר.
+          </p>
+          <Link href="/" style={{ display: 'inline-block', background: 'var(--primary)', color: 'white', textDecoration: 'none', padding: '0.8rem 1.5rem', borderRadius: '12px', fontWeight: 'bold' }}>
+            חזרה לדשבורד
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
 

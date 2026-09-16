@@ -343,70 +343,84 @@ export function FinanceSummary({
                   const memberObj = space.members?.find((m: any) => m.userId === b.userId);
                   const unreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
                   return (
-                    <React.Fragment key={b.userId || b.name}>
-                      <tr
-                        onClick={() => (isCreatorMe || b.userId === myEffectiveId) && b.isMember && !b.isCreator ? setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId) : undefined}
-                        style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: (isCreatorMe || b.userId === myEffectiveId) && b.isMember && !b.isCreator ? 'pointer' : 'default', transition: 'background 0.15s' }}>
-                        <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column' }}>
-                            <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
-                              {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
-                              {(() => {
-                                const myUnreadCount = (isCreatorMe || b.userId === myEffectiveId)
-                                  ? (memberObj?.messages || []).filter((m: any) => m.from === (isCreatorMe ? 'partner' : 'creator') && !m.readAt).length
-                                  : 0;
-                                return myUnreadCount > 0 ? (
-                                  <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'20px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '4px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>
-                                    <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-                                    {myUnreadCount}
-                                  </span>
-                                ) : null;
-                              })()}
-                              {isCreatorMe && (b as any).status === 'extension_requested' && <span style={{fontSize:'0.75rem'}}>🔔</span>}
-                            </span>
-                            {isExcludedFromPast && (
-                              <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
-                                🛡️ ללא הוצאות עבר
+                      <React.Fragment key={b.userId || b.name}>
+                        <tr
+                          onClick={() => {
+                            if (isCreatorMe) {
+                              if (b.isMember && !b.isCreator) setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId);
+                            } else {
+                              if (b.userId === myEffectiveId || b.isCreator) setExpandedPartnerId(expandedPartnerId === myEffectiveId ? null : myEffectiveId);
+                            }
+                          }}
+                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : ((b.userId === myEffectiveId || b.isCreator) ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
+                          <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
+                                {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                                {(() => {
+                                  let myUnreadCount = 0;
+                                  if (isCreatorMe && !b.isCreator) {
+                                    myUnreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
+                                  } else if (!isCreatorMe && b.isCreator) {
+                                    const myActualMember = space.members?.find((m: any) => m.userId === myEffectiveId);
+                                    myUnreadCount = (myActualMember?.messages || []).filter((m: any) => m.from === 'creator' && !m.readAt).length;
+                                  }
+                                  return myUnreadCount > 0 ? (
+                                    <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'20px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '4px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>
+                                      <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
+                                      {myUnreadCount}
+                                    </span>
+                                  ) : null;
+                                })()}
+                                {isCreatorMe && (b as any).status === 'extension_requested' && <span style={{fontSize:'0.75rem'}}>🔔</span>}
                               </span>
-                            )}
-                            {(b as any).status === 'pending' && (() => {
-                              const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
-                              if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
-                              if (!(b as any).welcomed) {
-                                return <span style={{fontSize: '0.7rem', color: '#8b5cf6'}}>✉️ הזמנה נשלחה (טרם הצטרף)</span>;
-                              }
-                              return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לאישור השותף</span>;
-                            })()}
-                            {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
-                            {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
-                          </div>
-                        </td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
-                        <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                        {hasPartners && (
-                          <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
-                            <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
-                            {b.balance > 0 ? '+' : ''}{'₪'}{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                              {isExcludedFromPast && (
+                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
+                                  🛡️ ללא הוצאות עבר
+                                </span>
+                              )}
+                              {(b as any).status === 'pending' && (() => {
+                                const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
+                                if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
+                                if (!(b as any).welcomed) {
+                                  return <span style={{fontSize: '0.7rem', color: '#8b5cf6'}}>✉️ הזמנה נשלחה (טרם הצטרף)</span>;
+                                }
+                                return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לאישור השותף</span>;
+                              })()}
+                              {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
+                              {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
+                            </div>
                           </td>
+                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
+                          <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                          {hasPartners && (
+                            <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                              <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
+                              {b.balance > 0 ? '+' : ''}{'₪'}{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                            </td>
+                          )}
+                        </tr>
+                        {isCreatorMe && expandedPartnerId === b.userId && memberObj && (
+                          <PartnerControlPanel
+                            member={memberObj}
+                            space={space}
+                            viewMode="creator"
+                            onClose={() => setExpandedPartnerId(null)}
+                          />
                         )}
-                      </tr>
-                      {isCreatorMe && expandedPartnerId === b.userId && memberObj && (
-                        <PartnerControlPanel
-                          member={memberObj}
-                          space={space}
-                          viewMode="creator"
-                          onClose={() => setExpandedPartnerId(null)}
-                        />
-                      )}
-                      {!isCreatorMe && b.userId === myEffectiveId && expandedPartnerId === b.userId && memberObj && (
-                        <PartnerControlPanel
-                          member={memberObj}
-                          space={space}
-                          viewMode="partner"
-                          onClose={() => setExpandedPartnerId(null)}
-                        />
-                      )}
-                    </React.Fragment>
+                        {!isCreatorMe && (b.userId === myEffectiveId || b.isCreator) && expandedPartnerId === myEffectiveId && (() => {
+                          const myActualMember = space.members?.find((m: any) => m.userId === myEffectiveId);
+                          if (!myActualMember) return null;
+                          return (
+                            <PartnerControlPanel
+                              member={myActualMember}
+                              space={space}
+                              viewMode="partner"
+                              onClose={() => setExpandedPartnerId(null)}
+                            />
+                          );
+                        })()}
+                      </React.Fragment>
                   )
                 })}
               </tbody>
