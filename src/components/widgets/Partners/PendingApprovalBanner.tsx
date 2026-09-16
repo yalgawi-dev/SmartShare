@@ -55,6 +55,16 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     return () => clearInterval(interval);
   }, [currentMember]);
 
+  useEffect(() => {
+    if (user?.email && typeof window !== 'undefined') {
+      const pendingSpace = sessionStorage.getItem('pending_approval_space');
+      if (pendingSpace === spaceId && currentMember?.status === 'pending') {
+        sessionStorage.removeItem('pending_approval_space');
+        updateMemberStatus(spaceId, currentMember.userId, 'active');
+      }
+    }
+  }, [user?.email, currentMember?.status, spaceId, updateMemberStatus]);
+
   if (!space) return null;
 
   const isCreatorMe = Boolean(
@@ -64,17 +74,6 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   if (isCreatorMe) return null;
 
   if (!currentMember || currentMember.status === 'active') return null;
-
-  
-  useEffect(() => {
-    if (user?.email && typeof window !== 'undefined') {
-      const pendingSpace = sessionStorage.getItem('pending_approval_space');
-      if (pendingSpace === spaceId && currentMember?.status === 'pending') {
-        sessionStorage.removeItem('pending_approval_space');
-        finalizeApproval();
-      }
-    }
-  }, [user?.email, currentMember?.status, spaceId]);
 
   const isExpired = remainingText === 'פג תוקף';
 
