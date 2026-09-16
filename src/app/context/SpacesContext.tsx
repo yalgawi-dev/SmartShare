@@ -606,18 +606,24 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const finalizeGuestJoin = (
     spaceId: string, 
     name: string, 
-    isRetroactive: boolean, 
+    isRetroactiveParam: boolean, 
     shadowToken: string, 
-    customShare?: number,
-    sharesPlan?: { creator: number; partners?: Record<string, number> }
+    customShareParam?: number,
+    sharesPlanParam?: { creator: number; partners?: Record<string, number> }
   ) => {
     saveSpaceUpdate(spaceId, space => {
+      const pendingInvite = (space.pendingInvites || []).find(i => i.token === shadowToken);
+      
+      let customShare = pendingInvite ? pendingInvite.guestShare : customShareParam;
+      let sharesPlan = pendingInvite ? { creator: pendingInvite.creatorShare, partners: pendingInvite.partnerShares || undefined } : sharesPlanParam;
+      let isRetroactive = pendingInvite ? pendingInvite.isRetroactive : isRetroactiveParam;
+
       const hasCustomShare = customShare !== undefined && customShare !== null && !isNaN(customShare);
       const existingMember = (space.members || []).find(m => m.userId === shadowToken);
       
       const newMember = {
         userId: shadowToken,
-        name: name.trim() || existingMember?.name || 'שותף מוזמן',
+        name: name.trim() || pendingInvite?.name || existingMember?.name || 'שותף מוזמן',
         role: 'partner' as const,
         joinedAt: existingMember?.joinedAt || new Date().toISOString(),
         isActive: true,
@@ -652,7 +658,6 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         });
         finalMembersList.push(newMember);
 
-        // Safety check: if a partner was deleted between invite creation and acceptance, the snapshot is outdated.
         const totalPartners = finalMembersList.reduce((acc, m) => acc + (m.isActive !== false && typeof m.sharePercentage === 'number' ? m.sharePercentage : 0), 0);
         if (Math.abs(finalCreatorShare + totalPartners - 100) > 0.01) {
           finalCreatorShare = Math.max(0, 100 - totalPartners);
@@ -664,8 +669,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         finalCreatorShare = calculatedCreatorShare;
       }
       
+      const newPendingInvites = (space.pendingInvites || []).filter(i => i.token !== shadowToken);
+
       return {
         ...space,
+        pendingInvites: newPendingInvites,
         members: finalMembersList,
         settings: { ...space.settings, mySharePercentage: finalCreatorShare, isCustomShare: true },
         invoices: updatedInvoices
@@ -682,50 +690,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     partnerShares?: Record<string, number>;
   }) => {
     saveSpaceUpdate(spaceId, space => {
-      const newMember = {
-        userId: inviteData.shadowToken,
+      const newInvite = {
+        token: inviteData.shadowToken,
         name: inviteData.name?.trim() || 'שותף מוזמן',
-        role: 'partner' as const,
-        joinedAt: new Date().toISOString(),
-        isActive: true,
-        canUpload: true,
-        canEdit: false,
-        canDelete: false,
-        status: 'pending' as const,
-        welcomed: false,
-        sharePercentage: inviteData.guestShare,
-        isCustomShare: true
+        guestShare: inviteData.guestShare,
+        creatorShare: inviteData.creatorShare,
+        partnerShares: inviteData.partnerShares || null,
+        isRetroactive: inviteData.isRetroactive,
+        createdAt: new Date().toISOString()
       };
-
-      const updatedMembers = (space.members || []).map(m => {
-        if (inviteData.partnerShares && inviteData.partnerShares[m.userId] !== undefined) {
-          return {
-            ...m,
-            sharePercentage: inviteData.partnerShares[m.userId],
-            isCustomShare: true
-          };
-        }
-        return m;
-      });
-      updatedMembers.push(newMember);
-
-      let updatedInvoices = space.invoices || [];
-      if (!inviteData.isRetroactive) {
-        updatedInvoices = updatedInvoices.map(inv => ({
-          ...inv,
-          excludedMembers: [...(inv.excludedMembers || []), inviteData.shadowToken]
-        }));
-      }
 
       return {
         ...space,
-        members: updatedMembers,
-        settings: {
-          ...space.settings,
-          mySharePercentage: inviteData.creatorShare,
-          isCustomShare: true
-        },
-        invoices: updatedInvoices
+        pendingInvites: [...(space.pendingInvites || []), newInvite]
       };
     });
   };

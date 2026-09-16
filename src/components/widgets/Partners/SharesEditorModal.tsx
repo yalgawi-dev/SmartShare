@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 interface SharesEditorModalProps {
@@ -186,6 +186,23 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
             <strong>שים לב:</strong> סך כל האחוזים חייב להיות בדיוק 100% כדי להישמר. יש לתקן את האחוזים.
           </div>
         )}
+
+        {/* Expiration Hours Setting */}
+        <div style={{ padding: '0 1.5rem 1rem 1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>זמן פקיעת הזמנה</span>
+              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>הזמן שניתן לשותף לאשר את תנאי ההצטרפות (שעות)</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input type="number" step="0.5" min="0.5" value={expHours} onChange={e => {
+                setExpHours(e.target.value);
+              }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                style={{ width: '70px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', fontWeight: 'bold' }}
+              />
+            </div>
+          </div>
+        </div>
 
         <div style={{ display: 'flex', justifyContent: 'center', padding: '0 1.5rem 1.5rem 1.5rem' }}>
           <button 
