@@ -375,7 +375,7 @@ export function FinanceSummary({
                               if (!(b as any).welcomed) {
                                 return <span style={{fontSize: '0.7rem', color: '#8b5cf6'}}>✉️ הזמנה נשלחה (טרם הצטרף)</span>;
                               }
-                              return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין שיקרא ויאשר</span>;
+                              return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לאישור השותף</span>;
                             })()}
                             {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
                             {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
