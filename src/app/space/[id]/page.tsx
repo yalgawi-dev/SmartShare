@@ -213,8 +213,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     setTooltipData(null);
   };
 
+  const myRole = getRoleForSpace(id);
   const isPendingInvite = (space.pendingInvites || []).some((i: any) => i.token === myPartnerToken);
-  const isRemovedPartner = role === 'partner' && !myMember && !isPendingInvite;
+  const isRemovedPartner = myRole === 'partner' && !myMember && !isPendingInvite;
 
   if (isRemovedPartner) {
     return (
