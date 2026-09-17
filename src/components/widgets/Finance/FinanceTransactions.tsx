@@ -237,7 +237,7 @@ export function FinanceTransactions({
     updateInvoice(
       space.id, 
       inv.id, 
-      { status: 'pending', rejectedBy: null, rejectedReason: null, rejectedById: null }, 
+      { status: 'pending', rejectedBy: null, rejectedReason: null, rejectedById: null, wasDisputed: true }, 
       myName, 
       `שלח שוב לאישור את ההוצאה "${invoiceName}" (₪${invoiceAmt}) שהייתה במחלוקת.`,
       chatMessage as any
@@ -469,6 +469,11 @@ export function FinanceTransactions({
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                               <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).</span>
+                              {inv.wasDisputed && (
+                                <span style={{ color: '#991b1b', fontSize: '0.75rem', background: '#fee2e2', padding: '0.2rem 0.4rem', borderRadius: '4px', border: '1px solid #fecdd3', display: 'inline-block' }}>
+                                  ⚠️ הוצאה זו הייתה במחלוקת בעבר ותוקנה/נשלחה שוב.
+                                </span>
+                              )}
                               {(() => {
                                 const waitingText = getPendingApproversText(inv);
                                 return waitingText ? (
