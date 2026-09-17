@@ -264,9 +264,24 @@ export function FinanceSummary({
         {/* Row 2: Pending and Balances */}
         {hasPartners && activeMembersCount > 1 && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            <div 
-              onClick={() => { setActiveTab('transactions'); setFilter('pending'); }}
-              style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+              <div 
+                onClick={() => { 
+                  setActiveTab('transactions');
+                  const hasPendingMe = activeInvoices.some((i: any) => {
+                    if (i.status !== 'pending') return false;
+                    if (i.type === 'transfer') {
+                      if (i.targetId === user?.id || i.targetId === myEffectiveId) return true;
+                      if (isCreatorMe && i.payerId !== myEffectiveId && i.payerId !== 'me') return true;
+                      return false;
+                    }
+                    if (i.payerId === user?.id || i.payerId === myEffectiveId || i.payerId === 'me') return false;
+                    if (isCreatorMe && i.payerId === (space.creatorId || space.createdBy)) return false;
+                    if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myEffectiveId)) return false;
+                    return true;
+                  });
+                  setFilter(hasPendingMe ? 'pending_me' : 'pending_partners'); 
+                }}
+                style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
               title="למעבר מהיר לעמוד ההוצאות"
             >
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישור</p>

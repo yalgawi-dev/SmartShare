@@ -57,10 +57,15 @@ export function FinanceTransactions({
   });
 
   useEffect(() => {
-    const el = document.getElementById('finance-tab-' + filter);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-    }
+    const scrollFilterTab = () => {
+      const el = document.getElementById('finance-tab-' + filter);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      }
+    };
+    scrollFilterTab();
+    const timeoutId = setTimeout(scrollFilterTab, 150);
+    return () => clearTimeout(timeoutId);
   }, [filter]);
 
   const onTouchStart = (e: React.TouchEvent) => {
@@ -74,11 +79,18 @@ export function FinanceTransactions({
     if (inv.status !== 'pending') return false;
     if (inv.type === 'transfer') {
       if (inv.targetId === user?.id || inv.targetId === myEffectiveId) return true;
-      if (isCreatorMe) return true;
+      if (isCreatorMe && inv.payerId !== myEffectiveId && inv.payerId !== 'me') return true;
       return false;
     }
-    if (isCreatorMe) return true;
-    return (inv.payerId !== user?.id && inv.payerId !== myEffectiveId && !(inv.approvedBy || []).includes(user?.id) && !(inv.approvedBy || []).includes(myEffectiveId));
+    
+    // The person who paid/created the invoice cannot approve it (implicitly approved)
+    if (inv.payerId === user?.id || inv.payerId === myEffectiveId || inv.payerId === 'me') return false;
+    if (isCreatorMe && inv.payerId === (space?.creatorId || space?.createdBy)) return false;
+    
+    // If already approved
+    if ((inv.approvedBy || []).includes(user?.id) || (inv.approvedBy || []).includes(myEffectiveId)) return false;
+    
+    return true;
   };
 
   const onTouchEndHandler = () => {
