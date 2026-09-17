@@ -258,7 +258,7 @@ const runOcrPipeline = async (imgUrl: string) => {
     validMembers.push(createVirtualTreasury());
   }
 
-  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string }) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     let amount = Number(formData.get('amount'));
@@ -273,7 +273,16 @@ const runOcrPipeline = async (imgUrl: string) => {
     let payerName = user?.realName || 'אני';
     let payerId: string | undefined = myEffectiveId;
     
-    if (selectedPayerId === 'other') {
+    if (options?.customPayerId) {
+      payerId = options.customPayerId;
+      if (payerId === myEffectiveId || payerId === user?.id || payerId === 'me') {
+        payerName = user?.realName || 'אני';
+        payerId = myEffectiveId;
+      } else {
+        const partner = validMembers.find((m: any) => m.userId === payerId);
+        if (partner) payerName = partner.name;
+      }
+    } else if (selectedPayerId === 'other') {
       payerName = (formData.get('payerNameCustom') as string) || 'אחר';
       payerId = undefined;
     } else if (selectedPayerId !== 'me' && selectedPayerId !== user?.id && selectedPayerId !== myEffectiveId) {
@@ -284,8 +293,8 @@ const runOcrPipeline = async (imgUrl: string) => {
       }
     }
     
-    let category = selectedCategory;
-    if (selectedCategory === 'other') {
+    let category = options?.overrideCategory || selectedCategory;
+    if (category === 'other') {
       category = (formData.get('categoryCustom') as string) || 'כללי';
       
       const existingCategories = space.settings?.customCategories || [];
