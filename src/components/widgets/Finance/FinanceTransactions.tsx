@@ -336,10 +336,13 @@ export function FinanceTransactions({
                         <span title="חסר מסמך/קבלה" style={{ fontSize: '0.9rem', color: '#ef4444' }}>⚠️</span>
                       )}
                     </h4>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                      <span>{inv.date}</span>
-                      <span>• ע"י {inv.payerName}</span>
-                    </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        <span>{inv.date}</span>
+                        <span>• ע"י {inv.payerName}</span>
+                        {inv.status === 'dispute' && (
+                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
+                        )}
+                      </div>
                   </div>
                 </div>
 

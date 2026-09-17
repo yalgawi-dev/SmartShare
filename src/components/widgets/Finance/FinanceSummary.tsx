@@ -401,9 +401,18 @@ export function FinanceSummary({
                                 {isCreatorMe && (b as any).status === 'extension_requested' && <span style={{fontSize:'0.75rem'}}>🔔</span>}
                               </span>
                               {(() => {
-                                const relevantId = b.isCreator ? myEffectiveId : b.userId;
-                                const partnerDisputes = disputedInvoices.filter((i: any) => i.payerId === relevantId || i.rejectedById === relevantId || (!i.rejectedById && i.rejectedBy === (b.isCreator ? user?.realName : b.name)));
-                                const disputedAmt = partnerDisputes.reduce((acc, i) => acc + (i.amount || 0), 0);
+                                  const partnerDisputes = disputedInvoices.filter((i: any) => {
+                                    if (i.payerId === b.userId || (b.isCreator && i.payerId === 'me')) return true;
+                                    if (i.rejectedById === b.userId) return true;
+                                    if (!i.rejectedById && i.rejectedBy && i.rejectedBy.trim() === b.name.trim()) return true;
+                                    
+                                    const onlyOnePartner = activeMembersCount === 1;
+                                    if (onlyOnePartner && !b.isCreator && i.payerId !== b.userId) return true;
+                                    if (onlyOnePartner && b.isCreator && i.payerId !== b.userId && i.payerId !== 'me') return true;
+                                    
+                                    return false;
+                                  });
+                                  const disputedAmt = partnerDisputes.reduce((acc, i) => acc + (i.amount || 0), 0);
                                 
                                 if (disputedAmt > 0) {
                                   return (
