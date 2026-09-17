@@ -220,6 +220,7 @@ const runOcrPipeline = async (imgUrl: string) => {
   const handleCloseForm = () => {
     if(setIsAddingExpense) setIsAddingExpense(false);
     setScannedImage(null);
+    setSelectedCategory('כללי'); // Reset to default so next time 'הזנה' opens the correct modal
     
     setOcrData({});
     setOcrDebugMessage(null);
