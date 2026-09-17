@@ -418,7 +418,7 @@ export function FinanceSummary({
                                   return (
                                     <div 
                                       onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} 
-                                      style={{ marginTop: '0.2rem', display: 'inline-block', fontSize: '0.75rem', color: '#991b1b', background: '#fee2e2', padding: '0.15rem 0.4rem', borderRadius: '12px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3' }}
+                                      style={{ marginTop: '0.2rem', display: 'inline-block', fontSize: '0.75rem', color: '#991b1b', background: '#fee2e2', padding: '0.15rem 0.4rem', borderRadius: '12px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3', whiteSpace: 'nowrap' }}
                                     >
                                       ❌ {disputedAmt.toLocaleString()}₪ במחלוקת
                                     </div>

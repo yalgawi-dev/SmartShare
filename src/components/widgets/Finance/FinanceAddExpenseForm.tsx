@@ -83,7 +83,7 @@ export function FinanceAddExpenseForm({
     const isMissing = required && !value && scannedImage && !isAnalyzing;
     
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
         <label style={{ fontSize: '0.85rem', color: isMissing ? '#ef4444' : 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
           <span>{label} {required && '*'}</span>
           {aiExtracted && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ חולץ ע״י AI</span>}
@@ -243,14 +243,14 @@ export function FinanceAddExpenseForm({
             </div>
           </div>
           
-          <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
             {renderSmartInput('amount', 'number', 'סכום כולל מע״מ (₪)', 'סכום כולל מע״מ', formValues.amount, !!ocrData.amount, true, '0.01')}
             {renderSmartInput('vatAmount', 'number', 'סכום מע״מ (₪)', 'אופציונלי', formValues.vatAmount, !!ocrData.vatAmount, false, '0.01')}
           </div>
           
-          <div style={{ display: 'flex', gap: '0.5rem', width: '100%' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', width: '100%', flexWrap: 'wrap' }}>
             {renderSmartInput('date', 'date', 'תאריך ההוצאה', '', formValues.date, !!ocrData.date, true)}
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: 0 }}>
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
               <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold', display: 'flex', justifyContent: 'space-between' }}>
                 <span>מס' חשבונית / אסמכתא</span>
                 {!!ocrData.invoiceNumber && <span title="זוהה אוטומטית ע״י AI" style={{ color: '#10b981', fontSize: '0.9rem' }}>✨ חולץ ע״י AI</span>}
