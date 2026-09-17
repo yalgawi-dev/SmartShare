@@ -37,7 +37,13 @@ export function FinanceTransactions({
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
+  const [memberFilter, setMemberFilter] = useState<string>('all');
   const showIncome = space?.features?.includes('income');
+
+  const allUsers = [
+    { id: space?.creatorId || 'me', name: space?.createdBy || 'יוצר המרחב' },
+    ...(space?.members || []).filter((m: any) => m.status !== 'removed').map((m: any) => ({ id: m.userId, name: m.name }))
+  ];
   const showTransfers = space?.features?.includes('partners') && activePartnersCount > 0;
 
   const [touchStart, setTouchStart] = useState<number | null>(null);
@@ -51,9 +57,26 @@ export function FinanceTransactions({
   });
 
   const finallyFiltered = filteredInvoices.filter((inv: any) => {
-    if (typeFilter === 'transfer') return inv.type === 'transfer';
-    if (typeFilter === 'income') return inv.type === 'income';
-    return inv.type !== 'transfer' && inv.type !== 'income';
+    let matchesType = false;
+    if (typeFilter === 'transfer') matchesType = inv.type === 'transfer';
+    else if (typeFilter === 'income') matchesType = inv.type === 'income';
+    else matchesType = inv.type !== 'transfer' && inv.type !== 'income';
+    
+    if (!matchesType) return false;
+    if (memberFilter === 'all') return true;
+
+    const effectivePayer = inv.payerId === 'me' ? (space?.creatorId || 'me') : inv.payerId;
+    if (effectivePayer === memberFilter) return true;
+    if (inv.rejectedById === memberFilter) return true;
+    
+    const filterUser = allUsers.find(u => u.id === memberFilter);
+    if (!inv.rejectedById && inv.rejectedBy && filterUser && inv.rejectedBy.trim() === filterUser.name.trim()) return true;
+
+    if (inv.status === 'pending' && effectivePayer !== memberFilter) {
+      if (!(inv.approvedBy || []).includes(memberFilter)) return true;
+    }
+
+    return false;
   });
 
   useEffect(() => {
@@ -302,6 +325,23 @@ export function FinanceTransactions({
           </div>
         );
       })()}
+
+      {activePartnersCount > 0 && (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סינון לפי שותף:</span>
+          <select 
+            value={memberFilter} 
+            onChange={(e) => setMemberFilter(e.target.value)}
+            style={{ padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.85rem' }}
+          >
+            <option value="all">👥 כל השותפים (הצג הכל)</option>
+            {allUsers.map(u => (
+              <option key={u.id} value={u.id}>{u.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {finallyFiltered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
@@ -310,7 +350,7 @@ export function FinanceTransactions({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
-          {[...filteredInvoices].reverse().map((inv: any) => (
+          {[...finallyFiltered].reverse().map((inv: any) => (
             <div key={inv.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
               
               <div 
