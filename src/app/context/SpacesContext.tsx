@@ -355,13 +355,16 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       });
     });
 
-    if (updatedSpace) {
-      try {
-        await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
-      } catch (e) {
-        console.error("Error updating Firestore space root", e);
+      if (updatedSpace) {
+        try {
+          await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
+        } catch (e: any) {
+          console.error("Error updating Firestore space root", e);
+          if (typeof window !== 'undefined') {
+            alert("שגיאת תקשורת: הפעולה לא נשמרה בשרת! אנא רענן את העמוד ונסה שוב. (פרטי שגיאה: " + e.message + ")");
+          }
+        }
       }
-    }
   };
 
   // Fix identity mismatch when user logs in and spaces are loaded
