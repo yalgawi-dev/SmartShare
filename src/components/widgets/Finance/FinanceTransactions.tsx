@@ -182,7 +182,7 @@ export function FinanceTransactions({
     updateInvoice(
       space.id, 
       inv.id, 
-      { status: 'dispute', rejectedBy: myName, rejectedReason: reason.trim() }, 
+      { status: 'dispute', rejectedBy: myName, rejectedById: myEffectiveId, rejectedReason: reason.trim() }, 
       myName, 
       `דחה/פתח מחלוקת על ההוצאה "${invoiceName}" (₪${invoiceAmt}). ${detailMsg}`,
       chatMessage

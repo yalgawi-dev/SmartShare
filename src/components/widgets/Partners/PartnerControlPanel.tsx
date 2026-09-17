@@ -191,7 +191,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId !== member.userId && !(i.approvedBy||[]).includes(member.userId)).length;
             }
 
-            const disputesCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'dispute').length;
+            const disputesCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'dispute' && (i.payerId === member.userId || i.rejectedById === member.userId)).length;
 
             if (pendingCount === 0 && disputesCount === 0) return null;
 

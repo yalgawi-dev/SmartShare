@@ -279,6 +279,7 @@ export function FinanceSummary({
                     if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myEffectiveId)) return false;
                     return true;
                   });
+                  setActiveTab('transactions');
                   setFilter(hasPendingMe ? 'pending_me' : 'pending_partners'); 
                 }}
                 style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
@@ -422,7 +423,7 @@ export function FinanceSummary({
                             space={space}
                             viewMode="creator"
                             onClose={() => setExpandedPartnerId(null)}
-                            onNavigateToFilter={setFilter}
+                            onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
                           />
                         )}
                         {!isCreatorMe && b.isCreator && expandedPartnerId === myEffectiveId && (() => {
@@ -434,7 +435,7 @@ export function FinanceSummary({
                               space={space}
                               viewMode="partner"
                               onClose={() => setExpandedPartnerId(null)}
-                              onNavigateToFilter={setFilter}
+                              onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
                             />
                           );
                         })()}
