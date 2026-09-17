@@ -511,7 +511,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             activePartnersCount={activePartnersCount}
             user={user}
             space={space}
-            updateInvoice={(sId, iId, updates, perf, det) => handleRestrictedAction(() => updateInvoice(sId, iId, updates, perf, det))}
+            updateInvoice={(...args) => handleRestrictedAction(() => updateInvoice(...args))}
             filter={filter}
             setFilter={setFilter}
             expandedInvoiceId={expandedInvoiceId}

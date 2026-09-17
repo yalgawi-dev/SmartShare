@@ -47,9 +47,10 @@ interface Props {
   space: any;
   onClose: () => void;
   viewMode?: 'creator' | 'partner';
+  onNavigateToFilter?: (filter: string) => void;
 }
 
-function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator' }: Props) {
+function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter }: Props) {
   const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead, approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
@@ -79,7 +80,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messagesRaw.length, mounted]);
+  }, [messagesArray.length]);
 
   if (!mounted || typeof document === 'undefined') return null;
   if (!member || !space) return null;
@@ -160,10 +161,16 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '2px', margin: '0 auto 1rem auto' }} />
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '1.2rem', color: '#0f172a' }}>{viewMode === 'creator' ? `🧑‍💼 ${memberName}` : 'האזור האישי שלך'}</div>
-              <div style={{ fontSize: '0.825rem', color: '#64748b', marginTop: '0.2rem' }}>
-                {statusLabel[memberStatus] || memberStatus}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' ? `👨‍💼 ${memberName}` : 'האזור האישי שלך'}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
+                <span style={{ 
+                  background: memberStatus === 'active' ? '#dcfce7' : memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
+                  color: memberStatus === 'active' ? '#166534' : memberStatus === 'pending' ? '#854d0e' : '#991b1b',
+                  padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold'
+                }}>
+                  {statusLabel[memberStatus] || memberStatus}
+                </span>
                 {viewMode === 'creator' && joinedDateText && ` · הצטרף: ${joinedDateText}`}
               </div>
             </div>
@@ -173,9 +180,50 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             >✕</button>
           </div>
 
+          {/* Quick Links Area */}
+          {(() => {
+            const invoices = space?.invoices || [];
+            
+            let pendingCount = 0;
+            if (viewMode === 'creator') {
+              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId === member.userId).length;
+            } else {
+              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId !== member.userId && !(i.approvedBy||[]).includes(member.userId)).length;
+            }
+
+            const disputesCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'dispute').length;
+
+            if (pendingCount === 0 && disputesCount === 0) return null;
+
+            return (
+              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                {pendingCount > 0 && (
+                  <button onClick={() => {
+                    if (onNavigateToFilter) {
+                      onClose();
+                      setTimeout(() => onNavigateToFilter(viewMode === 'creator' ? 'pending_partners' : 'pending_me'), 100);
+                    }
+                  }} style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.4rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    ⏳ {pendingCount} ממתינות לאישור
+                  </button>
+                )}
+                {disputesCount > 0 && (
+                  <button onClick={() => {
+                    if (onNavigateToFilter) {
+                      onClose();
+                      setTimeout(() => onNavigateToFilter('dispute'), 100);
+                    }
+                  }} style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.4rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    ❌ {disputesCount} מחלוקות
+                  </button>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Action Buttons (Visible only to creator, horizontal scroll if many) */}
           {viewMode === 'creator' && (
-            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
               {memberStatus === 'extension_requested' && (
                 <button onClick={handleApproveExtension} style={{ background: '#10b981', color: '#ffffff', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                   ✅ אשר הארכה

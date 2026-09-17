@@ -182,7 +182,7 @@ export function FinanceTransactions({
     updateInvoice(
       space.id, 
       inv.id, 
-      { status: 'dispute' }, 
+      { status: 'dispute', rejectedBy: myName, rejectedReason: reason.trim() }, 
       myName, 
       `דחה/פתח מחלוקת על ההוצאה "${invoiceName}" (₪${invoiceAmt}). ${detailMsg}`,
       chatMessage
@@ -379,9 +379,13 @@ export function FinanceTransactions({
                         <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>סטטוס אישורים ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}):</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                           {inv.status === 'approved' ? (
-                            <span style={{ color: '#10b981', fontSize: '0.9rem' }}>✓ מאושר.</span>
+                            <span style={{ color: '#10b981', fontSize: '0.9rem' }}>✅ מאושר.</span>
                           ) : inv.status === 'dispute' ? (
-                            <span style={{ color: '#ef4444', fontSize: '0.9rem' }}>❌ נדחה / במחלוקת.</span>
+                            <div style={{ background: '#fee2e2', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fecdd3', width: '100%' }}>
+                              <div style={{ color: '#991b1b', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>❌ נדחה / במחלוקת</div>
+                              {inv.rejectedBy && <div style={{ fontSize: '0.85rem', color: '#991b1b' }}><strong>נדחה ע"י:</strong> {inv.rejectedBy}</div>}
+                              {inv.rejectedReason && <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '0.2rem' }}><strong>סיבה:</strong> {inv.rejectedReason}</div>}
+                            </div>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                               <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).</span>

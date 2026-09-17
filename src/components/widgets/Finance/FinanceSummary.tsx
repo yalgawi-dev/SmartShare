@@ -422,6 +422,7 @@ export function FinanceSummary({
                             space={space}
                             viewMode="creator"
                             onClose={() => setExpandedPartnerId(null)}
+                            onNavigateToFilter={setFilter}
                           />
                         )}
                         {!isCreatorMe && b.isCreator && expandedPartnerId === myEffectiveId && (() => {
@@ -433,6 +434,7 @@ export function FinanceSummary({
                               space={space}
                               viewMode="partner"
                               onClose={() => setExpandedPartnerId(null)}
+                              onNavigateToFilter={setFilter}
                             />
                           );
                         })()}
