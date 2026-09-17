@@ -540,7 +540,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const updateInvoice = (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => {
+  const updateInvoice = (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string, chatMessage?: { targetMemberId: string, text: string, from: 'creator'|'partner' }) => {
     saveSpaceUpdate(spaceId, space => {
       const oldInvoice = space.invoices?.find(i => i.id === invoiceId);
       const newInvoices = (space.invoices || []).map(inv => inv.id === invoiceId ? { ...inv, ...updates } : inv);
@@ -569,6 +569,20 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           invoiceId
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
+      }
+
+      if (chatMessage) {
+        newSpace.members = (newSpace.members || []).map(m => {
+          if (m.userId !== chatMessage.targetMemberId) return m;
+          const newMsg = {
+            id: `msg-${Date.now()}-${Math.random().toString(36).substr(2,5)}`,
+            text: chatMessage.text.trim(),
+            from: chatMessage.from,
+            createdAt: new Date().toISOString(),
+            readAt: undefined
+          };
+          return { ...m, messages: [...(m.messages || []), newMsg] };
+        });
       }
 
       return newSpace;

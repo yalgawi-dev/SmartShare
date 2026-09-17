@@ -163,33 +163,30 @@ export function FinanceTransactions({
     const invoiceName = inv.supplier || "ספק כללי";
     const invoiceAmt = inv.amount || 0;
 
+    let memberIdTarget = '';
+    let fromRole: 'creator' | 'partner' = 'partner';
+    if (isCreatorMe) {
+       memberIdTarget = inv.payerId; 
+       fromRole = 'creator';
+    } else {
+       memberIdTarget = myEffectiveId; 
+       fromRole = 'partner'; 
+    }
+
+    const msgText = `[הודעת מערכת]: המשתמש "${myName}" דחה את ההוצאה "${invoiceName}" ע"ס ₪${invoiceAmt}. ${detailMsg}\nההוצאה הוקפאה והועברה לטאב 'בבירור'.`;
+    let chatMessage = undefined;
+    if (memberIdTarget && memberIdTarget !== 'me' && memberIdTarget !== space.creatorId && memberIdTarget !== space.createdBy) {
+      chatMessage = { targetMemberId: memberIdTarget, text: msgText, from: fromRole };
+    }
+
     updateInvoice(
       space.id, 
       inv.id, 
       { status: 'dispute' }, 
       myName, 
-      `דחה/פתח מחלוקת על ההוצאה "${invoiceName}" (₪${invoiceAmt}). ${detailMsg}`
+      `דחה/פתח מחלוקת על ההוצאה "${invoiceName}" (₪${invoiceAmt}). ${detailMsg}`,
+      chatMessage
     );
-
-    if (sendMessageToMember) {
-      const msgText = `[הודעת מערכת]: המשתמש "${myName}" דחה את ההוצאה "${invoiceName}" ע"ס ₪${invoiceAmt}. ${detailMsg}\nההוצאה הוקפאה והועברה לטאב 'בבירור'.`;
-      let memberIdTarget = '';
-      let fromRole: 'creator' | 'partner' = 'partner';
-      
-      if (isCreatorMe) {
-         memberIdTarget = inv.payerId; 
-         fromRole = 'creator';
-      } else {
-         memberIdTarget = myEffectiveId; 
-         fromRole = 'partner'; 
-      }
-      
-      if (memberIdTarget && memberIdTarget !== 'me' && memberIdTarget !== space.creatorId && memberIdTarget !== space.createdBy) {
-         setTimeout(() => {
-           sendMessageToMember(space.id, memberIdTarget, msgText, fromRole);
-         }, 800);
-      }
-    }
   };
 
 
