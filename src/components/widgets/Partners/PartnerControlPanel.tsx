@@ -280,6 +280,12 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           {messagesArray.map((msg: any) => {
             if (!msg) return null;
             const isMyMsg = msg.from === viewMode;
+            
+            // Hide system messages from the person who triggered them (so it acts like a notification to the other party)
+            if (isMyMsg && msg.text && msg.text.startsWith('[הודעת מערכת]:')) {
+              return null;
+            }
+
             const timeStr = formatTimeSafe(msg.createdAt);
             
             return (
