@@ -300,34 +300,25 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {spaces.filter(s => s.status === 'pending_deletion' && s.createdBy === user?.id).map(s => (
+                {spaces.filter(s => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).map(s => (
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold' }}>{s.icon} {s.title}</td>
                     <td style={{ padding: '1rem' }}>{s.members?.length || 0}</td>
                     <td style={{ padding: '1rem' }}>{s.invoices?.length || 0}</td>
                     <td style={{ padding: '1rem', color: '#EF4444', fontWeight: '500' }}>
-                      {s.deletionScheduledFor ? new Date(s.deletionScheduledFor).toLocaleDateString('he-IL') : '-'}
+                      נמחק ויעלם ב: {new Date(s.deletionScheduledFor || Date.now() + 14*86400000).toLocaleDateString()}
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'center' }}>
+                    <td style={{ padding: '1rem', textAlign: 'left' }}>
                       <button 
-                        onClick={() => restoreSpace(s.id)}
-                        style={{ 
-                          background: '#10B981', 
-                          color: 'white', 
-                          border: 'none', 
-                          padding: '0.4rem 1rem', 
-                          borderRadius: 'var(--radius-full)', 
-                          cursor: 'pointer',
-                          fontWeight: 'bold',
-                          fontSize: '0.85rem'
-                        }}
+                        onClick={(e) => { e.preventDefault(); restoreSpace(s.id); }}
+                        style={{ padding: '0.5rem 1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                       >
-                        ↩️ שחזר
+                        ↩️ שחזר מרחב
                       </button>
                     </td>
                   </tr>
                 ))}
-                {spaces.filter(s => s.status === 'pending_deletion' && s.createdBy === user?.id).length === 0 && (
+                {spaces.filter(s => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                       אין מרחבים בארכיון כרגע.
