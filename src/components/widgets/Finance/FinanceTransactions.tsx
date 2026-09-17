@@ -185,7 +185,9 @@ export function FinanceTransactions({
       }
       
       if (memberIdTarget && memberIdTarget !== 'me' && memberIdTarget !== space.creatorId && memberIdTarget !== space.createdBy) {
-         sendMessageToMember(space.id, memberIdTarget, msgText, fromRole);
+         setTimeout(() => {
+           sendMessageToMember(space.id, memberIdTarget, msgText, fromRole);
+         }, 800);
       }
     }
   };

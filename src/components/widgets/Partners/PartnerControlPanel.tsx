@@ -186,9 +186,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   🔄 אפס סטטוס
                 </button>
               )}
-              <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                🗑️ הסר
-              </button>
+              {memberStatus !== 'active' && (
+                <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  🗑️ הסר
+                </button>
+              )}
             </div>
           )}
         </div>
