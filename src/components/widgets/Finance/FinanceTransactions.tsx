@@ -29,7 +29,7 @@ export function FinanceTransactions({
   setPreviewImage
 }: FinanceTransactionsProps) {
 
-  const { getTokenForSpace, getRoleForSpace } = useSpaces();
+  const { getTokenForSpace, getRoleForSpace, sendMessageToMember } = useSpaces();
   const myRole = space ? getRoleForSpace(space.id) : 'none';
   const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
   const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (space ? (getTokenForSpace(space.id) || user?.id || 'me') : (user?.id || 'me'));
@@ -100,17 +100,15 @@ export function FinanceTransactions({
     const isRightSwipe = distance < -minSwipeDistance;
     if (isLeftSwipe || isRightSwipe) {
       const tabs = ["all"];
-      
-      
-      
-
-        const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
-        const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
-        const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
+      const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
+      const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
+      const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
+      const hasDispute = relevantInvoices.some((i: any) => i.status === "dispute");
 
       if (hasArchive) tabs.push("archive");
       if (activePartnersCount > 0) tabs.push("pending_me");
       if (activePartnersCount > 0) tabs.push("pending_partners");
+      if (hasDispute) tabs.push("dispute");
       
       const currentIndex = tabs.indexOf(filter);
       if (isRightSwipe && currentIndex < tabs.length - 1) {
@@ -151,6 +149,44 @@ export function FinanceTransactions({
         approvedBy: newApprovedBy,
         status: newStatus
       });
+    }
+  };
+
+  const handleReject = (inv: any) => {
+    if (!space || !updateInvoice) return;
+    
+    const reason = window.prompt("אנא ציין את סיבת הדחייה/המחלוקת (המידע יופיע בלוג ובצ'אט כהודעה):", "");
+    if (reason === null) return; 
+    
+    const myName = user?.realName || user?.id || 'שותף';
+    const detailMsg = reason.trim() ? `סיבה: "${reason.trim()}"` : "ללא פירוט.";
+    const invoiceName = inv.supplier || "ספק כללי";
+    const invoiceAmt = inv.amount || 0;
+
+    updateInvoice(
+      space.id, 
+      inv.id, 
+      { status: 'dispute' }, 
+      myName, 
+      `דחה/פתח מחלוקת על ההוצאה "${invoiceName}" (₪${invoiceAmt}). ${detailMsg}`
+    );
+
+    if (sendMessageToMember) {
+      const msgText = `[הודעת מערכת]: המשתמש "${myName}" דחה את ההוצאה "${invoiceName}" ע"ס ₪${invoiceAmt}. ${detailMsg}\nההוצאה הוקפאה והועברה לטאב 'בבירור'.`;
+      let memberIdTarget = '';
+      let fromRole: 'creator' | 'partner' = 'partner';
+      
+      if (isCreatorMe) {
+         memberIdTarget = inv.payerId; 
+         fromRole = 'creator';
+      } else {
+         memberIdTarget = myEffectiveId; 
+         fromRole = 'partner'; 
+      }
+      
+      if (memberIdTarget && memberIdTarget !== 'me' && memberIdTarget !== space.creatorId && memberIdTarget !== space.createdBy) {
+         sendMessageToMember(space.id, memberIdTarget, msgText, fromRole);
+      }
     }
   };
 
@@ -223,13 +259,22 @@ export function FinanceTransactions({
                 ממתין לאישור השותפים
               </button>
             )}
+            {(() => {
+              const hasDispute = relevantInvoices.some((i: any) => i.status === "dispute");
+              if (!hasDispute) return null;
+              return (
+                <button id="finance-tab-dispute" onClick={() => setFilter("dispute")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "dispute" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "dispute" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                  בבירור / במחלוקת
+                </button>
+              );
+            })()}
           </div>
         );
       })()}
       {finallyFiltered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
           <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
-          {filter === 'pending_me' ? 'אין חשבוניות שממתינות לאישור שלך.' : filter === 'pending_partners' ? 'אין חשבוניות שממתינות לאישור השותפים.' : 'לא נמצאו חשבוניות.'}
+          {filter === 'pending_me' ? 'אין חשבוניות שממתינות לאישור שלך.' : filter === 'pending_partners' ? 'אין חשבוניות שממתינות לאישור השותפים.' : filter === 'dispute' ? 'אין הוצאות במחלוקת כרגע.' : 'לא נמצאו חשבוניות.'}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -361,9 +406,9 @@ export function FinanceTransactions({
                             ✅ {inv.type === 'transfer' ? 'אשר קבלת תשלום' : 'אשר הוצאה זו'}
                           </button>
                         )}
-                        {calculateCanApprove(inv) && inv.type === 'transfer' && activePartnersCount > 0 && (
-                          <button onClick={() => updateInvoice && space && updateInvoice(space.id, inv.id, { status: 'dispute' })} style={{ flex: 1, padding: '0.75rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                            פתח מחלוקת
+                        {calculateCanApprove(inv) && activePartnersCount > 0 && (
+                          <button onClick={() => handleReject(inv)} style={{ flex: 1, padding: '0.75rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
+                            {inv.type === 'transfer' ? 'פתח מחלוקת' : 'דחה / פתח מחלוקת'}
                           </button>
                         )}
                         {(inv.payerId === myEffectiveId || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
