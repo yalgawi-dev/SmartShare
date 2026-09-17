@@ -15,6 +15,7 @@ export default function WelcomeGate({
   const { user, updateProfile } = useAuth();
   const [showGate, setShowGate] = useState(false);
   const [guestName, setGuestName] = useState('');
+  const [isEditingName, setIsEditingName] = useState(false);
   const [mounted, setMounted] = useState(false);
   const submittedRef = useRef(false); // prevents re-open after submit
 
@@ -214,14 +215,14 @@ export default function WelcomeGate({
 
         {/* If user has a real name from Google/Facebook, show it as a read-only confirmation. Otherwise show editable field */}
         <div style={{ marginBottom: '1.5rem', textAlign: 'right' }}>
-          {guestName && !['אורח', 'אורח אנונימי', 'Guest', 'שותף מוזמן'].includes(guestName) ? (
+          {guestName && !['אורח', 'אורח אנונימי', 'Guest', 'שותף מוזמן'].includes(guestName) && !isEditingName ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f0fdf4', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #86efac' }}>
               <span style={{ fontSize: '1.5rem' }}>✅</span>
               <div style={{ textAlign: 'right' }}>
                 <div style={{ fontSize: '0.8rem', color: '#166534' }}>תופיע בשם:</div>
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#166534' }}>{guestName}</div>
               </div>
-              <button onClick={() => setGuestName('')} style={{ marginRight: 'auto', background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}>שנה שם</button>
+              <button onClick={() => { setGuestName(''); setIsEditingName(true); }} style={{ marginRight: 'auto', background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}>שנה שם</button>
             </div>
           ) : (
             <>
