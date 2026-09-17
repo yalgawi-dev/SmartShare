@@ -189,6 +189,38 @@ export function FinanceTransactions({
     );
   };
 
+  const handleResubmit = (inv: any) => {
+    if (!space || !updateInvoice) return;
+    
+    const myName = user?.realName || user?.id || 'שותף';
+    const invoiceName = inv.supplier || "ספק כללי";
+    const invoiceAmt = inv.amount || 0;
+
+    let memberIdTarget = inv.rejectedById;
+    if (!memberIdTarget && isCreatorMe) {
+       const partner = (space.members || []).find((m: any) => m.name === inv.rejectedBy);
+       if (partner) memberIdTarget = partner.userId;
+    }
+
+    let chatMessage = undefined;
+    if (memberIdTarget && memberIdTarget !== 'me' && memberIdTarget !== space.creatorId && memberIdTarget !== space.createdBy) {
+      chatMessage = { 
+        targetMemberId: memberIdTarget, 
+        text: `[הודעת מערכת]: המשתמש "${myName}" שלח מחדש את ההוצאה "${invoiceName}" ע"ס ₪${invoiceAmt} לאישור (לאחר שהייתה במחלוקת).`, 
+        from: isCreatorMe ? 'creator' : 'partner' 
+      };
+    }
+
+    updateInvoice(
+      space.id, 
+      inv.id, 
+      { status: 'pending', rejectedBy: null, rejectedReason: null, rejectedById: null }, 
+      myName, 
+      `שלח שוב לאישור את ההוצאה "${invoiceName}" (₪${invoiceAmt}) שהייתה במחלוקת.`,
+      chatMessage as any
+    );
+  };
+
 
 
   const getPendingApproversText = (inv: any) => {
@@ -385,6 +417,11 @@ export function FinanceTransactions({
                               <div style={{ color: '#991b1b', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>❌ נדחה / במחלוקת</div>
                               {inv.rejectedBy && <div style={{ fontSize: '0.85rem', color: '#991b1b' }}><strong>נדחה ע"י:</strong> {inv.rejectedBy}</div>}
                               {inv.rejectedReason && <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '0.2rem' }}><strong>סיבה:</strong> {inv.rejectedReason}</div>}
+                              {(inv.payerId === myEffectiveId || inv.payerId === 'me' || (isCreatorMe && (inv.payerId === space.creatorId || inv.payerId === space.createdBy))) && (
+                                <button onClick={() => handleResubmit(inv)} style={{ marginTop: '0.5rem', background: 'white', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.4rem 0.8rem', borderRadius: '16px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  🔄 שלח שוב לאישור
+                                </button>
+                              )}
                             </div>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>

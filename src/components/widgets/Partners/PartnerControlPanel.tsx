@@ -191,7 +191,13 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId !== member.userId && !(i.approvedBy||[]).includes(member.userId)).length;
             }
 
-            const disputesCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'dispute' && (i.payerId === member.userId || i.rejectedById === member.userId)).length;
+            const disputesCount = invoices.filter((i:any) => {
+              if (i.isActive === false || i.status !== 'dispute') return false;
+              if (i.payerId === member.userId || i.rejectedById === member.userId) return true;
+              if (!i.rejectedById && i.rejectedBy === member.name) return true;
+              if (viewMode === 'creator' && (i.payerId === user?.id || i.payerId === 'me')) return true;
+              return false;
+            }).length;
 
             if (pendingCount === 0 && disputesCount === 0) return null;
 

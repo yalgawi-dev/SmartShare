@@ -65,9 +65,11 @@ export function FinanceSummary({
   const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.type !== 'income' && inv.status !== 'dispute' && inv.category !== 'cashbox_equity' && inv.category !== 'cashbox_withdrawal');
   const incomesOnly = activeInvoices.filter((inv: any) => inv.type === 'income' && inv.status !== 'dispute');
   const transfersOnly = activeInvoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
+  const disputedInvoices = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.type !== 'income' && inv.status === 'dispute' && inv.category !== 'cashbox_equity' && inv.category !== 'cashbox_withdrawal');
   
   const totalExpenses = expensesOnly.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
-    const totalStoreCredits = expensesOnly.filter((inv: any) => inv.isStoreCredit && inv.amount < 0).reduce((acc: number, inv: any) => acc + Math.abs(inv.amount || 0), 0);
+  const totalDisputed = disputedInvoices.reduce((acc: number, inv: any) => acc + (inv.amount || 0), 0);
+  const totalStoreCredits = expensesOnly.filter((inv: any) => inv.isStoreCredit && inv.amount < 0).reduce((acc: number, inv: any) => acc + Math.abs(inv.amount || 0), 0);
 
   // UNIFIED FINANCIAL ENGINE
   const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, incomeExpected: number, incomeHeld: number, p: number, rawP?: number, isCreator?: boolean }>();
@@ -258,7 +260,14 @@ export function FinanceSummary({
           title="פירוט ההוצאות לפי קטגוריות"
         >
           <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה"כ הוצאות</p>
-          <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '2.5rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '2.5rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+            {totalDisputed > 0 && (
+              <span onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.3rem 0.6rem', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
+                + ₪{totalDisputed.toLocaleString()} במחלוקת
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Row 2: Pending and Balances */}
@@ -391,6 +400,23 @@ export function FinanceSummary({
                                 })()}
                                 {isCreatorMe && (b as any).status === 'extension_requested' && <span style={{fontSize:'0.75rem'}}>🔔</span>}
                               </span>
+                              {(() => {
+                                const relevantId = b.isCreator ? myEffectiveId : b.userId;
+                                const partnerDisputes = disputedInvoices.filter((i: any) => i.payerId === relevantId || i.rejectedById === relevantId || (!i.rejectedById && i.rejectedBy === (b.isCreator ? user?.realName : b.name)));
+                                const disputedAmt = partnerDisputes.reduce((acc, i) => acc + (i.amount || 0), 0);
+                                
+                                if (disputedAmt > 0) {
+                                  return (
+                                    <div 
+                                      onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} 
+                                      style={{ marginTop: '0.2rem', display: 'inline-block', fontSize: '0.75rem', color: '#991b1b', background: '#fee2e2', padding: '0.15rem 0.4rem', borderRadius: '12px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3' }}
+                                    >
+                                      ❌ {disputedAmt.toLocaleString()}₪ במחלוקת
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              })()}
                               {isExcludedFromPast && (
                                 <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
                                   🛡️ ללא הוצאות עבר
