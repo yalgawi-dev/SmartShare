@@ -57,7 +57,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
             return (
               <div key={m.userId} style={{ border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
                 <div onClick={(e) => { const t = e.target as HTMLElement; if (t.closest("button") || t.closest("input")) return; setExpandedMember(expandedMember === m.userId ? null : m.userId); }} style={{ cursor: "pointer", background: "#f8fafc", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 600, flex: 1 }}>{m.displayName || m.email || m.userId}</span>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{m.name || m.displayName || m.email || m.userId}</span>
                   <span style={{ width: "120px", textAlign: "center", fontSize: "0.8rem", color: m.status === "active" ? "#16a34a" : m.status === "disputed" ? "#dc2626" : "#b45309" }}>
                     {m.status === "active" ? "✅ פעיל" : 
                      m.status === "pending" ? (m.welcomed ? "⏳ ממתין שיאשר" : "✉️ טרם הצטרף") : 

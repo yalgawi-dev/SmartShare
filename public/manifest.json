@@ -1,7 +1,7 @@
 {
-  "name": "MySpace",
-  "short_name": "MySpace",
-  "description": "Shared virtual spaces for events, albums, and project management.",
+  "name": "SmartShare",
+  "short_name": "SmartShare",
+  "description": "Smart project and expense management for partners.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",

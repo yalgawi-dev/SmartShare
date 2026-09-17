@@ -102,6 +102,11 @@ export default function WelcomeGate({
     } else if (currentMember?.name && currentMember.name !== 'שותף מוזמן' && !guestName) {
       setGuestName(currentMember.name);
     }
+
+    // If we don't have a pre-filled name, or it's a placeholder, we should be in edit mode
+    if (!guestName || PLACEHOLDERS.includes(guestName)) {
+      setIsEditingName(true);
+    }
   }, [currentMember?.name, guestName, user?.realName, user?.nickname]);
 
   if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || !resolvedToken) return null;

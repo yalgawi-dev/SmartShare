@@ -310,13 +310,14 @@ const runOcrPipeline = async (imgUrl: string) => {
     const invoiceNumber = (formData.get('invoiceNumber') as string) || '';
     const documentType = (formData.get('documentType') as string) || null;
       // If the user clicks Save BEFORE the background upload is done, we wait for it!
-    let finalAttachmentUrl = scannedImage;
+    let finalAttachmentUrl = (scannedImage && scannedImage.startsWith('http')) ? scannedImage : null;
     if (uploadPromiseRef.current) {
       try {
         finalAttachmentUrl = await uploadPromiseRef.current;
         uploadPromiseRef.current = null; // Clear it out
       } catch (err) {
         console.error("Background upload failed", err);
+        alert("העלאת התמונה נכשלה, לכן החשבונית תישמר ללא תמונה מצורפת. ייתכן שאין לך הרשאות רשת מתאימות.");
       }
     }
 
