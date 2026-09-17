@@ -63,6 +63,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions'>('summary');
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
   
   useEffect(() => {
@@ -469,7 +470,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           })}
 
           {/* Finance is always at the top if active */}
-          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} />}
+          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab} setActiveTab={setFinanceTab} />}
           
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space} isGuestMode={isRestricted} />}
@@ -490,16 +491,21 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       </div>
       
 
-      {(!isRestricted && (hasFinance || hasScanner)) && (
+      {/* Floating Scanner & AppShare & Generic Setup Button */}
+      {spaceFeatures.length > 0 && !isRestricted && (
+        <>
           <FloatingActionBar 
             hasFinance={hasFinance}
             hasScanner={hasScanner}
             isAddingExpense={isAddingExpense}
             isScannerOpen={isScannerOpen}
+            activeTab={financeTab}
+            setActiveTab={setFinanceTab}
             onAddExpense={() => handleRestrictedAction(() => setIsAddingExpense(true))}
             onOpenScanner={() => handleRestrictedAction(() => setIsScannerOpen(true))}
             onFileUpload={(file) => handleRestrictedAction(() => handleFileUpload(file))}
           />
+        </>
       )}
       
       {isScannerOpen && (

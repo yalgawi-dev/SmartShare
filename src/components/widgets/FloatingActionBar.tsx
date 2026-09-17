@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { createPortal } from 'react-dom';
 import { useRef, useState, useEffect } from 'react';
@@ -8,6 +8,8 @@ export function FloatingActionBar({
   hasScanner,
   isAddingExpense,
   isScannerOpen,
+  activeTab,
+  setActiveTab,
   onAddExpense,
   onOpenScanner,
   onFileUpload
@@ -16,75 +18,40 @@ export function FloatingActionBar({
   hasScanner: boolean;
   isAddingExpense: boolean;
   isScannerOpen: boolean;
+  activeTab?: 'summary' | 'transactions';
+  setActiveTab?: (tab: 'summary' | 'transactions') => void;
   onAddExpense: () => void;
   onOpenScanner: () => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const isDragging = useRef(false);
-  const dragStart = useRef({ x: 0, y: 0 });
-  
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   if (isAddingExpense || isScannerOpen || !mounted) return null;
 
-  const handlePointerDown = (e: React.PointerEvent) => {
-    isDragging.current = true;
-    dragStart.current = { x: e.clientX - offset.x, y: e.clientY - offset.y };
-    e.currentTarget.setPointerCapture(e.pointerId);
-  };
-  
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging.current) return;
-    setOffset({
-      x: e.clientX - dragStart.current.x,
-      y: e.clientY - dragStart.current.y
-    });
-  };
-  
-  const handlePointerUp = (e: React.PointerEvent) => {
-    isDragging.current = false;
-    e.currentTarget.releasePointerCapture(e.pointerId);
-  };
-
   return createPortal(
     <div style={{
       position: 'fixed',
-      bottom: '2rem',
+      bottom: '1.5rem',
       left: '50%',
-      transform: `translate(calc(-50% + ${offset.x}px), ${offset.y}px)`,
+      transform: 'translateX(-50%)',
+      width: '94%',
+      maxWidth: '420px',
       background: 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(10px)',
-      WebkitBackdropFilter: 'blur(10px)',
+      backdropFilter: 'blur(15px)',
+      WebkitBackdropFilter: 'blur(15px)',
       border: '1px solid rgba(0,0,0,0.08)',
-      borderRadius: '100px',
-      padding: '0.4rem',
+      borderRadius: '24px',
+      padding: '0.5rem',
       display: 'flex',
       alignItems: 'center',
-      gap: '0.25rem',
-      boxShadow: '0 12px 35px rgba(0,0,0,0.15)',
+      justifyContent: 'space-between',
+      boxShadow: '0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
       zIndex: 99999,
       animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-      touchAction: 'none'
     }}>
-      <div 
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
-        style={{ padding: '0.5rem', cursor: 'grab', display: 'flex', alignItems: 'center', color: '#94a3b8' }}
-        title="גרור להזזה"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M10 9h4V6h3l-5-5-5 5h3v3zm-1 1H6V7l-5 5 5 5v-3h3v-4zm14 2l-5-5v3h-3v4h3v3l5-5zm-9 3h-4v3H7l5 5 5-5h-3v-3z"/>
-        </svg>
-      </div>
-
-      <div style={{ width: '1px', height: '30px', background: 'rgba(0,0,0,0.08)', margin: '0 0.25rem' }} />
-
+      
       <input 
         type="file" 
         accept="image/*" 
@@ -93,52 +60,87 @@ export function FloatingActionBar({
         onChange={onFileUpload}
       />
       
-      {hasFinance && (
-        <>
+      {/* Right side (RTL Start) - Tabs */}
+      <div style={{ display: 'flex', gap: '0.2rem', paddingRight: '0.2rem' }}>
+        {hasFinance && (
+          <>
+            <button 
+              onClick={() => setActiveTab && setActiveTab('summary')}
+              style={{
+                background: activeTab === 'summary' ? 'var(--bg-card)' : 'transparent', 
+                border: 'none', padding: '0.5rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'summary' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'summary' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>📊</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'summary' ? '800' : '600' }}>מאזן</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab && setActiveTab('transactions')}
+              style={{
+                background: activeTab === 'transactions' ? 'var(--bg-card)' : 'transparent', 
+                border: 'none', padding: '0.5rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>🧾</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>פירוט</span>
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Center Main Action */}
+      <div style={{ position: 'relative', marginTop: '-2rem', display: 'flex', gap: '0.5rem' }}>
+        {hasScanner && (
+           <button 
+             onClick={onOpenScanner}
+             style={{
+               background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',
+               display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+               color: 'white', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.4)',
+               width: '64px', height: '64px', transition: 'transform 0.2s'
+             }}
+           >
+             <span style={{ fontSize: '1.75rem' }}>📸</span>
+           </button>
+        )}
+      </div>
+
+      {/* Left side (RTL End) - Manual Add */}
+      <div style={{ display: 'flex', gap: '0.2rem', paddingLeft: '0.2rem' }}>
+        {hasFinance && (
           <button 
             onClick={onAddExpense}
             style={{
-              background: 'transparent', border: 'none', padding: '0.5rem 1rem', borderRadius: '100px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', cursor: 'pointer',
-              color: 'var(--text-secondary)'
+              background: 'transparent', border: 'none', padding: '0.5rem', borderRadius: '16px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+              color: 'var(--text-secondary)', minWidth: '55px', transition: 'all 0.2s'
             }}
           >
             <span style={{ fontSize: '1.25rem' }}>💳</span>
             <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>הזנה</span>
           </button>
-          
-          <div style={{ width: '1px', height: '30px', background: 'rgba(0,0,0,0.08)', margin: '0 0.25rem' }} />
+        )}
+        
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          style={{
+            background: 'transparent', border: 'none', padding: '0.5rem', borderRadius: '16px',
+            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+            color: 'var(--text-secondary)', minWidth: '55px', transition: 'all 0.2s'
+          }}
+        >
+          <span style={{ fontSize: '1.25rem' }}>📄</span>
+          <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>קובץ</span>
+        </button>
+      </div>
 
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            style={{
-              background: 'transparent', border: 'none', padding: '0.5rem 1rem', borderRadius: '100px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', cursor: 'pointer',
-              color: 'var(--text-secondary)'
-            }}
-          >
-            <span style={{ fontSize: '1.25rem' }}>📄</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>מסמך</span>
-          </button>
-        </>
-      )}
-
-      {hasScanner && (
-        <>
-          {hasFinance && <div style={{ width: '1px', height: '30px', background: 'rgba(0,0,0,0.08)', margin: '0 0.25rem' }} />}
-          <button 
-            onClick={onOpenScanner}
-            style={{
-              background: 'var(--primary)', border: 'none', padding: '0.5rem 1.25rem', borderRadius: '100px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', cursor: 'pointer',
-              color: 'white', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
-            }}
-          >
-            <span style={{ fontSize: '1.25rem' }}>📸</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>סורק</span>
-          </button>
-        </>
-      )}
     </div>,
     document.body
   );
