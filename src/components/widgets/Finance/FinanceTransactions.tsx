@@ -254,6 +254,7 @@ export function FinanceTransactions({
     if (inv.type === 'transfer') {
       const targetId = inv.targetId;
       if (!targetId) return 'המקבל';
+      if (targetId === user?.id || targetId === myEffectiveId) return 'אותך (לאישורך)';
       const targetName = targetId === space.creatorId ? (space.createdBy || 'יוצר המרחב') : space.members.find((m: any) => m.userId === targetId)?.name || 'השותף';
       return targetName;
     }
@@ -273,10 +274,14 @@ export function FinanceTransactions({
       if (approvedBy.includes(m.userId)) return false;
       if (excluded.includes(m.userId)) return false;
       return true;
-    }).map((m: any) => m.name).filter(Boolean);
+    }).map((m: any) => {
+      if (m.userId === user?.id || m.userId === myEffectiveId) return 'את/ה';
+      return m.name;
+    }).filter(Boolean);
     
-    if (waitingFor.length === 0) return null;
-    return waitingFor.join(', ');
+    const uniqueWaitingFor = Array.from(new Set(waitingFor));
+    if (uniqueWaitingFor.length === 0) return null;
+    return uniqueWaitingFor.join(', ');
   };
 
   return (
