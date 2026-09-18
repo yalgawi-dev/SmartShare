@@ -10,6 +10,16 @@ import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'fireb
 export type FeatureId = string;
 export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
 
+
+export interface InboxItem {
+  id: string;
+  imageUrl: string;
+  status: 'processing' | 'ready' | 'irrelevant' | 'error';
+  ocrData?: any;
+  createdAt: string;
+  uploadedBy: string;
+}
+
 export interface Invoice {
   excludedMembers?: string[];
   id: string;
@@ -144,7 +154,12 @@ interface SpacesContextType {
   toggleFeature: (spaceId: string, featureId: FeatureId, performedBy?: string) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
   updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => void;
+
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
+  addInboxItems: (spaceId: string, items: Omit<InboxItem, 'id' | 'createdAt'>[]) => void;
+  updateInboxItem: (spaceId: string, itemId: string, updates: Partial<InboxItem>) => void;
+  removeInboxItem: (spaceId: string, itemId: string) => void;
+
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
   updateMediaItem: (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => void;
   removeMediaItem: (spaceId: string, mediaId: string) => void;
@@ -1231,7 +1246,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
       updateMemberPermissions,
       sendMessageToMember,
       markMessageRead,

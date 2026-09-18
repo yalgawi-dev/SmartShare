@@ -8,6 +8,7 @@ import Link from 'next/link';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { FinanceSummary } from './Finance/FinanceSummary';
+import { FinanceInbox } from './Finance/FinanceInbox';
 import { calculateCurrentSharesSnapshot } from '../../../utils/partnerUtils';
 import { FinanceTransactions } from './Finance/FinanceTransactions';
 import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
@@ -15,7 +16,7 @@ import { FinanceTransferModal } from './Finance/FinanceTransferModal';
 import { isCashboxEnabled, createVirtualTreasury } from './Cashbox/CashboxEngine';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
-const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions', setActiveTab: (tab: 'summary'|'transactions') => void }, ref) => {
+const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions'|'inbox', setActiveTab: (tab: 'summary'|'transactions'|'inbox') => void, onOpenPartnersModal?: () => void }, ref) => {
   const { user } = useAuth();
   
   // Check if current user is a restricted partner (pending / guest)
@@ -66,6 +67,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [ocrDebugMessage, setOcrDebugMessage] = useState<string | null>(null);
   const [ocrElapsedTime, setOcrElapsedTime] = useState<number>(0);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
+  const [reviewingInboxItemId, setReviewingInboxItemId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
@@ -76,7 +78,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     if (targetId) setSelectedPayerId(targetId);
     if (setIsAddingExpense) setIsAddingExpense(true);
   };
-  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace } = useSpaces();
+  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === 'creator' || (space.creatorId && user?.id === space.creatorId);
   const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (getTokenForSpace(space.id) || user?.id || 'me');
@@ -386,6 +388,10 @@ const runOcrPipeline = async (imgUrl: string) => {
     }
 
     addInvoice(space.id, newInvoice);
+      if (reviewingInboxItemId) {
+        removeInboxItem(space.id, reviewingInboxItemId);
+        setReviewingInboxItemId(null);
+      }
 
     handleCloseForm();
     setActiveTab('transactions'); // Move to transactions so they see the newly added item at the top!
@@ -457,7 +463,21 @@ const runOcrPipeline = async (imgUrl: string) => {
       
         {/* TABS - Handled by Bottom Nav Bar */}
         <div style={{ padding: '1.5rem', paddingTop: '0' }}>
-        {activeTab === 'summary' && (
+        
+          {activeTab === 'inbox' && (
+            <FinanceInbox
+              space={space}
+              user={user}
+              onReviewItem={(item) => {
+                setReviewingInboxItemId(item.id);
+                setScannedImage(item.imageUrl);
+                setOcrData(item.ocrData || {});
+                if(setIsAddingExpense) setIsAddingExpense(true);
+              }}
+            />
+          )}
+
+          {activeTab === 'summary' && (
           <FinanceSummary 
             space={space}
             user={user}

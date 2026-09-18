@@ -63,7 +63,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions'>('summary');
+  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox'>('summary');
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
   
   useEffect(() => {

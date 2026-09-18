@@ -18,8 +18,8 @@ export function FloatingActionBar({
   hasScanner: boolean;
   isAddingExpense: boolean;
   isScannerOpen: boolean;
-  activeTab?: 'summary' | 'transactions';
-  setActiveTab?: (tab: 'summary' | 'transactions') => void;
+  activeTab?: 'summary' | 'transactions' | 'inbox';
+  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox') => void;
   onAddExpense: () => void;
   onOpenScanner: () => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
