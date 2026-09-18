@@ -12,6 +12,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
+  const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>('date_desc');
 
   const inboxItems: InboxItem[] = space.inboxItems || [];
   
@@ -110,6 +111,20 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
     <div style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>מסוף קליטה ({inboxItems.length})</h3>
+
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <select 
+            value={sortOption}
+            onChange={(e) => setSortOption(e.target.value as any)}
+            style={{ padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-light)', background: 'var(--bg-main)', color: 'var(--text-primary)' }}
+          >
+            <option value="date_desc">הכי חדש תחילה</option>
+            <option value="date_asc">הכי ישן תחילה</option>
+            <option value="amount_desc">סכום: מהגבוה לנמוך</option>
+            <option value="amount_asc">סכום: מהנמוך לגבוה</option>
+          </select>
+        </div>
+
         <button 
           onClick={() => fileInputRef.current?.click()}
           style={{
@@ -145,9 +160,19 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
           {[...inboxItems].sort((a, b) => {
+            // Group irrelevant at the bottom ALWAYS
             if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
             if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
-            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            
+            if (sortOption === 'date_desc') {
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            } else if (sortOption === 'date_asc') {
+              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+            } else {
+              const amountA = a.ocrData?.amount || 0;
+              const amountB = b.ocrData?.amount || 0;
+              return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
+            }
           }).map((item: any) => (
             <div key={item.id} style={{ 
               background: 'var(--bg-card)', 
