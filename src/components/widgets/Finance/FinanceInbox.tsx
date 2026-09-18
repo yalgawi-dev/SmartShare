@@ -109,8 +109,8 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
 
   return (
     <div style={{ padding: '1rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>מסוף קליטה ({inboxItems.length})</h3>
+      <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מסוף קליטה ({inboxItems.length})</h4>
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <select 
@@ -135,6 +135,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             borderRadius: 'var(--radius-md)',
             fontWeight: 'bold',
             cursor: 'pointer',
+            whiteSpace: 'nowrap',
             opacity: isUploading ? 0.7 : 1
           }}
           disabled={isUploading}

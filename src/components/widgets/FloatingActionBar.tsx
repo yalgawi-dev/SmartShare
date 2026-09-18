@@ -61,17 +61,17 @@ export function FloatingActionBar({
       />
       
       {/* Right side (RTL Start) - Tabs */}
-      <div style={{ display: 'flex', gap: '0.2rem', paddingRight: '0.2rem' }}>
+      <div style={{ display: 'flex', gap: '0.2rem', paddingRight: '0.2rem', flex: 1, justifyContent: 'flex-start' }}>
         {hasFinance && (
           <>
             <button 
               onClick={() => setActiveTab && setActiveTab('summary')}
               style={{
                 background: activeTab === 'summary' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
+                border: 'none', padding: '0.5rem 0.25rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
                 color: activeTab === 'summary' ? '#2563eb' : '#64748b',
-                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'summary' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                minWidth: '50px', transition: 'all 0.2s', boxShadow: activeTab === 'summary' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.25rem' }}>📊</span>
@@ -82,50 +82,21 @@ export function FloatingActionBar({
               onClick={() => setActiveTab && setActiveTab('transactions')}
               style={{
                 background: activeTab === 'transactions' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
+                border: 'none', padding: '0.5rem 0.25rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
                 color: activeTab === 'transactions' ? '#2563eb' : '#64748b',
-                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                minWidth: '50px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.25rem' }}>🧾</span>
               <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>פירוט</span>
             </button>
-          
-            <button 
-              onClick={() => setActiveTab && setActiveTab('inbox')}
-              style={{
-                background: activeTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
-                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-              }}
-            >
-              <span style={{ fontSize: '1.25rem' }}>📥</span>
-              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>תיבה</span>
-            </button>
-
-            <button 
-              onClick={() => setActiveTab && setActiveTab('inbox')}
-              style={{
-                background: activeTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
-                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-              }}
-            >
-              <span style={{ fontSize: '1.25rem' }}>📥</span>
-              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>תיבה</span>
-            </button>
-
           </>
         )}
       </div>
 
       {/* Center Main Action */}
-      <div style={{ position: 'relative', marginTop: '-2rem', display: 'flex', gap: '0.5rem' }}>
+      <div style={{ position: 'relative', marginTop: '-2rem', display: 'flex', justifyContent: 'center', flex: 0 }}>
         {hasScanner && (
            <button 
              onClick={onOpenScanner}
@@ -133,7 +104,7 @@ export function FloatingActionBar({
                background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',
                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                color: 'white', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.4)',
-               width: '64px', height: '64px', transition: 'transform 0.2s'
+               width: '64px', height: '64px', transition: 'transform 0.2s', flexShrink: 0
              }}
            >
              <span style={{ fontSize: '1.75rem' }}>📸</span>
@@ -141,33 +112,37 @@ export function FloatingActionBar({
         )}
       </div>
 
-      {/* Left side (RTL End) - Manual Add */}
-      <div style={{ display: 'flex', gap: '0.2rem', paddingLeft: '0.2rem' }}>
+      {/* Left side (RTL End) - Inbox and Manual Add */}
+      <div style={{ display: 'flex', gap: '0.2rem', paddingLeft: '0.2rem', flex: 1, justifyContent: 'flex-end' }}>
         {hasFinance && (
-          <button 
-            onClick={onAddExpense}
-            style={{
-              background: 'transparent', border: 'none', padding: '0.5rem', borderRadius: '16px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: 'var(--text-secondary)', minWidth: '55px', transition: 'all 0.2s'
-            }}
-          >
-            <span style={{ fontSize: '1.25rem' }}>💳</span>
-            <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>הזנה</span>
-          </button>
+          <>
+            <button 
+              onClick={() => setActiveTab && setActiveTab('inbox')}
+              style={{
+                background: activeTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 0.25rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
+                minWidth: '50px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>📥</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>תיבה</span>
+            </button>
+
+            <button 
+              onClick={onAddExpense}
+              style={{
+                background: 'transparent', border: 'none', padding: '0.5rem 0.25rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: 'var(--text-secondary)', minWidth: '50px', transition: 'all 0.2s'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>💳</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>הזנה</span>
+            </button>
+          </>
         )}
-        
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          style={{
-            background: 'transparent', border: 'none', padding: '0.5rem', borderRadius: '16px',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-            color: 'var(--text-secondary)', minWidth: '55px', transition: 'all 0.2s'
-          }}
-        >
-          <span style={{ fontSize: '1.25rem' }}>📄</span>
-          <span style={{ fontSize: '0.7rem', fontWeight: '600' }}>קובץ</span>
-        </button>
       </div>
 
     </div>,
