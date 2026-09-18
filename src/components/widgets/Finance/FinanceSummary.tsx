@@ -316,7 +316,7 @@ export function FinanceSummary({
               title="למעבר מהיר לעמוד ההוצאות"
             >
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישור</p>
-              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => i.status === 'pending').length}</h3>
+              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => { if (i.status !== 'pending') return false; if ((i.type === 'income' || i.category === 'הכנסת עסק') && !space?.features?.includes('income')) return false; if ((i.type === 'transfer' || i.category === 'העברה/קיזוז') && !space?.features?.includes('partners')) return false; return true; }).length}</h3>
             </div>
             
             
