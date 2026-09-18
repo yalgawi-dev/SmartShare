@@ -61,7 +61,7 @@ export function FloatingActionBar({
       />
       
       {/* Right side (RTL Start) - Tabs */}
-      <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
         {hasFinance && (
           <>
             <button 
@@ -75,7 +75,7 @@ export function FloatingActionBar({
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📊</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'summary' ? '800' : '600' }}>מאזן</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'summary' ? '800' : '600' }}>ראשי</span>
             </button>
 
             <button 
@@ -113,7 +113,7 @@ export function FloatingActionBar({
       </div>
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
-      <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'flex-end' }}>
+      <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
         {hasFinance && (
           <>
             <button 
