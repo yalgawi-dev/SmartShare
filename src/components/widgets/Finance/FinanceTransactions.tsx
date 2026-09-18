@@ -281,32 +281,46 @@ export function FinanceTransactions({
   return (
     <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEndHandler}>
       {/* Main Category Tabs */}
-      {(showIncome || showTransfers) && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '12px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
-          <button 
-            onClick={() => { setTypeFilter('expense'); setFilter('all'); }} 
-            style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'expense' ? 'var(--primary)' : 'transparent', color: typeFilter === 'expense' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'expense' ? 'var(--shadow-sm)' : 'none' }}
-          >
-            הוצאות
-          </button>
-          {showIncome && (
+      {(showIncome || showTransfers) && (() => {
+        const pendingExpenses = invoices.filter((i: any) => i.status === 'pending' && i.type !== 'transfer' && i.type !== 'income' && i.isActive !== false).length;
+        const pendingIncomes = invoices.filter((i: any) => i.status === 'pending' && i.type === 'income' && i.isActive !== false).length;
+        const pendingTransfers = invoices.filter((i: any) => i.status === 'pending' && i.type === 'transfer' && i.isActive !== false).length;
+        return (
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '12px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
             <button 
-              onClick={() => { setTypeFilter('income'); setFilter('all'); }} 
-              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'income' ? '#10b981' : 'transparent', color: typeFilter === 'income' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'income' ? 'var(--shadow-sm)' : 'none' }}
+              onClick={() => { setTypeFilter('expense'); setFilter('all'); }} 
+              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'expense' ? 'var(--primary)' : 'transparent', color: typeFilter === 'expense' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'expense' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
-              הכנסות
+              הוצאות
+              {pendingExpenses > 0 && (
+                <span style={{ background: typeFilter === 'expense' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'expense' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingExpenses}</span>
+              )}
             </button>
-          )}
-          {showTransfers && (
-            <button 
-              onClick={() => { setTypeFilter('transfer'); setFilter('all'); }} 
-              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'transfer' ? '#f59e0b' : 'transparent', color: typeFilter === 'transfer' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'transfer' ? 'var(--shadow-sm)' : 'none' }}
-            >
-              העברות
-            </button>
-          )}
-        </div>
-      )}
+            {showIncome && (
+              <button 
+                onClick={() => { setTypeFilter('income'); setFilter('all'); }} 
+                style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'income' ? '#10b981' : 'transparent', color: typeFilter === 'income' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'income' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                הכנסות
+                {pendingIncomes > 0 && (
+                  <span style={{ background: typeFilter === 'income' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'income' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingIncomes}</span>
+                )}
+              </button>
+            )}
+            {showTransfers && (
+              <button 
+                onClick={() => { setTypeFilter('transfer'); setFilter('all'); }} 
+                style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'transfer' ? '#f59e0b' : 'transparent', color: typeFilter === 'transfer' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'transfer' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                העברות
+                {pendingTransfers > 0 && (
+                  <span style={{ background: typeFilter === 'transfer' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'transfer' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingTransfers}</span>
+                )}
+              </button>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Filter Pills */}
       {(() => {
