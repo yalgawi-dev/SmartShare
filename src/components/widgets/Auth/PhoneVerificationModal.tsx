@@ -87,7 +87,7 @@ export default function PhoneVerificationModal() {
   return createPortal(
     <>
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.8)', zIndex: 999998, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.3s ease-out' }} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#ffffff', borderRadius: '28px', width: '90%', maxWidth: '440px', zIndex: 999999, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', overflow: 'hidden', display: 'flex', flexDirection: 'column', animation: 'slideUpScale 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
+      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#ffffff', borderRadius: '28px', width: '90%', maxWidth: '440px', maxHeight: '90vh', zIndex: 999999, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', overflowY: 'auto', display: 'flex', flexDirection: 'column', animation: 'slideUpScale 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         
         {/* Header Graphic */}
         <div style={{ background: 'linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%)', padding: '2.5rem 2rem 1.5rem', textAlign: 'center', position: 'relative' }}>

@@ -253,7 +253,7 @@ const runOcrPipeline = async (imgUrl: string) => {
   });
 
 
-  const validMembers = space.members?.filter((m: any) => m.userId !== user?.id) || [];
+  const validMembers = space.members?.filter((m: any) => m.userId !== myEffectiveId && m.userId !== user?.id) || [];
   if (isCashboxEnabled(space)) {
     validMembers.push(createVirtualTreasury());
   }
