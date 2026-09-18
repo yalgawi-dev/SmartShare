@@ -485,7 +485,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             activePartnersCount={activePartnersCount}
             hasScanner={hasScanner}
             setActiveTab={setActiveTab}
-            setFilter={setFilter}
+            setFilter={setFilter as any}
             updateSpaceSettings={updateSpaceSettings}
             updateSharesBulk={updateSharesBulk}
             onRestrictedAction={onRestrictedAction}
@@ -502,7 +502,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             space={space}
             updateInvoice={(...args) => handleRestrictedAction(() => updateInvoice(...args))}
             filter={filter}
-            setFilter={setFilter}
+            setFilter={setFilter as any}
             expandedInvoiceId={expandedInvoiceId}
             setExpandedInvoiceId={setExpandedInvoiceId}
             setPreviewImage={setPreviewImage}
