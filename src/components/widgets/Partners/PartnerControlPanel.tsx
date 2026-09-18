@@ -48,9 +48,11 @@ interface Props {
   onClose: () => void;
   viewMode?: 'creator' | 'partner';
   onNavigateToFilter?: (filter: string) => void;
+  onTriggerTransfer?: () => void;
+  onEditShares?: () => void;
 }
 
-function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter }: Props) {
+function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
   const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead, approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
@@ -179,6 +181,28 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}
             >✕</button>
           </div>
+
+          {/* Action Buttons */}
+          {viewMode === 'creator' && (
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+              {onTriggerTransfer && (
+                <button
+                  onClick={() => { onClose(); onTriggerTransfer(); }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.3)' }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>💸</span> תשלום
+                </button>
+              )}
+              {onEditShares && (
+                <button
+                  onClick={() => { onClose(); onEditShares(); }}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>📊</span> שינוי אחוזים
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Quick Links Area */}
           {(() => {

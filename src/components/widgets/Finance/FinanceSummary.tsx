@@ -483,6 +483,8 @@ export function FinanceSummary({
                             viewMode="creator"
                             onClose={() => setExpandedPartnerId(null)}
                             onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
+                            onTriggerTransfer={() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null}
+                            onEditShares={() => setIsEditingShares(true)}
                           />
                         )}
                         {!isCreatorMe && b.isCreator && expandedPartnerId === myEffectiveId && (() => {
@@ -495,6 +497,8 @@ export function FinanceSummary({
                               viewMode="partner"
                               onClose={() => setExpandedPartnerId(null)}
                               onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
+                              onTriggerTransfer={() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null}
+                              onEditShares={undefined} // partners can't edit shares directly
                             />
                           );
                         })()}
