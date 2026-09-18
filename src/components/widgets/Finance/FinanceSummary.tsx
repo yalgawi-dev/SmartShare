@@ -445,12 +445,15 @@ export function FinanceSummary({
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                           <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                          {hasPartners && (
-                            <td style={{ padding: '0.75rem', fontWeight: 'bold', color: b.balance > 0 ? '#10b981' : b.balance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
-                              <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{b.balance < 0 ? '(חובה)' : b.balance > 0 ? '(זכות)' : ''}</span>
-                              {b.balance > 0 ? '+' : ''}{'₪'}{b.balance.toLocaleString(undefined, {maximumFractionDigits: 0})}
-                            </td>
-                          )}
+                          {hasPartners && (() => {
+                            const displayBalance = Math.round(b.balance);
+                            return (
+                              <td style={{ padding: '0.75rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                                <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{displayBalance < 0 ? '(חובה)' : displayBalance > 0 ? '(זכות)' : ''}</span>
+                                {displayBalance > 0 ? '+' : (displayBalance < 0 ? '-' : '')}{'₪'}{Math.abs(displayBalance).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                              </td>
+                            );
+                          })()}
                         </tr>
                         {isCreatorMe && expandedPartnerId === b.userId && memberObj && (
                           <PartnerControlPanel

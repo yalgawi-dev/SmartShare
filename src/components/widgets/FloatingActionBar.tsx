@@ -67,11 +67,11 @@ export function FloatingActionBar({
             <button 
               onClick={() => setActiveTab && setActiveTab('summary')}
               style={{
-                background: activeTab === 'summary' ? 'var(--bg-card)' : 'transparent', 
-                border: 'none', padding: '0.5rem', borderRadius: '16px',
+                background: activeTab === 'summary' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'summary' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'summary' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                color: activeTab === 'summary' ? '#2563eb' : '#64748b',
+                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'summary' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.25rem' }}>📊</span>
@@ -81,11 +81,11 @@ export function FloatingActionBar({
             <button 
               onClick={() => setActiveTab && setActiveTab('transactions')}
               style={{
-                background: activeTab === 'transactions' ? 'var(--bg-card)' : 'transparent', 
-                border: 'none', padding: '0.5rem', borderRadius: '16px',
+                background: activeTab === 'transactions' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'transactions' ? 'var(--text-primary)' : 'var(--text-secondary)',
-                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(0,0,0,0.05)' : 'none'
+                color: activeTab === 'transactions' ? '#2563eb' : '#64748b',
+                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.25rem' }}>🧾</span>
