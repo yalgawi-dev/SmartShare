@@ -91,6 +91,35 @@ export function FloatingActionBar({
               <span style={{ fontSize: '1.25rem' }}>🧾</span>
               <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>פירוט</span>
             </button>
+          
+            <button 
+              onClick={() => setActiveTab && setActiveTab('inbox')}
+              style={{
+                background: activeTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
+                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>📥</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>תיבה</span>
+            </button>
+
+            <button 
+              onClick={() => setActiveTab && setActiveTab('inbox')}
+              style={{
+                background: activeTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
+                minWidth: '55px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.25rem' }}>📥</span>
+              <span style={{ fontSize: '0.7rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>תיבה</span>
+            </button>
+
           </>
         )}
       </div>
