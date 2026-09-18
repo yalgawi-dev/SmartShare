@@ -607,15 +607,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...space.invoices],
-      updatedAt: 'עודכן עכשיו'
-    }));
-  };
-
-  const joinSpace = (spaceId: string, userId: string, name: string) => {
+const joinSpace = (spaceId: string, userId: string, name: string) => {
     saveSpaceUpdate(spaceId, space => {
       if (space.members?.some(m => m.userId === userId)) return space; 
       return {
@@ -1132,6 +1124,46 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   // --- SUBCOLLECTION MUTATORS (MediaItems / Greetings) ---
+
+
+  const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...space.invoices],
+      updatedAt: 'עודכן עכשיו'
+    }));
+  };
+
+  const addInboxItems = (spaceId: string, items: Omit<InboxItem, 'id' | 'createdAt'>[]) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newItems = items.map((item, idx) => ({
+        ...item,
+        id: `inbox-${Date.now()}-${idx}`,
+        createdAt: new Date().toISOString()
+      }));
+      return {
+        ...space,
+        inboxItems: [...newItems, ...(space.inboxItems || [])],
+        updatedAt: 'עודכן עכשיו'
+      };
+    });
+  };
+
+  const updateInboxItem = (spaceId: string, itemId: string, updates: Partial<InboxItem>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      inboxItems: (space.inboxItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
+      updatedAt: 'עודכן עכשיו'
+    }));
+  };
+
+  const removeInboxItem = (spaceId: string, itemId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      inboxItems: (space.inboxItems || []).filter(item => item.id !== itemId),
+      updatedAt: 'עודכן עכשיו'
+    }));
+  };
 
   const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
     const newItem: MediaItem = { 
