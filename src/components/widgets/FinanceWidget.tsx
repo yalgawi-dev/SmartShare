@@ -327,7 +327,7 @@ const runOcrPipeline = async (imgUrl: string) => {
     const isTransfer = category === 'העברה/קיזוז';
     const isIncome = category === 'הכנסת עסק';
     let targetId = undefined;
-    if (isTransfer) {
+    if (isTransfer || isIncome) {
       targetId = formData.get('targetId') as string;
       if (targetId === 'me') targetId = user?.id || 'me';
     }
@@ -378,7 +378,7 @@ const runOcrPipeline = async (imgUrl: string) => {
       payerId: payerId
     };
 
-    if (isTransfer && targetId) {
+    if ((isTransfer || isIncome) && targetId) {
       newInvoice.targetId = targetId;
     }
     if (finalAttachmentUrl) {
