@@ -458,6 +458,29 @@ export function FinanceTransactions({
                 <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                     
+                    {/* Action Details for Transfers and Incomes */}
+                    {(inv.type === 'transfer' || inv.type === 'income') && (
+                      <div style={{ flex: '1 1 100%', padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-light)' }}>
+                        <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>פרטי הפעולה:</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.95rem' }}>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <strong style={{ minWidth: '70px' }}>{inv.type === 'income' ? 'מקור הכנסה:' : 'הועבר מאת:'}</strong>
+                            <span>{inv.type === 'income' ? (inv.supplier || inv.clientName || 'עסק/לקוח') : (allUsers.find(u => u.id === inv.payerId)?.name || inv.payerName || 'לא ידוע')}</span>
+                          </div>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <strong style={{ minWidth: '70px' }}>התקבל אצל:</strong>
+                            <span style={{ color: '#10b981', fontWeight: 'bold' }}>{allUsers.find(u => u.id === inv.targetId)?.name || (inv.targetId === 'virtual_treasury_member' ? 'קופה כללית' : 'קופה / לא ידוע')}</span>
+                          </div>
+                          {inv.note && (
+                            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                              <strong style={{ minWidth: '70px' }}>הערה:</strong>
+                              <span>{inv.note}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Left Side: Invoice Image */}
                     {inv.hasAttachment && inv.attachmentUrl ? (
                       <div style={{ flex: '1 1 200px', maxWidth: '300px' }}>
