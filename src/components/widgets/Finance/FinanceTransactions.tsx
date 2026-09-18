@@ -280,6 +280,34 @@ export function FinanceTransactions({
 
   return (
     <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEndHandler}>
+      {/* Main Category Tabs */}
+      {(showIncome || showTransfers) && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '12px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
+          <button 
+            onClick={() => { setTypeFilter('expense'); setFilter('all'); }} 
+            style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'expense' ? 'var(--primary)' : 'transparent', color: typeFilter === 'expense' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'expense' ? 'var(--shadow-sm)' : 'none' }}
+          >
+            הוצאות
+          </button>
+          {showIncome && (
+            <button 
+              onClick={() => { setTypeFilter('income'); setFilter('all'); }} 
+              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'income' ? '#10b981' : 'transparent', color: typeFilter === 'income' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'income' ? 'var(--shadow-sm)' : 'none' }}
+            >
+              הכנסות
+            </button>
+          )}
+          {showTransfers && (
+            <button 
+              onClick={() => { setTypeFilter('transfer'); setFilter('all'); }} 
+              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'transfer' ? '#f59e0b' : 'transparent', color: typeFilter === 'transfer' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'transfer' ? 'var(--shadow-sm)' : 'none' }}
+            >
+              העברות
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Filter Pills */}
       {(() => {
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
