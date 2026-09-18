@@ -144,7 +144,11 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-          {[...inboxItems].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).map((item: any) => (
+          {[...inboxItems].sort((a, b) => {
+            if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
+            if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }).map((item: any) => (
             <div key={item.id} style={{ 
               background: 'var(--bg-card)', 
               borderRadius: '12px', 
