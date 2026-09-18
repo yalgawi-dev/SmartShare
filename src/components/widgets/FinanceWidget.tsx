@@ -341,13 +341,12 @@ const runOcrPipeline = async (imgUrl: string) => {
       finalApprovalsNeeded = 1;
       
       // If the person receiving the money is the one logging it, it's auto-approved.
-      // Alternatively, if the Creator logs it, we can auto-approve it to avoid friction with offline partners.
-      if (targetId === user?.id || targetId === myEffectiveId || isCreatorMe) {
+      if (targetId === user?.id || targetId === myEffectiveId) {
         finalApprovalsReceived = 1;
         finalStatus = 'approved';
         finalApprovedBy = user?.id ? [user.id] : (myEffectiveId ? [myEffectiveId] : []);
       } else {
-        // I am the payer, and I am not the creator. The receiver must approve.
+        // I am the payer. The receiver must approve.
         finalApprovalsReceived = 0;
         finalStatus = 'pending';
         finalApprovedBy = [];

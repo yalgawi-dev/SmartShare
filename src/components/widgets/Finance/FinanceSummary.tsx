@@ -305,7 +305,7 @@ export function FinanceSummary({
                       return false;
                     }
                     if (i.payerId === user?.id || i.payerId === myEffectiveId || i.payerId === 'me') return false;
-                    if (isCreatorMe && i.payerId === (space.creatorId || space.createdBy)) return false;
+                    if (i.payerId === myEffectiveId || i.payerId === 'me' || (isCreatorMe && i.payerId === (space.creatorId || space.createdBy))) return false;
                     if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myEffectiveId)) return false;
                     return true;
                   });
