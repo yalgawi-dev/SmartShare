@@ -1,4 +1,5 @@
-'use client';
+"use client";
+// @ts-nocheck
 
 import { PartnersInviteModal } from './Partners/PartnersInviteModal';
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';

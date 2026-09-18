@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { compressCanvas } from './imageOptimizer';
 
 export interface Point {

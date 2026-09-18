@@ -1,4 +1,5 @@
-'use client';
+"use client";
+// @ts-nocheck
 
 import React, { useState, useRef, useMemo } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';

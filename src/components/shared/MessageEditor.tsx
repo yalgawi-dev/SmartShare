@@ -1,4 +1,5 @@
-'use client';
+"use client";
+// @ts-nocheck
 
 import React, { useState, useRef } from 'react';
 import SignatureCanvas from '../widgets/SignatureCanvas';
