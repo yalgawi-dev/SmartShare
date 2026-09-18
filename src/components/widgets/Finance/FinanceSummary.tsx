@@ -177,6 +177,27 @@ export function FinanceSummary({
 
   balances.forEach(b => { b.expected = 0; b.incomeExpected = 0; });
   
+  incomesOnly.forEach((inv) => {
+    const invAmount = inv.amount || 0;
+    let holderId = inv.targetId || inv.payerId || creatorId;
+    if ((isCreatorMe && holderId === myEffectiveId) || (space.creatorId && holderId === space.creatorId) || (space.createdBy && holderId === space.createdBy)) {
+      holderId = creatorId;
+    }
+    if (unifiedBalances.has(holderId)) {
+      unifiedBalances.get(holderId)!.incomeHeld += invAmount;
+    }
+
+    const excluded = inv.excludedMembers || [];
+    const participating = balances.filter(b => b.isMember && !excluded.includes(b.userId));
+    const totalParticipatingShares = participating.reduce((sum, b) => sum + Number(b.p), 0);
+    
+    if (totalParticipatingShares > 0) {
+      participating.forEach(b => {
+        b.incomeExpected += invAmount * (Number(b.p) / totalParticipatingShares);
+      });
+    }
+  });
+
   expensesOnly.forEach((inv) => {
     const invAmount = inv.amount || 0;
     const excluded = inv.excludedMembers || [];
