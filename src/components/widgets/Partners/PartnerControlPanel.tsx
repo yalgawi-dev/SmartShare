@@ -231,7 +231,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   <button onClick={() => {
                     if (onNavigateToFilter) {
                       onClose();
-                      setTimeout(() => onNavigateToFilter(viewMode === 'creator' ? 'pending_partners' : 'pending_me'), 100);
+                      setTimeout(() => onNavigateToFilter('pending_me'), 100);
                     }
                   }} style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.4rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                     ⏳ {pendingCount} ממתינות לאישור
