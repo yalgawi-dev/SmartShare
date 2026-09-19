@@ -14,6 +14,8 @@ export default function Dashboard() {
   const { spaces, deleteSpace, updateSpaceTitle, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();
   const { user, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
+  const [editTitleValue, setEditTitleValue] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -303,23 +305,48 @@ export default function Dashboard() {
                 <div className={styles.projectHeader} style={{ position: 'relative' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
                     <div className={styles.projectIcon}>{space.icon}</div>
-                    <h3 className={styles.projectTitle} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {space.title}
-                      <button 
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          const newTitle = prompt('ערוך שם למרחב:', space.title);
-                          if (newTitle && newTitle.trim()) {
-                            updateSpaceTitle(space.id, newTitle.trim());
-                          }
-                        }}
-                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, padding: '0.2rem', fontSize: '1rem' }}
-                        title="ערוך שם"
-                      >
-                        ✏️
-                      </button>
-                    </h3>
+                    {editingSpaceId === space.id ? (
+                      <form onSubmit={(e) => {
+                        e.preventDefault();
+                        if (editTitleValue.trim()) updateSpaceTitle(space.id, editTitleValue.trim());
+                        setEditingSpaceId(null);
+                      }} style={{ margin: 0, flex: 1 }}>
+                        <input
+                          type="text"
+                          value={editTitleValue}
+                          onChange={(e) => setEditTitleValue(e.target.value)}
+                          onBlur={() => {
+                            if (editTitleValue.trim()) updateSpaceTitle(space.id, editTitleValue.trim());
+                            setEditingSpaceId(null);
+                          }}
+                          autoFocus
+                          onFocus={(e) => e.target.select()}
+                          onClick={(e) => e.preventDefault()}
+                          style={{
+                            margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)',
+                            border: '1px solid var(--primary)', borderRadius: '6px',
+                            padding: '0.2rem 0.4rem', outline: 'none', background: 'var(--bg-main)', width: '100%',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                      </form>
+                    ) : (
+                      <h3 className={styles.projectTitle} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {space.title}
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditTitleValue(space.title);
+                            setEditingSpaceId(space.id);
+                          }}
+                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, padding: '0.2rem', fontSize: '1rem' }}
+                          title="ערוך שם"
+                        >
+                          ✏️
+                        </button>
+                      </h3>
+                    )}
                   </div>
                   
                 </div>
