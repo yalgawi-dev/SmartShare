@@ -103,7 +103,7 @@ export function FinanceSummary({
     if ((isCreatorMe && m.userId === myEffectiveId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
-      unifiedBalances.set(m.userId, { name: m.userId === myEffectiveId ? myRealName : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+      unifiedBalances.set(m.userId, { name: m.userId === myEffectiveId ? (myRealName || m.name) : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
 
@@ -403,7 +403,7 @@ export function FinanceSummary({
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
-                                {b.name} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                                {b.name} {b.userId === myEffectiveId && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   let myUnreadCount = 0;
                                   if (isCreatorMe && !b.isCreator) {
