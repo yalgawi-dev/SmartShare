@@ -68,6 +68,29 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
                 </div>
                 {isExpanded && (
                   <div style={{ padding: "1rem", background: "#fff", borderTop: "1px solid var(--border-light)" }}>
+                    <div style={{ marginBottom: "1.5rem", paddingBottom: "1.5rem", borderBottom: "1px dashed var(--border-light)" }}>
+                      <h5 style={{ margin: "0 0 0.5rem 0", color: "var(--text-secondary)" }}>ערוך שם מותאם אישית (יוצג לכל השותפים):</h5>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <input 
+                          type="text" 
+                          defaultValue={m.name} 
+                          id={`name_edit_${m.userId}`} 
+                          style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #ccc', flex: 1, fontSize: '0.9rem' }} 
+                        />
+                        <button 
+                          onClick={() => {
+                            const newName = (document.getElementById(`name_edit_${m.userId}`) as HTMLInputElement).value;
+                            if (newName && newName.trim() !== '') {
+                                updateMemberPermissions(space.id, m.userId, { name: newName.trim() });
+                                alert("השם עודכן בהצלחה וישוקף לכולם.");
+                            }
+                          }} 
+                          style={{ background: 'var(--primary, #3b82f6)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          שמור שם
+                        </button>
+                      </div>
+                    </div>
                     {m.status === "disputed" && (
                       <div style={{ marginBottom: "1rem", padding: "0.75rem", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: "var(--radius-md)" }}>
                         <h5 style={{ margin: "0 0 0.5rem 0", color: "#dc2626" }}>פעולות סכסוך:</h5>

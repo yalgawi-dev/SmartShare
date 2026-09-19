@@ -227,7 +227,7 @@ export default function WelcomeGate({
                 <div style={{ fontSize: '0.8rem', color: '#166534' }}>תופיע בשם:</div>
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#166534' }}>{guestName}</div>
               </div>
-              <button onClick={() => { setGuestName(''); setIsEditingName(true); }} style={{ marginRight: 'auto', background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}>שנה שם</button>
+              
             </div>
           ) : (
             <>
