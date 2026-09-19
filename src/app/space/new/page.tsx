@@ -110,6 +110,7 @@ function CreateSpaceContent() {
             className={styles.input} 
             value={spaceName}
             onChange={(e) => setSpaceName(e.target.value)}
+              onFocus={(e) => e.target.select()}
           />
         </div>
 
