@@ -320,7 +320,7 @@ export default function Dashboard() {
                             setEditingSpaceId(null);
                           }}
                           autoFocus
-                          onFocus={(e) => e.target.select()}
+                          onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 50); }}
                           onClick={(e) => e.preventDefault()}
                           style={{
                             margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)',

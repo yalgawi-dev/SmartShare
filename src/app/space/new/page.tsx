@@ -110,7 +110,7 @@ function CreateSpaceContent() {
             className={styles.input} 
             value={spaceName}
             onChange={(e) => setSpaceName(e.target.value)}
-              onFocus={(e) => e.target.select()}
+              onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 50); }}
           />
         </div>
 
