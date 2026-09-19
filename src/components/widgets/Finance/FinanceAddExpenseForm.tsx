@@ -20,6 +20,7 @@ interface FinanceAddExpenseFormProps {
   selectedPayerId: string;
   setSelectedPayerId: (val: string) => void;
   selectedCategory: string;
+  
   setSelectedCategory: (val: string) => void;
 }
 
@@ -228,6 +229,23 @@ export function FinanceAddExpenseForm({
             </div>
           )}
 
+          {ocrData?._duplicateWarning && (
+            <div style={{ padding: '0.75rem 1rem', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: '#dc2626', fontSize: '0.9rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+              <div>
+                <strong>חשד לכפילות:</strong> {ocrData._duplicateWarning}
+              </div>
+            </div>
+          )}
+          {ocrData?._docTypeWarning && (
+            <div style={{ padding: '0.75rem 1rem', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', color: '#d97706', fontSize: '0.9rem', display: 'flex', alignItems: 'flex-start', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.2rem' }}>📄</span>
+              <div>
+                <strong>סוג מסמך לא שגרתי:</strong> {ocrData._docTypeWarning}
+              </div>
+            </div>
+          )}
+          
           {ocrData?.documentType && (
             <div style={{ display: 'inline-flex', alignItems: 'center', alignSelf: 'flex-start', gap: '0.5rem', background: '#eef2ff', color: '#4f46e5', padding: '0.5rem 1rem', borderRadius: '999px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid #c7d2fe' }}>
               📄 סוג מסמך (AI): {ocrData.documentType}

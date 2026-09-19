@@ -177,6 +177,20 @@ const runOcrPipeline = async (imgUrl: string) => {
       
       if (response.ok) {
         const data = await response.json();
+          
+          if (data.invoiceNumber && space?.invoices && space.invoices.length > 0) {
+            const exists = space.invoices.find((inv: any) => 
+              (inv.invoiceNumber === data.invoiceNumber && inv.vatNumber === data.vatNumber) ||
+              (inv.invoiceNumber === data.invoiceNumber && inv.supplier === data.vendor)
+            );
+            if (exists) {
+              data._duplicateWarning = 'נראה שחשבונית זו (מספר ' + data.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
+            }
+          }
+          
+          if (data.documentType && (data.documentType.includes('משלוח') || data.documentType.includes('הזמנ') || data.documentType.includes('הצע'))) {
+            data._docTypeWarning = 'המסמך זוהה כ-' + data.documentType + ' ולא כחשבונית מס/קבלה. האם ברצונך להוסיף אותו כהוצאה?';
+          }
         setOcrData(data); // This will now correctly populate the form!
         setOcrDebugMessage(null); // Ensure UI is clean
         
@@ -471,7 +485,21 @@ const runOcrPipeline = async (imgUrl: string) => {
               onReviewItem={(item) => {
                 setReviewingInboxItemId(item.id);
                 setScannedImage(item.imageUrl);
-                setOcrData(item.ocrData || {});
+                
+                  const inboxData = item.ocrData || {};
+                  if (inboxData.invoiceNumber && space?.invoices && space.invoices.length > 0) {
+                    const exists = space.invoices.find((inv: any) => 
+                      (inv.invoiceNumber === inboxData.invoiceNumber && inv.vatNumber === inboxData.vatNumber) ||
+                      (inv.invoiceNumber === inboxData.invoiceNumber && inv.supplier === inboxData.vendor)
+                    );
+                    if (exists) {
+                      inboxData._duplicateWarning = 'נראה שחשבונית זו (מספר ' + inboxData.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
+                    }
+                  }
+                  if (inboxData.documentType && (inboxData.documentType.includes('משלוח') || inboxData.documentType.includes('הזמנ') || inboxData.documentType.includes('הצע'))) {
+                    inboxData._docTypeWarning = 'המסמך זוהה כ-' + inboxData.documentType + ' ולא כחשבונית מס/קבלה. האם ברצונך להוסיף אותו כהוצאה?';
+                  }
+                  setOcrData(inboxData);
                 if(setIsAddingExpense) setIsAddingExpense(true);
               }}
             />

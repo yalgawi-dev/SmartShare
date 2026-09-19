@@ -42,7 +42,7 @@ export async function POST(request: Request) {
         "clientName": "Name of the CUSTOMER buying the service (לכבוד / עבור). Do not write the vendor's name here.",
         "amount": Total amount to pay as a NUMBER (סה"כ לתשלום).,
         "vatAmount": The VAT amount as a NUMBER.,
-        "documentType": "מקור", "העתק", or "נאמן למקור".,
+        "documentType": "String: One of ['חשבונית מס', 'קבלה', 'חשבונית מס קבלה', 'תעודת משלוח', 'הצעת מחיר', 'הזמנת עבודה', 'אחר']. Be precise.", "העתק", or "נאמן למקור".,
         "date": "Date of invoice in YYYY-MM-DD format",
         "isCreditInvoice": true/false (True ONLY if it says "חשבונית זיכוי"),
         "invoiceNumber": "Invoice or Receipt number",
