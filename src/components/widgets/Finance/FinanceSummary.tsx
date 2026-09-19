@@ -103,7 +103,7 @@ export function FinanceSummary({
     if ((isCreatorMe && m.userId === myEffectiveId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
-      unifiedBalances.set(m.userId, { name: m.userId === myEffectiveId ? (myRealName || m.name) : m.name, paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+      unifiedBalances.set(m.userId, { name: m.name || (m.userId === myEffectiveId ? myRealName : 'אורח'), paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
 
