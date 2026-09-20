@@ -152,7 +152,7 @@ export async function POST(request: Request) {
       data = JSON.parse(text);
       
       // --- POST-PROCESSING: Fix Gemini Hallucinations ---
-      if (data.clientName && data.vendor) {
+      if (data.clientName && data.vendor && typeof data.clientName === 'string' && typeof data.vendor === 'string') {
         const cName = data.clientName.trim().toLowerCase();
         const vName = data.vendor.trim().toLowerCase();
         

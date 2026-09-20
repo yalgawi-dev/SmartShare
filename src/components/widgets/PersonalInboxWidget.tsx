@@ -27,14 +27,14 @@ export default function PersonalInboxWidget() {
             body: JSON.stringify({ imageUrl: item.imageUrl })
           });
           const data = await response.json();
-          if (data.ocrData) {
-            await updatePersonalInboxItem(item.id, { ocrData: data.ocrData });
+          if (!data.error && data.vendor !== undefined) {
+            await updatePersonalInboxItem(item.id, { ocrData: data, ocrError: false });
           } else {
-            await updatePersonalInboxItem(item.id, { ocrError: true });
+            await updatePersonalInboxItem(item.id, { ocrError: true, ocrErrorText: "Request failed" });
           }
         } catch (e) {
           console.error(e);
-          await updatePersonalInboxItem(item.id, { ocrError: true });
+          await updatePersonalInboxItem(item.id, { ocrError: true, ocrErrorText: "Request failed" });
         } finally {
           setProcessingItems(prev => {
             const next = new Set(prev);
