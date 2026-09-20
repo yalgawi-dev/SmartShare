@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState, useEffect } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
@@ -11,7 +11,6 @@ export default function PersonalInboxWidget() {
   const [zoomedDuplicate, setZoomedDuplicate] = useState<string | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
-
   // Background OCR processing
   useEffect(() => {
     if (!personalInbox) return;
