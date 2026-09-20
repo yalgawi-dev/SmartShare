@@ -7,6 +7,45 @@ import { uploadImageToStorage } from '../../lib/firebase';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItem } = useSpaces();
+
+  // 1. Filter out deleted/archived spaces
+  // 2. Sort by latest activity (newest invoice or inbox item)
+  const activeSpaces = React.useMemo(() => {
+    if (!spaces) return [];
+    
+    const filtered = spaces.filter((s: any) => s.status !== 'pending_deletion' && s.status !== 'deleted');
+    
+    return filtered.sort((a: any, b: any) => {
+      const getLatest = (space: any) => {
+        let latest = new Date(space.createdAt || 0).getTime();
+        
+        if (space.invoices && space.invoices.length > 0) {
+          const invDates = space.invoices.map((i: any) => new Date(i.createdAt || i.date || 0).getTime()).filter((t: number) => !isNaN(t));
+          if (invDates.length > 0) {
+            latest = Math.max(latest, ...invDates);
+          }
+        }
+        
+        if (space.inboxItems && space.inboxItems.length > 0) {
+          const inboxDates = space.inboxItems.map((i: any) => new Date(i.createdAt || 0).getTime()).filter((t: number) => !isNaN(t));
+          if (inboxDates.length > 0) {
+            latest = Math.max(latest, ...inboxDates);
+          }
+        }
+        return latest;
+      };
+      
+      return getLatest(b) - getLatest(a);
+    });
+  }, [spaces]);
+
+  const displayedSpaces = React.useMemo(() => {
+    if (!searchQuery.trim()) return activeSpaces;
+    const lowerQuery = searchQuery.toLowerCase();
+    return activeSpaces.filter((s: any) => s.title?.toLowerCase().includes(lowerQuery));
+  }, [activeSpaces, searchQuery]);
+
+
   const router = useRouter();
   
   const [sharedDataUri, setSharedDataUri] = useState<string | null>(null);
@@ -14,6 +53,7 @@ export default function SharedFileHandler() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   
   const [isProcessing, setIsProcessing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -41,12 +81,14 @@ export default function SharedFileHandler() {
     }
   }, []);
 
-  // Default to first space if none selected
+  // Default to first space if none selected or if filtered out
   useEffect(() => {
-    if (isModalOpen && spaces && spaces.length > 0 && !selectedSpaceId) {
-      setSelectedSpaceId(spaces[0].id);
+    if (isModalOpen && displayedSpaces && displayedSpaces.length > 0) {
+      if (!selectedSpaceId || !displayedSpaces.find((s:any) => s.id === selectedSpaceId)) {
+        setSelectedSpaceId(displayedSpaces[0].id);
+      }
     }
-  }, [isModalOpen, spaces, selectedSpaceId]);
+  }, [isModalOpen, displayedSpaces, selectedSpaceId]);
 
   const handleProcess = async () => {
     if (!selectedSpaceId || !sharedDataUri) return;
@@ -116,12 +158,22 @@ export default function SharedFileHandler() {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
           <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מרחב עבודה:</label>
+          
+          <input 
+            type="text" 
+            placeholder="חיפוש מרחב..." 
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', marginBottom: '0.25rem' }}
+          />
+
           <select 
             value={selectedSpaceId} 
             onChange={e => setSelectedSpaceId(e.target.value)}
             style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem' }}
           >
-            {spaces && spaces.map((s: any) => (
+            {displayedSpaces.length === 0 && <option value="">לא נמצאו מרחבים תואמים</option>}
+            {displayedSpaces.map((s: any) => (
               <option key={s.id} value={s.id}>{s.title}</option>
             ))}
           </select>
