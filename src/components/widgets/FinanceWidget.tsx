@@ -193,6 +193,7 @@ const runOcrPipeline = async (imgUrl: string) => {
             });
             if (exists) {
               data._duplicateWarning = 'נראה שחשבונית זו (מספר ' + data.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
+                data._duplicateInvoice = exists;
             }
           }
           
@@ -509,6 +510,7 @@ const runOcrPipeline = async (imgUrl: string) => {
                     });
                     if (exists) {
                       inboxData._duplicateWarning = 'נראה שחשבונית זו (מספר ' + inboxData.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
+                        inboxData._duplicateInvoice = exists;
                     }
                   }
                   if (inboxData.documentType && (inboxData.documentType.includes('משלוח') || inboxData.documentType.includes('הזמנ') || inboxData.documentType.includes('הצע'))) {
