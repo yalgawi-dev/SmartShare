@@ -5,6 +5,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
+import { downscaleBase64 } from '../../utils/imageOptimizer';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItems, addToPersonalInbox } = useSpaces();
@@ -128,7 +129,13 @@ export default function SharedFileHandler() {
       if (routeDestination === 'personal') {
         for (const dataUri of sharedFiles) {
             const cleanUri = dataUri.replace(/^"|"$/g, '');
-            const publicUrl = await uploadImageToStorage(cleanUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+            let compressedUri = cleanUri;
+            try {
+              compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+            } catch (err) {
+              console.error('Downscale failed', err);
+            }
+            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
             await addToPersonalInbox({
               imageUrl: publicUrl,
               status: 'processing' as any,
@@ -151,15 +158,22 @@ export default function SharedFileHandler() {
       } else if (routeDestination === 'inbox') {
         const itemsToAdd = [];
           for (const dataUri of sharedFiles) {
-            const cleanUri = dataUri.replace(/^"|"$/g, '');
-            const publicUrl = await uploadImageToStorage(cleanUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
-            itemsToAdd.push({
+              const cleanUri = dataUri.replace(/^"|"$/g, '');
+              let compressedUri = cleanUri;
+              try {
+                compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+              } catch (err) {
+                console.error('Downscale failed', err);
+              }
+              const publicUrl = await uploadImageToStorage(compressedUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+              itemsToAdd.push({
                 imageUrl: publicUrl,
+                createdAt: new Date().toISOString(),
                 status: 'processing' as any,
                 suggestedPayerId: selectedPayerId || user?.id,
                 uploadedBy: user?.id || 'guest'
               });
-          }
+            }
           await addInboxItems(selectedSpaceId, itemsToAdd);
         
         const request = indexedDB.open('MySpaceDB', 1);
@@ -178,11 +192,11 @@ export default function SharedFileHandler() {
         setIsProcessing(false);
         router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true&payerId=' + (selectedPayerId || user?.id || 'me'));
       }
-    } catch (e) {
-      console.error(e);
-      alert('שגיאה בהעברת הקבצים. נסה שוב.');
-      setIsProcessing(false);
-    }
+    } catch (e: any) {
+        console.error(e);
+        alert('שגיאה מפורטת: ' + (e.message || e.toString()));
+        setIsProcessing(false);
+      }
   };
 
   if (!isModalOpen) return null;
