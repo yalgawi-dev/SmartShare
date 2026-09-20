@@ -18,5 +18,24 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "share_target": {
+    "action": "/api/share-target",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "shared_file",
+          "accept": [
+            "image/*",
+            "application/pdf"
+          ]
+        }
+      ]
+    }
+  }
 }
