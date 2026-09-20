@@ -441,6 +441,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   }, [user, spacesBase]);
 
   
+  useEffect(() => {
+    if (user?.id) fetchPersonalInbox();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
   const fetchPersonalInbox = async () => {
     if (!user || !user.id) return;
     try {
