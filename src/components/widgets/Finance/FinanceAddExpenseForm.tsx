@@ -234,8 +234,8 @@ export function FinanceAddExpenseForm({
               <span style={{ fontSize: '1.2rem' }}>⚠️</span>
               <div>
                 <strong>חשד לכפילות:</strong> {ocrData._duplicateWarning}
-                {ocrData._duplicateInvoice && ocrData._duplicateInvoice.imageUrl && (
-                  <button type="button" onClick={(e) => { e.preventDefault(); window.open(ocrData._duplicateInvoice.imageUrl, '_blank'); }} style={{ marginTop: '0.75rem', background: '#fee2e2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.5rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', width: 'fit-content' }}>
+                {ocrData._duplicateInvoice && (ocrData._duplicateInvoice.attachmentUrl || ocrData._duplicateInvoice.imageUrl) && (
+                  <button type="button" onClick={(e) => { e.preventDefault(); window.open((ocrData._duplicateInvoice.attachmentUrl || ocrData._duplicateInvoice.imageUrl), '_blank'); }} style={{ marginTop: '0.75rem', background: '#fee2e2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.5rem 0.8rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', width: 'fit-content' }}>
                     👁️ הצג את החשבונית המקורית (בחלון חדש)
                   </button>
                 )}
