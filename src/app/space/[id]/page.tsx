@@ -65,6 +65,35 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox'>('summary');
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('addExpense') === 'true') {
+        setIsAddingExpense(true);
+        if (params.get('triggerOcr') === 'true') {
+          const request = indexedDB.open('MySpaceDB', 1);
+          request.onsuccess = (e: any) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('sharedFiles')) return;
+            const tx = db.transaction('sharedFiles', 'readwrite');
+            const store = tx.objectStore('sharedFiles');
+            const getReq = store.get('latest_shared');
+            getReq.onsuccess = () => {
+              if (getReq.result && getReq.result.files && getReq.result.files.length > 0) {
+                setTimeout(() => {
+                  financeRef.current?.processScan(getReq.result.files[0]);
+                }, 500);
+                store.delete('latest_shared');
+              }
+            };
+          };
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, []);
+
   
   useEffect(() => {
     if (typeof window !== 'undefined') {
