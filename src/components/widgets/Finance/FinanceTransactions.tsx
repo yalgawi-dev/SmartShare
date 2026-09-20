@@ -401,7 +401,7 @@ export function FinanceTransactions({
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
-          {[...finallyFiltered].reverse().map((inv: any) => (
+          {finallyFiltered.map((inv: any) => (
             <div key={inv.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
               
               <div 
