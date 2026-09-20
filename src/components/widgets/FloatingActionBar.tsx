@@ -127,7 +127,7 @@ export function FloatingActionBar({
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📥</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>קליטה</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>מחסן חשבוניות</span>
             </button>
 
             <button 

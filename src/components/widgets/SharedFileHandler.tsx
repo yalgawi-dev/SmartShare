@@ -17,7 +17,7 @@ export default function SharedFileHandler() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('inbox');
+  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('direct');
 
   
   useEffect(() => {

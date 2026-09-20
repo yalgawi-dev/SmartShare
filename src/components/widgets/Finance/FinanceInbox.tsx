@@ -111,7 +111,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   return (
     <div style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מסוף קליטה ({inboxItems.length})</h4>
+        <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מחסן חשבוניות ({inboxItems.length})</h4>
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <select 
@@ -228,7 +228,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
                   <button 
                     onClick={() => removeInboxItem(space.id, item.id)}
                     style={{ flex: item.status === 'ready' ? 0 : 1, background: 'var(--bg-hover)', color: 'var(--text-primary)', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    title="מחק מתיבת הקליטה"
+                    title="מחק מהמחסן"
                   >
                     🗑️ {item.status !== 'ready' && 'מחק'}
                   </button>
