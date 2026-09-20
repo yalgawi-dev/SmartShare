@@ -93,6 +93,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
       case 'ready': return { background: '#dcfce7', color: '#15803d' };
       case 'irrelevant': return { background: '#f3f4f6', color: '#4b5563' };
       case 'error': return { background: '#fee2e2', color: '#b91c1c' };
+      case 'duplicate': return { background: '#fef08a', color: '#a16207' };
       default: return { background: '#e5e7eb', color: '#374151' };
     }
   };
@@ -216,7 +217,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
                 )}
 
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  {item.status === 'ready' && (
+                  {(item.status === 'ready' || item.status === 'duplicate') && (
                     <button 
                       onClick={() => onReviewItem(item)}
                       style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}

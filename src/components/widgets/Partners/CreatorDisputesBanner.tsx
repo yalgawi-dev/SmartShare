@@ -51,7 +51,7 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.75rem', paddingRight: '2.5rem' }}>
         <span style={{ fontSize: '1.5rem' }}>🚨</span>
         <h3 style={{ margin: 0, color: '#991b1b', fontSize: '1.25rem', fontWeight: 'bold' }}>
-          התקבלה פנייה/מחלוקת משותף (v4.1)
+          התקבלה פנייה/מחלוקת משותף (v4.2)
         </h3>
       </div>
       
