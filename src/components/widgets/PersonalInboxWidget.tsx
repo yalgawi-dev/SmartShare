@@ -9,6 +9,8 @@ export default function PersonalInboxWidget() {
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   const [zoomedDuplicate, setZoomedDuplicate] = useState<string | null>(null);
+  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  const [touchStartX, setTouchStartX] = useState(0);
 
   // Background OCR processing
   useEffect(() => {
@@ -77,7 +79,7 @@ export default function PersonalInboxWidget() {
       </p>
 
       <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
-        {personalInbox.map(item => {
+        {personalInbox.map((item, idx) => {
           const isProcessing = processingItems.has(item.id);
           const duplicate = getDuplicateWarning(item);
           
@@ -87,7 +89,7 @@ export default function PersonalInboxWidget() {
               borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' 
             }}>
               <div style={{ height: '140px', backgroundColor: '#e2e8f0', position: 'relative' }}>
-                <img src={item.imageUrl} alt="Document" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <img src={item.imageUrl} alt="Document" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setZoomedIndex(idx)} />
                 {isProcessing && (
                   <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.85rem' }}>
                     סורק ברקע...
@@ -96,8 +98,14 @@ export default function PersonalInboxWidget() {
               </div>
               
               <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                {!item.ocrData && !isProcessing && (
+                {!item.ocrData && !item.ocrError && !isProcessing && (
                   <div style={{ fontSize: '0.8rem', color: '#64748b' }}>ממתין לסריקה...</div>
+                )}
+                {item.ocrError && !isProcessing && (
+                  <div style={{ fontSize: '0.8rem', color: '#dc2626' }}>
+                     שגיאה בסריקה 
+                     <button onClick={() => updatePersonalInboxItem(item.id, { ocrError: false })} style={{marginLeft:'5px', background:'none', border:'none', color:'#4f46e5', textDecoration:'underline', cursor:'pointer', padding: 0}}>נסה שוב</button>
+                  </div>
                 )}
                 {item.ocrData && (
                   <>
@@ -158,6 +166,43 @@ export default function PersonalInboxWidget() {
           <img src={zoomedDuplicate} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         </div>
       )}
+    
+      {zoomedIndex !== null && personalInbox[zoomedIndex] && (
+          <div 
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+            onTouchStart={e => setTouchStartX(e.changedTouches[0].screenX)}
+            onTouchEnd={e => {
+              const touchEndX = e.changedTouches[0].screenX;
+              if (touchStartX - touchEndX > 50 && zoomedIndex < personalInbox.length - 1) setZoomedIndex(zoomedIndex + 1);
+              if (touchEndX - touchStartX > 50 && zoomedIndex > 0) setZoomedIndex(zoomedIndex - 1);
+            }}
+          >
+            <div style={{ position: 'relative', width: '100%', height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={personalInbox[zoomedIndex].imageUrl} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+              
+              {zoomedIndex > 0 && (
+                <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex - 1); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  &gt;
+                </div>
+              )}
+              
+              {zoomedIndex < personalInbox.length - 1 && (
+                <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex + 1); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  &lt;
+                </div>
+              )}
+            </div>
+            <div style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold', direction: 'rtl' }}>
+              {zoomedIndex + 1} מתוך {personalInbox.length}
+            </div>
+            <div 
+              onClick={() => setZoomedIndex(null)}
+              style={{ marginTop: '1rem', padding: '0.5rem 1.5rem', background: 'rgba(255,255,255,0.2)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              סגור תצוגה
+            </div>
+          </div>
+        )}
     </div>
   );
 }

@@ -18,6 +18,7 @@ export default function SharedFileHandler() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal'>('personal');
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
@@ -127,7 +128,11 @@ export default function SharedFileHandler() {
     
     try {
       if (routeDestination === 'personal') {
-        for (const dataUri of sharedFiles) {
+        let currentIdx = 0;
+          setUploadProgress({ current: 0, total: sharedFiles.length });
+          for (const dataUri of sharedFiles) {
+              currentIdx++;
+              setUploadProgress({ current: currentIdx, total: sharedFiles.length });
             const cleanUri = dataUri.replace(/^"|"$/g, '');
             let compressedUri = cleanUri;
             try {
@@ -157,7 +162,11 @@ export default function SharedFileHandler() {
         router.push('/');
       } else if (routeDestination === 'inbox') {
         const itemsToAdd = [];
+          let currentIdx = 0;
+          setUploadProgress({ current: 0, total: sharedFiles.length });
           for (const dataUri of sharedFiles) {
+              currentIdx++;
+              setUploadProgress({ current: currentIdx, total: sharedFiles.length });
               const cleanUri = dataUri.replace(/^"|"$/g, '');
               let compressedUri = cleanUri;
               try {
