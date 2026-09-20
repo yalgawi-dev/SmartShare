@@ -12,7 +12,7 @@ export default function SharedFileHandler() {
   const [sharedDataUri, setSharedDataUri] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
-  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('inbox');
+  
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
@@ -127,24 +127,8 @@ export default function SharedFileHandler() {
           </select>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
-          <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>יעד הפעולה:</label>
-          
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-            <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} />
-            <div>
-              <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן המשותף (Inbox)</div>
-              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>שמור לבדיקה מאוחרת (יועלה מיד לענן)</div>
-            </div>
-          </label>
-
-          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-            <input type="radio" name="routeDest" checked={routeDestination === 'direct'} onChange={() => setRouteDestination('direct')} />
-            <div>
-              <div style={{ fontWeight: 'bold', color: '#1e293b' }}>ישירות להוצאות (סריקת AI)</div>
-              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>פתח את הפרויקט והפעל מיד סורק AI</div>
-            </div>
-          </label>
+        <div style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: '#64748b', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px' }}>
+          המסמך יועבר אוטומטית ל<strong>מחסן החשבוניות (Inbox)</strong> של הפרויקט שבחרת, שם הוא יעבור סריקה ומיון אוטומטי (AI) כדי לבדוק האם מדובר בחשבונית או במסמך לא רלוונטי.
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
