@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
 
 export default function SharedFileHandler() {
-  const { spaces, addInboxItem } = useSpaces();
+  const { spaces, addInboxItem, addToPersonalInbox } = useSpaces();
   const { user } = useAuth();
   
   const [clientKeys, setClientKeys] = useState<any>({});
@@ -17,7 +17,7 @@ export default function SharedFileHandler() {
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('direct');
+  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal'>('personal');
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   const router = useRouter();
 
@@ -100,7 +100,7 @@ export default function SharedFileHandler() {
             if (getReq.result) {
               const files = Array.isArray(getReq.result) ? getReq.result : [getReq.result];
               setSharedFiles(files);
-              setRouteDestination(files.length > 1 ? 'inbox' : 'direct');
+              setRouteDestination(files.length > 1 ? 'personal' : 'direct');
               setIsModalOpen(true);
             }
           };
@@ -118,11 +118,32 @@ export default function SharedFileHandler() {
   }, [isModalOpen, displayedSpaces, selectedSpaceId]);
 
   const handleProcess = async () => {
-    if (!selectedSpaceId || sharedFiles.length === 0) return;
+    if (routeDestination !== 'personal' && !selectedSpaceId) return;
+    if (sharedFiles.length === 0) return;
     setIsProcessing(true);
     
     try {
-      if (routeDestination === 'inbox') {
+      if (routeDestination === 'personal') {
+        for (const dataUri of sharedFiles) {
+          const publicUrl = await uploadImageToStorage(dataUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+          await addToPersonalInbox({
+            imageUrl: publicUrl,
+            status: 'pending'
+          });
+        }
+        
+        const request = indexedDB.open('MySpaceDB', 1);
+        request.onsuccess = (e: any) => {
+          const db = e.target.result;
+          const tx = db.transaction('sharedFiles', 'readwrite');
+          tx.objectStore('sharedFiles').delete('latest_shared');
+        };
+        
+        setIsModalOpen(false);
+        setIsProcessing(false);
+        alert('הקבצים הועברו למחסן המיון האישי בהצלחה!');
+        router.push('/');
+      } else if (routeDestination === 'inbox') {
         for (const dataUri of sharedFiles) {
           const publicUrl = await uploadImageToStorage(dataUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
           await addInboxItem(selectedSpaceId, {
@@ -141,7 +162,7 @@ export default function SharedFileHandler() {
         
         setIsModalOpen(false);
         setIsProcessing(false);
-        alert('הקבצים הועברו למחסן החשבוניות בהצלחה!');
+        alert('הקבצים הועברו למחסן הפרויקט בהצלחה!');
         router.push('/space/' + selectedSpaceId);
       } else {
         setIsModalOpen(false);
@@ -166,7 +187,8 @@ export default function SharedFileHandler() {
       }}>
         <div style={{
           background: '#fff', borderRadius: '16px', padding: '1.5rem',
-          width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
+          width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
+          maxHeight: '90vh', overflowY: 'auto'
         }}>
           <h2 style={{ marginTop: 0, marginBottom: '1rem', color: '#1e293b', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>📄</span> {sharedFiles.length > 1 ? 'קבצים חדשים התקבלו' : 'קובץ חדש התקבל'}
@@ -177,7 +199,7 @@ export default function SharedFileHandler() {
           </p>
 
           {sharedFiles.length > 0 && (
-            <div style={{ marginBottom: '1rem', borderRadius: '8px', overflow: 'hidden', height: '120px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem', overflowX: 'auto' }}>
+            <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', height: '120px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem', overflowX: 'auto' }}>
               {sharedFiles.slice(0, 3).map((uri, idx) => (
                 <img 
                   key={idx} 
@@ -198,49 +220,59 @@ export default function SharedFileHandler() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
             <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>בחר פעולה:</label>
             
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px', opacity: sharedFiles.length > 1 ? 0.5 : 1 }}>
-              <input type="radio" name="routeDest" checked={routeDestination === 'direct'} disabled={sharedFiles.length > 1} onChange={() => setRouteDestination('direct')} />
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'personal' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'personal' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+              <input type="radio" name="routeDest" checked={routeDestination === 'personal'} onChange={() => setRouteDestination('personal')} style={{ marginTop: '0.25rem' }} />
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן מיון אישי (פרטי)</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>רק אתה רואה את זה. מאפשר לשמור הכל עכשיו ולמיין לפרויקטים אחר כך בניחותא.</div>
+              </div>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+              <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} style={{ marginTop: '0.25rem' }} />
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן פרויקט (משותף)</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>נכנס למחסן ההמתנה של פרויקט ספציפי, כל השותפים בפרויקט יכולים לראות ולטפל.</div>
+              </div>
+            </label>
+
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px', opacity: sharedFiles.length > 1 ? 0.5 : 1 }}>
+              <input type="radio" name="routeDest" checked={routeDestination === 'direct'} disabled={sharedFiles.length > 1} onChange={() => setRouteDestination('direct')} style={{ marginTop: '0.25rem' }} />
               <div>
                 <div style={{ fontWeight: 'bold', color: '#1e293b' }}>ישירות להוצאות הפרויקט {sharedFiles.length > 1 ? '(מוגבל לקובץ יחיד)' : ''}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>פתח את המרחב והפעל סורק AI מיידי</div>
-              </div>
-            </label>
-
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-              <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} />
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן החשבוניות (Inbox)</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>שמור בארכיון הפרויקט למיון עתידי</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>פותח את המרחב ומפעיל סורק AI מיידי. דורש אישור באותו רגע.</div>
               </div>
             </label>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מרחב עבודה (פרויקט):</label>
-            
-            {activeSpaces.length > 5 && (
-              <input 
-                type="text" 
-                placeholder="חיפוש מרחב..." 
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', marginBottom: '0.25rem' }}
-              />
-            )}
+          {routeDestination !== 'personal' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
+              <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מרחב עבודה (פרויקט):</label>
+              
+              {activeSpaces.length > 5 && (
+                <input 
+                  type="text" 
+                  placeholder="חיפוש מרחב..." 
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                  style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', marginBottom: '0.25rem' }}
+                />
+              )}
 
-            <select 
-              value={selectedSpaceId} 
-              onChange={e => setSelectedSpaceId(e.target.value)}
-              style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
-            >
-              {displayedSpaces.length === 0 && <option value="">לא נמצאו מרחבים תואמים</option>}
-              {displayedSpaces.map((s: any) => (
-                <option key={s.id} value={s.id}>{s.title}</option>
-              ))}
-            </select>
-          </div>
+              <select 
+                value={selectedSpaceId} 
+                onChange={e => setSelectedSpaceId(e.target.value)}
+                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
+              >
+                {displayedSpaces.length === 0 && <option value="">לא נמצאו מרחבים תואמים</option>}
+                {displayedSpaces.map((s: any) => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: routeDestination === 'personal' ? '1rem' : 0 }}>
             <button 
               onClick={() => { 
                 setIsModalOpen(false); 
@@ -257,7 +289,7 @@ export default function SharedFileHandler() {
             </button>
             <button 
               onClick={handleProcess}
-              disabled={!selectedSpaceId || isProcessing}
+              disabled={(routeDestination !== 'personal' && !selectedSpaceId) || isProcessing}
               style={{ flex: 2, padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}
             >
               {isProcessing ? 'מעבד...' : 'המשך'}

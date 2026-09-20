@@ -9,6 +9,7 @@ import { getFeatureById } from './data/features';
 import AuthModal from '../components/auth/AuthModal';
 import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
 import AppShareModal from '../components/widgets/AppShareModal';
+import PersonalInboxWidget from '../components/widgets/PersonalInboxWidget';
 
 export default function Dashboard() {
   const { spaces, deleteSpace, updateSpaceTitle, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();
@@ -165,7 +166,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v4.8</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v4.9</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -235,6 +236,7 @@ export default function Dashboard() {
           </div>
         )}
       
+          <PersonalInboxWidget />
           {visibleSpaces.length > 5 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <input 

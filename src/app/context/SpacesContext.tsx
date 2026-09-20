@@ -5,7 +5,7 @@ import { AVAILABLE_FEATURES } from '../data/features';
 import { isPartnerExpired } from '../../utils/partnerUtils';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
-import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
 
 export type FeatureId = string;
 export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
@@ -140,6 +140,12 @@ export interface Space {
 }
 
 interface SpacesContextType {
+  personalInbox: any[];
+  fetchPersonalInbox: () => Promise<void>;
+  addToPersonalInbox: (item: any) => Promise<string>;
+  removeFromPersonalInbox: (itemId: string) => Promise<void>;
+  updatePersonalInboxItem: (itemId: string, updates: any) => Promise<void>;
+
   updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
   approveShareChange: (spaceId: string, userId: string) => void;
   rejectShareChange: (spaceId: string, userId: string) => void;
@@ -418,6 +424,42 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       }
     });
   }, [user, spacesBase]);
+
+  
+  const fetchPersonalInbox = async () => {
+    if (!user || !user.id) return;
+    try {
+      const q = collection(db, 'users', user.id, 'personal_inbox');
+      const snap = await getDocs(q);
+      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setPersonalInbox(items.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+    } catch (e) {
+      console.error('Error fetching personal inbox', e);
+    }
+  };
+
+  const addToPersonalInbox = async (item: any) => {
+    if (!user || !user.id) throw new Error("No user");
+    const docRef = await addDoc(collection(db, 'users', user.id, 'personal_inbox'), {
+      ...item,
+      createdAt: new Date().toISOString()
+    });
+    const newItem = { id: docRef.id, ...item, createdAt: new Date().toISOString() };
+    setPersonalInbox(prev => [newItem, ...prev]);
+    return docRef.id;
+  };
+
+  const removeFromPersonalInbox = async (itemId: string) => {
+    if (!user || !user.id) return;
+    await deleteDoc(doc(db, 'users', user.id, 'personal_inbox', itemId));
+    setPersonalInbox(prev => prev.filter(i => i.id !== itemId));
+  };
+
+  const updatePersonalInboxItem = async (itemId: string, updates: any) => {
+    if (!user || !user.id) return;
+    await updateDoc(doc(db, 'users', user.id, 'personal_inbox', itemId), updates);
+    setPersonalInbox(prev => prev.map(i => i.id === itemId ? { ...i, ...updates } : i));
+  };
 
   const addSpace = async (spaceData: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>): Promise<string> => {
     const masterKey = 'master_' + crypto.randomUUID().replace(/-/g, '') + crypto.randomUUID().replace(/-/g, '');

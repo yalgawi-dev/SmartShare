@@ -518,12 +518,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         />
       )}
 
-      {/* Unified Partners Management Modal (v4.8) */}
+      {/* Unified Partners Management Modal (v4.9) */}
       {showPartnersModal && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.5)', padding: '1rem' }}>
            <div style={{ background: 'var(--bg-main)', borderRadius: '24px', padding: '1.5rem', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>רשימת השותפים והגדרות (v4.8)</h3>
+                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>רשימת השותפים והגדרות (v4.9)</h3>
                 <button onClick={() => setShowPartnersModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
               </div>
               <PartnersSettingsList space={space} user={user} />
