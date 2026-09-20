@@ -80,9 +80,10 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             const store = tx.objectStore('sharedFiles');
             const getReq = store.get('latest_shared');
             getReq.onsuccess = () => {
-              if (getReq.result && getReq.result.files && getReq.result.files.length > 0) {
+              const filesArray = Array.isArray(getReq.result) ? getReq.result : (getReq.result?.files || []);
+              if (filesArray.length > 0) {
                 setTimeout(() => {
-                  financeRef.current?.processScan(getReq.result.files[0]);
+                  financeRef.current?.processScan(filesArray[0]);
                 }, 500);
                 store.delete('latest_shared');
               }
