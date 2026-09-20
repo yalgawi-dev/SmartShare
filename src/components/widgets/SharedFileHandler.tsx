@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
 
 export default function SharedFileHandler() {
-  const { spaces, addInboxItem, addToPersonalInbox } = useSpaces();
+  const { spaces, addInboxItems, addToPersonalInbox } = useSpaces();
   const { user } = useAuth();
   
   const [clientKeys, setClientKeys] = useState<any>({});
@@ -19,7 +19,8 @@ export default function SharedFileHandler() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal'>('personal');
-  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  const [touchStartX, setTouchStartX] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -126,13 +127,14 @@ export default function SharedFileHandler() {
     try {
       if (routeDestination === 'personal') {
         for (const dataUri of sharedFiles) {
-          const publicUrl = await uploadImageToStorage(dataUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
-          await addToPersonalInbox({
-            imageUrl: publicUrl,
-            status: 'pending',
-            suggestedPayerId: selectedPayerId || user?.id
-          });
-        }
+            const cleanUri = dataUri.replace(/^"|"$/g, '');
+            const publicUrl = await uploadImageToStorage(cleanUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+            await addToPersonalInbox({
+              imageUrl: publicUrl,
+              status: 'pending',
+              suggestedPayerId: selectedPayerId || user?.id
+            });
+          }
         
         const request = indexedDB.open('MySpaceDB', 1);
         request.onsuccess = (e: any) => {
@@ -146,14 +148,18 @@ export default function SharedFileHandler() {
         alert('הקבצים הועברו למחסן המיון האישי בהצלחה!');
         router.push('/');
       } else if (routeDestination === 'inbox') {
-        for (const dataUri of sharedFiles) {
-          const publicUrl = await uploadImageToStorage(dataUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
-          await addInboxItem(selectedSpaceId, {
-            imageUrl: publicUrl,
-            createdAt: new Date().toISOString(),
-            status: 'pending'
-          });
-        }
+        const itemsToAdd = [];
+          for (const dataUri of sharedFiles) {
+            const cleanUri = dataUri.replace(/^"|"$/g, '');
+            const publicUrl = await uploadImageToStorage(cleanUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+            itemsToAdd.push({
+              imageUrl: publicUrl,
+              createdAt: new Date().toISOString(),
+              status: 'pending',
+              suggestedPayerId: selectedPayerId || user?.id
+            });
+          }
+          await addInboxItems(selectedSpaceId, itemsToAdd);
         
         const request = indexedDB.open('MySpaceDB', 1);
         request.onsuccess = (e: any) => {
@@ -208,7 +214,7 @@ export default function SharedFileHandler() {
                   src={uri} 
                   alt="Preview" 
                   style={{ height: '100%', objectFit: 'contain', cursor: 'zoom-in', borderRadius: '4px', border: '1px solid #cbd5e1' }} 
-                  onClick={() => setZoomedImage(uri)}
+                  onClick={() => setZoomedIndex(idx)}
                 />
               ))}
               {sharedFiles.length > 3 && (
