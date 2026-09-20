@@ -15,6 +15,7 @@ export default function SharedFileHandler() {
   const [sharedFiles, setSharedFiles] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
+  const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal'>('personal');
@@ -128,7 +129,8 @@ export default function SharedFileHandler() {
           const publicUrl = await uploadImageToStorage(dataUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
           await addToPersonalInbox({
             imageUrl: publicUrl,
-            status: 'pending'
+            status: 'pending',
+            suggestedPayerId: selectedPayerId || user?.id
           });
         }
         
@@ -167,7 +169,7 @@ export default function SharedFileHandler() {
       } else {
         setIsModalOpen(false);
         setIsProcessing(false);
-        router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true');
+        router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true&payerId=' + (selectedPayerId || user?.id || 'me'));
       }
     } catch (e) {
       console.error(e);
@@ -271,6 +273,24 @@ export default function SharedFileHandler() {
               </select>
             </div>
           )}
+
+
+            {routeDestination !== 'personal' && selectedSpaceId && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
+                <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מי שילם בפועל? (רשות):</label>
+                <select 
+                  value={selectedPayerId} 
+                  onChange={e => setSelectedPayerId(e.target.value)}
+                  style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
+                >
+                  <option value="">אני ({user?.realName || 'ברירת מחדל'})</option>
+                  {(displayedSpaces.find((s: any) => s.id === selectedSpaceId)?.members || []).map((m: any) => (
+                    <option key={m.userId} value={m.userId}>{m.name || 'שותף'}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
 
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: routeDestination === 'personal' ? '1rem' : 0 }}>
             <button 

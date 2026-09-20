@@ -70,7 +70,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [reviewingInboxItemId, setReviewingInboxItemId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
+  const [selectedPayerId, setSelectedPayerId] = useState<string>(typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('payerId') || 'me') : 'me');
   const [selectedCategory, setSelectedCategory] = useState('כללי');
 
   const onTriggerTransfer = (targetId?: string) => {

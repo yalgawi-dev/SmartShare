@@ -421,6 +421,11 @@ export function FinanceTransactions({
                   <div>
                     <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         {inv.supplier}
+                        {inv.source === 'inbox' && (
+                          <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
+                            🗃️ ממחסן
+                          </span>
+                        )}
                       {inv.hasAttachment ? (
                         <span title="מצורפת חשבונית" style={{ fontSize: '0.9rem' }}>📎</span>
                       ) : (
