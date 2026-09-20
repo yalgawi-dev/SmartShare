@@ -2,18 +2,50 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
+import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItem } = useSpaces();
+  const { user } = useAuth();
+  
+  const [clientKeys, setClientKeys] = useState<any>({});
+  const [guestTokens, setGuestTokens] = useState<string[]>([]);
+  
+  useEffect(() => {
+    try {
+      setClientKeys(JSON.parse(localStorage.getItem('smartshare_keys') || '{}'));
+      setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
+    } catch(e){}
+  }, []);
 
   // 1. Filter out deleted/archived spaces
   // 2. Sort by latest activity (newest invoice or inbox item)
   const activeSpaces = React.useMemo(() => {
     if (!spaces) return [];
     
-    const filtered = spaces.filter((s: any) => s.status !== 'pending_deletion' && s.status !== 'deleted');
+    const filtered = spaces.filter((s: any) => {
+      if (s.status === 'pending_deletion') return false;
+      
+      // 1. Creator check
+      if (user?.id && s.creatorId && user.id === s.creatorId) return true;
+      if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
+      if (clientKeys[s.id]?.role === 'creator') return true;
+      
+      // 2. Partner check
+      if (user?.spaceKeys?.[s.id]?.role === 'partner') return true;
+      if (clientKeys[s.id]?.role === 'partner') return true;
+      
+      const partnerToken = user?.spaceKeys?.[s.id]?.token || clientKeys[s.id]?.token;
+      const isMember = s.members?.some((m: any) => {
+        if (user?.id && m.userId === user.id) return true;
+        if (partnerToken && m.userId === partnerToken) return true;
+        if (guestTokens.includes(m.userId)) return true;
+        return false;
+      });
+      return isMember;
+    });
     
     return filtered.sort((a: any, b: any) => {
       const getLatest = (space: any) => {
@@ -54,6 +86,7 @@ export default function SharedFileHandler() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('inbox');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -179,8 +212,24 @@ export default function SharedFileHandler() {
           </select>
         </div>
 
-        <div style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: '#64748b', background: '#f8fafc', padding: '0.75rem', borderRadius: '8px' }}>
-          המסמך יועבר אוטומטית ל<strong>מחסן החשבוניות (Inbox)</strong> של הפרויקט שבחרת, שם הוא יעבור סריקה ומיון אוטומטי (AI) כדי לבדוק האם מדובר בחשבונית או במסמך לא רלוונטי.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '2rem' }}>
+          <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>יעד הפעולה בתוך המרחב:</label>
+          
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+            <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} />
+            <div>
+              <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן החשבוניות (Inbox)</div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>שמור לקליטה ומיון עתידי בתוך המרחב</div>
+            </div>
+          </label>
+
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+            <input type="radio" name="routeDest" checked={routeDestination === 'direct'} onChange={() => setRouteDestination('direct')} />
+            <div>
+              <div style={{ fontWeight: 'bold', color: '#1e293b' }}>ישירות להוצאות הפרויקט</div>
+              <div style={{ fontSize: '0.8rem', color: '#64748b' }}>פתח את המרחב והפעל סורק AI מיידי</div>
+            </div>
+          </label>
         </div>
 
         <div style={{ display: 'flex', gap: '0.75rem' }}>
