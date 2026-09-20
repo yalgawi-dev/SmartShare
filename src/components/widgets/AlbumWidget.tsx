@@ -132,15 +132,15 @@ export default function AlbumWidget({ space, isGuestMode, onRemove }: { space: a
       {isAddingMsg && (
         <MessageEditor 
           space={space} 
-          existingMsgId={editingMsgId}
+          existingMsgId={editingMsgId} onSave={() => {}} onCancel={() => {}}
           onClose={() => { setIsAddingMsg(false); setEditingMsgId(null); }} 
         />
       )}
 
       {isStickerToolboxOpen && (
         <StickerToolbox 
-          onClose={() => setIsStickerToolboxOpen(false)} 
-          onSelectSticker={(sId) => { handleAddSticker(sId); setIsStickerToolboxOpen(false); }} 
+          isOpen={isStickerToolboxOpen} onClose={() => setIsStickerToolboxOpen(false)} 
+          onAddSticker={(sId: any) => { handleAddSticker(sId); setIsStickerToolboxOpen(false); }} 
         />
       )}
 

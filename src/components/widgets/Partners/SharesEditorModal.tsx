@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-interface SharesEditorModalProps {
+interface SharesEditorModalProps { [key: string]: any;
   space: any;
   onClose: () => void;
   updateSharesBulk?: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
@@ -47,7 +47,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
     });
   }, [validMembers, defaultShare]);
 
-  const total = Number(myShare) + Object.values(partnerShares).reduce((acc: number, val) => acc + Number(val), 0);
+  const total = Number(myShare) + Number(Object.values(partnerShares).reduce((acc: number, val: any) => Number(acc) + Number(val), 0));
 
   const handleSave = () => {
     if (Math.abs(Number(total) - 100) > 0.1) {

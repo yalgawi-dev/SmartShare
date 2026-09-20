@@ -5,7 +5,7 @@ import React, { useState, useRef } from 'react';
 import SignatureCanvas from '../widgets/SignatureCanvas';
 import { compressImage } from '../../utils/imageOptimizer';
 
-export interface MessageData {
+export interface MessageData { [key: string]: any;
   id?: string;
   content?: string;
   attachedPhotoUrl?: string;
@@ -22,7 +22,7 @@ export interface MessageData {
   fontSize?: number;
 }
 
-interface MessageEditorProps {
+interface MessageEditorProps { [key: string]: any;
   initialData?: MessageData | null;
   onSave: (data: MessageData) => void;
   onCancel: () => void;

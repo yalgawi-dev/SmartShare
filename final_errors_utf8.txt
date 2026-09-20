@@ -1,0 +1,59 @@
+﻿src/app/context/SpacesContext.tsx(99,3): error TS2300: Duplicate identifier 'status'.
+src/app/context/SpacesContext.tsx(100,3): error TS2300: Duplicate identifier 'status'.
+src/app/context/SpacesContext.tsx(157,3): error TS2300: Duplicate identifier 'personalInbox'.
+src/app/context/SpacesContext.tsx(157,3): error TS2687: All declarations of 'personalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(158,3): error TS2300: Duplicate identifier 'fetchPersonalInbox'.
+src/app/context/SpacesContext.tsx(158,3): error TS2687: All declarations of 'fetchPersonalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(159,3): error TS2300: Duplicate identifier 'addToPersonalInbox'.
+src/app/context/SpacesContext.tsx(159,3): error TS2687: All declarations of 'addToPersonalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(160,3): error TS2300: Duplicate identifier 'removeFromPersonalInbox'.
+src/app/context/SpacesContext.tsx(160,3): error TS2687: All declarations of 'removeFromPersonalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(161,3): error TS2300: Duplicate identifier 'updatePersonalInboxItem'.
+src/app/context/SpacesContext.tsx(161,3): error TS2687: All declarations of 'updatePersonalInboxItem' must have identical modifiers.
+src/app/context/SpacesContext.tsx(162,3): error TS2300: Duplicate identifier 'personalInbox'.
+src/app/context/SpacesContext.tsx(162,3): error TS2687: All declarations of 'personalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(162,3): error TS2717: Subsequent property declarations must have the same type.  Property 'personalInbox' must be of type 'any', but here has type 'any[]'.
+src/app/context/SpacesContext.tsx(163,3): error TS2300: Duplicate identifier 'fetchPersonalInbox'.
+src/app/context/SpacesContext.tsx(163,3): error TS2687: All declarations of 'fetchPersonalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(163,3): error TS2717: Subsequent property declarations must have the same type.  Property 'fetchPersonalInbox' must be of type 'any', but here has type '() => Promise<void>'.
+src/app/context/SpacesContext.tsx(164,3): error TS2300: Duplicate identifier 'addToPersonalInbox'.
+src/app/context/SpacesContext.tsx(164,3): error TS2687: All declarations of 'addToPersonalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(164,3): error TS2717: Subsequent property declarations must have the same type.  Property 'addToPersonalInbox' must be of type 'any', but here has type '(item: any) => Promise<string>'.
+src/app/context/SpacesContext.tsx(165,3): error TS2300: Duplicate identifier 'removeFromPersonalInbox'.
+src/app/context/SpacesContext.tsx(165,3): error TS2687: All declarations of 'removeFromPersonalInbox' must have identical modifiers.
+src/app/context/SpacesContext.tsx(165,3): error TS2717: Subsequent property declarations must have the same type.  Property 'removeFromPersonalInbox' must be of type 'any', but here has type '(itemId: string) => Promise<void>'.
+src/app/context/SpacesContext.tsx(166,3): error TS2300: Duplicate identifier 'updatePersonalInboxItem'.
+src/app/context/SpacesContext.tsx(166,3): error TS2687: All declarations of 'updatePersonalInboxItem' must have identical modifiers.
+src/app/context/SpacesContext.tsx(166,3): error TS2717: Subsequent property declarations must have the same type.  Property 'updatePersonalInboxItem' must be of type 'any', but here has type '(itemId: string, updates: any) => Promise<void>'.
+src/app/context/SpacesContext.tsx(454,7): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(454,55): error TS2339: Property 'createdAt' does not exist on type '{ id: string; }'.
+src/app/context/SpacesContext.tsx(454,89): error TS2339: Property 'createdAt' does not exist on type '{ id: string; }'.
+src/app/context/SpacesContext.tsx(467,5): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(467,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(474,5): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(474,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(474,42): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(480,5): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(480,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(480,39): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(494,7): error TS2353: Object literal may only specify known properties, and 'masterKey' does not exist in type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(587,11): error TS2322: Type '"SYSTEM_ALERT"' is not assignable to type '"MEMBER_LEFT" | "MEMBER_REMOVED" | "SHARES_UPDATED" | "AUTO_BALANCE" | "EDIT_INVOICE" | "DELETE_INVOICE" | "OTHER"'.
+src/app/context/SpacesContext.tsx(650,31): error TS2322: Type '{ id: string; timestamp: string; actionType: string; performedBy: string; details: string; invoiceId: string; }' is not assignable to type 'AuditRecord'.
+  Types of property 'actionType' are incompatible.
+    Type 'string' is not assignable to type '"MEMBER_LEFT" | "MEMBER_REMOVED" | "SHARES_UPDATED" | "AUTO_BALANCE" | "EDIT_INVOICE" | "DELETE_INVOICE" | "OTHER"'.
+src/app/context/SpacesContext.tsx(1347,7): error TS2353: Object literal may only specify known properties, and 'setExtensionMessage' does not exist in type 'SpacesContextType'.
+src/app/context/SpacesContext.tsx(1364,9): error TS18004: No value exists in scope for the shorthand property 'personalInbox'. Either declare one or provide an initializer.
+src/components/widgets/AlbumWidget.tsx(134,11): error TS2322: Type '{ space: any; existingMsgId: string | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & MessageEditorProps'.
+  Property 'space' does not exist on type 'IntrinsicAttributes & MessageEditorProps'.
+src/components/widgets/AlbumWidget.tsx(143,11): error TS2322: Type '{ onClose: () => void; onSelectSticker: (sId: any) => void; }' is not assignable to type 'IntrinsicAttributes & StickerToolboxProps'.
+  Property 'onSelectSticker' does not exist on type 'IntrinsicAttributes & StickerToolboxProps'.
+src/components/widgets/AlbumWidget.tsx(143,29): error TS7006: Parameter 'sId' implicitly has an 'any' type.
+src/components/widgets/Finance/FinanceSummary.tsx(107,282): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }'.
+src/components/widgets/Finance/FinanceSummary.tsx(112,45): error TS2345: Argument of type '{ paid: number; expected: number; balance: number; isMember: true; transfersSent: number; transfersReceived: number; p: number; rawP: number; isCreator: false; id: string; userId: string; role: string; joinedAt: string; shares: number; canEditShares: boolean; canInvitePartners: boolean; }' is not assignable to parameter of type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }'.
+  Type '{ paid: number; expected: number; balance: number; isMember: true; transfersSent: number; transfersReceived: number; p: number; rawP: number; isCreator: false; id: string; userId: string; role: string; joinedAt: string; shares: number; canEditShares: boolean; canInvitePartners: boolean; }' is missing the following properties from type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }': name, incomeExpected, incomeHeld
+src/components/widgets/Finance/FinanceSummary.tsx(128,38): error TS2345: Argument of type '{ name: any; paid: number; expected: number; balance: number; userId: any; isMember: false; transfersSent: number; transfersReceived: number; p: number; }' is not assignable to parameter of type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }'.
+  Type '{ name: any; paid: number; expected: number; balance: number; userId: any; isMember: false; transfersSent: number; transfersReceived: number; p: number; }' is missing the following properties from type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }': incomeExpected, incomeHeld
+src/components/widgets/Finance/FinanceSummary.tsx(783,11): error TS2322: Type '{ space: any; user: any; validMembers: any; onClose: () => void; updateSharesBulk: any; }' is not assignable to type 'IntrinsicAttributes & SharesEditorModalProps'.
+  Property 'validMembers' does not exist on type 'IntrinsicAttributes & SharesEditorModalProps'.
+src/components/widgets/PersonalInboxWidget.tsx(17,49): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/components/widgets/PersonalInboxWidget.tsx(80,28): error TS7006: Parameter 'item' implicitly has an 'any' type.

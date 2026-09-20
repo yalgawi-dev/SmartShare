@@ -97,7 +97,6 @@ export interface SpaceMember {
   messages?: any[];
   disputeResolved?: boolean;
   status?: any;
-  status?: any;
   disputeMessage?: string;
   userId: string;
   name: string; 
@@ -120,7 +119,7 @@ export interface SpaceMember {
 export interface AuditRecord {
   id: string;
   timestamp: string;
-  actionType: 'MEMBER_LEFT' | 'MEMBER_REMOVED' | 'SHARES_UPDATED' | 'AUTO_BALANCE' | 'EDIT_INVOICE' | 'DELETE_INVOICE' | 'OTHER';
+  actionType: 'MEMBER_LEFT' | 'MEMBER_REMOVED' | 'SHARES_UPDATED' | 'AUTO_BALANCE' | 'EDIT_INVOICE' | 'DELETE_INVOICE' | 'OTHER' | 'SYSTEM_ALERT';
   performedBy: string; // userId of who performed the action
   details: string; // Human readable explanation
   invoiceId?: string;
@@ -153,13 +152,9 @@ export interface Space {
 }
 
 interface SpacesContextType {
+  setExtensionMessage?: any;
   sendMessageToMember?: any;
-  personalInbox?: any;
-  fetchPersonalInbox?: any;
-  addToPersonalInbox?: any;
-  removeFromPersonalInbox?: any;
-  updatePersonalInboxItem?: any;
-  personalInbox: any[];
+    personalInbox: any[];
   fetchPersonalInbox: () => Promise<void>;
   addToPersonalInbox: (item: any) => Promise<string>;
   removeFromPersonalInbox: (itemId: string) => Promise<void>;
@@ -253,6 +248,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const [spacesBase, setSpacesBase] = useState<Omit<Space, 'mediaItems'>[]>([]);
   const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
   const [isLoaded, setIsLoaded] = useState(false);
+  const [personalInbox, setPersonalInbox] = useState<any[]>([]);
   const mediaUnsubscribes = useRef<Record<string, () => void>>({});
 
   const getTokenForSpace = (spaceId: string): string | null => {
@@ -450,7 +446,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     try {
       const q = collection(db, 'users', user.id, 'personal_inbox');
       const snap = await getDocs(q);
-      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const items = snap.docs.map(doc => ({ id: doc.id, ...(doc.data() as any) }));
       setPersonalInbox(items.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     } catch (e) {
       console.error('Error fetching personal inbox', e);
@@ -491,7 +487,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       settings: defaultSettings,
       invoices: [],
       members: [],
-      masterKey: masterKey,
+      /* masterKey: masterKey, */
       creatorId: user?.id || undefined,
       createdBy: user?.realName || user?.nickname || 'יוצר המרחב'
     };
@@ -642,7 +638,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         const newLog = {
           id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           timestamp: new Date().toISOString(),
-          actionType: isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE",
+          actionType: (isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE") as any,
           performedBy,
           details: `${performer} ${actionLabel}${amt} מאת "${supplier}". פירוט: ${actionDetail}`,
           invoiceId

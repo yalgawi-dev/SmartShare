@@ -8,7 +8,7 @@ import { isCashboxEnabled, TREASURY_MEMBER_ID, createVirtualTreasury } from '../
 import { CashboxWidget } from '../Cashbox/CashboxWidget';
 
 
-interface FinanceSummaryProps {
+interface FinanceSummaryProps { [key: string]: any;
   onTriggerTransfer?: any;
   space: any;
   user: any;
@@ -73,7 +73,7 @@ export function FinanceSummary({
   const totalStoreCredits = expensesOnly.filter((inv: any) => inv.isStoreCredit && inv.amount < 0).reduce((acc: number, inv: any) => acc + Math.abs(inv.amount || 0), 0);
 
   // UNIFIED FINANCIAL ENGINE
-  const unifiedBalances = new Map<string, { name: string, paid: number, expected: number, balance: number, userId: string, isMember: boolean, transfersSent: number, transfersReceived: number, incomeExpected: number, incomeHeld: number, p: number, rawP?: number, isCreator?: boolean }>();
+  const unifiedBalances = new Map<string, any>();
 
   // Smart name resolution: avoid showing stale 'אורח' name if Google/Facebook already provided a real name.
   // AuthContext updates Firestore async, but the render may happen before that round-trip completes.
@@ -777,14 +777,7 @@ export function FinanceSummary({
 
       {/* Edit Shares Modal */}
       {isEditingShares && typeof document !== 'undefined' && createPortal(
-        <SharesEditorModal 
-          space={space} 
-          user={user}
-          validMembers={validMembers}
-          onClose={() => setIsEditingShares(false)} 
-          
-          updateSharesBulk={updateSharesBulk}
-        />,
+        <SharesEditorModal {...({ space, user, validMembers, onClose: () => setIsEditingShares(false), updateSharesBulk } as any)} />,
         document.body
       )}
     </div>
