@@ -12,11 +12,20 @@ export default function SharedFileHandler() {
   
   const [clientKeys, setClientKeys] = useState<any>({});
   const [guestTokens, setGuestTokens] = useState<string[]>([]);
+  const [sharedDataUri, setSharedDataUri] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('inbox');
+
   
   useEffect(() => {
     try {
-      setClientKeys(JSON.parse(localStorage.getItem('smartshare_keys') || '{}'));
-      setGuestTokens(JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]'));
+      const ck = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      setClientKeys(ck || {});
+      const gt = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+      setGuestTokens(Array.isArray(gt) ? gt : []);
     } catch(e){}
   }, []);
 
@@ -41,7 +50,7 @@ export default function SharedFileHandler() {
       const isMember = s.members?.some((m: any) => {
         if (user?.id && m.userId === user.id) return true;
         if (partnerToken && m.userId === partnerToken) return true;
-        if (guestTokens.includes(m.userId)) return true;
+        if (Array.isArray(guestTokens) && guestTokens.includes(m.userId)) return true;
         return false;
       });
       return isMember;
@@ -80,13 +89,7 @@ export default function SharedFileHandler() {
 
   const router = useRouter();
   
-  const [sharedDataUri, setSharedDataUri] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'inbox' | 'direct'>('inbox');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
