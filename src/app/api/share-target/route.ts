@@ -3,17 +3,20 @@ import { NextResponse } from 'next/server';
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const file = formData.get('shared_file') as File;
+    const files = formData.getAll('shared_file') as File[];
     
-    if (!file) {
+    if (!files || files.length === 0) {
       return NextResponse.redirect(new URL('/', request.url));
     }
 
-    const buffer = await file.arrayBuffer();
-    // Convert to base64
-    const base64 = Buffer.from(buffer).toString('base64');
-    const mimeType = file.type || 'image/jpeg';
-    const dataUri = `data:${mimeType};base64,${base64}`;
+    const dataUris = await Promise.all(files.map(async (file) => {
+      const buffer = await file.arrayBuffer();
+      const base64 = Buffer.from(buffer).toString('base64');
+      const mimeType = file.type || 'image/jpeg';
+      return '"data:' + mimeType + ';base64,' + base64 + '"';
+    }));
+    
+    const arrayString = '[' + dataUris.join(',') + ']';
 
     // Return HTML that saves to IndexedDB and redirects to the app
     const html = `
@@ -22,7 +25,7 @@ export async function POST(request: Request) {
       <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <title>מעבד קובץ משותף...</title>
+        <title>מעבד קבצים ששותפו...</title>
         <style>
           body { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; font-family: system-ui, sans-serif; background: #f8fafc; color: #334155; margin: 0; }
           .loader { border: 4px solid #e2e8f0; border-top: 4px solid #4f46e5; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 1rem; }
@@ -47,8 +50,7 @@ export async function POST(request: Request) {
             const tx = db.transaction('sharedFiles', 'readwrite');
             const store = tx.objectStore('sharedFiles');
             
-            // Store the data URI
-            store.put('${dataUri}', 'latest_shared');
+            store.put(${arrayString}, 'latest_shared');
             
             tx.oncomplete = () => {
               window.location.href = '/?shared=true';

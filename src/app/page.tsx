@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -117,6 +118,12 @@ export default function Dashboard() {
     return isMember;
   });
 
+
+  const searchedSpaces = visibleSpaces.filter(s => {
+    if (!searchQuery.trim()) return true;
+    return s.title?.toLowerCase().includes(searchQuery.toLowerCase());
+  });
+
   // Mark tutorials as seen for veteran users
   useEffect(() => {
     if (visibleSpaces.length > 1) {
@@ -158,7 +165,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v4.6</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v4.7</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -227,8 +234,27 @@ export default function Dashboard() {
             <strong>שימו לב:</strong> אתם מחוברים כאורח! כדי לגבות את המרחבים שלכם ולמנוע איבוד נתונים, <span style={{ textDecoration: 'underline' }}>לחצו כאן להרשמה קצרה בחינם (10 שניות)</span>.
           </div>
         )}
-      <div className={styles.grid}>
-        {visibleSpaces.map((space, index) => {
+      
+          {visibleSpaces.length > 5 && (
+            <div style={{ marginBottom: '1.5rem' }}>
+              <input 
+                type="text" 
+                placeholder="חיפוש מרחב..." 
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid var(--border-color)', fontSize: '1rem', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              />
+            </div>
+          )}
+
+        <div className={styles.grid}>
+          {searchedSpaces.length === 0 && visibleSpaces.length > 0 && (
+            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+              לא נמצאו מרחבים תואמים לחיפוש
+            </div>
+          )}
+
+        {searchedSpaces.map((space, index) => {
           let showFirstSpaceTip = false;
           if (visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined') {
             try {
