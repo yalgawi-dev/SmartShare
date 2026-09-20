@@ -131,8 +131,9 @@ export default function SharedFileHandler() {
             const publicUrl = await uploadImageToStorage(cleanUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
             await addToPersonalInbox({
               imageUrl: publicUrl,
-              status: 'pending',
-              suggestedPayerId: selectedPayerId || user?.id
+              status: 'processing' as any,
+              suggestedPayerId: selectedPayerId || user?.id,
+              uploadedBy: user?.id || 'guest'
             });
           }
         
@@ -153,11 +154,11 @@ export default function SharedFileHandler() {
             const cleanUri = dataUri.replace(/^"|"$/g, '');
             const publicUrl = await uploadImageToStorage(cleanUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
             itemsToAdd.push({
-              imageUrl: publicUrl,
-              createdAt: new Date().toISOString(),
-              status: 'pending',
-              suggestedPayerId: selectedPayerId || user?.id
-            });
+                imageUrl: publicUrl,
+                status: 'processing' as any,
+                suggestedPayerId: selectedPayerId || user?.id,
+                uploadedBy: user?.id || 'guest'
+              });
           }
           await addInboxItems(selectedSpaceId, itemsToAdd);
         
@@ -356,11 +357,6 @@ export default function SharedFileHandler() {
           >
             סגור תצוגה
           </div>
-        </div>
-      )} 
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', cursor: 'zoom-out' }}
-        >
-          <img src={zoomedIndex !== null ? sharedFiles[zoomedIndex] : null} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
         </div>
       )}
     </>
