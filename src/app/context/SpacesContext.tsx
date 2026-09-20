@@ -1341,8 +1341,13 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       updateAlbumSettings,
       updateAtmospherePhoto,
       moveMediaItem,
-      isLoaded
-    }}>
+      isLoaded,
+        personalInbox,
+        fetchPersonalInbox,
+        addToPersonalInbox,
+        removeFromPersonalInbox,
+        updatePersonalInboxItem
+      }}>
       {children}
     </SpacesContext.Provider>
   );
