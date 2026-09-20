@@ -9,6 +9,7 @@ import { CashboxWidget } from '../Cashbox/CashboxWidget';
 
 
 interface FinanceSummaryProps {
+  onTriggerTransfer?: any;
   space: any;
   user: any;
   invoices: any[];

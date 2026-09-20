@@ -1,0 +1,121 @@
+﻿old.tsx(6,27): error TS2307: Cannot find module '../../app/context/SpacesContext' or its corresponding type declarations.
+old.tsx(7,25): error TS2307: Cannot find module '../../app/context/AuthContext' or its corresponding type declarations.
+old.tsx(8,26): error TS2307: Cannot find module './ScannerModal' or its corresponding type declarations.
+old.tsx(41,57): error TS2307: Cannot find module '../../lib/firebase' or its corresponding type declarations.
+old.tsx(265,74): error TS2345: Argument of type '"pending"' is not assignable to parameter of type 'SetStateAction<"all" | "pending_me" | "pending_partners" | "dispute">'.
+old_modal.tsx(5,27): error TS2307: Cannot find module '../../../app/context/SpacesContext' or its corresponding type declarations.
+old_modal.tsx(6,38): error TS2307: Cannot find module '../../../utils/partnerUtils' or its corresponding type declarations.
+old_opencvFilters.ts(1,32): error TS2307: Cannot find module './imageOptimizer' or its corresponding type declarations.
+oldFilters.ts(1,32): error TS2307: Cannot find module './imageOptimizer' or its corresponding type declarations.
+scratch.tsx(4,50): error TS2307: Cannot find module '../../common/ContactSelector' or its corresponding type declarations.
+scratch.tsx(6,27): error TS2307: Cannot find module '../../../app/context/SpacesContext' or its corresponding type declarations.
+scratch_original.tsx(5,27): error TS2307: Cannot find module '../../../app/context/SpacesContext' or its corresponding type declarations.
+scratch_original_utf8.tsx(5,27): error TS2307: Cannot find module '../../../app/context/SpacesContext' or its corresponding type declarations.
+src/app/context/SpacesContext.tsx(268,29): error TS2339: Property 'creatorId' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(268,60): error TS2339: Property 'creatorId' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(411,20): error TS2339: Property 'creatorId' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(435,7): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(435,55): error TS2339: Property 'createdAt' does not exist on type '{ id: string; }'.
+src/app/context/SpacesContext.tsx(435,89): error TS2339: Property 'createdAt' does not exist on type '{ id: string; }'.
+src/app/context/SpacesContext.tsx(448,5): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(448,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(455,5): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(455,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(455,42): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(461,5): error TS2552: Cannot find name 'setPersonalInbox'. Did you mean 'fetchPersonalInbox'?
+src/app/context/SpacesContext.tsx(461,22): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(461,39): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(469,7): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(568,11): error TS2322: Type '"SYSTEM_ALERT"' is not assignable to type '"MEMBER_LEFT" | "MEMBER_REMOVED" | "SHARES_UPDATED" | "AUTO_BALANCE" | "EDIT_INVOICE" | "DELETE_INVOICE" | "OTHER"'.
+src/app/context/SpacesContext.tsx(615,34): error TS2339: Property 'isActive' does not exist on type 'Partial<Invoice>'.
+src/app/context/SpacesContext.tsx(616,35): error TS2339: Property 'isActive' does not exist on type 'Partial<Invoice>'.
+src/app/context/SpacesContext.tsx(631,31): error TS2322: Type '{ id: string; timestamp: string; actionType: string; performedBy: string; details: string; invoiceId: string; }' is not assignable to type 'AuditRecord'.
+  Types of property 'actionType' are incompatible.
+    Type 'string' is not assignable to type '"MEMBER_LEFT" | "MEMBER_REMOVED" | "SHARES_UPDATED" | "AUTO_BALANCE" | "EDIT_INVOICE" | "DELETE_INVOICE" | "OTHER"'.
+src/app/context/SpacesContext.tsx(644,43): error TS2339: Property 'messages' does not exist on type 'SpaceMember'.
+src/app/context/SpacesContext.tsx(681,36): error TS2339: Property 'pendingInvites' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(681,63): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(738,40): error TS2339: Property 'pendingInvites' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(738,69): error TS7006: Parameter 'i' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(771,36): error TS2339: Property 'pendingInvites' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(786,53): error TS2339: Property 'disputeResolved' does not exist on type 'SpaceMember'.
+src/app/context/SpacesContext.tsx(886,55): error TS2339: Property 'disputeResolved' does not exist on type 'SpaceMember'.
+src/app/context/SpacesContext.tsx(924,41): error TS2339: Property 'messages' does not exist on type 'SpaceMember'.
+src/app/context/SpacesContext.tsx(936,24): error TS2339: Property 'messages' does not exist on type 'SpaceMember'.
+src/app/context/SpacesContext.tsx(936,44): error TS7006: Parameter 'msg' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(1060,30): error TS2345: Argument of type '(space: Omit<Space, "mediaItems">) => { members: (SpaceMember | { status: string; joinedAt: string; disputeMessage?: string | undefined; userId: string; name: string; ... 12 more ...; shareChangeRequest?: { ...; } | undefined; })[]; ... 14 more ...; deletionScheduledFor?: string | undefined; }' is not assignable to parameter of type '(space: Omit<Space, "mediaItems">) => Omit<Space, "mediaItems">'.
+  Call signature return types '{ members: (SpaceMember | { status: string; joinedAt: string; disputeMessage?: string | undefined; userId: string; name: string; canUpload: boolean; canDelete: boolean; canEdit: boolean; ... 9 more ...; shareChangeRequest?: { ...; } | undefined; })[]; ... 14 more ...; deletionScheduledFor?: string | undefined; }' and 'Omit<Space, "mediaItems">' are incompatible.
+    The types of 'members' are incompatible between these types.
+      Type '(SpaceMember | { status: string; joinedAt: string; disputeMessage?: string | undefined; userId: string; name: string; canUpload: boolean; canDelete: boolean; canEdit: boolean; ... 9 more ...; shareChangeRequest?: { ...; } | undefined; })[]' is not assignable to type 'SpaceMember[]'.
+        Type 'SpaceMember | { status: string; joinedAt: string; disputeMessage?: string | undefined; userId: string; name: string; canUpload: boolean; canDelete: boolean; canEdit: boolean; ... 9 more ...; shareChangeRequest?: { ...; } | undefined; }' is not assignable to type 'SpaceMember'.
+          Type '{ status: string; joinedAt: string; disputeMessage?: string; userId: string; name: string; canUpload: boolean; canDelete: boolean; canEdit: boolean; canEditShares?: boolean; canAddPlugins?: boolean; ... 7 more ...; shareChangeRequest?: { proposedShare: number; creatorShare: number; timestamp: string; }; }' is not assignable to type 'SpaceMember'.
+            Types of property 'status' are incompatible.
+              Type 'string' is not assignable to type '"pending" | "active" | "disputed" | undefined'.
+src/app/context/SpacesContext.tsx(1062,63): error TS2367: This comparison appears to be unintentional because the types '"active" | "disputed" | undefined' and '"extension_requested"' have no overlap.
+src/app/context/SpacesContext.tsx(1099,27): error TS2339: Property 'isCustomShare' does not exist on type 'SpaceSettings'.
+src/app/context/SpacesContext.tsx(1108,44): error TS2339: Property 'isCustomShare' does not exist on type 'SpaceSettings'.
+src/app/context/SpacesContext.tsx(1188,45): error TS2339: Property 'inboxItems' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(1197,26): error TS2339: Property 'inboxItems' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(1197,48): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(1205,26): error TS2339: Property 'inboxItems' does not exist on type 'Omit<Space, "mediaItems">'.
+src/app/context/SpacesContext.tsx(1205,51): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/app/context/SpacesContext.tsx(1325,7): error TS2353: Object literal may only specify known properties, and 'sendMessageToMember' does not exist in type 'SpacesContextType'.
+src/app/context/SpacesContext.tsx(1345,9): error TS18004: No value exists in scope for the shorthand property 'personalInbox'. Either declare one or provide an initializer.
+src/app/page.tsx(104,23): error TS2339: Property 'creatorId' does not exist on type 'Space'.
+src/app/page.tsx(104,50): error TS2339: Property 'creatorId' does not exist on type 'Space'.
+src/app/settings/page.tsx(39,21): error TS2339: Property 'isAnonymous' does not exist on type 'UserProfile'.
+src/app/settings/page.tsx(237,44): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(237,65): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/app/settings/page.tsx(238,54): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(239,74): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/app/settings/page.tsx(239,117): error TS18046: 'm' is of type 'unknown'.
+src/app/settings/page.tsx(252,52): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(252,73): error TS7006: Parameter 'm' implicitly has an 'any' type.
+src/app/settings/page.tsx(252,91): error TS18046: 'contact' is of type 'unknown'.
+src/app/settings/page.tsx(254,31): error TS18046: 'contact' is of type 'unknown'.
+src/app/settings/page.tsx(256,26): error TS18046: 'contact' is of type 'unknown'.
+src/app/settings/page.tsx(259,80): error TS18046: 'contact' is of type 'unknown'.
+src/app/settings/page.tsx(261,51): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(266,72): error TS18046: 'contact' is of type 'unknown'.
+src/app/settings/page.tsx(267,48): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(267,72): error TS18046: 'contact' is of type 'unknown'.
+src/app/settings/page.tsx(303,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(303,111): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/settings/page.tsx(321,32): error TS7006: Parameter 's' implicitly has an 'any' type.
+src/app/space/[id]/page.tsx(225,55): error TS2367: This comparison appears to be unintentional because the types '"active" | "disputed" | undefined' and '"extension_requested"' have no overlap.
+src/app/space/[id]/page.tsx(248,34): error TS2339: Property 'pendingInvites' does not exist on type 'Space'.
+src/app/space/[id]/page.tsx(390,21): error TS2339: Property 'createdAt' does not exist on type 'Space'.
+src/app/space/[id]/page.tsx(390,48): error TS2339: Property 'createdAt' does not exist on type 'Space'.
+src/app/space/[id]/reports/page.tsx(21,61): error TS2339: Property 'isActive' does not exist on type 'Invoice'.
+src/app/space/[id]/reports/page.tsx(156,58): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'SetStateAction<string | null>'.
+  Type 'undefined' is not assignable to type 'SetStateAction<string | null>'.
+src/app/space/new/page.tsx(84,34): error TS2345: Argument of type '{ title: string; description: string; icon: string; features: string[]; }' is not assignable to parameter of type 'Omit<Space, "date" | "id" | "updatedAt" | "settings" | "invoices" | "mediaItems" | "coverImage">'.
+  Property 'members' is missing in type '{ title: string; description: string; icon: string; features: string[]; }' but required in type 'Omit<Space, "date" | "id" | "updatedAt" | "settings" | "invoices" | "mediaItems" | "coverImage">'.
+src/components/shared/MessageEditor.tsx(72,79): error TS2339: Property 'stickerPosition' does not exist on type 'MessageData'.
+src/components/shared/MessageEditor.tsx(83,78): error TS2353: Object literal may only specify known properties, and 'stickerPosition' does not exist in type 'MessageData'.
+src/components/shared/MessageEditor.tsx(144,9): error TS2353: Object literal may only specify known properties, and 'stickerPosition' does not exist in type 'MessageData'.
+src/components/widgets/AlbumWidget.tsx(134,11): error TS2322: Type '{ space: any; existingMsgId: string | null; onClose: () => void; }' is not assignable to type 'IntrinsicAttributes & MessageEditorProps'.
+  Property 'space' does not exist on type 'IntrinsicAttributes & MessageEditorProps'.
+src/components/widgets/AlbumWidget.tsx(143,11): error TS2322: Type '{ onClose: () => void; onSelectSticker: (sId: any) => void; }' is not assignable to type 'IntrinsicAttributes & StickerToolboxProps'.
+  Property 'onSelectSticker' does not exist on type 'IntrinsicAttributes & StickerToolboxProps'.
+src/components/widgets/AlbumWidget.tsx(143,29): error TS7006: Parameter 'sId' implicitly has an 'any' type.
+src/components/widgets/Finance/FinanceSummary.tsx(35,3): error TS2339: Property 'onTriggerTransfer' does not exist on type 'FinanceSummaryProps'.
+src/components/widgets/Finance/FinanceSummary.tsx(106,282): error TS2353: Object literal may only specify known properties, and 'status' does not exist in type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }'.
+src/components/widgets/Finance/FinanceSummary.tsx(111,45): error TS2345: Argument of type '{ paid: number; expected: number; balance: number; isMember: true; transfersSent: number; transfersReceived: number; p: number; rawP: number; isCreator: false; id: string; userId: string; role: string; joinedAt: string; shares: number; canEditShares: boolean; canInvitePartners: boolean; }' is not assignable to parameter of type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }'.
+  Type '{ paid: number; expected: number; balance: number; isMember: true; transfersSent: number; transfersReceived: number; p: number; rawP: number; isCreator: false; id: string; userId: string; role: string; joinedAt: string; shares: number; canEditShares: boolean; canInvitePartners: boolean; }' is missing the following properties from type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }': name, incomeExpected, incomeHeld
+src/components/widgets/Finance/FinanceSummary.tsx(127,38): error TS2345: Argument of type '{ name: any; paid: number; expected: number; balance: number; userId: any; isMember: false; transfersSent: number; transfersReceived: number; p: number; }' is not assignable to parameter of type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }'.
+  Type '{ name: any; paid: number; expected: number; balance: number; userId: any; isMember: false; transfersSent: number; transfersReceived: number; p: number; }' is missing the following properties from type '{ name: string; paid: number; expected: number; balance: number; userId: string; isMember: boolean; transfersSent: number; transfersReceived: number; incomeExpected: number; incomeHeld: number; p: number; rawP?: number | undefined; isCreator?: boolean | undefined; }': incomeExpected, incomeHeld
+src/components/widgets/Finance/FinanceSummary.tsx(782,11): error TS2322: Type '{ space: any; user: any; validMembers: any; onClose: () => void; updateSharesBulk: any; }' is not assignable to type 'IntrinsicAttributes & SharesEditorModalProps'.
+  Property 'validMembers' does not exist on type 'IntrinsicAttributes & SharesEditorModalProps'.
+src/components/widgets/FinanceWidget.tsx(328,41): error TS2353: Object literal may only specify known properties, and 'customCategories' does not exist in type 'Partial<SpaceSettings>'.
+src/components/widgets/FinanceWidget.tsx(537,13): error TS2322: Type '{ space: any; user: UserProfile | null; invoices: any; activePartnersCount: number; hasScanner: any; setActiveTab: (tab: "summary" | "transactions" | "inbox") => void; setFilter: any; updateSpaceSettings: (spaceId: string, newSettings: Partial<...>) => void; updateSharesBulk: (spaceId: string, myShare: number, partn...' is not assignable to type 'IntrinsicAttributes & FinanceSummaryProps'.
+  Property 'onTriggerTransfer' does not exist on type 'IntrinsicAttributes & FinanceSummaryProps'.
+src/components/widgets/PersonalInboxRoutingModal.tsx(38,45): error TS2741: Property 'uploadedBy' is missing in type '{ imageUrl: any; ocrData: any; ocrError: any; status: string; suggestedPayerId: string; }' but required in type 'Omit<InboxItem, "id" | "createdAt">'.
+src/components/widgets/PersonalInboxWidget.tsx(61,33): error TS2339: Property 'inbox' does not exist on type 'Space'.
+src/components/widgets/PersonalInboxWidget.tsx(61,48): error TS2339: Property 'inboxItems' does not exist on type 'Space'.
+test.tsx(6,27): error TS2307: Cannot find module './context/SpacesContext' or its corresponding type declarations.
+test.tsx(7,25): error TS2307: Cannot find module './context/AuthContext' or its corresponding type declarations.
+test.tsx(8,32): error TS2307: Cannot find module './data/features' or its corresponding type declarations.
+test.tsx(132,24): error TS7006: Parameter 's' implicitly has an 'any' type.
+test.tsx(152,16): error TS7006: Parameter 'space' implicitly has an 'any' type.
+test.tsx(191,51): error TS7006: Parameter 'fId' implicitly has an 'any' type.

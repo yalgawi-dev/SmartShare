@@ -86,7 +86,7 @@ function CreateSpaceContent() {
       description: template.id === 'custom' ? 'מרחב מותאם אישית' : `מרחב מבוסס על תבנית ${template.title}`,
       icon: template.icon,
       features: selectedFeatures,
-    });
+    } as any);
 
     router.push(`/?highlight=${newId}`);
   };

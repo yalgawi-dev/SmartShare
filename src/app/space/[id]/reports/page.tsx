@@ -153,7 +153,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
                     <td style={{ padding: '1rem', fontSize: '1.25rem', textAlign: 'center' }}>
                       {inv.hasAttachment && inv.attachmentUrl ? (
                         <button 
-                          onClick={() => setPreviewImage(inv.attachmentUrl)}
+                          onClick={() => setPreviewImage(inv.attachmentUrl || null)}
                           style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}
                           title="צפה בחשבונית"
                         >

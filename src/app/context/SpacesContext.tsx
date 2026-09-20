@@ -21,6 +21,8 @@ export interface InboxItem {
 }
 
 export interface Invoice {
+  isActive?: boolean;
+  isStoreCredit?: boolean;
   excludedMembers?: string[];
   id: string;
   amount: number | null;
@@ -83,6 +85,8 @@ export interface MediaItem {
 }
 
 export interface SpaceSettings {
+  isCustomShare?: boolean;
+  customCategories?: string[];
   pendingExpirationHours?: number;
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
@@ -90,7 +94,10 @@ export interface SpaceSettings {
 }
 
 export interface SpaceMember {
-  status?: 'active' | 'pending' | 'disputed';
+  messages?: any[];
+  disputeResolved?: boolean;
+  status?: any;
+  status?: any;
   disputeMessage?: string;
   userId: string;
   name: string; 
@@ -120,6 +127,12 @@ export interface AuditRecord {
 }
 
 export interface Space {
+  creatorId?: string;
+  createdBy?: string;
+  createdAt?: string;
+  pendingInvites?: any[];
+  inboxItems?: any[];
+  inbox?: any[];
   id: string;
   title: string;
   description: string;
@@ -140,6 +153,12 @@ export interface Space {
 }
 
 interface SpacesContextType {
+  sendMessageToMember?: any;
+  personalInbox?: any;
+  fetchPersonalInbox?: any;
+  addToPersonalInbox?: any;
+  removeFromPersonalInbox?: any;
+  updatePersonalInboxItem?: any;
   personalInbox: any[];
   fetchPersonalInbox: () => Promise<void>;
   addToPersonalInbox: (item: any) => Promise<string>;
@@ -1323,8 +1342,8 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
       updateMemberPermissions,
       sendMessageToMember,
-      markMessageRead,
-      approveExtension,
+      // markMessageRead,
+      // approveExtension,
       setExtensionMessage, updateSharesBulk,
     approveShareChange,
     rejectShareChange,

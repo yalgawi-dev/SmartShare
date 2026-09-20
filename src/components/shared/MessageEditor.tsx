@@ -69,7 +69,7 @@ export default function MessageEditor({ initialData, onSave, onCancel, onChange,
   const [isBold, setIsBold] = useState<boolean>(initialData?.isBold || false);
   const [isUnderline, setIsUnderline] = useState<boolean>(initialData?.isUnderline || false);
   const [stickerId, setStickerId] = useState<string | undefined>(initialData?.stickerId);
-  const [stickerPosition, setStickerPosition] = useState<string>(initialData?.stickerPosition || 'top-right');
+  const [stickerPosition, setStickerPosition] = useState<string>((initialData as any)?.stickerPosition || 'top-right');
   
   const [attachedPhotoPreview, setAttachedPhotoPreview] = useState<string | null>(initialData?.attachedPhotoUrl || null);
   const [signatureUrl, setSignatureUrl] = useState<string | null>(initialData?.signatureUrl || null);
@@ -83,7 +83,7 @@ export default function MessageEditor({ initialData, onSave, onCancel, onChange,
         textColor: selectedTextColor, fontSize, rotation, isCard, stickerId, stickerPosition,
         isBold, isUnderline, attachedPhotoUrl: attachedPhotoPreview || undefined,
         signatureUrl: signatureUrl || undefined, videoUrl: videoPreview || undefined
-      });
+      } as any);
     }
   }, [content, selectedFont, selectedBgColor, selectedTextColor, fontSize, rotation, isCard, stickerId, stickerPosition, isBold, isUnderline, attachedPhotoPreview, signatureUrl, videoPreview, onChange]);
 
@@ -147,7 +147,7 @@ export default function MessageEditor({ initialData, onSave, onCancel, onChange,
         attachedPhotoUrl: finalPhotoUrl || undefined,
         signatureUrl: finalSignatureUrl || undefined,
         videoUrl: videoPreview || undefined
-      });
+      } as any);
     } catch (err) {
       console.error("Upload failed", err);
       alert("שגיאה בהעלאת התמונות. אנא נסה שנית.");

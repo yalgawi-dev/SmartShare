@@ -35,7 +35,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
         suggestedPayerId: selectedPayerId // We tag it with the payer
       };
       
-      await addInboxItems(selectedSpaceId, [newItem]);
+      await addInboxItems(selectedSpaceId, [newItem as any]);
       await removeFromPersonalInbox(item.id);
       
       onClose();

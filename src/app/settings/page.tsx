@@ -36,7 +36,7 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  if (!user || user.isAnonymous) {
+  if (!user || (user as any).isAnonymous) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main, #f8fafc)', padding: '2rem' }}>
         <div style={{ background: 'white', maxWidth: '500px', width: '100%', borderRadius: '24px', padding: '3rem 2rem', textAlign: 'center', boxShadow: '0 10px 40px rgba(0,0,0,0.1)' }}>
@@ -234,9 +234,9 @@ export default function SettingsPage() {
 
           {(() => {
             // Include ANY space where the current user is a member
-            const mySpaces = spaces.filter(s => s.members?.some(m => m.userId === user?.id));
-            const allSpaceMembers = mySpaces.flatMap(s => s.members || []);
-            const uniqueMembers = Array.from(new Map(allSpaceMembers.map(m => [m.userId, m])).values()).filter(m => m.userId !== user?.id);
+            const mySpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === user?.id));
+            const allSpaceMembers = mySpaces.flatMap((s: any) => s.members || []);
+            const uniqueMembers = Array.from(new Map(allSpaceMembers.map((m: any) => [m.userId, m])).values()).filter((m: any) => m.userId !== user?.id);
             
             if (uniqueMembers.length === 0) {
               return (
@@ -248,8 +248,8 @@ export default function SettingsPage() {
             
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {uniqueMembers.map(contact => {
-                  const userSpaces = spaces.filter(s => s.members?.some(m => m.userId === contact.userId));
+                {uniqueMembers.map((contact: any) => {
+                  const userSpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === contact.userId));
                   return (
                     <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.01)' }}>
                       <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.25rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
@@ -258,13 +258,13 @@ export default function SettingsPage() {
                       <div style={{ flex: 1 }}>
                         <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{contact.name}</div>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                          שותף ב: {userSpaces.map(s => s.title || 'פרויקט ללא שם').join(', ')}
+                          שותף ב: {userSpaces.map((s: any) => s.title || 'פרויקט ללא שם').join(', ')}
                         </div>
                       </div>
                       <button 
                         onClick={() => {
                           if (confirm(`האם אתה בטוח שברצונך למחוק את ${contact.name} מכל הפרויקטים שלך לחלוטין?`)) {
-                            userSpaces.forEach(s => removeMember(s.id, contact.userId, user?.id || 'admin'));
+                            userSpaces.forEach((s: any) => removeMember(s.id, contact.userId, user?.id || 'admin'));
                           }
                         }}
                         style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid #ef4444', background: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', color: '#ef4444' }}
@@ -300,7 +300,7 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {spaces.filter(s => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).map(s => (
+                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).map((s: any) => (
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold' }}>{s.icon} {s.title}</td>
                     <td style={{ padding: '1rem' }}>{s.members?.length || 0}</td>
@@ -318,7 +318,7 @@ export default function SettingsPage() {
                     </td>
                   </tr>
                 ))}
-                {spaces.filter(s => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).length === 0 && (
+                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                       אין מרחבים בארכיון כרגע.
