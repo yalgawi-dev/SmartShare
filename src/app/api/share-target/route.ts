@@ -31,9 +31,9 @@ export async function POST(request: Request) {
       </head>
       <body>
         <div class="loader"></div>
-        <h2>מעביר ל-SmartShare...</h2>
+        <h2>מעביר ל-MySpace...</h2>
         <script>
-          const request = indexedDB.open('SmartShareDB', 1);
+          const request = indexedDB.open('MySpaceDB', 1);
           
           request.onupgradeneeded = (e) => {
             const db = e.target.result;

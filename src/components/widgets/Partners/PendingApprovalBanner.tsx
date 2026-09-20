@@ -178,10 +178,10 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
       
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
         {currentMember.status === 'disputed' 
-          ? '⚠️ סטטוס מוקפא: פנייה בבירור מול המנהל (v4.3)' 
+          ? '⚠️ סטטוס מוקפא: פנייה בבירור מול המנהל (v4.4)' 
           : currentMember.disputeResolved 
             ? '🤝 המנהל איפס את הסטטוס - אנא אשר שוב'
-            : '🤝 אישור הצטרפות כשותף (v4.3)'}
+            : '🤝 אישור הצטרפות כשותף (v4.4)'}
       </h3>
       
       {currentMember.status === 'disputed' ? (

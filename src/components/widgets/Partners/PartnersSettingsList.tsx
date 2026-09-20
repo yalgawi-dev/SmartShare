@@ -32,7 +32,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
     <>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "1.25rem", background: "rgba(0,0,0,0.02)", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)", marginBottom: "1.25rem" }}>
         <div>
-          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{ String.fromCharCode(1506,1512,1497,1499,1514) } { String.fromCharCode(1492,1511,1497,1512) } { String.fromCharCode(1492,1512,1488,1513,1497) } (v4.3)</h4>
+          <h4 style={{ margin: "0 0 0.25rem 0", fontSize: "1rem" }}>{ String.fromCharCode(1506,1512,1497,1499,1514) } { String.fromCharCode(1492,1511,1497,1512) } { String.fromCharCode(1492,1512,1488,1513,1497) } (v4.4)</h4>
           <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-secondary)", maxWidth: "280px" }}>{ String.fromCharCode(1502,1488,1508,1513,1512) } { String.fromCharCode(1500,1513,1493,1514,1508,1497,1501) } { String.fromCharCode(1500,1506,1512,1493,1498) } { String.fromCharCode(1488,1514) } { String.fromCharCode(1499,1493,1514,1512,1514) } { String.fromCharCode(1493,1514,1488,1512,1497,1498) } { String.fromCharCode(1492,1502,1512,1495,1489) }</p>
         </div>
         <label style={{ display: "flex", alignItems: "center", cursor: "pointer", flexShrink: 0 }}>

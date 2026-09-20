@@ -96,7 +96,7 @@ export default function SharedFileHandler() {
       window.history.replaceState({}, document.title, window.location.pathname);
       
       // Load from IndexedDB
-      const request = indexedDB.open('SmartShareDB', 1);
+      const request = indexedDB.open('MySpaceDB', 1);
       request.onsuccess = (e: any) => {
         const db = e.target.result;
         if (db.objectStoreNames.contains('sharedFiles')) {
@@ -138,7 +138,7 @@ export default function SharedFileHandler() {
         });
         
         // Clear IndexedDB
-        const request = indexedDB.open('SmartShareDB', 1);
+        const request = indexedDB.open('MySpaceDB', 1);
         request.onsuccess = (e: any) => {
           const db = e.target.result;
           const tx = db.transaction('sharedFiles', 'readwrite');
@@ -237,7 +237,7 @@ export default function SharedFileHandler() {
             onClick={() => { 
               setIsModalOpen(false); 
               // Clear IndexedDB on cancel
-              const request = indexedDB.open('SmartShareDB', 1);
+              const request = indexedDB.open('MySpaceDB', 1);
               request.onsuccess = (e: any) => {
                 const db = e.target.result;
                 const tx = db.transaction('sharedFiles', 'readwrite');
