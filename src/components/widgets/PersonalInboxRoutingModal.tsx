@@ -13,6 +13,8 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [editedAmount, setEditedAmount] = useState<string>(item.ocrData?.amount?.toString() || "");
+  const [editedSupplier, setEditedSupplier] = useState<string>((item.ocrData?.vendor || item.ocrData?.supplier) || "");
+  const [editedInvoiceNumber, setEditedInvoiceNumber] = useState<string>(item.ocrData?.invoiceNumber || "");
 
   const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
   const [forceDuplicateApproval, setForceDuplicateApproval] = useState(false);
@@ -20,12 +22,19 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
   React.useEffect(() => {
     setDuplicateWarning(null);
     setForceDuplicateApproval(false);
-    if (!selectedSpaceId || !item.ocrData?.invoiceNumber) return;
+    if (!selectedSpaceId) return;
     
     const space = spaces.find((s: any) => s.id === selectedSpaceId);
     if (!space) return;
+
+    const mockData = {
+      ...(item.ocrData || {}),
+      invoiceNumber: editedInvoiceNumber,
+      vendor: editedSupplier,
+      amount: editedAmount ? Number(editedAmount) : 0
+    };
     
-    const existsInvoices = space.invoices?.find((inv: any) => isDuplicateInvoice(inv, item.ocrData));
+    const existsInvoices = space.invoices?.find((inv: any) => isDuplicateInvoice(inv, mockData));
 
     if (existsInvoices) {
       setDuplicateWarning({ type: 'invoice', doc: existsInvoices });
@@ -35,13 +44,13 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
     const inboxItems = space.inbox || space.inboxItems || [];
     const existsInbox = inboxItems.find((inv: any) => {
       if (inv.id === item.id) return false;
-      return isDuplicateInvoice(inv.ocrData || {}, item.ocrData);
+      return isDuplicateInvoice(inv.ocrData || {}, mockData);
     });
 
     if (existsInbox) {
       setDuplicateWarning({ type: 'inbox', doc: existsInbox });
     }
-  }, [selectedSpaceId, item, spaces]);
+  }, [selectedSpaceId, editedInvoiceNumber, editedSupplier, editedAmount, item, spaces]);
 
   const activeSpaces = spaces.filter((s: any) => {
     if (s.status === 'pending_deletion') return false;
@@ -118,18 +127,43 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
 
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <img src={item.imageUrl} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
-          <div>
-            <div style={{ fontWeight: 'bold' }}>{(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#64748b', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-              <span>₪</span>
-              <input 
-                type="number" 
-                value={editedAmount} 
-                onChange={e => setEditedAmount(e.target.value)} 
-                style={{ width: '80px', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-              />
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <input 
+                  type="text" 
+                  value={editedSupplier} 
+                  onChange={e => setEditedSupplier(e.target.value)} 
+                  placeholder="שם ספק"
+                  style={{ width: '100%', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 'bold' }}
+                />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span>₪</span>
+                  <input 
+                    type="number" 
+                    value={editedAmount} 
+                    onChange={e => setEditedAmount(e.target.value)} 
+                    style={{ width: '70px', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  />
+                </span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  <span>מס':</span>
+                  <input 
+                    type="text" 
+                    value={editedInvoiceNumber} 
+                    onChange={e => setEditedInvoiceNumber(e.target.value)} 
+                    placeholder="הזן ידנית"
+                    style={{ width: '90px', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                  />
+                </span>
+              </div>
+              {!editedInvoiceNumber && (
+                <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '0.25rem' }}>
+                  * ה-OCR לא זיהה מספר חשבונית. מומלץ להזין ידנית למניעת כפילויות.
+                </div>
+              )}
             </div>
-          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
