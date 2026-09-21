@@ -1,4 +1,5 @@
 "use client";
+import { isDuplicateInvoice } from '../../utils/duplicateCheck';
 // @ts-nocheck
 
 import { PartnersInviteModal } from './Partners/PartnersInviteModal';
@@ -179,18 +180,7 @@ const runOcrPipeline = async (imgUrl: string) => {
         const data = await response.json();
           
           if (data.invoiceNumber && space?.invoices && space.invoices.length > 0) {
-            const exists = space.invoices.find((inv: any) => {
-              if (!inv.invoiceNumber || !data.invoiceNumber || inv.invoiceNumber !== data.invoiceNumber) return false;
-              // Invoice numbers match! Now verify it's the same transaction:
-              if (inv.vatNumber && data.vatNumber && String(inv.vatNumber).trim() === String(data.vatNumber).trim()) return true;
-              if (inv.amount && data.amount && Number(inv.amount) === Number(data.amount)) return true;
-              if (inv.supplier && data.vendor) {
-                const s1 = inv.supplier.trim().toLowerCase();
-                const s2 = data.vendor.trim().toLowerCase();
-                if (s1.includes(s2) || s2.includes(s1)) return true;
-              }
-              return false;
-            });
+            const exists = space.invoices.find((inv: any) => isDuplicateInvoice(inv, data));
             if (exists) {
               data._duplicateWarning = 'נראה שחשבונית זו (מספר ' + data.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
                 data._duplicateInvoice = exists;
@@ -496,18 +486,8 @@ const runOcrPipeline = async (imgUrl: string) => {
                 setScannedImage(item.imageUrl);
                 
                   const inboxData = item.ocrData || {};
-                  if (inboxData.invoiceNumber && space?.invoices && space.invoices.length > 0) {
-                    const exists = space.invoices.find((inv: any) => {
-                      if (!inv.invoiceNumber || !inboxData.invoiceNumber || inv.invoiceNumber !== inboxData.invoiceNumber) return false;
-                      if (inv.vatNumber && inboxData.vatNumber && String(inv.vatNumber).trim() === String(inboxData.vatNumber).trim()) return true;
-                      if (inv.amount && inboxData.amount && Number(inv.amount) === Number(inboxData.amount)) return true;
-                      if (inv.supplier && inboxData.vendor) {
-                        const s1 = inv.supplier.trim().toLowerCase();
-                        const s2 = inboxData.vendor.trim().toLowerCase();
-                        if (s1.includes(s2) || s2.includes(s1)) return true;
-                      }
-                      return false;
-                    });
+                    if (inboxData.invoiceNumber && space?.invoices && space.invoices.length > 0) {
+                      const exists = space.invoices.find((inv: any) => isDuplicateInvoice(inv, inboxData));
                     if (exists) {
                       inboxData._duplicateWarning = 'נראה שחשבונית זו (מספר ' + inboxData.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
                         inboxData._duplicateInvoice = exists;

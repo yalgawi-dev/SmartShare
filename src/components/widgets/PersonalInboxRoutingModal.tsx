@@ -1,4 +1,5 @@
 'use client';
+import { isDuplicateInvoice } from '../../utils/duplicateCheck';
 
 import React, { useState } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
@@ -24,16 +25,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
     const space = spaces.find((s: any) => s.id === selectedSpaceId);
     if (!space) return;
     
-    const existsInvoices = space.invoices?.find((inv: any) => {
-      if (inv.invoiceNumber === item.ocrData.invoiceNumber) {
-        if (inv.supplier && (item.ocrData.vendor || item.ocrData.supplier)) {
-          const s1 = inv.supplier.trim().toLowerCase();
-          const s2 = (item.ocrData.vendor || item.ocrData.supplier).trim().toLowerCase();
-          if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
-        }
-      }
-      return false;
-    });
+    const existsInvoices = space.invoices?.find((inv: any) => isDuplicateInvoice(inv, item.ocrData));
 
     if (existsInvoices) {
       setDuplicateWarning({ type: 'invoice', doc: existsInvoices });
@@ -42,14 +34,8 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
 
     const inboxItems = space.inbox || space.inboxItems || [];
     const existsInbox = inboxItems.find((inv: any) => {
-      if (inv.ocrData?.invoiceNumber === item.ocrData.invoiceNumber) {
-        if ((inv.ocrData?.vendor || inv.ocrData?.supplier) && (item.ocrData.vendor || item.ocrData.supplier)) {
-          const s1 = (inv.ocrData.vendor || inv.ocrData.supplier).trim().toLowerCase();
-          const s2 = (item.ocrData.vendor || item.ocrData.supplier).trim().toLowerCase();
-          if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
-        }
-      }
-      return false;
+      if (inv.id === item.id) return false;
+      return isDuplicateInvoice(inv.ocrData || {}, item.ocrData);
     });
 
     if (existsInbox) {

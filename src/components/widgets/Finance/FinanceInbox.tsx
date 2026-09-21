@@ -1,4 +1,7 @@
+'use client';
+
 import React, { useState, useRef, useEffect } from 'react';
+import { isDuplicateInvoice } from '../../../utils/duplicateCheck';
 import { useSpaces, InboxItem } from '../../../app/context/SpacesContext';
 
 interface FinanceInboxProps {
@@ -38,27 +41,11 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             } else {
               let isDuplicate = false;
               if (data.invoiceNumber) {
-                const existsInvoices = space.invoices?.find((inv: any) => {
-                  if (inv.invoiceNumber === data.invoiceNumber) {
-                    if (inv.supplier && (data.vendor || data.supplier)) {
-                      const s1 = inv.supplier.trim().toLowerCase();
-                      const s2 = (data.vendor || data.supplier).trim().toLowerCase();
-                      if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
-                    }
-                  }
-                  return false;
-                });
+                const existsInvoices = space.invoices?.find((inv: any) => isDuplicateInvoice(inv, data));
                 
                 const existsInbox = inboxItems.find((inv: any) => {
                   if (inv.id === item.id) return false;
-                  if (inv.ocrData?.invoiceNumber === data.invoiceNumber) {
-                    if ((inv.ocrData?.vendor || inv.ocrData?.supplier) && (data.vendor || data.supplier)) {
-                      const s1 = (inv.ocrData.vendor || inv.ocrData.supplier).trim().toLowerCase();
-                      const s2 = (data.vendor || data.supplier).trim().toLowerCase();
-                      if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
-                    }
-                  }
-                  return false;
+                  return isDuplicateInvoice(inv.ocrData || {}, data);
                 });
                 
                 if (existsInvoices || existsInbox) isDuplicate = true;
