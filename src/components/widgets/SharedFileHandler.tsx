@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useState } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
@@ -8,7 +8,7 @@ import { uploadImageToStorage } from '../../lib/firebase';
 import { downscaleBase64 } from '../../utils/imageOptimizer';
 
 export default function SharedFileHandler() {
-  const { spaces, addInboxItems, addToPersonalInbox } = useSpaces();
+  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox } = useSpaces();
   const { user } = useAuth();
   
   const [clientKeys, setClientKeys] = useState<any>({});
@@ -128,39 +128,54 @@ export default function SharedFileHandler() {
     
     try {
       if (routeDestination === 'personal') {
-        let currentIdx = 0;
-          setUploadProgress({ current: 0, total: sharedFiles.length });
-          for (const dataUri of sharedFiles) {
-              currentIdx++;
-              setUploadProgress({ current: currentIdx, total: sharedFiles.length });
-            const cleanUri = dataUri.replace(/^"|"$/g, '');
-            let compressedUri = cleanUri;
-            try {
-              compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
-            } catch (err) {
-              console.error('Downscale failed', err);
-            }
-            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
-            await addToPersonalInbox({
-              imageUrl: publicUrl,
-              status: 'processing' as any,
-              suggestedPayerId: selectedPayerId || user?.id,
-              uploadedBy: user?.id || 'guest'
-            });
+          // Transparent Background Upload
+          const filesToProcess = [...sharedFiles];
+          const tempItems = filesToProcess.map(uri => ({
+            id: 'temp_' + Math.random().toString(36).substr(2, 9),
+            imageUrl: uri.replace(/^"|"$/g, ''),
+            status: 'uploading',
+            isTemp: true,
+            createdAt: new Date().toISOString()
+          }));
+          
+          if (setPersonalInbox) {
+             setPersonalInbox((prev) => [...tempItems, ...prev]);
           }
-        
-        const request = indexedDB.open('MySpaceDB', 1);
-        request.onsuccess = (e: any) => {
-          const db = e.target.result;
-          const tx = db.transaction('sharedFiles', 'readwrite');
-          tx.objectStore('sharedFiles').delete('latest_shared');
-        };
-        
-        setIsModalOpen(false);
-        setIsProcessing(false);
-        alert('הקבצים הועברו למחסן המיון האישי בהצלחה!');
-        router.push('/');
-      } else if (routeDestination === 'inbox') {
+          
+          const dbReq = indexedDB.open('MySpaceDB', 1);
+          dbReq.onsuccess = (e: any) => {
+            const db = e.target.result;
+            const tx = db.transaction('sharedFiles', 'readwrite');
+            tx.objectStore('sharedFiles').delete('latest_shared');
+          };
+          setSharedFiles([]);
+          setIsModalOpen(false);
+          router.replace('/');
+          
+          (async () => {
+             for (let i = 0; i < filesToProcess.length; i++) {
+                const dataUri = filesToProcess[i];
+                const tempId = tempItems[i].id;
+                const cleanUri = dataUri.replace(/^"|"$/g, '');
+                let compressedUri = cleanUri;
+                try {
+                  compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+                } catch (err) { }
+                const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+                await addToPersonalInbox({
+                  imageUrl: publicUrl,
+                  status: 'processing',
+                  suggestedPayerId: selectedPayerId || user?.id,
+                  uploadedBy: user?.id || 'guest'
+                });
+                
+                if (setPersonalInbox) {
+                  setPersonalInbox(prev => prev.filter(item => item.id !== tempId));
+                }
+             }
+          })();
+          return;
+        } else if (routeDestination === 'inbox') {
         const itemsToAdd = [];
           let currentIdx = 0;
           setUploadProgress({ current: 0, total: sharedFiles.length });

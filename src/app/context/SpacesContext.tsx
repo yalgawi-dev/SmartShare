@@ -155,6 +155,7 @@ interface SpacesContextType {
   setExtensionMessage?: any;
   sendMessageToMember?: any;
     personalInbox: any[];
+    setPersonalInbox: React.Dispatch<React.SetStateAction<any[]>>;
   fetchPersonalInbox: () => Promise<void>;
   addToPersonalInbox: (item: any) => Promise<string>;
   removeFromPersonalInbox: (itemId: string) => Promise<void>;
@@ -1363,6 +1364,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       moveMediaItem,
       isLoaded,
         personalInbox,
+        setPersonalInbox,
         fetchPersonalInbox,
         addToPersonalInbox,
         removeFromPersonalInbox,
