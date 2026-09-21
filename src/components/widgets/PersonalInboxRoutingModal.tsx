@@ -13,6 +13,50 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
   const [isProcessing, setIsProcessing] = useState(false);
   const [editedAmount, setEditedAmount] = useState<string>(item.ocrData?.amount?.toString() || "");
 
+  const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
+  const [forceDuplicateApproval, setForceDuplicateApproval] = useState(false);
+
+  React.useEffect(() => {
+    setDuplicateWarning(null);
+    setForceDuplicateApproval(false);
+    if (!selectedSpaceId || !item.ocrData?.invoiceNumber) return;
+    
+    const space = spaces.find((s: any) => s.id === selectedSpaceId);
+    if (!space) return;
+    
+    const existsInvoices = space.invoices?.find((inv: any) => {
+      if (inv.invoiceNumber === item.ocrData.invoiceNumber) {
+        if (inv.supplier && (item.ocrData.vendor || item.ocrData.supplier)) {
+          const s1 = inv.supplier.trim().toLowerCase();
+          const s2 = (item.ocrData.vendor || item.ocrData.supplier).trim().toLowerCase();
+          if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+        }
+      }
+      return false;
+    });
+
+    if (existsInvoices) {
+      setDuplicateWarning({ type: 'invoice', doc: existsInvoices });
+      return;
+    }
+
+    const inboxItems = space.inbox || space.inboxItems || [];
+    const existsInbox = inboxItems.find((inv: any) => {
+      if (inv.ocrData?.invoiceNumber === item.ocrData.invoiceNumber) {
+        if ((inv.ocrData?.vendor || inv.ocrData?.supplier) && (item.ocrData.vendor || item.ocrData.supplier)) {
+          const s1 = (inv.ocrData.vendor || inv.ocrData.supplier).trim().toLowerCase();
+          const s2 = (item.ocrData.vendor || item.ocrData.supplier).trim().toLowerCase();
+          if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+        }
+      }
+      return false;
+    });
+
+    if (existsInbox) {
+      setDuplicateWarning({ type: 'inbox', doc: existsInbox });
+    }
+  }, [selectedSpaceId, item, spaces]);
+
   const activeSpaces = spaces.filter((s: any) => {
     if (s.status === 'pending_deletion') return false;
     if (user?.id && s.creatorId && s.creatorId === user.id) return true;
