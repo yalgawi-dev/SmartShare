@@ -214,6 +214,74 @@ export default function PersonalInboxWidget() {
             </div>
           </div>
         )}
+
+      {duplicateResolutionItem && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', overflowY: 'auto' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '800px', margin: 'auto', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+            <div style={{ padding: '1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fef2f2', borderRadius: '16px 16px 0 0' }}>
+              <h3 style={{ margin: 0, color: '#b91c1c', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>⚠️ אימות כפילות</h3>
+              <button onClick={() => setDuplicateResolutionItem(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
+            </div>
+            
+            <div style={{ padding: '1rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+              {/* Target Item */}
+              <div>
+                <h4 style={{ margin: '0 0 0.5rem 0' }}>המסמך שהעלית למחסן האישי:</h4>
+                <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1' }}>
+                  <img src={duplicateResolutionItem.item.imageUrl} style={{ width: '120px', height: '160px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }} onClick={() => setZoomedDuplicate(duplicateResolutionItem.item.imageUrl)} />
+                  <div>
+                    <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{(duplicateResolutionItem.item.ocrData?.vendor || duplicateResolutionItem.item.ocrData?.supplier) || 'לא זוהה ספק'}</div>
+                    <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#0f172a', margin: '0.5rem 0' }}>₪{Number(duplicateResolutionItem.item.ocrData?.amount || 0).toLocaleString()}</div>
+                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>תאריך: {duplicateResolutionItem.item.ocrData?.date || 'חסר'}</div>
+                    <div style={{ color: '#64748b', fontSize: '0.9rem' }}>מספר חשבונית: {duplicateResolutionItem.item.ocrData?.invoiceNumber || 'חסר'}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Duplicate Matches */}
+              <div>
+                <h4 style={{ margin: '0 0 0.5rem 0', color: '#b91c1c' }}>נמצאו ההתאמות הבאות במערכת:</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {duplicateResolutionItem.duplicates.map((dup: any, i: number) => (
+                    <div key={i} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', background: '#fff', padding: '1rem', borderRadius: '12px', border: '2px solid #fecaca' }}>
+                      <img src={dup.doc.imageUrl || dup.doc.attachmentUrl} style={{ width: '120px', height: '160px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }} onClick={() => setZoomedDuplicate(dup.doc.imageUrl || dup.doc.attachmentUrl)} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'inline-block', background: '#fee2e2', color: '#991b1b', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>מרחב: {dup.spaceTitle}</div>
+                        <div style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>{(dup.doc.supplier || dup.doc.vendor || (dup.doc.ocrData && dup.doc.ocrData.vendor)) || 'לא זוהה ספק'}</div>
+                        <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#0f172a', margin: '0.5rem 0' }}>₪{Number(dup.doc.amount || (dup.doc.ocrData && dup.doc.ocrData.amount) || 0).toLocaleString()}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>תאריך: {dup.doc.date || (dup.doc.ocrData && dup.doc.ocrData.date) || 'חסר'}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.9rem' }}>מספר חשבונית: {dup.doc.invoiceNumber || (dup.doc.ocrData && dup.doc.ocrData.invoiceNumber) || 'חסר'}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ padding: '1rem', borderTop: '1px solid #e2e8f0', display: 'flex', gap: '1rem', background: '#f8fafc', borderRadius: '0 0 16px 16px' }}>
+              <button 
+                onClick={() => {
+                  removeFromPersonalInbox(duplicateResolutionItem.item.id);
+                  setDuplicateResolutionItem(null);
+                }} 
+                style={{ flex: 1, padding: '0.75rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
+              >
+                🗑️ אכן כפילות - מחק מסמך
+              </button>
+              <button 
+                onClick={() => {
+                  setSelectedItem(duplicateResolutionItem.item);
+                  setDuplicateResolutionItem(null);
+                }} 
+                style={{ flex: 1, padding: '0.75rem', background: 'white', color: '#0f172a', border: '2px solid #cbd5e1', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}
+              >
+                ➡️ לא כפול - המשך שיוך למרחב
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
