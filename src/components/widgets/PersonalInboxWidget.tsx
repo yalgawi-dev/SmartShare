@@ -55,6 +55,12 @@ export default function PersonalInboxWidget() {
     for (const space of spaces) {
       if (space.status === 'pending_deletion') continue;
       
+      let isVisible = false;
+      if (user?.id && space.creatorId && space.creatorId === user.id) isVisible = true;
+      const myMemberRecord = (space.members || []).find((m: any) => m.userId === user?.id);
+      if (myMemberRecord && myMemberRecord.isActive !== false) isVisible = true;
+      if (!isVisible) continue;
+      
       const invMatch = space.invoices?.find((inv: any) => inv.invoiceNumber === item.ocrData.invoiceNumber && inv.supplier === (item.ocrData.vendor || item.ocrData.supplier));
       if (invMatch) {
          return { spaceTitle: space.title, foundIn: 'invoices', doc: invMatch };
