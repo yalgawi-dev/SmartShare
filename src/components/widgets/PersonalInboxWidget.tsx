@@ -10,6 +10,7 @@ export default function PersonalInboxWidget() {
   const { spaces, personalInbox, removeFromPersonalInbox, updatePersonalInboxItem } = useSpaces();
   const { user } = useAuth();
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [duplicateResolutionItem, setDuplicateResolutionItem] = useState<any>(null);
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   const [zoomedDuplicate, setZoomedDuplicate] = useState<string | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
@@ -53,8 +54,9 @@ export default function PersonalInboxWidget() {
   if (!personalInbox || personalInbox.length === 0) return null;
 
   const getDuplicateWarning = (item: any) => {
-    if (!item.ocrData || !item.ocrData.invoiceNumber) return null;
+    if (!item.ocrData) return null;
     
+    const matches: any[] = [];
     for (const space of spaces) {
       if (space.status === 'pending_deletion') continue;
       
@@ -64,16 +66,17 @@ export default function PersonalInboxWidget() {
       if (myMemberRecord && myMemberRecord.isActive !== false) isVisible = true;
       if (!isVisible) continue;
       
-            const invMatch = space.invoices?.find((inv: any) => isDuplicateInvoice(inv, item.ocrData));
-        if (invMatch) {
-           return { spaceTitle: space.title, foundIn: 'invoices', doc: invMatch };
-        }
-        const inboxMatch = (space.inbox || space.inboxItems)?.find((i: any) => isDuplicateInvoice(i.ocrData || {}, item.ocrData));
-      if (inboxMatch) {
-         return { spaceTitle: space.title, foundIn: 'inbox', doc: inboxMatch };
+      const invMatches = space.invoices?.filter((inv: any) => isDuplicateInvoice(inv, item.ocrData)) || [];
+      for (const m of invMatches) {
+        matches.push({ spaceTitle: space.title, foundIn: 'invoices', doc: m });
+      }
+      
+      const inboxMatches = (space.inbox || space.inboxItems)?.filter((i: any) => isDuplicateInvoice(i.ocrData || {}, item.ocrData)) || [];
+      for (const m of inboxMatches) {
+        matches.push({ spaceTitle: space.title, foundIn: 'inbox', doc: m });
       }
     }
-    return null;
+    return matches.length > 0 ? matches : null;
   };
 
   return (
@@ -126,15 +129,15 @@ export default function PersonalInboxWidget() {
                   </>
                 )}
                 
-                {duplicate && (
+                {duplicate && duplicate.length > 0 && (
                   <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '6px', padding: '0.5rem', fontSize: '0.75rem', color: '#b91c1c' }}>
-                    <strong>⚠️ כפילות זוהתה!</strong><br/>
-                    נמצא כבר בפרויקט "{duplicate.spaceTitle}"
+                    <strong>⚠️ חשד לכפילות!</strong><br/>
+                    נמצאו {duplicate.length} התאמות
                     <button 
-                      onClick={() => setZoomedDuplicate(duplicate.doc.imageUrl)}
-                      style={{ display: 'block', marginTop: '0.25rem', background: 'none', border: 'none', color: '#dc2626', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '0.75rem' }}
+                      onClick={() => setDuplicateResolutionItem({ item, duplicates: duplicate })}
+                      style={{ display: 'block', marginTop: '0.25rem', background: 'none', border: 'none', color: '#dc2626', textDecoration: 'underline', cursor: 'pointer', padding: 0, fontSize: '0.75rem', fontWeight: 'bold' }}
                     >
-                      הצג התאמה
+                      הצג השוואה והחלט
                     </button>
                   </div>
                 )}
