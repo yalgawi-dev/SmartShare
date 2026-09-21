@@ -14,10 +14,11 @@ export type InvoiceStatus = 'approved' | 'pending' | 'dispute' | 'missing';
 export interface InboxItem {
   id: string;
   imageUrl: string;
-  status: 'processing' | 'ready' | 'irrelevant' | 'error';
+  status: 'processing' | 'ready' | 'irrelevant' | 'error' | 'duplicate' | 'pending';
   ocrData?: any;
   createdAt: string;
   uploadedBy: string;
+  suggestedPayerId?: string;
 }
 
 export interface Invoice {

@@ -63,11 +63,29 @@ export default function PersonalInboxWidget() {
       if (myMemberRecord && myMemberRecord.isActive !== false) isVisible = true;
       if (!isVisible) continue;
       
-      const invMatch = space.invoices?.find((inv: any) => inv.invoiceNumber === item.ocrData.invoiceNumber && inv.supplier === (item.ocrData.vendor || item.ocrData.supplier));
-      if (invMatch) {
-         return { spaceTitle: space.title, foundIn: 'invoices', doc: invMatch };
-      }
-      const inboxMatch = (space.inbox || space.inboxItems)?.find((i: any) => i.ocrData?.invoiceNumber === item.ocrData.invoiceNumber && (i.ocrData?.vendor || i.ocrData?.supplier) === (item.ocrData.vendor || item.ocrData.supplier));
+            const invMatch = space.invoices?.find((inv: any) => {
+          if (inv.invoiceNumber === item.ocrData.invoiceNumber) {
+            if (inv.supplier && (item.ocrData.vendor || item.ocrData.supplier)) {
+              const s1 = inv.supplier.trim().toLowerCase();
+              const s2 = (item.ocrData.vendor || item.ocrData.supplier).trim().toLowerCase();
+              if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+            }
+          }
+          return false;
+        });
+        if (invMatch) {
+           return { spaceTitle: space.title, foundIn: 'invoices', doc: invMatch };
+        }
+        const inboxMatch = (space.inbox || space.inboxItems)?.find((i: any) => {
+          if (i.ocrData?.invoiceNumber === item.ocrData.invoiceNumber) {
+            if ((i.ocrData?.vendor || i.ocrData?.supplier) && (item.ocrData.vendor || item.ocrData.supplier)) {
+              const s1 = (i.ocrData.vendor || i.ocrData.supplier).trim().toLowerCase();
+              const s2 = (item.ocrData.vendor || item.ocrData.supplier).trim().toLowerCase();
+              if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+            }
+          }
+          return false;
+        });
       if (inboxMatch) {
          return { spaceTitle: space.title, foundIn: 'inbox', doc: inboxMatch };
       }

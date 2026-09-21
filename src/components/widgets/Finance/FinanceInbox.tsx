@@ -36,7 +36,40 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             if (data.isIrrelevant || data.category === 'לא רלוונטי') {
               updateInboxItem(space.id, item.id, { status: 'irrelevant', ocrData: data });
             } else {
-              updateInboxItem(space.id, item.id, { status: 'ready', ocrData: data });
+              let isDuplicate = false;
+              if (data.invoiceNumber) {
+                const existsInvoices = space.invoices?.find((inv: any) => {
+                  if (inv.invoiceNumber === data.invoiceNumber) {
+                    if (inv.supplier && (data.vendor || data.supplier)) {
+                      const s1 = inv.supplier.trim().toLowerCase();
+                      const s2 = (data.vendor || data.supplier).trim().toLowerCase();
+                      if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+                    }
+                  }
+                  return false;
+                });
+                
+                const existsInbox = inboxItems.find((inv: any) => {
+                  if (inv.id === item.id) return false;
+                  if (inv.ocrData?.invoiceNumber === data.invoiceNumber) {
+                    if ((inv.ocrData?.vendor || inv.ocrData?.supplier) && (data.vendor || data.supplier)) {
+                      const s1 = (inv.ocrData.vendor || inv.ocrData.supplier).trim().toLowerCase();
+                      const s2 = (data.vendor || data.supplier).trim().toLowerCase();
+                      if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+                    }
+                  }
+                  return false;
+                });
+                
+                if (existsInvoices || existsInbox) isDuplicate = true;
+                
+                if (isDuplicate) {
+                  data._duplicateWarning = 'נמצא מסמך עם מספר ושם ספק זהים במערכת.';
+                  data._duplicateInvoice = existsInvoices || existsInbox;
+                }
+              }
+              
+              updateInboxItem(space.id, item.id, { status: isDuplicate ? 'duplicate' : 'ready', ocrData: data });
             }
           } else {
             updateInboxItem(space.id, item.id, { status: 'error' });
