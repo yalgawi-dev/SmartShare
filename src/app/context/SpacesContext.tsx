@@ -564,9 +564,10 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   const toggleFeature = (spaceId: string, featureId: FeatureId, performedBy?: string) => {
     saveSpaceUpdate(spaceId, space => {
-      const hasFeature = space.features.includes(featureId);
+      const currentFeatures = space.features || [];
+      const hasFeature = currentFeatures.includes(featureId);
       const isRemoving = hasFeature;
-      const newFeatures = isRemoving ? space.features.filter(f => f !== featureId) : [...space.features, featureId];
+      const newFeatures = isRemoving ? currentFeatures.filter((f: string) => f !== featureId) : [...currentFeatures, featureId];
       
       const newSpace = {
         ...space,
@@ -1192,7 +1193,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...space.invoices],
+      invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...(space.invoices || [])],
       updatedAt: 'עודכן עכשיו'
     }));
   };
