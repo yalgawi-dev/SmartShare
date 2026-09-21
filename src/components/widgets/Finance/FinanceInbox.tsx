@@ -211,7 +211,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
                 
                 {item.status === 'ready' && item.ocrData && (
                   <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 'bold' }}>{item.ocrData.supplier || 'ספק לא ידוע'}</div>
+                    <div style={{ fontWeight: 'bold' }}>{(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}</div>
                     <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>₪{item.ocrData.amount || '0'}</div>
                   </div>
                 )}

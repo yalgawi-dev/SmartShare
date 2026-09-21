@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useState } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
@@ -61,7 +61,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <img src={item.imageUrl} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
           <div>
-            <div style={{ fontWeight: 'bold' }}>{item.ocrData?.supplier || 'ספק לא ידוע'}</div>
+            <div style={{ fontWeight: 'bold' }}>{(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}</div>
             <div style={{ color: '#64748b' }}>₪{item.ocrData?.amount || '0'}</div>
           </div>
         </div>

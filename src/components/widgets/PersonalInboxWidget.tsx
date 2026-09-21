@@ -55,11 +55,11 @@ export default function PersonalInboxWidget() {
     for (const space of spaces) {
       if (space.status === 'pending_deletion') continue;
       
-      const invMatch = space.invoices?.find((inv: any) => inv.invoiceNumber === item.ocrData.invoiceNumber && inv.supplier === item.ocrData.supplier);
+      const invMatch = space.invoices?.find((inv: any) => inv.invoiceNumber === item.ocrData.invoiceNumber && inv.supplier === (item.ocrData.vendor || item.ocrData.supplier));
       if (invMatch) {
          return { spaceTitle: space.title, foundIn: 'invoices', doc: invMatch };
       }
-      const inboxMatch = (space.inbox || space.inboxItems)?.find((i: any) => i.ocrData?.invoiceNumber === item.ocrData.invoiceNumber && i.ocrData?.supplier === item.ocrData.supplier);
+      const inboxMatch = (space.inbox || space.inboxItems)?.find((i: any) => i.ocrData?.invoiceNumber === item.ocrData.invoiceNumber && (i.ocrData?.vendor || i.ocrData?.supplier) === (item.ocrData.vendor || item.ocrData.supplier));
       if (inboxMatch) {
          return { spaceTitle: space.title, foundIn: 'inbox', doc: inboxMatch };
       }
@@ -109,7 +109,7 @@ export default function PersonalInboxWidget() {
                 {item.ocrData && (
                   <>
                     <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {item.ocrData.supplier || 'ספק לא זוהה'}
+                      {(item.ocrData.vendor || item.ocrData.supplier) || 'ספק לא זוהה'}
                     </div>
                     <div style={{ fontSize: '0.85rem', color: '#475569' }}>
                       ₪{item.ocrData.amount || '0'} | מס': {item.ocrData.invoiceNumber || '---'}
