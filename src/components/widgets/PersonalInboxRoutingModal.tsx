@@ -12,9 +12,10 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [editedAmount, setEditedAmount] = useState<string>(item.ocrData?.amount?.toString() || "");
-  const [editedSupplier, setEditedSupplier] = useState<string>((item.ocrData?.vendor || item.ocrData?.supplier) || "");
-  const [editedInvoiceNumber, setEditedInvoiceNumber] = useState<string>(item.ocrData?.invoiceNumber || "");
+  const [editedAmount, setEditedAmount] = useState(item.ocrData?.amount || '');
+  const [editedSupplier, setEditedSupplier] = useState(item.ocrData?.vendor || item.ocrData?.supplier || '');
+  const [editedInvoiceNumber, setEditedInvoiceNumber] = useState(item.ocrData?.invoiceNumber || '');
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
   const [forceDuplicateApproval, setForceDuplicateApproval] = useState(false);
@@ -126,7 +127,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
         <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem' }}>שיוך לפרויקט</h3>
 
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <img src={item.imageUrl} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+          <img src={item.imageUrl} alt="Preview" onClick={() => setZoomedImage(item.imageUrl)} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }} />
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <input 
@@ -229,6 +230,17 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           </button>
         </div>
       </div>
+
+      {zoomedImage && (
+        <div 
+          onClick={() => setZoomedImage(null)} 
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', cursor: 'zoom-out' }}
+        >
+          <img src={zoomedImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          <div style={{ position: 'absolute', bottom: '2rem', color: 'white', background: 'rgba(255,255,255,0.2)', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 'bold' }}>סגור תצוגה</div>
+        </div>
+      )}
+
     </div>
   );
 }
