@@ -78,7 +78,7 @@ export default function PersonalInboxWidget() {
   return (
     <div style={{ marginBottom: '2rem', background: '#fff', border: '2px solid #4f46e5', borderRadius: '16px', padding: '1.5rem', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-        <h3 style={{ margin: 0, color: '#1e293b' }}>📥 מחסן מיון אישי (פרטי)</h3>
+        <h3 style={{ margin: 0, color: '#1e293b' }}>מחסן מיון אישי <span style={{fontSize:'0.7em', color:'#64748b'}}>(v2.1)</span></h3>
         <span style={{ background: '#4f46e5', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold' }}>{personalInbox.length}</span>
       </div>
       <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: '#64748b' }}>
