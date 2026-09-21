@@ -12,7 +12,15 @@ export const isDuplicateInvoice = (existingInv: any, incomingData: any) => {
     if (!vendor1 || !vendor2) return false;
     const s1 = String(vendor1).trim().toLowerCase();
     const s2 = String(vendor2).trim().toLowerCase();
-    return s1 === s2 || s1.includes(s2) || s2.includes(s1);
+    if (s1 === s2 || s1.includes(s2) || s2.includes(s1)) return true;
+    
+    // Fuzzy word match: If any word longer than 2 chars matches
+    const words1 = s1.split(/[\s,.-]+/).filter(w => w.length > 2);
+    const words2 = s2.split(/[\s,.-]+/).filter(w => w.length > 2);
+    for (const w1 of words1) {
+      if (words2.includes(w1)) return true;
+    }
+    return false;
   };
 
   // Flow 1: Invoice Numbers match exactly (and are not empty)
