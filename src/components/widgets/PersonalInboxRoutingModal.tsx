@@ -44,13 +44,20 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
         await addInboxItems(selectedSpaceId, [newItem as any]);
       } else {
         const payerName = getSpaceMembers(selectedSpace).find((m: any) => m.userId === selectedPayerId)?.name || user?.realName || 'אני (You)';
+        
+        const activePartnersCount = selectedSpace.members?.filter((m: any) => m.isActive !== false).length || 0;
+        const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
+        const myApproval = 1;
+        const finalStatus = expenseApprovalsNeeded === 0 ? 'approved' : (myApproval >= expenseApprovalsNeeded ? 'approved' : 'pending');
+        const finalApprovedBy = user?.id ? [user.id] : [];
+
         const newInvoice = {
           amount: editedAmount ? Number(editedAmount) : 0,
           supplier: (item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק',
           payerName: payerName,
           payerId: selectedPayerId,
           date: item.ocrData?.date || new Date().toISOString().split('T')[0],
-          status: 'approved' as const,
+          status: finalStatus as any,
           note: '',
           category: 'כללי',
           hasAttachment: true,
@@ -59,8 +66,9 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           vatNumber: item.ocrData?.vatNumber || '',
           invoiceNumber: item.ocrData?.invoiceNumber || '',
           documentType: item.ocrData?.documentType || '',
-          approvalsNeeded: 0,
-          approvalsReceived: 1
+          approvalsNeeded: expenseApprovalsNeeded,
+          approvalsReceived: expenseApprovalsNeeded > 0 ? myApproval : 0,
+          approvedBy: finalApprovedBy
         };
         await addInvoice(selectedSpaceId, newInvoice as any);
       }
