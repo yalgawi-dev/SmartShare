@@ -2,10 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
+import { useAuth } from '../../app/context/AuthContext';
 import PersonalInboxRoutingModal from './PersonalInboxRoutingModal';
 
 export default function PersonalInboxWidget() {
   const { spaces, personalInbox, removeFromPersonalInbox, updatePersonalInboxItem } = useSpaces();
+  const { user } = useAuth();
   const [selectedItem, setSelectedItem] = useState<any>(null);
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   const [zoomedDuplicate, setZoomedDuplicate] = useState<string | null>(null);

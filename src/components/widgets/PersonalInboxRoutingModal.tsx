@@ -11,6 +11,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [editedAmount, setEditedAmount] = useState<string>(item.ocrData?.amount?.toString() || "");
 
   const activeSpaces = spaces.filter((s: any) => {
     if (s.status === 'pending_deletion') return false;
@@ -35,7 +36,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
       // Create new inbox item in the selected space
       const newItem = {
         imageUrl: item.imageUrl,
-        ocrData: item.ocrData,
+        ocrData: { ...(item.ocrData || {}), amount: editedAmount ? Number(editedAmount) : 0 },
         ocrError: item.ocrError,
         status: 'pending',
         suggestedPayerId: selectedPayerId // We tag it with the payer
@@ -68,7 +69,15 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           <img src={item.imageUrl} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
           <div>
             <div style={{ fontWeight: 'bold' }}>{(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}</div>
-            <div style={{ color: '#64748b' }}>₪{item.ocrData?.amount || '0'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#64748b', fontSize: '0.9rem', marginTop: '0.25rem' }}>
+              <span>₪</span>
+              <input 
+                type="number" 
+                value={editedAmount} 
+                onChange={e => setEditedAmount(e.target.value)} 
+                style={{ width: '80px', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+              />
+            </div>
           </div>
         </div>
 
@@ -103,7 +112,8 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
               >
                 <option value="">-- בחר מי שילם --</option>
-                {getSpaceMembers(selectedSpace).map((m: any) => (
+                <option value={user?.id || 'me'}>{user?.realName || 'אני (You)'}</option>
+                {getSpaceMembers(selectedSpace).filter((m: any) => m.userId !== user?.id).map((m: any) => (
                   <option key={m.userId} value={m.userId}>{m.name || 'שותף'}</option>
                 ))}
               </select>
