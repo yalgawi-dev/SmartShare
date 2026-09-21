@@ -2,11 +2,17 @@ export const isDuplicateInvoice = (existingInv: any, incomingData: any) => {
   const invNum1 = existingInv.invoiceNumber ? String(existingInv.invoiceNumber).trim() : '';
   const invNum2 = incomingData.invoiceNumber ? String(incomingData.invoiceNumber).trim() : '';
 
+  const vat1 = existingInv.vatNumber ? String(existingInv.vatNumber).trim() : '';
+  const vat2 = incomingData.vatNumber ? String(incomingData.vatNumber).trim() : '';
+
   const amount1 = Number(existingInv.amount || 0);
   const amount2 = Number(incomingData.amount || 0);
 
   const vendor1 = existingInv.supplier || existingInv.vendor;
   const vendor2 = incomingData.vendor || incomingData.supplier;
+
+  const date1 = existingInv.date || (existingInv.ocrData && existingInv.ocrData.date);
+  const date2 = incomingData.date;
 
   const isVendorMatch = () => {
     if (!vendor1 || !vendor2) return false;
@@ -23,27 +29,30 @@ export const isDuplicateInvoice = (existingInv: any, incomingData: any) => {
     return false;
   };
 
-  // Flow 1: Invoice Numbers match exactly (and are not empty)
-  if (invNum1 && invNum2 && invNum1 === invNum2) {
-    // If we have VAT numbers, they must match
-    if (existingInv.vatNumber && incomingData.vatNumber && String(existingInv.vatNumber).trim() === String(incomingData.vatNumber).trim()) return true;
-    
-    // If amounts match, it's a duplicate
-    if (amount1 > 0 && amount1 === amount2) return true;
-    
-    // If vendors match, it's a duplicate
-    if (isVendorMatch()) return true;
+  const amountsMatch = amount1 > 0 && amount1 === amount2;
+  const datesMatch = Boolean(date1 && date2 && date1 === date2);
+  const vatsMatch = Boolean(vat1 && vat2 && vat1 === vat2);
 
-    // If invoice numbers match perfectly but we have no other data to confirm/deny, it's highly likely a duplicate.
+  // Tier 1: 100% Certainty
+  if (invNum1 && invNum2 && invNum1 === invNum2 && vatsMatch) {
     return true;
   }
 
-  // Flow 2: Missing or mismatching invoice numbers, but EXACT match on Amount, Date, and Vendor
-  const date1 = existingInv.date || (existingInv.ocrData && existingInv.ocrData.date);
-  const date2 = incomingData.date;
-  
-  if (amount1 > 0 && amount1 === amount2 && date1 && date2 && date1 === date2 && isVendorMatch()) {
-    return true;
+  // Tier 2: High Confidence (Soft Duplicate)
+  // Invoice numbers match exactly, but VAT is missing or mismatched. We need corroboration!
+  if (invNum1 && invNum2 && invNum1 === invNum2) {
+    if (amountsMatch || datesMatch || isVendorMatch()) {
+      return true;
+    }
+    // If only the invoice number matches, but NO corroborating evidence, ignore to avoid false positives.
+    return false;
+  }
+
+  // Tier 3: Low Confidence (The Receipt Problem - No Invoice Number)
+  if (!invNum1 || !invNum2) {
+    if (amountsMatch && datesMatch && isVendorMatch()) {
+      return true;
+    }
   }
 
   return false;
