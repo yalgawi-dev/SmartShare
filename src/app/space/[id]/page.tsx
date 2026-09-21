@@ -144,7 +144,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     .map(f => getFeatureById(f))
     .filter(f => f !== undefined) as { id: string; name: string; desc: string; icon: string }[];
 
-  const activePartnersCount = hasPartners ? (space.members?.length || 0) : 0; 
+  const activePartnersCount = hasPartners ? (space.members?.filter((m: any) => m.status !== 'removed').length || 0) : 0; 
   const unusedFeatures = AVAILABLE_FEATURES.filter(f => !spaceFeatures.includes(f.id));
 
   const missingDependenciesMap = new Map<string, string[]>();

@@ -85,7 +85,8 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
       } else {
         const payerName = getSpaceMembers(selectedSpace).find((m: any) => m.userId === selectedPayerId)?.name || user?.realName || 'אני (You)';
         
-        const activePartnersCount = selectedSpace.members?.filter((m: any) => m.isActive !== false).length || 0;
+        const hasPartners = selectedSpace?.features?.includes('partners');
+        const activePartnersCount = hasPartners ? (selectedSpace.members?.filter((m: any) => m.status !== 'removed').length || 0) : 0;
         const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
         const myApproval = 1;
         const finalStatus = expenseApprovalsNeeded === 0 ? 'approved' : (myApproval >= expenseApprovalsNeeded ? 'approved' : 'pending');
