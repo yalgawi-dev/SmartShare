@@ -12,7 +12,13 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const activeSpaces = spaces.filter((s: any) => s.status !== 'pending_deletion');
+  const activeSpaces = spaces.filter((s: any) => {
+    if (s.status === 'pending_deletion') return false;
+    if (user?.id && s.creatorId && s.creatorId === user.id) return true;
+    const myMemberRecord = (s.members || []).find((m: any) => m.userId === user?.id);
+    if (myMemberRecord && myMemberRecord.isActive !== false) return true;
+    return false;
+  });
   const selectedSpace = spaces.find((s: any) => s.id === selectedSpaceId);
 
   const getSpaceMembers = (space: any) => {
