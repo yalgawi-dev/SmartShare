@@ -5,7 +5,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 
 export default function PersonalInboxRoutingModal({ item, onClose }: { item: any, onClose: () => void }) {
-  const { spaces, addInboxItems, removeFromPersonalInbox } = useSpaces();
+  const { spaces, addInboxItems, removeFromPersonalInbox, addInvoice } = useSpaces();
   const { user } = useAuth();
   
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
@@ -27,44 +27,57 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
     return space.members || [];
   };
 
-  const handleRoute = async () => {
-    if (!selectedSpaceId) return alert('חובה לבחור פרויקט');
-    if (!selectedPayerId) return alert('חובה לבחור מי שילם!');
+  const handleRoute = async (mode: 'inbox' | 'direct') => {
+    if (!selectedSpaceId) return alert('נא לבחור לאיזה פרויקט לשייך');
+    if (!selectedPayerId) return alert('נא לבחור מי שילם בפועל!');
 
     setIsProcessing(true);
     try {
-      // Create new inbox item in the selected space
-      const newItem = {
-        imageUrl: item.imageUrl,
-        ocrData: { ...(item.ocrData || {}), amount: editedAmount ? Number(editedAmount) : 0 },
-        ocrError: item.ocrError,
-        status: 'pending',
-        suggestedPayerId: selectedPayerId // We tag it with the payer
-      };
+      if (mode === 'inbox') {
+        const newItem = {
+          imageUrl: item.imageUrl,
+          ocrData: { ...(item.ocrData || {}), amount: editedAmount ? Number(editedAmount) : 0 },
+          ocrError: item.ocrError,
+          status: 'pending',
+          suggestedPayerId: selectedPayerId
+        };
+        await addInboxItems(selectedSpaceId, [newItem as any]);
+      } else {
+        const payerName = getSpaceMembers(selectedSpace).find((m: any) => m.userId === selectedPayerId)?.name || user?.realName || 'אני (You)';
+        const newInvoice = {
+          amount: editedAmount ? Number(editedAmount) : 0,
+          supplier: (item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק',
+          payerName: payerName,
+          payerId: selectedPayerId,
+          date: item.ocrData?.date || new Date().toISOString().split('T')[0],
+          status: 'approved' as const,
+          note: '',
+          category: 'כללי',
+          hasAttachment: true,
+          attachmentUrl: item.imageUrl,
+          vatRate: selectedSpace?.settings?.defaultVatRate || 17,
+          vatNumber: item.ocrData?.vatNumber || '',
+          invoiceNumber: item.ocrData?.invoiceNumber || '',
+          documentType: item.ocrData?.documentType || '',
+          approvalsNeeded: 0,
+          approvalsReceived: 1
+        };
+        await addInvoice(selectedSpaceId, newInvoice as any);
+      }
       
-      await addInboxItems(selectedSpaceId, [newItem as any]);
       await removeFromPersonalInbox(item.id);
-      
       onClose();
     } catch (e) {
-      console.error(e);
-      alert('שגיאה בהעברה לפרויקט');
+      alert('הייתה שגיאה בהעברת הפריט');
       setIsProcessing(false);
     }
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999,
-      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: '16px', padding: '1.5rem',
-        width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)'
-      }}>
-        <h3 style={{ margin: '0 0 1rem 0' }}>שיוך חשבונית לפרויקט</h3>
-        
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+      <div style={{ background: '#fff', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem' }}>שיוך לפרויקט</h3>
+
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <img src={item.imageUrl} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
           <div>
@@ -81,7 +94,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
           <div>
             <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
               לאיזה פרויקט להעביר?
@@ -121,19 +134,26 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button 
             onClick={onClose}
-            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontWeight: 'bold', cursor: 'pointer' }}
+            style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}
           >
             ביטול
           </button>
           <button 
-            onClick={handleRoute}
+            onClick={() => handleRoute('inbox')}
             disabled={!selectedSpaceId || !selectedPayerId || isProcessing}
-            style={{ flex: 2, padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 'bold', cursor: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 'not-allowed' : 'pointer', opacity: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 0.7 : 1 }}
+            style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #4f46e5', background: '#e0e7ff', color: '#4f46e5', fontWeight: 'bold', cursor: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 'not-allowed' : 'pointer', opacity: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 0.7 : 1 }}
           >
-            {isProcessing ? 'מעביר...' : 'העבר למחסן הפרויקט'}
+            למחסן
+          </button>
+          <button 
+            onClick={() => handleRoute('direct')}
+            disabled={!selectedSpaceId || !selectedPayerId || isProcessing}
+            style={{ flex: 1.5, padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 'bold', cursor: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 'not-allowed' : 'pointer', opacity: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 0.7 : 1 }}
+          >
+            {isProcessing ? 'מעבד...' : 'אשר והעבר להוצאות'}
           </button>
         </div>
       </div>
