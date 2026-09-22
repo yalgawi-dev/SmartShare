@@ -29,7 +29,12 @@ export async function POST(request: Request) {
           allMessages.push({
             token,
             notification: { title, body },
-            data: data || {}
+            data: data || {},
+            webpush: {
+              fcmOptions: {
+                link: (data && data.url) ? data.url : '/'
+              }
+            }
           });
         });
       }
