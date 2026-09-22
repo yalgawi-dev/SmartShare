@@ -90,11 +90,6 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
         const activePartnersCount = hasPartners ? (selectedSpace.members?.filter((m: any) => m.status !== 'removed').length || 0) : 0;
         const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
           const finalApprovedBy = user?.id ? [user.id] : [];
-          if (selectedPayerId && selectedPayerId !== user?.id) {
-            if (!finalApprovedBy.includes(selectedPayerId)) {
-              finalApprovedBy.push(selectedPayerId);
-            }
-          }
           const approvalsReceived = finalApprovedBy.length;
           const finalStatus = (expenseApprovalsNeeded === 0 || approvalsReceived >= expenseApprovalsNeeded) ? 'approved' : 'pending';
 
