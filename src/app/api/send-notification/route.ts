@@ -28,12 +28,10 @@ export async function POST(request: Request) {
           tokenMap.set(token, { userId: userDoc.id, token });
           allMessages.push({
             token,
-            notification: { title, body },
-            data: data || {},
-            webpush: {
-              fcmOptions: {
-                link: (data && data.url) ? data.url : '/'
-              }
+            data: {
+              title,
+              body,
+              url: (data && data.url) ? data.url : '/'
             }
           });
         });

@@ -24,17 +24,14 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
   
-  const notificationTitle = payload.notification?.title || 'SmartShare';
+  const notificationTitle = payload.data?.title || 'SmartShare';
   const notificationOptions = {
-    body: payload.notification?.body || 'הודעה חדשה מחכה לך!',
+    body: payload.data?.body || 'עדכון חדש באפליקציה',
     icon: '/icon512_maskable.png',
-    data: payload.data
+    data: { url: payload.data?.url || '/' }
   };
 
-  // Prevent duplicate if Firebase already shows it (when payload.notification exists)
-  if (!payload.notification) {
-    self.registration.showNotification(notificationTitle, notificationOptions);
-  }
+  self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 self.addEventListener('notificationclick', function(event) {
