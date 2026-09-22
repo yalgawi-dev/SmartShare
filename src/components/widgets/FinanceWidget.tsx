@@ -470,6 +470,14 @@ const runOcrPipeline = async (imgUrl: string) => {
                 <span>שותפים</span>
               </button>
             )}
+              <button 
+                onClick={() => handleRestrictedAction(() => window.location.href = `/space/${space.id}/reports`)}
+                style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
+                title="מחולל דוחות מתקדם"
+              >
+                <span style={{ fontSize: '1.2rem', lineHeight: '1' }}>📊</span> 
+                <span>דוחות</span>
+              </button>
             {onRemove && (
               <button 
                 onClick={onRemove}
