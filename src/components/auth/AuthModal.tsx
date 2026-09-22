@@ -129,6 +129,10 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
 
         {mode !== 'forgot' && (
           <>
+            
+            <button type="button" onClick={() => setMode('phone')} className={styles.primaryBtn} style={{ background: '#25D366', marginTop: '1rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '1.2rem' }}>📞</span> המשך עם מספר טלפון
+            </button>
             <div className={styles.divider}>
               <span>או התחבר באמצעות</span>
             </div>
