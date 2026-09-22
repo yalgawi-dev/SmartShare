@@ -287,7 +287,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             if (touchEndX - touchStartX > 50 && zoomedIndex > 0) setZoomedIndex(zoomedIndex - 1);
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img 
               src={inboxItems[zoomedIndex].imageUrl} 
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} 
@@ -303,8 +303,16 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
               </div>
             )}
           </div>
-          <div style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold', direction: 'rtl' }}>
-            {zoomedIndex + 1} מתוך {inboxItems.length}
+          <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: '1rem' }}>
+            <div style={{ color: 'white', fontSize: '1.2rem', fontWeight: 'bold', direction: 'rtl' }}>
+              {zoomedIndex + 1} מתוך {inboxItems.length}
+            </div>
+            <div 
+              onClick={() => setZoomedIndex(null)}
+              style={{ marginTop: '0.75rem', padding: '0.5rem 2rem', background: 'rgba(255,255,255,0.2)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              סגור תצוגה
+            </div>
           </div>
           
         </div>
