@@ -7,7 +7,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 
 export default function PersonalInboxRoutingModal({ item, onClose, preselectedSpaceId, isFromProjectInbox }: { item: any, onClose: () => void, preselectedSpaceId?: string, isFromProjectInbox?: boolean }) {
-  const { spaces, addInboxItems, removeFromPersonalInbox, removeInboxItem, addInvoice } = useSpaces();
+  const { spaces, addInboxItems, removeFromPersonalInbox, removeInboxItem, addInvoice, approveAndRouteInvoice } = useSpaces();
   const { user } = useAuth();
   
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>(preselectedSpaceId || '');
@@ -113,10 +113,18 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
           approvedBy: finalApprovedBy,
           source: 'inbox'
         };
-        await addInvoice(selectedSpaceId, newInvoice as any);
+                if (isFromProjectInbox) {
+          await approveAndRouteInvoice(selectedSpaceId, newInvoice as any, item.id);
+        } else {
+          await addInvoice(selectedSpaceId, newInvoice as any);
+          await removeFromPersonalInbox(item.id);
+        }
       }
       
-      if (isFromProjectInbox) { await removeInboxItem(selectedSpaceId, item.id); } else { await removeFromPersonalInbox(item.id); }
+      if (mode === 'inbox') {
+        if (isFromProjectInbox) { await removeInboxItem(selectedSpaceId, item.id); } else { await removeFromPersonalInbox(item.id); }
+      }
+      
       onClose();
     } catch (e) {
       alert('הייתה שגיאה בהעברת הפריט');

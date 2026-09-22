@@ -178,6 +178,7 @@ interface SpacesContextType {
   updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => void;
 
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
+  approveAndRouteInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>, inboxItemId: string) => void;
   addInboxItems: (spaceId: string, items: Omit<InboxItem, 'id' | 'createdAt'>[]) => void;
   updateInboxItem: (spaceId: string, itemId: string, updates: Partial<InboxItem>) => void;
   removeInboxItem: (spaceId: string, itemId: string) => void;
@@ -1191,6 +1192,18 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   // --- SUBCOLLECTION MUTATORS (MediaItems / Greetings) ---
 
 
+  const approveAndRouteInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>, inboxItemId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const newInvoice = { ...invoiceData, id: `inv-${Date.now()}` };
+      return {
+        ...space,
+        invoices: [newInvoice, ...(space.invoices || [])],
+        inboxItems: (space.inboxItems || []).filter(item => item.id !== inboxItemId),
+        updatedAt: 'עודכן הרגע'
+      };
+    });
+  };
+
   const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
@@ -1343,7 +1356,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
       updateMemberPermissions,
       sendMessageToMember,
       // markMessageRead,
