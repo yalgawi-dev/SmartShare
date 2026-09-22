@@ -133,6 +133,17 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
     }
   };
 
+
+  const sortedInboxItems = [...inboxItems].sort((a, b) => {
+    if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
+    if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
+    if (sortOption === 'date_desc') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    if (sortOption === 'date_asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    const amountA = a.ocrData?.amount || 0;
+    const amountB = b.ocrData?.amount || 0;
+    return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
+  });
+
   return (
     <div style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -144,7 +155,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
           אזור זה פתוח לכל השותפים ומשמש כתחנת מעבר למסמכים וקבלות שטרם הוגדרו כהוצאה. זה המקום לזרוק אליו חשבוניות שהתקבלו בוואטסאפ או במייל כדי לטפל בהן ולבדוק אותן ביסודיות מאוחר יותר. <strong>כל שותף יכול לראות, לטפל, לערוך ולאשר</strong> מסמכים אלו ולהכניס אותם למאזן הפרויקט.
         </p>
       </div>
-      <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מסמכים ממתינים ({inboxItems.length})</h4>
+      <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מסמכים ממתינים ({sortedInboxItems.length})</h4>
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <select 
@@ -152,8 +163,8 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             onChange={(e) => setSortOption(e.target.value as any)}
             style={{ padding: '0.25rem', borderRadius: '4px', border: '1px solid var(--border-light)', background: 'var(--bg-main)', color: 'var(--text-primary)' }}
           >
-            <option value="date_desc">תאריך הוספה (חדש קודם)</option>
-            <option value="date_asc">תאריך הוספה (ישן קודם)</option>
+            <option value="date_desc">הכי חדש קודם</option>
+            <option value="date_asc">הכי ישן קודם</option>
             <option value="amount_desc">סכום: מהגבוה לנמוך</option>
             <option value="amount_asc">סכום: מהנמוך לגבוה</option>
           </select>
@@ -194,21 +205,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
-          {[...inboxItems].sort((a, b) => {
-            // Group irrelevant at the bottom ALWAYS
-            if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
-            if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
-            
-            if (sortOption === 'date_desc') {
-              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            } else if (sortOption === 'date_asc') {
-              return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-            } else {
-              const amountA = a.ocrData?.amount || 0;
-              const amountB = b.ocrData?.amount || 0;
-              return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
-            }
-          }).map((item: any, i: number) => (
+          {sortedInboxItems.map((item: any, i: number) => (
             <div key={item.id} style={{ 
               minWidth: '220px', width: '220px', background: '#f8fafc', 
               border: item.status === 'duplicate' ? '2px solid #ef4444' : '1px solid #cbd5e1', 
@@ -278,19 +275,19 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
         />
       )}
 
-      {zoomedIndex !== null && inboxItems[zoomedIndex] && typeof window !== 'undefined' && createPortal(
+      {zoomedIndex !== null && sortedInboxItems[zoomedIndex] && typeof window !== 'undefined' && createPortal(
         <div 
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
           onTouchStart={e => setTouchStartX(e.changedTouches[0].screenX)}
           onTouchEnd={e => {
             const touchEndX = e.changedTouches[0].screenX;
-            if (touchStartX - touchEndX > 50 && zoomedIndex < inboxItems.length - 1) setZoomedIndex(zoomedIndex + 1);
+            if (touchStartX - touchEndX > 50 && zoomedIndex < sortedInboxItems.length - 1) setZoomedIndex(zoomedIndex + 1);
             if (touchEndX - touchStartX > 50 && zoomedIndex > 0) setZoomedIndex(zoomedIndex - 1);
           }}
         >
           <div style={{ position: 'relative', width: '100%', flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img 
-              src={inboxItems[zoomedIndex].imageUrl} 
+              src={sortedInboxItems[zoomedIndex].imageUrl} 
               style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} 
             />
             {zoomedIndex > 0 && (
@@ -298,7 +295,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
                 &gt;
               </div>
             )}
-            {zoomedIndex < inboxItems.length - 1 && (
+            {zoomedIndex < sortedInboxItems.length - 1 && (
               <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex + 1); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 &lt;
               </div>
