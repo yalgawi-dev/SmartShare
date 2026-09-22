@@ -71,9 +71,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     if (!mounted) return;
     const unreadMsgs = messagesArray.filter((m: any) => m?.from !== viewMode && !m?.readAt);
     if (unreadMsgs.length > 0 && typeof markMessageRead === 'function') {
-      unreadMsgs.forEach((msg: any) => {
-        markMessageRead(space.id, member.userId, msg.id);
-      });
+      markMessageRead(space.id, member.userId, unreadMsgs.map((m: any) => m.id));
     }
   }, [messagesRaw.length, mounted]);
 

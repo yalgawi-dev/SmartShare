@@ -964,7 +964,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     }
   };
 
-  const markMessageRead = (spaceId: string, memberId: string, messageId: string) => {
+  const markMessageRead = (spaceId: string, memberId: string, messageId: string | string[]) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       members: (space.members || []).map(m => {
@@ -972,7 +972,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         return {
           ...m,
           messages: (m.messages || []).map(msg =>
-            msg.id === messageId && !msg.readAt ? { ...msg, readAt: new Date().toISOString() } : msg
+            (Array.isArray(messageId) ? messageId.includes(msg.id) : msg.id === messageId) && !msg.readAt ? { ...msg, readAt: new Date().toISOString() } : msg
           )
         };
       })
