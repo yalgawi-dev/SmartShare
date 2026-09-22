@@ -1262,6 +1262,18 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
     // Save to Firestore subcollection
     setDoc(doc(db, 'spaces', spaceId, 'mediaItems', newItem.id), newItem).catch(console.error);
+    
+      // Trigger push notification if it's a message or photo
+      if (item.type === 'message' || item.type === 'photo') {
+        const space = spacesBase.find(s => s.id === spaceId);
+        if (space && space.members) {
+          const senderName = user?.nickname || user?.realName || 'שותף';
+          const title = space.title;
+          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} שיתף תמונה חדשה`; // url holds the message text for type='message'
+          const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
+          triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
+        }
+      }
   };
 
   const updateMediaItem = (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => {

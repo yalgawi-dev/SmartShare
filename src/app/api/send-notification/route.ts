@@ -4,44 +4,66 @@ import { FieldValue } from 'firebase-admin/firestore';
 
 export async function POST(request: Request) {
   try {
-    const { title, body, userId, data } = await request.json();
+    const { title, body, userId, userIds, data } = await request.json();
 
-    if (!userId || !title || !body) {
+    const targetUsers = userIds || (userId ? [userId] : []);
+
+    if (targetUsers.length === 0 || !title || !body) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const userDoc = await adminDb.collection('users').doc(userId).get();
-    if (!userDoc.exists) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
+    let allMessages: any[] = [];
+    let tokenMap = new Map<string, { userId: string, token: string }>(); // to track failed tokens per user
 
-    const userData = userDoc.data();
-    const fcmTokens = userData?.fcmTokens || [];
+    // Fetch all users in parallel
+    const userDocs = await Promise.all(
+      targetUsers.map((uid: string) => adminDb.collection('users').doc(uid).get())
+    );
 
-    if (fcmTokens.length === 0) {
-      return NextResponse.json({ success: true, message: 'User has no registered devices' });
-    }
-
-    const messages = fcmTokens.map((token: string) => ({
-      token,
-      notification: { title, body },
-      data: data || {}
-    }));
-
-    const response = await adminMessaging.sendEach(messages);
-
-    const failedTokens: string[] = [];
-    response.responses.forEach((resp: any, idx: number) => {
-      if (!resp.success) {
-        failedTokens.push(fcmTokens[idx]);
+    userDocs.forEach(userDoc => {
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        const fcmTokens = userData?.fcmTokens || [];
+        fcmTokens.forEach((token: string) => {
+          tokenMap.set(token, { userId: userDoc.id, token });
+          allMessages.push({
+            token,
+            notification: { title, body },
+            data: data || {}
+          });
+        });
       }
     });
 
-    if (failedTokens.length > 0) {
-      await adminDb.collection('users').doc(userId).update({
-        fcmTokens: FieldValue.arrayRemove(...failedTokens)
-      });
+    if (allMessages.length === 0) {
+      return NextResponse.json({ success: true, message: 'Users have no registered devices' });
     }
+
+    // FCM sendEach accepts max 500 messages
+    const response = await adminMessaging.sendEach(allMessages);
+
+    // Group failed tokens by userId
+    const failedTokensByUser = new Map<string, string[]>();
+    
+    response.responses.forEach((resp: any, idx: number) => {
+      if (!resp.success) {
+        const failedToken = allMessages[idx].token;
+        const uid = tokenMap.get(failedToken)?.userId;
+        if (uid) {
+          if (!failedTokensByUser.has(uid)) failedTokensByUser.set(uid, []);
+          failedTokensByUser.get(uid)!.push(failedToken);
+        }
+      }
+    });
+
+    // Cleanup failed tokens in parallel
+    const cleanupPromises = Array.from(failedTokensByUser.entries()).map(([uid, tokens]) => {
+      return adminDb.collection('users').doc(uid).update({
+        fcmTokens: FieldValue.arrayRemove(...tokens)
+      });
+    });
+
+    await Promise.all(cleanupPromises);
 
     return NextResponse.json({ success: true, sent: response.successCount, failed: response.failureCount });
 

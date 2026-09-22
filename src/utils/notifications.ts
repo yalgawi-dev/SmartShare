@@ -42,3 +42,17 @@ export const requestNotificationPermission = async (userId: string) => {
     return false;
   }
 };
+
+
+export const triggerPushNotification = async (userIds: string[], title: string, body: string, data?: any) => {
+  if (!userIds || userIds.length === 0) return;
+  try {
+    await fetch('/api/send-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds, title, body, data })
+    });
+  } catch (err) {
+    console.error('Error triggering push notification', err);
+  }
+};
