@@ -156,6 +156,7 @@ export interface Space {
 interface SpacesContextType {
   setExtensionMessage?: any;
   sendMessageToMember?: any;
+  markMessageRead?: any;
     personalInbox: any[];
     setPersonalInbox: React.Dispatch<React.SetStateAction<any[]>>;
   fetchPersonalInbox: () => Promise<void>;
@@ -1393,7 +1394,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
       updateMemberPermissions,
       sendMessageToMember,
-      // markMessageRead,
+      markMessageRead,
       // approveExtension,
       setExtensionMessage, updateSharesBulk,
     approveShareChange,
