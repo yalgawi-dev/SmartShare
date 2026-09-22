@@ -214,7 +214,7 @@ export default function SharedFileHandler() {
       } else {
         setIsModalOpen(false);
         setIsProcessing(false);
-        router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true&source=inbox&payerId=' + (selectedPayerId || user?.id || 'me'));
+        router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true&payerId=' + (selectedPayerId || user?.id || 'me'));
       }
     } catch (e: any) {
         console.error(e);
