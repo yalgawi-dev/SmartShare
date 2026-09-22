@@ -192,7 +192,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
           <p style={{ fontSize: '0.9rem' }}>המחסן ריק. אפשר להעלות לכאן קבלות שנסרקו או התקבלו כדי לטפל בהן במרוכז מאוחר יותר.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
           {[...inboxItems].sort((a, b) => {
             // Group irrelevant at the bottom ALWAYS
             if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
@@ -208,68 +208,59 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
               return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
             }
           }).map((item: any, i: number) => (
-            <div key={item.id} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', width: '100%', padding: '1rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid #e2e8f0', opacity: item.status === 'irrelevant' ? 0.6 : 1 }}>
-              <div style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} onClick={() => setZoomedIndex(i)}>
+            <div key={item.id} style={{ 
+              minWidth: '220px', width: '220px', background: '#f8fafc', 
+              border: item.status === 'duplicate' ? '2px solid #ef4444' : '1px solid #cbd5e1', 
+              borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column',
+              opacity: item.status === 'irrelevant' ? 0.6 : 1
+            }}>
+              <div style={{ height: '140px', backgroundColor: '#e2e8f0', position: 'relative' }}>
                 {item.imageUrl.startsWith('data:image') || item.imageUrl.startsWith('http') ? (
-                  <img src={item.imageUrl} alt="Receipt" style={{ width: '100px', height: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                  <img src={item.imageUrl} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'cover', cursor: 'zoom-in' }} onClick={() => setZoomedIndex(i)} />
                 ) : (
-                  <div style={{ width: '100px', height: '140px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>מסמך</div>
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>מסמך</div>
                 )}
-                <div style={{ position: 'absolute', bottom: '0.2rem', left: '0.2rem', background: 'rgba(0,0,0,0.6)', padding: '0.2rem 0.4rem', borderRadius: '6px', fontSize: '1rem' }}>🔍</div>
+                {item.status === 'processing' && (
+                  <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 'bold', fontSize: '0.85rem' }}>
+                    בתהליך...
+                  </div>
+                )}
+                <div style={{ position: 'absolute', bottom: '0.2rem', left: '0.2rem', background: 'rgba(0,0,0,0.6)', padding: '0.2rem 0.4rem', borderRadius: '6px', fontSize: '1rem', color: 'white' }}>🔍</div>
               </div>
-
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
-                  <div style={{
-                    padding: '0.25rem 0.5rem',
-                    borderRadius: '8px',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                    ...getStatusStyle(item.status)
-                  }}>
-                    {getStatusText(item.status)}
-                  </div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    {new Date(item.createdAt).toLocaleDateString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                  </div>
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  {item.status === 'processing' && (
-                    <div style={{ color: '#d97706', fontSize: '0.9rem', marginTop: '1rem' }}>
-                      המסמך נסרק כעת כדי לחלץ ספק וסכום, אנא המתן...
+              
+              <div style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+                {(item.status === 'ready' || item.status === 'duplicate') && item.ocrData && (
+                  <>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.9rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {(item.ocrData.vendor || item.ocrData.supplier) || "לא זוהה ספק"}
                     </div>
-                  )}
-                  {(item.status === 'ready' || item.status === 'duplicate') && (
-                    <div style={{ marginTop: '0.5rem' }}>
-                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                        {(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}
-                      </div>
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', margin: '0.25rem 0' }}>
-                        ₪{Number(item.ocrData?.amount || 0).toLocaleString()}
-                      </div>
-                      <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                        מס' חשבונית: {item.ocrData?.invoiceNumber || 'חסר'} | תאריך: {item.ocrData?.date || 'חסר'}
-                      </div>
+                    <div style={{ fontSize: '0.85rem', color: '#475569' }}>
+                      ₪{item.ocrData.amount || '0'} | מס': {item.ocrData.invoiceNumber || '---'}
                     </div>
-                  )}
-                </div>
+                  </>
+                )}
+                
+                {item.status === 'duplicate' && (
+                  <div style={{ background: '#fef2f2', border: '1px solid #f87171', borderRadius: '6px', padding: '0.5rem', fontSize: '0.75rem', color: '#b91c1c' }}>
+                    <strong>חשד לכפילות!</strong>
+                  </div>
+                )}
 
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
+                <div style={{ marginTop: 'auto', display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    onClick={() => removeInboxItem(space.id, item.id)}
+                    style={{ padding: '0.5rem', flex: 1, background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}
+                  >
+                    מחק
+                  </button>
                   {(item.status === 'ready' || item.status === 'duplicate') && (
                     <button 
                       onClick={() => setRoutingItem(item)}
-                      style={{ flex: 2, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
+                      style={{ padding: '0.5rem', flex: 2, background: '#4f46e5', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}
                     >
-                      📝 ערוך ואשר כהוצאה
+                      ערוך ואשר
                     </button>
                   )}
-                  <button 
-                    onClick={() => removeInboxItem(space.id, item.id)}
-                    style={{ flex: 1, background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    🗑️ {item.status !== 'ready' ? 'מחק' : 'מחק/לא רלוונטי'}
-                  </button>
                 </div>
               </div>
             </div>          ))}
@@ -315,12 +306,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
           <div style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold', direction: 'rtl' }}>
             {zoomedIndex + 1} מתוך {inboxItems.length}
           </div>
-          <div 
-            onClick={() => setZoomedIndex(null)}
-            style={{ marginTop: '1rem', padding: '0.5rem 1.5rem', background: 'rgba(255,255,255,0.2)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
-            סגור תצוגה
-          </div>
+          
         </div>
       )}
 

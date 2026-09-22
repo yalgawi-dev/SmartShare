@@ -125,8 +125,13 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ background: '#fff', padding: '2rem', borderRadius: '16px', width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
-        <h3 style={{ margin: '0 0 1rem 0', fontSize: '1.25rem' }}>שיוך לפרויקט</h3>
+      <div style={{ background: '#fff', borderRadius: '16px', width: '90%', maxWidth: '500px', margin: 'auto', padding: '1.5rem', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>
+            {isFromProjectInbox ? 'ערוך ואשר הוצאה' : 'שיוך לפרויקט'}
+          </h3>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
+        </div>
 
         <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <img src={item.imageUrl} alt="Preview" onClick={() => setZoomedImage(item.imageUrl)} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }} />

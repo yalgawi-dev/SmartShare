@@ -206,12 +206,7 @@ export default function PersonalInboxWidget() {
             <div style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold', direction: 'rtl' }}>
               {zoomedIndex + 1} מתוך {personalInbox.length}
             </div>
-            <div 
-              onClick={() => setZoomedIndex(null)}
-              style={{ marginTop: '1rem', padding: '0.5rem 1.5rem', background: 'rgba(255,255,255,0.2)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              סגור תצוגה
-            </div>
+            
           </div>
         )}
 
