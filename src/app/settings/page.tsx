@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
 'use client';
+import { useState, useRef, useEffect } from 'react';
 
 import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission } from '../../utils/notifications';
