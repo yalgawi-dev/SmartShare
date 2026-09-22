@@ -11,6 +11,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const { spaces } = useSpaces();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [isZipping, setIsZipping] = useState(false);
   
   const space = spaces.find(s => s.id === id);
 
@@ -64,9 +65,49 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
     document.body.removeChild(link);
   };
 
-  const handleExportZIP = () => {
-    // Mock ZIP export
-    alert("הורדת קובץ ZIP הכולל את כל סריקות החשבוניות (PDF/JPG) תחל בקרוב...");
+  const handleExportZIP = async () => {
+    const invoicesWithFiles = invoices.filter(inv => inv.hasAttachment && inv.attachmentUrl);
+    if (invoicesWithFiles.length === 0) {
+      alert('אין חשבוניות עם מסמכים מצורפים להורדה.');
+      return;
+    }
+
+    setIsZipping(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const { saveAs } = await import('file-saver');
+      const zip = new JSZip();
+      const folder = zip.folder(`SmartShare_Receipts`);
+
+      let count = 1;
+      for (const inv of invoicesWithFiles) {
+        try {
+          const response = await fetch(inv.attachmentUrl!);
+          const blob = await response.blob();
+          
+          let extension = 'jpg';
+          if (blob.type === 'application/pdf' || inv.attachmentUrl?.includes('.pdf')) extension = 'pdf';
+          else if (blob.type === 'image/png' || inv.attachmentUrl?.includes('.png')) extension = 'png';
+          
+          // Replace illegal chars in filename
+          const cleanSupplier = (inv.supplier || 'general').replace(/[/\\?%*:|"<>]/g, '-');
+          const cleanAmount = inv.amount || '0';
+          const filename = `receipt_${cleanSupplier}_${cleanAmount}_${count++}.${extension}`;
+          
+          folder?.file(filename, blob);
+        } catch (e) {
+          console.error('Failed to fetch attachment', inv.id, e);
+        }
+      }
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      saveAs(zipBlob, `SmartShare_${space.title}_Receipts.zip`);
+    } catch (e) {
+      console.error(e);
+      alert('אירעה שגיאה ביצירת קובץ ה-ZIP. ייתכן שנדרשת הגדרת CORS בשרת.');
+    } finally {
+      setIsZipping(false);
+    }
   };
 
   return (
@@ -90,8 +131,9 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
           </button>
           <button 
             onClick={handleExportZIP}
-            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'center' }}>
-            <span>📦</span> הורד הכל (ZIP)
+            disabled={isZipping}
+            style={{ opacity: isZipping ? 0.7 : 1,  background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, justifyContent: 'center' }}>
+            {isZipping ? '⏳ מכין ZIP...' : '📦 הורד הכל (ZIP)'}
           </button>
         </div>
       </header>
