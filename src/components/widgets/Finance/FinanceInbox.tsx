@@ -134,21 +134,43 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   };
 
 
-  const sortedInboxItems = inboxItems.map((item, idx) => ({ ...item, originalIndex: idx })).sort((a, b) => {
+  const parseSortAmount = (val: any) => {
+    if (!val) return 0;
+    const str = val.toString().replace(/[^0-9.-]/g, '');
+    return parseFloat(str) || 0;
+  };
+  
+  const parseSortDate = (item: any) => {
+    let d = item.ocrData?.date || item.createdAt;
+    if (!d) return 0;
+    if (typeof d === 'string') {
+      if (d.includes('/')) {
+        const p = d.split('/');
+        if (p.length === 3) d = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+      } else if (d.includes('.')) {
+        const p = d.split('.');
+        if (p.length === 3) d = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+      }
+    }
+    const t = new Date(d).getTime();
+    return isNaN(t) ? 0 : t;
+  };
+
+  const sortedInboxItems = [...inboxItems].map((item, idx) => ({ ...item, originalIndex: idx })).sort((a, b) => {
     if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
     if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
     
     if (sortOption === 'date_desc' || sortOption === 'date_asc') {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      const timeA = parseSortDate(a);
+      const timeB = parseSortDate(b);
       if (timeA !== timeB) {
         return sortOption === 'date_desc' ? timeB - timeA : timeA - timeB;
       }
       return sortOption === 'date_desc' ? b.originalIndex - a.originalIndex : a.originalIndex - b.originalIndex;
     }
     
-    const amountA = parseFloat(a.ocrData?.amount || 0) || 0;
-    const amountB = parseFloat(b.ocrData?.amount || 0) || 0;
+    const amountA = parseSortAmount(a.ocrData?.amount);
+    const amountB = parseSortAmount(b.ocrData?.amount);
     if (amountA !== amountB) {
       return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
     }
