@@ -126,7 +126,7 @@ export function FinanceTransactions({
       const tabs = ["all"];
       const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
       const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
-      const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
+      const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me" || isCreatorMe)(i.payerId === myEffectiveId || i.payerId === "me"));
       const hasDispute = relevantInvoices.some((i: any) => i.status === "dispute");
 
       if (hasArchive) tabs.push("archive");
@@ -332,7 +332,7 @@ export function FinanceTransactions({
       {(() => {
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
         const pendingMeCount = relevantInvoices.filter((i: any) => calculateCanApprove(i)).length;
-        const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")).length;
+        const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me" || isCreatorMe)(i.payerId === myEffectiveId || i.payerId === "me")).length;
         
         return (
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
@@ -580,7 +580,7 @@ export function FinanceTransactions({
                             {inv.type === 'transfer' ? 'פתח מחלוקת' : 'דחה / פתח מחלוקת'}
                           </button>
                         )}
-                        {(inv.payerId === myEffectiveId || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
+                        {(inv.payerId === myEffectiveId || inv.payerId === 'me' || isCreatorMe) && inv.status === 'pending' && activePartnersCount > 0 && (
                           <button onClick={() => {
                             if (updateInvoice && space) {
                               updateInvoice(space.id, inv.id, { nudgedAt: Date.now() }, user?.realName || user?.id || 'me', `שלח/ה נדנוד לשותפים לאישור הוצאה מול '${inv.supplier}'`);
