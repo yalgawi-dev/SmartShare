@@ -2,11 +2,27 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { requestNotificationPermission } from '../../utils/notifications';
+import { useState } from 'react';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user, updateProfile, logout } = useAuth();
+  const [isPushEnabled, setIsPushEnabled] = useState(false);
+
+  const handleEnablePush = async () => {
+    if (user?.id) {
+      const success = await requestNotificationPermission(user.id);
+      if (success) {
+        setIsPushEnabled(true);
+        alert('התראות הופעלו בהצלחה!');
+      } else {
+        alert('שגיאה או שהבקשה נדחתה. ודא שהגדרות הדפדפן מאפשרות התראות.');
+      }
+    }
+  };
+
   const { spaces, restoreSpace, removeMember } = useSpaces() as any;
   
   const [nickname, setNickname] = useState(user?.nickname || '');
