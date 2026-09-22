@@ -208,64 +208,71 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
               return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
             }
           }).map((item: any, i: number) => (
-            <div key={item.id} style={{ 
-              background: 'var(--bg-card)', 
-              borderRadius: '12px', 
-              opacity: item.status === 'irrelevant' ? 0.6 : 1, padding: 0
-            }}>
-              <div style={{ height: '140px', overflow: 'hidden', background: '#f3f4f6', position: 'relative' }}>
+            <div key={item.id} style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start', width: '100%', padding: '1rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid #e2e8f0', opacity: item.status === 'irrelevant' ? 0.6 : 1 }}>
+              <div style={{ position: 'relative', cursor: 'pointer', flexShrink: 0 }} onClick={() => setZoomedIndex(i)}>
                 {item.imageUrl.startsWith('data:image') || item.imageUrl.startsWith('http') ? (
-                  <img src={item.imageUrl} alt="Receipt" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={item.imageUrl} alt="Receipt" style={{ width: '100px', height: '140px', objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
                 ) : (
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>📄 מסמך</div>
+                  <div style={{ width: '100px', height: '140px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>מסמך</div>
                 )}
-                <div style={{
-                  position: 'absolute',
-                  top: '0.5rem',
-                  right: '0.5rem',
-                  padding: '0.25rem 0.5rem',
-                  borderRadius: '12px',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold',
-                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                  ...getStatusStyle(item.status)
-                }}>
-                  {getStatusText(item.status)}
-                </div>
+                <div style={{ position: 'absolute', bottom: '0.2rem', left: '0.2rem', background: 'rgba(0,0,0,0.6)', padding: '0.2rem 0.4rem', borderRadius: '6px', fontSize: '1rem' }}>🔍</div>
               </div>
-              
-              <div style={{ padding: '1rem' }}>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                  {new Date(item.createdAt).toLocaleDateString('he-IL', { hour: '2-digit', minute: '2-digit' })}
-                </div>
-                
-                {item.status === 'ready' && item.ocrData && (
-                  <div style={{ marginBottom: '1rem' }}>
-                    <div style={{ fontWeight: 'bold' }}>{(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}</div>
-                    <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>₪{item.ocrData.amount || '0'}</div>
-                  </div>
-                )}
 
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                  <div style={{
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    ...getStatusStyle(item.status)
+                  }}>
+                    {getStatusText(item.status)}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                    {new Date(item.createdAt).toLocaleDateString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  {item.status === 'processing' && (
+                    <div style={{ color: '#d97706', fontSize: '0.9rem', marginTop: '1rem' }}>
+                      המסמך נסרק כעת כדי לחלץ ספק וסכום, אנא המתן...
+                    </div>
+                  )}
+                  {(item.status === 'ready' || item.status === 'duplicate') && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <div style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                        {(item.ocrData?.vendor || item.ocrData?.supplier) || 'לא זוהה ספק'}
+                      </div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--primary)', margin: '0.25rem 0' }}>
+                        ₪{Number(item.ocrData?.amount || 0).toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                        מס' חשבונית: {item.ocrData?.invoiceNumber || 'חסר'} | תאריך: {item.ocrData?.date || 'חסר'}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
                   {(item.status === 'ready' || item.status === 'duplicate') && (
                     <button 
                       onClick={() => setRoutingItem(item)}
-                      style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                      style={{ flex: 2, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}
                     >
-                      אשר
+                      📝 ערוך ואשר כהוצאה
                     </button>
                   )}
                   <button 
                     onClick={() => removeInboxItem(space.id, item.id)}
-                    style={{ flex: item.status === 'ready' ? 0 : 1, background: 'var(--bg-hover)', color: 'var(--text-primary)', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    title="מחק מהמחסן"
+                    style={{ flex: 1, background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                   >
-                    🗑️ {item.status !== 'ready' && 'מחק'}
+                    🗑️ {item.status !== 'ready' ? 'מחק' : 'מחק/לא רלוונטי'}
                   </button>
                 </div>
               </div>
-            </div>
-          ))}
+            </div>          ))}
         </div>
       )}
 
