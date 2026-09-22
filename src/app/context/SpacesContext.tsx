@@ -5,6 +5,7 @@ import { AVAILABLE_FEATURES } from '../data/features';
 import { isPartnerExpired } from '../../utils/partnerUtils';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
+import { triggerPushNotification } from '@/utils/notifications';
 import { collection, doc, onSnapshot, setDoc, deleteDoc, updateDoc, addDoc, getDocs } from 'firebase/firestore';
 
 export type FeatureId = string;
