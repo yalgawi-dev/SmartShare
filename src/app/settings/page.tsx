@@ -127,10 +127,31 @@ export default function SettingsPage() {
               <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} onBlur={e => saveField('nickname', e.target.value)} placeholder="הכינוי שלך..." style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
             </label>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              מספר טלפון:
-              <input type="text" value={phone} onChange={e => setPhone(e.target.value)} onBlur={e => saveField('phone', e.target.value)} placeholder="05X-XXXXXXX" style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-            </label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              <label style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>מספר טלפון:</label>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  value={phone || 'לא מאומת'} 
+                  disabled 
+                  style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: '#f3f4f6', color: '#6b7280', cursor: 'not-allowed' }} 
+                />
+                {phone && (
+                  <button 
+                    onClick={async () => {
+                      if (confirm('האם אתה בטוח שברצונך לשנות מספר? תצטרך לאמת את המספר החדש ב-SMS.')) {
+                        await saveField('phone', '');
+                        window.location.reload();
+                      }
+                    }}
+                    style={{ padding: '0.6rem 1rem', background: '#e0e7ff', color: '#4f46e5', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    שנה מספר
+                  </button>
+                )}
+              </div>
+              <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{phone ? 'המספר מאומת מאובטח.' : 'יש לאמת מספר במסך הראשי.'}</span>
+            </div>
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
               אימייל:
