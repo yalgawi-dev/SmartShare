@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
 import styles from './AuthModal.module.css';
+import PhoneLoginFlow from './PhoneLoginFlow';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -13,7 +14,7 @@ interface AuthModalProps {
 export default function AuthModal({ onClose, onSuccess, title = 'התחברות למערכת' }: AuthModalProps) {
   const { loginWithGoogle, loginWithFacebook, loginWithEmail, registerWithEmail, resetPassword } = useAuth();
   
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login');
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot' | 'phone'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -81,7 +82,7 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
         
         <div className={styles.header}>
           <div className={styles.logo}>?</div>
-          <h2 className={styles.title}>{mode === 'register' ? 'צור חשבון חדש' : mode === 'forgot' ? 'איפוס סיסמה' : title}</h2>
+          <h2 className={styles.title}>{mode === 'register' ? 'צור חשבון חדש' : mode === 'phone' ? 'התחברות עם טלפון' : mode === 'forgot' ? 'איפוס סיסמה' : title}</h2>
           <p className={styles.subtitle}>
             {mode === 'register' ? 'הצטרף עכשיו בחינם כדי לשמור את הנתונים שלך' : mode === 'forgot' ? 'הזן את המייל שלך ונשלח לך קישור ??יפוס' : 'התחבר כדי לגשת למרחבים האישיים שלך'}
           </p>
@@ -90,7 +91,11 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
         {error && <div className={styles.errorBanner}>{error}</div>}
         {msg && <div className={styles.successBanner}>{msg}</div>}
 
-        <form className={styles.form} onSubmit={handleSubmit}>
+        
+        {mode === 'phone' ? (
+          <PhoneLoginFlow onSuccess={() => { onSuccess?.(); onClose(); }} onCancel={() => setMode('login')} />
+        ) : (
+          <form className={styles.form} onSubmit={handleSubmit}>
           {mode === 'register' && (
             <div className={styles.inputGroup}>
               <label>שם מלא</label>
@@ -120,6 +125,7 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
             {loading ? 'מעבד...' : mode === 'register' ? 'הרשמה בחינם' : mode === 'forgot' ? 'שלח קישור איפוס' : 'התחברות'}
           </button>
         </form>
+        )}
 
         {mode !== 'forgot' && (
           <>
@@ -199,6 +205,7 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
           </>
         )}
 
+        {mode !== 'phone' && (
         <div className={styles.footer}>
           {mode === 'login' ? (
             <p>אין לך חשבון עדיין? <button className={styles.switchBtn} onClick={() => setMode('register')}>הרשם עכשיו בחינם</button></p>
@@ -206,6 +213,7 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
             <p>כבר יש לך חשבון? <button className={styles.switchBtn} onClick={() => setMode('login')}>התחבר עכשיו</button></p>
           )}
         </div>
+        )}
       </div>
     </div>
   );

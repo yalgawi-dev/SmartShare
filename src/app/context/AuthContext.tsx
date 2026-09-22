@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '@/lib/firebase';
-import { GoogleAuthProvider } from 'firebase/auth';
+import { signInWithPhoneNumber,  GoogleAuthProvider  } from 'firebase/auth';
 import { signInWithRedirect, linkWithRedirect, getRedirectResult, signInAnonymously, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 
@@ -51,7 +51,8 @@ interface AuthContextType {
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
   deleteUserDoc: (userId: string) => void; // Admin action
   isLoaded: boolean;
-  linkPhoneNumberMock: (phone: string) => Promise<void>;
+  loginWithPhone: (phone: string, appVerifier: any) => Promise<any>;
+    linkPhoneNumberMock: (phone: string) => Promise<void>;
   findUserByPhone: (phone: string) => Promise<UserProfile | null>;
 }
 
@@ -72,7 +73,8 @@ const AuthContext = createContext<AuthContextType>({
   toggleAdmin: () => {},
   deleteUserDoc: () => {},
   isLoaded: false,
-  linkPhoneNumberMock: async () => {},
+  loginWithPhone: async () => {}, 
+    linkPhoneNumberMock: async () => {},
   findUserByPhone: async () => null,
 });
 
@@ -510,6 +512,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  
+  const loginWithPhone = async (phone: string, appVerifier: any) => {
+    return await signInWithPhoneNumber(auth, phone, appVerifier);
+  };
+  
   const linkPhoneNumberMock = async (phone: string) => {
     if (!user) return;
     try {
@@ -548,7 +555,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
       logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded,
-      linkPhoneNumberMock, findUserByPhone
+      loginWithPhone, linkPhoneNumberMock, findUserByPhone
     }}>
       {children}
     </AuthContext.Provider>
