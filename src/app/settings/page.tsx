@@ -1,9 +1,8 @@
+import { useState, useRef, useEffect } from 'react';
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission } from '../../utils/notifications';
-import { useState } from 'react';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 
