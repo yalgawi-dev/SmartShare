@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../../app/context/AuthContext';
 
 import { auth } from '@/lib/firebase';
+import { RecaptchaVerifier, linkWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
 export default function PhoneVerificationModal() {
   const { user, linkPhoneNumberMock, isLoaded } = useAuth();
@@ -14,11 +15,19 @@ export default function PhoneVerificationModal() {
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [forceClose, setForceClose] = useState(false);
   
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => { 
+    setMounted(true); 
+    if (typeof window !== 'undefined' && !(window as any).recaptchaVerifier) {
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible'
+      });
+    }
+  }, []);
 
   const shouldShow = !forceClose && isLoaded && user && !user.phone && auth.currentUser && !auth.currentUser.isAnonymous;
   if (!mounted || !shouldShow) return null;
@@ -86,6 +95,7 @@ export default function PhoneVerificationModal() {
 
   return createPortal(
     <>
+      <div id="recaptcha-container"></div>
       <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15, 23, 42, 0.8)', zIndex: 999998, backdropFilter: 'blur(12px)', animation: 'fadeIn 0.3s ease-out' }} />
       <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#ffffff', borderRadius: '28px', width: '90%', maxWidth: '440px', maxHeight: '90vh', zIndex: 999999, boxShadow: '0 25px 50px -12px rgba(0,0,0,0.4)', overflowY: 'auto', display: 'flex', flexDirection: 'column', animation: 'slideUpScale 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}>
         
