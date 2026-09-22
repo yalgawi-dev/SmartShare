@@ -137,10 +137,15 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   const sortedInboxItems = [...inboxItems].sort((a, b) => {
     if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
     if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
-    if (sortOption === 'date_desc') return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    if (sortOption === 'date_asc') return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
-    const amountA = a.ocrData?.amount || 0;
-    const amountB = b.ocrData?.amount || 0;
+    
+    if (sortOption === 'date_desc' || sortOption === 'date_asc') {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortOption === 'date_desc' ? timeB - timeA : timeA - timeB;
+    }
+    
+    const amountA = parseFloat(a.ocrData?.amount || 0) || 0;
+    const amountB = parseFloat(b.ocrData?.amount || 0) || 0;
     return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
   });
 

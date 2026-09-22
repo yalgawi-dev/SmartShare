@@ -1,4 +1,5 @@
 'use client';
+import { createPortal } from 'react-dom';
 import { useState, useEffect } from 'react';
 
 import styles from './page.module.css';
@@ -18,6 +19,7 @@ export default function Dashboard() {
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [showPersonalInbox, setShowPersonalInbox] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -250,7 +252,7 @@ export default function Dashboard() {
           </div>
         )}
       
-          <PersonalInboxWidget />
+          
           {visibleSpaces.length > 5 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <input 
