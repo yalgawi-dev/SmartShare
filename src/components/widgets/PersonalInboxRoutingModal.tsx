@@ -114,10 +114,16 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
           source: 'inbox'
         };
                 if (isFromProjectInbox) {
-          await approveAndRouteInvoice(selectedSpaceId, newInvoice as any, item.id);
+          const success = await approveAndRouteInvoice(selectedSpaceId, newInvoice as any, item.id);
+          if (success) {
+            alert('הפעולה בוצעה בהצלחה! ההוצאה הועברה לפרויקט והוסרה מהמחסן.');
+          } else {
+            throw new Error('השמירה בשרת נכשלה');
+          }
         } else {
           await addInvoice(selectedSpaceId, newInvoice as any);
           await removeFromPersonalInbox(item.id);
+          alert('הפעולה בוצעה בהצלחה! ההוצאה הועברה לפרויקט והוסרה מהמחסן.');
         }
       }
       

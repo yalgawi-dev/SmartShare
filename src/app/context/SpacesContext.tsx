@@ -178,7 +178,7 @@ interface SpacesContextType {
   updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => void;
 
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
-  approveAndRouteInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>, inboxItemId: string) => void;
+  approveAndRouteInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>, inboxItemId: string) => Promise<boolean>;
   addInboxItems: (spaceId: string, items: Omit<InboxItem, 'id' | 'createdAt'>[]) => void;
   updateInboxItem: (spaceId: string, itemId: string, updates: Partial<InboxItem>) => void;
   removeInboxItem: (spaceId: string, itemId: string) => void;
@@ -381,7 +381,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   // Helper function to update Space ROOT document
-  const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>) => {
+  const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>): Promise<boolean> => {
     let updatedSpace: Omit<Space, 'mediaItems'> | null = null;
     
     setSpacesBase(prev => {
@@ -394,16 +394,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       });
     });
 
-      if (updatedSpace) {
-        try {
-          await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
-        } catch (e: any) {
-          console.error("Error updating Firestore space root", e);
-          if (typeof window !== 'undefined') {
-            alert("שגיאת תקשורת: הפעולה לא נשמרה בשרת! אנא רענן את העמוד ונסה שוב. (פרטי שגיאה: " + e.message + ")");
-          }
+    if (updatedSpace) {
+      try {
+        await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
+        return true;
+      } catch (e: any) {
+        console.error("Error updating Firestore space root", e);
+        if (typeof window !== 'undefined') {
+          alert("שגיאת תקשורת: הפעולה לא נשמרה בשרת! אנא רענן את העמוד ונסה שוב. (פרטי שגיאה: " + e.message + ")");
         }
+        return false;
       }
+    }
+    return false;
   };
 
   // Fix identity mismatch when user logs in and spaces are loaded
@@ -1192,8 +1195,8 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   // --- SUBCOLLECTION MUTATORS (MediaItems / Greetings) ---
 
 
-  const approveAndRouteInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>, inboxItemId: string) => {
-    saveSpaceUpdate(spaceId, space => {
+  const approveAndRouteInvoice = async (spaceId: string, invoiceData: Omit<Invoice, 'id'>, inboxItemId: string): Promise<boolean> => {
+    return saveSpaceUpdate(spaceId, space => {
       const newInvoice = { ...invoiceData, id: `inv-${Date.now()}` };
       return {
         ...space,
