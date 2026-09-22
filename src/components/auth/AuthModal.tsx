@@ -45,7 +45,7 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
       }
     } catch (err: any) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-         setError('אימייל או סיסמה שגויים.');
+         setError('אימייל או סיסמה שגויים. אם עדיין אין לך חשבון, אנא עבור להרשמה.');
       } else {
          setError(err.message || 'אירעה שגיאה. נסה שוב.');
       }

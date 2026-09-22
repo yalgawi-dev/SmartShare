@@ -294,21 +294,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const loginWithEmail = async (email: string, pass: string) => {
-    let result;
-    if (auth.currentUser && auth.currentUser.isAnonymous) {
-      const credential = EmailAuthProvider.credential(email, pass);
-      try {
-        result = await linkWithCredential(auth.currentUser, credential);
-      } catch (linkError: any) {
-        if (linkError.code === 'auth/credential-already-in-use' || linkError.code === 'auth/email-already-in-use') {
-          result = await signInWithEmailAndPassword(auth, email, pass);
-        } else {
-          throw linkError;
-        }
-      }
-    } else {
-      result = await signInWithEmailAndPassword(auth, email, pass);
-    }
+    // LOGIN should strictly authenticate against an existing account.
+    // It should NEVER use linkWithCredential with a new email/password, as that creates an account.
+    const result = await signInWithEmailAndPassword(auth, email, pass);
     await syncProviderData(result.user);
     return result.user;
   };
