@@ -2,6 +2,7 @@
 import { isDuplicateInvoice } from '../../utils/duplicateCheck';
 
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 

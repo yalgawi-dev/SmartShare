@@ -126,7 +126,7 @@ export function FinanceTransactions({
       const tabs = ["all"];
       const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
       const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
-      const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")(i.payerId === myEffectiveId || i.payerId === "me"));
+      const hasPendingPartners = relevantInvoices.some((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me"));
       const hasDispute = relevantInvoices.some((i: any) => i.status === "dispute");
 
       if (hasArchive) tabs.push("archive");
@@ -332,7 +332,7 @@ export function FinanceTransactions({
       {(() => {
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
         const pendingMeCount = relevantInvoices.filter((i: any) => calculateCanApprove(i)).length;
-        const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")(i.payerId === myEffectiveId || i.payerId === "me")).length;
+        const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")).length;
         
         return (
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
