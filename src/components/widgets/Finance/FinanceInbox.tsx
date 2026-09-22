@@ -1,5 +1,6 @@
 'use client';
 
+import { createPortal } from 'react-dom';
 import React, { useState, useRef, useEffect } from 'react';
 import { isDuplicateInvoice } from '../../../utils/duplicateCheck';
 import { useSpaces, InboxItem } from '../../../app/context/SpacesContext';
@@ -277,7 +278,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
         />
       )}
 
-      {zoomedIndex !== null && inboxItems[zoomedIndex] && (
+      {zoomedIndex !== null && inboxItems[zoomedIndex] && typeof window !== 'undefined' && createPortal(
         <div 
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
           onTouchStart={e => setTouchStartX(e.changedTouches[0].screenX)}
@@ -315,7 +316,8 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             </div>
           </div>
           
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

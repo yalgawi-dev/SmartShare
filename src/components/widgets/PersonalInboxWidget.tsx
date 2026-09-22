@@ -1,6 +1,7 @@
 'use client';
 import { isDuplicateInvoice } from '../../utils/duplicateCheck';
 
+import { createPortal } from 'react-dom';
 import React, { useState, useEffect } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
@@ -178,7 +179,7 @@ export default function PersonalInboxWidget() {
         </div>
       )}
     
-      {zoomedIndex !== null && personalInbox[zoomedIndex] && (
+      {zoomedIndex !== null && personalInbox[zoomedIndex] && typeof window !== 'undefined' && createPortal(
           <div 
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
             onTouchStart={e => setTouchStartX(e.changedTouches[0].screenX)}
@@ -215,7 +216,8 @@ export default function PersonalInboxWidget() {
               </div>
             </div>
             
-          </div>
+          </div>,
+          document.body
         )}
 
       {duplicateResolutionItem && (
