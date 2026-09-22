@@ -72,12 +72,18 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
       return;
     }
 
+    const defaultName = space.title || 'MySpace';
+    const userFilename = window.prompt('בחר שם לקובץ ה-ZIP:', defaultName);
+    if (!userFilename) {
+      return; // User cancelled
+    }
+
     setIsZipping(true);
     try {
       const JSZip = (await import('jszip')).default;
       const { saveAs } = await import('file-saver');
       const zip = new JSZip();
-      const folder = zip.folder(`SmartShare_Receipts`);
+      const folder = zip.folder(userFilename);
 
       let count = 1;
       for (const inv of invoicesWithFiles) {
@@ -101,7 +107,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
       }
 
       const zipBlob = await zip.generateAsync({ type: 'blob' });
-      saveAs(zipBlob, `SmartShare_${space.title}_Receipts.zip`);
+      saveAs(zipBlob, `${userFilename}.zip`);
     } catch (e) {
       console.error(e);
       alert('אירעה שגיאה ביצירת קובץ ה-ZIP. ייתכן שנדרשת הגדרת CORS בשרת.');
