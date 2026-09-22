@@ -14,7 +14,7 @@ export const requestNotificationPermission = async (userId: string) => {
       const msg = await messaging();
       if (!msg) return false;
       
-      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
+      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY || 'BLuKqBHM0BJVmFNMaKiPjdI3eGyjwQ0vzi-kMLS1UeyS6428AzvUk3P63UD3wMN1gTG0HUwLVS3MsWOsaiI622M';
       if (!vapidKey) {
         console.error('VAPID key not found');
         return false;
