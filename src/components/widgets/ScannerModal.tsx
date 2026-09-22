@@ -233,6 +233,26 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setDetectedType(null);
   };
 
+    const handleShare = async () => {
+    const currentImg = imageCache[mode];
+    if (!currentImg) return;
+    try {
+      const res = await fetch(currentImg);
+      const blob = await res.blob();
+      const file = new File([blob], 'scanned-document.jpg', { type: blob.type || 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'סריקה מ-SmartShare',
+        });
+      } else {
+        alert('שיתוף קבצים אינו נתמך בדפדפן זה.');
+      }
+    } catch (e) {
+      console.error('Share failed', e);
+    }
+  };
+
   const handleDone = () => {
     const currentImg = imageCache[mode];
     if (currentImg) {
@@ -439,11 +459,14 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             
 
             
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem' }}>
-              <button onClick={() => setStep('cropping')} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', gap: '0.5rem' }}>
+              <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 חזור לעריכה
               </button>
-              <button onClick={handleDone} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}>
+              <button onClick={handleShare} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
+                <span>📤</span> שיתוף
+              </button>
+              <button onClick={handleDone} style={{ flex: 1.5, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 אשר וצרף ✔
               </button>
             </div>
