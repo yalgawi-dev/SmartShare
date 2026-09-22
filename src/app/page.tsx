@@ -224,9 +224,36 @@ export default function Dashboard() {
 
       {/* Floating Action Button for New Space */}
       <>
-        <Link href="/space/new" className="fab" title="צור מרחב חדש" style={{ textDecoration: 'none' }}>
+        <Link href="/space/new" className="fab" title="יצירת מרחב שיתוף חדש" style={{ textDecoration: 'none' }}>
           ➕
         </Link>
+        <button 
+          className="fab" 
+          onClick={() => setShowPersonalInbox(true)}
+          title="מחסן מסמכים אישי" 
+          style={{ left: 'auto', right: '2rem', background: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          📥
+        </button>
+
+        {showPersonalInbox && typeof window !== 'undefined' && createPortal(
+          <div 
+            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }} 
+            onClick={() => setShowPersonalInbox(false)}
+          >
+            <div 
+              style={{ background: 'var(--bg-main)', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '1.5rem', maxHeight: '85vh', overflowY: 'auto' }} 
+              onClick={e => e.stopPropagation()}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>מחסן מסמכים אישי</h3>
+                <button onClick={() => setShowPersonalInbox(false)} style={{ background: 'var(--bg-card)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '1.2rem', boxShadow: '0 2px 5px rgba(0,0,0,0.1)' }}>✖</button>
+              </div>
+              <PersonalInboxWidget />
+            </div>
+          </div>,
+          document.body
+        )}
       </>
 
       <style>{`
