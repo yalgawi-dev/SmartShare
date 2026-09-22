@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../../app/context/AuthContext';
-
 import { auth } from '@/lib/firebase';
 import { RecaptchaVerifier, linkWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 
@@ -22,14 +21,24 @@ export default function PhoneVerificationModal() {
 
   useEffect(() => { 
     setMounted(true); 
-    if (typeof window !== 'undefined' && !(window as any).recaptchaVerifier) {
-      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible'
-      });
-    }
   }, []);
 
   const shouldShow = !forceClose && isLoaded && user && !user.phone && auth.currentUser && !auth.currentUser.isAnonymous;
+
+  useEffect(() => {
+    if (mounted && shouldShow) {
+      if (typeof window !== 'undefined' && !(window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+            size: 'invisible'
+          });
+        } catch (e) {
+          console.error("Recaptcha init error:", e);
+        }
+      }
+    }
+  }, [mounted, shouldShow]);
+
   if (!mounted || !shouldShow) return null;
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
