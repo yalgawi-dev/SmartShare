@@ -224,16 +224,23 @@ export default function Dashboard() {
 
       {/* Floating Action Button for New Space */}
       <>
-        <Link href="/space/new" className="fab" title="יצירת מרחב שיתוף חדש" style={{ textDecoration: 'none' }}>
-          ➕
+        <Link 
+          href="/space/new" 
+          className="fab" 
+          title="יצירת מרחב שיתוף חדש" 
+          style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: '2px', left: '2rem' }}
+        >
+          <span style={{ fontSize: '1.4rem' }}>➕</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>חדש</span>
         </Link>
         <button 
           className="fab" 
           onClick={() => setShowPersonalInbox(true)}
           title="מחסן מסמכים אישי" 
-          style={{ left: 'auto', right: '2rem', background: '#4f46e5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ left: 'auto', right: '2rem', background: '#4f46e5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px' }}
         >
-          📥
+          <span style={{ fontSize: '1.4rem' }}>📥</span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>מחסן</span>
         </button>
 
         {showPersonalInbox && typeof window !== 'undefined' && createPortal(

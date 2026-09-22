@@ -134,45 +134,43 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
           <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
-        <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', alignItems: 'center' }}>
-          <img src={item.imageUrl} alt="Preview" onClick={() => setZoomedImage(item.imageUrl)} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in' }} />
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+        <div style={{ marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+          <img src={item.imageUrl} alt="Preview" onClick={() => setZoomedImage(item.imageUrl)} style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '8px', cursor: 'zoom-in', flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <input 
+              type="text" 
+              value={editedSupplier} 
+              onChange={e => setEditedSupplier(e.target.value)} 
+              placeholder="שם ספק"
+              style={{ width: '100%', boxSizing: 'border-box', padding: '0.35rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 'bold' }}
+            />
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.9rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span>₪</span>
                 <input 
-                  type="text" 
-                  value={editedSupplier} 
-                  onChange={e => setEditedSupplier(e.target.value)} 
-                  placeholder="שם ספק"
-                  style={{ width: '100%', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem', fontWeight: 'bold' }}
+                  type="number" 
+                  value={editedAmount} 
+                  onChange={e => setEditedAmount(e.target.value)} 
+                  style={{ width: '80px', boxSizing: 'border-box', padding: '0.35rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
                 />
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#64748b', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span>₪</span>
-                  <input 
-                    type="number" 
-                    value={editedAmount} 
-                    onChange={e => setEditedAmount(e.target.value)} 
-                    style={{ width: '70px', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-                  />
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                  <span>מס':</span>
-                  <input 
-                    type="text" 
-                    value={editedInvoiceNumber} 
-                    onChange={e => setEditedInvoiceNumber(e.target.value)} 
-                    placeholder="הזן ידנית"
-                    style={{ width: '90px', padding: '0.25rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
-                  />
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                <span>מס':</span>
+                <input 
+                  type="text" 
+                  value={editedInvoiceNumber} 
+                  onChange={e => setEditedInvoiceNumber(e.target.value)} 
+                  placeholder="ידנית"
+                  style={{ width: '90px', boxSizing: 'border-box', padding: '0.35rem 0.5rem', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.9rem' }}
+                />
               </div>
-              {!editedInvoiceNumber && (
-                <div style={{ fontSize: '0.75rem', color: '#d97706', marginTop: '0.25rem' }}>
-                  * ה-OCR לא זיהה מספר חשבונית. מומלץ להזין ידנית למניעת כפילויות.
-                </div>
-              )}
             </div>
+            {!editedInvoiceNumber && (
+              <div style={{ fontSize: '0.75rem', color: '#d97706', lineHeight: 1.2 }}>
+                * לא אותר מספר קבלה. מומלץ להזין.
+              </div>
+            )}
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
