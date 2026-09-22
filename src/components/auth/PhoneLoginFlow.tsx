@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { auth, db } from '@/lib/firebase';
-import { RecaptchaVerifier, ConfirmationResult, updateProfile as updateFirebaseProfile } from 'firebase/auth';
+import { RecaptchaVerifier, ConfirmationResult, updateProfile as updateFirebaseProfile, PhoneAuthProvider, linkWithCredential, signInWithCredential } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useAuth } from '../../app/context/AuthContext';
 import styles from './AuthModal.module.css';
