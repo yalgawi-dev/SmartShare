@@ -89,9 +89,14 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
         const hasPartners = selectedSpace?.features?.includes('partners');
         const activePartnersCount = hasPartners ? (selectedSpace.members?.filter((m: any) => m.status !== 'removed').length || 0) : 0;
         const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
-        const myApproval = 1;
-        const finalStatus = expenseApprovalsNeeded === 0 ? 'approved' : (myApproval >= expenseApprovalsNeeded ? 'approved' : 'pending');
-        const finalApprovedBy = user?.id ? [user.id] : [];
+          const finalApprovedBy = user?.id ? [user.id] : [];
+          if (selectedPayerId && selectedPayerId !== user?.id) {
+            if (!finalApprovedBy.includes(selectedPayerId)) {
+              finalApprovedBy.push(selectedPayerId);
+            }
+          }
+          const approvalsReceived = finalApprovedBy.length;
+          const finalStatus = (expenseApprovalsNeeded === 0 || approvalsReceived >= expenseApprovalsNeeded) ? 'approved' : 'pending';
 
         const newInvoice = {
           amount: editedAmount ? Number(editedAmount) : 0,
@@ -109,7 +114,7 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
           invoiceNumber: item.ocrData?.invoiceNumber || '',
           documentType: item.ocrData?.documentType || '',
           approvalsNeeded: expenseApprovalsNeeded,
-          approvalsReceived: expenseApprovalsNeeded > 0 ? myApproval : 0,
+          approvalsReceived: expenseApprovalsNeeded > 0 ? approvalsReceived : 0,
           approvedBy: finalApprovedBy,
           source: 'inbox'
         };

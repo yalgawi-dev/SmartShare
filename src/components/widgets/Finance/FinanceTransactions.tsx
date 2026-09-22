@@ -408,7 +408,7 @@ export function FinanceTransactions({
                 onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', cursor: 'pointer' }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
                   <div style={{ 
                     width: '40px', height: '40px', flexShrink: 0,
                     borderRadius: '50%', 
@@ -418,9 +418,9 @@ export function FinanceTransactions({
                   }}>
                     {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
                   </div>
-                  <div>
-                    <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        {inv.supplier}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', display: 'inline-block' }}>{inv.supplier}</span>
                         {inv.source === 'inbox' && (
                           <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
                             🗃️ ממחסן
@@ -433,8 +433,8 @@ export function FinanceTransactions({
                       )}
                     </h4>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        <span>{inv.date}</span>
-                        <span>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
+                        <span style={{ whiteSpace: 'nowrap' }}>{inv.date}</span>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
                         {inv.status === 'dispute' && (
                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
                         )}
