@@ -134,19 +134,25 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   };
 
 
-  const sortedInboxItems = [...inboxItems].sort((a, b) => {
+  const sortedInboxItems = inboxItems.map((item, idx) => ({ ...item, originalIndex: idx })).sort((a, b) => {
     if (a.status === 'irrelevant' && b.status !== 'irrelevant') return 1;
     if (a.status !== 'irrelevant' && b.status === 'irrelevant') return -1;
     
     if (sortOption === 'date_desc' || sortOption === 'date_asc') {
       const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return sortOption === 'date_desc' ? timeB - timeA : timeA - timeB;
+      if (timeA !== timeB) {
+        return sortOption === 'date_desc' ? timeB - timeA : timeA - timeB;
+      }
+      return sortOption === 'date_desc' ? b.originalIndex - a.originalIndex : a.originalIndex - b.originalIndex;
     }
     
     const amountA = parseFloat(a.ocrData?.amount || 0) || 0;
     const amountB = parseFloat(b.ocrData?.amount || 0) || 0;
-    return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
+    if (amountA !== amountB) {
+      return sortOption === 'amount_desc' ? amountB - amountA : amountA - amountB;
+    }
+    return sortOption === 'amount_desc' ? b.originalIndex - a.originalIndex : a.originalIndex - b.originalIndex;
   });
 
   return (
