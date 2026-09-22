@@ -952,6 +952,15 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         return { ...m, messages: [...(m.messages || []), newMsg] };
       })
     }));
+
+    const space = spacesBase.find(s => s.id === spaceId);
+    if (space) {
+      const targetUserId = from === 'creator' ? memberId : (space.creatorId || space.createdBy);
+      const senderName = user?.nickname || user?.realName || 'שותף';
+      if (targetUserId) {
+        triggerPushNotification([targetUserId], `הודעה אישית - ${space.title}`, `${senderName}: ${text}`, { url: `/space/${spaceId}/finance` });
+      }
+    }
   };
 
   const markMessageRead = (spaceId: string, memberId: string, messageId: string) => {
@@ -1212,8 +1221,17 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...(space.invoices || [])],
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: new Date().toISOString()
     }));
+
+    const space = spacesBase.find(s => s.id === spaceId);
+    if (space && space.members) {
+      const senderName = user?.nickname || user?.realName || 'שותף';
+      const title = space.title;
+      const body = `${senderName} הוסיף הוצאה חדשה: ${invoiceData.amount} ₪ (${invoiceData.category || 'כללי'})`;
+      const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
+      triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}/finance` });
+    }
   };
 
   const addInboxItems = (spaceId: string, items: Omit<InboxItem, 'id' | 'createdAt'>[]) => {
