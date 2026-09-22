@@ -399,6 +399,9 @@ const runOcrPipeline = async (imgUrl: string) => {
     if (finalAttachmentUrl) {
       newInvoice.attachmentUrl = finalAttachmentUrl;
     }
+    if (reviewingInboxItemId) {
+      newInvoice.source = 'inbox';
+    }
 
     addInvoice(space.id, newInvoice);
       if (reviewingInboxItemId) {

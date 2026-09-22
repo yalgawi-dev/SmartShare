@@ -109,7 +109,8 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           documentType: item.ocrData?.documentType || '',
           approvalsNeeded: expenseApprovalsNeeded,
           approvalsReceived: expenseApprovalsNeeded > 0 ? myApproval : 0,
-          approvedBy: finalApprovedBy
+          approvedBy: finalApprovedBy,
+          source: 'inbox'
         };
         await addInvoice(selectedSpaceId, newInvoice as any);
       }

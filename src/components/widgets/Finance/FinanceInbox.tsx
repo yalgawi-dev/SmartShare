@@ -135,10 +135,10 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
       <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '12px', border: '1px solid #c7d2fe', marginBottom: '1.5rem', color: '#3730a3' }}>
         <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1.2rem' }}>📥</span> מחסן מסמכים משותף (תחנת מעבר)
+          <span style={{ fontSize: '1.2rem' }}>📥</span> מחסן מסמכים כללי (תחנת מעבר)
         </h4>
         <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.5' }}>
-          מחסן זה הוא אזור משותף ש<strong>כל השותפים בפרויקט יכולים לראות</strong>. מסמכים שיושבים כאן <strong>הם עדיין לא הוצאות בפועל</strong> ולא נכנסו למאזן הפרויקט. הם רק מחכים שמישהו מהשותפים יעבור עליהם, ימלא את הסכום והספק, ויאשר אותם סופית. אם ברצונך להכניס הוצאה ישירות, חזור למסך הקודם ולחץ על "הוסף הוצאה".
+          אזור זה פתוח לכל השותפים ומשמש כתחנת מעבר למסמכים וקבלות שטרם הוגדרו כהוצאה. זה המקום לזרוק אליו חשבוניות שהתקבלו בוואטסאפ או במייל כדי לטפל בהן ולבדוק אותן ביסודיות מאוחר יותר. <strong>כל שותף יכול לראות, לטפל, לערוך ולאשר</strong> מסמכים אלו ולהכניס אותם למאזן הפרויקט. (להכנסת הוצאה מיידית לפרויקט, השתמשו ב"הוסף הוצאה" במסך הראשי).
         </p>
       </div>
       <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מסמכים ממתינים ({inboxItems.length})</h4>
