@@ -10,7 +10,7 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
   const { user } = useAuth();
   
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>(preselectedSpaceId || '');
-  const [selectedPayerId, setSelectedPayerId] = useState<string>('');
+  const [selectedPayerId, setSelectedPayerId] = useState<string>(item?.suggestedPayerId || '');
   const [isProcessing, setIsProcessing] = useState(false);
   const [editedAmount, setEditedAmount] = useState(item.ocrData?.amount || '');
   const [editedSupplier, setEditedSupplier] = useState(item.ocrData?.vendor || item.ocrData?.supplier || '');

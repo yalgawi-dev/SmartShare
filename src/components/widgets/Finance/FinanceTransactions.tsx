@@ -434,7 +434,7 @@ export function FinanceTransactions({
                     </h4>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
                         <span>{inv.date}</span>
-                        <span>• ע"י {inv.payerName}</span>
+                        <span>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
                         {inv.status === 'dispute' && (
                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
                         )}
@@ -547,7 +547,9 @@ export function FinanceTransactions({
                             </div>
                           ) : (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                              <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>⏳ ממתין לאישור ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).</span>
+                              <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>
+  ⏳ ממתין לאישור {(() => { const w = getPendingApproversText(inv); return w ? 'מ-' + w : ''; })()} ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).
+</span>
                               {inv.wasDisputed && (
                                 <span style={{ color: '#991b1b', fontSize: '0.75rem', background: '#fee2e2', padding: '0.2rem 0.4rem', borderRadius: '4px', border: '1px solid #fecdd3', display: 'inline-block' }}>
                                   ⚠️ הוצאה זו הייתה במחלוקת בעבר ותוקנה/נשלחה שוב.

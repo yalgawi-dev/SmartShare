@@ -6,6 +6,7 @@ import { PartnersInviteModal } from './Partners/PartnersInviteModal';
 import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { FinanceSummary } from './Finance/FinanceSummary';
@@ -71,7 +72,13 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [reviewingInboxItemId, setReviewingInboxItemId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [selectedPayerId, setSelectedPayerId] = useState<string>(typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('payerId') || 'me') : 'me');
+  const searchParams = useSearchParams();
+    const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
+    
+    useEffect(() => {
+      const p = searchParams?.get('payerId');
+      if (p) setSelectedPayerId(p);
+    }, [searchParams]);
   const [selectedCategory, setSelectedCategory] = useState('כללי');
 
   const onTriggerTransfer = (targetId?: string) => {
