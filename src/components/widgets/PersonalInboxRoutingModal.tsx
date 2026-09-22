@@ -5,11 +5,11 @@ import React, { useState } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 
-export default function PersonalInboxRoutingModal({ item, onClose }: { item: any, onClose: () => void }) {
-  const { spaces, addInboxItems, removeFromPersonalInbox, addInvoice } = useSpaces();
+export default function PersonalInboxRoutingModal({ item, onClose, preselectedSpaceId, isFromProjectInbox }: { item: any, onClose: () => void, preselectedSpaceId?: string, isFromProjectInbox?: boolean }) {
+  const { spaces, addInboxItems, removeFromPersonalInbox, removeInboxItem, addInvoice } = useSpaces();
   const { user } = useAuth();
   
-  const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
+  const [selectedSpaceId, setSelectedSpaceId] = useState<string>(preselectedSpaceId || '');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [editedAmount, setEditedAmount] = useState(item.ocrData?.amount || '');
@@ -115,7 +115,7 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
         await addInvoice(selectedSpaceId, newInvoice as any);
       }
       
-      await removeFromPersonalInbox(item.id);
+      if (isFromProjectInbox) { await removeInboxItem(selectedSpaceId, item.id); } else { await removeFromPersonalInbox(item.id); }
       onClose();
     } catch (e) {
       alert('הייתה שגיאה בהעברת הפריט');
@@ -171,16 +171,16 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
           <div>
-            <label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
+            {!preselectedSpaceId && (<label style={{ display: 'block', marginBottom: '0.25rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
               לאיזה פרויקט להעביר?
-            </label>
+            </label>)}
             <select 
+              style={{ display: preselectedSpaceId ? 'none' : 'block', width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
               value={selectedSpaceId} 
               onChange={e => {
                 setSelectedSpaceId(e.target.value);
                 setSelectedPayerId(''); // reset payer when space changes
               }}
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
             >
               <option value="">-- בחר פרויקט --</option>
               {activeSpaces.map((s: any) => (
@@ -216,13 +216,13 @@ export default function PersonalInboxRoutingModal({ item, onClose }: { item: any
           >
             ביטול
           </button>
-          <button 
+          {!isFromProjectInbox && (<button 
             onClick={() => handleRoute('inbox')}
             disabled={!selectedSpaceId || !selectedPayerId || isProcessing}
             style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #4f46e5', background: '#e0e7ff', color: '#4f46e5', fontWeight: 'bold', cursor: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 'not-allowed' : 'pointer', opacity: (!selectedSpaceId || !selectedPayerId || isProcessing) ? 0.7 : 1 }}
           >
             למחסן
-          </button>
+          </button>)}
           <button 
             onClick={() => handleRoute('direct')}
             disabled={!selectedSpaceId || !selectedPayerId || isProcessing}

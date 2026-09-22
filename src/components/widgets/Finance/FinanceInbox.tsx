@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { isDuplicateInvoice } from '../../../utils/duplicateCheck';
 import { useSpaces, InboxItem } from '../../../app/context/SpacesContext';
+import PersonalInboxRoutingModal from '../PersonalInboxRoutingModal';
 
 interface FinanceInboxProps {
   space: any;
@@ -15,6 +16,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  const [routingItem, setRoutingItem] = useState<any>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
   const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>('date_desc');
@@ -247,7 +249,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   {(item.status === 'ready' || item.status === 'duplicate') && (
                     <button 
-                      onClick={() => onReviewItem(item)}
+                      onClick={() => setRoutingItem(item)}
                       style={{ flex: 1, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                     >
                       אשר
@@ -265,6 +267,16 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
             </div>
           ))}
         </div>
+      )}
+
+      
+      {routingItem && (
+        <PersonalInboxRoutingModal 
+          item={routingItem} 
+          onClose={() => setRoutingItem(null)} 
+          preselectedSpaceId={space.id}
+          isFromProjectInbox={true}
+        />
       )}
 
       {zoomedIndex !== null && inboxItems[zoomedIndex] && (
