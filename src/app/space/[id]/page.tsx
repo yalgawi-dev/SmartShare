@@ -172,7 +172,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     setTimeout(() => setToastMessage(null), 3000);
   };
 
+  const isAdmin = user?.phone === '+972509666008' || user?.phone === '+972500000000';
   const handleAddFeature = (featureId: string, featureName: string) => {
+    const f = getFeatureById(featureId);
+    if (f?.inDevelopment && !isAdmin) {
+      showToast('הכלי הזה נמצא כרגע בפיתוח וישוחרר בקרוב!');
+      return;
+    }
+
     toggleFeature(id, featureId as FeatureId, user?.id || 'me');
     setShowFeatureMenu(false);
     showToast(`נוסף בהצלחה: ${featureName}`);
@@ -423,7 +430,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                           <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '2px dashed var(--primary)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(99, 102, 241, 0.05)', transition: 'transform 0.2s', boxShadow: 'var(--shadow-sm)' }}>
                             <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
                             <div>
-                              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{mod.name}</h4>
+                              <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {mod.name}
+                                  {mod.inDevelopment && (
+                                    <span style={{ fontSize: '0.65rem', background: '#fef9c3', color: '#854d0e', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 'bold' }}>בפיתוח</span>
+                                  )}
+                                </h4>
                               <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{mod.desc}</p>
                             </div>
                           </div>
@@ -442,7 +454,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                         <div key={mod.id} onClick={() => handleAddFeature(mod.id, mod.name)} style={{ border: '1px solid var(--border-light)', borderRadius: '16px', padding: '1.25rem', cursor: 'pointer', display: 'flex', gap: '1rem', alignItems: 'center', background: 'var(--bg-main)', transition: 'transform 0.2s' }}>
                           <div style={{ fontSize: '2rem', flexShrink: 0 }}>{mod.icon}</div>
                           <div>
-                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem' }}>{mod.name}</h4>
+                            <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  {mod.name}
+                                  {mod.inDevelopment && (
+                                    <span style={{ fontSize: '0.65rem', background: '#fef9c3', color: '#854d0e', padding: '0.1rem 0.4rem', borderRadius: '4px', fontWeight: 'bold' }}>בפיתוח</span>
+                                  )}
+                                </h4>
                             <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{mod.desc}</p>
                           </div>
                         </div>
