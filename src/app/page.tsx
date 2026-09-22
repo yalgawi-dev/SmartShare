@@ -121,9 +121,23 @@ export default function Dashboard() {
 
 
   const searchedSpaces = visibleSpaces.filter(s => {
-    if (!searchQuery.trim()) return true;
-    return s.title?.toLowerCase().includes(searchQuery.toLowerCase());
-  });
+      if (!searchQuery.trim()) return true;
+      return s.title?.toLowerCase().includes(searchQuery.toLowerCase());
+    }).sort((a, b) => {
+      let visitsA = 0;
+      let visitsB = 0;
+      if (typeof window !== 'undefined') {
+        try {
+          visitsA = parseInt(localStorage.getItem(`space_visits_${a.id}`) || '0', 10);
+          visitsB = parseInt(localStorage.getItem(`space_visits_${b.id}`) || '0', 10);
+        } catch (e) {}
+      }
+      if (visitsA !== visitsB) return visitsB - visitsA; // Sort by visits first
+      
+      const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
 
   // Mark tutorials as seen for veteran users
   useEffect(() => {
@@ -308,7 +322,11 @@ export default function Dashboard() {
               <div 
                 className={`card ${styles.projectCard} glass-panel`}
                 onClick={() => {
-                  try { sessionStorage.setItem('lastSpaceVisited', space.id); } catch(e){}
+                  try { 
+                    sessionStorage.setItem('lastSpaceVisited', space.id); 
+                    const currentVisits = parseInt(localStorage.getItem(`space_visits_${space.id}`) || '0', 10);
+                    localStorage.setItem(`space_visits_${space.id}`, (currentVisits + 1).toString());
+                  } catch(e){}
                   if (showFirstSpaceTip) {
                     try { localStorage.setItem('tutorial_enter_space', '1'); } catch(e){}
                   }
