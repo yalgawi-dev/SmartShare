@@ -51,11 +51,11 @@ export default function PhoneVerificationModal() {
   const handleSendCode = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length < 9 || cleanPhone.length > 10) {
-      setErrorMsg('מספר טלפון לא תקין');
+      setErrorMsg('מספר הטלפון שהוזן אינו תקין.');
       return;
     }
     
-    // Admin mock bypass - ONLY for this exact dev number, no extra text
+    // Admin mock bypass
     if (cleanPhone === '0500000000' || cleanPhone === '500000000') {
       setStep(2);
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
@@ -75,12 +75,19 @@ export default function PhoneVerificationModal() {
     } catch (error: any) {
       console.error(error);
       setIsSubmitting(false);
-      if (error.code === 'auth/credential-already-in-use') {
-        setErrorMsg('מספר טלפון זה כבר משויך לחשבון אחר.');
-      } else if (error.code === 'auth/invalid-phone-number') {
-        setErrorMsg('מספר טלפון לא תקין.');
+      
+      // Handle specific Firebase errors gracefully
+      const errCode = error.code || '';
+      if (errCode === 'auth/credential-already-in-use') {
+        setErrorMsg('מספר טלפון זה כבר משויך לחשבון אחר במערכת.');
+      } else if (errCode === 'auth/invalid-phone-number') {
+        setErrorMsg('מספר הטלפון אינו תקין. אנא ודא שהקשת נכון.');
+      } else if (errCode === 'auth/operation-not-allowed') {
+        setErrorMsg('שגיאת הרשאה מ-Firebase. עליך לאפשר את האזור (ישראל) בהגדרות המסוף של גוגל.');
+      } else if (errCode === 'auth/too-many-requests') {
+        setErrorMsg('יותר מדי ניסיונות. אנא המתן מעט ונסה שוב.');
       } else {
-        setErrorMsg('שגיאה בשליחת קוד: ' + error.message);
+        setErrorMsg('אירעה שגיאה בשליחת הקוד: ' + error.message);
       }
     }
   };
@@ -107,7 +114,7 @@ export default function PhoneVerificationModal() {
   const handleVerify = async () => {
     const code = otp.join('');
     if (code.length < 6) {
-      setErrorMsg('אנא הכנס 6 ספרות');
+      setErrorMsg('אנא הכנס קוד בן 6 ספרות.');
       return;
     }
     
@@ -118,14 +125,14 @@ export default function PhoneVerificationModal() {
       
       if (cleanPhone === '0500000000' || cleanPhone === '500000000') {
         if (code !== '123456') { 
-          setErrorMsg('קוד שגוי.');
+          setErrorMsg('הקוד שגוי.');
           setIsSubmitting(false);
           return; 
         }
         await linkPhoneNumberMock(formattedPhone);
       } else {
         if (!confirmationResult) {
-          throw new Error('חסר אישור. נסה לשלוח שוב.');
+          throw new Error('חסר אישור תקשורת. נסה לשלוח שוב.');
         }
         await confirmationResult.confirm(code);
         await linkPhoneNumberMock(formattedPhone);
@@ -133,11 +140,11 @@ export default function PhoneVerificationModal() {
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/invalid-verification-code') {
-        setErrorMsg('הקוד שהזנת שגוי.');
+        setErrorMsg('הקוד שהזנת שגוי, נסה שוב.');
       } else if (err.code === 'auth/code-expired') {
-        setErrorMsg('הקוד פג תוקף, אנא בקש חדש.');
+        setErrorMsg('הקוד פג תוקף. אנא חזור ובקש קוד חדש.');
       } else {
-        setErrorMsg('שגיאה באימות: ' + err.message);
+        setErrorMsg('שגיאה באימות הקוד.');
       }
       setIsSubmitting(false);
     }
@@ -146,59 +153,143 @@ export default function PhoneVerificationModal() {
   return createPortal(
     <>
       <div id="recaptcha-container"></div>
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999998, animation: 'fadeIn 0.2s ease-out' }} />
-      <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: '#ffffff', borderRadius: '16px', width: '90%', maxWidth: '380px', zIndex: 999999, boxShadow: '0 20px 40px rgba(0,0,0,0.15)', display: 'flex', flexDirection: 'column', animation: 'scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' }}>
-        
+      
+      {/* Backdrop */}
+      <div 
+        style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(0,0,0,0.45)', 
+          backdropFilter: 'blur(4px)',
+          zIndex: 999998, 
+          animation: 'fadeIn 0.25s ease-out' 
+        }} 
+      />
+      
+      {/* Modal */}
+      <div 
+        style={{ 
+          position: 'fixed', top: '50%', left: '50%', 
+          transform: 'translate(-50%, -50%)', 
+          background: '#ffffff', 
+          borderRadius: '24px', 
+          width: 'calc(100% - 2rem)', 
+          maxWidth: '400px', 
+          zIndex: 999999, 
+          boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          animation: 'scaleUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)', 
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' 
+        }}
+      >
         <div style={{ padding: '2rem 1.5rem', textAlign: 'center' }}>
-          <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'center' }}>
-            <div style={{ width: '48px', height: '48px', background: '#e0f2fe', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#0284c7' }}>
-              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-              </svg>
+          
+          <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'center' }}>
+            <div style={{ width: '56px', height: '56px', background: '#F3F4F6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#111827' }}>
+              {step === 1 ? (
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18.75h3" />
+                </svg>
+              ) : (
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+              )}
             </div>
           </div>
           
-          <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.25rem', color: '#111827', fontWeight: '600' }}>
-            {step === 1 ? 'הכנס מספר טלפון' : 'אימות מספר'}
+          <h2 style={{ margin: '0 0 0.5rem 0', fontSize: '1.4rem', color: '#111827', fontWeight: '700', letterSpacing: '-0.02em' }}>
+            {step === 1 ? 'מה המספר שלך?' : 'הזן את קוד האימות'}
           </h2>
           
-          <p style={{ margin: '0 0 2rem 0', color: '#6b7280', fontSize: '0.9rem', lineHeight: '1.5' }}>
+          <p style={{ margin: '0 0 1.5rem 0', color: '#6B7280', fontSize: '0.95rem', lineHeight: '1.5' }}>
             {step === 1 
-              ? 'יש לאמת את מספר הטלפון שלך כדי להתחיל להשתמש במערכת.'
-              : <span style={{ direction: 'ltr', display: 'inline-block' }}>SMS נשלח למספר +972 {phone.replace(/^0/, '')}</span>}
+              ? 'אנחנו צריכים לוודא שזה אתה כדי לשמור על החשבון שלך מאובטח.'
+              : <span style={{ direction: 'rtl' }}>שלחנו קוד בן 6 ספרות ב-SMS למספר<br/><strong style={{ direction: 'ltr', display: 'inline-block', marginTop: '4px', color: '#111827' }}>+972 {phone.replace(/^0/, '')}</strong></span>}
           </p>
 
           {errorMsg && (
-            <div style={{ color: '#ef4444', fontSize: '0.85rem', marginBottom: '1rem', background: '#fef2f2', padding: '0.5rem', borderRadius: '8px' }}>
+            <div style={{ color: '#DC2626', fontSize: '0.85rem', marginBottom: '1.25rem', background: '#FEF2F2', border: '1px solid #FCA5A5', padding: '0.75rem', borderRadius: '12px', fontWeight: '500' }}>
               {errorMsg}
             </div>
           )}
 
           {step === 1 ? (
-            <>
-              <div style={{ display: 'flex', borderBottom: '2px solid #2563eb', marginBottom: '1.5rem', transition: 'border-color 0.2s', paddingBottom: '0.25rem' }}>
-                <span style={{ padding: '0.5rem 0.5rem 0.5rem 0', color: '#111827', fontWeight: '500', fontSize: '1.1rem', direction: 'ltr' }}>+972</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Premium Input Container */}
+              <div 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  background: '#F9FAFB', 
+                  border: '1px solid #E5E7EB', 
+                  borderRadius: '16px', 
+                  padding: '0.5rem 1rem', 
+                  direction: 'ltr',
+                  transition: 'all 0.2s ease',
+                  boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = '#2563EB';
+                  e.currentTarget.style.background = '#FFFFFF';
+                  e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37, 99, 235, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = '#E5E7EB';
+                  e.currentTarget.style.background = '#F9FAFB';
+                  e.currentTarget.style.boxShadow = 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)';
+                }}
+              >
+                <span style={{ fontSize: '1.25rem', marginRight: '0.5rem', userSelect: 'none' }}>🇮🇱</span>
+                <span style={{ color: '#4B5563', fontWeight: '600', fontSize: '1.1rem', marginRight: '0.75rem', userSelect: 'none' }}>+972</span>
+                <div style={{ width: '1px', height: '24px', background: '#D1D5DB', marginRight: '0.75rem' }}></div>
                 <input 
                   type="tel" 
                   placeholder="50 123 4567" 
                   value={phone}
                   onChange={handlePhoneChange}
                   onKeyDown={e => e.key === 'Enter' && handleSendCode()}
-                  style={{ flex: 1, padding: '0.5rem', border: 'none', background: 'transparent', fontSize: '1.1rem', outline: 'none', color: '#111827', direction: 'ltr', letterSpacing: '1px' }}
+                  style={{ 
+                    flex: 1, 
+                    width: '100%',
+                    padding: '0.5rem 0', 
+                    border: 'none', 
+                    background: 'transparent', 
+                    fontSize: '1.15rem', 
+                    outline: 'none', 
+                    color: '#111827', 
+                    fontWeight: '500',
+                    letterSpacing: '1px'
+                  }}
                   autoFocus
                 />
               </div>
+
               <button 
                 onClick={handleSendCode}
                 disabled={isSubmitting || phone.replace(/\D/g, '').length < 9}
-                style={{ width: '100%', background: '#2563eb', color: 'white', border: 'none', padding: '0.875rem', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: (isSubmitting || phone.replace(/\D/g, '').length < 9) ? 0.7 : 1, transition: 'background 0.2s' }}
+                style={{ 
+                  width: '100%', 
+                  background: (isSubmitting || phone.replace(/\D/g, '').length < 9) ? '#93C5FD' : '#2563EB', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '16px', 
+                  fontSize: '1.05rem', 
+                  fontWeight: '600', 
+                  cursor: (isSubmitting || phone.replace(/\D/g, '').length < 9) ? 'not-allowed' : 'pointer', 
+                  transition: 'background 0.2s',
+                  boxShadow: (isSubmitting || phone.replace(/\D/g, '').length < 9) ? 'none' : '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+                }}
               >
-                {isSubmitting ? 'שולח...' : 'המשך'}
+                {isSubmitting ? 'מעבד...' : 'המשך'}
               </button>
-            </>
+            </div>
           ) : (
-            <>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2rem', direction: 'ltr' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center' }}>
+              
+              {/* WhatsApp-style OTP Boxes */}
+              <div style={{ display: 'flex', gap: '0.4rem', direction: 'ltr', justifyContent: 'center', width: '100%' }}>
                 {[0, 1, 2, 3, 4, 5].map((index) => (
                   <input
                     key={index}
@@ -208,29 +299,66 @@ export default function PhoneVerificationModal() {
                     value={otp[index]}
                     onChange={e => handleOtpChange(index, e.target.value)}
                     onKeyDown={e => handleOtpKeyDown(index, e)}
-                    style={{ width: '2.5rem', height: '3rem', fontSize: '1.5rem', textAlign: 'center', border: 'none', borderBottom: `2px solid ${otp[index] ? '#2563eb' : '#d1d5db'}`, background: 'transparent', color: '#111827', outline: 'none', transition: 'border-color 0.2s', padding: 0 }}
-                    onFocus={e => e.target.style.borderBottom = '2px solid #2563eb'}
-                    onBlur={e => e.target.style.borderBottom = `2px solid ${otp[index] ? '#2563eb' : '#d1d5db'}`}
+                    style={{ 
+                      width: '2.8rem', 
+                      height: '3.5rem', 
+                      fontSize: '1.5rem', 
+                      textAlign: 'center', 
+                      borderRadius: '12px',
+                      border: '1px solid #D1D5DB',
+                      background: '#F9FAFB', 
+                      color: '#111827', 
+                      fontWeight: '600',
+                      outline: 'none', 
+                      transition: 'all 0.2s ease',
+                      padding: 0,
+                      boxShadow: 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)'
+                    }}
+                    onFocus={e => {
+                      e.target.style.borderColor = '#2563EB';
+                      e.target.style.background = '#FFFFFF';
+                      e.target.style.boxShadow = '0 0 0 4px rgba(37, 99, 235, 0.1)';
+                    }}
+                    onBlur={e => {
+                      e.target.style.borderColor = otp[index] ? '#9CA3AF' : '#D1D5DB';
+                      e.target.style.background = '#F9FAFB';
+                      e.target.style.boxShadow = 'inset 0 2px 4px 0 rgba(0, 0, 0, 0.02)';
+                    }}
                   />
                 ))}
               </div>
+
               <button 
                 onClick={handleVerify}
                 disabled={isSubmitting || otp.join('').length < 6}
-                style={{ width: '100%', background: '#2563eb', color: 'white', border: 'none', padding: '0.875rem', borderRadius: '8px', fontSize: '1rem', fontWeight: '500', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: (isSubmitting || otp.join('').length < 6) ? 0.7 : 1, transition: 'background 0.2s', marginBottom: '1rem' }}
+                style={{ 
+                  width: '100%', 
+                  background: (isSubmitting || otp.join('').length < 6) ? '#93C5FD' : '#2563EB', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '16px', 
+                  fontSize: '1.05rem', 
+                  fontWeight: '600', 
+                  cursor: (isSubmitting || otp.join('').length < 6) ? 'not-allowed' : 'pointer', 
+                  transition: 'all 0.2s',
+                  boxShadow: (isSubmitting || otp.join('').length < 6) ? 'none' : '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+                }}
               >
                 {isSubmitting ? 'מאמת...' : 'אמת קוד'}
               </button>
-              <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: '#2563eb', fontSize: '0.9rem', cursor: 'pointer', fontWeight: '500' }}>
-                ערוך מספר טלפון
+              
+              <button onClick={() => setStep(1)} style={{ background: 'none', border: 'none', color: '#6B7280', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', marginTop: '-0.5rem' }}>
+                הזנתי מספר שגוי
               </button>
-            </>
+            </div>
           )}
         </div>
       </div>
+      
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes scaleUp { from { opacity: 0; transform: translate(-50%, -45%) scale(0.96); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+        @keyframes scaleUp { from { opacity: 0; transform: translate(-50%, -45%) scale(0.95); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
       `}</style>
     </>,
     document.body
