@@ -29,18 +29,26 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   }, {});
 
   const handleExportCSV = () => {
-    // Generate CSV content
+    const escapeCSV = (val: any) => {
+      if (val === null || val === undefined) return '';
+      const str = String(val);
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
+      }
+      return str;
+    };
+
     const headers = ['מזהה', 'תאריך', 'ספק', 'קטגוריה', 'משלם', 'סכום', 'מע"מ (%)', 'סטטוס', 'מסמך מצורף'];
     const rows = invoices.map(inv => [
-      inv.id,
-      inv.date,
-      `"${inv.supplier || ''}"`,
-      inv.category || '',
-      `"${inv.payerName || ''}"`,
-      inv.amount,
-      inv.vatRate,
-      inv.status,
-      inv.hasAttachment ? 'כן' : 'לא'
+      escapeCSV(inv.id),
+      escapeCSV(inv.date),
+      escapeCSV(inv.supplier || ''),
+      escapeCSV(inv.category || ''),
+      escapeCSV(inv.payerName || ''),
+      escapeCSV(inv.amount || 0),
+      escapeCSV(inv.vatRate || 0),
+      escapeCSV(inv.status),
+      escapeCSV(inv.hasAttachment ? 'כן' : 'לא')
     ]);
 
     const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + 
