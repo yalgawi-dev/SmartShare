@@ -207,10 +207,19 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             const invoices = space?.invoices || [];
             
             let pendingCount = 0;
+            let pendingAction = 'pending_me';
+            let pendingText = 'ממתינות לאישור';
+
             if (viewMode === 'creator') {
+              // Creator viewing Partner: How many invoices did this Partner submit that I (Creator) need to approve?
               pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId === member.userId).length;
+              pendingAction = 'pending_me';
+              pendingText = 'ממתינות לאישור שלך';
             } else {
-              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId !== member.userId && !(i.approvedBy||[]).includes(member.userId)).length;
+              // Partner viewing Creator: How many invoices did I (Partner) submit that the Creator needs to approve?
+              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && (i.payerId === user?.id || i.payerId === 'me') && !(i.approvedBy||[]).includes(member.userId)).length;
+              pendingAction = 'pending_partners';
+              pendingText = 'ממתינות לאישור שלו';
             }
 
             const disputesCount = invoices.filter((i:any) => {
@@ -229,11 +238,9 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   <button onClick={() => {
                     if (onNavigateToFilter) {
                       onClose();
-                      setTimeout(() => onNavigateToFilter('pending_me'), 100);
+                      setTimeout(() => onNavigateToFilter(pendingAction as any), 100);
                     }
-                  }} style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.4rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                    ⏳ {pendingCount} ממתינות לאישור
-                  </button>
+                  }} style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fde68a', padding: '0.4rem 0.75rem', borderRadius: '20px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>⏳ {pendingCount} {pendingText}</button>
                 )}
                 {disputesCount > 0 && (
                   <button onClick={() => {
