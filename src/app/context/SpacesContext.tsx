@@ -35,6 +35,7 @@ export interface Invoice {
   note: string;
   approvalsNeeded: number;
   approvalsReceived: number;
+  approvedBy?: string[];
   vatRate: number; 
   category: string; 
   hasAttachment: boolean; 
@@ -398,7 +399,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
             if (uploaderId && uploaderId !== inv.payerId && !(inv.approvedBy||[]).includes(inv.payerId)) {
               const newApprovedBy = [...(inv.approvedBy||[]), inv.payerId];
               const newApprovalsReceived = newApprovedBy.length;
-              const newStatus = newApprovalsReceived >= inv.approvalsNeeded ? 'approved' : 'pending';
+              const newStatus: InvoiceStatus = newApprovalsReceived >= inv.approvalsNeeded ? 'approved' : 'pending';
               spaceChanged = true;
               migrated = true;
               return { ...inv, approvedBy: newApprovedBy, approvalsReceived: newApprovalsReceived, status: newStatus };
