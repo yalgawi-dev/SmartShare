@@ -74,7 +74,7 @@ export function FinanceTransactions({
     if (!inv.rejectedById && inv.rejectedBy && filterUser && inv.rejectedBy.trim() === filterUser.name.trim()) return true;
 
     if (inv.status === 'pending' && effectivePayer !== memberFilter) {
-      if (!(inv.approvedBy || []).includes(memberFilter)) return true;
+      if (!(inv.approvedBy || []).includes(memberFilter) && !(inv.excludedMembers || []).includes(memberFilter)) return true;
     }
 
     return false;
@@ -100,6 +100,8 @@ export function FinanceTransactions({
     setTouchEnd(e.targetTouches[0].clientX);
   };
   const calculateCanApprove = (inv: any) => {
+      if ((inv.excludedMembers || []).includes(user?.id) || (inv.excludedMembers || []).includes(myEffectiveId)) return false;
+      if ((inv.approvedBy || []).includes(user?.id) || (inv.approvedBy || []).includes(myEffectiveId)) return false;
     if (inv.status !== 'pending') return false;
     if (inv.type === 'transfer') {
       if (inv.targetId === user?.id || inv.targetId === myEffectiveId) return true;

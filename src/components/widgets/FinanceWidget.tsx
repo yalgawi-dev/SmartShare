@@ -266,7 +266,9 @@ const runOcrPipeline = async (imgUrl: string) => {
       if (inv.type === 'transfer') {
         return inv.status === 'pending' && (inv.targetId === myEffectiveId || inv.targetId === 'me' || inv.targetId === user?.id);
       }
-      return inv.status === 'pending' && inv.payerId !== myEffectiveId && inv.payerId !== 'me';
+      if ((inv.excludedMembers || []).includes(myEffectiveId) || (inv.excludedMembers || []).includes(user?.id)) return false;
+        if ((inv.approvedBy || []).includes(myEffectiveId) || (inv.approvedBy || []).includes(user?.id)) return false;
+        return inv.status === 'pending' && inv.payerId !== myEffectiveId && inv.payerId !== 'me';
     }
     if (filter === 'pending_partners') {
       // Invoices I submitted that await partner approval
@@ -356,9 +358,15 @@ const runOcrPipeline = async (imgUrl: string) => {
     }
 
     let finalApprovalsNeeded = expenseApprovalsNeeded;
-    let finalApprovalsReceived = finalApprovalsNeeded > 0 ? myApproval : 0;
-    let finalStatus = finalApprovalsNeeded === 0 ? 'approved' : (myApproval >= finalApprovalsNeeded ? 'approved' : 'pending');
     let finalApprovedBy = user?.id ? [user.id] : [];
+    
+    // User's Rule: If I upload an invoice and say someone else paid, both I and the payer inherently approve it!
+    if (payerId && payerId !== myEffectiveId && payerId !== user?.id && payerId !== 'me') {
+      finalApprovedBy.push(payerId);
+    }
+    
+    let finalApprovalsReceived = finalApprovalsNeeded > 0 ? finalApprovedBy.length : 0;
+    let finalStatus = finalApprovalsNeeded === 0 ? 'approved' : (finalApprovalsReceived >= finalApprovalsNeeded ? 'approved' : 'pending');
 
     if (isTransfer) {
       finalApprovalsNeeded = 1;

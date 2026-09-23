@@ -387,6 +387,49 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     let updatedSpace: Omit<Space, 'mediaItems'> | null = null;
     
     setSpacesBase(prev => {
+      // MIGRATION: Auto-approve payer for all pending invoices
+      let migrated = false;
+      const newPrev = prev.map(space => {
+        if (!space.invoices) return space;
+        let spaceChanged = false;
+        const newInvoices = space.invoices.map(inv => {
+          if (inv.status === 'pending' && inv.payerId && inv.payerId !== 'me') {
+            const uploaderId = (inv.approvedBy && inv.approvedBy.length > 0) ? inv.approvedBy[0] : null;
+            if (uploaderId && uploaderId !== inv.payerId && !(inv.approvedBy||[]).includes(inv.payerId)) {
+              const newApprovedBy = [...(inv.approvedBy||[]), inv.payerId];
+              const newApprovalsReceived = newApprovedBy.length;
+              const newStatus = newApprovalsReceived >= inv.approvalsNeeded ? 'approved' : 'pending';
+              spaceChanged = true;
+              migrated = true;
+              return { ...inv, approvedBy: newApprovedBy, approvalsReceived: newApprovalsReceived, status: newStatus };
+            }
+          }
+          return inv;
+        });
+        if (spaceChanged) {
+          // Note: This only migrates local state immediately. 
+          // A real Firestore migration would be better, but this will self-heal if any other update occurs.
+          return { ...space, invoices: newInvoices };
+        }
+        return space;
+      });
+      
+      if (migrated && typeof window !== 'undefined' && !(window as any)._hasRunInvoiceMigration) {
+        (window as any)._hasRunInvoiceMigration = true;
+        // Trigger a background save for spaces that were changed
+        setTimeout(() => {
+          newPrev.forEach(space => {
+            const oldSpace = prev.find(s => s.id === space.id);
+            if (oldSpace && JSON.stringify(oldSpace.invoices) !== JSON.stringify(space.invoices)) {
+               import('firebase/firestore').then(({ doc, setDoc }) => {
+                 const db = (window as any).db || require('../../lib/firebase').db;
+                 setDoc(doc(db, 'spaces', space.id), { invoices: space.invoices }, { merge: true }).catch(e => console.error(e));
+               });
+            }
+          });
+        }, 3000);
+      }
+      prev = newPrev;
       return prev.map(space => {
         if (space.id === spaceId) {
           updatedSpace = mutator(space);

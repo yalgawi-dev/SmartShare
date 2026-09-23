@@ -212,12 +212,12 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
             if (viewMode === 'creator') {
               // Creator viewing Partner: How many invoices did this Partner submit that I (Creator) need to approve?
-              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId === member.userId).length;
+              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId === member.userId && !(i.approvedBy||[]).includes(user?.id) && !(i.excludedMembers||[]).includes(user?.id)).length;
               pendingAction = 'pending_me';
               pendingText = 'ממתינות לאישור שלך';
             } else {
               // Partner viewing Creator: How many invoices did I (Partner) submit that the Creator needs to approve?
-              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && (i.payerId === user?.id || i.payerId === 'me') && !(i.approvedBy||[]).includes(member.userId)).length;
+              pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && (i.payerId === user?.id || i.payerId === 'me') && !(i.approvedBy||[]).includes(member.userId) && !(i.excludedMembers||[]).includes(member.userId)).length;
               pendingAction = 'pending_partners';
               pendingText = 'ממתינות לאישור שלו';
             }
