@@ -147,9 +147,21 @@ export async function POST(request: Request) {
        text = text.replace(/\`\`\`/g, '').trim();
     }
 
-    let data: any = {};
+        let data: any = {};
     try {
-      data = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      // STRICT PRUNING to prevent Firestore "invalid nested array" crashes from Gemini hallucinations
+      data = {
+        vendor: typeof parsed.vendor === 'string' ? parsed.vendor : null,
+        clientName: typeof parsed.clientName === 'string' ? parsed.clientName : null,
+        amount: typeof parsed.amount === 'number' ? parsed.amount : Number(parsed.amount) || null,
+        vatAmount: typeof parsed.vatAmount === 'number' ? parsed.vatAmount : Number(parsed.vatAmount) || null,
+        documentType: typeof parsed.documentType === 'string' ? parsed.documentType : null,
+        date: typeof parsed.date === 'string' ? parsed.date : null,
+        isCreditInvoice: !!parsed.isCreditInvoice,
+        invoiceNumber: typeof parsed.invoiceNumber === 'string' ? parsed.invoiceNumber : (parsed.invoiceNumber ? String(parsed.invoiceNumber) : null),
+        vatNumber: typeof parsed.vatNumber === 'string' ? parsed.vatNumber : (parsed.vatNumber ? String(parsed.vatNumber) : null),
+      };
       
       // --- POST-PROCESSING: Fix Gemini Hallucinations ---
       if (data.clientName && data.vendor && typeof data.clientName === 'string' && typeof data.vendor === 'string') {
