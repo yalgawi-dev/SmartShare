@@ -28,7 +28,7 @@ export const storage = getStorage(app);
 import { GoogleAuthProvider } from "firebase/auth";
 export const googleProvider = new GoogleAuthProvider();
 
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 
 export const uploadImageToStorage = async (dataUrl: string, path: string): Promise<string> => {
   if (!dataUrl.startsWith('data:image')) {
@@ -54,4 +54,16 @@ export const messaging = async () => {
     return getMessaging(app);
   }
   return null;
+};
+
+
+export const deleteImageFromStorage = async (url: string): Promise<void> => {
+  if (!url || !url.startsWith('http')) return;
+  try {
+    const storageRef = ref(storage, url);
+    await deleteObject(storageRef);
+    console.log("Deleted physical file from Storage:", url);
+  } catch (err) {
+    console.error("Failed to delete physical file from Storage:", err);
+  }
 };

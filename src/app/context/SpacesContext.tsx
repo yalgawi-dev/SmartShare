@@ -522,6 +522,12 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const removeFromPersonalInbox = async (itemId: string) => {
+    const item = personalInbox.find(i => i.id === itemId);
+    if (item?.imageUrl) {
+      import('../../lib/firebase').then(({ deleteImageFromStorage }) => {
+        deleteImageFromStorage(item.imageUrl);
+      }).catch(console.error);
+    }
     if (!user || !user.id) return;
     await deleteDoc(doc(db, 'users', user.id, 'personal_inbox', itemId));
     setPersonalInbox(prev => prev.filter(i => i.id !== itemId));
@@ -1303,6 +1309,13 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const removeInboxItem = (spaceId: string, itemId: string) => {
+    const space = spacesBase.find(s => s.id === spaceId);
+    const item = space?.inboxItems?.find(i => i.id === itemId);
+    if (item?.imageUrl) {
+      import('../../lib/firebase').then(({ deleteImageFromStorage }) => {
+        deleteImageFromStorage(item.imageUrl);
+      }).catch(console.error);
+    }
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).filter(item => item.id !== itemId),
@@ -1352,6 +1365,12 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const removeMediaItem = (spaceId: string, mediaId: string) => {
+    const item = mediaItemsBySpace[spaceId]?.find(m => m.id === mediaId);
+    if (item?.url) {
+      import('../../lib/firebase').then(({ deleteImageFromStorage }) => {
+        deleteImageFromStorage(item.url);
+      }).catch(console.error);
+    }
     setMediaItemsBySpace(prev => ({
       ...prev,
       [spaceId]: (prev[spaceId] || []).filter(item => item.id !== mediaId)
