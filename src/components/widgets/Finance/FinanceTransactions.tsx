@@ -47,8 +47,11 @@ export function FinanceTransactions({
   ];
   const showTransfers = space?.features?.includes('partners') && activePartnersCount > 0;
 
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchEndY, setTouchEndY] = useState<number | null>(null);
+  
   const minSwipeDistance = 50;
 
   const relevantInvoices = invoices.filter((inv: any) => {
@@ -93,11 +96,14 @@ export function FinanceTransactions({
   }, [filter]);
 
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null);
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEndX(null);
+    setTouchEndY(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchStartY(e.targetTouches[0].clientY);
   };
   const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+    setTouchEndX(e.targetTouches[0].clientX);
+    setTouchEndY(e.targetTouches[0].clientY);
   };
   const calculateCanApprove = (inv: any) => {
       if ((inv.excludedMembers || []).includes(user?.id) || (inv.excludedMembers || []).includes(myEffectiveId)) return false;
@@ -120,11 +126,13 @@ export function FinanceTransactions({
   };
 
   const onTouchEndHandler = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
-    if (isLeftSwipe || isRightSwipe) {
+    if (!touchStartX || !touchEndX || !touchStartY || !touchEndY) return;
+    const distanceX = touchStartX - touchEndX;
+    const distanceY = touchStartY - touchEndY;
+    const isLeftSwipe = distanceX > minSwipeDistance;
+    const isRightSwipe = distanceX < -minSwipeDistance;
+    const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY) * 1.5;
+    if (isHorizontalSwipe && (isLeftSwipe || isRightSwipe)) {
       const tabs = ["all"];
       const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
       const hasPendingMe = relevantInvoices.some((i: any) => calculateCanApprove(i));
