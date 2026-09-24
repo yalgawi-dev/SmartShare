@@ -89,23 +89,42 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
     
     const newItems: any[] = [];
     
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const reader = new FileReader();
-      const url = await new Promise<string>((resolve) => {
-        reader.onload = (ev) => resolve(ev.target?.result as string);
-        reader.readAsDataURL(file);
-      });
-      
-      newItems.push({
-        imageUrl: url,
-        status: 'processing',
-        uploadedBy: user?.id || 'unknown'
-      });
-    }
+    try {
+      const { storage } = await import('../../../lib/firebase');
+      const { ref, uploadBytes, uploadString, getDownloadURL } = await import('firebase/storage');
+      const { compressImage } = await import('../../../utils/imageOptimizer');
 
-    addInboxItems(space.id, newItems);
-    setIsUploading(false);
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        let downloadUrl = '';
+        const filename = `inbox/${space.id}/${Date.now()}-${i}`;
+        
+        if (file.type.startsWith('image/')) {
+          const compressedDataUrl = await compressImage(file, 1500, 1500, 0.7);
+          const storageRef = ref(storage, filename + '.jpg');
+          const snapshot = await uploadString(storageRef, compressedDataUrl, 'data_url');
+          downloadUrl = await getDownloadURL(snapshot.ref);
+        } else {
+          // PDF or other
+          const storageRef = ref(storage, filename + '-' + file.name);
+          const snapshot = await uploadBytes(storageRef, file);
+          downloadUrl = await getDownloadURL(snapshot.ref);
+        }
+        
+        newItems.push({
+          imageUrl: downloadUrl,
+          status: 'processing',
+          uploadedBy: user?.id || 'unknown'
+        });
+      }
+
+      addInboxItems(space.id, newItems);
+    } catch (err) {
+      console.error("Failed to upload inbox files", err);
+      alert("שגיאה בהעלאת הקבצים למחסן. נסה שוב.");
+    } finally {
+      setIsUploading(false);
+    }
     
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
