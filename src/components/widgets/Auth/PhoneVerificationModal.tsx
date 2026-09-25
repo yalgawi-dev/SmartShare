@@ -87,7 +87,11 @@ export default function PhoneVerificationModal() {
       } else if (errCode === 'auth/too-many-requests') {
         setErrorMsg('יותר מדי ניסיונות. אנא המתן מעט ונסה שוב.');
       } else {
-        setErrorMsg('אירעה שגיאה בשליחת הקוד: ' + error.message);
+        if (errCode === 'auth/error-code:-39' || error.message.includes('-39')) {
+          setErrorMsg('שגיאת אבטחה (-39): הדומיין של האפליקציה לא מורשה ב-Firebase. יש להיכנס ל-Firebase Console -> Authentication -> Settings -> Authorized Domains ולהוסיף את הדומיין של האפליקציה.');
+        } else {
+          setErrorMsg('אירוע שגיאה בשליחת הקוד: ' + error.message);
+        }
       }
     }
   };
