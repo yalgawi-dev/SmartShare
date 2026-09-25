@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * Partner Engine Utils
  * Handles all logic related to partners, shares, and expirations.

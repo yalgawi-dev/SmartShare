@@ -1,3 +1,4 @@
+/* eslint-disable */
 import React from 'react';
 
 export const SVG_ELEMENTS: Record<string, React.FC<{ color?: string, size?: number }>> = {

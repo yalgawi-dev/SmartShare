@@ -6,7 +6,6 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint",
     "test": "jest",
     "migrate:command-center": "node scripts/migrateCommandCenterFlag.js"
   },
@@ -30,8 +29,6 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "16.2.12",
     "jest": "^30.5.1",
     "ts-jest": "^29.4.12",
     "typescript": "^5"

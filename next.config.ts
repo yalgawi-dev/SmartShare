@@ -12,9 +12,7 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  
   // Firebase Auth reverse proxy:
   // Required since mid-2024 browsers block cross-origin iframes used by Firebase redirect flow.
   // By proxying /__/auth/* through our own domain, Firebase's signInWithRedirect works correctly.
