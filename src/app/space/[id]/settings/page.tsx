@@ -78,7 +78,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
         
         {/* Dynamic Features Sections */}
-        {space.features.map((featureId: string) => {
+        {(space.features || []).map((featureId: string) => {
           const feature = getFeatureById(featureId);
           if (!feature) return null;
 
