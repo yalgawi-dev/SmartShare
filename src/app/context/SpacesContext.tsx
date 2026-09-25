@@ -1031,13 +1031,16 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
   };
 
   const approveExtension = (spaceId: string, memberId: string) => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      members: (space.members || []).map(m => {
-        if (m.userId !== memberId) return m;
-        return { ...m, status: 'pending' as const, joinedAt: new Date().toISOString(), extensionMessage: '' };
-      })
-    }));
+    saveSpaceUpdate(spaceId, space => {
+      triggerPushNotification([memberId], space.title, 'מנהל הקבוצה אישר את בקשת ההצטרפות שלך! יש לך כעת 24 שעות להיכנס.', { url: `/space/${spaceId}` });
+      return {
+        ...space,
+        members: (space.members || []).map(m => {
+          if (m.userId !== memberId) return m;
+          return { ...m, status: 'pending' as const, joinedAt: new Date().toISOString(), extensionMessage: '' };
+        })
+      };
+    });
   };
 
   const setExtensionMessage = (spaceId: string, memberId: string, message: string) => {
