@@ -43,7 +43,9 @@ export default function PhoneVerificationModal() {
         try {
           if (!(window as any).recaptchaVerifier) {
             (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-              size: 'invisible'
+              size: 'normal',
+              callback: () => { /* reCAPTCHA solved */ },
+              'expired-callback': () => { /* expired */ }
             });
           } else {
             // Render it again if it exists but the DOM node is new
@@ -184,7 +186,12 @@ export default function PhoneVerificationModal() {
 
   return createPortal(
     <>
-      <div id="recaptcha-container"></div>
+      {/* reCAPTCHA Security Widget */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+          <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '0.75rem 1rem', display: 'inline-block' }}>
+            <div id="recaptcha-container"></div>
+          </div>
+        </div>
       
       {/* Backdrop */}
       <div 

@@ -20,12 +20,21 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
     if (typeof window !== 'undefined' && !(window as any).recaptchaVerifierPhoneLogin) {
       try {
         (window as any).recaptchaVerifierPhoneLogin = new RecaptchaVerifier(auth, 'recaptcha-container-phone-login', {
-          size: 'invisible'
+          size: 'normal',
+          callback: () => {},
+          'expired-callback': () => {}
         });
       } catch (e) {
         console.error("Recaptcha init error:", e);
       }
     }
+    return () => {
+      if (typeof window !== 'undefined' && (window as any).recaptchaVerifierPhoneLogin) {
+        try { (window as any).recaptchaVerifierPhoneLogin.clear(); (window as any).recaptchaVerifierPhoneLogin = null; } catch(e) {}
+      }
+      const el = document.getElementById('recaptcha-container-phone-login');
+      if (el) el.innerHTML = '';
+    };
   }, []);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -132,7 +141,12 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%' }}>
-      <div id="recaptcha-container-phone-login"></div>
+      {/* reCAPTCHA Security Widget */}
+      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.5rem' }}>
+        <div style={{ background: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '0.75rem 1rem', display: 'inline-block' }}>
+          <div id="recaptcha-container-phone-login"></div>
+        </div>
+      </div>
       
       {errorMsg && <div className={styles.errorBanner}>{errorMsg}</div>}
 
