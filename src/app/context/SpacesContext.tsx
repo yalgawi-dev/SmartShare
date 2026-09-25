@@ -167,7 +167,7 @@ interface SpacesContextType {
 
   updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
   approveShareChange: (spaceId: string, userId: string) => void;
-  rejectShareChange: (spaceId: string, userId: string) => void;
+  rejectShareChange: (spaceId: string, userId: string) => void;\n  approveExtension: (spaceId: string, memberId: string) => void;
   spaces: Space[];
   addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => Promise<string>;
   deleteSpace: (spaceId: string) => void;
