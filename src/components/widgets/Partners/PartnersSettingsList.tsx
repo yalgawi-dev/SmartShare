@@ -19,7 +19,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
   const PermissionToggle = ({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (val: boolean) => void; disabled?: boolean }) => (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0.5rem 0", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
       <span style={{ fontSize: "0.9rem", color: disabled ? "#94a3b8" : "var(--text-main)" }}>{label}</span>
-      <label style={{ display: "flex", alignItems: "center", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 :pendingExpirationHours || 24 }}>
+      <label style={{ display: "flex", alignItems: "center", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.5 : 1 }}>
         <input type="checkbox" checked={checked || false} disabled={disabled} onChange={(e) => onChange(e.target.checked)} style={{ display: "none" }} />
         <div style={{ width: "36px", height: "20px", background: checked ? "var(--primary)" : "#ccc", borderRadius: "20px", position: "relative", transition: "0.3s" }}>
           <div style={{ width: "16px", height: "16px", background: "white", borderRadius: "50%", position: "absolute", top: "2px", left: checked ? "2px" : "18px", transition: "0.3s" }} />
@@ -45,19 +45,19 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
 
       {partners && partners.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rempendingExpirationHours || 24rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-            <span style={{ flex:pendingExpirationHours || 24 }}>שם השותף</span>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 1rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
+            <span style={{ flex: 1 }}>שם השותף</span>
             <span style={{ width: "80px", textAlign: "center" }}>סטאטוס</span>
             <span style={{ width: "90px", textAlign: "center" }}>הרשאות</span>
           </div>
           {partners.map((m: any) => {
             const isPending = m.status === "pending" || m.status === "extension_requested";
-            const isExpired = m.status === "pending" && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours ||pendingExpirationHours || 24);
+            const isExpired = m.status === "pending" && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
             const isExpanded = expandedMember === m.userId;
             return (
               <div key={m.userId} style={{ border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
                 <div onClick={(e) => { const t = e.target as HTMLElement; if (t.closest("button") || t.closest("input")) return; setExpandedMember(expandedMember === m.userId ? null : m.userId); }} style={{ cursor: "pointer", background: "#f8fafc", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 600, flex:pendingExpirationHours || 24 }}>{m.name || m.displayName || m.email || m.userId}</span>
+                  <span style={{ fontWeight: 600, flex: 1 }}>{m.name || m.displayName || m.email || m.userId}</span>
                   <span style={{ width: "120px", textAlign: "center", fontSize: "0.8rem", color: m.status === "active" ? "#16a34a" : m.status === "disputed" ? "#dc2626" : "#b45309" }}>
                     {m.status === "active" ? "✅ פעיל" : 
                      m.status === "pending" ? (m.welcomed ? "⏳ ממתין שיאשר" : "✉️ טרם הצטרף") : 
@@ -75,7 +75,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
                           type="text" 
                           defaultValue={m.name} 
                           id={`name_edit_${m.userId}`} 
-                          style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #ccc', flex:pendingExpirationHours || 24, fontSize: '0.9rem' }} 
+                          style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid #ccc', flex: 1, fontSize: '0.9rem' }} 
                         />
                         <button 
                           onClick={() => {
@@ -85,7 +85,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
                                 alert("השם עודכן בהצלחה וישוקף לכולם.");
                             }
                           }} 
-                          style={{ background: 'var(--primary, #3b82f6)', color: 'white', border: 'none', padding: '0.5rempendingExpirationHours || 24rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+                          style={{ background: 'var(--primary, #3b82f6)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
                         >
                           שמור שם
                         </button>

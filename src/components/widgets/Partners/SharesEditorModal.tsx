@@ -19,7 +19,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
 
   const validMembers = (space.members || []).filter((m: any) => m.status !== 'rejected');
   const totalPartners = validMembers.length;
-  const defaultShare = totalPartners > 0 ? Number((100 / (totalPartners +pendingExpirationHours || 24)).toFixed(1)) :pendingExpirationHours || 2400;
+  const defaultShare = totalPartners > 0 ? Number((100 / (totalPartners + 1)).toFixed(1)) : 100;
 
   const [myShare, setMyShare] = useState<string | number>(space.settings?.mySharePercentage ?? defaultShare);
   const [partnerShares, setPartnerShares] = useState<Record<string, string | number>>(() => {
@@ -50,8 +50,8 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
   const total = Number(myShare) + Number(Object.values(partnerShares).reduce((acc: number, val: any) => Number(acc) + Number(val), 0));
 
   const handleSave = () => {
-    if (Math.abs(Number(total) -pendingExpirationHours || 2400) > 0.1) {
-      alert('סך כל האחוזים חייב להיות בדיוקpendingExpirationHours || 2400% כדי להישמר.');
+    if (Math.abs(Number(total) - 100) > 0.1) {
+      alert('סך כל האחוזים חייב להיות בדיוק 100% כדי להישמר.');
       return;
     }
     if (updateSharesBulk) {
@@ -66,17 +66,17 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
         }
       }
       setSaved(true);
-      setTimeout(() => { setSaved(false); onClose(); },pendingExpirationHours || 24500);
+      setTimeout(() => { setSaved(false); onClose(); }, 1500);
     }
   };
 
   const handleAutoBalance = () => {
-    const membersCount = validMembers.length +pendingExpirationHours || 24;
+    const membersCount = validMembers.length + 1;
     const equalShare = Number((100 / membersCount).toFixed(1));
     const newPartnerShares: Record<string, number> = {};
     let sum = equalShare;
     validMembers.forEach((m: any, idx: number) => {
-      if (idx === validMembers.length -pendingExpirationHours || 24) {
+      if (idx === validMembers.length - 1) {
         newPartnerShares[m.userId] = Number((100 - sum).toFixed(1));
       } else {
         newPartnerShares[m.userId] = equalShare;
@@ -93,7 +93,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
     const diffHours = (now - joinedAt) / 3600000;
     const remainHours = limitHours - diffHours;
     if (remainHours <= 0) return 'פג תוקף';
-    if (remainHours <pendingExpirationHours || 24) return 'פחות משעה';
+    if (remainHours < 1) return 'פחות משעה';
     return `נותרו ${Math.floor(remainHours)} שעות`;
   };
 
@@ -111,7 +111,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
 
         <div style={{ padding: '1.5rem', overflowY: 'auto' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rempendingExpirationHours || 24rem', background: 'var(--bg-main)', border: '2px solid var(--primary)', borderRadius: '12px', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '2px solid var(--primary)', borderRadius: '12px', marginBottom: '1rem' }}>
             <span style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '1.2rem' }}>👑</span>
               {space.createdBy || user?.realName || 'יוצר המרחב'} <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>(אני)</span>
@@ -119,10 +119,10 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input type="text" inputMode="decimal" value={myShare} onChange={e => {
                 const val = e.target.value;
-                if (val === '' || /^pendingExpirationHours || 24d*pendingExpirationHours || 24.?pendingExpirationHours || 24d*$/.test(val)) {
+                if (val === '' || /^\d*\.?\d*$/.test(val)) {
                   setMyShare(val);
                 }
-              }} onFocus={e => { const el = e.target; setTimeout(() => el.select(),pendingExpirationHours || 240); }}
+              }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                 style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
               />
               <span>%</span>
@@ -131,10 +131,10 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
           
           {validMembers.map((m: any) => {
             const isPending = m.status === 'pending';
-            const isExpired = isPending && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours ||pendingExpirationHours || 24);
+            const isExpired = isPending && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
             
             return (
-            <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rempendingExpirationHours || 24rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', marginBottom: '1rem' }}>
+            <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', marginBottom: '1rem' }}>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <img src={m.photoURL || '/default-avatar.png'} alt={m.name} style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
@@ -146,14 +146,14 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
                       {isExpired ? '⏳ פג תוקף' : '⏳ ממתין'}
                     </span>
                     {!isExpired && m.joinedAt && (
-                      <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245,pendingExpirationHours || 2458,pendingExpirationHours || 241, 0.1)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>
-                        {getRemainingTimeText(m.joinedAt, space.settings?.pendingExpirationHours ||pendingExpirationHours || 24)}
+                      <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>
+                        {getRemainingTimeText(m.joinedAt, space.settings?.pendingExpirationHours || 24)}
                       </span>
                     )}
                     {isExpired && removeMember && refreshMemberInvite && (
                       <div style={{ display: 'flex', gap: '0.25rem' }}>
                         <button type="button" onClick={() => removeMember(space.id, m.userId, user?.id || 'system', true)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid #ef4444', borderRadius: '4px', color: '#ef4444', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>מחק</button>
-                        <button type="button" onClick={() => refreshMemberInvite(space.id, m.userId)} style={{ background: 'rgba(59,pendingExpirationHours || 2430, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '4px', color: '#3b82f6', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>חדש</button>
+                        <button type="button" onClick={() => refreshMemberInvite(space.id, m.userId)} style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '4px', color: '#3b82f6', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>חדש</button>
                       </div>
                     )}
                   </div>
@@ -162,10 +162,10 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <input type="text" inputMode="decimal" value={partnerShares[m.userId] ?? ''} onChange={e => {
                   const val = e.target.value;
-                  if (val === '' || /^pendingExpirationHours || 24d*pendingExpirationHours || 24.?pendingExpirationHours || 24d*$/.test(val)) {
+                  if (val === '' || /^\d*\.?\d*$/.test(val)) {
                     setPartnerShares({ ...partnerShares, [m.userId]: val });
                   }
-                }} onFocus={e => { const el = e.target; setTimeout(() => el.select(),pendingExpirationHours || 240); }}
+                }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
                 />
                 <span>%</span>
@@ -174,21 +174,21 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
           )})}
         </div>
         
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0pendingExpirationHours || 24.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', padding: '0 1.5rem' }}>
           <span style={{ fontWeight: 'bold' }}>סה"כ:</span>
-          <span style={{ fontWeight: 'bold', color: Math.abs(Number(total) -pendingExpirationHours || 2400) > 0.1 ? 'var(--danger)' : 'var(--success)' }}>
+          <span style={{ fontWeight: 'bold', color: Math.abs(Number(total) - 100) > 0.1 ? 'var(--danger)' : 'var(--success)' }}>
             {Number(total).toFixed(1)}%
           </span>
         </div>
 
-        {Math.abs(Number(total) -pendingExpirationHours || 2400) > 0.1 && (
-          <div style={{ margin: '0pendingExpirationHours || 24.5rempendingExpirationHours || 24rempendingExpirationHours || 24.5rem', background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem' }}>
-            <strong>שים לב:</strong> סך כל האחוזים חייב להיות בדיוקpendingExpirationHours || 2400% כדי להישמר. יש לתקן את האחוזים.
+        {Math.abs(Number(total) - 100) > 0.1 && (
+          <div style={{ margin: '0 1.5rem 1rem 1.5rem', background: '#fef2f2', border: '1px solid #f87171', color: '#b91c1c', padding: '0.75rem', borderRadius: '8px', fontSize: '0.85rem' }}>
+            <strong>שים לב:</strong> סך כל האחוזים חייב להיות בדיוק 100% כדי להישמר. יש לתקן את האחוזים.
           </div>
         )}
 
         {/* Expiration Hours Setting */}
-        <div style={{ padding: '0pendingExpirationHours || 24.5rempendingExpirationHours || 24rempendingExpirationHours || 24.5rem' }}>
+        <div style={{ padding: '0 1.5rem 1rem 1.5rem' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>זמן פקיעת הזמנה</span>
@@ -197,27 +197,27 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <input type="number" step="0.5" min="0.5" value={expHours} onChange={e => {
                 setExpHours(e.target.value);
-              }} onFocus={e => { const el = e.target; setTimeout(() => el.select(),pendingExpirationHours || 240); }}
+              }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                 style={{ width: '70px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', fontWeight: 'bold' }}
               />
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0pendingExpirationHours || 24.5rempendingExpirationHours || 24.5rempendingExpirationHours || 24.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '0 1.5rem 1.5rem 1.5rem' }}>
           <button 
             onClick={handleSave}
-            disabled={Math.abs(Number(total) -pendingExpirationHours || 2400) > 0.1}
+            disabled={Math.abs(Number(total) - 100) > 0.1}
             style={{
               width: '100%',
-              background: Math.abs(Number(total) -pendingExpirationHours || 2400) > 0.1 ? '#94a3b8' : 'var(--primary)',
+              background: Math.abs(Number(total) - 100) > 0.1 ? '#94a3b8' : 'var(--primary)',
               color: 'white',
               border: 'none',
               padding: '0.75rem 2rem',
               borderRadius: '8px',
               fontSize: '1rem',
               fontWeight: 'bold',
-              cursor: Math.abs(Number(total) -pendingExpirationHours || 2400) > 0.1 ? 'not-allowed' : 'pointer',
+              cursor: Math.abs(Number(total) - 100) > 0.1 ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
