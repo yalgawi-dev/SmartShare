@@ -3,226 +3,245 @@
 import { useState, useEffect } from 'react';
 
 /**
- * GlobalPWAPrompt v3 — "Magic Install"
+ * GlobalPWAPrompt v4
  * 
- * Android (Chrome/Samsung/Firefox/Edge): ONE-TAP native install → pure magic ✅
- * iOS Safari: 2-step guide (Apple's limitation, cannot bypass) ⚠️
- * WhatsApp WebView: Guide to open in Chrome first ⚠️
- * Already installed as PWA: Hidden completely ✅
+ * ✅ Android Chrome/Samsung/Firefox: 1-tap native install
+ * ✅ Android WhatsApp WebView: Button that auto-opens Chrome (1 tap!)
+ * ✅ iOS Safari: 2-step guide (Apple's limit — no workaround)
+ * ✅ iOS WhatsApp: Button to open in Safari (1 tap)
+ * ✅ Already installed as PWA: Hidden
  */
 export default function GlobalPWAPrompt() {
-  const [show, setShow] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [platform, setPlatform] = useState<'android' | 'ios' | 'webview' | null>(null);
+  const [platform, setPlatform] = useState<
+    'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-webview' | 'other' | null
+  >(null);
   const [showGuide, setShowGuide] = useState(false);
   const [installing, setInstalling] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Hide if already a standalone PWA
+    // Already running as standalone PWA — never show
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches
       || (window.navigator as any).standalone === true;
     if (isStandalone) return;
 
-    // Hide if user already dismissed permanently
+    // Already dismissed
     try {
-      if (localStorage.getItem('pwa_dismissed_v3') === 'true') return;
+      if (localStorage.getItem('pwa_v4') === 'done') return;
     } catch (e) {}
 
     const ua = navigator.userAgent;
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
     const isAndroid = /Android/.test(ua);
-    const isWhatsApp = ua.includes('WhatsApp');
-    const isFBWebView = ua.includes('FBAN') || ua.includes('FBAV');
+    const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV')
+      || ua.includes('Instagram') || /wv\)/.test(ua);
+    const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
 
-    if (!isIOS && !isAndroid) return; // Desktop — skip
+    if (!isIOS && !isAndroid) return;
 
-    if (isWhatsApp || isFBWebView) {
-      setPlatform('webview');
-    } else if (isIOS) {
-      setPlatform('ios');
-    } else {
-      setPlatform('android');
-    }
+    if (isAndroid && isWebView)      setPlatform('android-webview');
+    else if (isAndroid)              setPlatform('android-chrome');
+    else if (isIOS && isWebView)     setPlatform('ios-webview');
+    else if (isIOS && isSafari)      setPlatform('ios-safari');
+    else                             setPlatform('other');
 
-    setShow(true);
-
-    // Capture Chrome/Android native install prompt
-    const onBeforeInstall = (e: any) => {
-      e.preventDefault();
-      setDeferredPrompt(e);
-    };
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
-
-    // Support external trigger
-    const onManualTrigger = () => { setShow(true); setShowGuide(false); };
-    window.addEventListener('trigger-pwa-install', onManualTrigger);
+    // Grab Chrome's native install prompt
+    const onPrompt = (e: any) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    const onTrigger = () => { /* noop, keep hook alive */ };
+    window.addEventListener('trigger-pwa-install', onTrigger);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
-      window.removeEventListener('trigger-pwa-install', onManualTrigger);
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('trigger-pwa-install', onTrigger);
     };
   }, []);
 
-  const dismiss = (permanent = true) => {
-    if (permanent) {
-      try { localStorage.setItem('pwa_dismissed_v3', 'true'); } catch (e) {}
-    }
-    setShow(false);
-    setShowGuide(false);
-    setInstalling(false);
+  const dismiss = () => {
+    try { localStorage.setItem('pwa_v4', 'done'); } catch (e) {}
+    setPlatform(null);
+  };
+
+  // Open current page in Chrome (Android WebView → Chrome)
+  const openInChrome = () => {
+    const url = window.location.href;
+    // Try Chrome intent first (most reliable on Android)
+    window.location.href = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
+    // Fallback after 1 second
+    setTimeout(() => {
+      window.open(url, '_system');
+    }, 1000);
+  };
+
+  // Open in Safari (iOS WebView → Safari)
+  const openInSafari = () => {
+    // On iOS, _blank inside WebView opens Safari
+    window.open(window.location.href, '_blank');
   };
 
   const handleInstall = async () => {
     if (deferredPrompt) {
-      // ✅ MAGIC: One tap → native Android install dialog
       setInstalling(true);
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       setDeferredPrompt(null);
       setInstalling(false);
-      if (outcome === 'accepted') {
-        dismiss(true);
-      }
+      if (outcome === 'accepted') dismiss();
     } else {
-      // Show manual guide (iOS / other browsers)
       setShowGuide(true);
     }
   };
 
-  if (!show || !platform) return null;
+  if (!platform) return null;
 
-  // ── iOS Guide ────────────────────────────────────────────────────────────────
-  if (showGuide && platform === 'ios') {
+  // ── Android WebView (WhatsApp): Auto-open Chrome ─────────────────────────────
+  if (platform === 'android-webview') {
     return (
-      <Sheet onClose={() => setShowGuide(false)}>
-        <CenterIcon>📤</CenterIcon>
-        <h3 style={titleStyle}>הוסף למסך הבית</h3>
-        <p style={subStyle}>מכיוון שמדובר ב-iPhone, נדרשים 2 שלבים קצרים:</p>
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', marginBottom:'1.5rem' }}>
-          <Step icon="📤" text={'לחץ על כפתור השיתוף ⬆️ בתחתית Safari'} />
-          <Step icon="➕" text={'גלול ובחר "הוסף למסך הבית"'} />
-          <Step icon="✅" text={'לחץ "הוסף" — האפליקציה מותקנת!'} />
+      <Sheet>
+        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌐</div>
+          <h3 style={titleStyle}>לחץ לפתיחה ב-Chrome</h3>
+          <p style={subStyle}>
+            כדי להתקין את SmartShare, צריך לפתוח אותה ב-Chrome.<br />
+            <strong>לחץ על הכפתור הכחול — הכל יקרה אוטומטית!</strong>
+          </p>
         </div>
-        <Btn onClick={() => dismiss(true)} primary>הבנתי!</Btn>
+        <button
+          onClick={openInChrome}
+          style={primaryBtnStyle}
+        >
+          🌐 פתח ב-Chrome ← התקן
+        </button>
+        <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
       </Sheet>
     );
   }
 
-  // ── WhatsApp WebView Guide ───────────────────────────────────────────────────
-  if (showGuide && platform === 'webview') {
+  // ── iOS WebView (WhatsApp on iPhone): Open in Safari ─────────────────────────
+  if (platform === 'ios-webview') {
     return (
-      <Sheet onClose={() => setShowGuide(false)}>
-        <CenterIcon>🌐</CenterIcon>
-        <h3 style={titleStyle}>פתח ב-Chrome</h3>
-        <p style={subStyle}>כדי להתקין, יש לפתוח את הקישור ב-Chrome (לא בדפדפן הפנימי של וואטסאפ):</p>
-        <div style={{ display:'flex', flexDirection:'column', gap:'0.6rem', marginBottom:'1.5rem' }}>
-          <Step icon="⋮" text={'לחץ על 3 הנקודות למעלה בוואטסאפ'} />
-          <Step icon="🌐" text={'"פתח בדפדפן" / "Open in Chrome"'} />
-          <Step icon="⬇️" text={'לחץ "התקן" שיופיע בדף'} />
+      <Sheet>
+        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🧭</div>
+          <h3 style={titleStyle}>פתח ב-Safari</h3>
+          <p style={subStyle}>
+            כדי להתקין את SmartShare, לחץ על הכפתור — הוא יפתח Safari אוטומטית!
+          </p>
         </div>
-        <Btn onClick={() => dismiss(true)} primary>הבנתי!</Btn>
+        <button onClick={openInSafari} style={primaryBtnStyle}>
+          🧭 פתח ב-Safari ← התקן
+        </button>
+        <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
       </Sheet>
     );
   }
 
-  // ── Main Banner (Android native / iOS / WebView) ─────────────────────────────
-  const canOneClick = platform === 'android' && !!deferredPrompt;
+  // ── iOS Safari: 2-step guide (Apple's limitation) ────────────────────────────
+  if (platform === 'ios-safari' && showGuide) {
+    return (
+      <Sheet>
+        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📱</div>
+          <h3 style={titleStyle}>הוסף למסך הבית</h3>
+          <p style={subStyle}>Apple מחייבת 2 שלבים — זה הכל!</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
+          <Step icon="📤" text='לחץ על כפתור השיתוף ⬆️ בתחתית המסך' />
+          <Step icon="➕" text='בחר "הוסף למסך הבית"' />
+          <Step icon="✅" text='לחץ "הוסף" — מותקן!' />
+        </div>
+        <button onClick={dismiss} style={primaryBtnStyle}>הבנתי, תודה!</button>
+      </Sheet>
+    );
+  }
+
+  // ── Main banner (Android Chrome / iOS Safari) ─────────────────────────────────
+  const isAndroidChrome = platform === 'android-chrome';
+  const canOneTap = isAndroidChrome && !!deferredPrompt;
 
   return (
-    <Sheet onClose={() => dismiss(true)}>
-      <div style={{ display:'flex', alignItems:'center', gap:'1rem', marginBottom:'1.25rem' }}>
+    <Sheet>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
         <img
           src="/icons/icon-192x192.png"
           alt="SmartShare"
-          style={{ width:'60px', height:'60px', borderRadius:'16px', boxShadow:'0 4px 12px rgba(0,0,0,0.15)', flexShrink:0 }}
+          style={{ width: '58px', height: '58px', borderRadius: '14px', boxShadow: '0 4px 14px rgba(0,0,0,0.14)', flexShrink: 0 }}
         />
         <div>
-          <div style={{ fontWeight:'800', fontSize:'1.15rem', color:'#0f172a', letterSpacing:'-0.02em' }}>SmartShare</div>
-          <div style={{ fontSize:'0.82rem', color:'#64748b', marginTop:'2px', lineHeight:1.3 }}>
-            {canOneClick
-              ? 'לחץ "התקן" — זהו! ✨'
-              : platform === 'ios'
-              ? 'הוסף למסך הבית ב-2 שלבים'
-              : 'פתח ב-Chrome להתקנה'}
+          <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#0f172a' }}>SmartShare</div>
+          <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '3px', lineHeight: 1.3 }}>
+            {canOneTap ? '✨ לחיצה אחת — מותקן!' : 'הוסף למסך הבית'}
           </div>
         </div>
       </div>
 
-      {/* Feature pills */}
-      <div style={{ display:'flex', gap:'0.4rem', flexWrap:'wrap', marginBottom:'1.25rem' }}>
+      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
         {['⚡ מהיר', '📵 ללא דפדפן', '🔔 התראות', '💾 אופליין'].map(f => (
-          <span key={f} style={{ background:'#f1f5f9', borderRadius:'50px', padding:'0.25rem 0.65rem', fontSize:'0.78rem', color:'#475569', fontWeight:'600' }}>{f}</span>
+          <span key={f} style={{ background: '#f1f5f9', borderRadius: '50px', padding: '0.25rem 0.65rem', fontSize: '0.78rem', color: '#475569', fontWeight: '600' }}>{f}</span>
         ))}
       </div>
 
-      <div style={{ display:'flex', gap:'0.75rem' }}>
+      <div style={{ display: 'flex', gap: '0.75rem' }}>
+        <button onClick={dismiss} style={dismissBtnStyle}>לא עכשיו</button>
         <button
-          onClick={() => dismiss(true)}
-          style={{ flex:1, padding:'0.85rem', border:'1.5px solid #e2e8f0', borderRadius:'14px', background:'white', color:'#64748b', fontWeight:'600', cursor:'pointer', fontSize:'0.9rem' }}
-        >
-          לא עכשיו
-        </button>
-        <button
-          onClick={canOneClick ? handleInstall : () => setShowGuide(true)}
+          onClick={canOneTap ? handleInstall : () => setShowGuide(true)}
           disabled={installing}
-          style={{ flex:2, padding:'0.85rem', border:'none', borderRadius:'14px', background: installing ? '#93c5fd' : 'linear-gradient(135deg, #4a5bf0 0%, #2563eb 100%)', color:'white', fontWeight:'800', cursor: installing ? 'default' : 'pointer', fontSize:'0.95rem', boxShadow:'0 4px 14px rgba(74,91,240,0.4)', letterSpacing:'-0.01em', transition:'all 0.2s' }}
+          style={{ ...primaryBtnStyle, flex: 2, opacity: installing ? 0.7 : 1 }}
         >
-          {installing ? '⏳ מתקין...' : canOneClick ? '⬇️ התקן עכשיו' : '📱 איך מתקינים?'}
+          {installing ? '⏳ מתקין...' : canOneTap ? '⬇️ התקן עכשיו' : '📱 איך מתקינים?'}
         </button>
       </div>
     </Sheet>
   );
 }
 
-// ── Shared sub-components ─────────────────────────────────────────────────────
+// ── Shared Components ─────────────────────────────────────────────────────────
 
-function Sheet({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
+function Sheet({ children }: { children: React.ReactNode }) {
   return (
     <>
       <style>{`
-        @keyframes pwaUp { from { transform:translateY(110%); } to { transform:translateY(0); } }
-        .pwa-sheet { animation: pwaUp 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+        @keyframes pwaUp { from { transform:translateY(110%); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        .pwa-sheet-v4 { animation: pwaUp 0.38s cubic-bezier(0.16,1,0.3,1) both; }
       `}</style>
-      <div className="pwa-sheet" style={{
-        position:'fixed', bottom:0, left:0, right:0, zIndex:99999,
-        background:'#ffffff', borderRadius:'28px 28px 0 0',
-        padding:'1.25rem 1.5rem 2.5rem',
-        boxShadow:'0 -12px 48px rgba(0,0,0,0.18)',
-        fontFamily:'-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+      <div className="pwa-sheet-v4" style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999,
+        background: '#ffffff', borderRadius: '28px 28px 0 0',
+        padding: '1.25rem 1.5rem 2.5rem',
+        boxShadow: '0 -12px 48px rgba(0,0,0,0.18)',
+        fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
       }}>
-        <div style={{ width:'36px', height:'4px', background:'#e2e8f0', borderRadius:'2px', margin:'0 auto 1.5rem' }} />
+        <div style={{ width: '36px', height: '4px', background: '#e2e8f0', borderRadius: '2px', margin: '0 auto 1.5rem' }} />
         {children}
       </div>
     </>
   );
 }
 
-function CenterIcon({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ width:'64px', height:'64px', borderRadius:'20px', background:'#eff6ff', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'2rem', margin:'0 auto 1rem', boxShadow:'0 4px 12px rgba(74,91,240,0.15)' }}>
-      {children}
-    </div>
-  );
-}
-
 function Step({ icon, text }: { icon: string; text: string }) {
   return (
-    <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', background:'#f8fafc', padding:'0.85rem 1rem', borderRadius:'12px', border:'1px solid #f1f5f9' }}>
-      <span style={{ fontSize:'1.3rem', width:'40px', height:'40px', background:'white', borderRadius:'10px', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 1px 4px rgba(0,0,0,0.08)', flexShrink:0 }}>{icon}</span>
-      <span style={{ fontSize:'0.9rem', color:'#334155', lineHeight:1.4 }}>{text}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '12px' }}>
+      <span style={{ fontSize: '1.3rem', width: '40px', height: '40px', background: 'white', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flexShrink: 0 }}>{icon}</span>
+      <span style={{ fontSize: '0.9rem', color: '#334155', lineHeight: 1.4 }}>{text}</span>
     </div>
   );
 }
 
-function Btn({ children, onClick, primary }: { children: React.ReactNode; onClick: () => void; primary?: boolean }) {
-  return (
-    <button onClick={onClick} style={{ width:'100%', padding:'1rem', border:'none', borderRadius:'16px', background: primary ? 'linear-gradient(135deg,#4a5bf0,#2563eb)' : '#f1f5f9', color: primary ? 'white' : '#475569', fontWeight:'700', fontSize:'1rem', cursor:'pointer', boxShadow: primary ? '0 4px 16px rgba(74,91,240,0.3)' : 'none' }}>
-      {children}
-    </button>
-  );
-}
-
-const titleStyle: React.CSSProperties = { margin:'0 0 0.5rem', fontSize:'1.2rem', fontWeight:'800', color:'#0f172a', textAlign:'center' };
-const subStyle: React.CSSProperties = { margin:'0 0 1.25rem', color:'#64748b', fontSize:'0.88rem', textAlign:'center', lineHeight:1.5 };
+const titleStyle: React.CSSProperties = {
+  margin: '0 0 0.5rem', fontSize: '1.2rem', fontWeight: '800', color: '#0f172a', textAlign: 'center',
+};
+const subStyle: React.CSSProperties = {
+  margin: 0, color: '#64748b', fontSize: '0.88rem', textAlign: 'center', lineHeight: 1.5,
+};
+const primaryBtnStyle: React.CSSProperties = {
+  display: 'block', width: '100%', padding: '1rem', border: 'none', borderRadius: '16px',
+  background: 'linear-gradient(135deg, #4a5bf0 0%, #2563eb 100%)',
+  color: 'white', fontWeight: '800', fontSize: '1rem', cursor: 'pointer',
+  boxShadow: '0 4px 16px rgba(74,91,240,0.35)', marginBottom: '0.75rem', textAlign: 'center',
+};
+const dismissBtnStyle: React.CSSProperties = {
+  flex: 1, padding: '0.85rem', border: '1.5px solid #e2e8f0', borderRadius: '14px',
+  background: 'white', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem',
+};
