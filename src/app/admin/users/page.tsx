@@ -16,7 +16,7 @@ export default function AdminUsersPage() {
 
   const UserRow = ({ u, isAdminRow }: { u: any, isAdminRow: boolean }) => (
     <tr style={{ borderBottom: '1px solid var(--border-light)', background: u.isBlocked ? 'rgba(239, 68, 68, 0.05)' : 'transparent', transition: 'background 0.2s' }}>
-      <td style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{u.id.substring(0, 8)}...</td>
+      <td style={{ padding: '1rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{(u.id || '').substring(0, 8)}...</td>
       <td style={{ padding: '1rem', fontWeight: 'bold' }}>{u.realName} {u.isAdmin && '👑'}</td>
       <td style={{ padding: '1rem' }}>{u.nickname || '-'}</td>
       <td style={{ padding: '1rem' }}>{u.phone}</td>

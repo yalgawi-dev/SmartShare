@@ -89,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const fetchAllUsers = async () => {
     try {
       const usersSnap = await getDocs(collection(db, 'users'));
-      setAllUsers(usersSnap.docs.map(d => d.data() as UserProfile));
+      setAllUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() }) as UserProfile));
     } catch (e) {
       console.error("Failed to fetch CRM users", e);
     }
