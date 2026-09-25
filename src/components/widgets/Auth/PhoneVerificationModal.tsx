@@ -11,6 +11,17 @@ export default function PhoneVerificationModal() {
   const { user, linkPhoneNumberMock, isLoaded } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [phone, setPhone] = useState('');
+  const [isInAppBrowser, setIsInAppBrowser] = useState(false);
+  
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      const ua = navigator.userAgent || navigator.vendor || (window as any).opera;
+      // Detect WhatsApp, Facebook, Instagram, LinkedIn, etc.
+      if (ua.indexOf('WhatsApp') > -1 || ua.indexOf('FBAV') > -1 || ua.indexOf('Instagram') > -1) {
+        setIsInAppBrowser(true);
+      }
+    }
+  }, []);
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -203,7 +214,21 @@ export default function PhoneVerificationModal() {
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' 
         }}
       >
+        
         <div style={{ padding: '2rem 1.5rem', textAlign: 'center' }}>
+        
+        {/* WebView Warning Banner */}
+        {isInAppBrowser && (
+          <div style={{ background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', textAlign: 'center' }}>
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>⚠️</div>
+            <h4 style={{ margin: '0 0 0.5rem 0', color: '#b91c1c' }}>דפדפן פנימי (וואטסאפ)</h4>
+            <p style={{ margin: 0, fontSize: '0.85rem', color: '#991b1b', lineHeight: 1.4 }}>
+              מערכת האבטחה של גוגל לא מאפשרת לשלוח SMS אם נכנסת דרך הקישור של וואטסאפ או פייסבוק.<br /><br />
+              <strong>לחץ על 3 הנקודות למעלה (⋮) ובחר "פתיחה בדפדפן" או "Open in Chrome/Safari".</strong>
+            </p>
+          </div>
+        )}
+
           
           <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'center' }}>
             <div style={{ width: '56px', height: '56px', background: '#F3F4F6', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#111827' }}>
