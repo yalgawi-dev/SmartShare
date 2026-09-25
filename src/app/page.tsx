@@ -11,6 +11,7 @@ import AuthModal from '../components/auth/AuthModal';
 import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
 import AppShareModal from '../components/widgets/AppShareModal';
 import PersonalInboxWidget from '../components/widgets/PersonalInboxWidget';
+import { PushNotificationReminder } from '../components/widgets/PushNotificationReminder';
 
 export default function Dashboard() {
   const { spaces, deleteSpace, updateSpaceTitle, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();

@@ -1,6 +1,7 @@
 'use client';
 
 import { use, useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Link from 'next/link';
 import { useSpaces } from '../../context/SpacesContext';
@@ -9,6 +10,7 @@ import { getFeatureById, AVAILABLE_FEATURES, FeatureId } from '../../data/featur
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
+import { PushNotificationReminder } from '../../../components/widgets/PushNotificationReminder';
 import GenericWidget from '../../../components/widgets/GenericWidget';
 import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
 import ScannerModal from '../../../components/widgets/ScannerModal';
@@ -45,6 +47,7 @@ function EmptyStateCarousel() {
 }
 export default function SpaceWallPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
   const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace } = useSpaces();
@@ -274,6 +277,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
+      <PushNotificationReminder userId={user?.id} />
 
       
       {/* Toast Notification */}
@@ -306,7 +310,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               } else {
                 handleRestrictedAction(() => { 
                   if (tooltipData?.target === 'settings') dismissTooltip();
-                  window.location.href = `/space/${id}/settings`; 
+                  router.push(`/space/${id}/settings`); 
                 })
               }
             }} style={{ background: 'transparent', color: 'var(--text-primary)', border: '1px solid var(--border-light)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', fontSize: '1.2rem', animation: tooltipData?.target === 'settings' ? 'pulseGlow 2.5s infinite' : 'none' }} title="הגדרות מקומיות">
