@@ -88,7 +88,7 @@ export default function PhoneVerificationModal() {
         setErrorMsg('יותר מדי ניסיונות. אנא המתן מעט ונסה שוב.');
       } else {
         if (errCode === 'auth/error-code:-39' || error.message.includes('-39')) {
-          setErrorMsg('שגיאת אבטחה (-39): הדומיין של האפליקציה לא מורשה ב-Firebase. יש להיכנס ל-Firebase Console -> Authentication -> Settings -> Authorized Domains ולהוסיף את הדומיין של האפליקציה.');
+          setErrorMsg('שגיאה 39- (חסימת ספאם): גוגל חסמה זמנית שליחת SMS למספרים אמיתיים עקב יותר מדי ניסיונות. אנא השתמש במספר טסטר (0500000000) או נסה שוב בעוד כמה שעות.');
         } else {
           setErrorMsg('אירוע שגיאה בשליחת הקוד: ' + error.message);
         }
