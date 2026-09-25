@@ -28,16 +28,33 @@ export default function PhoneVerificationModal() {
 
   useEffect(() => {
     if (mounted && shouldShow) {
-      if (typeof window !== 'undefined' && !(window as any).recaptchaVerifier) {
+      if (typeof window !== 'undefined') {
         try {
-          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible'
-          });
+          if (!(window as any).recaptchaVerifier) {
+            (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+              size: 'invisible'
+            });
+          } else {
+            // Render it again if it exists but the DOM node is new
+            (window as any).recaptchaVerifier.render();
+          }
         } catch (e) {
           console.error("Recaptcha init error:", e);
         }
       }
     }
+    
+    // Cleanup
+    return () => {
+      if (typeof window !== 'undefined' && (window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+          (window as any).recaptchaVerifier = null;
+        } catch(e) {}
+      }
+      const container = document.getElementById('recaptcha-container');
+      if (container) container.innerHTML = '';
+    };
   }, [mounted, shouldShow]);
 
   if (!mounted || !shouldShow) return null;
