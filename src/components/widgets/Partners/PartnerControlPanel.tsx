@@ -90,7 +90,10 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const joinedDateText = formatDateSafe(member?.joinedAt);
 
   const handleApproveExtension = () => {
-    if(typeof approveExtension === 'function') approveExtension(space.id, member.userId);
+    if(typeof approveExtension === 'function') {
+      approveExtension(space.id, member.userId);
+      alert('הארכת הזמן אושרה בהצלחה! השותף קיבל 24 שעות נוספות.');
+    }
   };
 
   const handleResetStatus = () => {

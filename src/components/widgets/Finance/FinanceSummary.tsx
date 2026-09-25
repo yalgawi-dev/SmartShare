@@ -154,14 +154,14 @@ export function FinanceSummary({
   // Calculate expected & balance for ALL involved
   const balances = allBalancesArray.filter(b => (b.isMember || b.paid > 0) && !b.userId.startsWith('equity_') && b.userId !== 'none' && b.userId !== TREASURY_MEMBER_ID);
   const activeMembersCount = balances.filter(b => b.isMember && b.userId !== TREASURY_MEMBER_ID).length;
-  const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
+  const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) :pendingExpirationHours || 2400;
   
   balances.forEach(b => {
     let p = 0;
     if (b.userId === TREASURY_MEMBER_ID) {
       p = 0;
-    } else if (activeMembersCount <= 1) { // Only creator or nobody
-      if (b.userId === myEffectiveId || b.isCreator) p = 100;
+    } else if (activeMembersCount <=pendingExpirationHours || 24) { // Only creator or nobody
+      if (b.userId === myEffectiveId || b.isCreator) p =pendingExpirationHours || 2400;
       else p = 0;
     } else {
       if (b.isMember) {
@@ -275,7 +275,7 @@ export function FinanceSummary({
       {/* Summary Metrics */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
         
-        {/* Row 1: Total Expenses */}
+        {/* RowpendingExpirationHours || 24: Total Expenses */}
         <div 
           onClick={() => setShowTotalBreakdown(true)}
           style={{ background: 'rgba(0,0,0,0.02)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', width: '100%' }}
@@ -293,8 +293,8 @@ export function FinanceSummary({
         </div>
 
         {/* Row 2: Pending and Balances */}
-        {hasPartners && activeMembersCount > 1 && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+        {hasPartners && activeMembersCount >pendingExpirationHours || 24 && (
+          <div style={{ display: 'grid', gridTemplateColumns: '1frpendingExpirationHours || 24fr', gap: '1rem' }}>
               <div 
                 onClick={() => { 
                   setActiveTab('transactions');
@@ -400,10 +400,10 @@ export function FinanceSummary({
                               if (b.isCreator) setExpandedPartnerId(expandedPartnerId === myEffectiveId ? null : myEffectiveId);
                             }
                           }}
-                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : (b.isCreator ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
+                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 :pendingExpirationHours || 24, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : (b.isCreator ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 1) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours ||pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
                                 {b.name} {b.userId === myEffectiveId && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   let myUnreadCount = 0;
@@ -428,7 +428,7 @@ export function FinanceSummary({
                                     if (i.rejectedById === b.userId) return true;
                                     if (!i.rejectedById && i.rejectedBy && i.rejectedBy.trim() === b.name.trim()) return true;
                                     
-                                    const onlyOnePartner = activeMembersCount === 1;
+                                    const onlyOnePartner = activeMembersCount ===pendingExpirationHours || 24;
                                     if (onlyOnePartner && !b.isCreator && i.payerId !== b.userId) return true;
                                     if (onlyOnePartner && b.isCreator && i.payerId !== b.userId && i.payerId !== 'me') return true;
                                     
@@ -454,7 +454,7 @@ export function FinanceSummary({
                                 </span>
                               )}
                               {(b as any).status === 'pending' && (() => {
-                                const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 1);
+                                const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours ||pendingExpirationHours || 24);
                                 if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
                                 if (b.userId === myEffectiveId) {
                                     return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לאישורך</span>;
@@ -529,9 +529,9 @@ export function FinanceSummary({
 
       {/* Total Breakdown Modal */}
       {showTotalBreakdown && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex:pendingExpirationHours || 240000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="bottom-sheet-overlay" onClick={() => setShowTotalBreakdown(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
-          <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0pendingExpirationHours || 240px 40px rgba(0,0,0,0.2)', maxHeight: '80vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>📊 פירוט סה״כ שולם</h3>
               <button onClick={() => setShowTotalBreakdown(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
@@ -560,9 +560,9 @@ export function FinanceSummary({
 
       {/* Settlement Breakdown Modal */}
       {showSettlementBreakdown && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex:pendingExpirationHours || 240000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div className="bottom-sheet-overlay" onClick={() => setShowSettlementBreakdown(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
-          <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
+          <div className="bottom-sheet" style={{ position: 'relative', width: '90%', maxWidth: '400px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0pendingExpirationHours || 240px 40px rgba(0,0,0,0.2)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h3 style={{ margin: 0, fontSize: '1.25rem' }}>💸 התחשבנות וקיזוזים</h3>
               <button onClick={() => setShowSettlementBreakdown(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>×</button>
@@ -592,7 +592,7 @@ export function FinanceSummary({
             {onTriggerTransfer && (
               <button 
                 onClick={() => { setShowSettlementBreakdown(false); onTriggerTransfer(); }} 
-                style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.05rem', boxShadow: '0 4px 12px rgba(99,102,241,0.3)' }}>
+                style={{ width: '100%', marginTop: '1.5rem', padding: '1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1.05rem', boxShadow: '0 4pxpendingExpirationHours || 242px rgba(99,102,241,0.3)' }}>
                 💳 תשלום חדש (העברה/הכנסה)
               </button>
             )}
@@ -608,18 +608,18 @@ export function FinanceSummary({
       {/* Cashbox Deposit/Withdrawal Modal */}
       {showDepositModal && typeof document !== 'undefined' && createPortal(
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(4px)' }} onClick={() => setShowDepositModal(false)}>
-          <div style={{ background: 'var(--bg-main)', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '420px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--bg-main)', padding: '2rem', borderRadius: '16px', width: '90%', maxWidth: '420px', boxShadow: '0pendingExpirationHours || 240px 25px rgba(0,0,0,0.2)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             
             <div style={{ display: 'flex', background: 'var(--bg-card)', borderRadius: '8px', padding: '0.25rem', marginBottom: '1.5rem', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
               <button 
                 onClick={() => setTransactionAction('deposit')} 
-                style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', border: 'none', background: transactionAction === 'deposit' ? 'var(--primary)' : 'transparent', color: transactionAction === 'deposit' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ flex:pendingExpirationHours || 24, padding: '0.5rem', borderRadius: '6px', border: 'none', background: transactionAction === 'deposit' ? 'var(--primary)' : 'transparent', color: transactionAction === 'deposit' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
               >
                 הפקדה לקופה
               </button>
               <button 
                 onClick={() => setTransactionAction('withdraw')} 
-                style={{ flex: 1, padding: '0.5rem', borderRadius: '6px', border: 'none', background: transactionAction === 'withdraw' ? '#ef4444' : 'transparent', color: transactionAction === 'withdraw' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
+                style={{ flex:pendingExpirationHours || 24, padding: '0.5rem', borderRadius: '6px', border: 'none', background: transactionAction === 'withdraw' ? '#ef4444' : 'transparent', color: transactionAction === 'withdraw' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}
               >
                 משיכה מהקופה
               </button>
@@ -630,7 +630,7 @@ export function FinanceSummary({
               <input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="0" style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1.5rem', textAlign: 'center', fontWeight: 'bold' }} autoFocus />
             </div>
 
-            {activeMembersCount > 1 ? (
+            {activeMembersCount >pendingExpirationHours || 24 ? (
               <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px' }}>
                 <label style={{ display: 'block', fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סוג פעולה</label>
                 
@@ -638,7 +638,7 @@ export function FinanceSummary({
                   <>
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input type="radio" checked={depositType === 'loan'} onChange={() => setDepositType('loan')} style={{ marginTop: '0.2rem' }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex:pendingExpirationHours || 24 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>השקעה בעסק (הלוואת בעלים)</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הקופה תחזיר לך את הסכום מתוך הרווחים לפני חלוקתם. השותפים האחרים לא חייבים לך כסף מכיסם.</div>
                       </div>
@@ -646,7 +646,7 @@ export function FinanceSummary({
                     
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input type="radio" checked={depositType === 'partner'} onChange={() => setDepositType('partner')} style={{ marginTop: '0.2rem' }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex:pendingExpirationHours || 24 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>תשלום עבור שותף אחר</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>אתה משלם את חלקו של שותף אחר. הוא ייכנס לחוב אישי כלפיך ועליו להחזיר לך את הכסף.</div>
                         {depositType === 'partner' && (
@@ -666,7 +666,7 @@ export function FinanceSummary({
                     
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input type="radio" checked={depositType === 'equity'} onChange={() => setDepositType('equity')} style={{ marginTop: '0.2rem' }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex:pendingExpirationHours || 24 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>הזרמת הון / אקוויטי</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הכסף נשאר בעסק ולא נוצר חוב לאף אחד (חלוקה שווה וללא פנקסנות עתידית).</div>
                       </div>
@@ -676,14 +676,14 @@ export function FinanceSummary({
                   <>
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input type="radio" checked={depositType === 'loan'} onChange={() => setDepositType('loan')} style={{ marginTop: '0.2rem' }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex:pendingExpirationHours || 24 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>משיכת בעלים / דיבידנד</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הקופה תשלם לך. (מקטין את החוב של הקופה כלפיך).</div>
                       </div>
                     </label>
                     <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                       <input type="radio" checked={depositType === 'equity'} onChange={() => setDepositType('equity')} style={{ marginTop: '0.2rem' }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ flex:pendingExpirationHours || 24 }}>
                         <div style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>הוצאת אקוויטי</div>
                         <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>הכסף יוצא מהעסק ולא נוצר חוב לאף אחד.</div>
                       </div>
@@ -692,7 +692,7 @@ export function FinanceSummary({
                 )}
               </div>
             ) : (
-              <div style={{ background: 'rgba(16, 185, 129, 0.1)', padding: '1rem', borderRadius: '8px', color: '#047857', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
+              <div style={{ background: 'rgba(16,pendingExpirationHours || 2485,pendingExpirationHours || 2429, 0.1)', padding: '1rem', borderRadius: '8px', color: '#047857', marginBottom: '1.5rem', fontSize: '0.85rem' }}>
                 <strong>מצב יחיד (Solo):</strong> {transactionAction === 'deposit' ? 'הפקדה זו תגדיל את יתרת הקופה. כיוון שאין שותפים פעילים, לא יירשם שום חוב במאזן האישי.' : 'משיכה זו תקטין את יתרת הקופה. לא יירשם חוב.'}
               </div>
             )}
@@ -703,13 +703,13 @@ export function FinanceSummary({
             </div>
 
             <div style={{ display: 'flex', gap: '1rem' }}>
-              <button onClick={() => setShowDepositModal(false)} style={{ flex: 1, padding: '0.8rem', background: 'transparent', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: 'var(--text-secondary)' }}>ביטול</button>
+              <button onClick={() => setShowDepositModal(false)} style={{ flex:pendingExpirationHours || 24, padding: '0.8rem', background: 'transparent', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', color: 'var(--text-secondary)' }}>ביטול</button>
               <button 
                 onClick={() => {
                   const amt = parseFloat(depositAmount);
                   if (isNaN(amt) || amt <= 0) { alert('אנא הזן סכום תקין (גדול מ-0)'); return; }
                   
-                  if (activeMembersCount > 1 && transactionAction === 'deposit' && depositType === 'partner' && !depositPartnerId) {
+                  if (activeMembersCount >pendingExpirationHours || 24 && transactionAction === 'deposit' && depositType === 'partner' && !depositPartnerId) {
                     alert('יש לבחור שותף עבורו מתבצעת ההפקדה.');
                     return;
                   }
@@ -723,7 +723,7 @@ export function FinanceSummary({
                     metadata: {}
                   };
 
-                  const isSolo = activeMembersCount <= 1;
+                  const isSolo = activeMembersCount <=pendingExpirationHours || 24;
 
                   if (transactionAction === 'deposit') {
                     if (isSolo || depositType === 'equity') {
@@ -765,7 +765,7 @@ export function FinanceSummary({
                   setDepositAmount('');
                   setDepositDesc('');
                 }} 
-                style={{ flex: 1, padding: '0.8rem', background: transactionAction === 'deposit' ? '#10b981' : '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4px 10px rgba(0,0,0,0.1)' }}
+                style={{ flex:pendingExpirationHours || 24, padding: '0.8rem', background: transactionAction === 'deposit' ? '#10b981' : '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', boxShadow: '0 4pxpendingExpirationHours || 240px rgba(0,0,0,0.1)' }}
               >
                 {transactionAction === 'deposit' ? 'הפקד לקופה' : 'משוך מהקופה'}
               </button>

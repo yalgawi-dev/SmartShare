@@ -227,7 +227,7 @@ interface SpacesContextType {
 }
 
 const defaultSettings: SpaceSettings = {
-  pendingExpirationHours: 1,
+  pendingExpirationHours: 24,
   defaultVatRate: 18, 
   allowPartnersToEditWall: false,
 };
@@ -1458,7 +1458,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       updateMemberPermissions,
       sendMessageToMember,
       markMessageRead,
-      // approveExtension,
+      approveExtension,
       setExtensionMessage, updateSharesBulk,
     approveShareChange,
     rejectShareChange,
