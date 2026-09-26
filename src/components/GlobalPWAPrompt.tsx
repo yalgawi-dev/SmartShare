@@ -67,12 +67,11 @@ export default function GlobalPWAPrompt() {
   // Open current page in Chrome (Android WebView → Chrome)
   const openInChrome = () => {
     const url = window.location.href;
-    // Try Chrome intent first (most reliable on Android)
-    window.location.href = `intent://${url.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`;
-    // Fallback after 1 second
-    setTimeout(() => {
-      window.open(url, '_system');
-    }, 1000);
+    const urlWithoutScheme = url.replace(/^https?:\/\//, '');
+    const fallbackUrl = encodeURIComponent(url);
+    // Explicit Chrome intent. If Chrome is missing, falls back to the URL itself.
+    // This avoids window.open() which triggers popup blockers and app choosers.
+    window.location.href = `intent://${urlWithoutScheme}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallbackUrl};end`;
   };
 
   // Open in Safari (iOS WebView → Safari)
