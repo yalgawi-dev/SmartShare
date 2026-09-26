@@ -65,22 +65,7 @@ export default function GlobalPWAPrompt() {
   };
 
   // Open current page in Chrome (Android WebView → Chrome)
-  const openInChrome = () => {
-    const url = window.location.href;
-    const urlWithoutScheme = url.replace(/^https?:\/\//, '');
-    const fallbackUrl = encodeURIComponent(url);
-    // Explicit Chrome intent. If Chrome is missing, falls back to the URL itself.
-    // This avoids window.open() which triggers popup blockers and app choosers.
-    // Use the googlechrome:// custom scheme first as it is completely immune to WebView intent-stripping.
-    // If we use intent://, Samsung Internet often parses it, strips the package, and just fires a generic HTTPS intent which causes the App Chooser.
-    window.location.href = `googlechrome://navigate?url=${url}`;
-    
-    // In case googlechrome:// fails (very rare, only if Chrome is deeply disabled), 
-    // we use a setTimeout with the strict official intent format.
-    setTimeout(() => {
-      window.location.href = `intent://${urlWithoutScheme}#Intent;action=android.intent.action.VIEW;scheme=https;package=com.android.chrome;end`;
-    }, 500);
-  };
+  
 
   // Open in Safari (iOS WebView → Safari)
   const openInSafari = () => {
@@ -121,12 +106,14 @@ export default function GlobalPWAPrompt() {
             <strong>לחץ על הכפתור הכחול — הכל יקרה אוטומטית!</strong>
           </p>
         </div>
-        <button
-          onClick={openInChrome}
-          style={primaryBtnStyle}
-        >
-          🌐 פתח ב-Chrome ← התקן
-        </button>
+        {typeof window !== 'undefined' && (
+          <a
+            href={`intent://${window.location.href.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`}
+            style={{ ...primaryBtnStyle, display: 'block', textDecoration: 'none', boxSizing: 'border-box' }}
+          >
+            🌐 פתח ב-Chrome ← התקן
+          </a>
+        )}
         <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
       </Sheet>
     );
