@@ -10,6 +10,14 @@ export default function SettingsPage() {
   const { user, updateProfile, logout } = useAuth();
   const [isPushEnabled, setIsPushEnabled] = useState(false);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'granted') {
+        setIsPushEnabled(true);
+      }
+    }
+  }, []);
+
   const handleEnablePush = async () => {
     if (user?.id) {
       const success = await requestNotificationPermission(user.id);
