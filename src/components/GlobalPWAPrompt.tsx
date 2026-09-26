@@ -101,9 +101,12 @@ export default function GlobalPWAPrompt() {
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌐</div>
           <h3 style={titleStyle}>לחץ לפתיחה ב-Chrome</h3>
-          <p style={subStyle}>
-            כדי להתקין את SmartShare, צריך לפתוח אותה ב-Chrome.<br />
-            <strong>לחץ על הכפתור הכחול — הכל יקרה אוטומטית!</strong>
+          <p style={{ ...subStyle, textAlign: 'right', direction: 'rtl', background: 'rgba(59, 130, 246, 0.08)', padding: '1rem', borderRadius: '12px', color: '#1e293b' }}>
+            כדי להתקין בצורה בטוחה (ללא שגיאות), חובה לפתוח את האפליקציה ב-Chrome.<br/><br/>
+            <strong>איך עושים את זה?</strong><br/>
+            1. לחץ על הכפתור הכחול למטה.<br/>
+            2. בתפריט שיקפוץ, בחר ב-<strong>Chrome</strong>.<br/>
+            3. לחץ על <strong>"אפשר תמיד"</strong> (Always).
           </p>
         </div>
         {typeof window !== 'undefined' && (
