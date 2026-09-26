@@ -164,6 +164,15 @@ const runOcrPipeline = async (imgUrl: string) => {
       // Check if this is a PDF
       const isPdf = imgUrl.startsWith('data:application/pdf');
       
+      // Protect storage: If it's a PDF, check its size (base64 is ~33% larger than raw binary)
+      // 2.5MB in base64 is roughly 1.8MB raw file size.
+      if (isPdf && imgUrl.length > 2.5 * 1024 * 1024) {
+        alert("קובץ ה-PDF גדול מדי (מעל 2MB) ועלול להעמיס על השרת. אנא צלם מסך של החשבונית והעלה את התמונה במקום.");
+        setIsAnalyzing(false);
+        if(setIsAddingExpense) setIsAddingExpense(false);
+        return;
+      }
+      
       let ocrPayload = imgUrl;
       let archiveImgUrl = imgUrl;
       let filename = `invoices/${space.id}/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
