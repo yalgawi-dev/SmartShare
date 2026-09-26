@@ -133,7 +133,7 @@ export default function GlobalPWAPrompt() {
             כדי להתקין את SmartShare, לחץ על הכפתור — הוא יפתח Safari אוטומטית!
           </p>
         </div>
-        <button onClick={openInSafari} style={primaryBtnStyle}>
+        <button onClick={openInSafari} className="pulse-btn-v1" style={primaryBtnStyle}>
           🧭 פתח ב-Safari ← התקן
         </button>
         <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
@@ -183,6 +183,7 @@ export default function GlobalPWAPrompt() {
       <div style={{ display: 'flex', gap: '0.75rem' }}>
         <button onClick={dismiss} style={dismissBtnStyle}>לא עכשיו</button>
         <button
+          className={!installing ? "pulse-btn-v1" : ""}
           onClick={canOneTap ? handleInstall : () => setShowGuide(true)}
           disabled={installing}
           style={{ ...primaryBtnStyle, flex: 2, opacity: installing ? 0.7 : 1 }}
@@ -204,6 +205,12 @@ function Sheet({ children }: { children: React.ReactNode }) {
         @keyframes pwaFade { from { opacity:0; } to { opacity:1; } }
         .pwa-sheet-v4 { animation: pwaUp 0.38s cubic-bezier(0.16,1,0.3,1) both; }
         .pwa-backdrop-v4 { animation: pwaFade 0.3s ease-out both; }
+        @keyframes pwaPulseBtn { 
+          0% { transform: scale(1); box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); } 
+          50% { transform: scale(1.03); box-shadow: 0 8px 24px rgba(59, 130, 246, 0.6); } 
+          100% { transform: scale(1); box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); } 
+        }
+        .pulse-btn-v1 { animation: pwaPulseBtn 2s infinite; }
       `}</style>
       <div className="pwa-backdrop-v4" style={{
         position: 'fixed', inset: 0, zIndex: 9999998,
