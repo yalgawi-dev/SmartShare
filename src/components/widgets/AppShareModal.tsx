@@ -59,7 +59,7 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
         </button>
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem', marginTop: '1rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', animation: 'bounce 2s infinite' }}>🎁</div>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', animation: 'bounce 2s infinite' }}>🔗</div>
           <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.4rem' }}>שתף את MySpace</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4' }}>
             הזמן חברים ומשפחה לנהל יחד מרחבים חכמים בקלות.

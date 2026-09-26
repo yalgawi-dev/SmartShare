@@ -14,6 +14,7 @@ interface SharesEditorModalProps { [key: string]: any;
 export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpaceSettings, user, removeMember, refreshMemberInvite }: SharesEditorModalProps) {
   const [mounted, setMounted] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -110,6 +111,35 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
         </div>
 
         <div style={{ padding: '1.5rem', overflowY: 'auto' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+            <button 
+              onClick={() => setShowHistory(!showHistory)}
+              style={{ background: showHistory ? 'var(--primary)' : 'var(--bg-main)', color: showHistory ? 'white' : 'var(--text-secondary)', border: '1px solid ' + (showHistory ? 'var(--primary)' : 'var(--border-light)'), padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', width: '100%' }}
+            >
+              {showHistory ? 'חזור לעריכת אחוזים' : '📜 הצג היסטוריית שינויים'}
+            </button>
+          </div>
+
+          {showHistory && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {(!space.auditLogs || space.auditLogs.filter((l: any) => l.actionType === 'SHARES_UPDATED').length === 0) ? (
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0' }}>לא נמצאו שינויי אחוזים בהיסטוריה.</div>
+              ) : (
+                space.auditLogs.filter((l: any) => l.actionType === 'SHARES_UPDATED').reverse().map((log: any) => (
+                  <div key={log.id} style={{ padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
+                      {new Date(log.timestamp).toLocaleString('he-IL')}
+                    </div>
+                    <div style={{ color: 'var(--text-primary)' }}>
+                      {log.details}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+
+          <div style={{ display: showHistory ? 'none' : 'block' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '2px solid var(--primary)', borderRadius: '12px', marginBottom: '1rem' }}>
             <span style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -203,8 +233,9 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
             </div>
           </div>
         </div>
+        </div>
 
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '0 1.5rem 1.5rem 1.5rem' }}>
+        <div style={{ display: showHistory ? 'none' : 'flex', justifyContent: 'center', padding: '0 1.5rem 1.5rem 1.5rem' }}>
           <button 
             onClick={handleSave}
             disabled={Math.abs(Number(total) - 100) > 0.1}

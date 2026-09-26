@@ -372,12 +372,6 @@ export function FinanceSummary({
               ✍️ ערוך אחוזי השתתפות
             </button>
           )}
-          <button 
-            onClick={() => setShowHistoryModal(true)}
-            style={{ background: 'transparent', border: '1px solid var(--border-light)', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
-          >
-            📜 היסטוריית שינויים
-          </button>
         </div>
           
           <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
@@ -789,35 +783,7 @@ export function FinanceSummary({
       )}
     
 
-      {/* History Modal */}
-      {showHistoryModal && typeof document !== 'undefined' && createPortal(
-        <div style={{ position: 'fixed', inset: 0, zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.5)', padding: '1rem' }}>
-          <div style={{ background: 'var(--bg-main)', borderRadius: '24px', padding: '1.5rem', width: '100%', maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary)' }}>📜 היסטוריית שינויי אחוזים</h3>
-              <button onClick={() => setShowHistoryModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
-            </div>
-            
-            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {(!space.auditLogs || space.auditLogs.filter((l: any) => l.actionType === 'SHARES_UPDATED').length === 0) ? (
-                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', padding: '2rem 0' }}>לא נמצאו שינויי אחוזים בהיסטוריה.</div>
-              ) : (
-                space.auditLogs.filter((l: any) => l.actionType === 'SHARES_UPDATED').reverse().map((log: any) => (
-                  <div key={log.id} style={{ padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '0.85rem' }}>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
-                      {new Date(log.timestamp).toLocaleString('he-IL')}
-                    </div>
-                    <div style={{ color: 'var(--text-primary)' }}>
-                      {log.details}
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      
     </div>
   );
 }
