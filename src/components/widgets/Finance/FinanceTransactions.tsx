@@ -524,7 +524,13 @@ export function FinanceTransactions({
                       <div style={{ flex: '1 1 200px', maxWidth: '300px' }}>
                         <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>חשבונית / קבלה סרוקה:</p>
                         <div 
-                          onClick={() => setPreviewImage(inv.attachmentUrl)}
+                          onClick={() => {
+                            if (inv.attachmentUrl.includes('.pdf') || inv.attachmentUrl.startsWith('data:application/pdf')) {
+                              window.open(inv.attachmentUrl, '_blank');
+                            } else {
+                              setPreviewImage(inv.attachmentUrl);
+                            }
+                          }}
                           style={{ width: '100%', height: '150px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}
                         >
                           <img src={inv.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="חשבונית סרוקה" />

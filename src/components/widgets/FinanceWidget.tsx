@@ -144,10 +144,10 @@ const runOcrPipeline = async (imgUrl: string) => {
     setOcrData({}); // Clear old data
     setOcrElapsedTime(0);
     
-    if (imgUrl && (imgUrl.startsWith('data:application/pdf') || imgUrl.includes('image/heic') || imgUrl.includes('image/heif'))) {
-      alert("סוג קובץ זה (PDF או HEIC) אינו נתמך כרגע בסורק המהיר. אנא העלה תמונה רגילה (JPG/PNG) או צילום מסך.");
+    if (imgUrl && (imgUrl.includes('image/heic') || imgUrl.includes('image/heif'))) {
+      alert("סוג קובץ זה (HEIC) אינו נתמך כרגע בסורק המהיר. אנא העלה תמונה רגילה (JPG/PNG).");
       setIsAnalyzing(false);
-      setIsScanning(false);
+      if(setIsAddingExpense) setIsAddingExpense(false);
       return;
     }
     
@@ -161,15 +161,21 @@ const runOcrPipeline = async (imgUrl: string) => {
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
       const { downscaleBase64 } = await import('../../utils/imageOptimizer');
       
-      // --- TRACK A (Foreground): The 40KB OCR Micro-Payload ---
-      // Scale down aggressively (800px, 60% quality) just for the AI.
-      // This guarantees an instant upload to Vercel (fraction of a second) even on a terrible 3G connection!
-      const ocrPayload = await downscaleBase64(imgUrl, 800, 0.60);
+      // Check if this is a PDF
+      const isPdf = imgUrl.startsWith('data:application/pdf');
       
-      // --- TRACK B (Background): The High Quality Archive ---
-      // Scale to 1500px, 85% quality. Will be uploaded silently in the background.
-      const archiveImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
-      const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+      let ocrPayload = imgUrl;
+      let archiveImgUrl = imgUrl;
+      let filename = `invoices/${space.id}/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
+      
+      if (!isPdf) {
+        // --- TRACK A (Foreground): The 40KB OCR Micro-Payload ---
+        // Scale down aggressively (800px, 60% quality) just for the AI.
+        ocrPayload = await downscaleBase64(imgUrl, 800, 0.60);
+        
+        // --- TRACK B (Background): The High Quality Archive ---
+        archiveImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
+      }
       
       // 1. Kick off the heavy Firebase upload, but DO NOT WAIT FOR IT!
       uploadPromiseRef.current = uploadImageToStorage(archiveImgUrl, filename).then(url => {

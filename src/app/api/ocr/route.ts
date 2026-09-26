@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     let base64Data = '';
     let mimeType = 'image/jpeg';
     
-    if (imageUrl.startsWith('data:image')) {
+    if (imageUrl.startsWith('data:')) {
       const parts = imageUrl.split(';base64,');
       mimeType = parts[0].split(':')[1];
       base64Data = parts[1];
@@ -61,7 +61,8 @@ export async function POST(request: Request) {
     let rawText = '';
     
     // Use the latest flash-lite model for blazing fast OCR
-    const model = 'gemini-flash-lite-latest';
+    // Use the standard flash model to guarantee PDF processing support
+    const model = 'gemini-1.5-flash-latest';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
