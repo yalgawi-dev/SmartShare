@@ -200,7 +200,7 @@ export default function Dashboard() {
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.2rem', gap: '0.2rem' }}>
             <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              🎁
+              🔗
             </button>
             {user?.isAdmin && (
               <Link href="/admin/users" style={{ padding: '0.4rem', color: '#EF4444', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="ניהול מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>

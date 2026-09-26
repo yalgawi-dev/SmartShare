@@ -83,12 +83,18 @@ export default function GlobalPWAPrompt() {
 
   const handleInstall = async () => {
     if (deferredPrompt) {
-      setInstalling(true);
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      setDeferredPrompt(null);
-      setInstalling(false);
-      if (outcome === 'accepted') dismiss();
+      try {
+        setInstalling(true);
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        setDeferredPrompt(null);
+        setInstalling(false);
+        if (outcome === 'accepted') dismiss();
+      } catch (err) {
+        console.error("Install prompt failed", err);
+        setInstalling(false);
+        setShowGuide(true);
+      }
     } else {
       setShowGuide(true);
     }
