@@ -18,6 +18,7 @@ export default function GlobalPWAPrompt() {
   >(null);
   const [showGuide, setShowGuide] = useState(false);
   const [installing, setInstalling] = useState(false);
+  const [menuOpened, setMenuOpened] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -105,25 +106,27 @@ export default function GlobalPWAPrompt() {
             לחץ על הכפתור כדי לסיים את ההתקנה בצורה מהירה ובטוחה.
           </p>
         </div>
-        <button
-          className="pulse-btn-v1"
-          onClick={() => {
-            const url = window.location.href.replace(/^https?:\/\//, '');
-            window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
-          }}
-          style={primaryBtnStyle}
-        >
-          פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
-        </button>
-        <button 
-          onClick={() => {
-            navigator.clipboard.writeText(window.location.href);
-            alert('הקישור הועתק! פתח את אפליקציית Chrome והדבק את הקישור בשורת הכתובת.');
-          }}
-          style={{ ...dismissBtnStyle, marginBottom: '0.75rem', background: '#f1f5f9', border: 'none', color: '#3b82f6' }}
-        >
-          📋 או העתק קישור להדבקה בכרום
-        </button>
+        {menuOpened ? (
+          <div style={{ textAlign: 'center', padding: '1.5rem', background: '#fef3c7', borderRadius: '16px', border: '2px solid #f59e0b', animation: 'pwaPulseBtn 2s infinite', marginBottom: '1rem' }}>
+            <div style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>👆</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#b45309' }}>בחר ב-Chrome בתפריט שנפתח!</div>
+            <div style={{ fontSize: '0.95rem', color: '#d97706', marginTop: '0.5rem', fontWeight: '600' }}>(ואז לחץ על "אפשר תמיד")</div>
+          </div>
+        ) : (
+          <button
+            className="pulse-btn-v1"
+            onClick={() => {
+              setMenuOpened(true);
+              setTimeout(() => {
+                const url = window.location.href.replace(/^https?:\/\//, '');
+                window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
+              }, 100);
+            }}
+            style={primaryBtnStyle}
+          >
+            פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
+          </button>
+        )}
         <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
       </Sheet>
     );
