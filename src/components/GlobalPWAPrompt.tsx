@@ -115,6 +115,15 @@ export default function GlobalPWAPrompt() {
         >
           פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
         </button>
+        <button 
+          onClick={() => {
+            navigator.clipboard.writeText(window.location.href);
+            alert('הקישור הועתק! פתח את אפליקציית Chrome והדבק את הקישור בשורת הכתובת.');
+          }}
+          style={{ ...dismissBtnStyle, marginBottom: '0.75rem', background: '#f1f5f9', border: 'none', color: '#3b82f6' }}
+        >
+          📋 או העתק קישור להדבקה בכרום
+        </button>
         <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
       </Sheet>
     );
