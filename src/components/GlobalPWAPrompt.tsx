@@ -101,16 +101,17 @@ export default function GlobalPWAPrompt() {
       <>
         {menuOpened && (
           <div style={{
-            position: 'fixed', top: '15px', left: '15px', right: '15px', zIndex: 999999999,
-            background: '#fef3c7', padding: '1.25rem', borderRadius: '16px',
-            border: '3px solid #f59e0b', textAlign: 'center',
-            boxShadow: '0 15px 40px rgba(0,0,0,0.3)',
-            animation: 'pwaPulseBtn 1.5s infinite'
+            position: 'fixed', top: '12px', left: '16px', right: '16px', zIndex: 999999999,
+            background: '#fef3c7', padding: '0.6rem', borderRadius: '10px',
+            border: '2px solid #f59e0b', textAlign: 'center',
+            boxShadow: '0 8px 20px rgba(0,0,0,0.2)',
+            animation: 'pwaPulseBtn 1.5s infinite',
+            display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'center'
           }}>
-            <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#b45309' }}>
-              👇 בחר ב-Chrome מהתפריט
+            <div style={{ fontSize: '1.05rem', fontWeight: '800', color: '#b45309' }}>
+              👇 בחר ב-Chrome מהתפריט 👇
             </div>
-            <div style={{ fontSize: '1.1rem', color: '#d97706', marginTop: '0.4rem', fontWeight: '800' }}>
+            <div style={{ fontSize: '0.85rem', color: '#d97706', fontWeight: '700' }}>
               (ואז לחץ על "אפשר תמיד")
             </div>
           </div>
