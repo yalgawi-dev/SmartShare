@@ -100,21 +100,18 @@ export default function GlobalPWAPrompt() {
       <Sheet>
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌐</div>
-          <h3 style={titleStyle}>לחץ לפתיחה ב-Chrome</h3>
-          <p style={{ ...subStyle, textAlign: 'right', direction: 'rtl', background: 'rgba(59, 130, 246, 0.08)', padding: '1rem', borderRadius: '12px', color: '#1e293b' }}>
-            כדי להתקין בצורה בטוחה (ללא שגיאות), חובה לפתוח את האפליקציה ב-Chrome.<br/><br/>
-            <strong>איך עושים את זה?</strong><br/>
-            1. לחץ על הכפתור הכחול למטה.<br/>
-            2. בתפריט שיקפוץ, בחר ב-<strong>Chrome</strong>.<br/>
-            3. לחץ על <strong>"אפשר תמיד"</strong> (Always).
+          <h3 style={titleStyle}>המשך אל Chrome</h3>
+          <p style={subStyle}>
+            לחץ על הכפתור כדי לסיים את ההתקנה בצורה מהירה ובטוחה.
           </p>
         </div>
         {typeof window !== 'undefined' && (
           <a
+            className="pulse-btn-v1"
             href={`intent://${window.location.href.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`}
             style={{ ...primaryBtnStyle, display: 'block', textDecoration: 'none', boxSizing: 'border-box' }}
           >
-            🌐 פתח ב-Chrome ← התקן
+            פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
           </a>
         )}
         <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
