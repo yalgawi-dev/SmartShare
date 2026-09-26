@@ -105,15 +105,16 @@ export default function GlobalPWAPrompt() {
             לחץ על הכפתור כדי לסיים את ההתקנה בצורה מהירה ובטוחה.
           </p>
         </div>
-        {typeof window !== 'undefined' && (
-          <a
-            className="pulse-btn-v1"
-            href={`intent://${window.location.href.replace(/^https?:\/\//, '')}#Intent;scheme=https;package=com.android.chrome;end`}
-            style={{ ...primaryBtnStyle, display: 'block', textDecoration: 'none', boxSizing: 'border-box' }}
-          >
-            פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
-          </a>
-        )}
+        <button
+          className="pulse-btn-v1"
+          onClick={() => {
+            const url = window.location.href.replace(/^https?:\/\//, '');
+            window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
+          }}
+          style={primaryBtnStyle}
+        >
+          פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
+        </button>
         <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
       </Sheet>
     );
