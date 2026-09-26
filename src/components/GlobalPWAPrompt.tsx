@@ -36,7 +36,7 @@ export default function GlobalPWAPrompt() {
     const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
     const isAndroid = /Android/.test(ua);
     const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV')
-      || ua.includes('Instagram') || /wv\)/.test(ua);
+      || ua.includes('Instagram') || /wv\)/.test(ua) || ua.includes('SamsungBrowser');
     const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
 
     if (!isIOS && !isAndroid) return;
@@ -178,15 +178,9 @@ export default function GlobalPWAPrompt() {
         <div>
           <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#0f172a' }}>SmartShare</div>
           <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '3px', lineHeight: 1.3 }}>
-            {canOneTap ? '✨ לחיצה אחת — מותקן!' : 'הוסף למסך הבית'}
+            {canOneTap ? 'לחיצה אחת והאפליקציה בטלפון!' : 'הוסף למסך הבית'}
           </div>
         </div>
-      </div>
-
-      <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-        {['⚡ ללא דפדפן', '🔔 כולל התראות'].map(f => (
-          <span key={f} style={{ background: '#f1f5f9', borderRadius: '50px', padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: '#475569', fontWeight: '600' }}>{f}</span>
-        ))}
       </div>
 
       <div style={{ display: 'flex', gap: '0.75rem' }}>
