@@ -178,8 +178,8 @@ export default function GlobalPWAPrompt() {
       </div>
 
       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-        {['⚡ מהיר', '📵 ללא דפדפן', '🔔 התראות', '💾 אופליין'].map(f => (
-          <span key={f} style={{ background: '#f1f5f9', borderRadius: '50px', padding: '0.25rem 0.65rem', fontSize: '0.78rem', color: '#475569', fontWeight: '600' }}>{f}</span>
+        {['⚡ ללא דפדפן', '🔔 כולל התראות'].map(f => (
+          <span key={f} style={{ background: '#f1f5f9', borderRadius: '50px', padding: '0.4rem 0.8rem', fontSize: '0.85rem', color: '#475569', fontWeight: '600' }}>{f}</span>
         ))}
       </div>
 
@@ -204,10 +204,16 @@ function Sheet({ children }: { children: React.ReactNode }) {
     <>
       <style>{`
         @keyframes pwaUp { from { transform:translateY(110%); opacity:0; } to { transform:translateY(0); opacity:1; } }
+        @keyframes pwaFade { from { opacity:0; } to { opacity:1; } }
         .pwa-sheet-v4 { animation: pwaUp 0.38s cubic-bezier(0.16,1,0.3,1) both; }
+        .pwa-backdrop-v4 { animation: pwaFade 0.3s ease-out both; }
       `}</style>
+      <div className="pwa-backdrop-v4" style={{
+        position: 'fixed', inset: 0, zIndex: 9999998,
+        background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(4px)'
+      }} />
       <div className="pwa-sheet-v4" style={{
-        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 99999,
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999999,
         background: '#ffffff', borderRadius: '28px 28px 0 0',
         padding: '1.25rem 1.5rem 2.5rem',
         boxShadow: '0 -12px 48px rgba(0,0,0,0.18)',

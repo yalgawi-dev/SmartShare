@@ -84,39 +84,33 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
       </div>
 
       {Notification.permission !== 'denied' && (
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
           <button 
             onClick={() => handleAction('enable')}
             style={{ 
-              background: '#22c55e', color: 'white', border: 'none', padding: '0.6rem 1rem', 
+              background: '#22c55e', color: 'white', border: 'none', padding: '0.7rem 1rem', 
               borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1, 
-              minWidth: '120px', fontSize: '0.9rem' 
+              fontSize: '0.95rem', boxShadow: '0 2px 4px rgba(34, 197, 94, 0.2)'
             }}
           >
-            הפעל עכשיו
-          </button>
-          <button 
-            onClick={() => handleAction('later')}
-            style={{ 
-              background: 'var(--bg-main)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', 
-              padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', flex: 1, 
-              minWidth: '100px', fontSize: '0.9rem', fontWeight: '600'
-            }}
-          >
-            אולי אחר כך
-          </button>
-          <button 
-            onClick={() => handleAction('forever')}
-            style={{ 
-              background: 'transparent', color: 'var(--text-secondary)', border: 'none', 
-              padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', flex: 1, 
-              minWidth: '120px', fontSize: '0.85rem'
-            }}
-          >
-            הבנתי, אל תציג שוב
+            הפעל התראות עכשיו
           </button>
         </div>
       )}
+      
+      {/* Close button X */}
+      <button 
+        onClick={() => handleAction('later')}
+        style={{
+          position: 'absolute', top: '0.75rem', left: '0.75rem', // RTL: left is the physical left (visual left)
+          background: 'none', border: 'none', fontSize: '1.25rem', color: 'var(--text-secondary)',
+          cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          opacity: 0.6
+        }}
+        title="סגור"
+      >
+        &times;
+      </button>
       
       {Notification.permission === 'denied' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
