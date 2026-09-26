@@ -98,51 +98,53 @@ export default function GlobalPWAPrompt() {
   // ── Android WebView (WhatsApp): Auto-open Chrome ─────────────────────────────
   if (platform === 'android-webview') {
     return (
-      <Sheet>
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌐</div>
-          <h3 style={titleStyle}>המשך אל Chrome</h3>
-          <p style={subStyle}>
-            לחץ על הכפתור כדי לסיים את ההתקנה בצורה מהירה ובטוחה.
-          </p>
-        </div>
-        {menuOpened ? (
-          <>
-            <div style={{
-              position: 'fixed', top: '20px', left: '20px', right: '20px', zIndex: 999999999,
-              background: '#fef3c7', padding: '1.25rem', borderRadius: '16px',
-              border: '3px solid #f59e0b', textAlign: 'center',
-              boxShadow: '0 15px 40px rgba(0,0,0,0.3)',
-              animation: 'pwaPulseBtn 1.5s infinite'
-            }}>
-              <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#b45309' }}>
-                👇 בחר ב-Chrome מהתפריט
-              </div>
-              <div style={{ fontSize: '1.05rem', color: '#d97706', marginTop: '0.4rem', fontWeight: '800' }}>
-                (ואז לחץ על "אפשר תמיד")
-              </div>
+      <>
+        {menuOpened && (
+          <div style={{
+            position: 'fixed', top: '15px', left: '15px', right: '15px', zIndex: 999999999,
+            background: '#fef3c7', padding: '1.25rem', borderRadius: '16px',
+            border: '3px solid #f59e0b', textAlign: 'center',
+            boxShadow: '0 15px 40px rgba(0,0,0,0.3)',
+            animation: 'pwaPulseBtn 1.5s infinite'
+          }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: '900', color: '#b45309' }}>
+              👇 בחר ב-Chrome מהתפריט
             </div>
+            <div style={{ fontSize: '1.1rem', color: '#d97706', marginTop: '0.4rem', fontWeight: '800' }}>
+              (ואז לחץ על "אפשר תמיד")
+            </div>
+          </div>
+        )}
+        <Sheet>
+          <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🌐</div>
+            <h3 style={titleStyle}>המשך אל Chrome</h3>
+            <p style={subStyle}>
+              לחץ על הכפתור כדי לסיים את ההתקנה בצורה מהירה ובטוחה.
+            </p>
+          </div>
+          {menuOpened ? (
             <div style={{ textAlign: 'center', padding: '1.5rem', color: '#64748b', fontWeight: '700', background: '#f8fafc', borderRadius: '12px', marginBottom: '1rem' }}>
               ⏳ מחכה שתבחר בתפריט...
             </div>
-          </>
-        ) : (
-          <button
-            className="pulse-btn-v1"
-            onClick={() => {
-              setMenuOpened(true);
-              setTimeout(() => {
-                const url = window.location.href.replace(/^https?:\/\//, '');
-                window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
-              }, 100);
-            }}
-            style={primaryBtnStyle}
-          >
-            פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
-          </button>
-        )}
-        <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
-      </Sheet>
+          ) : (
+            <button
+              className="pulse-btn-v1"
+              onClick={() => {
+                setMenuOpened(true);
+                setTimeout(() => {
+                  const url = window.location.href.replace(/^https?:\/\//, '');
+                  window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
+                }, 100);
+              }}
+              style={primaryBtnStyle}
+            >
+              פתח ב-<span style={{ color: '#fef08a', fontWeight: '900', fontSize: '1.15em', textShadow: '0 1px 2px rgba(0,0,0,0.2)' }}>Chrome</span> ← התקן
+            </button>
+          )}
+          <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
+        </Sheet>
+      </>
     );
   }
 
