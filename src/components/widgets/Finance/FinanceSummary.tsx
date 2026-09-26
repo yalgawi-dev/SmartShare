@@ -36,6 +36,7 @@ export function FinanceSummary({
   onTriggerTransfer
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [expandedPartnerId, setExpandedPartnerId] = useState<string | null>(null);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);

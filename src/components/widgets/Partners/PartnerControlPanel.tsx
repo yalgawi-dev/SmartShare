@@ -298,7 +298,10 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           {member?.shareChangeRequest && (
             <div style={{ alignSelf: 'center', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', marginBottom: '1rem', maxWidth: '95%', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
               <strong>בקשה לשינוי אחוזים 📊</strong><br/>
-              יוצר המרחב הציע לעדכן את האחוזים שלך ל-{member.shareChangeRequest.proposedShare}%.
+              {viewMode === 'creator' 
+                ? `בקשה לשינוי אחוזים מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}% נשלחה אל ${member.name}!!`
+                : `יוצר המרחב הציע לעדכן את האחוזים שלך מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}%.`
+              }
               {viewMode === 'partner' ? (
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
                   <button onClick={() => approveShareChange(space.id, member.userId)} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>אישור</button>
