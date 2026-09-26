@@ -71,7 +71,15 @@ export default function GlobalPWAPrompt() {
     const fallbackUrl = encodeURIComponent(url);
     // Explicit Chrome intent. If Chrome is missing, falls back to the URL itself.
     // This avoids window.open() which triggers popup blockers and app choosers.
-    window.location.href = `intent://${urlWithoutScheme}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${fallbackUrl};end`;
+    // Use the googlechrome:// custom scheme first as it is completely immune to WebView intent-stripping.
+    // If we use intent://, Samsung Internet often parses it, strips the package, and just fires a generic HTTPS intent which causes the App Chooser.
+    window.location.href = `googlechrome://navigate?url=${url}`;
+    
+    // In case googlechrome:// fails (very rare, only if Chrome is deeply disabled), 
+    // we use a setTimeout with the strict official intent format.
+    setTimeout(() => {
+      window.location.href = `intent://${urlWithoutScheme}#Intent;action=android.intent.action.VIEW;scheme=https;package=com.android.chrome;end`;
+    }, 500);
   };
 
   // Open in Safari (iOS WebView → Safari)
