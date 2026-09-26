@@ -12,8 +12,8 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
     if (permission === 'granted') return; // Already enabled
 
     // Check localStorage for cooldown
-    const lastDismissed = localStorage.getItem('pushReminderDismissedAt');
-    const dismissType = localStorage.getItem('pushReminderDismissType');
+    const lastDismissed = localStorage.getItem('pushReminderDismiss_v2edAt');
+    const dismissType = localStorage.getItem('pushReminderDismiss_v2Type');
 
     if (lastDismissed) {
       const dismissedDate = new Date(lastDismissed).getTime();
@@ -35,19 +35,19 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
         if (success) {
           setShow(false);
           // If successful, don't show again
-          localStorage.setItem('pushReminderDismissType', 'forever');
-          localStorage.setItem('pushReminderDismissedAt', new Date().toISOString());
+          localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
+          localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
         } else {
           // If denied, they blocked it. Don't show again.
           setShow(false);
-          localStorage.setItem('pushReminderDismissType', 'forever');
-          localStorage.setItem('pushReminderDismissedAt', new Date().toISOString());
+          localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
+          localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
         }
       }
     } else {
       setShow(false);
-      localStorage.setItem('pushReminderDismissType', type);
-      localStorage.setItem('pushReminderDismissedAt', new Date().toISOString());
+      localStorage.setItem('pushReminderDismiss_v2Type', type);
+      localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
     }
   };
 

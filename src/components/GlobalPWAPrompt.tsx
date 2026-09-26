@@ -29,7 +29,7 @@ export default function GlobalPWAPrompt() {
 
     // Already dismissed
     try {
-      if (localStorage.getItem('pwa_v4') === 'done') return;
+      if (localStorage.getItem('pwa_v5') === 'done') return;
     } catch (e) {}
 
     const ua = navigator.userAgent;
@@ -60,7 +60,7 @@ export default function GlobalPWAPrompt() {
   }, []);
 
   const dismiss = () => {
-    try { localStorage.setItem('pwa_v4', 'done'); } catch (e) {}
+    try { localStorage.setItem('pwa_v5', 'done'); } catch (e) {}
     setPlatform(null);
   };
 
