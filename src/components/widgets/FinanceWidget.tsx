@@ -144,6 +144,13 @@ const runOcrPipeline = async (imgUrl: string) => {
     setOcrData({}); // Clear old data
     setOcrElapsedTime(0);
     
+    if (imgUrl && (imgUrl.startsWith('data:application/pdf') || imgUrl.includes('image/heic') || imgUrl.includes('image/heif'))) {
+      alert("סוג קובץ זה (PDF או HEIC) אינו נתמך כרגע בסורק המהיר. אנא העלה תמונה רגילה (JPG/PNG) או צילום מסך.");
+      setIsAnalyzing(false);
+      setIsScanning(false);
+      return;
+    }
+    
     const startTime = Date.now();
     const timerInterval = setInterval(() => {
       setOcrElapsedTime((Date.now() - startTime) / 1000);
@@ -230,7 +237,10 @@ const runOcrPipeline = async (imgUrl: string) => {
       clearInterval(timerInterval);
       setOcrElapsedTime((Date.now() - startTime) / 1000);
       console.error("Failed to process cloud upload/OCR", e);
-      setOcrDebugMessage(`תקלת תקשורת בסיסית: ${e.message}`);
+      let errorMsg = e?.message || 'לא ניתן לעבד את הקובץ. ייתכן שהפורמט אינו נתמך (יש להעלות תמונה) או שיש בעיית רשת.';
+      if (typeof e === 'string') errorMsg = e;
+      else if (e instanceof Event) errorMsg = 'הקובץ אינו תמונה תקינה או שהוא פגום.';
+      setOcrDebugMessage(`תקלת תקשורת בסיסית: ${errorMsg}`);
       setScannedImage(imgUrl); // Fallback to local preview
     }
     
