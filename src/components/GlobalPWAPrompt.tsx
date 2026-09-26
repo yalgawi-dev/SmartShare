@@ -107,11 +107,25 @@ export default function GlobalPWAPrompt() {
           </p>
         </div>
         {menuOpened ? (
-          <div style={{ textAlign: 'center', padding: '1.5rem', background: '#fef3c7', borderRadius: '16px', border: '2px solid #f59e0b', animation: 'pwaPulseBtn 2s infinite', marginBottom: '1rem' }}>
-            <div style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>👆</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '900', color: '#b45309' }}>בחר ב-Chrome בתפריט שנפתח!</div>
-            <div style={{ fontSize: '0.95rem', color: '#d97706', marginTop: '0.5rem', fontWeight: '600' }}>(ואז לחץ על "אפשר תמיד")</div>
-          </div>
+          <>
+            <div style={{
+              position: 'fixed', top: '20px', left: '20px', right: '20px', zIndex: 999999999,
+              background: '#fef3c7', padding: '1.25rem', borderRadius: '16px',
+              border: '3px solid #f59e0b', textAlign: 'center',
+              boxShadow: '0 15px 40px rgba(0,0,0,0.3)',
+              animation: 'pwaPulseBtn 1.5s infinite'
+            }}>
+              <div style={{ fontSize: '1.35rem', fontWeight: '900', color: '#b45309' }}>
+                👇 בחר ב-Chrome מהתפריט
+              </div>
+              <div style={{ fontSize: '1.05rem', color: '#d97706', marginTop: '0.4rem', fontWeight: '800' }}>
+                (ואז לחץ על "אפשר תמיד")
+              </div>
+            </div>
+            <div style={{ textAlign: 'center', padding: '1.5rem', color: '#64748b', fontWeight: '700', background: '#f8fafc', borderRadius: '12px', marginBottom: '1rem' }}>
+              ⏳ מחכה שתבחר בתפריט...
+            </div>
+          </>
         ) : (
           <button
             className="pulse-btn-v1"
