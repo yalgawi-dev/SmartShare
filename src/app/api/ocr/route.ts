@@ -61,8 +61,7 @@ export async function POST(request: Request) {
     let rawText = '';
     
     // Use the latest flash-lite model for blazing fast OCR
-    // Use the standard flash model to guarantee PDF processing support
-    const model = 'gemini-1.5-flash';
+    const model = 'gemini-flash-lite-latest';
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
     
     const requestBody = {
