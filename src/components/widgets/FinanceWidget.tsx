@@ -208,11 +208,12 @@ const runOcrPipeline = async (imgUrl: string) => {
       if (response.ok) {
         const data = await response.json();
           
-          if (data.invoiceNumber && space?.invoices && space.invoices.length > 0) {
+          if (space?.invoices && space.invoices.length > 0) {
             const exists = space.invoices.find((inv: any) => isDuplicateInvoice(inv, data));
             if (exists) {
-              data._duplicateWarning = 'נראה שחשבונית זו (מספר ' + data.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
-                data._duplicateInvoice = exists;
+              const warnPrefix = data.invoiceNumber ? ' (מספר ' + data.invoiceNumber + ')' : '';
+              data._duplicateWarning = 'נראה שחשבונית/קבלה זו' + warnPrefix + ' כבר הועלתה למערכת בעבר.';
+              data._duplicateInvoice = exists;
             }
           }
           
@@ -537,13 +538,14 @@ const runOcrPipeline = async (imgUrl: string) => {
                 setScannedImage(item.imageUrl);
                 
                   const inboxData = item.ocrData || {};
-                    if (inboxData.invoiceNumber && space?.invoices && space.invoices.length > 0) {
+                    if (space?.invoices && space.invoices.length > 0) {
                       const exists = space.invoices.find((inv: any) => isDuplicateInvoice(inv, inboxData));
-                    if (exists) {
-                      inboxData._duplicateWarning = 'נראה שחשבונית זו (מספר ' + inboxData.invoiceNumber + ') כבר הועלתה למערכת בעבר.';
+                      if (exists) {
+                        const warnPrefix = inboxData.invoiceNumber ? ' (מספר ' + inboxData.invoiceNumber + ')' : '';
+                        inboxData._duplicateWarning = 'נראה שחשבונית/קבלה זו' + warnPrefix + ' כבר הועלתה למערכת בעבר.';
                         inboxData._duplicateInvoice = exists;
+                      }
                     }
-                  }
                   if (inboxData.documentType && (inboxData.documentType.includes('משלוח') || inboxData.documentType.includes('הזמנ') || inboxData.documentType.includes('הצע'))) {
                     inboxData._docTypeWarning = 'המסמך זוהה כ-' + inboxData.documentType + ' ולא כחשבונית מס/קבלה. האם ברצונך להוסיף אותו כהוצאה?';
                   }
