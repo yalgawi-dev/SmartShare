@@ -1,4 +1,5 @@
 import React from 'react';
+import PdfThumbnail from '../../shared/PdfThumbnail';
 import ScannerModal from '../ScannerModal';
 
 interface FinanceAddExpenseFormProps {
@@ -385,12 +386,20 @@ export function FinanceAddExpenseForm({
         {scannedImage && (
           <div style={{ marginTop: '1.5rem', textAlign: 'center' }}>
             <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>מסמך מצורף (נסרק בהצלחה):</p>
-            <img 
-              src={scannedImage} 
-              alt="Scanned Attachment" 
-              onClick={() => setPreviewImage(scannedImage)}
-              style={{ maxWidth: '100%', maxHeight: '200px', border: '1px solid var(--border-light)', borderRadius: '12px', objectFit: 'contain', cursor: 'zoom-in' }} 
-            />
+            {(scannedImage.includes('.pdf') || scannedImage.startsWith('data:application/pdf')) ? (
+              <PdfThumbnail 
+                base64Uri={scannedImage}
+                onClick={() => window.open(scannedImage, '_blank')}
+                style={{ maxWidth: '100%', maxHeight: '200px', border: '1px solid var(--border-light)', borderRadius: '12px', objectFit: 'contain', cursor: 'pointer' }}
+              />
+            ) : (
+              <img 
+                src={scannedImage} 
+                alt="Scanned Attachment" 
+                onClick={() => setPreviewImage(scannedImage)}
+                style={{ maxWidth: '100%', maxHeight: '200px', border: '1px solid var(--border-light)', borderRadius: '12px', objectFit: 'contain', cursor: 'zoom-in' }} 
+              />
+            )}
           </div>
         )}
         {isAnalyzing && (
