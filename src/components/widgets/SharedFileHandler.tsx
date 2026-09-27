@@ -247,15 +247,27 @@ export default function SharedFileHandler() {
 
           {sharedFiles.length > 0 && (
             <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', height: '120px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem', overflowX: 'auto' }}>
-              {sharedFiles.slice(0, 3).map((uri, idx) => (
-                <img 
-                  key={idx} 
-                  src={uri} 
-                  alt="Preview" 
-                  style={{ height: '100%', objectFit: 'contain', cursor: 'zoom-in', borderRadius: '4px', border: '1px solid #cbd5e1' }} 
-                  onClick={() => setZoomedIndex(idx)}
-                />
-              ))}
+              {sharedFiles.slice(0, 3).map((uri, idx) => {
+                const isPdf = uri.includes('.pdf') || uri.startsWith('data:application/pdf');
+                return isPdf ? (
+                  <div 
+                    key={idx}
+                    onClick={() => setZoomedIndex(idx)}
+                    style={{ height: '100%', width: '80px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'zoom-in' }}
+                  >
+                    <span style={{ fontSize: '2rem' }}>📄</span>
+                    <span style={{ fontSize: '0.65rem', color: '#475569', fontWeight: 'bold', marginTop: '4px' }}>PDF</span>
+                  </div>
+                ) : (
+                  <img 
+                    key={idx} 
+                    src={uri} 
+                    alt="Preview" 
+                    style={{ height: '100%', width: '80px', flexShrink: 0, objectFit: 'cover', cursor: 'zoom-in', borderRadius: '4px', border: '1px solid #cbd5e1' }} 
+                    onClick={() => setZoomedIndex(idx)}
+                  />
+                );
+              })}
               {sharedFiles.length > 3 && (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '80px', backgroundColor: '#e2e8f0', borderRadius: '8px', fontWeight: 'bold' }}>
                   +{sharedFiles.length - 3}
@@ -374,7 +386,14 @@ export default function SharedFileHandler() {
           }}
         >
           <div style={{ position: 'relative', width: '100%', height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            {sharedFiles[zoomedIndex]?.includes('.pdf') || sharedFiles[zoomedIndex]?.startsWith('data:application/pdf') ? (
+               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', padding: '3rem', borderRadius: '16px' }}>
+                 <span style={{ fontSize: '5rem' }}>📄</span>
+                 <span style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold' }}>מסמך PDF מצורף</span>
+               </div>
+            ) : (
+               <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+            )}
             {zoomedIndex > 0 && (
               <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex - 1); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 &gt;
