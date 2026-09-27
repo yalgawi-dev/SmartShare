@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import PdfThumbnail from '../shared/PdfThumbnail';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
@@ -250,14 +251,12 @@ export default function SharedFileHandler() {
               {sharedFiles.slice(0, 3).map((uri, idx) => {
                 const isPdf = uri.includes('.pdf') || uri.startsWith('data:application/pdf');
                 return isPdf ? (
-                  <div 
+                  <PdfThumbnail 
                     key={idx}
+                    base64Uri={uri}
                     onClick={() => setZoomedIndex(idx)}
-                    style={{ height: '100%', width: '80px', flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e2e8f0', borderRadius: '4px', border: '1px solid #cbd5e1', cursor: 'zoom-in' }}
-                  >
-                    <span style={{ fontSize: '2rem' }}>📄</span>
-                    <span style={{ fontSize: '0.65rem', color: '#475569', fontWeight: 'bold', marginTop: '4px' }}>PDF</span>
-                  </div>
+                    style={{ height: '100%', width: '80px', flexShrink: 0, objectFit: 'cover', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                  />
                 ) : (
                   <img 
                     key={idx} 
@@ -387,10 +386,10 @@ export default function SharedFileHandler() {
         >
           <div style={{ position: 'relative', width: '100%', height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {sharedFiles[zoomedIndex]?.includes('.pdf') || sharedFiles[zoomedIndex]?.startsWith('data:application/pdf') ? (
-               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', padding: '3rem', borderRadius: '16px' }}>
-                 <span style={{ fontSize: '5rem' }}>📄</span>
-                 <span style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold' }}>מסמך PDF מצורף</span>
-               </div>
+               <PdfThumbnail 
+                 base64Uri={sharedFiles[zoomedIndex]}
+                 style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+               />
             ) : (
                <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
             )}
