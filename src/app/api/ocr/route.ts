@@ -10,7 +10,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No image URL provided' }, { status: 400 });
     }
 
-    const apiKey = 'AQ.Ab8RN6IKlH0FsEDyq' + 'yswYdkOU5sKd-OJtR_INWbYvRvnJGyGMw';
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'AI OCR is not configured on the server.' }, { status: 500 });
     }
