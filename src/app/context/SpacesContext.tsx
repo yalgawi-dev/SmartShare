@@ -776,7 +776,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         canUpload: true,
         canEdit: false,
         canDelete: false,
-        status: existingMember?.status || 'pending' as const,
+        status: 'active' as const,
         welcomed: true,
         sharePercentage: hasCustomShare ? customShare : (existingMember?.sharePercentage ?? 0),
         isCustomShare: true

@@ -50,7 +50,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace } = useSpaces();
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser } = useSpaces() as any;
   const { user } = useAuth();
 
   
@@ -232,6 +232,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     } catch(e){}
   }
   const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
+
+  // Auto-migrate guest token to real user ID if they are logged in
+  useEffect(() => {
+    if (user?.id && !(user as any).isAnonymous && myPartnerToken && myMember && myMember.userId === myPartnerToken && myMember.userId !== user.id) {
+      migrateGuestToRealUser(space.id, myPartnerToken, user.id, user.realName || myMember.name);
+    }
+  }, [user?.id, (user as any)?.isAnonymous, myPartnerToken, myMember?.userId, space.id, migrateGuestToRealUser]);
   const isPending = myMember?.status === "pending" || (myMember?.status as any) === "extension_requested" || myMember?.status === "disputed";
   const isRestricted = (isGuestMode || isPending) && !user?.isAdmin;
 

@@ -400,7 +400,7 @@ export function FinanceSummary({
                               if (b.isMember) setExpandedPartnerId(expandedPartnerId === (b.isCreator ? myEffectiveId : b.userId) ? null : (b.isCreator ? myEffectiveId : b.userId));
                             }
                           }}
-                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : (b.isMember && b.userId !== myEffectiveId ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
+                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : (b.isMember ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>

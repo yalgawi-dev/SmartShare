@@ -111,7 +111,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
-    if(typeof sendMessageToMember === 'function') sendMessageToMember(space.id, member.userId, messageText.trim(), viewMode);
+    if(typeof sendMessageToMember === 'function') sendMessageToMember(space.id, member.userId, messageText.trim(), viewMode as any);
     setMessageText('');
   };
 
@@ -282,6 +282,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         </div>
 
         {/* Chat Messages Area */}
+        {viewMode !== 'peer' && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {viewMode === 'creator' && member?.extensionMessage && (
             <div style={{ alignSelf: 'center', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
@@ -312,9 +313,9 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               )}
             </div>
           )}
-          {viewMode !== 'peer' && messagesArray.map((msg: any) => {
+          {messagesArray.map((msg: any) => {
             if (!msg) return null;
-            const isMyMsg = msg.from === viewMode;
+            const isMyMsg = msg.from === (viewMode as string);
             
             // Hide system messages from the person who triggered them (so it acts like a notification to the other party)
             if (isMyMsg && msg.text && msg.text.startsWith('[הודעת מערכת]:')) {
@@ -355,7 +356,9 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           <div ref={messagesEndRef} />
         </div>
 
+        )}
         {/* Input Area */}
+        {viewMode !== 'peer' && (
         <div style={{ background: '#f0f2f5', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
           <textarea
             value={messageText}
@@ -404,6 +407,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             </svg>
           </button>
         </div>
+        )}
       </div>
     </>,
     document.body

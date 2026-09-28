@@ -174,8 +174,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (needsUpdate) {
               await updateDoc(userRef, { 
-                isAdmin: activeUser.isAdmin,
-                realName: activeUser.realName,
+                isAdmin: activeUser.isAdmin ?? false,
+                realName: activeUser.realName || 'אורח',
                 nickname: activeUser.nickname || '',
                 avatarUrl: activeUser.avatarUrl || null,
                 email: activeUser.email || ''
@@ -237,7 +237,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
 
           if (!activeUser.isBlocked) {
-            setUser(activeUser);
+            setUser({ ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any);
           }
           setIsLoaded(true);
         } catch (error) {
@@ -282,12 +282,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (needsUpdate) {
           await updateDoc(userRef, { 
-            realName: activeUser.realName,
+            realName: activeUser.realName || 'אורח',
             nickname: activeUser.nickname || '',
             avatarUrl: activeUser.avatarUrl || null,
             email: activeUser.email || ''
           });
-          setUser(prev => prev ? { ...prev, ...activeUser } : activeUser);
+          setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any : { ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any);
         }
       }
     } catch (err) {
