@@ -130,6 +130,25 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   const space = spaces.find(s => s.id === id);
 
+    // Auto-migrate guest token to real user ID if they are logged in
+  useEffect(() => {
+    let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
+    if (!myPartnerToken && user?.spaceKeys?.[id]?.token) myPartnerToken = user.spaceKeys[id].token;
+    if (!myPartnerToken && typeof window !== 'undefined') {
+      try {
+        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        if (localKeys[id]?.token) myPartnerToken = localKeys[id].token;
+      } catch(e){}
+    }
+    const myMember = space?.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
+
+    if (user?.id && !(user as any).isAnonymous && myPartnerToken && myMember && myMember.userId === myPartnerToken && myMember.userId !== user.id) {
+      if (space && space.id) {
+        migrateGuestToRealUser(space.id, myPartnerToken, user.id, user.realName || myMember.name);
+      }
+    }
+  }, [user?.id, (user as any)?.isAnonymous, space, id, migrateGuestToRealUser]);
+
   if (!isLoaded) return <div className={styles.container} style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><h2>טוען מרחב...</h2></div>;
   if (!space) return <div className={styles.container}><h1>המרחב לא נמצא.</h1></div>;
 
@@ -232,13 +251,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     } catch(e){}
   }
   const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
-
-  // Auto-migrate guest token to real user ID if they are logged in
-  useEffect(() => {
-    if (user?.id && !(user as any).isAnonymous && myPartnerToken && myMember && myMember.userId === myPartnerToken && myMember.userId !== user.id) {
-      migrateGuestToRealUser(space.id, myPartnerToken, user.id, user.realName || myMember.name);
-    }
-  }, [user?.id, (user as any)?.isAnonymous, myPartnerToken, myMember?.userId, space.id, migrateGuestToRealUser]);
   const isPending = myMember?.status === "pending" || (myMember?.status as any) === "extension_requested" || myMember?.status === "disputed";
   const isRestricted = (isGuestMode || isPending) && !user?.isAdmin;
 
