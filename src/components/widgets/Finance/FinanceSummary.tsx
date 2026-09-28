@@ -397,11 +397,10 @@ export function FinanceSummary({
                             if (isCreatorMe) {
                               if (b.isMember && !b.isCreator) setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId);
                             } else {
-                              // Only allow the partner to click the creator's row
-                              if (b.isCreator) setExpandedPartnerId(expandedPartnerId === myEffectiveId ? null : myEffectiveId);
+                              if (b.isMember) setExpandedPartnerId(expandedPartnerId === (b.isCreator ? myEffectiveId : b.userId) ? null : (b.isCreator ? myEffectiveId : b.userId));
                             }
                           }}
-                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : (b.isCreator ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
+                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe ? (b.isMember && !b.isCreator ? 'pointer' : 'default') : (b.isMember && b.userId !== myEffectiveId ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
@@ -492,18 +491,18 @@ export function FinanceSummary({
                             onEditShares={() => setIsEditingShares(true)}
                           />
                         )}
-                        {!isCreatorMe && b.isCreator && expandedPartnerId === myEffectiveId && (() => {
-                          const myActualMember = space.members?.find((m: any) => m.userId === myEffectiveId);
-                          if (!myActualMember) return null;
+                        {!isCreatorMe && expandedPartnerId === (b.isCreator ? myEffectiveId : b.userId) && (() => {
+                          const targetMember = space.members?.find((m: any) => m.userId === (b.isCreator ? myEffectiveId : b.userId));
+                          if (!targetMember) return null;
                           return (
                             <PartnerControlPanel
-                              member={myActualMember}
+                              member={targetMember}
                               space={space}
-                              viewMode="partner"
+                              viewMode={b.isCreator ? "partner" : "peer"}
                               onClose={() => setExpandedPartnerId(null)}
                               onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
-                              onTriggerTransfer={() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null}
-                              onEditShares={undefined} // partners can't edit shares directly
+                              onTriggerTransfer={b.isCreator ? (() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null) : undefined}
+                              onEditShares={undefined}
                             />
                           );
                         })()}

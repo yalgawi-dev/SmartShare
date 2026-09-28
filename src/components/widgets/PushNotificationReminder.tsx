@@ -30,20 +30,10 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
 
   const handleAction = async (type: 'enable' | 'later' | 'forever') => {
     if (type === 'enable') {
-      if (userId) {
-        const success = await requestNotificationPermission(userId);
-        if (success) {
-          setShow(false);
-          // If successful, don't show again
-          localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
-          localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
-        } else {
-          // If denied, they blocked it. Don't show again.
-          setShow(false);
-          localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
-          localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
-        }
-      }
+      const success = userId ? await requestNotificationPermission(userId) : false;
+      setShow(false);
+      localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
+      localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
     } else {
       setShow(false);
       localStorage.setItem('pushReminderDismiss_v2Type', type);

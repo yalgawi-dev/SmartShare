@@ -47,6 +47,8 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
     } catch (err: any) {
       if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
          setError('אימייל או סיסמה שגויים. אם עדיין אין לך חשבון, אנא עבור להרשמה.');
+      } else if (err.code === 'auth/email-already-in-use' || (err.message && err.message.includes('כבר קיים במערכת'))) {
+         setError('האימייל הזה כבר קיים במערכת. אנא עבור למסך ההתחברות.');
       } else {
          setError(err.message || 'אירעה שגיאה. נסה שוב.');
       }
@@ -88,7 +90,29 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
           </p>
         </div>
 
-        {error && <div className={styles.errorBanner}>{error}</div>}
+        {error && (
+          <div className={styles.errorBanner}>
+            {error}
+            {error.includes('כבר קיים') && (
+              <button 
+                type="button" 
+                onClick={() => { setError(''); setMode('login'); }} 
+                style={{ display: 'block', marginTop: '0.5rem', background: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                עבור להתחברות
+              </button>
+            )}
+            {error.includes('אימייל או סיסמה שגויים') && (
+              <button 
+                type="button" 
+                onClick={() => { setError(''); setMode('register'); }} 
+                style={{ display: 'block', marginTop: '0.5rem', background: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                עבור להרשמה
+              </button>
+            )}
+          </div>
+        )}
         {msg && <div className={styles.successBanner}>{msg}</div>}
 
         

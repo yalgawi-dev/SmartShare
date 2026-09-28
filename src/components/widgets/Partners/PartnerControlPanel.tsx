@@ -46,7 +46,7 @@ interface Props {
   member: any;
   space: any;
   onClose: () => void;
-  viewMode?: 'creator' | 'partner';
+  viewMode?: 'creator' | 'partner' | 'peer';
   onNavigateToFilter?: (filter: string) => void;
   onTriggerTransfer?: () => void;
   onEditShares?: () => void;
@@ -165,7 +165,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' ? `👨‍💼 ${memberName}` : 'האזור האישי שלך'}</h3>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `👨‍💼 ${memberName}` : 'האזור האישי שלך'}</h3>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
                 <span style={{ 
                   background: memberStatus === 'active' ? '#dcfce7' : memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
@@ -213,7 +213,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             let pendingAction = 'pending_me';
             let pendingText = 'ממתינות לאישור';
 
-            if (viewMode === 'creator') {
+            if (viewMode === 'creator' || viewMode === 'peer') {
               // Creator viewing Partner: How many invoices did this Partner submit that I (Creator) need to approve?
               pendingCount = invoices.filter((i:any) => i.isActive !== false && i.status === 'pending' && i.payerId === member.userId && !(i.approvedBy||[]).includes(user?.id) && !(i.excludedMembers||[]).includes(user?.id)).length;
               pendingAction = 'pending_me';
@@ -312,7 +312,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               )}
             </div>
           )}
-          {messagesArray.map((msg: any) => {
+          {viewMode !== 'peer' && messagesArray.map((msg: any) => {
             if (!msg) return null;
             const isMyMsg = msg.from === viewMode;
             
