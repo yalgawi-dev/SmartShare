@@ -360,6 +360,34 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               muted
               style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
             />
+            {/* Live contour overlay – shows detected document boundary in real time */}
+            {liveContour && liveContour.length === 4 && videoRef.current && (() => {
+              const vid = videoRef.current;
+              const vW = vid.videoWidth || 1;
+              const vH = vid.videoHeight || 1;
+              const rect = vid.getBoundingClientRect();
+              const boxW = rect.width;
+              const boxH = rect.height;
+              const vidRatio = vW / vH;
+              const boxRatio = boxW / boxH;
+              let renderW = boxW, renderH = boxH, offX = 0, offY = 0;
+              if (vidRatio > boxRatio) {
+                renderH = boxH; renderW = boxH * vidRatio; offX = (boxW - renderW) / 2;
+              } else {
+                renderW = boxW; renderH = boxW / vidRatio; offY = (boxH - renderH) / 2;
+              }
+              const toBox = (p) => ({ x: offX + (p.x / vW) * renderW, y: offY + (p.y / vH) * renderH });
+              const pts = liveContour.map(toBox);
+              const poly = pts.map(p => p.x + ',' + p.y).join(' ');
+              return (
+                <svg style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 5 }}>
+                  <polygon points={poly} fill="rgba(0,255,100,0.12)" stroke="#00e676" strokeWidth="3" strokeLinejoin="round" />
+                  {pts.map((p, i) => (
+                    <circle key={i} cx={p.x} cy={p.y} r={7} fill="#00e676" stroke="white" strokeWidth="2" />
+                  ))}
+                </svg>
+              );
+            })()}
             {/* Dark Overlay with Transparent Center for Document Alignment */}
             <div 
               ref={guideRef}
