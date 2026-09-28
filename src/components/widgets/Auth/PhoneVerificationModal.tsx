@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { useAuth } from '../../../app/context/AuthContext';
 
 import { auth } from '@/lib/firebase';
-import { RecaptchaVerifier, linkWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
+import { RecaptchaVerifier, linkWithPhoneNumber, ConfirmationResult, PhoneAuthProvider, linkWithCredential } from 'firebase/auth';
 
 export default function PhoneVerificationModal() {
   const { user, linkPhoneNumberMock, isLoaded } = useAuth();
@@ -179,7 +179,10 @@ export default function PhoneVerificationModal() {
         if (!confirmationResult) {
           throw new Error('חסר אישור תקשורת. נסה לשלוח שוב.');
         }
-        await confirmationResult.confirm(code);
+        // Link explicitly to current user instead of just confirming
+        
+        const credential = PhoneAuthProvider.credential(confirmationResult.verificationId, code.trim());
+        await linkWithCredential(auth.currentUser!, credential);
         await linkPhoneNumberMock(formattedPhone);
       }
     } catch (err: any) {
