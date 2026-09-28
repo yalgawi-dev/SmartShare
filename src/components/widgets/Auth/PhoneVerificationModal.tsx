@@ -118,10 +118,32 @@ export default function PhoneVerificationModal() {
   const handleOtpChange = (index: number, value: string) => {
     if (!/^\d*$/.test(value)) return;
     
+    setErrorMsg('');
+    
+    // Handle paste / auto-fill of 6 digits
+    if (value.length >= 6) {
+      const pasted = value.slice(0, 6).split('');
+      setOtp(pasted);
+      inputRefs.current[5]?.focus();
+      return;
+    }
+    
+    // Handle paste of more than 1 digit but less than 6
+    if (value.length > 1) {
+      const pasted = value.split('');
+      const newOtp = [...otp];
+      for (let i = 0; i < pasted.length && index + i < 6; i++) {
+        newOtp[index + i] = pasted[i];
+      }
+      setOtp(newOtp);
+      const nextFocusIndex = Math.min(index + pasted.length, 5);
+      inputRefs.current[nextFocusIndex]?.focus();
+      return;
+    }
+
     const newOtp = [...otp];
     newOtp[index] = value.substring(value.length - 1);
     setOtp(newOtp);
-    setErrorMsg('');
 
     if (value && index < 5) {
       inputRefs.current[index + 1]?.focus();
