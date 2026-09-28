@@ -101,7 +101,7 @@ export async function POST(request: Request) {
            const errText = await res.text();
            if (res.status === 503 || errText.includes('503') || errText.includes('UNAVAILABLE') || errText.includes('high demand') || res.status === 429) {
               console.warn(`[OCR] Google REST API 503/429 error, retries left: ${retries - 1}`);
-              throw new Error('503_RETRY');
+              if (retries <= 1) throw new Error(`FATAL_DETAILS: ${res.status} - ${errText.substring(0, 150)}`); throw new Error('503_RETRY');
            } else {
               throw new Error(`FATAL: Google API Error ${res.status}: ${errText}`);
            }
