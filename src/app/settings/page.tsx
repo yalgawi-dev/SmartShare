@@ -1,6 +1,7 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
 
+import { auth } from '@/lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission } from '../../utils/notifications';
 import { useSpaces } from '../context/SpacesContext';
@@ -189,7 +190,16 @@ export default function SettingsPage() {
 
             <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
               אימייל:
-              <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value)} placeholder="your@email.com" style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+              
+              {auth.currentUser?.providerData.some(p => p.providerId === 'google.com' || p.providerId === 'facebook.com' || p.providerId === 'apple.com') ? (
+                <div style={{ position: 'relative' }}>
+                  <input type="email" value={email} disabled style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>מייל זה מסונכרן אוטומטית מחשבון ההתחברות שלך ומוגן משינויים.</span>
+                </div>
+              ) : (
+                <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value)} placeholder="הזן מייל לקבלת חשבוניות" style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
+              )}
+
             </label>
           </div>
 
