@@ -42,7 +42,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original'>('auto');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original'>('smart_plus');
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   
@@ -175,7 +175,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   // 5. Apply Perspective Crop
   const performCrop = async (snapshot: string, pts: Point[], targetProfile?: any) => {
     try {
-      const activeProfile = targetProfile || mode;
+      const activeProfile = targetProfile || 'smart_plus';
       
       const results = await applyPerspectiveAndFilters(snapshot, pts, activeProfile);
       
@@ -229,7 +229,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setRawSnapshot(null);
     setImageCache({});
     setTimingCache({});
-    setMode('auto');
+    setMode('smart_plus');
     setDetectedType(null);
   };
 
@@ -420,9 +420,10 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         {step === 'review' && (
           <>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+                {/* hidden – kept for future plugins */}
                 <button 
                 onClick={() => handleFilterSwitch('auto')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'auto' ? '#fff' : 'transparent', color: mode === 'auto' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer', position: 'relative' }}>
+                style={{ display: 'none', padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'auto' ? '#fff' : 'transparent', color: mode === 'auto' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer', position: 'relative' }}>
                   אוטומט ✨
                   {mode === 'auto' && detectedType && (
                     <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
@@ -440,14 +441,16 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                 style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   מקור
                 </button>
+                {/* hidden – kept for future plugins */}
                 <button 
                 onClick={() => handleFilterSwitch('pure_color')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                style={{ display: 'none', padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   תמונות
                 </button>
+                {/* hidden – kept for future plugins */}
                 <button 
                 onClick={() => handleFilterSwitch('hybrid')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'hybrid' ? '#fff' : 'transparent', color: mode === 'hybrid' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
+                style={{ display: 'none', padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'hybrid' ? '#fff' : 'transparent', color: mode === 'hybrid' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
                   קולאז'
                 </button>
                 <button 
@@ -460,6 +463,18 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
             
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', gap: '0.5rem' }}>
+              <button onClick={() => {
+                // Reset all state and go back to scanning
+                setStep('scanning');
+                setRawSnapshot(null);
+                setCropPoints([]);
+                setImageCache({});
+                setTimingCache({});
+                setMode('smart_plus');
+                setDetectedType(null);
+              }} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                📷 סרוק שוב
+              </button>
               <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                 חזור לעריכה
               </button>
@@ -472,6 +487,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             </div>
           </>
         )}
+
       </div>
     </div>
   );
