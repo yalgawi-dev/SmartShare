@@ -187,7 +187,26 @@ export default function GlobalPWAPrompt() {
     );
   }
 
-  // ── Main banner (Android Chrome / iOS Safari) ─────────────────────────────────
+    // ── Android Chrome: Manual guide (if One-Tap fails or Incognito) ────────────────────────────
+  if (platform === 'android-chrome' && showGuide) {
+    return (
+      <Sheet>
+        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📱</div>
+          <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#0f172a', margin: '0 0 0.5rem 0' }}>הוסף למסך הבית</h3>
+          <p style={{ fontSize: '0.95rem', color: '#475569', margin: 0, lineHeight: 1.4 }}>התקנה מהירה ופשוטה</p>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
+          <Step icon="⋮" text='לחץ על תפריט ה-3 נקודות למעלה' />
+          <Step icon="➕" text='בחר "הוסף למסך הבית" או "התקן"' />
+          <Step icon="✅" text='לחץ "הוסף" — וזהו!' />
+        </div>
+        <button onClick={() => setShowGuide(false)} style={{ background: '#3b82f6', color: 'white', width: '100%', padding: '0.85rem', borderRadius: '14px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>הבנתי, תודה!</button>
+      </Sheet>
+    );
+  }
+
+// ── Main banner (Android Chrome / iOS Safari) ─────────────────────────────────
   const isAndroidChrome = platform === 'android-chrome';
   const canOneTap = isAndroidChrome && !!deferredPrompt;
 
