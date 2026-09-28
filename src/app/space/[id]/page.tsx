@@ -140,11 +140,19 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         if (localKeys[id]?.token) myPartnerToken = localKeys[id].token;
       } catch(e){}
     }
-    const myMember = space?.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
+    const realUserMember = space?.members?.find((m: any) => m.userId === user?.id);
+    const tokenMember = myPartnerToken ? space?.members?.find((m: any) => m.userId === myPartnerToken) : null;
 
-    if (user?.id && !(user as any).isAnonymous && myPartnerToken && myMember && myMember.userId === myPartnerToken && myMember.userId !== user.id) {
-      if (space && space.id) {
-        migrateGuestToRealUser(space.id, myPartnerToken, user.id, user.realName || myMember.name);
+    if (user?.id && !(user as any).isAnonymous && myPartnerToken) {
+      if (realUserMember) {
+        // User is already in the space with their real ID, clear the token from URL to avoid ghost duplication
+        if (typeof window !== 'undefined' && window.location.search.includes('invite=')) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      } else if (tokenMember && tokenMember.userId !== user.id) {
+        if (space && space.id) {
+          migrateGuestToRealUser(space.id, myPartnerToken, user.id, user.realName || tokenMember.name);
+        }
       }
     }
   }, [user?.id, (user as any)?.isAnonymous, space, id, migrateGuestToRealUser]);

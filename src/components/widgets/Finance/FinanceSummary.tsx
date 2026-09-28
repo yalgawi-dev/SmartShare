@@ -93,7 +93,8 @@ export function FinanceSummary({
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
-  const myEffectiveId = isCreatorMe ? myId : (myPartnerToken || myId);
+  const amIRealMember = space.members?.some((m: any) => m.userId === myId);
+  const myEffectiveId = isCreatorMe ? myId : (amIRealMember ? myId : (myPartnerToken || myId));
   
   const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
   const creatorName = space.createdBy || (isCreatorMe ? myRealName : 'יוצר המרחב');
