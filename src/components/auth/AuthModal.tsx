@@ -245,7 +245,7 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
                 </p>
                 <button 
                   onClick={() => {
-                    const url = window.location.href.replace(/^https?:\/\//, '');
+                    const url = (window.location.href + (window.location.href.includes('?') ? '&' : '?') + 'action=login').replace(/^https?:\/\//, '');
                     window.location.href = `intent://${url}#Intent;scheme=https;package=com.android.chrome;end`;
                   }}
                   style={{
