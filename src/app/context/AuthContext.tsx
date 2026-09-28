@@ -353,7 +353,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e: any) {
       console.error('Google login failed', e);
       if (e.code === 'auth/popup-blocked') {
-          alert('⚠ חסימת פופאפים פעילה بدפדפן זה (סמסונג/פנימי).\n\nכדי להתחבר בהצלחה ולהתגבר על הבעיה:\n1. העתק את הכתובת של האתר\n2. פתח דפדפן כרום (Chrome) רגיל\n3. הדבק את הכתובת והתחבר שם.');
+          
         } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
@@ -387,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e: any) {
       console.error('Facebook login failed', e);
       if (e.code === 'auth/popup-blocked') {
-          alert('⚠ חסימת פופאפים פעילה بدפדפן זה (סמסונג/פנימי).\n\nכדי להתחבר בהצלחה ולהתגבר על הבעיה:\n1. העתק את הכתובת של האתר\n2. פתח דפדפן כרום (Chrome) רגיל\n3. הדבק את הכתובת והתחבר שם.');
+          
         } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
