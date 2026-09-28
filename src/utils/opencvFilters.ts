@@ -136,7 +136,7 @@ function detectWithAdaptive(cv: any, src: any, gray: any, scale: number): Point[
  * Uses 2 strategies: Canny (Otsu-adaptive) ג†’ Adaptive Threshold.
  * Returns [TL, TR, BR, BL] if found and valid, otherwise null.
  */
-export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
+export function detectDocument(canvas: HTMLCanvasElement, isLivePreview = false): Point[] | null {
   try {
     const cv = (window as any).cv;
     if (!cv || !cv.Mat) return null;

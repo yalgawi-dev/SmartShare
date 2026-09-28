@@ -118,7 +118,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         lastDetectTimeRef.current = now;
 
         // Snapshot video to offscreen canvas at reduced size for speed
-        const W = 480;
+        const W = 250;
         const H = Math.round(video.videoHeight * (W / video.videoWidth));
         const offscreen = document.createElement('canvas');
         offscreen.width = W;
@@ -126,7 +126,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
         const ctx = offscreen.getContext('2d');
         if (ctx) {
           ctx.drawImage(video, 0, 0, W, H);
-          const detected = detectDocument(offscreen);
+          const detected = detectDocument(offscreen, true);
           if (detected) {
             // Scale points back from 480px space to video native size
             const scaleX = video.videoWidth / W;
