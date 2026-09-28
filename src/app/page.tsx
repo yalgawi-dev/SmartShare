@@ -175,6 +175,14 @@ export default function Dashboard() {
     }
   }, [isSpacesLoaded, visibleSpaces.length]);
 
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('action=login')) {
+      setShowAuthModal(true);
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  }, []);
+
   return (
     <div className={styles.container}>
       <PhoneLinkEnforcer />
