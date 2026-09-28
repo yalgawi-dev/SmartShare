@@ -99,11 +99,13 @@ export async function POST(request: Request) {
         
         if (!res.ok) {
            const errText = await res.text();
+           const keySuffix = apiKey ? apiKey.slice(-4) : 'NONE';
+           
            if (res.status === 402 || errText.includes('depleted') || errText.includes('RESOURCE_EXHAUSTED')) {
-              throw new Error('FATAL: Google API Billing Depleted (402). Your API key has run out of credits.');
+              throw new Error(`FATAL: 402 Billing Depleted (Key ending in ${keySuffix})`);
            } else if (res.status === 503 || errText.includes('503') || errText.includes('UNAVAILABLE') || errText.includes('high demand') || res.status === 429) {
               console.warn(`[OCR] Google REST API 503/429 error, retries left: ${retries - 1}`);
-              if (retries <= 1) throw new Error(`FATAL_DETAILS: ${res.status} - ${errText.substring(0, 150)}`); throw new Error('503_RETRY');
+              if (retries <= 1) throw new Error(`FATAL_DETAILS (Key ending in ${keySuffix}): ${res.status} - ${errText.substring(0, 150)}`); throw new Error('503_RETRY');
            } else {
               throw new Error(`FATAL: Google API Error ${res.status}: ${errText}`);
            }
