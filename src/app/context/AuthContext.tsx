@@ -281,14 +281,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (needsUpdate) {
-          await updateDoc(userRef, { 
-            realName: activeUser.realName || 'אורח',
-            nickname: activeUser.nickname || '',
-            avatarUrl: activeUser.avatarUrl || null,
-            email: activeUser.email || ''
-          });
-          setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any : { ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any);
+          try {
+            await updateDoc(userRef, { 
+              realName: activeUser.realName || 'אורח',
+              nickname: activeUser.nickname || '',
+              avatarUrl: activeUser.avatarUrl || null,
+              email: activeUser.email || ''
+            });
+          } catch(e) { console.error('updateDoc sync error', e); }
         }
+        setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any : { ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any);
       }
     } catch (err) {
       console.error("Failed to sync provider data", err);
