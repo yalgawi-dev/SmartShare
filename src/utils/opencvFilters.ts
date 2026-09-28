@@ -1,4 +1,4 @@
-/* eslint-disable */
+﻿/* eslint-disable */
 // @ts-nocheck
 import { compressCanvas } from './imageOptimizer';
 
@@ -7,101 +7,181 @@ export interface Point {
   y: number;
 }
 
+// ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// Internal helpers for detectDocument
+// ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
+/** Compute Otsu threshold on a grayscale Mat. Returns value 0-255. */
+function computeOtsuThreshold(cv: any, grayMat: any): number {
+  try {
+    const tmp = new cv.Mat();
+    const thresh = cv.threshold(grayMat, tmp, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+    tmp.delete();
+    return thresh;
+  } catch {
+    return 128;
+  }
+}
+
+/** Sort raw detected points into [TL, TR, BR, BL] order. */
+function sortQuadPoints(pts: Point[]): Point[] {
+  const s = [...pts];
+  s.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  const tl = s[0], br = s[s.length - 1];
+  s.sort((a, b) => (a.x - a.y) - (b.x - b.y));
+  const bl = s[0], tr = s[s.length - 1];
+  return [tl, tr, br, bl];
+}
+
+/**
+ * Validate that 4 detected points form a plausible document quad:
+ * - Aspect ratio between 0.25 and 4.0
+ * - Covers at least 10% of image area
+ */
+function isValidQuad(pts: Point[], imgW: number, imgH: number): boolean {
+  if (pts.length !== 4) return false;
+  const [tl, tr, br, bl] = pts;
+  const w = Math.max(
+    Math.hypot(tr.x - tl.x, tr.y - tl.y),
+    Math.hypot(br.x - bl.x, br.y - bl.y)
+  );
+  const h = Math.max(
+    Math.hypot(bl.x - tl.x, bl.y - tl.y),
+    Math.hypot(br.x - tr.x, br.y - tr.y)
+  );
+  if (w < 1 || h < 1) return false;
+  const ar = w / h;
+  if (ar < 0.25 || ar > 4.0) return false;
+  return (w * h) >= imgW * imgH * 0.10;
+}
+
+/** Extract and sort points from an OpenCV approxPolyDP result Mat. */
+function extractPoints(mat: any, scale: number): Point[] {
+  const pts: Point[] = [];
+  for (let i = 0; i < mat.rows; i++) {
+    pts.push({ x: mat.data32S[i * 2] / scale, y: mat.data32S[i * 2 + 1] / scale });
+  }
+  return pts;
+}
+
+/** Find best 4-8 point contour from a contours vector. */
+function findBestContour(cv: any, contours: any, totalArea: number, scale: number, epsilon = 0.03): Point[] | null {
+  let maxArea = 0;
+  let bestPts: Point[] | null = null;
+  const maxC = Math.min(contours.size(), 400);
+  for (let i = 0; i < maxC; ++i) {
+    const cnt = contours.get(i);
+    const area = cv.contourArea(cnt);
+    if (area > totalArea * 0.10 && area < totalArea * 0.97) {
+      const peri = cv.arcLength(cnt, true);
+      const approx = new cv.Mat();
+      cv.approxPolyDP(cnt, approx, epsilon * peri, true);
+      if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
+        maxArea = area;
+        bestPts = extractPoints(approx, scale);
+      }
+      approx.delete();
+    }
+    cnt.delete();
+  }
+  return bestPts ? sortQuadPoints(bestPts) : null;
+}
+
+/**
+ * Strategy 1: Canny with Otsu-adaptive thresholds.
+ * Best on high-contrast documents.
+ */
+function detectWithCanny(cv: any, src: any, gray: any, scale: number): Point[] | null {
+  let blurred = new cv.Mat(), edged = new cv.Mat(), closed = new cv.Mat();
+  let contours = new cv.MatVector(), hierarchy = new cv.Mat();
+  const M = cv.Mat.ones(3, 3, cv.CV_8U);
+  try {
+    cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
+    const otsu = computeOtsuThreshold(cv, blurred);
+    cv.Canny(blurred, edged, otsu * 0.4, otsu, 3, false);
+    cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
+    cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
+    cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+    return findBestContour(cv, contours, src.rows * src.cols, scale, 0.03);
+  } finally {
+    blurred.delete(); edged.delete(); closed.delete();
+    contours.delete(); hierarchy.delete(); M.delete();
+  }
+}
+
+/**
+ * Strategy 2: Adaptive threshold contours.
+ * Handles low-contrast and uneven lighting (e.g. white paper on brown desk).
+ */
+function detectWithAdaptive(cv: any, src: any, gray: any, scale: number): Point[] | null {
+  let binary = new cv.Mat(), contours = new cv.MatVector(), hierarchy = new cv.Mat();
+  try {
+    cv.adaptiveThreshold(gray, binary, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, 21, 10);
+    const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
+    cv.dilate(binary, binary, kernel);
+    kernel.delete();
+    cv.findContours(binary, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+    return findBestContour(cv, contours, src.rows * src.cols, scale, 0.03);
+  } finally {
+    binary.delete(); contours.delete(); hierarchy.delete();
+  }
+}
+
+// ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+// Public API
+// ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
 
 /**
  * Attempts to auto-detect a document contour in the given canvas.
- * Returns an array of 4 points if found, otherwise returns null.
+ * Uses 2 strategies: Canny (Otsu-adaptive) ג†’ Adaptive Threshold.
+ * Returns [TL, TR, BR, BL] if found and valid, otherwise null.
  */
 export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   try {
     const cv = (window as any).cv;
     if (!cv || !cv.Mat) return null;
 
-    const tempScale = 300 / canvas.width;
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = 300;
-    tempCanvas.height = Math.round(canvas.height * tempScale);
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx?.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-    
-    let src = cv.imread(tempCanvas);
-    let gray = new cv.Mat();
-    let blurred = new cv.Mat();
-    let edged = new cv.Mat();
-    
+    // 600px for better edge resolution (was 300px)
+    const TARGET_W = 600;
+    const scale = TARGET_W / canvas.width;
+    const tmp = document.createElement('canvas');
+    tmp.width = TARGET_W;
+    tmp.height = Math.round(canvas.height * scale);
+    const tmpCtx = tmp.getContext('2d');
+    if (!tmpCtx) return null;
+    tmpCtx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
+
+    const src = cv.imread(tmp);
+    const gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-    
-    // Apply CLAHE to improve contrast for edge detection in bad lighting
-    let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
+
+    // CLAHE: boost local contrast (helps in dim / warm lighting)
+    const clahe = new cv.CLAHE(2.5, new cv.Size(8, 8));
     clahe.apply(gray, gray);
     clahe.delete();
-    
-    let ksize = new cv.Size(5, 5);
-    cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
-    cv.Canny(blurred, edged, 75, 200, 3, false);
-    
-    // Draw white border to force open edges to connect
-    cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
-    
-    let M = cv.Mat.ones(3, 3, cv.CV_8U);
-    let closed = new cv.Mat();
-    cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
-    
-    let contours = new cv.MatVector();
-    let hierarchy = new cv.Mat();
-    cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-    
-    let maxArea = 0;
-    let bestContour: any = null;
-    
-    let maxC = Math.min(contours.size(), 300); for (let i = 0; i < maxC; ++i) {
-      let cnt = contours.get(i);
-      let area = cv.contourArea(cnt);
-      if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.95) { 
-        let peri = cv.arcLength(cnt, true);
-        let approx = new cv.Mat();
-        cv.approxPolyDP(cnt, approx, 0.04 * peri, true);
-        if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
-          maxArea = area;
-          if (bestContour) bestContour.delete();
-          bestContour = approx.clone();
-        }
-        approx.delete();
-      }
-    }
-    
-    let defaultPts = null;
-    if (bestContour) {
-      let pts = [];
-      for (let i = 0; i < bestContour.rows; i++) {
-        pts.push({
-          x: bestContour.data32S[i * 2] / tempScale,
-          y: bestContour.data32S[i * 2 + 1] / tempScale
-        });
-      }
-      
-      pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-      const tl = pts[0];
-      const br = pts[pts.length - 1];
-      
-      pts.sort((a, b) => (a.x - a.y) - (b.x - b.y));
-      const bl = pts[0];
-      const tr = pts[pts.length - 1];
-      
-      defaultPts = [tl, tr, br, bl];
-      bestContour.delete();
-    }
-    
-    M.delete(); closed.delete(); contours.delete(); hierarchy.delete();
-    gray.delete(); blurred.delete(); edged.delete(); src.delete();
 
-    return defaultPts;
+    // Strategy 1: Canny with adaptive Otsu thresholds
+    let result = detectWithCanny(cv, src, gray, scale);
+    if (result && isValidQuad(result, canvas.width, canvas.height)) {
+      gray.delete(); src.delete();
+      return result;
+    }
+
+    // Strategy 2: Adaptive threshold (fallback for low-contrast backgrounds)
+    result = detectWithAdaptive(cv, src, gray, scale);
+    if (result && isValidQuad(result, canvas.width, canvas.height)) {
+      gray.delete(); src.delete();
+      return result;
+    }
+
+    gray.delete(); src.delete();
+    return null;
   } catch (err) {
-    console.warn("Auto-detect failed", err);
+    console.warn('[detectDocument] failed:', err);
     return null;
   }
 }
+
 
 /**
  * Applies perspective crop and industry-standard enhancement filters.

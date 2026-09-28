@@ -17,9 +17,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const videoRef = useRef<HTMLVideoElement>(null as unknown as HTMLVideoElement);
   const guideRef = useRef<HTMLDivElement>(null);
   
-  // Ref to store the latest stable contour points in video scale
-  const lastContourRef = useRef<Point[] | null>(null);
-  const missedFramesRef = useRef<number>(0);
+  // Live contour detection
+  const liveContourRef = useRef<Point[] | null>(null);   // latest detected contour (for capture)
+  const liveLoopRef = useRef<number | null>(null);        // rAF handle
+  const lastDetectTimeRef = useRef<number>(0);            // throttle timer
+  const [liveContour, setLiveContour] = useState<Point[] | null>(null); // drives SVG overlay
   
   const [cvLoaded, setCvLoaded] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
@@ -87,6 +89,66 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     document.body.appendChild(script);
   }, []);
 
+
+
+  // ── Live Contour Detection Loop ──────────────────────────────────────────
+  // Runs detectDocument on a downscaled video frame every 300ms.
+  // Detected quad is drawn as a green SVG overlay so the user can
+  // position the document before pressing capture.
+  useEffect(() => {
+    if (step !== 'scanning' || !cvLoaded) {
+      // Clean up when not scanning
+      if (liveLoopRef.current) cancelAnimationFrame(liveLoopRef.current);
+      liveContourRef.current = null;
+      setLiveContour(null);
+      return;
+    }
+
+    const THROTTLE_MS = 300; // run detection ~3x per second
+
+    const detect = () => {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2) {
+        liveLoopRef.current = requestAnimationFrame(detect);
+        return;
+      }
+
+      const now = Date.now();
+      if (now - lastDetectTimeRef.current > THROTTLE_MS) {
+        lastDetectTimeRef.current = now;
+
+        // Snapshot video to offscreen canvas at reduced size for speed
+        const W = 480;
+        const H = Math.round(video.videoHeight * (W / video.videoWidth));
+        const offscreen = document.createElement('canvas');
+        offscreen.width = W;
+        offscreen.height = H;
+        const ctx = offscreen.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, W, H);
+          const detected = detectDocument(offscreen);
+          if (detected) {
+            // Scale points back from 480px space to video native size
+            const scaleX = video.videoWidth / W;
+            const scaleY = video.videoHeight / H;
+            const scaled = detected.map(p => ({ x: p.x * scaleX, y: p.y * scaleY }));
+            liveContourRef.current = scaled;
+            setLiveContour(scaled);
+          } else {
+            liveContourRef.current = null;
+            setLiveContour(null);
+          }
+        }
+      }
+
+      liveLoopRef.current = requestAnimationFrame(detect);
+    };
+
+    liveLoopRef.current = requestAnimationFrame(detect);
+    return () => {
+      if (liveLoopRef.current) cancelAnimationFrame(liveLoopRef.current);
+    };
+  }, [step, cvLoaded]);
 
   const handleCapture = () => {
     if (!videoRef.current || !guideRef.current) return;
