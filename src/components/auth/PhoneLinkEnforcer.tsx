@@ -16,16 +16,20 @@ export default function PhoneLinkEnforcer() {
 
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).recaptchaVerifierLink) {
-      (window as any).recaptchaVerifierLink = new RecaptchaVerifier(auth, 'recaptcha-container-link', {
-        size: 'invisible',
-      });
+      try {
+        (window as any).recaptchaVerifierLink = new RecaptchaVerifier(auth, 'recaptcha-container-link', {
+          size: 'invisible',
+        });
+      } catch (e) {
+        console.error("Recaptcha error:", e);
+      }
     }
   }, []);
 
   if (!isLoaded || !user) return null;
   // If the user is an admin or already has a phone, or is anonymous, we don't block them.
   // Wait, if they are anonymous, they don't have a phone, but we only force verified users.
-  if (user.phone || (user as any).isAnonymous) return null;
+  if (user.phone || (user as any).isAnonymous || user.isAdmin) return null;
 
   const handleSendCode = async () => {
     if (phone.length < 9) {
