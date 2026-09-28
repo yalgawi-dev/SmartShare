@@ -64,17 +64,32 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
   const [popupBlocked, setPopupBlocked] = useState(false);
 
     const handleProviderLogin = (providerName: 'google' | 'facebook') => {
-    // CRITICAL: Fire login synchronously BEFORE any React state updates to prevent popup blockers!
-    const loginPromise = providerName === 'google' ? loginWithGoogle() : loginWithFacebook();
+    const provider = providerName === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider();
+    
+    let popupPromise;
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
+      popupPromise = linkWithPopup(auth.currentUser, provider).catch(err => {
+        if (err.code === 'auth/credential-already-in-use') {
+          return signInWithPopup(auth, provider);
+        }
+        throw err;
+      });
+    } else {
+      popupPromise = signInWithPopup(auth, provider);
+    }
     
     setProviderLoading(providerName);
     setPopupBlocked(false);
     
-    loginPromise.then(() => {
-      onSuccess?.();
+    popupPromise.then(() => {
+      if (onSuccess) onSuccess();
       onClose();
     }).catch((err: any) => {
       if (err?.code === 'auth/popup-blocked') {
+        signInWithRedirect(auth, provider).catch(e => {
+          setPopupBlocked(true);
+        });
+      } else {
         setPopupBlocked(true);
       }
     }).finally(() => {

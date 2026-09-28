@@ -1,14 +1,50 @@
 ﻿const fs = require('fs');
-const file = 'src/app/context/AuthContext.tsx';
+const file = 'src/components/auth/AuthModal.tsx';
 let content = fs.readFileSync(file, 'utf8');
 
-// Use precise regex to replace popup-blocked alert for google and facebook
-content = content.replace(/if \(e\.code === 'auth\/popup-blocked'\) \{[\s\S]*?\} else if \(e\.code !== 'auth\/popup-closed/g, 
-  `if (e.code === 'auth/popup-blocked') {
-          if (window.confirm('הדפדפן חסם את החלון הקופץ. האם להמשיך להתחברות באותו מסך (Redirect)?')) {
-             await signInWithRedirect(auth, googleProvider); // or Facebook, but we will let user re-click for now
-          }
-        } else if (e.code !== 'auth/popup-closed`);
+const start = content.indexOf('const handleProviderLogin =');
+const end = content.indexOf('return (', start);
 
-fs.writeFileSync(file, content, 'utf8');
-console.log("Updated fallback");
+if (start !== -1 && end !== -1) {
+  const newFunc = `const handleProviderLogin = (providerName: 'google' | 'facebook') => {
+    const provider = providerName === 'google' ? new GoogleAuthProvider() : new FacebookAuthProvider();
+    
+    let popupPromise;
+    if (auth.currentUser && auth.currentUser.isAnonymous) {
+      popupPromise = linkWithPopup(auth.currentUser, provider).catch(err => {
+        if (err.code === 'auth/credential-already-in-use') {
+          return signInWithPopup(auth, provider);
+        }
+        throw err;
+      });
+    } else {
+      popupPromise = signInWithPopup(auth, provider);
+    }
+    
+    setProviderLoading(providerName);
+    setPopupBlocked(false);
+    
+    popupPromise.then(() => {
+      if (onSuccess) onSuccess();
+      onClose();
+    }).catch((err: any) => {
+      if (err?.code === 'auth/popup-blocked') {
+        signInWithRedirect(auth, provider).catch(e => {
+          setPopupBlocked(true);
+        });
+      } else {
+        setPopupBlocked(true);
+      }
+    }).finally(() => {
+      setProviderLoading(null);
+    });
+  };
+
+  `;
+  
+  content = content.substring(0, start) + newFunc + content.substring(end);
+  fs.writeFileSync(file, content, 'utf8');
+  console.log("Patched successfully via direct index");
+} else {
+  console.log("Error finding block");
+}
