@@ -60,21 +60,23 @@ export default function AuthModal({ onClose, onSuccess, title = 'התחברות 
   const [providerLoading, setProviderLoading] = useState<'google' | 'facebook' | null>(null);
   const [popupBlocked, setPopupBlocked] = useState(false);
 
-  const handleProviderLogin = async (providerName: 'google' | 'facebook') => {
+    const handleProviderLogin = (providerName: 'google' | 'facebook') => {
+    // CRITICAL: Fire login synchronously BEFORE any React state updates to prevent popup blockers!
+    const loginPromise = providerName === 'google' ? loginWithGoogle() : loginWithFacebook();
+    
     setProviderLoading(providerName);
     setPopupBlocked(false);
-    try {
-      if (providerName === 'google') await loginWithGoogle();
-      if (providerName === 'facebook') await loginWithFacebook();
+    
+    loginPromise.then(() => {
       onSuccess?.();
       onClose();
-    } catch (err: any) {
+    }).catch((err: any) => {
       if (err?.code === 'auth/popup-blocked') {
         setPopupBlocked(true);
       }
-    } finally {
+    }).finally(() => {
       setProviderLoading(null);
-    }
+    });
   };
 
   return (
