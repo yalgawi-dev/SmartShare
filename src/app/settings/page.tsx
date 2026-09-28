@@ -355,7 +355,7 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).map((s: any) => (
+                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s.creatorId === user?.id || user?.spaceKeys?.[s.id])).map((s: any) => (
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
                     <td style={{ padding: '1rem', fontWeight: 'bold' }}>{s.icon} {s.title}</td>
                     <td style={{ padding: '1rem' }}>{s.members?.length || 0}</td>
@@ -373,7 +373,7 @@ export default function SettingsPage() {
                     </td>
                   </tr>
                 ))}
-                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s as any).creatorId === user?.id).length === 0 && (
+                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s.creatorId === user?.id || user?.spaceKeys?.[s.id])).length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
                       אין מרחבים בארכיון כרגע.
