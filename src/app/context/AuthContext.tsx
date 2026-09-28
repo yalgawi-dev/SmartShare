@@ -153,7 +153,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // If they linked a provider (Google/Facebook) but their profile still says 'אורח', update it!
             if (!firebaseUser.isAnonymous) {
-              const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+              const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
               const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
               const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
@@ -193,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (e) {}
             
             // Create new user profile in Firestore
-            const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+            const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
             const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
             const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
             
@@ -262,7 +262,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         let activeUser = userSnap.data() as UserProfile;
         let needsUpdate = false;
         
-        const bestName = forcedName || firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName;
+        const bestName = forcedName || firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
         const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
         const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
