@@ -7,7 +7,7 @@ import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 
 export default function SettingsPage() {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, logout, deleteMyAccount } = useAuth();
   const [isPushEnabled, setIsPushEnabled] = useState(false);
 
   useEffect(() => {
@@ -72,9 +72,31 @@ export default function SettingsPage() {
             &rarr; חזרה למסך הראשי
           </Link>
         </div>
+  
+      <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>אזור מסוכן (Danger Zone)</h3>
+        <button 
+          onClick={async () => {
+            if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה לא ניתנת לביטול! (אם זהו חשבון כפול ריק, זו הפעולה הנכונה לשחרור מספר הטלפון)')) {
+              try {
+                await deleteMyAccount();
+                alert('החשבון נמחק בהצלחה.');
+                window.location.href = '/';
+              } catch (e) {
+                alert('שגיאה במחיקת חשבון: ' + e.message);
+              }
+            }
+          }}
+          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+        >
+          מחק את החשבון שלי לצמיתות
+        </button>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   // Auto-save logic
   const saveField = (field: string, value: any) => {
@@ -297,9 +319,31 @@ export default function SettingsPage() {
               return (
                 <div style={{ textAlign: 'center', padding: '1.5rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-light)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                   אין לך אנשי קשר משותפים במרחבים כרגע.
-                </div>
-              );
+            
+      <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>אזור מסוכן (Danger Zone)</h3>
+        <button 
+          onClick={async () => {
+            if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה לא ניתנת לביטול! (אם זהו חשבון כפול ריק, זו הפעולה הנכונה לשחרור מספר הטלפון)')) {
+              try {
+                await deleteMyAccount();
+                alert('החשבון נמחק בהצלחה.');
+                window.location.href = '/';
+              } catch (e) {
+                alert('שגיאה במחיקת חשבון: ' + e.message);
+              }
             }
+          }}
+          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+        >
+          מחק את החשבון שלי לצמיתות
+        </button>
+      </div>
+    </div>
+  );
+}
             
             return (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
@@ -326,12 +370,56 @@ export default function SettingsPage() {
                       >
                         מחק לצמיתות
                       </button>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                
+      <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>אזור מסוכן (Danger Zone)</h3>
+        <button 
+          onClick={async () => {
+            if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה לא ניתנת לביטול! (אם זהו חשבון כפול ריק, זו הפעולה הנכונה לשחרור מספר הטלפון)')) {
+              try {
+                await deleteMyAccount();
+                alert('החשבון נמחק בהצלחה.');
+                window.location.href = '/';
+              } catch (e) {
+                alert('שגיאה במחיקת חשבון: ' + e.message);
+              }
+            }
+          }}
+          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+        >
+          מחק את החשבון שלי לצמיתות
+        </button>
+      </div>
+    </div>
+  );
+})}
+          
+      <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>אזור מסוכן (Danger Zone)</h3>
+        <button 
+          onClick={async () => {
+            if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה לא ניתנת לביטול! (אם זהו חשבון כפול ריק, זו הפעולה הנכונה לשחרור מספר הטלפון)')) {
+              try {
+                await deleteMyAccount();
+                alert('החשבון נמחק בהצלחה.');
+                window.location.href = '/';
+              } catch (e) {
+                alert('שגיאה במחיקת חשבון: ' + e.message);
+              }
+            }
+          }}
+          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+        >
+          מחק את החשבון שלי לצמיתות
+        </button>
+      </div>
+    </div>
+  );
+})()}
         </section>
 
         {/* Archived Spaces */}
@@ -385,6 +473,28 @@ export default function SettingsPage() {
           </div>
         </section>
 
+      </div>
+
+      <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
+        <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>אזור מסוכן (Danger Zone)</h3>
+        <button 
+          onClick={async () => {
+            if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה לא ניתנת לביטול! (אם זהו חשבון כפול ריק, זו הפעולה הנכונה לשחרור מספר הטלפון)')) {
+              try {
+                await deleteMyAccount();
+                alert('החשבון נמחק בהצלחה.');
+                window.location.href = '/';
+              } catch (e) {
+                alert('שגיאה במחיקת חשבון: ' + e.message);
+              }
+            }
+          }}
+          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
+          onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
+          onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
+        >
+          מחק את החשבון שלי לצמיתות
+        </button>
       </div>
     </div>
   );

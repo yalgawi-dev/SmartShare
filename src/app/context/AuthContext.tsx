@@ -3,8 +3,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '@/lib/firebase';
 import { signInWithPhoneNumber,  GoogleAuthProvider  } from 'firebase/auth';
-import { signInWithRedirect, linkWithRedirect, getRedirectResult, signInAnonymously, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
+import { signInWithRedirect, linkWithRedirect, getRedirectResult, signInAnonymously, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential, deleteUser } from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 export interface UserContact {
   id: string;
@@ -49,7 +49,8 @@ interface AuthContextType {
   addContact: (contact: Omit<UserContact, 'addedAt'>) => void;
   blockUser: (userId: string, block: boolean) => void; // Admin action
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
-  deleteUserDoc: (userId: string) => void; // Admin action
+  deleteUserDoc: (userId: string) => void;
+  deleteMyAccount: () => Promise<void>; // Admin action
   isLoaded: boolean;
   loginWithPhone: (phone: string, appVerifier: any) => Promise<any>;
     linkPhoneNumberMock: (phone: string) => Promise<void>;
@@ -72,6 +73,7 @@ const AuthContext = createContext<AuthContextType>({
   blockUser: () => {},
   toggleAdmin: () => {},
   deleteUserDoc: () => {},
+    deleteMyAccount: async () => {},
   isLoaded: false,
   loginWithPhone: async () => {}, 
     linkPhoneNumberMock: async () => {},
@@ -85,19 +87,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  // Load all users for the CRM (admin view) - simplified for prototype
-  const fetchAllUsers = async () => {
-    try {
-      const usersSnap = await getDocs(collection(db, 'users'));
-      setAllUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() }) as UserProfile));
-    } catch (e) {
-      console.error("Failed to fetch CRM users", e);
-    }
-  };
-
+  // Load all users for the CRM (admin view) - now in REAL-TIME
   useEffect(() => {
     if (user?.isAdmin) {
-      fetchAllUsers();
+      const unsubscribeUsers = onSnapshot(collection(db, 'users'), (usersSnap) => {
+        setAllUsers(usersSnap.docs.map(d => ({ id: d.id, ...d.data() }) as UserProfile));
+      }, (e) => {
+        console.error("Failed to fetch CRM users real-time", e);
+      });
+      return () => unsubscribeUsers();
     }
   }, [user?.isAdmin]);
 
@@ -355,8 +353,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e: any) {
       console.error('Google login failed', e);
       if (e.code === 'auth/popup-blocked') {
-        alert('🚫 הדפדפן חסם את חלון ההתחברות.\n\nכדי להתחבר עם גוגל:\n1. לחץ על סמל המנעול/מידע בשורת הכתובת\n2. אפשר "חלונות קופצים" (Pop-ups) עבור אתר זה\n3. נסה שוב');
-      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+          if (window.confirm('הדפדפן חסם את החלון הקופץ. האם להמשיך להתחברות באותו מסך (Redirect)?')) {
+             await signInWithRedirect(auth, googleProvider); // or Facebook, but we will let user re-click for now
+          }
+        } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
       throw e;
@@ -389,8 +389,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (e: any) {
       console.error('Facebook login failed', e);
       if (e.code === 'auth/popup-blocked') {
-        alert('שגיאה: חוסם החלונות הקופצים בדפדפן מופעל. אנא אפשר חלונות קופצים (Pop-ups) עבור אתר זה כדי להתחבר.');
-      } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
+          if (window.confirm('הדפדפן חסם את החלון הקופץ. האם להמשיך להתחברות באותו מסך (Redirect)?')) {
+             await signInWithRedirect(auth, googleProvider); // or Facebook, but we will let user re-click for now
+          }
+        } else if (e.code !== 'auth/popup-closed-by-user' && e.code !== 'auth/cancelled-popup-request') {
         alert('שגיאה בהתחברות: ' + (e.message || 'נסה שוב'));
       }
       throw e;
@@ -504,6 +506,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+    const deleteMyAccount = async () => {
+    if (!auth.currentUser || !user) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.id));
+      await deleteUser(auth.currentUser);
+      setUser(null);
+    } catch (e) {
+      console.error('Failed to delete my account', e);
+      throw e;
+    }
+  };
+
   const deleteUserDoc = async (userId: string) => {
     if (!user?.isAdmin) return;
     try {
@@ -556,7 +570,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
-      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, isLoaded,
+      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, deleteMyAccount, isLoaded,
       loginWithPhone, linkPhoneNumberMock, findUserByPhone
     }}>
       {children}
