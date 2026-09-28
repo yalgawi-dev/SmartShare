@@ -65,7 +65,7 @@ function extractPoints(mat: any, scale: number): Point[] {
 }
 
 /** Find best 4-8 point contour from a contours vector. */
-function findBestContour(cv: any, contours: any, totalArea: number, scale: number, epsilon = 0.03): Point[] | null {
+function findBestContour(cv: any, contours: any, totalArea: number, scale: number, epsilon = 0.04): Point[] | null {
   let maxArea = 0;
   let bestPts: Point[] | null = null;
   const maxC = Math.min(contours.size(), 400);
@@ -75,7 +75,7 @@ function findBestContour(cv: any, contours: any, totalArea: number, scale: numbe
     if (area > totalArea * 0.10 && area < totalArea * 0.97) {
       const peri = cv.arcLength(cnt, true);
       const approx = new cv.Mat();
-      cv.approxPolyDP(cnt, approx, epsilon * peri, true);
+      cv.approxPolyDP(cnt, approx, 0.04 * peri, true);
       if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
         maxArea = area;
         bestPts = extractPoints(approx, scale);
@@ -94,15 +94,15 @@ function findBestContour(cv: any, contours: any, totalArea: number, scale: numbe
 function detectWithCanny(cv: any, src: any, gray: any, scale: number): Point[] | null {
   let blurred = new cv.Mat(), edged = new cv.Mat(), closed = new cv.Mat();
   let contours = new cv.MatVector(), hierarchy = new cv.Mat();
-  const M = cv.Mat.ones(3, 3, cv.CV_8U);
+  const M = cv.Mat.ones(9, 9, cv.CV_8U); // Larger kernel to close broken paper edges
   try {
     cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0, cv.BORDER_DEFAULT);
     const otsu = computeOtsuThreshold(cv, blurred);
     cv.Canny(blurred, edged, otsu * 0.4, otsu, 3, false);
     cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
     cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
-    cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-    return findBestContour(cv, contours, src.rows * src.cols, scale, 0.03);
+    cv.findContours(closed, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    return findBestContour(cv, contours, src.rows * src.cols, scale, 0.04);
   } finally {
     blurred.delete(); edged.delete(); closed.delete();
     contours.delete(); hierarchy.delete(); M.delete();
@@ -120,8 +120,8 @@ function detectWithAdaptive(cv: any, src: any, gray: any, scale: number): Point[
     const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
     cv.dilate(binary, binary, kernel);
     kernel.delete();
-    cv.findContours(binary, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-    return findBestContour(cv, contours, src.rows * src.cols, scale, 0.03);
+    cv.findContours(binary, contours, hierarchy, cv.RETR_EXTERNAL, cv.CHAIN_APPROX_SIMPLE);
+    return findBestContour(cv, contours, src.rows * src.cols, scale, 0.04);
   } finally {
     binary.delete(); contours.delete(); hierarchy.delete();
   }
@@ -141,13 +141,13 @@ export function detectDocument(canvas: HTMLCanvasElement, isLivePreview = false)
     const cv = (window as any).cv;
     if (!cv || !cv.Mat) return null;
 
-    // 600px for better edge resolution (was 300px)
-    const TARGET_W = 600;
+    // Shrink size heavily for live preview to prevent freezing, use higher for final snap
+    const TARGET_W = isLivePreview ? 360 : 800;
     const scale = TARGET_W / canvas.width;
     const tmp = document.createElement('canvas');
     tmp.width = TARGET_W;
     tmp.height = Math.round(canvas.height * scale);
-    const tmpCtx = tmp.getContext('2d');
+    const tmpCtx = tmp.getContext('2d', { willReadFrequently: true });
     if (!tmpCtx) return null;
     tmpCtx.drawImage(canvas, 0, 0, tmp.width, tmp.height);
 
@@ -155,23 +155,27 @@ export function detectDocument(canvas: HTMLCanvasElement, isLivePreview = false)
     const gray = new cv.Mat();
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
-    // CLAHE: boost local contrast (helps in dim / warm lighting)
-    const clahe = new cv.CLAHE(2.5, new cv.Size(8, 8));
-    clahe.apply(gray, gray);
-    clahe.delete();
+    // Only run heavy contrast boosting on final snap
+    if (!isLivePreview) {
+      const clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
+      clahe.apply(gray, gray);
+      clahe.delete();
+    }
 
-    // Strategy 1: Canny with adaptive Otsu thresholds
+    // Fast Canny is sufficient for most edges
     let result = detectWithCanny(cv, src, gray, scale);
     if (result && isValidQuad(result, canvas.width, canvas.height)) {
       gray.delete(); src.delete();
       return result;
     }
 
-    // Strategy 2: Adaptive threshold (fallback for low-contrast backgrounds)
-    result = detectWithAdaptive(cv, src, gray, scale);
-    if (result && isValidQuad(result, canvas.width, canvas.height)) {
-      gray.delete(); src.delete();
-      return result;
+    // If Canny fails and it's a final snap, try heavy Adaptive Threshold
+    if (!isLivePreview) {
+      result = detectWithAdaptive(cv, src, gray, scale);
+      if (result && isValidQuad(result, canvas.width, canvas.height)) {
+        gray.delete(); src.delete();
+        return result;
+      }
     }
 
     gray.delete(); src.delete();
