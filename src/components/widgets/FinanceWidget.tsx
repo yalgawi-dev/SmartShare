@@ -48,8 +48,8 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const rootRef = useRef<HTMLDivElement>(null);
   
   useImperativeHandle(ref, () => ({
-    processScan: (url: string) => {
-      runOcrPipeline(url);
+    processScan: (url: string, allPages?: string[]) => {
+      runOcrPipeline(url, allPages);
     },
     setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => {
       setActiveTab('transactions');
@@ -122,7 +122,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
       reader.onload = (ev) => {
          const url = ev.target?.result as string;
          setScannedImage(url);
-         runOcrPipeline(url);
+         runOcrPipeline(url, undefined);
       };
       reader.readAsDataURL(file);
     }
@@ -137,7 +137,7 @@ const [isMounted, setIsMounted] = useState(false);
   
   
 
-const runOcrPipeline = async (imgUrl: string) => {
+const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
     setIsScanning(false);
     if(setIsAddingExpense) setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
@@ -161,20 +161,58 @@ const runOcrPipeline = async (imgUrl: string) => {
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
       const { downscaleBase64 } = await import('../../utils/imageOptimizer');
       
+      let processingUrl = imgUrl;
+      
+      // Merge multiple pages into one vertical strip (booklet)
+      if (allPages && allPages.length > 1 && !imgUrl.startsWith('data:application/pdf')) {
+        try {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            const loadedImages = await Promise.all(allPages.map(url => {
+              return new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = url;
+              });
+            }));
+            const maxWidth = Math.max(...loadedImages.map(img => img.width));
+            const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
+            canvas.width = maxWidth;
+            canvas.height = totalHeight;
+            let currentY = 0;
+            loadedImages.forEach((img, i) => {
+              ctx.drawImage(img, 0, currentY, img.width, img.height);
+              // Page badge
+              ctx.fillStyle = 'rgba(0,0,0,0.7)';
+              ctx.fillRect(20, currentY + 20, 160, 60);
+              ctx.fillStyle = '#FFD700';
+              ctx.font = 'bold 36px Arial';
+              ctx.fillText('עמוד ' + (i+1), 40, currentY + 62);
+              currentY += img.height;
+            });
+            processingUrl = canvas.toDataURL('image/jpeg', 0.85);
+          }
+        } catch (e) {
+          console.error('Merge failed', e);
+        }
+      }
+      
       // Check if this is a PDF
-      const isPdf = imgUrl.startsWith('data:application/pdf');
+      const isPdf = processingUrl.startsWith('data:application/pdf');
       
       // Protect storage: If it's a PDF, check its size (base64 is ~33% larger than raw binary)
       // 2.5MB in base64 is roughly 1.8MB raw file size.
-      if (isPdf && imgUrl.length > 2.5 * 1024 * 1024) {
+      if (isPdf && processingUrl.length > 2.5 * 1024 * 1024) {
         alert("קובץ ה-PDF גדול מדי (מעל 2MB) ועלול להעמיס על השרת. אנא צלם מסך של החשבונית והעלה את התמונה במקום.");
         setIsAnalyzing(false);
         if(setIsAddingExpense) setIsAddingExpense(false);
         return;
       }
       
-      let ocrPayload = imgUrl;
-      let archiveImgUrl = imgUrl;
+      let ocrPayload = processingUrl;
+      let archiveImgUrl = processingUrl;
       let filename = `invoices/${space.id}/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
       
       if (!isPdf) {
@@ -220,6 +258,7 @@ const runOcrPipeline = async (imgUrl: string) => {
           if (data.documentType && (data.documentType.includes('משלוח') || data.documentType.includes('הזמנ') || data.documentType.includes('הצע'))) {
             data._docTypeWarning = 'המסמך זוהה כ-' + data.documentType + ' ולא כחשבונית מס/קבלה. האם ברצונך להוסיף אותו כהוצאה?';
           }
+        if (allPages && allPages.length > 1) { data.pages = allPages; }
         setOcrData(data); // This will now correctly populate the form!
         setOcrDebugMessage(null); // Ensure UI is clean
         

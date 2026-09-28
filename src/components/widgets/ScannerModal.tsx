@@ -8,9 +8,21 @@ import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 
 
+interface ScannedPage {
+  id: string;
+  imageUrl: string;
+  pageNum: number;
+}
+
+interface ClassifyResult {
+  type: 'INVOICE' | 'RECEIPT' | 'BILL' | 'CONTRACT' | 'WARRANTY' | 'ID_DOC' | 'OTHER';
+  confidence: number; // 0-100
+  reason: string;
+}
+
 interface ScannerModalProps {
   onClose: () => void;
-  onComplete: (imageDataUrl: string, ocrDataUrl?: string) => void;
+  onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[]) => void;
 }
 
 export default function ScannerModal({ onClose, onComplete }: ScannerModalProps) {
@@ -45,6 +57,15 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original'>('smart_plus');
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
+
+  // Multi-page scanning
+  const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
+  const [previewPage, setPreviewPage] = useState<ScannedPage | null>(null);
+
+  // Document classifier
+  const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
+  const [isClassifying, setIsClassifying] = useState(false);
+  const [classifyOverride, setClassifyOverride] = useState(false);
   
   // 1. Load OpenCV.js safely
   useEffect(() => {
@@ -198,26 +219,85 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
   const handleCropComplete = () => {
     if (!rawSnapshot || cropPoints.length !== 4) return;
     setIsProcessing(true);
-    // Give browser 50ms to render the spinner before blocking the thread with OpenCV math
     setTimeout(async () => {
       await performCrop(rawSnapshot, cropPoints);
       setIsProcessing(false);
       setStep('review');
+      // Auto-classify after crop (lightweight Gemini call)
+      classifyDocument(rawSnapshot);
     }, 50);
+  };
+
+  // ─── Document Classifier ─────────────────────────────────────────────────
+  const classifyDocument = async (imgUrl: string) => {
+    setIsClassifying(true);
+    setClassifyResult(null);
+    setClassifyOverride(false);
+    try {
+      const { downscaleBase64 } = await import('../../utils/imageOptimizer');
+      const tiny = await downscaleBase64(imgUrl, 400, 0.5); // Very small – cheap call
+      const res = await fetch('/api/ocr', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageUrl: tiny, mode: 'classify' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.classifyResult) {
+          setClassifyResult(data.classifyResult as ClassifyResult);
+        }
+      }
+    } catch (e) {
+      console.warn('Classifier failed silently', e);
+    } finally {
+      setIsClassifying(false);
+    }
+  };
+
+  const isFinancialDoc = () => {
+    if (classifyOverride) return true;
+    if (!classifyResult) return true; // Default: treat as financial if unknown
+    return ['INVOICE', 'RECEIPT', 'BILL'].includes(classifyResult.type);
+  };
+
+  const getClassifyLabel = () => {
+    if (!classifyResult) return null;
+    const labels: Record<string, string> = {
+      INVOICE: 'חשבונית מס', RECEIPT: 'קבלה', BILL: 'חשבון תשלום',
+      CONTRACT: 'חוזה / הסכם', WARRANTY: 'תעודת אחריות',
+      ID_DOC: 'מסמך זהות', OTHER: 'מסמך כללי'
+    };
+    return labels[classifyResult.type] || classifyResult.type;
+  };
+
+  // ─── Multi-page helpers ──────────────────────────────────────────────────
+  const handleAddPage = () => {
+    const currentImg = imageCache[mode];
+    if (!currentImg) return;
+    const newPage: ScannedPage = {
+      id: Date.now().toString(),
+      imageUrl: currentImg,
+      pageNum: scannedPages.length + 1
+    };
+    setScannedPages(prev => [...prev, newPage]);
+    // Reset for next scan
+    setStep('scanning');
+    setRawSnapshot(null);
+    setImageCache({});
+    setTimingCache({});
+    setMode('smart_plus');
+    setDetectedType(null);
+    setClassifyResult(null);
   };
 
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original') => {
     if (mode === targetMode) return;
     if (!rawSnapshot || cropPoints.length !== 4) return;
-    
-    // Check if we already computed this!
     if (imageCache[targetMode]) {
        setMode(targetMode);
        return;
     }
-    
     setIsProcessing(true);
-    // Remove optimistic setMode so the image doesn't break while processing
     setTimeout(async () => {
       await performCrop(rawSnapshot, cropPoints, targetMode);
       setIsProcessing(false);
@@ -231,9 +311,11 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     setTimingCache({});
     setMode('smart_plus');
     setDetectedType(null);
+    setClassifyResult(null);
+    setClassifyOverride(false);
   };
 
-    const handleShare = async () => {
+  const handleShare = async () => {
     const currentImg = imageCache[mode];
     if (!currentImg) return;
     try {
@@ -241,10 +323,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
       const blob = await res.blob();
       const file = new File([blob], 'scanned-document.jpg', { type: blob.type || 'image/jpeg' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({
-          files: [file],
-          title: 'סריקה מ-SmartShare',
-        });
+        await navigator.share({ files: [file], title: 'סריקה מ-SmartShare' });
       } else {
         alert('שיתוף קבצים אינו נתמך בדפדפן זה.');
       }
@@ -255,10 +334,14 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
   const handleDone = () => {
     const currentImg = imageCache[mode];
-    if (currentImg) {
-      onComplete(currentImg, currentImg);
-    }
+    if (!currentImg) return;
+    // Combine with previously scanned pages
+    const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
+    // Primary image = first page (for OCR — or last page if only one added)
+    const primary = allPageUrls[0];
+    onComplete(primary, currentImg, allPageUrls.length > 1 ? allPageUrls : undefined);
   };
+
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
       {/* Header */}
@@ -291,6 +374,22 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
         {step === 'scanning' && (
           <>
+            {/* Pages thumbnail strip */}
+            {scannedPages.length > 0 && (
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, background: 'rgba(0,0,0,0.7)', padding: '0.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto' }}>
+                {scannedPages.map((page) => (
+                  <div key={page.id} style={{ position: 'relative', flexShrink: 0 }}>
+                    <img src={page.imageUrl} style={{ width: '50px', height: '70px', objectFit: 'cover', borderRadius: '4px', border: '2px solid #FFD700' }} alt={`עמוד ${page.pageNum}`} />
+                    <span style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'rgba(0,0,0,0.8)', color: 'white', fontSize: '0.65rem', padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold' }}>{page.pageNum}</span>
+                    <button onClick={() => setScannedPages(prev => prev.filter(p => p.id !== page.id).map((p,i) => ({...p, pageNum: i+1})))}
+                      style={{ position: 'absolute', top: '-6px', left: '-6px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', color: '#FFD700', fontSize: '0.8rem', fontWeight: 'bold', padding: '0 0.5rem' }}>
+                  עמוד {scannedPages.length + 1} →
+                </div>
+              </div>
+            )}
             <video 
               ref={videoRef} 
               autoPlay 
@@ -419,72 +518,71 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
         {step === 'review' && (
           <>
+            {/* Filter buttons */}
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-                {/* hidden – kept for future plugins */}
-                <button 
-                onClick={() => handleFilterSwitch('auto')} 
-                style={{ display: 'none', padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'auto' ? '#fff' : 'transparent', color: mode === 'auto' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer', position: 'relative' }}>
-                  אוטומט ✨
-                  {mode === 'auto' && detectedType && (
-                    <span style={{ position: 'absolute', top: '-8px', right: '-5px', background: 'var(--primary)', color: 'white', fontSize: '0.65rem', padding: '2px 6px', borderRadius: '10px', whiteSpace: 'nowrap' }}>
-                      {detectedType === 'photo' ? 'תמונה' : detectedType === 'mixed' ? 'קולאז\'' : detectedType === 'text_bw' ? 'שחור-לבן' : 'חשבונית+'}
-                    </span>
-                  )}
-                </button>
-                <button 
-                onClick={() => handleFilterSwitch('smart_plus')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_plus' ? '#fff' : 'transparent', color: mode === 'smart_plus' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  חשבונית+
-                </button>
-                <button 
-                onClick={() => handleFilterSwitch('original')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  מקור
-                </button>
-                {/* hidden – kept for future plugins */}
-                <button 
-                onClick={() => handleFilterSwitch('pure_color')} 
-                style={{ display: 'none', padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'pure_color' ? '#fff' : 'transparent', color: mode === 'pure_color' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  תמונות
-                </button>
-                {/* hidden – kept for future plugins */}
-                <button 
-                onClick={() => handleFilterSwitch('hybrid')} 
-                style={{ display: 'none', padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'hybrid' ? '#fff' : 'transparent', color: mode === 'hybrid' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  קולאז'
-                </button>
-                <button 
-                onClick={() => handleFilterSwitch('bw')} 
-                style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>
-                  שחור-לבן
-                </button>
+                <button onClick={() => handleFilterSwitch('auto')} style={{ display: 'none' }}>אוטומט ✨</button>
+                <button onClick={() => handleFilterSwitch('smart_plus')} style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'smart_plus' ? '#fff' : 'transparent', color: mode === 'smart_plus' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>חשבונית+</button>
+                <button onClick={() => handleFilterSwitch('original')} style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>מקור</button>
+                <button onClick={() => handleFilterSwitch('bw')} style={{ padding: '0.5rem 1rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.9rem', cursor: 'pointer' }}>שחור-לבן</button>
+                <button onClick={() => handleFilterSwitch('pure_color')} style={{ display: 'none' }}>תמונות</button>
+                <button onClick={() => handleFilterSwitch('hybrid')} style={{ display: 'none' }}>קולאז'</button>
             </div>
-            
 
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.5rem', gap: '0.5rem' }}>
-              <button onClick={() => {
-                // Reset all state and go back to scanning
-                setStep('scanning');
-                setRawSnapshot(null);
-                setCropPoints([]);
-                setImageCache({});
-                setTimingCache({});
-                setMode('smart_plus');
-                setDetectedType(null);
-              }} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                📷 סרוק שוב
+            {/* Classifier banner */}
+            {isClassifying && (
+              <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#aaa', padding: '0.25rem' }}>🔍 מזהה סוג מסמך...</div>
+            )}
+            {classifyResult && !isClassifying && (
+              <div style={{ background: isFinancialDoc() ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${isFinancialDoc() ? '#10b981' : '#ef4444'}`, borderRadius: '8px', padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem' }}>
+                <span>{isFinancialDoc() ? '✅' : '⚠️'}</span>
+                <span style={{ flex: 1 }}>
+                  {isFinancialDoc()
+                    ? `זוהה: ${getClassifyLabel()} (${classifyResult.confidence}%)`
+                    : `זוהה: ${getClassifyLabel()} — יצורף ללא OCR`}
+                </span>
+                {!isFinancialDoc() && !classifyOverride && (
+                  <button onClick={() => setClassifyOverride(true)} style={{ background: 'transparent', border: '1px solid #f59e0b', color: '#f59e0b', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    עבד כחשבונית
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Pages thumbnail strip */}
+            {scannedPages.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                {scannedPages.map((page) => (
+                  <div key={page.id} style={{ position: 'relative', flexShrink: 0 }}>
+                    <img src={page.imageUrl} style={{ width: '44px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: '2px solid #FFD700', opacity: 0.8 }} alt={`עמוד ${page.pageNum}`} />
+                    <span style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'rgba(0,0,0,0.8)', color: '#FFD700', fontSize: '0.6rem', padding: '1px 3px', borderRadius: '3px', fontWeight: 'bold' }}>{page.pageNum}</span>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, background: 'rgba(255,215,0,0.1)', border: '1px solid #FFD700', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#FFD700' }}>
+                  עמוד {scannedPages.length + 1} (נוכחי)
+                </div>
+              </div>
+            )}
+
+            {/* Row 1: secondary actions */}
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                📷 שוב
               </button>
-              <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem', borderRadius: '8px', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                חזור לעריכה
+              <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                ✏️ ערוך
               </button>
-              <button onClick={handleShare} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}>
-                <span>📤</span> שיתוף
+              <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+                📤 שתף
               </button>
-              <button onClick={handleDone} style={{ flex: 1.5, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                אשר וצרף ✔
+              <button onClick={handleAddPage} style={{ flex: 1, background: 'transparent', color: '#FFD700', border: '1px solid #FFD700', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+                ➕ עמוד
               </button>
             </div>
+
+            {/* Row 2: primary action */}
+            <button onClick={handleDone} style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
+              {scannedPages.length > 0 ? `✔ אשר וצרף ${scannedPages.length + 1} עמודים` : '✔ אשר וצרף'}
+            </button>
           </>
         )}
 

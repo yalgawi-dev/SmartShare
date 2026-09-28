@@ -589,10 +589,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       {isScannerOpen && (
         <ScannerModal 
           onClose={() => setIsScannerOpen(false)}
-          onComplete={(url) => {
-            setIsScannerOpen(false);
-            financeRef.current?.processScan(url);
-          }}
+          onComplete={(url, _, allPages) => { setIsScannerOpen(false); financeRef.current?.processScan(url, allPages); }}
         />
       )}
 
