@@ -250,8 +250,13 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                 key={n.id} 
                 onClick={() => {
                   onClose();
-                  const targetTab = n.type === 'invoice' ? '?tab=inbox' : '?tab=partners';
-                  router.push('/space/' + n.spaceId + targetTab);
+                  let query = '?tab=partners';
+                  if (n.type === 'invoice') query = '?tab=inbox';
+                  if (n.type === 'chat') {
+                     if (n.id === 'chat-group') query = '?chat=group';
+                     else query = '?chat=' + n.id.replace('chat-', '');
+                  }
+                  router.push('/space/' + n.spaceId + query);
                 }}
                 style={{ 
                   background: n.actionable ? '#eff6ff' : 'var(--bg-card)', 

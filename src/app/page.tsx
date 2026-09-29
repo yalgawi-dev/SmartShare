@@ -1,10 +1,10 @@
 'use client';
 import { createPortal } from 'react-dom';
 import { useState, useEffect, useMemo } from 'react';
+import NotificationCenterWidget from '../components/widgets/NotificationCenterWidget';
 
 import styles from './page.module.css';
 import Link from 'next/link';
-import NotificationCenterWidget from '../components/widgets/NotificationCenterWidget';
 import { useSpaces } from './context/SpacesContext';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
@@ -72,7 +72,6 @@ export default function Dashboard() {
     });
     return count;
   }, [spaces, user]);
-
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -267,7 +266,7 @@ export default function Dashboard() {
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fef08a" stroke="#ca8a04" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               {unreadMessagesCount > 0 && <span style={{ position: 'absolute', top: '0px', right: '0px', minWidth: '16px', height: '16px', background: '#ef4444', color: 'white', borderRadius: '8px', border: '2px solid var(--bg-card)', fontSize: '0.6rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{unreadMessagesCount}</span>}
             </button>
-<button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               🔗
             </button>
             {user?.isAdmin && (

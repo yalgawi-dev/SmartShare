@@ -58,11 +58,45 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [presence, setPresence] = useState<Record<string, string>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Fetch presence
+  useEffect(() => {
+    if (!showParticipants || !space) return;
+    const fetchPresence = async () => {
+      const uids = (space.members || []).map((m: any) => m.userId);
+      if (space.creatorId) uids.push(space.creatorId);
+      const newPresence: Record<string, string> = {};
+      const { getDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
+      
+      await Promise.all([...new Set(uids)].map(async (uid: any) => {
+        try {
+          const docSnap = await getDoc(doc(db, 'users', uid));
+          if (docSnap.exists()) {
+             newPresence[uid] = docSnap.data().lastActiveAt || '';
+          }
+        } catch(e) {}
+      }));
+      setPresence(newPresence);
+    };
+    fetchPresence();
+  }, [showParticipants, space?.id]);
+
+  const getPresenceColor = (uid: string) => {
+    if (uid === user?.id) return '#10b981'; // Green
+    const lastActive = presence[uid];
+    if (!lastActive) return '#ef4444'; // Red
+    const diffMins = (Date.now() - new Date(lastActive).getTime()) / 1000 / 60;
+    if (diffMins < 6) return '#10b981'; // Green (<6m)
+    if (diffMins < 30) return '#f59e0b'; // Orange (<30m)
+    return '#ef4444'; // Red (>30m)
+  };
 
   const isGroup = member.userId === 'group';
   const conversationId = isGroup ? 'group' : (viewMode === 'peer' ? [user?.id, member.userId].sort().join('_') : (viewMode === 'creator' ? member.userId : user?.id));
@@ -218,12 +252,12 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.5rem' }}>משתתפים במרחב:</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <div style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(space.creatorId || space.createdBy) }} />
                   {space.createdBy || 'מנהל המרחב'} (מנהל המרחב) {space.creatorId === user?.id && '(אני)'}
                 </div>
                 {(space.members || []).map((m: any) => (
                   <div key={m.userId} style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.isActive !== false ? '#10b981' : '#cbd5e1' }} />
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.isActive === false ? '#cbd5e1' : getPresenceColor(m.userId) }} />
                     {m.name || 'שותף'} {m.userId === user?.id && '(אני)'}
                   </div>
                 ))}

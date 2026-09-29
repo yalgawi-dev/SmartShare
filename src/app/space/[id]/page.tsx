@@ -20,6 +20,7 @@ import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
 import CreatorDisputesBanner from '../../../components/widgets/Partners/CreatorDisputesBanner';
 import PendingInvoicesBanner from '../../../components/widgets/Finance/PendingInvoicesBanner';
 import { PartnersSettingsList } from '../../../components/widgets/Partners/PartnersSettingsList';
+import PartnerControlPanel from '../../../components/widgets/Partners/PartnerControlPanel';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
 import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
@@ -69,6 +70,41 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions') return t as any; } return 'summary'; });
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
+  const [activeChatId, setActiveChatId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('chat');
+    }
+    return null;
+  });
+  
+  useEffect(() => {
+    if (typeof window !== 'undefined' && activeChatId) {
+      // Clear URL so refreshing doesn't keep opening it if they close it
+      const url = new URL(window.location.href);
+      url.searchParams.delete('chat');
+      window.history.replaceState({}, document.title, url.toString());
+    }
+  }, [activeChatId]);
+  
+    const getChatMemberAndMode = (chatId: string) => {
+    if (!space || !user) return null;
+    if (chatId === 'group') return { member: { userId: 'group', name: 'קבוצת המרחב', status: 'active' }, mode: 'peer' as const };
+    
+    const isMeCreator = space.creatorId === user.id;
+    if (isMeCreator) {
+       const m = space.members?.find((x: any) => x.userId === chatId);
+       if (m) return { member: m, mode: 'creator' as const };
+    } else {
+       if (chatId === space.creatorId || chatId === space.createdBy) {
+          const me = space.members?.find((x: any) => x.userId === user.id);
+          if (me) return { member: me, mode: 'partner' as const };
+       } else {
+          const m = space.members?.find((x: any) => x.userId === chatId);
+          if (m) return { member: m, mode: 'peer' as const };
+       }
+    }
+    return null;
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

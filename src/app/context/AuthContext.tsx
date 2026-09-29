@@ -534,7 +534,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (    <AuthContext.Provider value={{ 
+  
+  // Presence heartbeat
+  useEffect(() => {
+    if (!user?.id || (user as any).isAnonymous) return;
+    const updatePresence = () => {
+      const userRef = doc(db, 'users', user.id);
+      updateDoc(userRef, { lastActiveAt: new Date().toISOString() }).catch(() => {});
+    };
+    // Wait 10 seconds before first update to not block app load
+    const timeout = setTimeout(updatePresence, 10000);
+    const interval = setInterval(updatePresence, 5 * 60 * 1000); // 5 minutes
+    return () => { clearTimeout(timeout); clearInterval(interval); };
+  }, [user?.id]);
+  
+  return (
+    <AuthContext.Provider value={{ 
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
