@@ -154,21 +154,39 @@ export function PartnersInviteModal({
   };
 
   const handleContactSelect = async (contact: SelectedContact) => {
+    setIsInviting(true);
     const data = await handleGenerateLink(contact.name, contact.userId);
-    if (!data) return;
+    if (!data) {
+      setIsInviting(false);
+      return;
+    }
     
     if (contact.isSystemPartner && contact.userId) {
+      let realPhone = contact.phone;
+      if (realPhone === 'משתמש פנימי') {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', contact.userId));
+          if (userDoc.exists() && userDoc.data().phone) {
+            realPhone = userDoc.data().phone;
+          }
+        } catch (e) {
+          console.error("Failed to fetch user phone", e);
+        }
+      }
+      
       // In-app success state
       setSuccessData({
         name: contact.name,
-        phone: contact.phone,
+        phone: realPhone,
         text: data.shareText
       });
+      setIsInviting(false);
     } else {
       // External WhatsApp flow
       const whatsappUrl = `https://wa.me/${contact.phone.replace(/\D/g, '')}?text=${encodeURIComponent(data.shareText)}`;
       window.open(whatsappUrl, '_blank');
       onClose();
+      setIsInviting(false);
     }
   };
 
@@ -203,7 +221,15 @@ export function PartnersInviteModal({
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
       <div style={{ background: 'white', padding: '1.75rem', borderRadius: '20px', width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', color: '#1e293b', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
         
-        {successData ? (
+        {isInviting ? (
+          <div style={{ textAlign: 'center', padding: '2rem 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ width: '40px', height: '40px', border: '3px solid #f1f5f9', borderTop: '3px solid #3b82f6', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '1rem' }} />
+            <p style={{ color: '#64748b', fontWeight: 'bold' }}>שולח הזמנה...</p>
+            <style>{`
+              @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+            `}</style>
+          </div>
+        ) : successData ? (
           <div style={{ textAlign: 'center', padding: '1rem 0' }}>
             <div style={{ width: '60px', height: '60px', background: '#22c55e', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
               <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
@@ -211,7 +237,7 @@ export function PartnersInviteModal({
             <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>הזמנה נשלחה בהצלחה!</h3>
             <p style={{ margin: '0 0 1.5rem', color: '#64748b' }}>ההזמנה נשלחה למשתמש <strong>{successData.name}</strong> והוא יקבל התראה באפליקציה.</p>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              {successData.phone && successData.phone !== 'משתמש פנימי' && (
+              {successData.phone && (
               <button onClick={() => {
                 const whatsappUrl = `https://wa.me/${successData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(successData.text)}`;
                 window.open(whatsappUrl, '_blank');
