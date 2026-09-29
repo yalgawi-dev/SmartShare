@@ -15,6 +15,7 @@ export function PartnersInviteModal({
   const { createPendingInvite } = useSpaces();
   const [successData, setSuccessData] = useState<{name: string, phone: string, text: string} | null>(null);
   const [copied, setCopied] = useState(false);
+  const [isInviting, setIsInviting] = useState(false);
   const partnerName = '';
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
