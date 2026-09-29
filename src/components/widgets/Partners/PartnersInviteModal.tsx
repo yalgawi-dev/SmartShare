@@ -469,7 +469,7 @@ export function PartnersInviteModal({
             </div>
           </div>
         </>
-        </div>
+        )}
       </div>
     </div>,
     document.body
