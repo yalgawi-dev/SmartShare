@@ -57,6 +57,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -186,7 +187,14 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `👨‍💼 ${memberName}` : 'האזור האישי שלך'}</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : 'הגדרות וצ\'אט פרטי'}</h3>
+                {isGroup && (
+                  <button onClick={() => setShowParticipants(!showParticipants)} style={{ background: showParticipants ? '#e2e8f0' : '#f1f5f9', border: 'none', borderRadius: '16px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', cursor: 'pointer' }}>
+                    {space.members?.length || 0} משתתפים
+                  </button>
+                )}
+              </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
                 <span style={{ 
                   background: memberStatus === 'active' ? '#dcfce7' : memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
@@ -204,6 +212,25 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             >✕</button>
           </div>
 
+          {/* Participants List */}
+          {showParticipants && isGroup && (
+            <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#f8fafc', borderRadius: '12px', border: '1px solid #e2e8f0', maxHeight: '150px', overflowY: 'auto' }}>
+              <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.5rem' }}>משתתפים במרחב:</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                <div style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
+                  {space.createdBy || 'מנהל המרחב'} (מנהל המרחב) {space.creatorId === user?.id && '(אני)'}
+                </div>
+                {(space.members || []).map((m: any) => (
+                  <div key={m.userId} style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.isActive !== false ? '#10b981' : '#cbd5e1' }} />
+                    {m.name || 'שותף'} {m.userId === user?.id && '(אני)'}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           {/* Action Buttons */}
           {viewMode === 'creator' && (
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
@@ -334,20 +361,29 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               )}
             </div>
           )}
-          {messagesArray.map((msg: any) => {
-            if (!msg) return null;
-            const isMyMsg = msg.from === (viewMode as string);
+          {messagesArray.map((m: any, idx: number) => {
+            if (!m) return null;
+            const isMyMsg = m.senderId === user?.id || (m.from && m.from === viewMode);
             
-            // Hide system messages from the person who triggered them (so it acts like a notification to the other party)
-            if (isMyMsg && msg.text && msg.text.startsWith('[הודעת מערכת]:')) {
+            // Hide system messages from the person who triggered them
+            if (isMyMsg && m.text && m.text.startsWith('[הודעת מערכת]:')) {
               return null;
             }
 
-            const timeStr = formatTimeSafe(msg.createdAt);
-            
+            const timeStr = formatTimeSafe(m.createdAt);
+            let senderName = isMyMsg ? 'אני' : 'שותף';
+            if (!isMyMsg) {
+              if (m.senderId === space.creatorId || m.from === 'creator') {
+                senderName = space.createdBy || 'מנהל המרחב';
+              } else {
+                const sm = space.members?.find((sm: any) => sm.userId === m.senderId);
+                if (sm) senderName = sm.name || 'שותף';
+              }
+            }
+
             return (
               <div
-                key={msg.id || Math.random()}
+                key={m.id || idx}
                 style={{
                   background: isMyMsg ? '#dcf8c6' : '#ffffff',
                   alignSelf: isMyMsg ? 'flex-end' : 'flex-start',
@@ -360,13 +396,18 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   position: 'relative'
                 }}
               >
-                <div style={{ fontSize: '0.9rem', color: '#111b21', lineHeight: '1.4', paddingBottom: '2px', wordBreak: 'break-word' }}>
-                  {msg.text || ''}
+                {!isMyMsg && (
+                  <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.1rem', alignSelf: 'flex-start' }}>
+                    {senderName}
+                  </div>
+                )}
+                <div style={{ fontSize: '0.9rem', color: '#111b21', lineHeight: '1.4', paddingBottom: '2px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
+                  {m.text || ''}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', alignSelf: 'flex-end', marginTop: '1px' }}>
                   <span style={{ fontSize: '0.65rem', color: '#667781' }}>{timeStr}</span>
                   {isMyMsg && (
-                    <span style={{ color: msg.readAt ? '#53bdeb' : '#8696a0', fontSize: '0.8rem', letterSpacing: '-2.5px', marginRight: '2px', fontWeight: 'bold' }}>
+                    <span style={{ color: m.readAt || (m.readBy && m.readBy.length > 1) ? '#53bdeb' : '#8696a0', fontSize: '0.8rem', letterSpacing: '-2.5px', marginRight: '2px', fontWeight: 'bold' }}>
                       ✓✓
                     </span>
                   )}
