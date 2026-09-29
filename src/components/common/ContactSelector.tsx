@@ -24,11 +24,15 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-    const mySpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === user?.id));
-  const allSpaceMembers = mySpaces.flatMap((s: any) => s.members || []);
+      const mySpaces = spaces.filter((s: any) => s.creatorId === user?.id || s.members?.some((m: any) => m.userId === user?.id));
+  const allSpaceMembers = mySpaces.flatMap((s: any) => {
+    const members = s.members || [];
+    const creator = s.creatorId ? { userId: s.creatorId, name: s.createdBy || 'מנהל המרחב' } : null;
+    return creator ? [...members, creator] : members;
+  });
   const spaceContacts = Array.from(new Map(allSpaceMembers.map((m: any) => [m.userId, m])).values())
     .filter((m: any) => m.userId !== user?.id)
-    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף ללא שם', phone: 'שותף קיים במערכת', userId: m.userId }));
+    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף במערכת', phone: 'שותף קיים במערכת', userId: m.userId }));
 
   const savedContacts = user?.contacts || [];
   
