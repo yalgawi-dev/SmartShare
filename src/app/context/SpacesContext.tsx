@@ -776,7 +776,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     if (!spaces.some(s => s.features?.includes('partners'))) return;
     
     const updatePresence = () => {
-      const { doc, updateDoc } = require('firebase/firestore');
+      if (!db || !user?.id) return;
       const userRef = doc(db, 'users', user.id);
       updateDoc(userRef, { lastActiveAt: new Date().toISOString() }).catch(() => {});
     };

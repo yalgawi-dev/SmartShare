@@ -1,5 +1,6 @@
 'use client';
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { usePresence } from '../../../hooks/usePresence';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -58,45 +59,18 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
-  const [presence, setPresence] = useState<Record<string, string>>({});
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const presenceUids = useMemo(() => {
+    const uids = (space.members || []).map((m: any) => m.userId);
+    if (space.creatorId) uids.push(space.creatorId);
+    return uids;
+  }, [space]);
+  const { getPresenceColor } = usePresence(showParticipants || member.userId !== 'group' ? presenceUids : []);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Fetch presence
-  useEffect(() => {
-    if (!showParticipants || !space) return;
-    const fetchPresence = async () => {
-      const uids = (space.members || []).map((m: any) => m.userId);
-      if (space.creatorId) uids.push(space.creatorId);
-      const newPresence: Record<string, string> = {};
-      const { getDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('@/lib/firebase');
-      
-      await Promise.all([...new Set(uids)].map(async (uid: any) => {
-        try {
-          const docSnap = await getDoc(doc(db, 'users', uid));
-          if (docSnap.exists()) {
-             newPresence[uid] = docSnap.data().lastActiveAt || '';
-          }
-        } catch(e) {}
-      }));
-      setPresence(newPresence);
-    };
-    fetchPresence();
-  }, [showParticipants, space?.id]);
-
-  const getPresenceColor = (uid: string) => {
-    if (uid === user?.id) return '#10b981'; // Green
-    const lastActive = presence[uid];
-    if (!lastActive) return '#ef4444'; // Red
-    const diffMins = (Date.now() - new Date(lastActive).getTime()) / 1000 / 60;
-    if (diffMins < 6) return '#10b981'; // Green (<6m)
-    if (diffMins < 30) return '#f59e0b'; // Orange (<30m)
-    return '#ef4444'; // Red (>30m)
-  };
 
   const isGroup = member.userId === 'group';
   const conversationId = isGroup ? 'group' : (viewMode === 'peer' ? [user?.id, member.userId].sort().join('_') : (viewMode === 'creator' ? member.userId : user?.id));
@@ -231,7 +205,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : 'הגדרות שותף ומנהל'}</h3>
-                    {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(isGroup ? 'group' : member.userId), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
+                    {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(isGroup ? 'group' : member.userId, user?.id), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
                   </div>
                 {isGroup && (
                   <button onClick={() => setShowParticipants(!showParticipants)} style={{ background: showParticipants ? '#e2e8f0' : '#f1f5f9', border: 'none', borderRadius: '16px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', cursor: 'pointer' }}>
@@ -240,14 +214,16 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
-                <span style={{ 
-                  background: memberStatus === 'active' ? '#dcfce7' : memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
-                  color: memberStatus === 'active' ? '#166534' : memberStatus === 'pending' ? '#854d0e' : '#991b1b',
-                  padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold'
-                }}>
-                  {statusLabel[memberStatus] || memberStatus}
-                </span>
-                {viewMode === 'creator' && joinedDateText && ` · הצטרף: ${joinedDateText}`}
+                {memberStatus !== 'active' && (
+                  <span style={{ 
+                    background: memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
+                    color: memberStatus === 'pending' ? '#854d0e' : '#991b1b',
+                    padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold'
+                  }}>
+                    {statusLabel[memberStatus] || memberStatus}
+                  </span>
+                )}
+                {viewMode === 'creator' && joinedDateText && ` | הצטרף: ${joinedDateText}`}
               </div>
             </div>
             <button
@@ -262,12 +238,12 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#64748b', marginBottom: '0.5rem' }}>משתתפים במרחב:</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                 <div style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(space.creatorId || space.createdBy) }} />
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(space.creatorId || space.createdBy, user?.id) }} />
                   {space.createdBy || 'מנהל המרחב'} (מנהל המרחב) {space.creatorId === user?.id && '(אני)'}
                 </div>
                 {(space.members || []).map((m: any) => (
                   <div key={m.userId} style={{ fontSize: '0.85rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.isActive === false ? '#cbd5e1' : getPresenceColor(m.userId) }} />
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: m.isActive === false ? '#cbd5e1' : getPresenceColor(m.userId, user?.id) }} />
                     {m.name || 'שותף'} {m.userId === user?.id && '(אני)'}
                   </div>
                 ))}

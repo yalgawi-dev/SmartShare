@@ -1,5 +1,6 @@
 import PartnerControlPanel from '../Partners/PartnerControlPanel';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { usePresence } from '../../../hooks/usePresence';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
@@ -46,6 +47,9 @@ export function FinanceSummary({
   const [transactionAction, setTransactionAction] = useState('deposit');
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
+
+  const presenceUids = useMemo(() => space?.members?.map((m: any) => m.userId) || [], [space]);
+  const { getPresenceColor } = usePresence(presenceUids);
 
   // Resolve current member (for per-member permission checks like canEditShares)
   // NOTE: isRestricted is NOT computed here — it lives in page.tsx as the Single Source of Truth.
@@ -408,7 +412,7 @@ export function FinanceSummary({
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
-                                {b.name} {b.userId === myEffectiveId && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />} {b.name} {b.userId === myEffectiveId && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   let myUnreadCount = 0;
                                   if (isCreatorMe && !b.isCreator) {
