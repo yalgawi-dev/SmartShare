@@ -155,6 +155,7 @@ export interface Space {
 }
 
 interface SpacesContextType {
+  migrateGuestToRealUser: (spaceId: string, userId: string, realUid: string, realName: string) => void;
   setExtensionMessage?: any;
   sendMessageToMember?: any;
   markMessageRead?: any;
@@ -1457,7 +1458,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, createPendingInvite, migrateGuestToRealUser,
       updateMemberPermissions,
       sendMessageToMember,
       markMessageRead,
