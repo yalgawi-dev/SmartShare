@@ -203,15 +203,15 @@ export default function SettingsPage() {
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value)} placeholder="הזן מייל לקבלת חשבוניות" style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-                    {email ? (
+                    {email && /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email) ? (
                       (auth.currentUser?.email === email && auth.currentUser?.emailVerified) ? (
                         <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>מאומת ✓</span>
                       ) : (
                         <span style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>ממתין לאימות ⏳</span>
                       )
-                    ) : null}
+                    ) : email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email) ? (<span style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>מייל לא חוקי ❌</span>) : null}
                   </div>
-                  {email && !(auth.currentUser?.email === email && auth.currentUser?.emailVerified) && (
+                  {email && /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email) && !(auth.currentUser?.email === email && auth.currentUser?.emailVerified) && (
                     <button
                       onClick={async (e) => {
                         e.preventDefault();
@@ -228,7 +228,11 @@ export default function SettingsPage() {
                           if (err.code === 'auth/requires-recent-login') {
                             alert('על מנת לאמת מייל זה, יש להתנתק מהמערכת ולהתחבר מחדש (מטעמי אבטחה).');
                           } else {
-                            alert('שגיאה בשליחת אימות: ' + err.message);
+                            if (err.code === 'auth/email-already-in-use') {
+                              alert('המייל הזה כבר מופיע אצל משתמש אחר! אנא בחר מייל אחר או התחבר לחשבון השני.');
+                            } else {
+                              alert('שגיאה בשליחת אימות: ' + err.message);
+                            }
                           }
                         }
                       }}

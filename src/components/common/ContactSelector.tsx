@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
+import { useSpaces } from '../../app/context/SpacesContext';
 
 export interface SelectedContact {
   name: string;
@@ -16,12 +17,29 @@ export interface ContactSelectorProps {
 
 export default function ContactSelector({ onSelect, title = 'בחר איש קשר' }: ContactSelectorProps) {
   const { user, findUserByPhone } = useAuth();
+  const { spaces } = useSpaces() as any;
   const [mode, setMode] = useState<'list' | 'new'>('list');
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [isSearching, setIsSearching] = useState(false);
 
-  const contacts = user?.contacts || [];
+    const mySpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === user?.id));
+  const allSpaceMembers = mySpaces.flatMap((s: any) => s.members || []);
+  const spaceContacts = Array.from(new Map(allSpaceMembers.map((m: any) => [m.userId, m])).values())
+    .filter((m: any) => m.userId !== user?.id)
+    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף ללא שם', phone: '', userId: m.userId }));
+
+  const savedContacts = user?.contacts || [];
+  
+  const allContactsMap = new Map();
+  savedContacts.forEach((c: any) => allContactsMap.set(c.id || c.phone, c));
+  spaceContacts.forEach((c: any) => {
+    if (!allContactsMap.has(c.id)) {
+      allContactsMap.set(c.id, c);
+    }
+  });
+  
+  const contacts = Array.from(allContactsMap.values());
 
   const handleSelectExisting = async (contact: any) => {
     setIsSearching(true);
@@ -30,7 +48,7 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
       onSelect({
         name: contact.name,
         phone: contact.phone || '',
-        userId: foundUser ? foundUser.id : undefined
+        userId: foundUser ? foundUser.id : contact.userId
       });
     } finally {
       setIsSearching(false);
