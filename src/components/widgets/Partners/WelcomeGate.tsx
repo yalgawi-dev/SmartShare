@@ -92,6 +92,7 @@ export default function WelcomeGate({
       finalName, 
       isRetroParam, 
       resolvedToken, 
+      resolvedToken, // inviteToken
       currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : (shareParam ? Number(shareParam) : undefined),
       sharesPlan
     );
