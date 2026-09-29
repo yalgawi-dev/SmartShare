@@ -7,15 +7,23 @@ import { auth } from '@/lib/firebase';
 import { COUNTRIES } from '@/utils/countries';
 
 export default function AuthWall() {
-  const { loginWithPhone, isLoaded } = useAuth();
+  const { loginWithPhone, isLoaded, user, updateProfile } = useAuth();
   
   const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
   const [countryCode, setCountryCode] = useState('+972');
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+
+  useEffect(() => {
+    if (user && user.phone && !user.realName) {
+      setStep(3);
+    }
+  }, [user]);
+
 
   useEffect(() => {
     if (typeof window !== 'undefined' && step === 1) {
@@ -100,6 +108,21 @@ export default function AuthWall() {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
+  };
+
+  
+  const handleSaveName = async () => {
+    if (!name.trim()) {
+      setErrorMsg('יש להזין שם מלא.');
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      await updateProfile({ realName: name.trim(), nickname: name.trim().split(' ')[0] });
+    } catch (e) {
+      setErrorMsg('שגיאה בשמירת השם.');
+    }
+    setIsSubmitting(false);
   };
 
   const handleVerify = async () => {
@@ -192,7 +215,35 @@ export default function AuthWall() {
           <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}></div>
         </div>
 
-        {step === 1 ? (
+        
+        {step === 3 ? (
+          <div className="auth-form">
+            <div className="input-group">
+              <label>איך קוראים לך?</label>
+              <div className="input-wrapper">
+                <span className="input-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                </span>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={e => { setName(e.target.value); setErrorMsg(''); }}
+                  className="auth-input"
+                  placeholder="שם מלא"
+                  onKeyDown={e => e.key === 'Enter' && handleSaveName()}
+                />
+              </div>
+            </div>
+            {errorMsg && <div className="auth-error">{errorMsg}</div>}
+            <button
+              onClick={handleSaveName}
+              disabled={isSubmitting || !name.trim()}
+              className="auth-btn auth-btn-primary"
+            >
+              {isSubmitting ? <div className="spinner-small"></div> : 'שמור והמשך'}
+            </button>
+          </div>
+        ) : step === 1 ? (
           <div className="auth-form">
             <div className="input-group">
               <label>מספר טלפון</label>

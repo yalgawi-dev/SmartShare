@@ -32,7 +32,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
   
-  if (!user || !user.phone) {
+  if (!user || !user.phone || !user.realName) {
     return <AuthWall />;
   }
   

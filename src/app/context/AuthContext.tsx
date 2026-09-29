@@ -167,7 +167,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (needsUpdate) {
             await updateDoc(userRef, { 
               isAdmin: activeUser.isAdmin ?? false,
-              realName: activeUser.realName || 'אורח',
+              realName: activeUser.realName || '',
               nickname: activeUser.nickname || '',
               avatarUrl: activeUser.avatarUrl || null,
               email: activeUser.email || ''
@@ -181,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           activeUser = {
             id: firebaseUser.uid,
-            realName: bestName || 'אורח',
+            realName: bestName || '',
             phone: firebaseUser.phoneNumber || '',
             email: bestEmail || '',
             nickname: (bestName ? bestName.split(' ')[0] : ''),

@@ -22,6 +22,7 @@ import PendingInvoicesBanner from '../../../components/widgets/Finance/PendingIn
 import { PartnersSettingsList } from '../../../components/widgets/Partners/PartnersSettingsList';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
+import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
 
 function EmptyStateCarousel() {
   const [currentIndex, setCurrentIndex] = useState(0);
