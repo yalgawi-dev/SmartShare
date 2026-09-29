@@ -16,7 +16,7 @@ import { PushNotificationReminder } from '../components/widgets/PushNotification
 import { universalSearch } from '../utils/searchEngine';
 
 export default function Dashboard() {
-  const { spaces, deleteSpace, updateSpaceTitle, getRoleForSpace, isLoaded: isSpacesLoaded } = useSpaces();
+  const { spaces, deleteSpace, updateSpaceTitle, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite } = useSpaces();
   const { user, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
@@ -101,6 +101,12 @@ export default function Dashboard() {
       }
     }
   }, [isSpacesLoaded, spaces.length]);
+
+  const myPendingInvites = user?.id ? spaces.flatMap(s => 
+    (s.pendingInvites || [])
+      .filter((i: any) => i.targetUserId === user.id)
+      .map((i: any) => ({ spaceId: s.id, spaceTitle: s.title, invite: i }))
+  ) : [];
 
   const visibleSpaces = spaces.filter(s => { 
     if (s.status === 'pending_deletion') return false; 
@@ -308,6 +314,47 @@ export default function Dashboard() {
             </div>
           )}
 
+        {myPendingInvites.length > 0 && (
+          <div style={{ padding: '0 1rem', marginBottom: '1rem' }}>
+            {myPendingInvites.map((item, idx) => (
+              <div key={idx} style={{ 
+                background: 'var(--bg-main)', border: '1px solid var(--primary)', 
+                borderRadius: 'var(--radius-lg)', padding: '1rem', marginBottom: '0.5rem',
+                boxShadow: '0 4px 12px rgba(99,102,241,0.15)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '0.8rem' }}>
+                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(99,102,241,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)' }}>
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                  </div>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>הזמנה למרחב חדש</h3>
+                    <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                      הוזמנת להצטרף למרחב <strong>{item.spaceTitle}</strong> כשותף ({item.invite.guestShare}%)
+                    </p>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    onClick={() => {
+                      if (user?.id) {
+                        finalizeGuestJoin(item.spaceId, item.invite.token, user.id, user.name || user.phone || 'משתמש')
+                      }
+                    }}
+                    style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: '600', cursor: 'pointer' }}
+                  >
+                    אישור הצטרפות
+                  </button>
+                  <button 
+                    onClick={() => declinePendingInvite(item.spaceId, item.invite.token)}
+                    style={{ flex: 1, padding: '0.6rem', background: 'transparent', color: 'var(--text-secondary)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', fontWeight: '500', cursor: 'pointer' }}
+                  >
+                    דחייה
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <div className={styles.grid}>
           {searchedSpaces.length === 0 && visibleSpaces.length > 0 && (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>

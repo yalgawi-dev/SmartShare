@@ -413,38 +413,39 @@ export function FinanceTransactions({
           />
         </div>
 
-        {/* Category Filter (Global) */}
-        {allCategories.length > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-              סינון לפי קטגוריה:
-            </span>
-            <select 
-              value={categoryFilter} 
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              style={{ padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.85rem' }}
-            >
-              <option value="all">כל הקטגוריות</option>
-              {allCategories.map((c: any) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </div>
-        )}
+        {/* Filters Container */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Category Filter (Global) */}
+          {allCategories.length > 0 && (
+            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                קטגוריה:
+              </span>
+              <select 
+                value={categoryFilter} 
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.9rem' }}
+              >
+                <option value="all">הכל</option>
+                {allCategories.map((c: any) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
-        {/* Member Filter (hidden in pending_me) */}
-        {activePartnersCount > 0 && filter !== 'pending_me' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                {filter === 'pending_partners' ? 'ממתין לאישור של:' : filter === 'dispute' ? 'סונן לפי מסרב/משלם:' : 'הוצאות ששולמו ע"י:'}
+          {/* Member Filter (hidden in pending_me) */}
+          {activePartnersCount > 0 && filter !== 'pending_me' && (
+            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                {filter === 'pending_partners' ? 'לאישור של:' : filter === 'dispute' ? 'נדחה ע"י:' : 'שולם ע"י:'}
               </span>
               <select 
                 value={memberFilter} 
                 onChange={(e) => setMemberFilter(e.target.value)}
-                style={{ padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.85rem' }}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.9rem' }}
               >
-                <option value="all">כל השותפים</option>
+                <option value="all">הכל</option>
                 {allUsers
                   .filter(u => filter === 'pending_partners' ? u.id !== myEffectiveId : true)
                   .map(u => (
@@ -452,7 +453,11 @@ export function FinanceTransactions({
                 ))}
               </select>
             </div>
-            
+          )}
+        </div>
+
+        {activePartnersCount > 0 && filter !== 'pending_me' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {/* Dynamic Banner to explain the filter as requested by user */}
             {memberFilter !== 'all' && (
               <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.2rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.4rem', borderRadius: '6px', textAlign: 'center', fontWeight: '500' }}>

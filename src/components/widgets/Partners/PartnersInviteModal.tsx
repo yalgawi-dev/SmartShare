@@ -153,11 +153,22 @@ export function PartnersInviteModal({
   };
 
   const handleContactSelect = async (contact: SelectedContact) => {
-    const data = await handleGenerateLink(contact.name);
+    const data = await handleGenerateLink(contact.name, contact.userId);
     if (!data) return;
-    const whatsappUrl = `https://wa.me/${contact.phone.replace(/\D/g, '')}?text=${encodeURIComponent(data.shareText)}`;
-    window.open(whatsappUrl, '_blank');
-    onClose();
+    
+    if (contact.isSystemPartner && contact.userId) {
+      // In-app success state
+      setSuccessData({
+        name: contact.name,
+        phone: contact.phone,
+        text: data.shareText
+      });
+    } else {
+      // External WhatsApp flow
+      const whatsappUrl = `https://wa.me/${contact.phone.replace(/\D/g, '')}?text=${encodeURIComponent(data.shareText)}`;
+      window.open(whatsappUrl, '_blank');
+      onClose();
+    }
   };
 
   const handleNativeShare = async () => {
