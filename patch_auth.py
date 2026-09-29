@@ -1,19 +1,14 @@
-const fs = require('fs');
-const file = 'src/app/context/AuthContext.tsx';
-let content = fs.readFileSync(file, 'utf8');
+import re
 
-// 1. Remove signInAnonymously import
-content = content.replace(', signInAnonymously', '');
+with open('src/app/context/AuthContext.tsx', 'r', encoding='utf-8') as f:
+    content = f.read()
 
-// 2. Remove handleNewKey anonymous check
-content = content.replace('if (!auth.currentUser || auth.currentUser.isAnonymous) return;', 'if (!auth.currentUser) return;');
+content = content.replace(', signInAnonymously', '')
+content = content.replace('if (!auth.currentUser || auth.currentUser.isAnonymous) return;', 'if (!auth.currentUser) return;')
 
-// 3. Replace onAuthStateChanged logic
-const authStateStart = content.indexOf('const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {');
-const authStateEnd = content.indexOf('    return () => {', authStateStart);
-const oldAuthState = content.substring(authStateStart, authStateEnd);
-
-const newAuthState = \const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+# Find onAuthStateChanged
+pattern = r'const unsubscribe = onAuthStateChanged\(auth, async \(firebaseUser\) => \{.*?(?=    return \(\) => \{)'
+new_auth_state = '''const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
         setUser(null);
         setIsLoaded(true);
@@ -41,7 +36,7 @@ const newAuthState = \const unsubscribe = onAuthStateChanged(auth, async (fireba
           const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
           const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
-          if ((activeUser.realName === 'אורח' || !activeUser.realName) && bestName) {
+          if ((activeUser.realName === 'אורח' || !activeUser.realName || activeUser.realName === 'משתמש אנונימי') && bestName) {
             activeUser.realName = bestName;
             activeUser.nickname = bestName.split(' ')[0];
             needsUpdate = true;
@@ -114,58 +109,53 @@ const newAuthState = \const unsubscribe = onAuthStateChanged(auth, async (fireba
         console.error("Auth context error:", error);
         setIsLoaded(true);
       }
-    });
+    });\n\n'''
+content = re.sub(pattern, new_auth_state, content, flags=re.DOTALL)
 
-\;
-content = content.replace(oldAuthState, newAuthState);
+sync_pattern = r'const syncProviderData = async \(firebaseUser: any.*?catch \(err\) \{\n        console.error\("Failed to sync provider data", err\);\n      \}\n    \};\n'
+new_sync = '''const syncProviderData = async (firebaseUser: any, forcedName?: string) => {
+      if (!firebaseUser) return;
+      try {
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          let activeUser = userSnap.data() as UserProfile;
+          let needsUpdate = false;
+          
+          const bestName = forcedName || firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
+          const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
-// 4. Clean syncProviderData
-const syncStart = content.indexOf('const syncProviderData = async (firebaseUser: any, forcedName?: string) => {');
-const syncEnd = content.indexOf('  const loginWithEmail =', syncStart);
-const oldSync = content.substring(syncStart, syncEnd);
-const newSync = \const syncProviderData = async (firebaseUser: any, forcedName?: string) => {
-    if (!firebaseUser) return;
-    try {
-      const userRef = doc(db, 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        let activeUser = userSnap.data() as UserProfile;
-        let needsUpdate = false;
-        
-        const bestName = forcedName || firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
-        const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
-        const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+          if ((activeUser.realName === 'אורח' || !activeUser.realName) && bestName) {
+            activeUser.realName = bestName;
+            activeUser.nickname = bestName.split(' ')[0];
+            needsUpdate = true;
+          }
+          if (!activeUser.avatarUrl && bestPhoto) {
+            activeUser.avatarUrl = bestPhoto;
+            needsUpdate = true;
+          }
+          if (!activeUser.email && bestEmail) {
+            activeUser.email = bestEmail;
+            needsUpdate = true;
+          }
 
-        if ((activeUser.realName === 'אורח' || !activeUser.realName) && bestName) {
-          activeUser.realName = bestName;
-          activeUser.nickname = bestName.split(' ')[0];
-          needsUpdate = true;
+          if (needsUpdate) {
+            await updateDoc(userRef, { 
+              realName: activeUser.realName,
+              nickname: activeUser.nickname,
+              avatarUrl: activeUser.avatarUrl,
+              email: activeUser.email
+            });
+          }
+          setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid } as any : { ...activeUser, id: firebaseUser.uid } as any);
         }
-        if (!activeUser.avatarUrl && bestPhoto) {
-          activeUser.avatarUrl = bestPhoto;
-          needsUpdate = true;
-        }
-        if (!activeUser.email && bestEmail) {
-          activeUser.email = bestEmail;
-          needsUpdate = true;
-        }
-
-        if (needsUpdate) {
-          await updateDoc(userRef, { 
-            realName: activeUser.realName,
-            nickname: activeUser.nickname,
-            avatarUrl: activeUser.avatarUrl,
-            email: activeUser.email
-          });
-        }
-        setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid } as any : { ...activeUser, id: firebaseUser.uid } as any);
+      } catch (err) {
+        console.error("Failed to sync provider data", err);
       }
-    } catch (err) {
-      console.error("Failed to sync provider data", err);
-    }
-  };
+    };
+'''
+content = re.sub(sync_pattern, new_sync, content, flags=re.DOTALL)
 
-\;
-content = content.replace(oldSync, newSync);
-
-fs.writeFileSync(file, content, 'utf8');
+with open('src/app/context/AuthContext.tsx', 'w', encoding='utf-8') as f:
+    f.write(content)

@@ -55,6 +55,7 @@ interface AuthContextType {
   loginWithPhone: (phone: string, appVerifier: any) => Promise<any>;
     linkPhoneNumberMock: (phone: string) => Promise<void>;
   findUserByPhone: (phone: string) => Promise<UserProfile | null>;
+  findUserById: (id: string) => Promise<UserProfile | null>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -78,6 +79,7 @@ const AuthContext = createContext<AuthContextType>({
   loginWithPhone: async () => {}, 
     linkPhoneNumberMock: async () => {},
   findUserByPhone: async () => null,
+  findUserById: async () => null,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -517,15 +519,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  return (
-    <AuthContext.Provider value={{ 
+  const findUserById = async (id: string): Promise<UserProfile | null> => {
+    try {
+      const userSnap = await getDoc(doc(db, 'users', id));
+      if (userSnap.exists()) {
+        return { ...userSnap.data(), id: userSnap.id } as UserProfile;
+      }
+      return null;
+    } catch (e) {
+      console.error('Error finding user by id:', e);
+      return null;
+    }
+  };
+
+  return (    <AuthContext.Provider value={{ 
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
       logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, deleteMyAccount, isLoaded,
-      loginWithPhone, linkPhoneNumberMock, findUserByPhone
+      loginWithPhone, linkPhoneNumberMock, findUserByPhone, findUserById
     }}>
       {children}
     </AuthContext.Provider>
   );
 }
+
+

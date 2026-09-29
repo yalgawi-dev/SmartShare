@@ -222,6 +222,7 @@ interface SpacesContextType {
     guestShare: number;
     creatorShare: number;
     partnerShares?: Record<string, number>;
+    targetUserId?: string;
   }) => void;
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
@@ -822,6 +823,13 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     });
   };
 
+  const declinePendingInvite = (spaceId: string, token: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const pendingInvites = (space.pendingInvites || []).filter((inv: any) => inv.token !== token);
+      return { ...space, pendingInvites };
+    });
+  };
+
   const createPendingInvite = (spaceId: string, inviteData: {
     token: string;
     name?: string;
@@ -829,6 +837,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     guestShare: number;
     creatorShare: number;
     partnerShares?: Record<string, number>;
+    targetUserId?: string;
   }) => {
     saveSpaceUpdate(spaceId, space => {
       const newInvite = {
@@ -838,7 +847,8 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         creatorShare: inviteData.creatorShare,
         partnerShares: inviteData.partnerShares || null,
         isRetroactive: inviteData.isRetroactive,
-        createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
+          targetUserId: inviteData.targetUserId
       };
 
       return {
@@ -1499,3 +1509,8 @@ export function useSpaces() {
   }
   return context;
 }
+
+
+
+
+

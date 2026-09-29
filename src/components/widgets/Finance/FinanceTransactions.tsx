@@ -40,6 +40,7 @@ export function FinanceTransactions({
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [memberFilter, setMemberFilter] = useState<string>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const showIncome = space?.features?.includes('income');
 
@@ -48,6 +49,7 @@ export function FinanceTransactions({
     ...(space?.members || []).filter((m: any) => m.status !== 'removed').map((m: any) => ({ id: m.userId, name: m.name }))
   ];
   const showTransfers = space?.features?.includes('partners') && activePartnersCount > 0;
+  const allCategories = Array.from(new Set(invoices.map((i: any) => i.category).filter(Boolean)));
 
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchEndX, setTouchEndX] = useState<number | null>(null);
@@ -69,6 +71,7 @@ export function FinanceTransactions({
     else matchesType = inv.type !== 'transfer' && inv.type !== 'income';
     
     if (!matchesType) return false;
+    if (categoryFilter !== 'all' && inv.category !== categoryFilter) return false;
     if (memberFilter === 'all') return true;
 
     const effectivePayer = inv.payerId === 'me' ? (space?.creatorId || 'me') : inv.payerId;
@@ -409,6 +412,25 @@ export function FinanceTransactions({
             style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.9rem', color: 'var(--text-main)', width: '100%' }}
           />
         </div>
+
+        {/* Category Filter (Global) */}
+        {allCategories.length > 0 && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+              סינון לפי קטגוריה:
+            </span>
+            <select 
+              value={categoryFilter} 
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              style={{ padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.85rem' }}
+            >
+              <option value="all">כל הקטגוריות</option>
+              {allCategories.map((c: any) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Member Filter (hidden in pending_me) */}
         {activePartnersCount > 0 && filter !== 'pending_me' && (

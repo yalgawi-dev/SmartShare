@@ -8,6 +8,7 @@ export interface SelectedContact {
   name: string;
   phone: string;
   userId?: string;
+  isSystemPartner?: boolean;
 }
 
 export interface ContactSelectorProps {
@@ -32,7 +33,7 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
   });
   const spaceContacts = Array.from(new Map(allSpaceMembers.map((m: any) => [m.userId, m])).values())
     .filter((m: any) => m.userId !== user?.id)
-    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף במערכת', phone: 'שותף קיים במערכת', userId: m.userId }));
+    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף במערכת', phone: m.phone || 'שותף קיים במערכת', userId: m.userId, isSystemPartner: true }));
 
   const savedContacts = user?.contacts || [];
   
@@ -53,7 +54,8 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
       onSelect({
         name: contact.name,
         phone: contact.phone || '',
-        userId: foundUser ? foundUser.id : contact.userId
+        userId: foundUser ? foundUser.id : contact.userId,
+        isSystemPartner: contact.isSystemPartner
       });
     } finally {
       setIsSearching(false);
