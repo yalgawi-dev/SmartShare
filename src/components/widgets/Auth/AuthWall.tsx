@@ -9,6 +9,7 @@ export default function AuthWall() {
   const { loginWithPhone, isLoaded } = useAuth();
   
   const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('+972');
   const [step, setStep] = useState(1);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,9 +40,17 @@ export default function AuthWall() {
 
   const handleSendCode = async () => {
     const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length < 9 || cleanPhone.length > 10) {
-      setErrorMsg('יש להזין מספר טלפון חוקי בן 10 ספרות.');
-      return;
+    
+    if (countryCode === '+972') {
+      if (cleanPhone.length < 9 || cleanPhone.length > 10) {
+        setErrorMsg('יש להזין מספר טלפון חוקי בן 10 ספרות.');
+        return;
+      }
+    } else {
+      if (cleanPhone.length < 7 || cleanPhone.length > 15) {
+        setErrorMsg('יש להזין מספר טלפון חוקי לקידומת זו.');
+        return;
+      }
     }
     
     // Admin mock bypass
@@ -54,7 +63,7 @@ export default function AuthWall() {
       setIsSubmitting(true);
       setErrorMsg('');
       const appVerifier = (window as any).recaptchaVerifier;
-      const formattedPhone = `+972${cleanPhone.replace(/^0/, '')}`;
+      const formattedPhone = `${countryCode}${cleanPhone.replace(/^0/, '')}`;
       
       const confirmation = await loginWithPhone(formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
@@ -146,7 +155,7 @@ export default function AuthWall() {
           }
           .spinner {
             width: 40px; height: 40px;
-            border: 4px solid var(--primary);
+            border: 4px solid var(--primary, #4F46E5);
             border-top-color: transparent;
             border-radius: 50%;
             animation: spin 1s linear infinite;
@@ -186,23 +195,34 @@ export default function AuthWall() {
           <div className="auth-form">
             <div className="input-group">
               <label>מספר טלפון</label>
-              <div className="input-wrapper">
-                <span className="input-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
-                  </svg>
-                </span>
+              
+              <div className="phone-input-group" dir="ltr">
+                <div className="country-select-wrapper">
+                  <select 
+                    className="country-select"
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                  >
+                    <option value="+972">🇮🇱 +972</option>
+                    <option value="+1">🇺🇸 +1</option>
+                    <option value="+44">🇬🇧 +44</option>
+                    <option value="+33">🇫🇷 +33</option>
+                    <option value="+49">🇩🇪 +49</option>
+                  </select>
+                  <div className="select-arrow">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                </div>
                 <input
                   type="tel"
                   value={phone}
                   onChange={handlePhoneChange}
-                  className="auth-input"
-                  placeholder="050-000-0000"
-                  dir="ltr"
+                  className="auth-input phone-input"
+                  placeholder={countryCode === '+972' ? '050-000-0000' : 'Phone number'}
                   onKeyDown={e => e.key === 'Enter' && handleSendCode()}
                 />
               </div>
+
             </div>
 
             {errorMsg && (
@@ -213,7 +233,7 @@ export default function AuthWall() {
 
             <button
               onClick={handleSendCode}
-              disabled={isSubmitting || phone.length < 9}
+              disabled={isSubmitting || phone.length < (countryCode === '+972' ? 9 : 7)}
               className="auth-btn auth-btn-primary"
             >
               {isSubmitting ? <div className="spinner-small"></div> : (
@@ -231,7 +251,7 @@ export default function AuthWall() {
           <div className="auth-form">
             <div className="otp-header">
               <p>הזן את קוד 6 הספרות שנשלח למספר</p>
-              <b dir="ltr">{phone}</b>
+              <b dir="ltr">{countryCode} {phone}</b>
             </div>
             
             <div className="otp-inputs" dir="ltr">
@@ -361,17 +381,47 @@ export default function AuthWall() {
           margin-bottom: 8px;
         }
 
-        .input-wrapper {
-          position: relative;
+        .phone-input-group {
+          display: flex;
+          gap: 12px;
+          align-items: center;
         }
 
-        .input-icon {
+        .country-select-wrapper {
+          position: relative;
+          height: 56px;
+        }
+
+        .country-select {
+          appearance: none;
+          height: 100%;
+          background: #F8FAFC;
+          border: 2px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 0 32px 0 16px;
+          font-size: 16px;
+          font-weight: 600;
+          color: #0F172A;
+          cursor: pointer;
+          outline: none;
+          transition: all 0.2s ease;
+          font-family: inherit;
+        }
+
+        .country-select:focus {
+          border-color: var(--primary, #4F46E5);
+          background: #FFFFFF;
+          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+
+        .select-arrow {
           position: absolute;
-          left: 16px;
+          right: 12px;
           top: 50%;
           transform: translateY(-50%);
-          color: #94A3B8;
           pointer-events: none;
+          color: #64748B;
+          display: flex;
         }
 
         .auth-input {
@@ -380,13 +430,17 @@ export default function AuthWall() {
           background: #F8FAFC;
           border: 2px solid #E2E8F0;
           border-radius: 16px;
-          padding: 0 16px 0 48px;
+          padding: 0 16px;
           font-size: 18px;
           font-family: inherit;
           color: #0F172A;
           transition: all 0.2s ease;
           outline: none;
           box-sizing: border-box;
+        }
+
+        .phone-input {
+          flex: 1;
         }
 
         .auth-input:focus {
@@ -538,6 +592,10 @@ export default function AuthWall() {
           .auth-card {
             padding: 24px 20px;
             border-radius: 24px;
+          }
+          .country-select {
+            padding: 0 24px 0 12px;
+            font-size: 14px;
           }
           .otp-inputs {
             gap: 8px;
