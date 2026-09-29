@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { createPortal } from 'react-dom';
 import ContactSelector, { SelectedContact } from '../../common/ContactSelector';
 import { useSpaces } from '../../../app/context/SpacesContext';
