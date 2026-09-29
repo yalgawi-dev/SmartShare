@@ -18,13 +18,22 @@ export default function PhoneVerificationModal() {
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [forceClose, setForceClose] = useState(false);
   
+  const [forceShow, setForceShow] = useState(false);
+  
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => { 
     setMounted(true); 
+    const forceAuthHandler = () => setForceShow(true);
+    if (typeof window !== 'undefined') {
+      window.addEventListener('force_auth', forceAuthHandler);
+      return () => window.removeEventListener('force_auth', forceAuthHandler);
+    }
   }, []);
 
-  const shouldShow = !forceClose && isLoaded && user && !user.phone && auth.currentUser && !auth.currentUser.isAnonymous;
+  // Show if user is logged in but has no phone, OR if user is anonymous but forceShow is triggered
+  const isAnonymous = auth.currentUser?.isAnonymous;
+  const shouldShow = !forceClose && isLoaded && user && !user.phone && auth.currentUser && (!isAnonymous || forceShow);
 
   useEffect(() => {
     if (mounted && shouldShow) {
@@ -201,11 +210,17 @@ export default function PhoneVerificationModal() {
   return createPortal(
     <>
       {/* reCAPTCHA Security Widget */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: step === 1 ? 'flex' : 'none', justifyContent: 'center', marginBottom: '1rem' }}>
           <div style={{ display: 'none' }}>
             <div id="recaptcha-container"></div>
           </div>
         </div>
+        
+        {step === 2 && (
+          <style>{`
+            .grecaptcha-badge { visibility: hidden !important; }
+          `}</style>
+        )}
       
       {/* Backdrop */}
       <div 

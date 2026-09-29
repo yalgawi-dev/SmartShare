@@ -236,10 +236,10 @@ const defaultSettings: SpaceSettings = {
 const initialSpaces: Space[] = [
   {
     id: '1',
-    title: 'בניית הבית בכפר',
-    description: 'ניהול הוצאות, קבלנים, העלאת חשבוניות ותוכניות אדריכליות במקום אחד.',
-    icon: '🏠',
-    updatedAt: 'לפני 2 דקות',
+    title: '׳‘׳ ׳™׳™׳× ׳”׳‘׳™׳× ׳‘׳›׳₪׳¨',
+    description: '׳ ׳™׳”׳•׳ ׳”׳•׳¦׳׳•׳×, ׳§׳‘׳׳ ׳™׳, ׳”׳¢׳׳׳× ׳—׳©׳‘׳•׳ ׳™׳•׳× ׳•׳×׳•׳›׳ ׳™׳•׳× ׳׳“׳¨׳™׳›׳׳™׳•׳× ׳‘׳׳§׳•׳ ׳׳—׳“.',
+    icon: 'נ ',
+    updatedAt: '׳׳₪׳ ׳™ 2 ׳“׳§׳•׳×',
     features: ['finance', 'scanner', 'partners'],
     settings: defaultSettings,
     invoices: [],
@@ -327,7 +327,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       setIsLoaded(true);
     }, (error) => {
        console.error("Firestore error:", error);
-         alert("שגיאת התחברות למסד הנתונים: " + (error.message || ""));
+         alert("׳©׳’׳™׳׳× ׳”׳×׳—׳‘׳¨׳•׳× ׳׳׳¡׳“ ׳”׳ ׳×׳•׳ ׳™׳: " + (error.message || ""));
        try {
          const savedSpaces = localStorage.getItem('smartshare_spaces');
          if (savedSpaces) {
@@ -351,7 +351,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   // Auto-sync authentic user name to spaces
   useEffect(() => {
-    if (!user?.id || !user?.realName || user.realName === 'אורח' || user.realName === 'אורח אנונימי' || spacesBase.length === 0) return;
+    if (!user?.id || !user?.realName || user.realName === '׳׳•׳¨׳—' || user.realName === '׳׳•׳¨׳— ׳׳ ׳•׳ ׳™׳׳™' || spacesBase.length === 0) return;
     
     // Find spaces where we are a member but our name doesn't match our authenticated realName
     spacesBase.forEach(space => {
@@ -448,7 +448,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       } catch (e: any) {
         console.error("Error updating Firestore space root", e);
         if (typeof window !== 'undefined') {
-          alert("שגיאת תקשורת: הפעולה לא נשמרה בשרת! אנא רענן את העמוד ונסה שוב. (פרטי שגיאה: " + e.message + ")");
+          alert("׳©׳’׳™׳׳× ׳×׳§׳©׳•׳¨׳×: ׳”׳₪׳¢׳•׳׳” ׳׳ ׳ ׳©׳׳¨׳” ׳‘׳©׳¨׳×! ׳׳ ׳ ׳¨׳¢׳ ׳ ׳׳× ׳”׳¢׳׳•׳“ ׳•׳ ׳¡׳” ׳©׳•׳‘. (׳₪׳¨׳˜׳™ ׳©׳’׳™׳׳”: " + e.message + ")");
         }
         return false;
       }
@@ -478,7 +478,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (isCreatorByRole) {
         if (!space.creatorId) {
           updates.creatorId = user.id;
-          updates.createdBy = user.realName || user.nickname || 'יוצר המרחב';
+          updates.createdBy = user.realName || user.nickname || '׳™׳•׳¦׳¨ ׳”׳׳¨׳—׳‘';
           needsUpdate = true;
         }
         if (space.members?.some((m: any) => m.userId === user.id)) {
@@ -547,13 +547,13 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       date: new Date().toLocaleDateString('he-IL'),
-      updatedAt: 'נוצר הרגע',
+      updatedAt: '׳ ׳•׳¦׳¨ ׳”׳¨׳’׳¢',
       settings: defaultSettings,
       invoices: [],
       members: [],
       /* masterKey: masterKey, */
       creatorId: user?.id || undefined,
-      createdBy: user?.realName || user?.nickname || 'יוצר המרחב'
+      createdBy: user?.realName || user?.nickname || '׳™׳•׳¦׳¨ ׳”׳׳¨׳—׳‘'
     };
     
     // 1. Save to LocalStorage keyring (for guests / robust fallback)
@@ -595,7 +595,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         } : s));
       } catch (e: any) {
         console.error("Soft delete failed", e);
-        alert("שגיאה במחיקת המרחב (ייתכן שאין לך הרשאות מחיקה): " + (e.message || ""));
+        alert("׳©׳’׳™׳׳” ׳‘׳׳—׳™׳§׳× ׳”׳׳¨׳—׳‘ (׳™׳™׳×׳›׳ ׳©׳׳™׳ ׳׳ ׳”׳¨׳©׳׳•׳× ׳׳—׳™׳§׳”): " + (e.message || ""));
       }
     };
 
@@ -635,11 +635,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
       if (performedBy) {
         const featureNameMap: Record<string, string> = {
-          'finance': 'התחשבנות',
-          'scanner': 'סורק חכם',
-          'partners': 'שותפים',
-          'guestbook': 'ספר אורחים',
-          'gallery': 'גלריה'
+          'finance': '׳”׳×׳—׳©׳‘׳ ׳•׳×',
+          'scanner': '׳¡׳•׳¨׳§ ׳—׳›׳',
+          'partners': '׳©׳•׳×׳₪׳™׳',
+          'guestbook': '׳¡׳₪׳¨ ׳׳•׳¨׳—׳™׳',
+          'gallery': '׳’׳׳¨׳™׳”'
         };
         const fName = featureNameMap[featureId] || featureId;
         const newLog: AuditRecord = {
@@ -647,7 +647,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           timestamp: new Date().toISOString(),
           actionType: isRemoving ? 'SYSTEM_ALERT' : 'SYSTEM_ALERT',
           performedBy,
-          details: isRemoving ? `הסיר/ה את תוסף "${fName}" מהמרחב` : `הוסיף/ה את תוסף "${fName}" למרחב`
+          details: isRemoving ? `׳”׳¡׳™׳¨/׳” ׳׳× ׳×׳•׳¡׳£ "${fName}" ׳׳”׳׳¨׳—׳‘` : `׳”׳•׳¡׳™׳£/׳” ׳׳× ׳×׳•׳¡׳£ "${fName}" ׳׳׳¨׳—׳‘`
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
       }
@@ -657,26 +657,26 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSpaceTitle = (spaceId: string, newTitle: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
   };
 
   const updateSpaceDate = (spaceId: string, newDate: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
   };
 
   const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
   };
 
   const updateSpaceIcon = (spaceId: string, newIcon: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
   };
 
   const updateSpaceSettings = (spaceId: string, newSettings: Partial<SpaceSettings>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       settings: { ...space.settings, ...newSettings },
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
     }));
   };
 
@@ -694,18 +694,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (performedBy && actionDetail && oldInvoice) {
         const isDelete = updates.isActive === false;
         const isRestore = updates.isActive === true;
-        let actionLabel = isDelete ? "מחק/ה הוצאה" : isRestore ? "שחזר/ה הוצאה מחוקה" : "ערך/ה הוצאה";
-        const amt = oldInvoice.amount ? ` ע"ס ₪${oldInvoice.amount}` : "";
-        const supplier = oldInvoice.supplier || "ספק כללי";
+        let actionLabel = isDelete ? "׳׳—׳§/׳” ׳”׳•׳¦׳׳”" : isRestore ? "׳©׳—׳–׳¨/׳” ׳”׳•׳¦׳׳” ׳׳—׳•׳§׳”" : "׳¢׳¨׳/׳” ׳”׳•׳¦׳׳”";
+        const amt = oldInvoice.amount ? ` ׳¢"׳¡ ג‚×${oldInvoice.amount}` : "";
+        const supplier = oldInvoice.supplier || "׳¡׳₪׳§ ׳›׳׳׳™";
         
-        const performer = performedBy === "me" || !performedBy ? "משתמש" : performedBy;
+        const performer = performedBy === "me" || !performedBy ? "׳׳©׳×׳׳©" : performedBy;
         
         const newLog = {
           id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           timestamp: new Date().toISOString(),
           actionType: (isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE") as any,
           performedBy,
-          details: `${performer} ${actionLabel}${amt} מאת "${supplier}". פירוט: ${actionDetail}`,
+          details: `${performer} ${actionLabel}${amt} ׳׳׳× "${supplier}". ׳₪׳™׳¨׳•׳˜: ${actionDetail}`,
           invoiceId
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
@@ -769,7 +769,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
       
       const newMember = {
         userId: shadowToken,
-        name: name.trim() || pendingInvite?.name || existingMember?.name || 'שותף מוזמן',
+        name: name.trim() || pendingInvite?.name || existingMember?.name || '׳©׳•׳×׳£ ׳׳•׳–׳׳',
         role: 'partner' as const,
         joinedAt: existingMember?.joinedAt || new Date().toISOString(),
         isActive: true,
@@ -838,7 +838,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     saveSpaceUpdate(spaceId, space => {
       const newInvite = {
         token: inviteData.shadowToken,
-        name: inviteData.name?.trim() || 'שותף מוזמן',
+        name: inviteData.name?.trim() || '׳©׳•׳×׳£ ׳׳•׳–׳׳',
         guestShare: inviteData.guestShare,
         creatorShare: inviteData.creatorShare,
         partnerShares: inviteData.partnerShares || null,
@@ -886,6 +886,11 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
       
       return { ...space, members: updatedMembers as any, invoices: updatedInvoices };
     });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
+        detail: { spaceId, role: 'partner', token: realUid } 
+      }));
+    }
   };
 
   
@@ -988,7 +993,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     }));
   };
 
-  // ─── Operational Messages (2-way private creator↔partner) ───────────
+  // ג”€ג”€ג”€ Operational Messages (2-way private creatorג†”partner) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
   const sendMessageToMember = (spaceId: string, memberId: string, text: string, from: 'creator' | 'partner') => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
@@ -1008,9 +1013,9 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     const space = spacesBase.find(s => s.id === spaceId);
     if (space) {
       const targetUserId = from === 'creator' ? memberId : (space.creatorId || space.createdBy);
-      const senderName = user?.nickname || user?.realName || 'שותף';
+      const senderName = user?.nickname || user?.realName || '׳©׳•׳×׳£';
       if (targetUserId) {
-        triggerPushNotification([targetUserId], `הודעה אישית - ${space.title}`, `${senderName}: ${text}`, { url: `/space/${spaceId}` });
+        triggerPushNotification([targetUserId], `׳”׳•׳“׳¢׳” ׳׳™׳©׳™׳× - ${space.title}`, `${senderName}: ${text}`, { url: `/space/${spaceId}` });
       }
     }
   };
@@ -1032,7 +1037,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
 
   const approveExtension = (spaceId: string, memberId: string) => {
     saveSpaceUpdate(spaceId, space => {
-      triggerPushNotification([memberId], space.title, 'מנהל הקבוצה אישר את בקשת ההצטרפות שלך! יש לך כעת 24 שעות להיכנס.', { url: `/space/${spaceId}` });
+      triggerPushNotification([memberId], space.title, '׳׳ ׳”׳ ׳”׳§׳‘׳•׳¦׳” ׳׳™׳©׳¨ ׳׳× ׳‘׳§׳©׳× ׳”׳”׳¦׳˜׳¨׳₪׳•׳× ׳©׳׳! ׳™׳© ׳׳ ׳›׳¢׳× 24 ׳©׳¢׳•׳× ׳׳”׳™׳›׳ ׳¡.', { url: `/space/${spaceId}` });
       return {
         ...space,
         members: (space.members || []).map(m => {
@@ -1074,7 +1079,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         ...space,
         invoices: [],
         members: newMembers,
-        updatedAt: 'עודכן לפני רגע'
+        updatedAt: '׳¢׳•׳“׳›׳ ׳׳₪׳ ׳™ ׳¨׳’׳¢'
       };
     });
   };
@@ -1135,7 +1140,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         timestamp: new Date().toISOString(),
         actionType: 'AUTO_BALANCE',
         performedBy,
-        details: `המערכת חילקה את האחוזים הנותרים שווה בשווה (${defaultShare.toFixed(1)}% לכל חלק).`
+        details: `׳”׳׳¢׳¨׳›׳× ׳—׳™׳׳§׳” ׳׳× ׳”׳׳—׳•׳–׳™׳ ׳”׳ ׳•׳×׳¨׳™׳ ׳©׳•׳•׳” ׳‘׳©׳•׳•׳” (${defaultShare.toFixed(1)}% ׳׳›׳ ׳—׳׳§).`
       };
 
       return {
@@ -1171,10 +1176,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
       if (forceHardDelete) {
         newMembers = space.members?.filter(m => m.userId !== userId) || [];
-        details = `השותף ${memberToRemove.name} נמחק לצמיתות.`;
+        details = `׳”׳©׳•׳×׳£ ${memberToRemove.name} ׳ ׳׳—׳§ ׳׳¦׳׳™׳×׳•׳×.`;
       } else {
         newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false, sharePercentage: undefined } : m) || [];
-        details = `השותף ${memberToRemove.name} סומן כלא-פעיל.`;
+        details = `׳”׳©׳•׳×׳£ ${memberToRemove.name} ׳¡׳•׳׳ ׳›׳׳-׳₪׳¢׳™׳.`;
       }
       
       const newLog: AuditRecord = {
@@ -1226,7 +1231,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         timestamp: new Date().toISOString(),
         actionType: 'OTHER',
         performedBy,
-        details: `השותף ${memberToRestore.name} הוחזר לפעילות.`
+        details: `׳”׳©׳•׳×׳£ ${memberToRestore.name} ׳”׳•׳—׳–׳¨ ׳׳₪׳¢׳™׳׳•׳×.`
       };
 
       return {
@@ -1267,7 +1272,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         ...space,
         invoices: [newInvoice, ...(space.invoices || [])],
         inboxItems: (space.inboxItems || []).filter(item => item.id !== inboxItemId),
-        updatedAt: 'עודכן הרגע'
+        updatedAt: '׳¢׳•׳“׳›׳ ׳”׳¨׳’׳¢'
       };
     });
   };
@@ -1281,9 +1286,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
     const space = spacesBase.find(s => s.id === spaceId);
     if (space && space.members) {
-      const senderName = user?.nickname || user?.realName || 'שותף';
+      const senderName = user?.nickname || user?.realName || '׳©׳•׳×׳£';
       const title = space.title;
-      const body = `${senderName} הוסיף הוצאה חדשה: ${invoiceData.amount} ₪ (${invoiceData.category || 'כללי'})`;
+      const body = `${senderName} ׳”׳•׳¡׳™׳£ ׳”׳•׳¦׳׳” ׳—׳“׳©׳”: ${invoiceData.amount} ג‚× (${invoiceData.category || '׳›׳׳׳™'})`;
       const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
       triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
     }
@@ -1299,7 +1304,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       return {
         ...space,
         inboxItems: [...newItems, ...(space.inboxItems || [])],
-        updatedAt: 'עודכן עכשיו'
+        updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
       };
     });
   };
@@ -1308,7 +1313,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
     }));
   };
 
@@ -1323,7 +1328,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).filter(item => item.id !== itemId),
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
     }));
   };
 
@@ -1348,9 +1353,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       if (item.type === 'message' || item.type === 'photo') {
         const space = spacesBase.find(s => s.id === spaceId);
         if (space && space.members) {
-          const senderName = user?.nickname || user?.realName || 'שותף';
+          const senderName = user?.nickname || user?.realName || '׳©׳•׳×׳£';
           const title = space.title;
-          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} שיתף תמונה חדשה`; // url holds the message text for type='message'
+          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} ׳©׳™׳×׳£ ׳×׳׳•׳ ׳” ׳—׳“׳©׳”`; // url holds the message text for type='message'
           const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
           triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
         }

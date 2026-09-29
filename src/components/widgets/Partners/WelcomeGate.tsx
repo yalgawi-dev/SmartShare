@@ -62,23 +62,6 @@ export default function WelcomeGate({
     if (isCreatorOfThisSpace || typeof window === 'undefined' || !resolvedToken) return;
 
     // Immediately cache in localStorage for cross-page persistence
-    try {
-      const parsedKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-      const localKeys = parsedKeys || {};
-      if (!localKeys[spaceId] || localKeys[spaceId].token !== resolvedToken) {
-        localKeys[spaceId] = { role: 'partner', token: resolvedToken };
-        localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
-      }
-      const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
-      if (!guestTokens.includes(resolvedToken)) {
-        guestTokens.push(resolvedToken);
-        localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
-      }
-      window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
-        detail: { spaceId, role: 'partner', token: resolvedToken } 
-      }));
-    } catch (e) {}
-
     const urlParams = new URLSearchParams(window.location.search);
     const nameParam = urlParams.get('name');
     if (nameParam && !guestName) {
@@ -154,6 +137,12 @@ export default function WelcomeGate({
       const localKeys = parsed || {};
       localKeys[spaceId] = { role: 'partner', token: resolvedToken };
       localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+      
+      const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+      if (!guestTokens.includes(resolvedToken)) {
+        guestTokens.push(resolvedToken);
+        localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
+      }
     } catch (e) {}
 
     // Dispatch event so AuthContext immediately saves it to Firestore user document
@@ -161,6 +150,7 @@ export default function WelcomeGate({
       window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
         detail: { spaceId, role: 'partner', token: resolvedToken } 
       }));
+      window.dispatchEvent(new CustomEvent('force_auth'));
     }
 
     if (finalName && (!user?.email || user.realName === 'אורח')) {
