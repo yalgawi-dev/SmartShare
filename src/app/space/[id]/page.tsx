@@ -684,9 +684,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           </div>
         </div>
       )}
+
+      {/* Global Modals */}
+      {activeChatId && space?.features?.includes('partners') && getChatMemberAndMode(activeChatId) && (
+        <PartnerControlPanel
+          member={getChatMemberAndMode(activeChatId)!.member}
+          space={space}
+          viewMode={getChatMemberAndMode(activeChatId)!.mode}
+          onClose={() => setActiveChatId(null)}
+        />
+      )}
     </div>
   );
-
-
-
 }
