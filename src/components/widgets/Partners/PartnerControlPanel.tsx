@@ -122,10 +122,17 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   useEffect(() => {
     if (!mounted || !user?.id) return;
     
-    // Mark Mesh
-    if (typeof markConversationRead === 'function' && meshMessages.length > 0) {
-      const unread = meshMessages.filter((m: any) => !(m.readBy || []).includes(user.id));
-      if (unread.length > 0) {
+    // Mark both Mesh and Legacy
+    if (typeof markConversationRead === 'function') {
+      const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(user.id));
+      const hasUnreadLegacy = legacyMessages.some((m: any) => {
+         if (m.readAt) return false;
+         const isCreator = space.creatorId === user.id;
+         if (isCreator && m.senderId !== space.creatorId) return true;
+         if (!isCreator && m.senderId === space.creatorId) return true;
+         return false;
+      });
+      if (hasUnreadMesh || hasUnreadLegacy) {
         markConversationRead(space.id, conversationId, user.id);
       }
     }
@@ -172,7 +179,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   };
 
   const statusLabel: Record<string, string> = {
-    active: '✅ פעיל',
+    active: 'שותף רשמי',
     pending: member?.welcomed ? '⏳ ממתין שיאשר' : '✉️ הזמנה נשלחה (טרם הצטרף)',
     extension_requested: '🔔 מבקש הארכה',
     disputed: '⚠️ במחלוקת',
@@ -222,7 +229,10 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : 'הגדרות וצ\'אט פרטי'}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : 'הגדרות שותף ומנהל'}</h3>
+                    {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(isGroup ? 'group' : member.userId), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
+                  </div>
                 {isGroup && (
                   <button onClick={() => setShowParticipants(!showParticipants)} style={{ background: showParticipants ? '#e2e8f0' : '#f1f5f9', border: 'none', borderRadius: '16px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', cursor: 'pointer' }}>
                     {space.members?.length || 0} משתתפים
@@ -441,8 +451,10 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', alignSelf: 'flex-end', marginTop: '1px' }}>
                   <span style={{ fontSize: '0.65rem', color: '#667781' }}>{timeStr}</span>
                   {isMyMsg && (
-                    <span style={{ color: m.readAt || (m.readBy && m.readBy.length > 1) ? '#53bdeb' : '#8696a0', fontSize: '0.8rem', letterSpacing: '-2.5px', marginRight: '2px', fontWeight: 'bold' }}>
-                      ✓✓
+                    <span style={{ color: m.readAt || (m.readBy && m.readBy.length > 1) ? '#53bdeb' : '#8696a0', marginRight: '2px', display: 'flex', alignItems: 'center' }}>
+                      <svg viewBox="0 0 16 15" width="16" height="15" fill="currentColor">
+                        <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z" />
+                      </svg>
                     </span>
                   )}
                 </div>

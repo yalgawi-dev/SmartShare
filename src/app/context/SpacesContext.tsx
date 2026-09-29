@@ -1055,7 +1055,32 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         if (c.id !== conversationId) return c;
         return { ...c, messages: c.messages.map(msg => { if (!msg.readBy.includes(readerId)) { return { ...msg, readBy: [...msg.readBy, readerId] }; } return msg; }) };
       });
-      return { ...space, conversations: updatedConvos };
+      
+      let updatedMembers = space.members;
+      if (conversationId !== 'group') {
+        const isCreator = readerId === space.creatorId;
+        const otherUserId = conversationId.split('_').find(id => id !== readerId);
+        updatedMembers = (space.members || []).map(m => {
+           const targetMemberId = isCreator ? otherUserId : readerId;
+           if (m.userId !== targetMemberId) return m;
+           
+           if (!m.messages) return m;
+           let changed = false;
+           const newMsgs = Object.values(m.messages).map((msg: any) => {
+              if (msg.readAt) return msg;
+              if (isCreator && msg.from === 'partner') { changed = true; return { ...msg, readAt: new Date().toISOString() }; }
+              if (!isCreator && msg.from === 'creator') { changed = true; return { ...msg, readAt: new Date().toISOString() }; }
+              return msg;
+           });
+           
+           // If m.messages was originally an object/record (legacy), map it back to object
+           const returnMsgs = Array.isArray(m.messages) ? newMsgs : newMsgs.reduce((acc, msg) => ({ ...acc, [msg.id]: msg }), {});
+           
+           return changed ? { ...m, messages: returnMsgs } : m;
+        });
+      }
+
+      return { ...space, conversations: updatedConvos, members: updatedMembers };
     });
   };
 
