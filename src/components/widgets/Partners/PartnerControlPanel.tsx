@@ -53,7 +53,7 @@ interface Props {
 }
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, sendMessageToMember, markMessageRead, approveShareChange, rejectShareChange } = useSpaces() as any;
+  const { approveExtension, removeMember, updateMemberStatus, sendConversationMessage, markConversationRead,  approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
@@ -63,17 +63,38 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     setMounted(true);
   }, []);
 
+  const isGroup = member.userId === 'group';
+  const conversationId = isGroup ? 'group' : (viewMode === 'peer' ? [user?.id, member.userId].sort().join('_') : (viewMode === 'creator' ? member.userId : user?.id));
+
+  // Legacy
   const messagesRaw = member?.messages || [];
-  const messagesArray = Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw);
+  let legacyMessages = (Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw)).map((msg: any) => ({
+    id: msg.id,
+    senderId: msg.from === 'creator' ? (space.creatorId || space.createdBy) : member.userId,
+    text: msg.text,
+    createdAt: msg.createdAt || new Date().toISOString(),
+    readBy: msg.readAt ? [msg.from === 'creator' ? member.userId : (space.creatorId || space.createdBy)] : []
+  }));
+  if (isGroup || viewMode === 'peer') legacyMessages = [];
+
+  // Mesh
+  const convo = space.conversations?.find((c: any) => c.id === conversationId);
+  const meshMessages = convo?.messages || [];
+  
+  const messagesArray = [...legacyMessages, ...meshMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
   // Auto-mark messages as read when opening the panel
   useEffect(() => {
-    if (!mounted) return;
-    const unreadMsgs = messagesArray.filter((m: any) => m?.from !== viewMode && !m?.readAt);
-    if (unreadMsgs.length > 0 && typeof markMessageRead === 'function') {
-      markMessageRead(space.id, member.userId, unreadMsgs.map((m: any) => m.id));
+    if (!mounted || !user?.id) return;
+    
+    // Mark Mesh
+    if (typeof markConversationRead === 'function' && meshMessages.length > 0) {
+      const unread = meshMessages.filter((m: any) => !(m.readBy || []).includes(user.id));
+      if (unread.length > 0) {
+        markConversationRead(space.id, conversationId, user.id);
+      }
     }
-  }, [messagesRaw.length, mounted]);
+  }, [messagesArray.length, mounted]);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
@@ -111,7 +132,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
-    if(typeof sendMessageToMember === 'function') sendMessageToMember(space.id, member.userId, messageText.trim(), viewMode as any);
+    if (typeof sendConversationMessage === 'function') sendConversationMessage(space.id, conversationId, user?.id || 'me', messageText.trim());
     setMessageText('');
   };
 
@@ -282,7 +303,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         </div>
 
         {/* Chat Messages Area */}
-        {viewMode !== 'peer' && (
+        {true && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {viewMode === 'creator' && member?.extensionMessage && (
             <div style={{ alignSelf: 'center', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
@@ -358,7 +379,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
         )}
         {/* Input Area */}
-        {viewMode !== 'peer' && (
+        {true && (
         <div style={{ background: '#f0f2f5', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
           <textarea
             value={messageText}

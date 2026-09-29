@@ -96,6 +96,21 @@ export interface SpaceSettings {
   mySharePercentage?: number;
 }
 
+export interface SpaceMessage {
+  id: string;
+  senderId: string;
+  text: string;
+  createdAt: string;
+  readBy: string[];
+}
+
+export interface SpaceConversation {
+  id: string;
+  type: 'group' | 'p2p';
+  participants: string[];
+  messages: SpaceMessage[];
+}
+
 export interface SpaceMember {
   messages?: any[];
   disputeResolved?: boolean;
@@ -117,6 +132,7 @@ export interface SpaceMember {
   welcomed?: boolean;
   joinedAt?: string;
   shareChangeRequest?: { proposedShare: number; creatorShare: number; timestamp: string; };
+  extensionMessage?: string;
 }
 
 export interface AuditRecord {
@@ -133,6 +149,7 @@ export interface Space {
   createdBy?: string;
   createdAt?: string;
   pendingInvites?: any[];
+  conversations?: SpaceConversation[];
   inboxItems?: any[];
   inbox?: any[];
   id: string;
@@ -157,8 +174,8 @@ export interface Space {
 interface SpacesContextType {
   migrateGuestToRealUser: (spaceId: string, userId: string, realUid: string, realName: string) => void;
   setExtensionMessage?: any;
-  sendMessageToMember?: any;
-  markMessageRead?: any;
+  sendConversationMessage?: any;
+  markConversationRead?: any;
     personalInbox: any[];
     setPersonalInbox: React.Dispatch<React.SetStateAction<any[]>>;
   fetchPersonalInbox: () => Promise<void>;
@@ -1000,45 +1017,30 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
   };
 
   // ג”€ג”€ג”€ Operational Messages (2-way private creatorג†”partner) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
-  const sendMessageToMember = (spaceId: string, memberId: string, text: string, from: 'creator' | 'partner') => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      members: (space.members || []).map(m => {
-        if (m.userId !== memberId) return m;
-        const newMsg = {
-          id: `msg-${Date.now()}-${Math.random().toString(36).substr(2,5)}`,
-          text: text.trim(),
-          from,
-          createdAt: new Date().toISOString(),
-          readAt: undefined as string | undefined
-        };
-        return { ...m, messages: [...(m.messages || []), newMsg] };
-      })
-    }));
-
-    const space = spacesBase.find(s => s.id === spaceId);
-    if (space) {
-      const targetUserId = from === 'creator' ? memberId : (space.creatorId || space.createdBy);
-      const senderName = user?.nickname || user?.realName || '׳©׳•׳×׳£';
-      if (targetUserId) {
-        triggerPushNotification([targetUserId], `׳”׳•׳“׳¢׳” ׳׳™׳©׳™׳× - ${space.title}`, `${senderName}: ${text}`, { url: `/space/${spaceId}` });
+    const sendConversationMessage = (spaceId: string, conversationId: string, senderId: string, text: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const convos = space.conversations || [];
+      let convo = convos.find(c => c.id === conversationId);
+      if (!convo) {
+        const participants = conversationId === 'group' ? ['group'] : conversationId.split('_');
+        convo = { id: conversationId, type: conversationId === 'group' ? 'group' : 'p2p', participants, messages: [] };
+        convos.push(convo);
       }
-    }
+      const newMsg = { id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2,5), senderId, text: text.trim(), createdAt: new Date().toISOString(), readBy: [senderId] };
+      const updatedConvos = [...convos.filter(c => c.id !== conversationId), { ...convo, messages: [...convo.messages, newMsg] }];
+      return { ...space, conversations: updatedConvos };
+    });
   };
 
-  const markMessageRead = (spaceId: string, memberId: string, messageId: string | string[]) => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      members: (space.members || []).map(m => {
-        if (m.userId !== memberId) return m;
-        return {
-          ...m,
-          messages: (m.messages || []).map(msg =>
-            (Array.isArray(messageId) ? messageId.includes(msg.id) : msg.id === messageId) && !msg.readAt ? { ...msg, readAt: new Date().toISOString() } : msg
-          )
-        };
-      })
-    }));
+  const markConversationRead = (spaceId: string, conversationId: string, readerId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const convos = space.conversations || [];
+      const updatedConvos = convos.map(c => {
+        if (c.id !== conversationId) return c;
+        return { ...c, messages: c.messages.map(msg => { if (!msg.readBy.includes(readerId)) { return { ...msg, readBy: [...msg.readBy, readerId] }; } return msg; }) };
+      });
+      return { ...space, conversations: updatedConvos };
+    });
   };
 
   const approveExtension = (spaceId: string, memberId: string) => {
@@ -1471,8 +1473,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   return (
     <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       updateMemberPermissions,
-      sendMessageToMember,
-      markMessageRead,
+      sendConversationMessage,
+        markConversationRead,
+      
       approveExtension,
       setExtensionMessage, updateSharesBulk,
     approveShareChange,

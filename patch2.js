@@ -1,46 +1,9 @@
 ﻿const fs = require('fs');
-let content = fs.readFileSync('src/app/context/AuthContext.tsx', 'utf8');
+let c = fs.readFileSync('C:/yehuda/project/app/SmartShare/src/app/page.tsx', 'utf8');
 
-const implementation = 
-  const linkPhoneNumberMock = async (phone: string) => {
-    if (!user) return;
-    try {
-      const userRef = doc(db, 'users', user.id);
-      await updateDoc(userRef, { phone });
-      setUser(prev => prev ? { ...prev, phone } : prev);
-      
-      // Admin CRM array optimistic update
-      setAllUsers(prev => prev.map(u => u.id === user.id ? { ...u, phone } : u));
-    } catch (e) {
-      console.error('Error linking phone:', e);
-      throw e;
-    }
-  };
+c = c.replace(
+  /<button onClick=\{\(\) => setShowShareModal\(true\)\}[^>]*>\s*[^<]*\s*<\/button>/,
+  '<button onClick={() => setShowNotifications(true)} style={{ position: \'relative\', padding: \'0.4rem\', background: \'transparent\', border: \'none\', cursor: \'pointer\', display: \'flex\', alignItems: \'center\', justifyContent: \'center\', fontSize: \'1.2rem\', transition: \'transform 0.2s\', borderRadius: \'50%\' }} title="התראות מערכת" onMouseEnter={e => e.currentTarget.style.background = \'var(--bg-hover)\'} onMouseLeave={e => e.currentTarget.style.background = \'transparent\'}>\n              🔔\n              <span style={{ position: \'absolute\', top: \'2px\', right: \'2px\', width: \'10px\', height: \'10px\', background: \'#ef4444\', borderRadius: \'50%\', border: \'2px solid var(--bg-card)\' }}></span>\n            </button>\n$&'
+);
 
-  const findUserByPhone = async (phone: string): Promise<UserProfile | null> => {
-    try {
-      const q = collection(db, 'users');
-      const snapshot = await getDocs(q);
-      let foundUser = null;
-      snapshot.forEach(docSnap => {
-        const data = docSnap.data() as UserProfile;
-        // Basic match, ignoring spaces/dashes
-        const cleanDbPhone = (data.phone || '').replace(/\\D/g, '');
-        const cleanQueryPhone = phone.replace(/\\D/g, '');
-        if (cleanDbPhone && cleanDbPhone === cleanQueryPhone) {
-          foundUser = { ...data, id: docSnap.id };
-        }
-      });
-      return foundUser;
-    } catch (e) {
-      console.error('Error finding user by phone:', e);
-      return null;
-    }
-  };
-;
-
-const target = 'const deleteUserDoc = async (userId: string) => {';
-content = content.replace(target, implementation + '\n\n  ' + target);
-
-fs.writeFileSync('src/app/context/AuthContext.tsx', content);
-console.log('Added implementations');
+fs.writeFileSync('C:/yehuda/project/app/SmartShare/src/app/page.tsx', c, 'utf8');

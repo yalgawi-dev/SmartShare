@@ -11,6 +11,7 @@ export interface UserContact {
   name: string;
   avatarUrl?: string;
   phone?: string;
+  dismissedAlerts?: string[];
   addedAt: string;
 }
 
@@ -20,6 +21,7 @@ export interface UserProfile {
   nickname?: string;
   avatarUrl?: string;
   phone?: string;
+  dismissedAlerts?: string[];
   email?: string;
   status?: 'single' | 'married' | 'relationship' | 'complicated' | 'hidden' | 'divorced' | 'widowed' | 'other';
   customStatus?: string;

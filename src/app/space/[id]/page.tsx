@@ -62,12 +62,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   const [showInvite, setShowInvite] = useState(false);
   const [showFeatureMenu, setShowFeatureMenu] = useState(false);
-  const [showPartnersModal, setShowPartnersModal] = useState(false);
+  const [showPartnersModal, setShowPartnersModal] = useState(() => { if (typeof window !== 'undefined') { return new URLSearchParams(window.location.search).get('tab') === 'partners'; } return false; });
   const [showRestrictedActionModal, setShowRestrictedActionModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox'>('summary');
+  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions') return t as any; } return 'summary'; });
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
 
   useEffect(() => {

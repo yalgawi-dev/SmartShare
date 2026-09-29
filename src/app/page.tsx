@@ -1,9 +1,10 @@
 'use client';
 import { createPortal } from 'react-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import styles from './page.module.css';
 import Link from 'next/link';
+import NotificationCenterWidget from '../components/widgets/NotificationCenterWidget';
 import { useSpaces } from './context/SpacesContext';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
@@ -23,6 +24,55 @@ export default function Dashboard() {
   const [editTitleValue, setEditTitleValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showPersonalInbox, setShowPersonalInbox] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const unreadMessagesCount = useMemo(() => {
+    if (!user) return 0;
+    const dismissedAlerts = user.dismissedAlerts || [];
+    let count = 0;
+    spaces.forEach(space => {
+      const isCreator = space.creatorId === user.id;
+      (space.invoices || []).forEach(inv => {
+        if (!dismissedAlerts.includes('inv-' + inv.id)) {
+          if ((inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') && (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id)) count++;
+        }
+      });
+      (space.members || []).forEach(member => {
+        if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('disp-' + member.userId)) count++;
+        if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
+        if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
+        
+        const p2pConvoId = [user.id, member.userId].sort().join('_');
+        const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+        let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+        
+        // Legacy fallback
+        if (unreadChatMessages.length === 0) {
+          unreadChatMessages = (member.messages || []).filter((msg: any) => {
+            if (msg.readAt) return false;
+            if (isCreator && msg.from === 'partner') return true;
+            if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
+            return false;
+          });
+        }
+        if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
+      });
+
+      // Group Chat Summary
+      const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
+      if (groupConvo) {
+        const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+        if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
+      }
+      
+      if (isCreator) {
+        (space.pendingInvites || []).forEach((invite: any) => {
+          if (!dismissedAlerts.includes('invt-' + invite.token)) count++;
+        });
+      }
+    });
+    return count;
+  }, [spaces, user]);
+
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -213,7 +263,11 @@ export default function Dashboard() {
           )}
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.2rem', gap: '0.2rem' }}>
-            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <button onClick={() => setShowNotifications(true)} style={{ position: 'relative', padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', borderRadius: '50%' }} title="התראות מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fef08a" stroke="#ca8a04" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+              {unreadMessagesCount > 0 && <span style={{ position: 'absolute', top: '0px', right: '0px', minWidth: '16px', height: '16px', background: '#ef4444', color: 'white', borderRadius: '8px', border: '2px solid var(--bg-card)', fontSize: '0.6rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{unreadMessagesCount}</span>}
+            </button>
+<button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               🔗
             </button>
             {user?.isAdmin && (
@@ -258,6 +312,7 @@ export default function Dashboard() {
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>מחסן</span>
         </button>
 
+        {showNotifications && typeof window !== 'undefined' && createPortal(<NotificationCenterWidget onClose={() => setShowNotifications(false)} />, document.body)}
         {showPersonalInbox && typeof window !== 'undefined' && createPortal(
           <div 
             style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999, display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }} 
