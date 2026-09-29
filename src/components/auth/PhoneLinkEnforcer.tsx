@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
 import { auth, db } from '@/lib/firebase';
 import { RecaptchaVerifier, linkWithCredential, PhoneAuthProvider } from 'firebase/auth';
@@ -17,7 +17,11 @@ export default function PhoneLinkEnforcer() {
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).recaptchaVerifierLink) {
       try {
-        (window as any).recaptchaVerifierLink = new RecaptchaVerifier(auth, 'recaptcha-container-link', {
+        const container = document.createElement('div');
+        container.id = 'recaptcha-container-link';
+        container.style.display = 'none';
+        document.body.appendChild(container);
+        (window as any).recaptchaVerifierLink = new RecaptchaVerifier(auth, container, {
           size: 'invisible',
         });
       } catch (e) {
@@ -108,7 +112,6 @@ export default function PhoneLinkEnforcer() {
           על מנת לאבטח את המידע שלך ולאפשר התחברות קלה בעתיד, חובה לאמת את מספר הטלפון שלך. מספר זה יקושר לחשבונך.
         </p>
 
-        <div id="recaptcha-container-link"></div>
         {errorMsg && <div style={{ background: '#fee2e2', color: '#991b1b', padding: '0.75rem', borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 'bold' }}>{errorMsg}</div>}
 
         {step === 1 && (
