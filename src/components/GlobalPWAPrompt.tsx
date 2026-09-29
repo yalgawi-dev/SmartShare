@@ -216,7 +216,7 @@ export default function GlobalPWAPrompt() {
           <Step icon="➕" text='בחר "הוסף למסך הבית" או "התקן"' />
           <Step icon="✅" text='לחץ "הוסף" — וזהו!' />
         </div>
-        <button onClick={() => setShowGuide(false)} style={{ background: '#3b82f6', color: 'white', width: '100%', padding: '0.85rem', borderRadius: '14px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>הבנתי, תודה!</button>
+        <button onClick={dismiss} style={{ background: '#3b82f6', color: 'white', width: '100%', padding: '0.85rem', borderRadius: '14px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>הבנתי, תודה!</button>
       </Sheet>
     );
   }
