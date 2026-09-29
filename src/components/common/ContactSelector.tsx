@@ -22,12 +22,13 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [isSearching, setIsSearching] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
     const mySpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === user?.id));
   const allSpaceMembers = mySpaces.flatMap((s: any) => s.members || []);
   const spaceContacts = Array.from(new Map(allSpaceMembers.map((m: any) => [m.userId, m])).values())
     .filter((m: any) => m.userId !== user?.id)
-    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף ללא שם', phone: '', userId: m.userId }));
+    .map((m: any) => ({ id: m.userId, name: m.name || 'שותף ללא שם', phone: 'שותף קיים במערכת', userId: m.userId }));
 
   const savedContacts = user?.contacts || [];
   
@@ -128,8 +129,15 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
           )}
           
           {contacts.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto', boxSizing: 'border-box' }}>
-              {contacts.map((c: any) => (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '350px', overflowY: 'auto', boxSizing: 'border-box' }}>
+              <input
+                type="text"
+                placeholder="חיפוש לפי שם..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '0.5rem', boxSizing: 'border-box' }}
+              />
+              {contacts.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map((c: any) => (
                 <button
                   key={c.id}
                   onClick={() => handleSelectExisting(c)}
@@ -140,7 +148,7 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
                   </div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{c.name}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{c.phone || 'ללא מספר'}</div>
+                    <div style={{ fontSize: '0.85rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{c.phone || 'שותף במערכת'}</div>
                   </div>
                 </button>
               ))}
