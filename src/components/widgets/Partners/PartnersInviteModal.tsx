@@ -13,6 +13,7 @@ export function PartnersInviteModal({
   onClose: () => void;
 }) {
   const { createPendingInvite } = useSpaces();
+  const [successData, setSuccessData] = useState<{name: string, phone: string, text: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const partnerName = '';
   const [isRetroactive, setIsRetroactive] = useState(false);
@@ -202,7 +203,29 @@ export function PartnersInviteModal({
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
       <div style={{ background: 'white', padding: '1.75rem', borderRadius: '20px', width: '100%', maxWidth: '440px', maxHeight: '90vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '1.25rem', color: '#1e293b', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)' }}>
         
-        {/* Header */}
+        {successData ? (
+          <div style={{ textAlign: 'center', padding: '1rem 0' }}>
+            <div style={{ width: '60px', height: '60px', background: '#22c55e', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
+              <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>הזמנה נשלחה בהצלחה!</h3>
+            <p style={{ margin: '0 0 1.5rem', color: '#64748b' }}>ההזמנה נשלחה למשתמש <strong>{successData.name}</strong> והוא יקבל התראה באפליקציה.</p>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button onClick={() => {
+                const whatsappUrl = `https://wa.me/${successData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(successData.text)}`;
+                window.open(whatsappUrl, '_blank');
+                onClose();
+              }} style={{ flex: 1, padding: '0.75rem', background: '#25D366', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                תזכורת בווטסאפ
+              </button>
+              <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
+                סגור
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+          {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
@@ -445,6 +468,7 @@ export function PartnersInviteModal({
               </button>
             </div>
           </div>
+        </>
         </div>
       </div>
     </div>,
