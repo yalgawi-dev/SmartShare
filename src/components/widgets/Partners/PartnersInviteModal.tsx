@@ -224,7 +224,7 @@ export function PartnersInviteModal({
             </div>
           </div>
         ) : (
-          <>
+          <div style={{ width: '100%' }}>
           {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
@@ -468,7 +468,7 @@ export function PartnersInviteModal({
               </button>
             </div>
           </div>
-        </>
+        </div>
         )}
       </div>
     </div>,
