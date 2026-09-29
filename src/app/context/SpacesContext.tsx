@@ -195,7 +195,7 @@ interface SpacesContextType {
   deleteComment: (spaceId: string, mediaId: string, commentId: string) => void;
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   updateMemberStatus: (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => void;
-  migrateGuestToRealUser: (spaceId: string, shadowToken: string, realUid: string, realName: string) => void;
+  
   refreshMemberInvite: (spaceId: string, userId: string) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string, forceHardDelete?: boolean) => void;
   restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
@@ -209,12 +209,13 @@ interface SpacesContextType {
     spaceId: string, 
     name: string, 
     isRetroactive: boolean, 
-    shadowToken: string, 
+    userId: string, 
+    inviteToken?: string,
     customShare?: number,
     sharesPlan?: { creator: number; partners?: Record<string, number> }
   ) => void;
   createPendingInvite: (spaceId: string, inviteData: {
-    shadowToken: string;
+    token: string;
     name?: string;
     isRetroactive: boolean;
     guestShare: number;
@@ -749,26 +750,19 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     });
   };
 
-  const finalizeGuestJoin = (
-    spaceId: string, 
-    name: string, 
-    isRetroactiveParam: boolean, 
-    shadowToken: string, 
-    customShareParam?: number,
-    sharesPlanParam?: { creator: number; partners?: Record<string, number> }
-  ) => {
+  const finalizeGuestJoin = (spaceId: string, name: string, isRetroactiveParam: boolean, userId: string, inviteToken?: string, customShareParam?: number, sharesPlanParam?: { creator: number; partners?: Record<string, number> }) => {
     saveSpaceUpdate(spaceId, space => {
-      const pendingInvite = (space.pendingInvites || []).find(i => i.token === shadowToken);
+      const pendingInvite = inviteToken ? (space.pendingInvites || []).find(i => i.token === inviteToken) : undefined;
       
       let customShare = pendingInvite ? pendingInvite.guestShare : customShareParam;
       let sharesPlan = pendingInvite ? { creator: pendingInvite.creatorShare, partners: pendingInvite.partnerShares || undefined } : sharesPlanParam;
       let isRetroactive = pendingInvite ? pendingInvite.isRetroactive : isRetroactiveParam;
 
       const hasCustomShare = customShare !== undefined && customShare !== null && !isNaN(customShare);
-      const existingMember = (space.members || []).find(m => m.userId === shadowToken);
+      const existingMember = (space.members || []).find(m => m.userId === userId);
       
       const newMember = {
-        userId: shadowToken,
+        userId: userId,
         name: name.trim() || pendingInvite?.name || existingMember?.name || '׳©׳•׳×׳£ ׳׳•׳–׳׳',
         role: 'partner' as const,
         joinedAt: existingMember?.joinedAt || new Date().toISOString(),
@@ -786,13 +780,13 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
       if (!isRetroactive) {
         updatedInvoices = updatedInvoices.map(inv => ({
           ...inv,
-          excludedMembers: [...(inv.excludedMembers || []), shadowToken]
+          excludedMembers: [...(inv.excludedMembers || []), userId]
         }));
       }
 
       let finalMembersList: any[];
       let finalCreatorShare: number;
-      const existingMembersWithoutThis = (space.members || []).filter(m => m.userId !== shadowToken);
+      const existingMembersWithoutThis = (space.members || []).filter(m => m.userId !== userId);
 
       if (sharesPlan) {
         finalCreatorShare = sharesPlan.creator;
@@ -815,7 +809,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         finalCreatorShare = calculatedCreatorShare;
       }
       
-      const newPendingInvites = (space.pendingInvites || []).filter(i => i.token !== shadowToken);
+      const newPendingInvites = (space.pendingInvites || []).filter(i => i.token !== userId);
 
       return {
         ...space,
@@ -828,7 +822,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
   };
 
   const createPendingInvite = (spaceId: string, inviteData: {
-    shadowToken: string;
+    token: string;
     name?: string;
     isRetroactive: boolean;
     guestShare: number;
@@ -837,7 +831,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
   }) => {
     saveSpaceUpdate(spaceId, space => {
       const newInvite = {
-        token: inviteData.shadowToken,
+        token: inviteData.token,
         name: inviteData.name?.trim() || '׳©׳•׳×׳£ ׳׳•׳–׳׳',
         guestShare: inviteData.guestShare,
         creatorShare: inviteData.creatorShare,
@@ -871,17 +865,17 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     }));
   };
 
-  const migrateGuestToRealUser = (spaceId: string, shadowToken: string, realUid: string, realName: string) => {
+  const migrateGuestToRealUser = (spaceId: string, userId: string, realUid: string, realName: string) => {
     saveSpaceUpdate(spaceId, space => {
       // Replace member token with real ID and set to active
       const updatedMembers = (space.members || []).map(m => 
-        m.userId === shadowToken ? { ...m, userId: realUid, name: realName, status: 'active' as const, disputeMessage: '' } : m
+        m.userId === userId ? { ...m, userId: realUid, name: realName, status: 'active' as const, disputeMessage: '' } : m
       );
       
       // Update any invoices that had the shadow token in excludedMembers
       const updatedInvoices = (space.invoices || []).map(inv => ({
         ...inv,
-        excludedMembers: (inv.excludedMembers || []).map(id => id === shadowToken ? realUid : id)
+        excludedMembers: (inv.excludedMembers || []).map(id => id === userId ? realUid : id)
       }));
       
       return { ...space, members: updatedMembers as any, invoices: updatedInvoices };
@@ -1472,7 +1466,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     approveShareChange,
     rejectShareChange,
         updateMemberStatus,
-        migrateGuestToRealUser,
+        
       addComment,
       deleteComment,
       refreshMemberInvite,

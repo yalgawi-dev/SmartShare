@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '@/lib/firebase';
 import { signInWithPhoneNumber,  GoogleAuthProvider  } from 'firebase/auth';
-import { signInWithRedirect, linkWithRedirect, getRedirectResult, signInAnonymously, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential, deleteUser } from 'firebase/auth';
+import { signInWithRedirect, linkWithRedirect, getRedirectResult, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential, deleteUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 export interface UserContact {
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Sync local keys from localStorage to Firestore whenever they change
     const handleNewKey = async (e: Event) => {
-      if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+      if (!auth.currentUser) return;
       const detail = (e as CustomEvent).detail;
       if (!detail) return;
       
@@ -124,127 +124,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (!firebaseUser) {
-        // Sign in anonymously if no user is found
-        try {
-          await signInAnonymously(auth);
-        } catch (error) {
-          console.error("Firebase Anonymous Auth Error:", error);
-        }
-      } else {
-        // We have a firebase user, check Firestore for their profile
-        try {
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
+        setUser(null);
+        setIsLoaded(true);
+        return;
+      }
+
+      // We have a firebase user, check Firestore for their profile
+      try {
+        const userRef = doc(db, 'users', firebaseUser.uid);
+        const userSnap = await getDoc(userRef);
+        
+        let activeUser: UserProfile;
+        
+        if (userSnap.exists()) {
+          activeUser = userSnap.data() as UserProfile;
+          let needsUpdate = false;
           
-          let activeUser: UserProfile;
+          const shouldBeAdmin = activeUser.phone === '0500000000' || activeUser.email === 'yehuda.algawi@gmail.com';
+          if (activeUser.isAdmin !== shouldBeAdmin && !activeUser.isAdmin) {
+            activeUser.isAdmin = shouldBeAdmin;
+            needsUpdate = true;
+          }
+
+          const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
+          const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+
+          if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח ללא הזדהות' || !activeUser.realName) && bestName) {
+            activeUser.realName = bestName;
+            activeUser.nickname = bestName.split(' ')[0];
+            needsUpdate = true;
+          }
+          if (!activeUser.avatarUrl && bestPhoto) {
+            activeUser.avatarUrl = bestPhoto;
+            needsUpdate = true;
+          }
+          if (!activeUser.email && bestEmail) {
+            activeUser.email = bestEmail;
+            needsUpdate = true;
+          }
+
+          if (needsUpdate) {
+            await updateDoc(userRef, { 
+              isAdmin: activeUser.isAdmin ?? false,
+              realName: activeUser.realName || 'אורח',
+              nickname: activeUser.nickname || '',
+              avatarUrl: activeUser.avatarUrl || null,
+              email: activeUser.email || ''
+            });
+          }
+        } else {
+          // Create new user profile in Firestore
+          const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
+          const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
           
-          if (userSnap.exists()) {
-            activeUser = userSnap.data() as UserProfile;
-            let needsUpdate = false;
-            
-            // Force Admin ONLY for specific emails or phone numbers
-            const shouldBeAdmin = activeUser.phone === '0500000000' || activeUser.email === 'yehuda.algawi@gmail.com';
-            if (activeUser.isAdmin !== shouldBeAdmin && !activeUser.isAdmin) {
-              activeUser.isAdmin = shouldBeAdmin;
-              needsUpdate = true;
-            }
-
-            // If they linked a provider (Google/Facebook) but their profile still says 'אורח', update it!
-            if (!firebaseUser.isAnonymous) {
-              const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
-              const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
-              const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
-
-              if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && bestName) {
-                activeUser.realName = bestName;
-                activeUser.nickname = bestName.split(' ')[0];
-                needsUpdate = true;
-              }
-              if (!activeUser.avatarUrl && bestPhoto) {
-                activeUser.avatarUrl = bestPhoto;
-                needsUpdate = true;
-              }
-              if (!activeUser.email && bestEmail) {
-                activeUser.email = bestEmail;
-                needsUpdate = true;
-              }
-            }
-
-            if (needsUpdate) {
-              await updateDoc(userRef, { 
-                isAdmin: activeUser.isAdmin ?? false,
-                realName: activeUser.realName || 'אורח',
-                nickname: activeUser.nickname || '',
-                avatarUrl: activeUser.avatarUrl || null,
-                email: activeUser.email || ''
-              });
-            }
-          } else {
-            // Check if there is a local storage user we can migrate (from before the cloud refactor)
-            let legacyLocalUser: UserProfile | undefined;
-            try {
-              const savedUsers = localStorage.getItem('smartshare_users');
-              if (savedUsers) {
-                const parsed = JSON.parse(savedUsers) as UserProfile[];
-                legacyLocalUser = parsed[0];
-              }
-            } catch (e) {}
-            
-            // Create new user profile in Firestore
-            const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
-            const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
-            const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
-            
-            activeUser = {
-              id: firebaseUser.uid,
-              realName: bestName || legacyLocalUser?.realName || 'אורח',
-              phone: firebaseUser.phoneNumber || legacyLocalUser?.phone || '',
-              email: bestEmail || legacyLocalUser?.email || '',
-              nickname: legacyLocalUser?.nickname || (bestName ? bestName.split(' ')[0] : ''),
-              avatarUrl: bestPhoto || null,
-              status: legacyLocalUser?.status || 'hidden',
-              contacts: legacyLocalUser?.contacts || [],
-              isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
-              createdAt: new Date().toISOString(),
-            };
-            await setDoc(userRef, activeUser);
-          }
-
-          // Fundamental Fix: Merge local cache keys into Firebase ONLY for authenticated Google accounts (never leak to anonymous guests)
-          if (typeof window !== 'undefined' && !firebaseUser.isAnonymous) {
-            try {
-              const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-              const localKeys = parsed || {};
-              const currentKeys = activeUser.spaceKeys || {};
-              let keysUpdated = false;
-              
-              Object.keys(localKeys).forEach(spaceId => {
-                if (!currentKeys[spaceId]) {
-                  currentKeys[spaceId] = localKeys[spaceId];
-                  keysUpdated = true;
-                }
-              });
-              
-              if (keysUpdated) {
-                activeUser.spaceKeys = currentKeys;
-                await updateDoc(userRef, { spaceKeys: currentKeys });
-              }
-            } catch(e) {
-              console.error('Failed to merge local keys', e);
-            }
-          }
-
-          if (!activeUser.isBlocked) {
-            setUser({ ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any);
-          }
-          setIsLoaded(true);
-        } catch (error) {
-          console.error("Auth context error:", error);
-          setIsLoaded(true);
+          activeUser = {
+            id: firebaseUser.uid,
+            realName: bestName || 'אורח',
+            phone: firebaseUser.phoneNumber || '',
+            email: bestEmail || '',
+            nickname: (bestName ? bestName.split(' ')[0] : ''),
+            avatarUrl: bestPhoto || null,
+            status: 'hidden',
+            contacts: [],
+            isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
+            createdAt: new Date().toISOString(),
+          };
+          await setDoc(userRef, activeUser);
         }
+
+        if (!activeUser.isBlocked) {
+          setUser({ ...activeUser, id: firebaseUser.uid } as any);
+        }
+        setIsLoaded(true);
+      } catch (error) {
+        console.error("Auth context error:", error);
+        setIsLoaded(true);
       }
     });
-
     return () => {
       unsubscribe();
       if (typeof window !== 'undefined') window.removeEventListener('smartshare_new_key', handleNewKey);
@@ -252,7 +210,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const syncProviderData = async (firebaseUser: any, forcedName?: string) => {
-    if (!firebaseUser || firebaseUser.isAnonymous) return;
+    if (!firebaseUser) return;
     try {
       const userRef = doc(db, 'users', firebaseUser.uid);
       const userSnap = await getDoc(userRef);
@@ -264,7 +222,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
         const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
 
-        if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח אנונימי' || !activeUser.realName) && bestName) {
+        if ((activeUser.realName === 'אורח' || !activeUser.realName) && bestName) {
           activeUser.realName = bestName;
           activeUser.nickname = bestName.split(' ')[0];
           needsUpdate = true;
@@ -279,16 +237,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (needsUpdate) {
-          try {
-            await updateDoc(userRef, { 
-              realName: activeUser.realName || 'אורח',
-              nickname: activeUser.nickname || '',
-              avatarUrl: activeUser.avatarUrl || null,
-              email: activeUser.email || ''
-            });
-          } catch(e) { console.error('updateDoc sync error', e); }
+          await updateDoc(userRef, { 
+            realName: activeUser.realName,
+            nickname: activeUser.nickname,
+            avatarUrl: activeUser.avatarUrl,
+            email: activeUser.email
+          });
         }
-        setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any : { ...activeUser, id: firebaseUser.uid, isAnonymous: firebaseUser.isAnonymous } as any);
+        setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid } as any : { ...activeUser, id: firebaseUser.uid } as any);
       }
     } catch (err) {
       console.error("Failed to sync provider data", err);

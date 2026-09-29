@@ -124,11 +124,11 @@ export function PartnersInviteModal({
       return null;
     }
 
-    const shadowToken = 'guest_' + Math.random().toString(36).substr(2, 9);
+    const token = 'guest_' + Math.random().toString(36).substr(2, 9);
     
     // Build clean invite link
     const url = new URL('/space/' + space.id, window.location.origin);
-    url.searchParams.set('invite', shadowToken);
+    url.searchParams.set('invite', token);
     url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
     url.searchParams.set('share', plannedGuestShare.toString());
     if (contactName) {
@@ -141,7 +141,7 @@ export function PartnersInviteModal({
     const link = url.toString();
 
     await createPendingInvite(space.id, {
-      shadowToken,
+      token,
       name: contactName || '',
       isRetroactive,
       guestShare: plannedGuestShare,

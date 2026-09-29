@@ -39,7 +39,7 @@ export const viewport: Viewport = {
 import { Providers } from "./Providers";
 
 import GlobalPWAPrompt from "../components/GlobalPWAPrompt";
-import PhoneVerificationModal from "../components/widgets/Auth/PhoneVerificationModal";
+
 
 export default function RootLayout({
   children,
@@ -58,7 +58,7 @@ export default function RootLayout({
         <Providers>
           {children}
           <GlobalPWAPrompt />
-          <PhoneVerificationModal />
+          
         </Providers>
       </body>
     </html>
