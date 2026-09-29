@@ -1,6 +1,5 @@
 'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 
@@ -15,33 +14,32 @@ export default function WelcomeGate({
   const { user } = useAuth();
   const [showGate, setShowGate] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const submittedRef = useRef(false); // prevents re-open after submit
+  const submittedRef = useRef(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  const space = spaces.find((s: any) => s.id === spaceId);
-  const role = getRoleForSpace(spaceId);
+  const space = spaces?.find((s: any) => s.id === spaceId);
+  const role = getRoleForSpace ? getRoleForSpace(spaceId) : 'none';
   const isCreatorOfThisSpace = role === 'creator';
 
   const resolvedToken = useMemo(() => {
     if (propToken) return propToken;
     if (typeof window !== 'undefined') {
-      const urlToken = new URLSearchParams(window.location.search).get('invite');
-      if (urlToken) return urlToken;
-
       try {
+        const urlToken = new URLSearchParams(window.location.search).get('invite');
+        if (urlToken) return urlToken;
+
         const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-        const localKeys = parsed || {};
-        if (localKeys[spaceId]?.token) return localKeys[spaceId].token;
-      } catch (e) {}
+        if (parsed?.[spaceId]?.token) return parsed[spaceId].token;
 
-      try {
         const storedTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
         const match = space?.members?.find((m: any) => storedTokens.includes(m.userId));
         if (match) return match.userId;
-      } catch (e) {}
+      } catch (e) {
+        console.error('Error resolving token', e);
+      }
     }
     return null;
   }, [propToken, spaceId, space?.members]);
@@ -68,68 +66,74 @@ export default function WelcomeGate({
   const displayShare = currentMember?.sharePercentage ?? (urlParams.get('share') ? Number(urlParams.get('share')) : undefined);
 
   const handleStart = () => {
-    const finalName = user?.realName || currentMember?.name || 'שותף חדש';
-    
-    const isRetroParam = urlParams.get('retro') === 'true';
-    const shareParam = urlParams.get('share');
-    const planParam = urlParams.get('plan');
+    try {
+      const finalName = user?.realName || currentMember?.name || 'שותף חדש';
+      
+      const isRetroParam = urlParams.get('retro') === 'true';
+      const shareParam = urlParams.get('share');
+      const planParam = urlParams.get('plan');
 
-    let sharesPlan: { creator: number; partners?: Record<string, number> } | undefined;
-    if (planParam) {
-      try {
-        sharesPlan = JSON.parse(decodeURIComponent(planParam));
-      } catch (e) {
+      let sharesPlan: { creator: number; partners?: Record<string, number> } | undefined;
+      if (planParam) {
         try {
-          sharesPlan = JSON.parse(planParam);
-        } catch (e2) {
-          console.error('Error parsing planParam', e2);
+          sharesPlan = JSON.parse(decodeURIComponent(planParam));
+        } catch (e) {
+          try {
+            sharesPlan = JSON.parse(planParam);
+          } catch (e2) {
+            console.error('Error parsing planParam', e2);
+          }
         }
       }
-    }
-    
-    finalizeGuestJoin(
-      spaceId, 
-      finalName, 
-      isRetroParam, 
-      resolvedToken, 
-      resolvedToken, // inviteToken
-      currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : (shareParam ? Number(shareParam) : undefined),
-      sharesPlan
-    );
-
-    try {
-      const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-      const localKeys = parsed || {};
-      localKeys[spaceId] = { role: 'partner', token: resolvedToken };
-      localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
       
-      const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
-      if (!guestTokens.includes(resolvedToken)) {
-        guestTokens.push(resolvedToken);
-        localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
+      if (finalizeGuestJoin) {
+        finalizeGuestJoin(
+          spaceId, 
+          finalName, 
+          isRetroParam, 
+          resolvedToken, 
+          resolvedToken, 
+          currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : (shareParam ? Number(shareParam) : undefined),
+          sharesPlan
+        );
       }
-    } catch (e) {}
 
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
-        detail: { spaceId, role: 'partner', token: resolvedToken } 
-      }));
-      window.dispatchEvent(new CustomEvent('force_auth'));
+      try {
+        const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+        const localKeys = parsed || {};
+        localKeys[spaceId] = { role: 'partner', token: resolvedToken };
+        localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+        
+        const guestTokens: string[] = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+        if (!guestTokens.includes(resolvedToken)) {
+          guestTokens.push(resolvedToken);
+          localStorage.setItem('smartshare_guest_tokens', JSON.stringify(guestTokens));
+        }
+      } catch (e) {}
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
+          detail: { spaceId, role: 'partner', token: resolvedToken } 
+        }));
+      }
+
+      submittedRef.current = true;
+      setShowGate(false);
+    } catch (err) {
+      console.error('Error in handleStart:', err);
+      submittedRef.current = true;
+      setShowGate(false);
     }
-
-    submittedRef.current = true;
-    setShowGate(false);
   };
 
-  return createPortal(
+  return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
       background: 'rgba(0,0,0,0.85)', zIndex: 100000,
       display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-      padding: '2rem 1rem', overflowY: 'auto',
-      animation: 'fadeIn 0.3s ease-out'
+      padding: '2rem 1rem', overflowY: 'auto'
     }}>
-      <div className="card glass-panel" style={{
+      <div style={{
         background: 'white',
         padding: '2rem',
         borderRadius: '24px',
@@ -175,19 +179,15 @@ export default function WelcomeGate({
         <button 
           onClick={handleStart}
           style={{ 
-            background: 'var(--primary)', color: 'white', border: 'none', 
+            background: '#3b82f6', color: 'white', border: 'none', 
             padding: '1rem 2rem', borderRadius: '999px', fontWeight: 'bold', 
             fontSize: '1.1rem', cursor: 'pointer', width: '100%',
-            boxShadow: '0 4px 14px rgba(74, 91, 240, 0.3)',
-            transition: 'transform 0.2s'
+            boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
           }}
-          onMouseOver={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-          onMouseOut={e => (e.currentTarget.style.transform = 'scale(1)')}
         >
           בוא נתחיל!
         </button>
       </div>
-    </div>,
-    document.body
+    </div>
   );
 }
