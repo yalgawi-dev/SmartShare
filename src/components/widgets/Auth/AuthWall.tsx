@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/app/context/AuthContext';
 import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { COUNTRIES } from '@/utils/countries';
 
 export default function AuthWall() {
   const { loginWithPhone, isLoaded } = useAuth();
@@ -203,11 +204,11 @@ export default function AuthWall() {
                     value={countryCode}
                     onChange={(e) => setCountryCode(e.target.value)}
                   >
-                    <option value="+972">🇮🇱 +972</option>
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+44">🇬🇧 +44</option>
-                    <option value="+33">🇫🇷 +33</option>
-                    <option value="+49">🇩🇪 +49</option>
+                    {COUNTRIES.map(c => (
+                      <option key={`${c.iso2}-${c.dialCode}`} value={c.dialCode}>
+                        {c.flag} {c.dialCode} ({c.iso2})
+                      </option>
+                    ))}
                   </select>
                   <div className="select-arrow">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
