@@ -50,7 +50,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
       });
 
       // 2. Member Alerts
-      (space.members || []).forEach(member => {
+      if (space.features?.includes('partners')) { (space.members || []).forEach(member => {
         if (member.status === "disputed" && member.disputeMessage && (isCreator || member.userId === user.id)) {
           notifs.push({
             id: 'disp-' + member.userId,
@@ -124,7 +124,8 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
       });
       
       
-      // Group Chat Summary
+      }
+      if (space.features?.includes('partners')) { // Group Chat Summary
       const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
       if (groupConvo) {
         const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
@@ -143,7 +144,8 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
         }
       }
       
-      // 3. Pending Invites
+      }
+      if (space.features?.includes('partners')) { // 3. Pending Invites
       if (isCreator) {
         (space.pendingInvites || []).forEach((invite: any) => {
            notifs.push({

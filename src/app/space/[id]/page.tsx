@@ -79,12 +79,17 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   useEffect(() => {
     if (typeof window !== 'undefined' && activeChatId) {
+      if (space && !space.features?.includes('partners')) {
+         alert("תוסף השותפים כבוי כרגע במרחב זה, ולכן לא ניתן לגשת להודעה או לצ'אט.");
+         setActiveChatId(null);
+      }
+      
       // Clear URL so refreshing doesn't keep opening it if they close it
       const url = new URL(window.location.href);
       url.searchParams.delete('chat');
       window.history.replaceState({}, document.title, url.toString());
     }
-  }, [activeChatId]);
+  }, [activeChatId, space?.features]);
   
     const getChatMemberAndMode = (chatId: string) => {
     if (!space || !user) return null;

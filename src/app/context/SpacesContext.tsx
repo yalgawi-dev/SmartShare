@@ -770,6 +770,22 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     });
   };
 
+    // Presence heartbeat (only if partners feature is enabled somewhere)
+  useEffect(() => {
+    if (!user?.id || (user as any).isAnonymous) return;
+    if (!spaces.some(s => s.features?.includes('partners'))) return;
+    
+    const updatePresence = () => {
+      const { doc, updateDoc } = require('firebase/firestore');
+      const userRef = doc(db, 'users', user.id);
+      updateDoc(userRef, { lastActiveAt: new Date().toISOString() }).catch(() => {});
+    };
+    
+    const timeout = setTimeout(updatePresence, 10000);
+    const interval = setInterval(updatePresence, 5 * 60 * 1000);
+    return () => { clearTimeout(timeout); clearInterval(interval); };
+  }, [user?.id, spaces.some(s => s.features?.includes('partners'))]);
+
   const finalizeGuestJoin = (spaceId: string, name: string, isRetroactiveParam: boolean, userId: string, inviteToken?: string, customShareParam?: number, sharesPlanParam?: { creator: number; partners?: Record<string, number> }) => {
     saveSpaceUpdate(spaceId, space => {
       const pendingInvite = inviteToken ? (space.pendingInvites || []).find(i => i.token === inviteToken) : undefined;

@@ -36,6 +36,7 @@ export default function Dashboard() {
           if ((inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') && (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id)) count++;
         }
       });
+      if (space.features?.includes('partners')) {
       (space.members || []).forEach(member => {
         if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('disp-' + member.userId)) count++;
         if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
@@ -53,10 +54,13 @@ export default function Dashboard() {
             if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
             return false;
           });
-        }
+        } }
+    
         if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
       });
 
+      }
+      if (space.features?.includes('partners')) {
       // Group Chat Summary
       const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
       if (groupConvo) {
@@ -64,6 +68,8 @@ export default function Dashboard() {
         if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
       }
       
+      }
+      if (space.features?.includes('partners')) {
       if (isCreator) {
         (space.pendingInvites || []).forEach((invite: any) => {
           if (!dismissedAlerts.includes('invt-' + invite.token)) count++;
