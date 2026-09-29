@@ -39,6 +39,7 @@ export function FinanceTransactions({
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [memberFilter, setMemberFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const showIncome = space?.features?.includes('income');
 
   const allUsers = [
@@ -67,20 +68,41 @@ export function FinanceTransactions({
     else matchesType = inv.type !== 'transfer' && inv.type !== 'income';
     
     if (!matchesType) return false;
+
+    // Text Search Filter
+    if (searchQuery && searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const vendor = (inv.supplier || '').toLowerCase();
+      const note = (inv.note || '').toLowerCase();
+      const category = (inv.category || '').toLowerCase();
+      if (!vendor.includes(q) && !note.includes(q) && !category.includes(q)) {
+        return false;
+      }
+    }
+
     if (memberFilter === 'all') return true;
 
     const effectivePayer = inv.payerId === 'me' ? (space?.creatorId || 'me') : inv.payerId;
-    if (effectivePayer === memberFilter) return true;
-    if (inv.rejectedById === memberFilter) return true;
     
-    const filterUser = allUsers.find(u => u.id === memberFilter);
-    if (!inv.rejectedById && inv.rejectedBy && filterUser && inv.rejectedBy.trim() === filterUser.name.trim()) return true;
-
-    if (inv.status === 'pending' && effectivePayer !== memberFilter) {
-      if (!(inv.approvedBy || []).includes(memberFilter) && !(inv.excludedMembers || []).includes(memberFilter)) return true;
+    if (filter === 'pending_partners') {
+      // Pending Partners: We want invoices where the SELECTED PARTNER has NOT approved yet
+      if (effectivePayer === memberFilter) return false; // The payer themselves don't owe approval
+      if ((inv.approvedBy || []).includes(memberFilter)) return false; // Already approved
+      if ((inv.excludedMembers || []).includes(memberFilter)) return false; // Excluded
+      return true;
+    } else if (filter === 'dispute') {
+      // Dispute: show disputes related to the selected member (either they rejected it, or they are the payer)
+      if (effectivePayer === memberFilter) return true;
+      if (inv.rejectedById === memberFilter) return true;
+      const filterUser = allUsers.find(u => u.id === memberFilter);
+      if (!inv.rejectedById && inv.rejectedBy && filterUser && inv.rejectedBy.trim() === filterUser.name.trim()) return true;
+      return false;
+    } else {
+      // Active/Archive: show invoices paid by the selected member
+      if (effectivePayer !== memberFilter) return false;
     }
 
-    return false;
+    return true;
   });
 
   useEffect(() => {
