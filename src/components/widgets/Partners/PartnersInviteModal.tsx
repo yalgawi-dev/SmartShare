@@ -211,13 +211,15 @@ export function PartnersInviteModal({
             <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>הזמנה נשלחה בהצלחה!</h3>
             <p style={{ margin: '0 0 1.5rem', color: '#64748b' }}>ההזמנה נשלחה למשתמש <strong>{successData.name}</strong> והוא יקבל התראה באפליקציה.</p>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {successData.phone && successData.phone !== '����� �����' && (
               <button onClick={() => {
                 const whatsappUrl = `https://wa.me/${successData.phone.replace(/\D/g, '')}?text=${encodeURIComponent(successData.text)}`;
                 window.open(whatsappUrl, '_blank');
                 onClose();
               }} style={{ flex: 1, padding: '0.75rem', background: '#25D366', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
-                תזכורת בווטסאפ
+                ������ �������
               </button>
+            )}
               <button onClick={onClose} style={{ flex: 1, padding: '0.75rem', background: '#f1f5f9', color: '#334155', border: 'none', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer' }}>
                 סגור
               </button>
