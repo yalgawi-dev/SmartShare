@@ -118,7 +118,7 @@ export function PartnersInviteModal({
 
   const isBalanced = Math.abs(totalCalculated - 100) < 0.2;
 
-  const handleGenerateLink = async (contactName?: string) => {
+  const handleGenerateLink = async (contactName?: string, targetUserId?: string) => {
     if (!isBalanced) {
       alert('סך כל האחוזים חייב להגיע בדיוק ל-100% לפני יצירת ההזמנה');
       return null;
@@ -146,7 +146,7 @@ export function PartnersInviteModal({
       isRetroactive,
       guestShare: plannedGuestShare,
       creatorShare: plannedCreatorShare,
-      partnerShares: plannedPartnerShares
+      partnerShares: plannedPartnerShares, targetUserId
     });
 
     return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: `היי! צירפתי אותך לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` };
