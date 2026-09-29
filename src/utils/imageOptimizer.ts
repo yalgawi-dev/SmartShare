@@ -84,3 +84,42 @@ export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0
     img.onerror = (err) => reject(err);
   });
 }
+export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('No canvas context');
+
+  const loadedImages = await Promise.all(imageUrls.map(url => {
+    return new Promise<HTMLImageElement>((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = url;
+    });
+  }));
+
+  const targetWidth = Math.max(...loadedImages.map(img => img.width));
+  const gap = 30;
+
+  const scaledHeights = loadedImages.map(img => (targetWidth / img.width) * img.height);
+  canvas.width = targetWidth;
+  canvas.height = scaledHeights.reduce((sum, h) => sum + h, 0) + gap * (loadedImages.length - 1);
+
+  ctx.fillStyle = '#f3f4f6';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  let currentY = 0;
+  loadedImages.forEach((img, i) => {
+    ctx.drawImage(img, 0, currentY, targetWidth, scaledHeights[i]);
+
+    ctx.fillStyle = 'rgba(31, 41, 55, 0.9)';
+    ctx.fillRect(0, currentY, 160, 50);
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 28px sans-serif';
+    ctx.fillText('עמוד ' + (i + 1), 20, currentY + 36);
+
+    currentY += scaledHeights[i] + gap;
+  });
+
+  return canvas.toDataURL('image/jpeg', 0.85);
+}

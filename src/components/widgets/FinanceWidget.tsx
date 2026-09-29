@@ -159,42 +159,15 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
     try {
       const { uploadImageToStorage, db } = await import('../../lib/firebase');
       const { doc, getDoc, setDoc, updateDoc, increment } = await import('firebase/firestore');
-      const { downscaleBase64 } = await import('../../utils/imageOptimizer');
+      const { downscaleBase64, mergeImagesCleanly } = await import('../../utils/imageOptimizer');
       
       let processingUrl = imgUrl;
       
       // Merge multiple pages into one vertical strip (booklet)
       if (allPages && allPages.length > 1 && !imgUrl.startsWith('data:application/pdf')) {
-        try {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            const loadedImages = await Promise.all(allPages.map(url => {
-              return new Promise<HTMLImageElement>((resolve, reject) => {
-                const img = new Image();
-                img.onload = () => resolve(img);
-                img.onerror = reject;
-                img.src = url;
-              });
-            }));
-            const maxWidth = Math.max(...loadedImages.map(img => img.width));
-            const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
-            canvas.width = maxWidth;
-            canvas.height = totalHeight;
-            let currentY = 0;
-            loadedImages.forEach((img, i) => {
-              ctx.drawImage(img, 0, currentY, img.width, img.height);
-              // Page badge
-              ctx.fillStyle = 'rgba(0,0,0,0.7)';
-              ctx.fillRect(20, currentY + 20, 160, 60);
-              ctx.fillStyle = '#FFD700';
-              ctx.font = 'bold 36px Arial';
-              ctx.fillText('עמוד ' + (i+1), 40, currentY + 62);
-              currentY += img.height;
-            });
-            processingUrl = canvas.toDataURL('image/jpeg', 0.85);
-          }
-        } catch (e) {
+          try {
+            processingUrl = await mergeImagesCleanly(allPages);
+          } catch (e) {
           console.error('Merge failed', e);
         }
       }

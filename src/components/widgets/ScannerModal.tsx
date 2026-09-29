@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { createPortal } from 'react-dom';
-import { compressCanvas } from '../../utils/imageOptimizer';
+import { compressCanvas, mergeImagesCleanly } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 
@@ -60,7 +60,8 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
 
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
-  const [previewPage, setPreviewPage] = useState<ScannedPage | null>(null);
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Document classifier
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
@@ -508,7 +509,7 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
                <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
-                    src={imageCache[mode]} 
+                    src={previewIndex !== null && previewIndex < scannedPages.length ? scannedPages[previewIndex].imageUrl : imageCache[mode]} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     alt="Scanned document" 
                   />
@@ -589,14 +590,39 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
             {/* Pages thumbnail strip */}
             {scannedPages.length > 0 && (
               <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-                {scannedPages.map((page) => (
-                  <div key={page.id} style={{ position: 'relative', flexShrink: 0 }}>
-                    <img src={page.imageUrl} style={{ width: '44px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: '2px solid #FFD700', opacity: 0.8 }} alt={`עמוד ${page.pageNum}`} />
+                {scannedPages.map((page, idx) => (
+                  <div 
+                    key={page.id} 
+                    draggable
+                    onDragStart={(e) => {
+                      setDraggedIndex(idx);
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (draggedIndex === null || draggedIndex === idx) return;
+                      const newPages = [...scannedPages];
+                      const [draggedItem] = newPages.splice(draggedIndex, 1);
+                      newPages.splice(idx, 0, draggedItem);
+                      const renumbered = newPages.map((p, i) => ({...p, pageNum: i + 1}));
+                      setScannedPages(renumbered);
+                      setDraggedIndex(null);
+                      if (previewIndex === draggedIndex) setPreviewIndex(idx);
+                      else if (previewIndex !== null) setPreviewIndex(null);
+                    }}
+                    onClick={() => setPreviewIndex(idx)}
+                    style={{ position: 'relative', flexShrink: 0, cursor: 'pointer', border: previewIndex === idx ? '2px solid #10b981' : 'none', borderRadius: '4px' }}
+                  >
+                    <img src={page.imageUrl} style={{ width: '44px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: previewIndex === idx ? 'none' : '2px solid #FFD700', opacity: previewIndex === idx ? 1 : 0.8 }} alt={`עמוד ${page.pageNum}`} />
                     <span style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'rgba(0,0,0,0.8)', color: '#FFD700', fontSize: '0.6rem', padding: '1px 3px', borderRadius: '3px', fontWeight: 'bold' }}>{page.pageNum}</span>
                   </div>
                 ))}
-                <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, background: 'rgba(255,215,0,0.1)', border: '1px solid #FFD700', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: '#FFD700' }}>
-                  עמוד {scannedPages.length + 1} (נוכחי)
+                <div 
+                  onClick={() => setPreviewIndex(null)}
+                  style={{ display: 'flex', alignItems: 'center', flexShrink: 0, background: previewIndex === null ? 'rgba(16,185,129,0.2)' : 'rgba(255,215,0,0.1)', border: previewIndex === null ? '2px solid #10b981' : '1px solid #FFD700', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: previewIndex === null ? '#10b981' : '#FFD700', cursor: 'pointer' }}
+                >
+                  עמוד {scannedPages.length + 1} (הנוכחי)
                 </div>
               </div>
             )}
