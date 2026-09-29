@@ -409,21 +409,54 @@ export function FinanceTransactions({
         );
       })()}
 
-      {activePartnersCount > 0 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סינון לפי שותף:</span>
-          <select 
-            value={memberFilter} 
-            onChange={(e) => setMemberFilter(e.target.value)}
-            style={{ padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.85rem' }}
-          >
-            <option value="all">👥 כל השותפים (הצג הכל)</option>
-            {allUsers.map(u => (
-              <option key={u.id} value={u.id}>{u.name}</option>
-            ))}
-          </select>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+        {/* Search Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '0.4rem 0.8rem' }}>
+          <span style={{ marginRight: '0.5rem', color: 'var(--text-secondary)' }}>🔍</span>
+          <input 
+            type="text" 
+            placeholder="חיפוש לפי ספק, הערה או קטגוריה..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.9rem', color: 'var(--text-main)', width: '100%' }}
+          />
         </div>
-      )}
+
+        {/* Member Filter (hidden in pending_me) */}
+        {activePartnersCount > 0 && filter !== 'pending_me' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                {filter === 'pending_partners' ? 'ממתין לאישור של:' : filter === 'dispute' ? 'סונן לפי מסרב/משלם:' : 'הוצאות ששולמו ע"י:'}
+              </span>
+              <select 
+                value={memberFilter} 
+                onChange={(e) => setMemberFilter(e.target.value)}
+                style={{ padding: '0.4rem 0.8rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.85rem' }}
+              >
+                <option value="all">כל השותפים</option>
+                {allUsers
+                  .filter(u => filter === 'pending_partners' ? u.id !== myEffectiveId : true)
+                  .map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Dynamic Banner to explain the filter as requested by user */}
+            {memberFilter !== 'all' && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.2rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.4rem', borderRadius: '6px', textAlign: 'center', fontWeight: '500' }}>
+                {(() => {
+                  const selectedName = allUsers.find(u => u.id === memberFilter)?.name || '';
+                  if (filter === 'pending_partners') return `מציג הוצאות שמחכות לאישור של ${selectedName}`;
+                  if (filter === 'dispute') return `מציג מחלוקות שקשורות אל ${selectedName}`;
+                  return `מציג הוצאות ששולמו על ידי ${selectedName}`;
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {finallyFiltered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
