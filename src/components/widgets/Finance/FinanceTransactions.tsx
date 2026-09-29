@@ -463,11 +463,13 @@ export function FinanceTransactions({
             <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
             {(() => {
               const selectedName = memberFilter !== 'all' ? (allUsers.find(u => u.id === memberFilter)?.name || '') : '';
+              const itemName = typeFilter === 'transfer' ? 'העברות' : typeFilter === 'income' ? 'הכנסות' : 'חשבוניות';
+
               if (searchQuery && searchQuery.trim()) return `לא נמצאו תוצאות התואמות לחיפוש "${searchQuery}"`;
-              if (filter === 'pending_me') return 'אין חשבוניות שממתינות לאישור שלך.';
-              if (filter === 'pending_partners') return selectedName ? `אין חשבוניות שממתינות לאישור של ${selectedName}.` : 'אין חשבוניות שממתינות לאישור השותפים.';
+              if (filter === 'pending_me') return `אין ${itemName} שממתינות לאישור שלך.`;
+              if (filter === 'pending_partners') return selectedName ? `אין ${itemName} שממתינות לאישור של ${selectedName}.` : `אין ${itemName} שממתינות לאישור השותפים.`;
               if (filter === 'dispute') return selectedName ? `אין סכסוכים או מחלוקות שקשורים אל ${selectedName}.` : 'אין סכסוכים או מחלוקות פתוחים.';
-              return selectedName ? `אין חשבוניות פעילות ששולמו על ידי ${selectedName}.` : 'אין חשבוניות פעילות.';
+              return selectedName ? `אין ${itemName} פעילות ששולמו על ידי ${selectedName}.` : `אין ${itemName} פעילות.`;
             })()}
           </div>
         ) : (
