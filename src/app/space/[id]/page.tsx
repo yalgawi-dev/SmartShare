@@ -54,6 +54,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser } = useSpaces() as any;
   const { user } = useAuth();
+  const space = spaces.find(s => s.id === id);
 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -169,10 +170,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const financeRef = useRef<any>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  const space = spaces.find(s => s.id === id);
-
-    // Auto-migrate guest token to real user ID if they are logged in
+// Auto-migrate guest token to real user ID if they are logged in
   useEffect(() => {
     let myPartnerToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
     if (!myPartnerToken && user?.spaceKeys?.[id]?.token) myPartnerToken = user.spaceKeys[id].token;

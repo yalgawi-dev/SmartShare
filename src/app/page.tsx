@@ -31,49 +31,48 @@ export default function Dashboard() {
     let count = 0;
     spaces.forEach(space => {
       const isCreator = space.creatorId === user.id;
+      const hasPartners = space.features?.includes('partners');
+      
       (space.invoices || []).forEach(inv => {
         if (!dismissedAlerts.includes('inv-' + inv.id)) {
           if ((inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') && (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id)) count++;
         }
       });
-      if (space.features?.includes('partners')) {
-      (space.members || []).forEach(member => {
-        if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('disp-' + member.userId)) count++;
-        if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
-        if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
-        
-        const p2pConvoId = [user.id, member.userId].sort().join('_');
-        const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-        let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
-        
-        // Legacy fallback
-        if (unreadChatMessages.length === 0) {
-          unreadChatMessages = (member.messages || []).filter((msg: any) => {
-            if (msg.readAt) return false;
-            if (isCreator && msg.from === 'partner') return true;
-            if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
-            return false;
-          });
-        } }
-    
-        if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
-      });
-
-      }
-      if (space.features?.includes('partners')) {
-      // Group Chat Summary
-      const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
-      if (groupConvo) {
-        const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
-        if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
-      }
       
-      }
-      if (space.features?.includes('partners')) {
-      if (isCreator) {
-        (space.pendingInvites || []).forEach((invite: any) => {
-          if (!dismissedAlerts.includes('invt-' + invite.token)) count++;
+      if (hasPartners) {
+        (space.members || []).forEach(member => {
+          if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('disp-' + member.userId)) count++;
+          if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
+          if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
+          
+          const p2pConvoId = [user.id, member.userId].sort().join('_');
+          const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+          let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+          
+          // Legacy fallback
+          if (unreadChatMessages.length === 0) {
+            unreadChatMessages = (member.messages || []).filter((msg: any) => {
+              if (msg.readAt) return false;
+              if (isCreator && msg.from === 'partner') return true;
+              if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
+              return false;
+            });
+          }
+          if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
         });
+
+        // Group Chat Summary
+        const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
+        if (groupConvo) {
+          const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+          if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
+        }
+        
+        if (isCreator) {
+          (space.pendingInvites || []).forEach((invite: any) => {
+            if (!dismissedAlerts.includes('invt-' + invite.token)) count++;
+          });
+        }
       }
     });
     return count;

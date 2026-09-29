@@ -28,140 +28,141 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
     let notifs: any[] = [];
     
     spaces.forEach(space => {
-      const isCreator = space.creatorId === user.id;
-      
-      // 1. Invoices
-      (space.invoices || []).forEach(inv => {
-        if (inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') {
-          if (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id) {
-            notifs.push({
-              id: 'inv-' + inv.id,
-              type: 'invoice',
-              priority: inv.status === 'dispute' ? 'high' : 'medium',
-              title: inv.status === 'dispute' ? 'ערעור על חשבונית' : 'חשבונית ממתינה לטיפול',
-              text: 'חשבונית מ-' + (inv.supplier || 'ספק לא ידוע') + ' ע"ס ₪' + (inv.amount || 0),
-              spaceId: space.id,
-              spaceName: space.title || 'מרחב',
-              createdAt: inv.date || new Date().toISOString(),
-              actionable: true
+        const isCreator = space.creatorId === user.id;
+        const hasPartners = space.features?.includes('partners');
+        
+        // 1. Invoices
+        (space.invoices || []).forEach(inv => {
+          if (inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') {
+            if (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id) {
+              notifs.push({
+                id: 'inv-' + inv.id,
+                type: 'invoice',
+                priority: inv.status === 'dispute' ? 'high' : 'medium',
+                title: inv.status === 'dispute' ? 'התראת מחלוקת חשבון' : 'התראת חשבונית ממתינה לטיפול',
+                text: 'חשבונית ע"ס ' + (inv.supplier || 'ספק לא ידוע') + ' בסך ₪' + (inv.amount || 0),
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: inv.date || new Date().toISOString(),
+                actionable: true
+              });
+            }
+          }
+        });
+  
+        if (hasPartners) {
+          // 2. Member Alerts
+          (space.members || []).forEach(member => {
+            if (member.status === "disputed" && member.disputeMessage && (isCreator || member.userId === user.id)) {
+              notifs.push({
+                id: 'disp-' + member.userId,
+                type: 'dispute',
+                priority: 'high',
+                title: isCreator ? 'התראת שותף: ' + member.name : 'התראת שותפות במרחב',
+                text: member.disputeMessage,
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: new Date().toISOString(),
+                actionable: true
+              });
+            }
+            
+            if (member.extensionMessage && isCreator) {
+              notifs.push({
+                id: 'ext-' + member.userId,
+                type: 'extension',
+                priority: 'medium',
+                title: 'בקשת הערכה: ' + member.name,
+                text: member.extensionMessage,
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: new Date().toISOString(),
+                actionable: true
+              });
+            }
+            
+            if (member.shareChangeRequest && (isCreator || member.userId === user.id)) {
+              notifs.push({
+                id: 'share-' + member.userId,
+                type: 'share',
+                priority: 'high',
+                title: 'שינוי אחוזים דורש אישור',
+                text: isCreator ? 'בקשה ממתינה לשינוי של ' + member.name : 'ממתין לאישור מנהל על שינוי אחוזים',
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: new Date().toISOString(),
+                actionable: isCreator
+              });
+            }
+
+            // Chat Unread Summary
+            const p2pConvoId = [user.id, member.userId].sort().join('_');
+            const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+            let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+            
+            // Legacy fallback
+            if (unreadChatMessages.length === 0) {
+              unreadChatMessages = (member.messages || []).filter((msg: any) => {
+                if (msg.readAt) return false;
+                if (isCreator && msg.from === 'partner') return true;
+                if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
+                return false;
+              });
+            }
+
+            if (unreadChatMessages.length > 0) {
+              notifs.push({
+                id: 'chat-' + member.userId,
+                type: 'chat',
+                priority: 'low',
+                title: "הודעה חדשה בפרטי",
+                text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + (isCreator ? member.name : 'מנהל המרחב') + '.',
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
+                actionable: true
+              });
+            }
+          });
+          
+          
+          // Group Chat Summary
+          const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
+          if (groupConvo) {
+            const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+            if (unreadGroup.length > 0) {
+              notifs.push({
+                id: 'chat-group',
+                type: 'chat',
+                priority: 'low',
+                title: "שיחה קבוצתית",
+                text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בקבוצת המרחב.',
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: unreadGroup[unreadGroup.length - 1].createdAt || new Date().toISOString(),
+                actionable: true
+              });
+            }
+          }
+          
+          // 3. Pending Invites
+          if (isCreator) {
+            (space.pendingInvites || []).forEach((invite: any) => {
+               notifs.push({
+                id: 'invt-' + invite.token,
+                type: 'system',
+                priority: 'low',
+                title: 'הזמנה ממתינה',
+                text: 'שותף הוזמן ועדיין לא הצטרף',
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: new Date().toISOString(),
+                actionable: false
+              });
             });
           }
         }
       });
-
-      // 2. Member Alerts
-      if (space.features?.includes('partners')) { (space.members || []).forEach(member => {
-        if (member.status === "disputed" && member.disputeMessage && (isCreator || member.userId === user.id)) {
-          notifs.push({
-            id: 'disp-' + member.userId,
-            type: 'dispute',
-            priority: 'high',
-            title: isCreator ? 'ערעור שותף: ' + member.name : 'הערעור שלך בטיפול',
-            text: member.disputeMessage,
-            spaceId: space.id,
-            spaceName: space.title || 'מרחב',
-            createdAt: new Date().toISOString(),
-            actionable: isCreator
-          });
-        }
-        
-        if (member.extensionMessage && isCreator) {
-          notifs.push({
-            id: 'ext-' + member.userId,
-            type: 'extension',
-            priority: 'medium',
-            title: 'בקשת ארכה: ' + member.name,
-            text: member.extensionMessage,
-            spaceId: space.id,
-            spaceName: space.title || 'מרחב',
-            createdAt: new Date().toISOString(),
-            actionable: true
-          });
-        }
-        
-        if (member.shareChangeRequest && (isCreator || member.userId === user.id)) {
-          notifs.push({
-            id: 'share-' + member.userId,
-            type: 'share',
-            priority: 'high',
-            title: 'שינוי אחוזי שותפות',
-            text: isCreator ? 'בקשה לאישור שינוי עבור ' + member.name : 'ממתין לאישור שינוי אחוזים',
-            spaceId: space.id,
-            spaceName: space.title || 'מרחב',
-            createdAt: new Date().toISOString(),
-            actionable: isCreator
-          });
-        }
-
-        // Chat Unread Summary
-        const p2pConvoId = [user.id, member.userId].sort().join('_');
-        const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-        let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
-        
-        // Legacy fallback
-        if (unreadChatMessages.length === 0) {
-          unreadChatMessages = (member.messages || []).filter((msg: any) => {
-            if (msg.readAt) return false;
-            if (isCreator && msg.from === 'partner') return true;
-            if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
-            return false;
-          });
-        }
-
-        if (unreadChatMessages.length > 0) {
-          notifs.push({
-            id: 'chat-' + member.userId,
-            type: 'chat',
-            priority: 'low',
-            title: "הודעות חדשות בצ'אט",
-            text: 'יש לך ' + unreadChatMessages.length + ' הודעות שלא נקראו מ' + (isCreator ? member.name : 'מנהל המרחב') + '.',
-            spaceId: space.id,
-            spaceName: space.title || 'מרחב',
-            createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
-            actionable: true
-          });
-        }
-      });
-      
-      
-      }
-      if (space.features?.includes('partners')) { // Group Chat Summary
-      const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
-      if (groupConvo) {
-        const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
-        if (unreadGroup.length > 0) {
-          notifs.push({
-            id: 'chat-group',
-            type: 'chat',
-            priority: 'low',
-            title: "צ'אט קבוצתי",
-            text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בצ\'אט המרחב.',
-            spaceId: space.id,
-            spaceName: space.title || 'מרחב',
-            createdAt: unreadGroup[unreadGroup.length - 1].createdAt || new Date().toISOString(),
-            actionable: true
-          });
-        }
-      }
-      
-      }
-      if (space.features?.includes('partners')) { // 3. Pending Invites
-      if (isCreator) {
-        (space.pendingInvites || []).forEach((invite: any) => {
-           notifs.push({
-            id: 'invt-' + invite.token,
-            type: 'system',
-            priority: 'low',
-            title: 'הזמנה ממתינה',
-            text: 'נשלחה הזמנה ל-' + (invite.name || 'שותף'),
-            spaceId: space.id,
-            spaceName: space.title || 'מרחב',
-            createdAt: new Date().toISOString(),
-            actionable: false
-          });
-        });
-      }
-    });
 
     // Remove dismissed alerts
     return notifs.filter(n => !dismissedAlerts.includes(n.id));
