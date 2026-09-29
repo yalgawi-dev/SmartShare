@@ -12,10 +12,8 @@ export default function WelcomeGate({
   inviteToken?: string | null;
 }) {
   const { spaces, finalizeGuestJoin, getRoleForSpace } = useSpaces() as any;
-  const { user, updateProfile } = useAuth();
+  const { user } = useAuth();
   const [showGate, setShowGate] = useState(false);
-  const [guestName, setGuestName] = useState('');
-  const [isEditingName, setIsEditingName] = useState(false);
   const [mounted, setMounted] = useState(false);
   const submittedRef = useRef(false); // prevents re-open after submit
 
@@ -27,11 +25,6 @@ export default function WelcomeGate({
   const role = getRoleForSpace(spaceId);
   const isCreatorOfThisSpace = role === 'creator';
 
-  // Deterministic token resolution chain:
-  // 1. Prop token
-  // 2. URL search params
-  // 3. smartshare_keys in localStorage
-  // 4. smartshare_guest_tokens in localStorage
   const resolvedToken = useMemo(() => {
     if (propToken) return propToken;
     if (typeof window !== 'undefined') {
@@ -61,36 +54,12 @@ export default function WelcomeGate({
   useEffect(() => {
     if (isCreatorOfThisSpace || typeof window === 'undefined' || !resolvedToken) return;
 
-    // Immediately cache in localStorage for cross-page persistence
-    const urlParams = new URLSearchParams(window.location.search);
-    const nameParam = urlParams.get('name');
-    if (nameParam && !guestName) {
-      setGuestName(nameParam);
-    }
-
     if (isAlreadyWelcomedOrActive || submittedRef.current) {
       setShowGate(false);
     } else {
       setShowGate(true);
     }
   }, [spaceId, isCreatorOfThisSpace, resolvedToken, isAlreadyWelcomedOrActive]);
-
-  useEffect(() => {
-    // Priority: auth realName > currentMember name
-    const PLACEHOLDERS = ['אורח', 'אורח אנונימי', 'Guest', 'שותף מוזמן'];
-    const authName = (user?.realName && !PLACEHOLDERS.includes(user.realName)) ? user.realName
-      : (user?.nickname && !PLACEHOLDERS.includes(user.nickname)) ? user.nickname : '';
-    if (authName && !guestName) {
-      setGuestName(authName);
-    } else if (currentMember?.name && currentMember.name !== 'שותף מוזמן' && !guestName) {
-      setGuestName(currentMember.name);
-    }
-
-    // If we don't have a pre-filled name, or it's a placeholder, we should be in edit mode
-    if (!guestName || PLACEHOLDERS.includes(guestName)) {
-      setIsEditingName(true);
-    }
-  }, [currentMember?.name, guestName, user?.realName, user?.nickname]);
 
   if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || !resolvedToken) return null;
 
@@ -99,12 +68,8 @@ export default function WelcomeGate({
   const displayShare = currentMember?.sharePercentage ?? (urlParams.get('share') ? Number(urlParams.get('share')) : undefined);
 
   const handleStart = () => {
-    const finalName = guestName.trim() || (currentMember?.name !== 'שותף מוזמן' ? currentMember?.name : '');
-    if (!finalName) {
-      alert('אנא הזן את שמך כדי להמשיך');
-      return;
-    }
-
+    const finalName = user?.realName || currentMember?.name || 'שותף חדש';
+    
     const isRetroParam = urlParams.get('retro') === 'true';
     const shareParam = urlParams.get('share');
     const planParam = urlParams.get('plan');
@@ -131,7 +96,6 @@ export default function WelcomeGate({
       sharesPlan
     );
 
-    // Save unique partner key directly into smartshare_keys (Single Source of Truth)
     try {
       const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
       const localKeys = parsed || {};
@@ -145,7 +109,6 @@ export default function WelcomeGate({
       }
     } catch (e) {}
 
-    // Dispatch event so AuthContext immediately saves it to Firestore user document
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
         detail: { spaceId, role: 'partner', token: resolvedToken } 
@@ -153,12 +116,6 @@ export default function WelcomeGate({
       window.dispatchEvent(new CustomEvent('force_auth'));
     }
 
-    if (finalName && (!user?.email || user.realName === 'אורח')) {
-      try {
-        updateProfile({ realName: finalName });
-      } catch (e) {}
-    }
-    
     submittedRef.current = true;
     setShowGate(false);
   };
@@ -182,57 +139,37 @@ export default function WelcomeGate({
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
         textAlign: 'center'
       }}>
-        <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
+        <div style={{ fontSize: '3rem', margin: '0 auto 1.5rem auto' }}>
+          {user?.avatarUrl ? (
+            <img src={user.avatarUrl} alt="Avatar" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #10b981' }} />
+          ) : '🎉'}
+        </div>
         
-        <h2 style={{ fontSize: '1.8rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ברוך הבא אל {space?.title || 'My Space'}!
+        <h2 style={{ fontSize: '1.6rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
+          שלום {user?.realName || 'שותף יקר'}!
+          <br/>
+          ברוך הבא ל-{space?.title || 'המרחב שלך'}
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
-          הוזמנת להצטרף לפרויקט <strong>"{space?.title || 'המשותף'}"</strong>
+          הוזמנת להצטרף כשותף פעיל למיזם <strong>"{space?.title || 'הפרויקט'}"</strong>
           {displayShare ? ` עם חלק של ${displayShare}%.` : '.'}
         </p>
         
         <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '16px', textAlign: 'right', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#334155' }}>🎯 מה אנחנו עושים פה?</h3>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#334155' }}>💡 מה זה אומר להיות שותף</h3>
           <ul style={{ margin: 0, paddingRight: '1.2rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.95rem' }}>
-            <li><strong>סורקים חשבוניות בשנייה</strong> בעזרת בינה מלאכותית.</li>
-            <li><strong>רואים בדיוק מי חייב למי</strong> בלי חישובים מסובכים.</li>
-            <li><strong>שקיפות מלאה</strong> לכל הוצאות הפרויקט.</li>
+            <li><strong>שקיפות מלאה ברווחים</strong> צפייה בהכנסות בזמן אמת.</li>
+            <li><strong>יצירת חשבוניות ודרישת תשלום</strong> בקלות ישירות מהאפליקציה.</li>
+            <li><strong>ניהול המדיה והגלריה</strong> במשותף עם מנהל הפרויקט.</li>
           </ul>
         </div>
 
         {isRetroactive && (
           <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '12px', border: '1px solid #bfdbfe', marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem' }}>
-            <strong>לידיעתך:</strong> הוגדרת כשותף מלא מהיום הראשון (חישוב רטרואקטיבי). אל דאגה, גם לאחר האישור תוכל תמיד לערוך אחוזים, לפתוח דיון או לשנות חשבוניות.
+            <strong>התחשבנות רטרואקטיבית:</strong> השותפות שלך חלה גם על הכנסות קודמות בפרויקט (רטרואקטיבית). המשמעות היא, שכל הכנסה שהייתה לפרויקט מרגע הקמתו, תיספר גם לזכותך לפי חלקך היחסי.
           </div>
         )}
-
-        {/* If user has a real name from Google/Facebook, show it as a read-only confirmation. Otherwise show editable field */}
-        <div style={{ marginBottom: '1.5rem', textAlign: 'right' }}>
-          {guestName && !['אורח', 'אורח אנונימי', 'Guest', 'שותף מוזמן'].includes(guestName) && !isEditingName ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f0fdf4', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #86efac' }}>
-              <span style={{ fontSize: '1.5rem' }}>✅</span>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: '0.8rem', color: '#166534' }}>תופיע בשם:</div>
-                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', color: '#166534' }}>{guestName}</div>
-              </div>
-              <button onClick={() => { setGuestName(''); setIsEditingName(true); }} style={{ marginRight: 'auto', background: 'transparent', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: '0.85rem', textDecoration: 'underline' }}>ערוך שם</button>
-            </div>
-          ) : (
-            <>
-              <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold', color: '#334155' }}>איך קוראים לך?</label>
-              <input
-                type="text"
-                value={guestName}
-                onChange={e => setGuestName(e.target.value)}
-                placeholder="הכנס שם מלא או כינוי"
-                style={{ width: '100%', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '1.1rem', boxSizing: 'border-box' }}
-                autoFocus
-              />
-            </>
-          )}
-        </div>
 
         <button 
           onClick={handleStart}
