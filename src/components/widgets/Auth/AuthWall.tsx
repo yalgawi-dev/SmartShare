@@ -5,9 +5,8 @@ import { useAuth } from '@/app/context/AuthContext';
 import { RecaptchaVerifier, ConfirmationResult } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
-
 export default function AuthWall() {
-  const { user, loginWithPhone, isLoaded } = useAuth();
+  const { loginWithPhone, isLoaded } = useAuth();
   
   const [phone, setPhone] = useState('');
   const [step, setStep] = useState(1);
@@ -120,7 +119,6 @@ export default function AuthWall() {
         await confirmationResult.confirm(code.trim());
       }
       
-      // onAuthStateChanged will pick up the login and update user context
     } catch (err: any) {
       console.error(err);
       if (err.code === 'auth/invalid-verification-code') {
@@ -136,14 +134,31 @@ export default function AuthWall() {
 
   if (!isLoaded) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      <div className="auth-loading">
+        <div className="spinner"></div>
+        <style>{`
+          .auth-loading {
+            height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #F8FAFC;
+          }
+          .spinner {
+            width: 40px; height: 40px;
+            border: 4px solid var(--primary);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+          }
+          @keyframes spin { 100% { transform: rotate(360deg); } }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[100dvh] bg-slate-50 flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8" dir="rtl">
+    <div className="auth-wrapper" dir="rtl">
       
       {step === 2 && (
         <style>{`
@@ -151,128 +166,389 @@ export default function AuthWall() {
         `}</style>
       )}
 
-      <div className="sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="flex justify-center mb-6">
-          <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200">
-            <span className="text-2xl">🔒</span>
-          </div>
+      <div className="auth-header">
+        <div className="auth-icon-wrap">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </div>
-        <h2 className="mt-2 text-center text-3xl font-extrabold text-slate-900 tracking-tight">
-          SmartShare
-        </h2>
-        <p className="mt-2 text-center text-sm text-slate-600 font-medium">
-          התחברות מאובטחת באמצעות מספר טלפון
-        </p>
+        <h2 className="auth-title">SmartShare</h2>
+        <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white py-8 px-4 shadow-xl shadow-slate-200/50 rounded-3xl sm:px-10 border border-slate-100">
-          
-          <div style={{ display: step === 1 ? 'block' : 'none' }}>
-            <div id="recaptcha-container" className="flex justify-center mb-4"></div>
-          </div>
+      <div className="auth-card">
+        <div style={{ display: step === 1 ? 'block' : 'none' }}>
+          <div id="recaptcha-container" style={{ display: 'flex', justifyContent: 'center', marginBottom: '16px' }}></div>
+        </div>
 
-          {step === 1 ? (
-            <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">מספר טלפון</label>
-                <div className="relative rounded-xl shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <span className="text-lg opacity-50">📱</span>
-                  </div>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={handlePhoneChange}
-                    className="block w-full rounded-xl border-slate-300 pl-10 focus:ring-indigo-500 focus:border-indigo-500 text-lg h-14 bg-slate-50 text-left"
-                    placeholder="050-000-0000"
-                    dir="ltr"
-                    onKeyDown={e => e.key === 'Enter' && handleSendCode()}
-                  />
-                </div>
+        {step === 1 ? (
+          <div className="auth-form">
+            <div className="input-group">
+              <label>מספר טלפון</label>
+              <div className="input-wrapper">
+                <span className="input-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                  </svg>
+                </span>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={handlePhoneChange}
+                  className="auth-input"
+                  placeholder="050-000-0000"
+                  dir="ltr"
+                  onKeyDown={e => e.key === 'Enter' && handleSendCode()}
+                />
               </div>
+            </div>
 
-              {errorMsg && (
-                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-100 text-center">
-                  {errorMsg}
-                </div>
+            {errorMsg && (
+              <div className="auth-error">
+                {errorMsg}
+              </div>
+            )}
+
+            <button
+              onClick={handleSendCode}
+              disabled={isSubmitting || phone.length < 9}
+              className="auth-btn auth-btn-primary"
+            >
+              {isSubmitting ? <div className="spinner-small"></div> : (
+                <>
+                  המשך
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}>
+                    <line x1="19" y1="12" x2="5" y2="12"></line>
+                    <polyline points="12 19 5 12 12 5"></polyline>
+                  </svg>
+                </>
               )}
+            </button>
+          </div>
+        ) : (
+          <div className="auth-form">
+            <div className="otp-header">
+              <p>הזן את קוד 6 הספרות שנשלח למספר</p>
+              <b dir="ltr">{phone}</b>
+            </div>
+            
+            <div className="otp-inputs" dir="ltr">
+              {otp.map((digit, i) => (
+                <input
+                  key={i}
+                  id={`otp-${i}`}
+                  type="text"
+                  maxLength={1}
+                  className="otp-input"
+                  value={digit}
+                  onChange={e => {
+                    handleOtpChange(i, e.target.value);
+                    if (e.target.value && i < 5) {
+                      document.getElementById(`otp-${i + 1}`)?.focus();
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Backspace' && !digit && i > 0) {
+                      document.getElementById(`otp-${i - 1}`)?.focus();
+                    }
+                    if (e.key === 'Enter') {
+                      handleVerify();
+                    }
+                  }}
+                />
+              ))}
+            </div>
 
+            {errorMsg && (
+              <div className="auth-error">
+                {errorMsg}
+              </div>
+            )}
+
+            <div className="auth-actions">
               <button
-                onClick={handleSendCode}
-                disabled={isSubmitting || phone.length < 9}
-                className="w-full flex justify-center items-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+                onClick={handleVerify}
+                disabled={isSubmitting || otp.join('').length < 6}
+                className="auth-btn auth-btn-primary"
               >
-                {isSubmitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'המשך'}
-                {!isSubmitting && <span className="mr-2 text-xl leading-none">&larr;</span>}
+                {isSubmitting ? <div className="spinner-small"></div> : 'אימות קוד'}
+              </button>
+              <button
+                onClick={() => {
+                  setStep(1);
+                  setOtp(['', '', '', '', '', '']);
+                  setErrorMsg('');
+                }}
+                className="auth-btn auth-btn-secondary"
+                disabled={isSubmitting}
+              >
+                חזור לאחור
               </button>
             </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="text-center">
-                <p className="text-sm text-slate-600 mb-6">
-                  הזן את קוד 6 הספרות שנשלח למספר<br/>
-                  <b className="text-slate-900 mt-1 block text-lg tracking-wider" dir="ltr">{phone}</b>
-                </p>
-                
-                <div className="flex justify-center gap-2" dir="ltr">
-                  {otp.map((digit, i) => (
-                    <input
-                      key={i}
-                      id={`otp-${i}`}
-                      type="text"
-                      maxLength={1}
-                      className="w-12 h-14 text-center text-xl font-bold bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                      value={digit}
-                      onChange={e => {
-                        handleOtpChange(i, e.target.value);
-                        if (e.target.value && i < 5) {
-                          document.getElementById(`otp-${i + 1}`)?.focus();
-                        }
-                      }}
-                      onKeyDown={e => {
-                        if (e.key === 'Backspace' && !digit && i > 0) {
-                          document.getElementById(`otp-${i - 1}`)?.focus();
-                        }
-                        if (e.key === 'Enter') {
-                          handleVerify();
-                        }
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {errorMsg && (
-                <div className="text-red-600 text-sm bg-red-50 p-3 rounded-lg border border-red-100 text-center">
-                  {errorMsg}
-                </div>
-              )}
-
-              <div className="flex flex-col gap-3">
-                <button
-                  onClick={handleVerify}
-                  disabled={isSubmitting || otp.join('').length < 6}
-                  className="w-full flex justify-center py-4 px-4 border border-transparent rounded-xl shadow-sm text-lg font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
-                >
-                  {isSubmitting ? <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : 'אימות קוד'}
-                </button>
-                <button
-                  onClick={() => {
-                    setStep(1);
-                    setOtp(['', '', '', '', '', '']);
-                    setErrorMsg('');
-                  }}
-                  className="w-full flex justify-center py-3 px-4 border border-slate-300 rounded-xl shadow-sm text-sm font-medium text-slate-700 bg-white hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                  disabled={isSubmitting}
-                >
-                  חזור לאחור
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      <style>{`
+        .auth-wrapper {
+          min-height: 100dvh;
+          background: linear-gradient(135deg, #F8FAFC 0%, #EFF6FF 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
+          font-family: var(--font-sans, system-ui, sans-serif);
+        }
+
+        .auth-header {
+          text-align: center;
+          margin-bottom: 32px;
+          animation: slideUp 0.6s ease-out;
+        }
+
+        .auth-icon-wrap {
+          width: 64px;
+          height: 64px;
+          background: linear-gradient(135deg, var(--primary, #4F46E5) 0%, var(--primary-hover, #4338CA) 100%);
+          border-radius: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin: 0 auto 20px;
+          color: white;
+          box-shadow: 0 10px 25px -5px rgba(79, 70, 229, 0.4);
+        }
+
+        .auth-title {
+          font-size: 32px;
+          font-weight: 800;
+          color: #0F172A;
+          margin: 0 0 8px 0;
+          letter-spacing: -0.5px;
+        }
+
+        .auth-subtitle {
+          font-size: 16px;
+          color: #64748B;
+          margin: 0;
+          font-weight: 500;
+        }
+
+        .auth-card {
+          width: 100%;
+          max-width: 420px;
+          background: #FFFFFF;
+          border-radius: 28px;
+          padding: 32px;
+          box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.05), 0 0 0 1px rgba(0, 0, 0, 0.02);
+          animation: slideUp 0.6s ease-out 0.1s both;
+        }
+
+        .auth-form {
+          display: flex;
+          flex-direction: column;
+          gap: 24px;
+        }
+
+        .input-group label {
+          display: block;
+          font-size: 14px;
+          font-weight: 600;
+          color: #334155;
+          margin-bottom: 8px;
+        }
+
+        .input-wrapper {
+          position: relative;
+        }
+
+        .input-icon {
+          position: absolute;
+          left: 16px;
+          top: 50%;
+          transform: translateY(-50%);
+          color: #94A3B8;
+          pointer-events: none;
+        }
+
+        .auth-input {
+          width: 100%;
+          height: 56px;
+          background: #F8FAFC;
+          border: 2px solid #E2E8F0;
+          border-radius: 16px;
+          padding: 0 16px 0 48px;
+          font-size: 18px;
+          font-family: inherit;
+          color: #0F172A;
+          transition: all 0.2s ease;
+          outline: none;
+          box-sizing: border-box;
+        }
+
+        .auth-input:focus {
+          border-color: var(--primary, #4F46E5);
+          background: #FFFFFF;
+          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+
+        .auth-input::placeholder {
+          color: #94A3B8;
+        }
+
+        .auth-btn {
+          width: 100%;
+          height: 56px;
+          border-radius: 16px;
+          font-size: 18px;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          border: none;
+          outline: none;
+          font-family: inherit;
+        }
+
+        .auth-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+          transform: none !important;
+        }
+
+        .auth-btn-primary {
+          background: var(--primary, #4F46E5);
+          color: white;
+          box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
+        }
+
+        .auth-btn-primary:not(:disabled):hover {
+          background: var(--primary-hover, #4338CA);
+          transform: translateY(-2px);
+          box-shadow: 0 6px 16px rgba(79, 70, 229, 0.3);
+        }
+
+        .auth-btn-primary:not(:disabled):active {
+          transform: translateY(0);
+        }
+
+        .auth-btn-secondary {
+          background: #F1F5F9;
+          color: #475569;
+        }
+
+        .auth-btn-secondary:not(:disabled):hover {
+          background: #E2E8F0;
+        }
+
+        .auth-error {
+          background: #FEF2F2;
+          border: 1px solid #FECACA;
+          color: #DC2626;
+          padding: 12px 16px;
+          border-radius: 12px;
+          font-size: 14px;
+          font-weight: 500;
+          text-align: center;
+          animation: shake 0.4s ease-in-out;
+        }
+
+        .otp-header {
+          text-align: center;
+          margin-bottom: 8px;
+        }
+        
+        .otp-header p {
+          color: #64748B;
+          font-size: 15px;
+          margin: 0 0 8px 0;
+        }
+
+        .otp-header b {
+          color: #0F172A;
+          font-size: 20px;
+          letter-spacing: 1px;
+          display: block;
+        }
+
+        .otp-inputs {
+          display: flex;
+          justify-content: center;
+          gap: 12px;
+        }
+
+        .otp-input {
+          width: 50px;
+          height: 60px;
+          background: #F8FAFC;
+          border: 2px solid #E2E8F0;
+          border-radius: 14px;
+          font-size: 24px;
+          font-weight: 700;
+          text-align: center;
+          color: #0F172A;
+          transition: all 0.2s ease;
+          outline: none;
+        }
+
+        .otp-input:focus {
+          border-color: var(--primary, #4F46E5);
+          background: #FFFFFF;
+          box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        }
+
+        .auth-actions {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .spinner-small {
+          width: 24px; height: 24px;
+          border: 3px solid rgba(255,255,255,0.3);
+          border-top-color: white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+        
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          25% { transform: translateX(-5px); }
+          50% { transform: translateX(5px); }
+          75% { transform: translateX(-5px); }
+        }
+
+        /* Mobile adjustments */
+        @media (max-width: 480px) {
+          .auth-wrapper {
+            padding: 16px;
+          }
+          .auth-card {
+            padding: 24px 20px;
+            border-radius: 24px;
+          }
+          .otp-inputs {
+            gap: 8px;
+          }
+          .otp-input {
+            width: 44px;
+            height: 54px;
+            font-size: 20px;
+          }
+        }
+      `}</style>
     </div>
   );
 }
