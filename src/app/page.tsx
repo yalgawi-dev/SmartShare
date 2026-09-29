@@ -337,7 +337,7 @@ export default function Dashboard() {
                   <button 
                     onClick={() => {
                       if (user?.id) {
-                        finalizeGuestJoin(item.spaceId, user.name || user.phone || 'משתמש', item.invite.isRetroactive || false, user.id, item.invite.token, item.invite.guestShare)
+                        finalizeGuestJoin(item.spaceId, user.realName || user.nickname || user.phone || 'משתמש', item.invite.isRetroactive || false, user.id, item.invite.token, item.invite.guestShare)
                       }
                     }}
                     style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: 'var(--radius-md)', fontWeight: '600', cursor: 'pointer' }}
