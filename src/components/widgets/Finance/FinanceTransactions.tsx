@@ -459,11 +459,18 @@ export function FinanceTransactions({
       </div>
 
       {finallyFiltered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
-          <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
-          {filter === 'pending_me' ? 'אין חשבוניות שממתינות לאישור שלך.' : filter === 'pending_partners' ? 'אין חשבוניות שממתינות לאישור השותפים.' : filter === 'dispute' ? 'אין הוצאות במחלוקת כרגע.' : 'לא נמצאו חשבוניות.'}
-        </div>
-      ) : (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
+            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
+            {(() => {
+              const selectedName = memberFilter !== 'all' ? (allUsers.find(u => u.id === memberFilter)?.name || '') : '';
+              if (searchQuery && searchQuery.trim()) return `לא נמצאו תוצאות התואמות לחיפוש "${searchQuery}"`;
+              if (filter === 'pending_me') return 'אין חשבוניות שממתינות לאישור שלך.';
+              if (filter === 'pending_partners') return selectedName ? `אין חשבוניות שממתינות לאישור של ${selectedName}.` : 'אין חשבוניות שממתינות לאישור השותפים.';
+              if (filter === 'dispute') return selectedName ? `אין סכסוכים או מחלוקות שקשורים אל ${selectedName}.` : 'אין סכסוכים או מחלוקות פתוחים.';
+              return selectedName ? `אין חשבוניות פעילות ששולמו על ידי ${selectedName}.` : 'אין חשבוניות פעילות.';
+            })()}
+          </div>
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
           {finallyFiltered.map((inv: any) => (
