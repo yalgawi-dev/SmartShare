@@ -225,7 +225,7 @@ export function FinanceAddExpenseForm({
           )}
 
           {ocrDebugMessage && (
-            <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'ltr', textAlign: 'left' }}>
+            <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'rtl', textAlign: 'right' }}>
               {ocrDebugMessage}
             </div>
           )}

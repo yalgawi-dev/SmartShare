@@ -257,7 +257,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
       } else {
         const err = await response.json();
         console.error("Cloud OCR API Error:", err);
-        setOcrDebugMessage(`שגיאה בשרת הפענוח: ${err.error || 'אנא נסה שוב מאוחר יותר.'}`);
+        setOcrDebugMessage(`${err.error || 'אנא נסה שוב מאוחר יותר.'}`);
       }
     } catch (e: any) {
       clearInterval(timerInterval);

@@ -232,13 +232,13 @@ Be strict about INVOICE/RECEIPT/BILL — require visible monetary amounts and in
       }
       if (!data.vendor && !data.amount && !data.date) {
          return NextResponse.json({ 
-           error: 'Gemini could not find any data in the image. Raw output: ' + text, 
+           error: 'לא זיהינו פרטי חשבונית או קבלה בתמונה. ייתכן שמדובר במסמך כללי או שהטקסט לא ברור מספיק.', 
            debugRaw: text, 
            aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs
          }, { status: 400 });
       }
     } catch(e) {
-      return NextResponse.json({ error: 'Failed to parse Gemini JSON. Raw output: ' + text, debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs }, { status: 400 });
+      return NextResponse.json({ error: 'לא הצלחנו לפענח את הנתונים מהתמונה. אנא ודא שהתמונה ברורה ונסה שוב.', debugRaw: text, aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs }, { status: 400 });
     }
 
     data._debug = { aiTimeMs, retryCount, pureInferenceMs, totalWaitMs, abortedTimeMs };
