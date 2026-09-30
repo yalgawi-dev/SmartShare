@@ -200,6 +200,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!activeUser.isBlocked) {
           setUser({ ...activeUser, id: firebaseUser.uid } as any);
+          // Update presence immediately on login
+          try {
+            await updateDoc(doc(db, 'users', firebaseUser.uid), { lastActiveAt: new Date().toISOString() });
+          } catch(e) {}
         }
         setIsLoaded(true);
       } catch (error) {

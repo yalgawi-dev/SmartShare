@@ -92,25 +92,27 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   
   const messagesArray = [...legacyMessages, ...meshMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-  // Auto-mark messages as read when opening the panel
+  // Auto-mark messages as read when opening the panel - only when truly mounted and visible
   useEffect(() => {
     if (!mounted || !user?.id) return;
-    
-    // Mark both Mesh and Legacy
-    if (typeof markConversationRead === 'function') {
-      const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(user.id));
-      const hasUnreadLegacy = legacyMessages.some((m: any) => {
-         if (m.readAt) return false;
-         const isCreator = space.creatorId === user.id;
-         if (isCreator && m.senderId !== space.creatorId) return true;
-         if (!isCreator && m.senderId === space.creatorId) return true;
-         return false;
-      });
-      if (hasUnreadMesh || hasUnreadLegacy) {
-        markConversationRead(space.id, conversationId, user.id);
+    // Small delay to ensure the messages are actually rendered on screen
+    const timer = setTimeout(() => {
+      // Mark Mesh
+      if (typeof markConversationRead === 'function') {
+        const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(user.id));
+        const hasUnreadLegacy = legacyMessages.some((m: any) => {
+           const isCreator = space.creatorId === user.id || space.createdBy === user.id;
+           if (isCreator && m.senderId !== space.creatorId) return true;
+           if (!isCreator && m.senderId === space.creatorId) return true;
+           return false;
+        });
+        if (hasUnreadMesh || hasUnreadLegacy) {
+          markConversationRead(space.id, conversationId, user.id);
+        }
       }
-    }
-  }, [messagesArray.length, mounted]);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [mounted]);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
@@ -204,7 +206,9 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : 'הגדרות שותף ומנהל'}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' 
+      ? `שיחה עם ${memberName}` 
+      : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`}</h3>
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(isGroup ? 'group' : member.userId, user?.id), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
                   </div>
                 {isGroup && (
