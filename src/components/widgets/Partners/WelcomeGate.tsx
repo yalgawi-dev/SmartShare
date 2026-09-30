@@ -222,3 +222,6 @@ export default function WelcomeGate({
       </div>
     </div>
   );
+
+}
+
