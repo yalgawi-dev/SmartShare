@@ -435,6 +435,80 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       }
     };
 
+  
+  // COMPLETE ARCHITECTURAL CLEANUP: Auto-migrate legacy guest IDs to real UIDs
+  useEffect(() => {
+    if (!user || !user.id || spacesBase.length === 0) return;
+    if (typeof window === 'undefined') return;
+
+    try {
+      const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      
+      spacesBase.forEach(space => {
+        const spaceKey = localKeys[space.id];
+        if (!spaceKey || !spaceKey.token) return;
+        
+        const guestId = spaceKey.token;
+        if (guestId === user.id) return; // Already migrated
+
+        const hasGuestMember = space.members?.some((m: any) => m.userId === guestId);
+        if (hasGuestMember) {
+          console.log(`Migrating legacy guest ID ${guestId} to real UID ${user.id} for space ${space.id}`);
+          
+          saveSpaceUpdate(space.id, currentSpace => {
+            // Update members
+            const members = (currentSpace.members || []).map(m => 
+              m.userId === guestId ? { ...m, userId: user.id } : m
+            );
+            
+            // Update invoices
+            const invoices = (currentSpace.invoices || []).map(inv => {
+              const newInv = { ...inv };
+              if (newInv.payerId === guestId) newInv.payerId = user.id;
+              if (newInv.rejectedById === guestId) newInv.rejectedById = user.id;
+              if (newInv.excludedMembers) newInv.excludedMembers = newInv.excludedMembers.map(id => id === guestId ? user.id : id);
+              if (newInv.approvedBy) newInv.approvedBy = newInv.approvedBy.map(id => id === guestId ? user.id : id);
+              return newInv;
+            });
+            
+            // Update conversations
+            const conversations = (currentSpace.conversations || []).map(c => {
+              const newC = { ...c };
+              if (newC.participants) newC.participants = newC.participants.map(id => id === guestId ? user.id : id);
+              // Fix conversation ID if it contained the guest ID
+              if (newC.id.includes(guestId)) {
+                newC.id = newC.participants.filter(id => id !== 'group').sort().join('_');
+              }
+              if (newC.messages) {
+                newC.messages = newC.messages.map(msg => ({
+                  ...msg,
+                  senderId: msg.senderId === guestId ? user.id : msg.senderId,
+                  readBy: (msg.readBy || []).map(id => id === guestId ? user.id : id)
+                }));
+              }
+              return newC;
+            });
+
+            return { ...currentSpace, members, invoices, conversations };
+          });
+          
+          // Clear it from localStorage so we don't migrate again
+          localKeys[space.id].token = user.id;
+          localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+          
+          // Move from smartshare_guest_tokens if it's there
+          const guestTokens = JSON.parse(localStorage.getItem('smartshare_guest_tokens') || '[]');
+          const filteredTokens = guestTokens.filter((t: string) => t !== guestId);
+          if (filteredTokens.length !== guestTokens.length) {
+            localStorage.setItem('smartshare_guest_tokens', JSON.stringify(filteredTokens));
+          }
+        }
+      });
+    } catch (e) {
+      console.error('Guest migration error', e);
+    }
+  }, [user?.id, spacesBase.length]);
+
   // Fix identity mismatch when user logs in and spaces are loaded
   useEffect(() => {
     if (!user || !user.id || spacesBase.length === 0) return;

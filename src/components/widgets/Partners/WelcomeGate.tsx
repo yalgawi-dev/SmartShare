@@ -95,7 +95,7 @@ export default function WelcomeGate({
           spaceId, 
           finalName, 
           isRetroParam, 
-          resolvedToken, 
+          user.id, 
           resolvedToken, 
           currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : (shareParam ? Number(shareParam) : undefined),
           sharesPlan
