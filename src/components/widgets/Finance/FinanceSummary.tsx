@@ -94,7 +94,7 @@ export function FinanceSummary({
     : (user?.nickname && !GUEST_PLACEHOLDERS.includes(user.nickname))
       ? user.nickname
       : '';
-  const myId = user?.id || 'me';
+  
   const hasPartners = space.features?.includes('partners') || false;
   
   // Prevent random anonymous viewers from being added to the math engine
@@ -103,8 +103,8 @@ export function FinanceSummary({
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
-  const amIRealMember = space.members?.some((m: any) => m.userId === myId);
-  const myEffectiveId = isCreatorMe ? myId : (amIRealMember ? myId : (myPartnerToken || myId));
+  
+  
   
   const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
   const creatorName = space.createdBy || (isCreatorMe ? myRealName : 'יוצר המרחב');
@@ -113,10 +113,10 @@ export function FinanceSummary({
 
   const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
   validMembers.forEach((m: any) => {
-    if ((isCreatorMe && m.userId === myEffectiveId) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
+    if ((isCreatorMe && m.userId === user?.id) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
-      unifiedBalances.set(m.userId, { name: m.name || (m.userId === myEffectiveId ? myRealName : 'אורח'), paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+      unifiedBalances.set(m.userId, { name: m.name || (m.userId === user?.id ? myRealName : 'אורח'), paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
 
@@ -132,7 +132,7 @@ export function FinanceSummary({
 
   expensesOnly.forEach((inv: any) => {
     let matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
-    if ((isCreatorMe && matchedId === myEffectiveId) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
+    if ((isCreatorMe && matchedId === user?.id) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
       matchedId = creatorId; // Merge split identities globally so guests see creator correctly
     }
     
@@ -173,7 +173,7 @@ export function FinanceSummary({
     if (b.userId === TREASURY_MEMBER_ID) {
       p = 0;
     } else if (activeMembersCount <= 1) { // Only creator or nobody
-      if (b.userId === myEffectiveId || b.isCreator) p = 100;
+      if (b.userId === user?.id || b.isCreator) p = 100;
       else p = 0;
     } else {
       if (b.isMember) {
@@ -193,7 +193,7 @@ export function FinanceSummary({
   incomesOnly.forEach((inv) => {
     const invAmount = inv.amount || 0;
     let holderId = inv.targetId || inv.payerId || creatorId;
-    if ((isCreatorMe && holderId === myEffectiveId) || (space.creatorId && holderId === space.creatorId) || (space.createdBy && holderId === space.createdBy)) {
+    if ((isCreatorMe && holderId === user?.id) || (space.creatorId && holderId === space.creatorId) || (space.createdBy && holderId === space.createdBy)) {
       holderId = creatorId;
     }
     if (unifiedBalances.has(holderId)) {
@@ -313,13 +313,13 @@ export function FinanceSummary({
                   const hasPendingMe = activeInvoices.some((i: any) => {
                     if (i.status !== 'pending') return false;
                     if (i.type === 'transfer') {
-                      if (i.targetId === user?.id || i.targetId === myEffectiveId) return true;
-                      if (isCreatorMe && i.payerId !== myEffectiveId && i.payerId !== 'me') return true;
+                      if (i.targetId === user?.id || i.targetId === user?.id) return true;
+                      if (isCreatorMe && i.payerId !== user?.id && i.payerId !== 'me') return true;
                       return false;
                     }
-                    if (i.payerId === user?.id || i.payerId === myEffectiveId || i.payerId === 'me') return false;
-                    if (i.payerId === myEffectiveId || i.payerId === 'me' || (isCreatorMe && i.payerId === (space.creatorId || space.createdBy))) return false;
-                    if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myEffectiveId)) return false;
+                    if (i.payerId === user?.id || i.payerId === user?.id || i.payerId === 'me') return false;
+                    if (i.payerId === user?.id || i.payerId === 'me' || (isCreatorMe && i.payerId === (space.creatorId || space.createdBy))) return false;
+                    if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(user?.id)) return false;
                     return true;
                   });
                   setActiveTab('transactions');
@@ -410,29 +410,27 @@ export function FinanceSummary({
                           onClick={() => {
                               if (isCreatorMe) {
                                 // Creator: can click on partner rows, NOT own row
-                                if (b.isMember && !b.isCreator && b.userId !== myEffectiveId) {
+                                if (b.isMember && !b.isCreator && b.userId !== user?.id) {
                                   setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId);
                                 }
                               } else {
                                 // Partner: can click on creator row and other partner rows, NOT own row
-                                if (b.isMember && b.userId !== myEffectiveId) {
-                                  setExpandedPartnerId(expandedPartnerId === (b.isCreator ? myEffectiveId : b.userId) ? null : (b.isCreator ? myEffectiveId : b.userId));
-                                }
+                                if (b.isMember && b.userId !== user?.id) { setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); }
                               }
                             }}
-                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === (b.isCreator && !isCreatorMe ? myEffectiveId : b.userId) ? 'rgba(99,102,241,0.08)' : b.userId === myEffectiveId ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe 
-                          ? (b.isMember && !b.isCreator && b.userId !== myEffectiveId ? 'pointer' : 'default')
-                          : (b.isMember && b.userId !== myEffectiveId ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
-                          <td style={{ padding: '0.75rem', fontWeight: b.userId === myEffectiveId ? 'bold' : 'normal' }}>
+                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe 
+                          ? (b.isMember && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
+                          : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
+                          <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
-                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />} {b.name} {b.userId === myEffectiveId && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   let myUnreadCount = 0;
                                   if (isCreatorMe && !b.isCreator) {
                                     myUnreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
                                   } else if (!isCreatorMe && b.isCreator) {
-                                    const myActualMember = space.members?.find((m: any) => m.userId === myEffectiveId);
+                                    const myActualMember = space.members?.find((m: any) => m.userId === user?.id);
                                     myUnreadCount = (myActualMember?.messages || []).filter((m: any) => m.from === 'creator' && !m.readAt).length;
                                   }
                                   return myUnreadCount > 0 ? (
@@ -478,7 +476,7 @@ export function FinanceSummary({
                               {(b as any).status === 'pending' && (() => {
                                 const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
                                 if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
-                                if (b.userId === myEffectiveId) {
+                                if (b.userId === user?.id) {
                                     return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לאישורך</span>;
                                   }
                                   if (!(b as any).welcomed) {
@@ -513,8 +511,8 @@ export function FinanceSummary({
                             onEditShares={() => setIsEditingShares(true)}
                           />
                         )}
-                        {!isCreatorMe && expandedPartnerId === (b.isCreator ? myEffectiveId : b.userId) && (() => {
-                          const targetMember = space.members?.find((m: any) => m.userId === (b.isCreator ? myEffectiveId : b.userId));
+                        {!isCreatorMe && expandedPartnerId === b.userId && (() => {
+                          const targetMember = space.members?.find((m: any) => m.userId === (b.isCreator ? user?.id : b.userId));
                           if (!targetMember) return null;
                           return (
                             <PartnerControlPanel
@@ -566,7 +564,7 @@ export function FinanceSummary({
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                   <span style={{ fontWeight: 'bold' }}>
                     {b.name} 
-                    {b.userId === myEffectiveId ? ' (שלי)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(אורח חיצון)</span> : '')}
+                    {b.userId === user?.id ? ' (שלי)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(אורח חיצון)</span> : '')}
                     {isInactive && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(לא פעיל)</span>}
                   </span>
                   <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
