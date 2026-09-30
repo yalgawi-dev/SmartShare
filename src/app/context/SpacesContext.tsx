@@ -274,6 +274,9 @@ const SpacesContext = createContext<SpacesContextType | undefined>(undefined);
 export function SpacesProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [spacesBase, setSpacesBase] = useState<Omit<Space, 'mediaItems'>[]>([]);
+  const spacesBaseRef = useRef<Omit<Space, 'mediaItems'>[]>([]);
+  // Keep ref strictly synced during renders for outside reads if needed
+  spacesBaseRef.current = spacesBase;
   const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [personalInbox, setPersonalInbox] = useState<any[]>([]);
