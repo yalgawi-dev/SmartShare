@@ -45,7 +45,11 @@ export default function Dashboard() {
           if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
           if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
           
-          const p2pConvoId = [user.id, member.userId].sort().join('_');
+          
+            if (!isCreator && member.userId !== user.id) return; // Partners only process their own row
+            const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
+            const p2pConvoId = [user.id, targetId].filter(Boolean).sort().join('_');
+
           const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
           let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
           

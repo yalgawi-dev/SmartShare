@@ -257,10 +257,10 @@ const defaultSettings: SpaceSettings = {
 const initialSpaces: Space[] = [
   {
     id: '1',
-    title: '׳³ג€˜׳³ֲ ׳³ג„¢׳³ג„¢׳³ֳ— ׳³ג€׳³ג€˜׳³ג„¢׳³ֳ— ׳³ג€˜׳³ג€÷׳³ג‚×׳³ֲ¨',
-    description: '׳³ֲ ׳³ג„¢׳³ג€׳³ג€¢׳³ֲ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€¢׳³ֳ—, ׳³ֲ§׳³ג€˜׳³ֲ׳³ֲ ׳³ג„¢׳³ֲ, ׳³ג€׳³ֲ¢׳³ֲ׳³ֲ׳³ֳ— ׳³ג€”׳³ֲ©׳³ג€˜׳³ג€¢׳³ֲ ׳³ג„¢׳³ג€¢׳³ֳ— ׳³ג€¢׳³ֳ—׳³ג€¢׳³ג€÷׳³ֲ ׳³ג„¢׳³ג€¢׳³ֳ— ׳³ֲ׳³ג€׳³ֲ¨׳³ג„¢׳³ג€÷׳³ֲ׳³ג„¢׳³ג€¢׳³ֳ— ׳³ג€˜׳³ֲ׳³ֲ§׳³ג€¢׳³ֲ ׳³ֲ׳³ג€”׳³ג€.',
-    icon: '׳ ֲֲֲ ',
-    updatedAt: '׳³ֲ׳³ג‚×׳³ֲ ׳³ג„¢ 2 ׳³ג€׳³ֲ§׳³ג€¢׳³ֳ—',
+    title: 'גולדה',
+    description: 'מרחב מבוסס על תבנית ניהול הוצאות / התחשבנויות',
+    icon: '💰',
+    updatedAt: 'עודכן עכשיו',
     features: ['finance', 'scanner', 'partners'],
     settings: defaultSettings,
     invoices: [],
@@ -527,7 +527,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       date: new Date().toLocaleDateString('he-IL'),
-      updatedAt: '׳³ֲ ׳³ג€¢׳³ֲ¦׳³ֲ¨ ׳³ג€׳³ֲ¨׳³ג€™׳³ֲ¢',
+      updatedAt: 'עודכן עכשיו',
       settings: defaultSettings,
       invoices: [],
       members: [],
@@ -637,26 +637,26 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSpaceTitle = (spaceId: string, newTitle: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceDate = (spaceId: string, newDate: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceIcon = (spaceId: string, newIcon: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceSettings = (spaceId: string, newSettings: Partial<SpaceSettings>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       settings: { ...space.settings, ...newSettings },
-      updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
+      updatedAt: 'עודכן עכשיו'
     }));
   };
 
@@ -1086,7 +1086,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         ...space,
         invoices: [],
         members: newMembers,
-        updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ׳³ג‚×׳³ֲ ׳³ג„¢ ׳³ֲ¨׳³ג€™׳³ֲ¢'
+        updatedAt: 'עודכן עכשיו'
       };
     });
   };
@@ -1279,7 +1279,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         ...space,
         invoices: [newInvoice, ...(space.invoices || [])],
         inboxItems: (space.inboxItems || []).filter(item => item.id !== inboxItemId),
-        updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ג€׳³ֲ¨׳³ג€™׳³ֲ¢'
+        updatedAt: 'עודכן עכשיו'
       };
     });
   };
@@ -1311,7 +1311,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       return {
         ...space,
         inboxItems: [...newItems, ...(space.inboxItems || [])],
-        updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
+        updatedAt: 'עודכן עכשיו'
       };
     });
   };
@@ -1320,7 +1320,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
-      updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
+      updatedAt: 'עודכן עכשיו'
     }));
   };
 
@@ -1335,7 +1335,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).filter(item => item.id !== itemId),
-      updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
+      updatedAt: 'עודכן עכשיו'
     }));
   };
 
