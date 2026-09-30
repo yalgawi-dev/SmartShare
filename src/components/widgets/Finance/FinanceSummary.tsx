@@ -102,6 +102,7 @@ export function FinanceSummary({
   const { getRoleForSpace, getTokenForSpace, addInvoice } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
+  const myId = user?.id || 'me';
   if (space.creatorId && myId === space.creatorId) isCreatorMe = true;
   
   
