@@ -216,7 +216,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                     <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' 
       ? `שיחה עם ${memberName}` 
       : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`}</h3>
-                    <span style={{ fontSize: '0.6rem', color: 'red' }}>[DEBUG: VM={viewMode} cBy={space.createdBy} m={member?.name} cid={conversationId}]</span>
+                    
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
                       return getPresenceColor(member.userId, user?.id);
