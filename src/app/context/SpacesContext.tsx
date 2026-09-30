@@ -876,7 +876,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         finalCreatorShare = calculatedCreatorShare;
       }
       
-      const newPendingInvites = (space.pendingInvites || []).filter(i => i.token !== userId);
+      const newPendingInvites = (space.pendingInvites || []).filter(i => i.token !== userId && i.token !== inviteToken);
 
       return {
         ...space,

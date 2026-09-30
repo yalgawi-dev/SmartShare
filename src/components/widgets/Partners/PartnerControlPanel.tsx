@@ -78,13 +78,25 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const isGroup = member.userId === 'group';
   // For p2p conversations, always use sorted IDs to ensure both sides read from same document
-  const conversationId = isGroup ? 'group' : (
-    viewMode === 'peer' 
-      ? [myEffectiveId, member.userId].sort().join('_')
-      : viewMode === 'creator'
-        ? [myEffectiveId, member.userId].sort().join('_')  
-        : [myEffectiveId, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')  
-  );
+  const getConversationId = () => {
+    if (isGroup) return 'group';
+    const targetId = viewMode === 'peer' || viewMode === 'creator' ? member.userId : (space.creatorId || space.createdBy);
+    const modernId = [myEffectiveId, targetId].filter(Boolean).sort().join('_');
+    if (space.conversations?.find((c: any) => c.id === modernId)) return modernId;
+    const possibleIds = [
+      [user?.id, member.userId].filter(Boolean).sort().join('_'),
+      [myEffectiveId, member.userId].filter(Boolean).sort().join('_'),
+      [user?.id, space.creatorId].filter(Boolean).sort().join('_'),
+      [myEffectiveId, space.creatorId].filter(Boolean).sort().join('_'),
+      [user?.id, space.createdBy].filter(Boolean).sort().join('_'),
+      [myEffectiveId, space.createdBy].filter(Boolean).sort().join('_')
+    ];
+    for (const pid of possibleIds) {
+      if (space.conversations?.find((c: any) => c.id === pid)) return pid;
+    }
+    return modernId;
+  };
+  const conversationId = getConversationId();
 
   // Legacy
   const messagesRaw = member?.messages || [];
