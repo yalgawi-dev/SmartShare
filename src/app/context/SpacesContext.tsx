@@ -463,7 +463,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
             
             // Update invoices
             const invoices = (currentSpace.invoices || []).map(inv => {
-              const newInv = { ...inv };
+              const newInv = { ...inv } as any;
               if (newInv.payerId === guestId) newInv.payerId = user.id;
               if (newInv.rejectedById === guestId) newInv.rejectedById = user.id;
               if (newInv.excludedMembers) newInv.excludedMembers = newInv.excludedMembers.map(id => id === guestId ? user.id : id);
