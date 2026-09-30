@@ -428,11 +428,19 @@ export function FinanceSummary({
                                 {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   let myUnreadCount = 0;
-                                  if (isCreatorMe && !b.isCreator) {
-                                    myUnreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
-                                  } else if (!isCreatorMe && b.isCreator) {
-                                    const myActualMember = space.members?.find((m: any) => m.userId === user?.id);
-                                    myUnreadCount = (myActualMember?.messages || []).filter((m: any) => m.from === 'creator' && !m.readAt).length;
+                                  const targetId = b.isCreator ? (space.creatorId || space.createdBy) : b.userId;
+                                  const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
+                                  const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+                                  
+                                  if (convo) {
+                                    myUnreadCount = convo.messages?.filter((msg: any) => !msg.readBy?.includes(user?.id))?.length || 0;
+                                  } else {
+                                    if (isCreatorMe && !b.isCreator) {
+                                      myUnreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
+                                    } else if (!isCreatorMe && b.isCreator) {
+                                      const myActualMember = space.members?.find((m: any) => m.userId === user?.id);
+                                      myUnreadCount = (myActualMember?.messages || []).filter((m: any) => m.from === 'creator' && !m.readAt).length;
+                                    }
                                   }
                                   return myUnreadCount > 0 ? (
                                     <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'20px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '4px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>

@@ -260,7 +260,7 @@ const initialSpaces: Space[] = [
     title: 'גולדה',
     description: 'מרחב מבוסס על תבנית ניהול הוצאות / התחשבנויות',
     icon: '💰',
-    updatedAt: 'עודכן עכשיו',
+    updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5',
     features: ['finance', 'scanner', 'partners'],
     settings: defaultSettings,
     invoices: [],
@@ -527,7 +527,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       date: new Date().toLocaleDateString('he-IL'),
-      updatedAt: 'עודכן עכשיו',
+      updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5',
       settings: defaultSettings,
       invoices: [],
       members: [],
@@ -637,26 +637,26 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSpaceTitle = (spaceId: string, newTitle: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5' }));
   };
 
   const updateSpaceDate = (spaceId: string, newDate: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5' }));
   };
 
   const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5' }));
   };
 
   const updateSpaceIcon = (spaceId: string, newIcon: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: 'עודכן עכשיו' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5' }));
   };
 
   const updateSpaceSettings = (spaceId: string, newSettings: Partial<SpaceSettings>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       settings: { ...space.settings, ...newSettings },
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5'
     }));
   };
 
@@ -1086,7 +1086,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         ...space,
         invoices: [],
         members: newMembers,
-        updatedAt: 'עודכן עכשיו'
+        updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5'
       };
     });
   };
@@ -1279,7 +1279,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         ...space,
         invoices: [newInvoice, ...(space.invoices || [])],
         inboxItems: (space.inboxItems || []).filter(item => item.id !== inboxItemId),
-        updatedAt: 'עודכן עכשיו'
+        updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5'
       };
     });
   };
@@ -1311,7 +1311,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       return {
         ...space,
         inboxItems: [...newItems, ...(space.inboxItems || [])],
-        updatedAt: 'עודכן עכשיו'
+        updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5'
       };
     });
   };
@@ -1320,7 +1320,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5'
     }));
   };
 
@@ -1335,7 +1335,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).filter(item => item.id !== itemId),
-      updatedAt: 'עודכן עכשיו'
+      updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5'
     }));
   };
 

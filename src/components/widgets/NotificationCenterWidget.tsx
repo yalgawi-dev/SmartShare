@@ -28,7 +28,10 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
     let notifs: any[] = [];
     
     spaces.forEach(space => {
-        const isCreator = space.creatorId === user.id;
+        const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+        const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
+        const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+        const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
         const hasPartners = space.features?.includes('partners');
         
         // 1. Invoices
@@ -98,14 +101,11 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
             // Chat Unread Summary
             
               
-              if (!isCreator && member.userId !== user?.id) return; // Partners only process their own row
-
+              if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return; // Partners only process their own row
               const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-              const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
+              const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
               const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-
-
-            let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+              let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id)) || [];
             
             // Legacy fallback
             if (unreadChatMessages.length === 0) {
