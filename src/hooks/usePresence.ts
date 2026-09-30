@@ -30,7 +30,7 @@ export function usePresence(uids: string[]) {
     
     fetchPresence();
     
-    const interval = setInterval(fetchPresence, 60000);
+    const interval = setInterval(fetchPresence, 30000); // Every 30 seconds
     return () => {
        isMounted = false;
        clearInterval(interval);

@@ -73,7 +73,14 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   }, []);
 
   const isGroup = member.userId === 'group';
-  const conversationId = isGroup ? 'group' : (viewMode === 'peer' ? [user?.id, member.userId].sort().join('_') : (viewMode === 'creator' ? member.userId : user?.id));
+  // For p2p conversations, always use sorted IDs to ensure both sides read from same document
+  const conversationId = isGroup ? 'group' : (
+    viewMode === 'peer' 
+      ? [user?.id, member.userId].sort().join('_')
+      : viewMode === 'creator'
+        ? [user?.id, member.userId].sort().join('_')  // creator: user=Yehuda, member=Hili
+        : [user?.id, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')  // partner: user=Hili, creator=Yehuda
+  );
 
   // Legacy
   const messagesRaw = member?.messages || [];
@@ -209,7 +216,10 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                     <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' 
       ? `שיחה עם ${memberName}` 
       : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`}</h3>
-                    {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(isGroup ? 'group' : member.userId, user?.id), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
+                    {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
+                      if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
+                      return getPresenceColor(member.userId, user?.id);
+                    })(), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
                   </div>
                 {isGroup && (
                   <button onClick={() => setShowParticipants(!showParticipants)} style={{ background: showParticipants ? '#e2e8f0' : '#f1f5f9', border: 'none', borderRadius: '16px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', cursor: 'pointer' }}>
