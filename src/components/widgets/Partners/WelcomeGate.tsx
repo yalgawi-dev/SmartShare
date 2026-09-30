@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -67,7 +67,7 @@ export default function WelcomeGate({
 
   const handleStart = () => {
     try {
-      const finalName = user?.realName || currentMember?.name || '׳©׳•׳×׳£ ׳—׳“׳©';
+      const finalName = user?.realName || currentMember?.name || 'שותף חדש';
       
       const isRetroParam = urlParams.get('retro') === 'true';
       const shareParam = urlParams.get('share');
@@ -147,32 +147,32 @@ export default function WelcomeGate({
         <div style={{ fontSize: '3rem', margin: '0 auto 1.5rem auto' }}>
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} alt="Avatar" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #10b981' }} />
-          ) : 'נ‰'}
+          ) : '🎉'}
         </div>
         
         <h2 style={{ fontSize: '1.6rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          ׳©׳׳•׳ {user?.realName || '׳©׳•׳×׳£ ׳™׳§׳¨'}!
+          שלום {user?.realName || 'שותף יקר'}!
           <br/>
-          ׳‘׳¨׳•׳ ׳”׳‘׳ ׳-{space?.title || '׳”׳׳¨׳—׳‘ ׳©׳׳'}
+          ברוך הבא ל-{space?.title || 'המרחב שלך'}
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
-          ׳”׳•׳–׳׳ ׳× ׳׳”׳¦׳˜׳¨׳£ ׳›׳©׳•׳×׳£ ׳₪׳¢׳™׳ ׳׳׳™׳–׳ <strong>"{space?.title || '׳”׳₪׳¨׳•׳™׳§׳˜'}"</strong>
-          {displayShare ? ` ׳¢׳ ׳—׳׳§ ׳©׳ ${displayShare}%.` : '.'}
+          הוזמנת להצטרף כשותף פעיל למיזם <strong>"{space?.title || 'הפרויקט'}"</strong>
+          {displayShare ? ` עם חלק של ${displayShare}%.` : '.'}
         </p>
         
         <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '16px', textAlign: 'right', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#334155' }}>נ’¡ ׳׳” ׳–׳” ׳׳•׳׳¨ ׳׳”׳™׳•׳× ׳©׳•׳×׳£</h3>
+          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.1rem', color: '#334155' }}>💡 מה זה אומר להיות שותף</h3>
           <ul style={{ margin: 0, paddingRight: '1.2rem', color: '#475569', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.95rem' }}>
-            <li><strong>׳©׳§׳™׳₪׳•׳× ׳׳׳׳” ׳‘׳¨׳•׳•׳—׳™׳</strong> ׳¦׳₪׳™׳™׳” ׳‘׳”׳›׳ ׳¡׳•׳× ׳‘׳–׳׳ ׳׳׳×.</li>
-            <li><strong>׳™׳¦׳™׳¨׳× ׳—׳©׳‘׳•׳ ׳™׳•׳× ׳•׳“׳¨׳™׳©׳× ׳×׳©׳׳•׳</strong> ׳‘׳§׳׳•׳× ׳™׳©׳™׳¨׳•׳× ׳׳”׳׳₪׳׳™׳§׳¦׳™׳”.</li>
-            <li><strong>׳ ׳™׳”׳•׳ ׳”׳׳“׳™׳” ׳•׳”׳’׳׳¨׳™׳”</strong> ׳‘׳׳©׳•׳×׳£ ׳¢׳ ׳׳ ׳”׳ ׳”׳₪׳¨׳•׳™׳§׳˜.</li>
+            <li><strong>שקיפות מלאה ברווחים</strong> צפייה בהכנסות בזמן אמת.</li>
+            <li><strong>יצירת חשבוניות ודרישת תשלום</strong> בקלות ישירות מהאפליקציה.</li>
+            <li><strong>ניהול המדיה והגלריה</strong> במשותף עם מנהל הפרויקט.</li>
           </ul>
         </div>
 
         {isRetroactive && (
           <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '12px', border: '1px solid #bfdbfe', marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem' }}>
-            <strong>׳”׳×׳—׳©׳‘׳ ׳•׳× ׳¨׳˜׳¨׳•׳׳§׳˜׳™׳‘׳™׳×:</strong> ׳”׳©׳•׳×׳₪׳•׳× ׳©׳׳ ׳—׳׳” ׳’׳ ׳¢׳ ׳”׳›׳ ׳¡׳•׳× ׳§׳•׳“׳׳•׳× ׳‘׳₪׳¨׳•׳™׳§׳˜ (׳¨׳˜׳¨׳•׳׳§׳˜׳™׳‘׳™׳×). ׳”׳׳©׳׳¢׳•׳× ׳”׳™׳, ׳©׳›׳ ׳”׳›׳ ׳¡׳” ׳©׳”׳™׳™׳×׳” ׳׳₪׳¨׳•׳™׳§׳˜ ׳׳¨׳’׳¢ ׳”׳§׳׳×׳•, ׳×׳™׳¡׳₪׳¨ ׳’׳ ׳׳–׳›׳•׳×׳ ׳׳₪׳™ ׳—׳׳§׳ ׳”׳™׳—׳¡׳™.
+            <strong>התחשבנות רטרואקטיבית:</strong> השותפות שלך חלה גם על הכנסות קודמות בפרויקט (רטרואקטיבית). המשמעות היא, שכל הכנסה שהייתה לפרויקט מרגע הקמתו, תיספר גם לזכותך לפי חלקך היחסי.
           </div>
         )}
 
@@ -185,10 +185,9 @@ export default function WelcomeGate({
             boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
           }}
         >
-          ׳‘׳•׳ ׳ ׳×׳—׳™׳!
+          בוא נתחיל!
         </button>
       </div>
     </div>
   );
 }
-
