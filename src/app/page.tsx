@@ -271,10 +271,7 @@ export default function Dashboard() {
           )}
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.2rem', gap: '0.2rem' }}>
-            <button onClick={() => setShowNotifications(true)} style={{ position: 'relative', padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform 0.2s', borderRadius: '50%' }} title="התראות מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="#fef08a" stroke="#ca8a04" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
-              {unreadMessagesCount > 0 && <span style={{ position: 'absolute', top: '0px', right: '0px', minWidth: '16px', height: '16px', background: '#ef4444', color: 'white', borderRadius: '8px', border: '2px solid var(--bg-card)', fontSize: '0.6rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>{unreadMessagesCount}</span>}
-            </button>
+            
             <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               🔗
             </button>
@@ -310,6 +307,22 @@ export default function Dashboard() {
           <span style={{ fontSize: '1.4rem' }}>➕</span>
           <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>חדש</span>
         </Link>
+        <button 
+          className="fab" 
+          onClick={() => setShowNotifications(true)}
+          title="מרכז התראות והודעות" 
+          style={{ left: 'auto', right: '6.5rem', background: '#f59e0b', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', zIndex: 50 }}
+        >
+          <span style={{ fontSize: '1.3rem', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ✉️
+            {unreadMessagesCount > 0 && (
+              <span style={{ position: 'absolute', top: '-6px', right: '-8px', minWidth: '18px', height: '18px', background: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '0.65rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', padding: '0 2px' }}>
+                {unreadMessagesCount}
+              </span>
+            )}
+          </span>
+          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>הודעות</span>
+        </button>
         <button 
           className="fab" 
           onClick={() => setShowPersonalInbox(true)}
