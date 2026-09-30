@@ -48,7 +48,13 @@ export function FinanceSummary({
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
 
-  const presenceUids = useMemo(() => space?.members?.map((m: any) => m.userId) || [], [space]);
+  const presenceUids = useMemo(() => {
+    const uids = space?.members?.map((m: any) => m.userId) || [];
+    if (space?.creatorId && !uids.includes(space.creatorId)) {
+      uids.push(space.creatorId);
+    }
+    return uids;
+  }, [space]);
   const { getPresenceColor } = usePresence(presenceUids);
 
   // Resolve current member (for per-member permission checks like canEditShares)
