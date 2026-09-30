@@ -22,7 +22,11 @@ export default function WelcomeGate({
 
   const space = spaces?.find((s: any) => s.id === spaceId);
   const role = getRoleForSpace ? getRoleForSpace(spaceId) : 'none';
-  const isCreatorOfThisSpace = role === 'creator' || (user?.id && space?.creatorId && user.id === space.creatorId);
+  
+  // SUPER STRICT CREATOR CHECK (Also adds space.createdBy match just in case)
+  const isCreatorOfThisSpace = role === 'creator' || 
+    (user?.id && space?.creatorId && user.id === space.creatorId) ||
+    (user?.realName && space?.createdBy && user.realName === space.createdBy);
 
   const resolvedToken = useMemo(() => {
     if (propToken) return propToken;
@@ -126,6 +130,22 @@ export default function WelcomeGate({
     }
   };
 
+  const clearTokenAndClose = () => {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      if (parsed[spaceId]) {
+        delete parsed[spaceId];
+        localStorage.setItem('smartshare_keys', JSON.stringify(parsed));
+      }
+      
+      const url = new URL(window.location.href);
+      url.searchParams.delete('invite');
+      window.history.replaceState({}, '', url);
+    } catch (e) {}
+    setShowGate(false);
+    if (typeof window !== 'undefined') window.location.reload();
+  };
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -142,8 +162,20 @@ export default function WelcomeGate({
         margin: 'auto',
         color: '#1e293b',
         boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
-        textAlign: 'center'
+        textAlign: 'center',
+        position: 'relative'
       }}>
+        <button 
+          onClick={clearTokenAndClose}
+          style={{
+            position: 'absolute', top: '15px', left: '15px', background: 'transparent',
+            border: 'none', fontSize: '2rem', cursor: 'pointer', color: '#94a3b8', lineHeight: 1
+          }}
+          title="סגור חלון"
+        >
+          &times;
+        </button>
+
         <div style={{ fontSize: '3rem', margin: '0 auto 1.5rem auto' }}>
           {user?.avatarUrl ? (
             <img src={user.avatarUrl} alt="Avatar" style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #10b981' }} />
@@ -151,13 +183,13 @@ export default function WelcomeGate({
         </div>
         
         <h2 style={{ fontSize: '1.6rem', color: '#0f172a', marginBottom: '0.5rem', fontWeight: 800 }}>
-          שלום {user?.realName || 'שותף יקר'}!
+          שלום {user?.realName || currentMember?.name || 'שותף יקר'}!
           <br/>
-          ברוך הבא ל-{space?.title || 'המרחב שלך'}
+          ברוך הבא ל-{space?.title || 'המרחב המשותף'}
         </h2>
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
-          הוזמנת להצטרף כשותף פעיל למיזם <strong>"{space?.title || 'הפרויקט'}"</strong>
+          הוזמנת להצטרף כשותף פעיל למיזם <strong>"{space?.title || 'המרחב'}"</strong>
           {displayShare ? ` עם חלק של ${displayShare}%.` : '.'}
         </p>
         
@@ -172,7 +204,7 @@ export default function WelcomeGate({
 
         {isRetroactive && (
           <div style={{ background: '#eff6ff', padding: '1rem', borderRadius: '12px', border: '1px solid #bfdbfe', marginBottom: '1.5rem', color: '#1e3a8a', fontSize: '0.9rem' }}>
-            <strong>התחשבנות רטרואקטיבית:</strong> השותפות שלך חלה גם על הכנסות קודמות בפרויקט (רטרואקטיבית). המשמעות היא, שכל הכנסה שהייתה לפרויקט מרגע הקמתו, תיספר גם לזכותך לפי חלקך היחסי.
+            <strong>שותפות רטרואקטיבית:</strong> הזמנה זו כוללת רווחים שכבר נצברו בפרויקט (שותפות רטרואקטיבית). כשתצטרף, תקבל קרדיט אוטומטי על חלקך בהכנסות שכבר התקבלו.
           </div>
         )}
 
@@ -190,4 +222,3 @@ export default function WelcomeGate({
       </div>
     </div>
   );
-}
