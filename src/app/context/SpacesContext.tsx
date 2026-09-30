@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
@@ -257,10 +257,10 @@ const defaultSettings: SpaceSettings = {
 const initialSpaces: Space[] = [
   {
     id: '1',
-    title: '׳‘׳ ׳™׳™׳× ׳”׳‘׳™׳× ׳‘׳›׳₪׳¨',
-    description: '׳ ׳™׳”׳•׳ ׳”׳•׳¦׳׳•׳×, ׳§׳‘׳׳ ׳™׳, ׳”׳¢׳׳׳× ׳—׳©׳‘׳•׳ ׳™׳•׳× ׳•׳×׳•׳›׳ ׳™׳•׳× ׳׳“׳¨׳™׳›׳׳™׳•׳× ׳‘׳׳§׳•׳ ׳׳—׳“.',
-    icon: 'נ ',
-    updatedAt: '׳׳₪׳ ׳™ 2 ׳“׳§׳•׳×',
+    title: '׳³ג€˜׳³ֲ ׳³ג„¢׳³ג„¢׳³ֳ— ׳³ג€׳³ג€˜׳³ג„¢׳³ֳ— ׳³ג€˜׳³ג€÷׳³ג‚×׳³ֲ¨',
+    description: '׳³ֲ ׳³ג„¢׳³ג€׳³ג€¢׳³ֲ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€¢׳³ֳ—, ׳³ֲ§׳³ג€˜׳³ֲ׳³ֲ ׳³ג„¢׳³ֲ, ׳³ג€׳³ֲ¢׳³ֲ׳³ֲ׳³ֳ— ׳³ג€”׳³ֲ©׳³ג€˜׳³ג€¢׳³ֲ ׳³ג„¢׳³ג€¢׳³ֳ— ׳³ג€¢׳³ֳ—׳³ג€¢׳³ג€÷׳³ֲ ׳³ג„¢׳³ג€¢׳³ֳ— ׳³ֲ׳³ג€׳³ֲ¨׳³ג„¢׳³ג€÷׳³ֲ׳³ג„¢׳³ג€¢׳³ֳ— ׳³ג€˜׳³ֲ׳³ֲ§׳³ג€¢׳³ֲ ׳³ֲ׳³ג€”׳³ג€.',
+    icon: '׳ ֲֲֲ ',
+    updatedAt: '׳³ֲ׳³ג‚×׳³ֲ ׳³ג„¢ 2 ׳³ג€׳³ֲ§׳³ג€¢׳³ֳ—',
     features: ['finance', 'scanner', 'partners'],
     settings: defaultSettings,
     invoices: [],
@@ -351,7 +351,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       setIsLoaded(true);
     }, (error) => {
        console.error("Firestore error:", error);
-         alert("׳©׳’׳™׳׳× ׳”׳×׳—׳‘׳¨׳•׳× ׳׳׳¡׳“ ׳”׳ ׳×׳•׳ ׳™׳: " + (error.message || ""));
+         alert("׳³ֲ©׳³ג€™׳³ג„¢׳³ֲ׳³ֳ— ׳³ג€׳³ֳ—׳³ג€”׳³ג€˜׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ֲ׳³ֲ׳³ֲ¡׳³ג€ ׳³ג€׳³ֲ ׳³ֳ—׳³ג€¢׳³ֲ ׳³ג„¢׳³ֲ: " + (error.message || ""));
        try {
          const savedSpaces = localStorage.getItem('smartshare_spaces');
          if (savedSpaces) {
@@ -375,7 +375,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   // Auto-sync authentic user name to spaces
   useEffect(() => {
-    if (!user?.id || !user?.realName || user.realName === '׳׳•׳¨׳—' || user.realName === '׳׳•׳¨׳— ׳׳ ׳•׳ ׳™׳׳™' || spacesBase.length === 0) return;
+    if (!user?.id || !user?.realName || user.realName === '׳³ֲ׳³ג€¢׳³ֲ¨׳³ג€”' || user.realName === '׳³ֲ׳³ג€¢׳³ֲ¨׳³ג€” ׳³ֲ׳³ֲ ׳³ג€¢׳³ֲ ׳³ג„¢׳³ֲ׳³ג„¢' || spacesBase.length === 0) return;
     
     // Find spaces where we are a member but our name doesn't match our authenticated realName
     spacesBase.forEach(space => {
@@ -410,29 +410,30 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   // Helper function to update Space ROOT document
     const saveSpaceUpdate = async (spaceId: string, mutator: (space: Omit<Space, 'mediaItems'>) => Omit<Space, 'mediaItems'>): Promise<boolean> => {
-    // 1. Get current space and compute mutation synchronously
-    const currentSpace = spacesBase.find(s => s.id === spaceId);
-    if (!currentSpace) return false;
-    
-    const updatedSpace = mutator(currentSpace);
-    
-    // 2. Optimistically update UI immediately
-    setSpacesBase(prev => prev.map(space => space.id === spaceId ? updatedSpace : space));
-
-    // 3. Save to Firestore
-    try {
-      await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
-      return true;
-    } catch (e: any) {
-      console.error("Error updating Firestore space root", e);
-      // Revert UI on failure
-      setSpacesBase(prev => prev.map(space => space.id === spaceId ? currentSpace : space));
-      if (typeof window !== 'undefined') {
-        alert("שגיאת מערכת: לא הצלחנו לשמור את הנתונים! אנא בדוק את החיבור לרשת. (פירוט טכני: " + e.message + ")");
+      // 1. Get current space and compute mutation synchronously using REF
+      const currentSpace = spacesBaseRef.current.find(s => s.id === spaceId);
+      if (!currentSpace) return false;
+      
+      const updatedSpace = mutator(currentSpace);
+      
+      // 2. Optimistically update REF and UI immediately
+      const nextSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? updatedSpace : space);
+      spacesBaseRef.current = nextSpaces; // Sync immediately
+      setSpacesBase(nextSpaces);
+  
+      // 3. Save to Firestore
+      try {
+        await setDoc(doc(db, 'spaces', spaceId), sanitizeForFirestore(updatedSpace));
+        return true;
+      } catch (e: any) {
+        console.error("Error updating Firestore space root", e);
+        // Revert UI on failure
+        const revertedSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? currentSpace : space);
+        spacesBaseRef.current = revertedSpaces;
+        setSpacesBase(revertedSpaces);
+        return false;
       }
-      return false;
-    }
-  };
+    };
 
   // Fix identity mismatch when user logs in and spaces are loaded
   useEffect(() => {
@@ -456,7 +457,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (isCreatorByRole) {
         if (!space.creatorId) {
           updates.creatorId = user.id;
-          updates.createdBy = user.realName || user.nickname || '׳™׳•׳¦׳¨ ׳”׳׳¨׳—׳‘';
+          updates.createdBy = user.realName || user.nickname || '׳³ג„¢׳³ג€¢׳³ֲ¦׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜';
           needsUpdate = true;
         }
         if (space.members?.some((m: any) => m.userId === user.id)) {
@@ -525,13 +526,13 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       id: crypto.randomUUID(),
       createdAt: new Date().toISOString(),
       date: new Date().toLocaleDateString('he-IL'),
-      updatedAt: '׳ ׳•׳¦׳¨ ׳”׳¨׳’׳¢',
+      updatedAt: '׳³ֲ ׳³ג€¢׳³ֲ¦׳³ֲ¨ ׳³ג€׳³ֲ¨׳³ג€™׳³ֲ¢',
       settings: defaultSettings,
       invoices: [],
       members: [],
       /* masterKey: masterKey, */
       creatorId: user?.id || undefined,
-      createdBy: user?.realName || user?.nickname || '׳™׳•׳¦׳¨ ׳”׳׳¨׳—׳‘'
+      createdBy: user?.realName || user?.nickname || '׳³ג„¢׳³ג€¢׳³ֲ¦׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜'
     };
     
     // 1. Save to LocalStorage keyring (for guests / robust fallback)
@@ -573,7 +574,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         } : s));
       } catch (e: any) {
         console.error("Soft delete failed", e);
-        alert("׳©׳’׳™׳׳” ׳‘׳׳—׳™׳§׳× ׳”׳׳¨׳—׳‘ (׳™׳™׳×׳›׳ ׳©׳׳™׳ ׳׳ ׳”׳¨׳©׳׳•׳× ׳׳—׳™׳§׳”): " + (e.message || ""));
+        alert("׳³ֲ©׳³ג€™׳³ג„¢׳³ֲ׳³ג€ ׳³ג€˜׳³ֲ׳³ג€”׳³ג„¢׳³ֲ§׳³ֳ— ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜ (׳³ג„¢׳³ג„¢׳³ֳ—׳³ג€÷׳³ֲ ׳³ֲ©׳³ֲ׳³ג„¢׳³ֲ ׳³ֲ׳³ֲ ׳³ג€׳³ֲ¨׳³ֲ©׳³ֲ׳³ג€¢׳³ֳ— ׳³ֲ׳³ג€”׳³ג„¢׳³ֲ§׳³ג€): " + (e.message || ""));
       }
     };
 
@@ -613,11 +614,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
       if (performedBy) {
         const featureNameMap: Record<string, string> = {
-          'finance': '׳”׳×׳—׳©׳‘׳ ׳•׳×',
-          'scanner': '׳¡׳•׳¨׳§ ׳—׳›׳',
-          'partners': '׳©׳•׳×׳₪׳™׳',
-          'guestbook': '׳¡׳₪׳¨ ׳׳•׳¨׳—׳™׳',
-          'gallery': '׳’׳׳¨׳™׳”'
+          'finance': '׳³ג€׳³ֳ—׳³ג€”׳³ֲ©׳³ג€˜׳³ֲ ׳³ג€¢׳³ֳ—',
+          'scanner': '׳³ֲ¡׳³ג€¢׳³ֲ¨׳³ֲ§ ׳³ג€”׳³ג€÷׳³ֲ',
+          'partners': '׳³ֲ©׳³ג€¢׳³ֳ—׳³ג‚×׳³ג„¢׳³ֲ',
+          'guestbook': '׳³ֲ¡׳³ג‚×׳³ֲ¨ ׳³ֲ׳³ג€¢׳³ֲ¨׳³ג€”׳³ג„¢׳³ֲ',
+          'gallery': '׳³ג€™׳³ֲ׳³ֲ¨׳³ג„¢׳³ג€'
         };
         const fName = featureNameMap[featureId] || featureId;
         const newLog: AuditRecord = {
@@ -625,7 +626,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           timestamp: new Date().toISOString(),
           actionType: isRemoving ? 'SYSTEM_ALERT' : 'SYSTEM_ALERT',
           performedBy,
-          details: isRemoving ? `׳”׳¡׳™׳¨/׳” ׳׳× ׳×׳•׳¡׳£ "${fName}" ׳׳”׳׳¨׳—׳‘` : `׳”׳•׳¡׳™׳£/׳” ׳׳× ׳×׳•׳¡׳£ "${fName}" ׳׳׳¨׳—׳‘`
+          details: isRemoving ? `׳³ג€׳³ֲ¡׳³ג„¢׳³ֲ¨/׳³ג€ ׳³ֲ׳³ֳ— ׳³ֳ—׳³ג€¢׳³ֲ¡׳³ֲ£ "${fName}" ׳³ֲ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜` : `׳³ג€׳³ג€¢׳³ֲ¡׳³ג„¢׳³ֲ£/׳³ג€ ׳³ֲ׳³ֳ— ׳³ֳ—׳³ג€¢׳³ֲ¡׳³ֲ£ "${fName}" ׳³ֲ׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜`
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
       }
@@ -635,26 +636,26 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const updateSpaceTitle = (spaceId: string, newTitle: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, title: newTitle, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
   };
 
   const updateSpaceDate = (spaceId: string, newDate: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
   };
 
   const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, coverImage: newCoverUrl, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
   };
 
   const updateSpaceIcon = (spaceId: string, newIcon: string) => {
-    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•' }));
+    saveSpaceUpdate(spaceId, space => ({ ...space, icon: newIcon, updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢' }));
   };
 
   const updateSpaceSettings = (spaceId: string, newSettings: Partial<SpaceSettings>) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       settings: { ...space.settings, ...newSettings },
-      updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
+      updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
     }));
   };
 
@@ -672,18 +673,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (performedBy && actionDetail && oldInvoice) {
         const isDelete = updates.isActive === false;
         const isRestore = updates.isActive === true;
-        let actionLabel = isDelete ? "׳׳—׳§/׳” ׳”׳•׳¦׳׳”" : isRestore ? "׳©׳—׳–׳¨/׳” ׳”׳•׳¦׳׳” ׳׳—׳•׳§׳”" : "׳¢׳¨׳/׳” ׳”׳•׳¦׳׳”";
-        const amt = oldInvoice.amount ? ` ׳¢"׳¡ ג‚×${oldInvoice.amount}` : "";
-        const supplier = oldInvoice.supplier || "׳¡׳₪׳§ ׳›׳׳׳™";
+        let actionLabel = isDelete ? "׳³ֲ׳³ג€”׳³ֲ§/׳³ג€ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€" : isRestore ? "׳³ֲ©׳³ג€”׳³ג€“׳³ֲ¨/׳³ג€ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€ ׳³ֲ׳³ג€”׳³ג€¢׳³ֲ§׳³ג€" : "׳³ֲ¢׳³ֲ¨׳³ֲ/׳³ג€ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€";
+        const amt = oldInvoice.amount ? ` ׳³ֲ¢"׳³ֲ¡ ׳’ג€ֳ—${oldInvoice.amount}` : "";
+        const supplier = oldInvoice.supplier || "׳³ֲ¡׳³ג‚×׳³ֲ§ ׳³ג€÷׳³ֲ׳³ֲ׳³ג„¢";
         
-        const performer = performedBy === "me" || !performedBy ? "׳׳©׳×׳׳©" : performedBy;
+        const performer = performedBy === "me" || !performedBy ? "׳³ֲ׳³ֲ©׳³ֳ—׳³ֲ׳³ֲ©" : performedBy;
         
         const newLog = {
           id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           timestamp: new Date().toISOString(),
           actionType: (isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE") as any,
           performedBy,
-          details: `${performer} ${actionLabel}${amt} ׳׳׳× "${supplier}". ׳₪׳™׳¨׳•׳˜: ${actionDetail}`,
+          details: `${performer} ${actionLabel}${amt} ׳³ֲ׳³ֲ׳³ֳ— "${supplier}". ׳³ג‚×׳³ג„¢׳³ֲ¨׳³ג€¢׳³ֻ: ${actionDetail}`,
           invoiceId
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
@@ -755,7 +756,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
       
       const newMember = {
         userId: userId,
-        name: name.trim() || pendingInvite?.name || existingMember?.name || '׳©׳•׳×׳£ ׳׳•׳–׳׳',
+        name: name.trim() || pendingInvite?.name || existingMember?.name || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ׳³ֲ׳³ג€¢׳³ג€“׳³ֲ׳³ֲ',
         role: 'partner' as const,
         joinedAt: existingMember?.joinedAt || new Date().toISOString(),
         isActive: true,
@@ -832,7 +833,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     saveSpaceUpdate(spaceId, space => {
       const newInvite = {
         token: inviteData.token,
-        name: inviteData.name?.trim() || '׳©׳•׳×׳£ ׳׳•׳–׳׳',
+        name: inviteData.name?.trim() || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ׳³ֲ׳³ג€¢׳³ג€“׳³ֲ׳³ֲ',
         guestShare: inviteData.guestShare,
         creatorShare: inviteData.creatorShare,
         partnerShares: inviteData.partnerShares || null,
@@ -988,7 +989,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     }));
   };
 
-  // ג”€ג”€ג”€ Operational Messages (2-way private creatorג†”partner) ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€ג”€
+  // ׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬ Operational Messages (2-way private creator׳’ג€ ג€partner) ׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬
     const sendConversationMessage = (spaceId: string, conversationId: string, senderId: string, text: string) => {
     saveSpaceUpdate(spaceId, space => {
       const convos = space.conversations || [];
@@ -1042,7 +1043,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
 
   const approveExtension = (spaceId: string, memberId: string) => {
     saveSpaceUpdate(spaceId, space => {
-      triggerPushNotification([memberId], space.title, '׳׳ ׳”׳ ׳”׳§׳‘׳•׳¦׳” ׳׳™׳©׳¨ ׳׳× ׳‘׳§׳©׳× ׳”׳”׳¦׳˜׳¨׳₪׳•׳× ׳©׳׳! ׳™׳© ׳׳ ׳›׳¢׳× 24 ׳©׳¢׳•׳× ׳׳”׳™׳›׳ ׳¡.', { url: `/space/${spaceId}` });
+      triggerPushNotification([memberId], space.title, '׳³ֲ׳³ֲ ׳³ג€׳³ֲ ׳³ג€׳³ֲ§׳³ג€˜׳³ג€¢׳³ֲ¦׳³ג€ ׳³ֲ׳³ג„¢׳³ֲ©׳³ֲ¨ ׳³ֲ׳³ֳ— ׳³ג€˜׳³ֲ§׳³ֲ©׳³ֳ— ׳³ג€׳³ג€׳³ֲ¦׳³ֻ׳³ֲ¨׳³ג‚×׳³ג€¢׳³ֳ— ׳³ֲ©׳³ֲ׳³ֲ! ׳³ג„¢׳³ֲ© ׳³ֲ׳³ֲ ׳³ג€÷׳³ֲ¢׳³ֳ— 24 ׳³ֲ©׳³ֲ¢׳³ג€¢׳³ֳ— ׳³ֲ׳³ג€׳³ג„¢׳³ג€÷׳³ֲ ׳³ֲ¡.', { url: `/space/${spaceId}` });
       return {
         ...space,
         members: (space.members || []).map(m => {
@@ -1084,7 +1085,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         ...space,
         invoices: [],
         members: newMembers,
-        updatedAt: '׳¢׳•׳“׳›׳ ׳׳₪׳ ׳™ ׳¨׳’׳¢'
+        updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ׳³ג‚×׳³ֲ ׳³ג„¢ ׳³ֲ¨׳³ג€™׳³ֲ¢'
       };
     });
   };
@@ -1145,7 +1146,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         timestamp: new Date().toISOString(),
         actionType: 'AUTO_BALANCE',
         performedBy,
-        details: `׳”׳׳¢׳¨׳›׳× ׳—׳™׳׳§׳” ׳׳× ׳”׳׳—׳•׳–׳™׳ ׳”׳ ׳•׳×׳¨׳™׳ ׳©׳•׳•׳” ׳‘׳©׳•׳•׳” (${defaultShare.toFixed(1)}% ׳׳›׳ ׳—׳׳§).`
+        details: `׳³ג€׳³ֲ׳³ֲ¢׳³ֲ¨׳³ג€÷׳³ֳ— ׳³ג€”׳³ג„¢׳³ֲ׳³ֲ§׳³ג€ ׳³ֲ׳³ֳ— ׳³ג€׳³ֲ׳³ג€”׳³ג€¢׳³ג€“׳³ג„¢׳³ֲ ׳³ג€׳³ֲ ׳³ג€¢׳³ֳ—׳³ֲ¨׳³ג„¢׳³ֲ ׳³ֲ©׳³ג€¢׳³ג€¢׳³ג€ ׳³ג€˜׳³ֲ©׳³ג€¢׳³ג€¢׳³ג€ (${defaultShare.toFixed(1)}% ׳³ֲ׳³ג€÷׳³ֲ ׳³ג€”׳³ֲ׳³ֲ§).`
       };
 
       return {
@@ -1181,10 +1182,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
       if (forceHardDelete) {
         newMembers = space.members?.filter(m => m.userId !== userId) || [];
-        details = `׳”׳©׳•׳×׳£ ${memberToRemove.name} ׳ ׳׳—׳§ ׳׳¦׳׳™׳×׳•׳×.`;
+        details = `׳³ג€׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ${memberToRemove.name} ׳³ֲ ׳³ֲ׳³ג€”׳³ֲ§ ׳³ֲ׳³ֲ¦׳³ֲ׳³ג„¢׳³ֳ—׳³ג€¢׳³ֳ—.`;
       } else {
         newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false, sharePercentage: undefined } : m) || [];
-        details = `׳”׳©׳•׳×׳£ ${memberToRemove.name} ׳¡׳•׳׳ ׳›׳׳-׳₪׳¢׳™׳.`;
+        details = `׳³ג€׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ${memberToRemove.name} ׳³ֲ¡׳³ג€¢׳³ֲ׳³ֲ ׳³ג€÷׳³ֲ׳³ֲ-׳³ג‚×׳³ֲ¢׳³ג„¢׳³ֲ.`;
       }
       
       const newLog: AuditRecord = {
@@ -1236,7 +1237,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         timestamp: new Date().toISOString(),
         actionType: 'OTHER',
         performedBy,
-        details: `׳”׳©׳•׳×׳£ ${memberToRestore.name} ׳”׳•׳—׳–׳¨ ׳׳₪׳¢׳™׳׳•׳×.`
+        details: `׳³ג€׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ${memberToRestore.name} ׳³ג€׳³ג€¢׳³ג€”׳³ג€“׳³ֲ¨ ׳³ֲ׳³ג‚×׳³ֲ¢׳³ג„¢׳³ֲ׳³ג€¢׳³ֳ—.`
       };
 
       return {
@@ -1277,7 +1278,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         ...space,
         invoices: [newInvoice, ...(space.invoices || [])],
         inboxItems: (space.inboxItems || []).filter(item => item.id !== inboxItemId),
-        updatedAt: '׳¢׳•׳“׳›׳ ׳”׳¨׳’׳¢'
+        updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ג€׳³ֲ¨׳³ג€™׳³ֲ¢'
       };
     });
   };
@@ -1291,9 +1292,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
     const space = spacesBase.find(s => s.id === spaceId);
     if (space && space.members) {
-      const senderName = user?.nickname || user?.realName || '׳©׳•׳×׳£';
+      const senderName = user?.nickname || user?.realName || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£';
       const title = space.title;
-      const body = `${senderName} ׳”׳•׳¡׳™׳£ ׳”׳•׳¦׳׳” ׳—׳“׳©׳”: ${invoiceData.amount} ג‚× (${invoiceData.category || '׳›׳׳׳™'})`;
+      const body = `${senderName} ׳³ג€׳³ג€¢׳³ֲ¡׳³ג„¢׳³ֲ£ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€ ׳³ג€”׳³ג€׳³ֲ©׳³ג€: ${invoiceData.amount} ׳’ג€ֳ— (${invoiceData.category || '׳³ג€÷׳³ֲ׳³ֲ׳³ג„¢'})`;
       const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
       triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
     }
@@ -1309,7 +1310,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       return {
         ...space,
         inboxItems: [...newItems, ...(space.inboxItems || [])],
-        updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
+        updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
       };
     });
   };
@@ -1318,7 +1319,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).map(item => item.id === itemId ? { ...item, ...updates } : item),
-      updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
+      updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
     }));
   };
 
@@ -1333,7 +1334,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       inboxItems: (space.inboxItems || []).filter(item => item.id !== itemId),
-      updatedAt: '׳¢׳•׳“׳›׳ ׳¢׳›׳©׳™׳•'
+      updatedAt: '׳³ֲ¢׳³ג€¢׳³ג€׳³ג€÷׳³ֲ ׳³ֲ¢׳³ג€÷׳³ֲ©׳³ג„¢׳³ג€¢'
     }));
   };
 
@@ -1358,9 +1359,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       if (item.type === 'message' || item.type === 'photo') {
         const space = spacesBase.find(s => s.id === spaceId);
         if (space && space.members) {
-          const senderName = user?.nickname || user?.realName || '׳©׳•׳×׳£';
+          const senderName = user?.nickname || user?.realName || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£';
           const title = space.title;
-          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} ׳©׳™׳×׳£ ׳×׳׳•׳ ׳” ׳—׳“׳©׳”`; // url holds the message text for type='message'
+          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} ׳³ֲ©׳³ג„¢׳³ֳ—׳³ֲ£ ׳³ֳ—׳³ֲ׳³ג€¢׳³ֲ ׳³ג€ ׳³ג€”׳³ג€׳³ֲ©׳³ג€`; // url holds the message text for type='message'
           const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
           triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
         }
@@ -1510,6 +1511,7 @@ export function useSpaces() {
   }
   return context;
 }
+
 
 
 
