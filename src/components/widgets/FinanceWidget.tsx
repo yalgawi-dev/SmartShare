@@ -89,9 +89,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === 'creator' || (space.creatorId && user?.id === space.creatorId);
-  const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (getTokenForSpace(space.id) || user?.id || 'me');
-
-  
+  const myEffectiveId = user?.id || 'me';
   const [showInviteModal, setShowInviteModal] = useState(false);
 
   const handleInviteClick = () => {

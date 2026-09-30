@@ -57,9 +57,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const { approveExtension, removeMember, updateMemberStatus, sendConversationMessage, markConversationRead,  approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
   
-  const myPartnerToken = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space?.id]?.token) : null;
-  const amIRealMember = space?.members?.some((m: any) => m.userId === user?.id);
-  const myEffectiveId = viewMode === 'creator' ? user?.id : (amIRealMember ? user?.id : (myPartnerToken || user?.id));
+  
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -78,25 +76,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const isGroup = member.userId === 'group';
   // For p2p conversations, always use sorted IDs to ensure both sides read from same document
-  const getConversationId = () => {
-    if (isGroup) return 'group';
-    const targetId = viewMode === 'peer' || viewMode === 'creator' ? member.userId : (space.creatorId || space.createdBy);
-    const modernId = [myEffectiveId, targetId].filter(Boolean).sort().join('_');
-    if (space.conversations?.find((c: any) => c.id === modernId)) return modernId;
-    const possibleIds = [
-      [user?.id, member.userId].filter(Boolean).sort().join('_'),
-      [myEffectiveId, member.userId].filter(Boolean).sort().join('_'),
-      [user?.id, space.creatorId].filter(Boolean).sort().join('_'),
-      [myEffectiveId, space.creatorId].filter(Boolean).sort().join('_'),
-      [user?.id, space.createdBy].filter(Boolean).sort().join('_'),
-      [myEffectiveId, space.createdBy].filter(Boolean).sort().join('_')
-    ];
-    for (const pid of possibleIds) {
-      if (space.conversations?.find((c: any) => c.id === pid)) return pid;
-    }
-    return modernId;
-  };
-  const conversationId = getConversationId();
+  const conversationId = isGroup ? 'group' : (
+    viewMode === 'peer' || viewMode === 'creator'
+      ? [user?.id, member.userId].filter(Boolean).sort().join('_')
+      : [user?.id, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')
+  );
 
   // Legacy
   const messagesRaw = member?.messages || [];
@@ -122,15 +106,15 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     const timer = setTimeout(() => {
       // Mark Mesh
       if (typeof markConversationRead === 'function') {
-        const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(myEffectiveId));
+        const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(user?.id));
         const hasUnreadLegacy = legacyMessages.some((m: any) => {
-           const isCreator = space.creatorId === myEffectiveId || space.createdBy === myEffectiveId;
+           const isCreator = space.creatorId === user?.id || space.createdBy === user?.id;
            if (isCreator && m.senderId !== space.creatorId) return true;
            if (!isCreator && m.senderId === space.creatorId) return true;
            return false;
         });
         if (hasUnreadMesh || hasUnreadLegacy) {
-          markConversationRead(space.id, conversationId, myEffectiveId);
+          markConversationRead(space.id, conversationId, user?.id);
         }
       }
     }, 500);
@@ -173,7 +157,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
-    if (typeof sendConversationMessage === 'function') sendConversationMessage(space.id, conversationId, myEffectiveId || 'me', messageText.trim());
+    if (typeof sendConversationMessage === 'function') sendConversationMessage(space.id, conversationId, user?.id || 'me', messageText.trim());
     setMessageText('');
   };
 
@@ -413,7 +397,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           )}
           {messagesArray.map((m: any, idx: number) => {
             if (!m) return null;
-            const isMyMsg = m.senderId === myEffectiveId || (m.from && m.from === viewMode);
+            const isMyMsg = m.senderId === user?.id || (m.from && m.from === viewMode);
             
             // Hide system messages from the person who triggered them
             if (isMyMsg && m.text && m.text.startsWith('[הודעת מערכת]:')) {

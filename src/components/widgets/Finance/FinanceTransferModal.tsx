@@ -16,8 +16,7 @@ export function FinanceTransferModal({
   const space = spaces.find(s => s.id === spaceId);
   const myRole = space ? getRoleForSpace(space.id) : 'none';
   const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
-  const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (space ? (getTokenForSpace(space.id) || user?.id || 'me') : (user?.id || 'me'));
-  
+  const myEffectiveId = user?.id || 'me';
   const [payerId, setPayerId] = useState(myEffectiveId);
   const [targetId, setTargetId] = useState(preselectedTargetId || '');
   const [incomeHolderId, setIncomeHolderId] = useState(myEffectiveId);

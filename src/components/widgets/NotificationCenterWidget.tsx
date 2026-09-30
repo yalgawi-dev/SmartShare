@@ -97,28 +97,13 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
 
             // Chat Unread Summary
             
-              const myPartnerToken = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]?.token) : null;
-              const amIRealMember = space.members?.some((m: any) => m.userId === user?.id);
-              const myEffectiveId = isCreator ? user?.id : (amIRealMember ? user?.id : (myPartnerToken || user?.id));
               
-              if (!isCreator && member.userId !== myEffectiveId && member.userId !== user?.id) return; // Partners only process their own row
+              if (!isCreator && member.userId !== user?.id) return; // Partners only process their own row
 
               const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-              const modernId = [myEffectiveId, targetId].filter(Boolean).sort().join('_');
-              const possibleIds = [
-                modernId,
-                [user?.id, member.userId].filter(Boolean).sort().join('_'),
-                [myEffectiveId, member.userId].filter(Boolean).sort().join('_'),
-                [user?.id, space.creatorId].filter(Boolean).sort().join('_'),
-                [myEffectiveId, space.creatorId].filter(Boolean).sort().join('_'),
-                [user?.id, space.createdBy].filter(Boolean).sort().join('_'),
-                [myEffectiveId, space.createdBy].filter(Boolean).sort().join('_')
-              ];
-              let convo = null;
-              for (const pid of possibleIds) {
-                convo = space.conversations?.find((c: any) => c.id === pid);
-                if (convo) break;
-              }
+              const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
+              const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+
 
             let unreadChatMessages = convo?.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
             

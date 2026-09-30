@@ -34,8 +34,7 @@ export function FinanceTransactions({
   const { getTokenForSpace, getRoleForSpace, sendMessageToMember } = useSpaces();
   const myRole = space ? getRoleForSpace(space.id) : 'none';
   const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
-  const myEffectiveId = isCreatorMe ? (user?.id || 'me') : (space ? (getTokenForSpace(space.id) || user?.id || 'me') : (user?.id || 'me'));
-
+  const myEffectiveId = user?.id || 'me';
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');

@@ -11,8 +11,7 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
 
   const myRole = space ? getRoleForSpace(space.id) : 'none';
   const isCreatorMe = myRole === 'creator' || (space?.creatorId && user.id === space.creatorId);
-  const myEffectiveId = isCreatorMe ? (user.id || 'me') : (getTokenForSpace(space.id) || user.id || 'me');
-
+  const myEffectiveId = user?.id || 'me';
   const pendingInvoices = space.invoices.filter((inv: any) => {
     if (inv.status !== 'pending' || inv.isActive === false) return false;
     if (inv.type === 'transfer') {
