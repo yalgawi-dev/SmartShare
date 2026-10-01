@@ -133,7 +133,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     };
 
     const handleTouchDragEnd = () => {
-      if (draggedDocId && dragOverDocId && draggedDocId !== dragOverDocId) {
+      if (!draggedDocId) return; // FIX: Don't re-render or cancel clicks if we weren't dragging!
+      if (dragOverDocId && draggedDocId !== dragOverDocId) {
         const docA = documents.find(d => d.id === draggedDocId);
         const docB = documents.find(d => d.id === dragOverDocId);
         if (docA && docB) {
@@ -232,7 +233,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           </button>
           <div style={{ flex: 1 }}>
             <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>✏️</span>
+              {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.8rem', color: '#3b82f6', marginLeft: '0.5rem' }}>v2.2</span> <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>✏️</span>
             </h2>
             <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>נוצר: {new Date(activeShelf.createdAt).toLocaleDateString('he-IL')}</div>
           </div>
@@ -267,7 +268,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                     <div key={doc.id} data-doc-id={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0', position: 'relative', opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1), transition: 'all 0.2s', transform: dragOverDocId === doc.id ? 'scale(1.02)' : 'scale(1)' }}>
                       {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
                       <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
-                      <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} onPointerDown={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
+                      <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }}  style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
                       <div onTouchStart={(e) => handleTouchDragStart(e, doc.id)} onMouseDown={(e) => handleTouchDragStart(e, doc.id)} style={{ display: 'flex', justifyContent: 'center', padding: '0.4rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', cursor: 'grab' }}>
                           <span style={{ fontSize: '0.8rem', color: '#94a3b8', letterSpacing: '2px' }}>|||</span>
                         </div>
@@ -380,7 +381,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   return (
     <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 1rem' }}>
-        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים</h2>
+        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.2</span></h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => fileInputRef.current?.click()} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem', borderRadius: '20px', color: '#64748b', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             📥 ייבוא
@@ -466,7 +467,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                   ) : (
                     shelfDocs.map(doc => (
                       <div key={doc.id} style={{ width: '100px', flexShrink: 0, background: '#f8fafc', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                        <div style={{ height: '120px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                        <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '120px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
                         <div style={{ padding: '0.4rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {doc.title}
                         </div>
