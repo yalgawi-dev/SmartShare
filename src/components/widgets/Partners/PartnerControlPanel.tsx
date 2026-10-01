@@ -416,6 +416,16 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           )}
           {messagesArray.map((m: any, idx: number) => {
             if (!m) return null;
+            const currentMessageDate = new Date(m.createdAt).toDateString();
+            let showDateBadge = false;
+            if (idx === 0) {
+               showDateBadge = true;
+            } else {
+               let prevM = messagesArray[idx - 1];
+               const prevMessageDate = prevM ? new Date(prevM.createdAt).toDateString() : null;
+               if (currentMessageDate !== prevMessageDate) showDateBadge = true;
+            }
+            const dateLabel = showDateBadge ? getChatDateLabel(m.createdAt) : "";
             const isMyMsg = m.senderId === user?.id || (m.from && m.from === viewMode);
             
             // Hide system messages from the person who triggered them
@@ -435,6 +445,14 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             }
 
             return (
+              <React.Fragment >
+                {showDateBadge && (
+                  <div style={{ display: "flex", justifyContent: "center", margin: "0.75rem 0", width: "100%" }}>
+                    <div style={{ background: "#e1f2fb", color: "#445b65", padding: "4px 12px", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "bold", boxShadow: "0 1px 1px rgba(0,0,0,0.05)" }}>
+                      {dateLabel}
+                    </div>
+                  </div>
+                )}
               <div
                 key={m.id || idx}
                 style={{
@@ -468,6 +486,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   )}
                 </div>
               </div>
+              </React.Fragment>
             );
           })}
           <div ref={messagesEndRef} />
