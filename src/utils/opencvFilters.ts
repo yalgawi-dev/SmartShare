@@ -11,7 +11,9 @@ export interface Point {
 
 /**
  * Attempts to auto-detect a document contour in the given canvas.
- * Returns an array of 4 points if found, otherwise returns null.
+ * Uses a multi-pass Canny + Otsu adaptive detection pipeline with 
+ * geometric quadrilateral completion (4-corner extrapolation).
+ * Returns an array of 4 ordered points (TL, TR, BR, BL) if found, otherwise returns null.
  */
 export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   try {
@@ -23,80 +25,226 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     tempCanvas.width = 300;
     tempCanvas.height = Math.round(canvas.height * tempScale);
     const tempCtx = tempCanvas.getContext('2d');
-    tempCtx?.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
-    
+    if (!tempCtx) return null;
+    tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
+
     let src = cv.imread(tempCanvas);
     let gray = new cv.Mat();
-    let blurred = new cv.Mat();
-    let edged = new cv.Mat();
-    
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
-    
-    // Apply CLAHE to improve contrast for edge detection in bad lighting
-    let clahe = new cv.CLAHE(2.0, new cv.Size(8, 8));
-    clahe.apply(gray, gray);
-    clahe.delete();
-    
-    let ksize = new cv.Size(5, 5);
-    cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
-    cv.Canny(blurred, edged, 75, 200, 3, false);
-    
-    // Draw white border to force open edges to connect
-    cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
-    
-    let M = cv.Mat.ones(3, 3, cv.CV_8U);
-    let closed = new cv.Mat();
-    cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
-    
-    let contours = new cv.MatVector();
-    let hierarchy = new cv.Mat();
-    cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-    
-    let maxArea = 0;
-    let bestContour: any = null;
-    
-    let maxC = Math.min(contours.size(), 300); for (let i = 0; i < maxC; ++i) {
-      let cnt = contours.get(i);
-      let area = cv.contourArea(cnt);
-      if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.95) { 
-        let peri = cv.arcLength(cnt, true);
-        let approx = new cv.Mat();
-        cv.approxPolyDP(cnt, approx, 0.04 * peri, true);
-        if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
-          maxArea = area;
-          if (bestContour) bestContour.delete();
-          bestContour = approx.clone();
+
+    const imgArea = tempCanvas.width * tempCanvas.height;
+    let candidateQuads: { pts: Point[]; area: number; score: number }[] = [];
+
+    // Helper: Sort 4 points strictly in clockwise order (TL, TR, BR, BL)
+    const orderPoints = (pts: Point[]): Point[] => {
+      if (pts.length !== 4) return pts;
+      const centerX = pts.reduce((sum, p) => sum + p.x, 0) / 4;
+      const centerY = pts.reduce((sum, p) => sum + p.y, 0) / 4;
+
+      const sorted = [...pts].sort((a, b) => {
+        const angleA = Math.atan2(a.y - centerY, a.x - centerX);
+        const angleB = Math.atan2(b.y - centerY, b.x - centerX);
+        return angleA - angleB;
+      });
+
+      // Find top-left (closest to top-left corner sum x + y)
+      let minVal = Infinity;
+      let minDistIdx = 0;
+      for (let i = 0; i < 4; i++) {
+        const val = sorted[i].x + sorted[i].y;
+        if (val < minVal) {
+          minVal = val;
+          minDistIdx = i;
         }
-        approx.delete();
       }
-    }
-    
-    let defaultPts = null;
-    if (bestContour) {
-      let pts = [];
-      for (let i = 0; i < bestContour.rows; i++) {
+
+      const reordered: Point[] = [];
+      for (let i = 0; i < 4; i++) {
+        reordered.push(sorted[(minDistIdx + i) % 4]);
+      }
+      return reordered;
+    };
+
+    // Helper: Extract 4 bounding corners using PolyDP, Convex Hull max-area Quad, or minAreaRect
+    const extractBest4Corners = (cnt: any): Point[] | null => {
+      let peri = cv.arcLength(cnt, true);
+      let approx = new cv.Mat();
+
+      // 1. Try multiple epsilon thresholds for exact 4-corner approximation
+      for (let eps of [0.02, 0.03, 0.04, 0.05, 0.015, 0.06]) {
+        cv.approxPolyDP(cnt, approx, eps * peri, true);
+        if (approx.rows === 4) {
+          let pts: Point[] = [];
+          for (let i = 0; i < 4; i++) {
+            pts.push({
+              x: approx.data32S[i * 2] / tempScale,
+              y: approx.data32S[i * 2 + 1] / tempScale
+            });
+          }
+          approx.delete();
+          return orderPoints(pts);
+        }
+      }
+      approx.delete();
+
+      // 2. Geometric quad completion from Convex Hull (Max Quad Area Search)
+      let hull = new cv.Mat();
+      cv.convexHull(cnt, hull, false, true);
+
+      if (hull.rows >= 4) {
+        let hullPts: Point[] = [];
+        for (let i = 0; i < hull.rows; i++) {
+          hullPts.push({
+            x: hull.data32S[i * 2],
+            y: hull.data32S[i * 2 + 1]
+          });
+        }
+        hull.delete();
+
+        let bestArea = 0;
+        let best4: Point[] | null = null;
+        const n = hullPts.length;
+
+        let step = Math.max(1, Math.floor(n / 16));
+        let sampledPts: Point[] = [];
+        for (let i = 0; i < n; i += step) {
+          sampledPts.push(hullPts[i]);
+        }
+
+        const sn = sampledPts.length;
+        if (sn >= 4) {
+          for (let i = 0; i < sn - 3; i++) {
+            for (let j = i + 1; j < sn - 2; j++) {
+              for (let k = j + 1; k < sn - 1; k++) {
+                for (let l = k + 1; l < sn; l++) {
+                  const p1 = sampledPts[i], p2 = sampledPts[j], p3 = sampledPts[k], p4 = sampledPts[l];
+                  const qArea = 0.5 * Math.abs(
+                    (p1.x * p2.y - p2.x * p1.y) +
+                    (p2.x * p3.y - p3.x * p2.y) +
+                    (p3.x * p4.y - p4.x * p3.y) +
+                    (p4.x * p1.y - p1.x * p4.y)
+                  );
+                  if (qArea > bestArea) {
+                    bestArea = qArea;
+                    best4 = [
+                      { x: p1.x / tempScale, y: p1.y / tempScale },
+                      { x: p2.x / tempScale, y: p2.y / tempScale },
+                      { x: p3.x / tempScale, y: p3.y / tempScale },
+                      { x: p4.x / tempScale, y: p4.y / tempScale }
+                    ];
+                  }
+                }
+              }
+            }
+          }
+        }
+        if (best4) return orderPoints(best4);
+      } else {
+        hull.delete();
+      }
+
+      // 3. Fallback to minimum area bounding rectangle
+      let rect = cv.minAreaRect(cnt);
+      let vertices = cv.RotatedRect.points(rect);
+      let pts: Point[] = [];
+      for (let i = 0; i < 4; i++) {
         pts.push({
-          x: bestContour.data32S[i * 2] / tempScale,
-          y: bestContour.data32S[i * 2 + 1] / tempScale
+          x: vertices[i].x / tempScale,
+          y: vertices[i].y / tempScale
         });
       }
-      
-      pts.sort((a, b) => (a.x + a.y) - (b.x + b.y));
-      const tl = pts[0];
-      const br = pts[pts.length - 1];
-      
-      pts.sort((a, b) => (a.x - a.y) - (b.x - b.y));
-      const bl = pts[0];
-      const tr = pts[pts.length - 1];
-      
-      defaultPts = [tl, tr, br, bl];
-      bestContour.delete();
-    }
-    
-    M.delete(); closed.delete(); contours.delete(); hierarchy.delete();
-    gray.delete(); blurred.delete(); edged.delete(); src.delete();
+      return orderPoints(pts);
+    };
 
-    return defaultPts;
+    // Candidate Evaluation Helper
+    const evaluateContour = (cnt: any, weightFactor: number = 1.0) => {
+      let area = cv.contourArea(cnt);
+      if (area < imgArea * 0.10 || area > imgArea * 0.95) return;
+
+      let quad = extractBest4Corners(cnt);
+      if (!quad || quad.length !== 4) return;
+
+      const widthA = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y);
+      const widthB = Math.hypot(quad[2].x - quad[3].x, quad[2].y - quad[3].y);
+      const heightA = Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y);
+      const heightB = Math.hypot(quad[2].x - quad[1].x, quad[2].y - quad[1].y);
+
+      const avgW = (widthA + widthB) / 2;
+      const avgH = (heightA + heightB) / 2;
+
+      if (avgW < 40 || avgH < 40) return;
+      const aspect = avgW / avgH;
+      if (aspect < 0.2 || aspect > 5.0) return;
+
+      let hull = new cv.Mat();
+      cv.convexHull(cnt, hull);
+      let hullArea = cv.contourArea(hull);
+      hull.delete();
+
+      let solidity = hullArea > 0 ? (area / hullArea) : 0.8;
+      let score = area * solidity * weightFactor;
+
+      candidateQuads.push({ pts: quad, area, score });
+    };
+
+    // --- PASS 1: Multi-Threshold Canny Passes ---
+    const cannyThresholdPairs = [
+      { low: 30, high: 100, weight: 1.0 },
+      { low: 50, high: 150, weight: 1.1 },
+      { low: 75, high: 200, weight: 1.0 }
+    ];
+
+    for (let tPair of cannyThresholdPairs) {
+      let blurred = new cv.Mat();
+      cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0);
+
+      let edged = new cv.Mat();
+      cv.Canny(blurred, edged, tPair.low, tPair.high);
+
+      let M = cv.Mat.ones(3, 3, cv.CV_8U);
+      let closed = new cv.Mat();
+      cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
+
+      let contours = new cv.MatVector();
+      let hierarchy = new cv.Mat();
+      cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+      for (let i = 0; i < contours.size(); i++) {
+        evaluateContour(contours.get(i), tPair.weight);
+      }
+
+      contours.delete(); hierarchy.delete(); closed.delete(); M.delete(); edged.delete(); blurred.delete();
+    }
+
+    // --- PASS 2: Otsu Adaptive Thresholding Pass (For light paper / low contrast backgrounds) ---
+    let blurredGray = new cv.Mat();
+    cv.GaussianBlur(gray, blurredGray, new cv.Size(5, 5), 0, 0);
+
+    let otsuMat = new cv.Mat();
+    cv.threshold(blurredGray, otsuMat, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
+
+    let otsuClosed = new cv.Mat();
+    let M2 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+    cv.morphologyEx(otsuMat, otsuClosed, cv.MORPH_CLOSE, M2);
+
+    let otsuContours = new cv.MatVector();
+    let otsuHierarchy = new cv.Mat();
+    cv.findContours(otsuClosed, otsuContours, otsuHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    for (let i = 0; i < otsuContours.size(); i++) {
+      evaluateContour(otsuContours.get(i), 1.25);
+    }
+
+    otsuContours.delete(); otsuHierarchy.delete(); otsuClosed.delete(); M2.delete(); otsuMat.delete(); blurredGray.delete();
+    gray.delete(); src.delete();
+
+    // Return the 4-corner quad with the highest score
+    if (candidateQuads.length > 0) {
+      candidateQuads.sort((a, b) => b.score - a.score);
+      return candidateQuads[0].pts;
+    }
+
+    return null;
   } catch (err) {
     console.warn("Auto-detect failed", err);
     return null;
