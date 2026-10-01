@@ -38,9 +38,9 @@ export function FloatingActionBar({
       transform: 'translateX(-50%)',
       width: '98%',
       maxWidth: '420px',
-      background: 'rgba(255, 255, 255, 0.95)',
-      backdropFilter: 'blur(15px)',
-      WebkitBackdropFilter: 'blur(15px)',
+      background: '#ffffff',
+      
+      
       border: '1px solid rgba(0,0,0,0.08)',
       borderRadius: '24px',
       padding: '0.4rem',
@@ -104,20 +104,19 @@ export function FloatingActionBar({
             width: '74px',
             height: '74px',
             borderRadius: '50%',
-            background: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(15px)',
-            WebkitBackdropFilter: 'blur(15px)',
+            background: '#ffffff',
             borderTop: '1px solid rgba(0,0,0,0.08)',
-            borderLeft: '1px solid rgba(0,0,0,0.03)',
-            borderRight: '1px solid rgba(0,0,0,0.03)',
-            boxShadow: '0 -10px 20px rgba(0,0,0,0.05)',
-            zIndex: -1
+            borderLeft: '1px solid rgba(0,0,0,0.04)',
+            borderRight: '1px solid rgba(0,0,0,0.04)',
+            boxShadow: '0 -10px 20px rgba(0,0,0,0.04)',
+            zIndex: 1
           }} />
         )}
         {hasScanner && (
            <button 
              onClick={onOpenScanner}
              style={{
+               position: 'relative', zIndex: 2,
                background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',
                display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                color: 'white', boxShadow: '0 8px 20px rgba(59, 130, 246, 0.4)',
