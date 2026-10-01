@@ -26,6 +26,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [searchQuery, setSearchQuery] = useState('');
     const [pendingImport, setPendingImport] = useState<{ url: string, type: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
+    const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
+    const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
@@ -70,32 +72,24 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     addDocument: (url, type, allPages) => {
       let targetShelfId = activeShelfId;
       
-      // If we are not inside a shelf, prompt the user
       if (!targetShelfId) {
         if (shelves.length === 1) {
            targetShelfId = shelves[0].id;
         } else if (shelves.length > 1) {
-           const options = shelves.map((s, i) => `${i+1}. ${s.name}`).join('\n');
-           const choice = window.prompt('לאיזה מדף תרצה לשמור את המסמך?\n' + options + '\n(הכנס מספר, או השאר ריק למדף הראשון)');
-           const choiceIndex = parseInt(choice || '1', 10) - 1;
-           targetShelfId = shelves[choiceIndex] ? shelves[choiceIndex].id : shelves[0].id;
+           setPendingImport({ url, type: typeof type !== 'undefined' ? type : 'document', allPages: typeof allPages !== 'undefined' ? allPages : [] });
+           return;
+        } else {
+           const newShelfId = 'shelf_' + Date.now();
+           addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
+           targetShelfId = newShelfId;
         }
-      }
-
-      if (!targetShelfId) {
-        const newShelfId = 'shelf_' + Date.now();
-        addShelf(space.id, {
-          name: 'כללי',
-          allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
-        });
-        targetShelfId = newShelfId; 
       }
       
       addDocument(space.id, {
         shelfId: targetShelfId,
         url,
-        title: type === 'image' ? 'תמונה חדשה' : 'מסמך חדש',
-        type,
+        title: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק',
+        type: typeof type !== 'undefined' ? type : 'document',
         addedBy: user?.id || ''
       });
     }
@@ -117,6 +111,23 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       updateShelf(space.id, shelfId, { name: name.trim() });
     }
   };
+
+    const handleDeleteDocument = (docId: string) => {
+      if (window.confirm('האם אתה בטוח שברצונך למחוק מסמך זה?')) {
+        removeDocument(space.id, docId);
+      }
+    };
+
+    const handleDropDocument = (targetDocId: string) => {
+      if (!draggedDocId || draggedDocId === targetDocId) return;
+      const docA = documents.find(d => d.id === draggedDocId);
+      const docB = documents.find(d => d.id === targetDocId);
+      if (docA && docB) {
+        updateDocument(space.id, docA.id, { createdAt: docB.createdAt });
+        updateDocument(space.id, docB.id, { createdAt: docA.createdAt });
+      }
+      setDraggedDocId(null);
+    };
 
   const handleMoveDocument = (docId: string, currentShelfId: string) => {
     const options = shelves.filter(s => s.id !== currentShelfId).map(s => s.name + ' (ID: ' + s.id + ')').join('\\n');
@@ -212,8 +223,16 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
                   {partitions[partName].map(doc => (
-                    <div key={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                      <div style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center' }} />
+                    <div 
+                      key={doc.id} 
+                      draggable 
+                      onDragStart={() => setDraggedDocId(doc.id)} 
+                      onDragOver={(e) => e.preventDefault()} 
+                      onDrop={(e) => { e.preventDefault(); handleDropDocument(doc.id); }} 
+                      style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'grab', position: 'relative', opacity: draggedDocId === doc.id ? 0.5 : 1 }}
+                    >
+                      <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
+                      <div onClick={() => setPreviewDocUrl(doc.url)} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
                       <div style={{ padding: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {doc.title}
                       </div>

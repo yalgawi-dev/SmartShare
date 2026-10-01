@@ -29,18 +29,35 @@ interface ScannerModalProps {
 
 export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance }: ScannerModalProps) {
   
+  const isClosingRef = useRef(false);
+
   useEffect(() => {
     // Intercept Android hardware back button
     window.history.pushState({ modal: 'scanner' }, '', window.location.href);
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
-      onClose();
+      if (!isClosingRef.current) {
+         isClosingRef.current = true;
+         onClose();
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => {
       window.removeEventListener('popstate', handlePopState);
+      // If the component is unmounted but we haven't popped the state (e.g. closed via button), pop it now
+      if (!isClosingRef.current) {
+        window.history.back();
+      }
     };
   }, [onClose]);
+
+  const handleManualClose = () => {
+    if (!isClosingRef.current) {
+       isClosingRef.current = true;
+       window.history.back(); // This triggers popstate, which calls onClose
+       setTimeout(() => onClose(), 50); // Fallback if popstate fails
+    }
+  };
 
   const videoRef = useRef<HTMLVideoElement>(null as unknown as HTMLVideoElement);
   const guideRef = useRef<HTMLDivElement>(null);
@@ -428,7 +445,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
       {/* Header */}
       <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
-        <button onClick={onClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
+        <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span>סורק מסמכים v17.9</span>
