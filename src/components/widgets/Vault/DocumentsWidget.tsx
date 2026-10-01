@@ -5,6 +5,7 @@ import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
 import { Space, useSpaces } from '../../../app/context/SpacesContext';
 import { ShelfCoverPicker } from './ShelfCoverPicker';
+import { uploadImageToStorage } from '@/lib/firebase';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => void;
@@ -25,7 +26,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const documents = space.documents || [];
   
   const [searchQuery, setSearchQuery] = useState('');
-    const [pendingImport, setPendingImport] = useState<{ url: string, type: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
+    const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
     const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
     const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
@@ -56,13 +58,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
           targetShelfId = newShelfId; 
         }
-        addDocument(space.id, {
-          shelfId: targetShelfId,
-          url,
-          title: 'מסמך מיובא',
-          type: 'document',
-          addedBy: user?.id || ''
-        });
+        handleSaveDocument(targetShelfId, url, 'document');
       };
       reader.readAsDataURL(file);
     }
@@ -85,13 +81,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
       
-      addDocument(space.id, {
-        shelfId: targetShelfId,
-        url,
-        title: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק',
-        type: typeof type !== 'undefined' ? type : 'document',
-        addedBy: user?.id || ''
-      });
+      handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages);
     }
   }));
 
@@ -118,26 +108,39 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       }
     };
 
-    const handleDropDocument = (targetDocId: string) => {
-      if (!draggedDocId || draggedDocId === targetDocId) return;
-      const docA = documents.find(d => d.id === draggedDocId);
-      const docB = documents.find(d => d.id === targetDocId);
-      if (docA && docB) {
+    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => {
+      try {
+        setIsUploading(true);
+        let finalUrl = url;
+        if (url.startsWith('data:image')) {
+          const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+          finalUrl = await uploadImageToStorage(url, path);
+        }
+        addDocument(space.id, { shelfId, url: finalUrl, type, title: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק', addedBy: user?.id || '' });
+      } catch (e) {
+        console.error("Failed to upload document", e);
+        alert("שגיאה בהעלאת המסמך, נסה שוב");
+      } finally {
+        setIsUploading(false);
+      }
+    };
+
+
+    
+    const handleMoveDocAdjacent = (docIndex: number, direction: -1 | 1, shelfDocs: any[]) => {
+      const targetIndex = docIndex + direction;
+      if (targetIndex >= 0 && targetIndex < shelfDocs.length) {
+        const docA = shelfDocs[docIndex];
+        const docB = shelfDocs[targetIndex];
         updateDocument(space.id, docA.id, { createdAt: docB.createdAt });
         updateDocument(space.id, docB.id, { createdAt: docA.createdAt });
       }
-      setDraggedDocId(null);
     };
 
+
   const handleMoveDocument = (docId: string, currentShelfId: string) => {
-    const options = shelves.filter(s => s.id !== currentShelfId).map(s => s.name + ' (ID: ' + s.id + ')').join('\\n');
-    const newShelfId = window.prompt('לאיזה מזהה מדף להעביר?\\n' + options);
-    if (newShelfId && shelves.some(s => s.id === newShelfId)) {
-      updateDocument(space.id, docId, { shelfId: newShelfId });
-    } else if (newShelfId) {
-      alert('מזהה מדף לא תקין');
-    }
-  };
+      setPendingImport({ docId });
+    };
 
   const sortedShelves = useMemo(() => {
     return universalSort(
@@ -223,16 +226,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
                   {partitions[partName].map(doc => (
-                    <div 
-                      key={doc.id} 
-                      draggable 
-                      onDragStart={() => setDraggedDocId(doc.id)} 
-                      onDragOver={(e) => e.preventDefault()} 
-                      onDrop={(e) => { e.preventDefault(); handleDropDocument(doc.id); }} 
-                      style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', cursor: 'grab', position: 'relative', opacity: draggedDocId === doc.id ? 0.5 : 1 }}
-                    >
+                    <div key={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', position: 'relative' }}>
                       <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
                       <div onClick={() => setPreviewDocUrl(doc.url)} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0.5rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
+                        <button onClick={(e) => { e.stopPropagation(); handleMoveDocAdjacent(shelfDocs.findIndex(d => d.id === doc.id), -1, shelfDocs); }} style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', color: '#64748b' }}>◀</button>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center' }}>סדר</span>
+                        <button onClick={(e) => { e.stopPropagation(); handleMoveDocAdjacent(shelfDocs.findIndex(d => d.id === doc.id), 1, shelfDocs); }} style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', color: '#64748b' }}>▶</button>
+                      </div>
                       <div style={{ padding: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {doc.title}
                       </div>
@@ -415,13 +416,13 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       {pendingImport && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>לאיזה מדף לשמור את הקובץ?</h3>
+            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>{isUploading ? 'מעלה קובץ לשרת...' : 'לאיזה מדף לשמור את הקובץ?'}</h3>
             <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>בחר את המדף שאליו יתווסף המסמך החדש</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
               {shelves.map(shelf => {
                  return (
                   <button key={shelf.id} onClick={() => {
-                    addDocument(space.id, { shelfId: shelf.id, url: pendingImport.url, type: pendingImport.type, title: pendingImport.type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק', addedBy: user?.id || '' });
+                    handleSaveDocument(shelf.id, pendingImport.url, pendingImport.type, pendingImport.allPages);
                     setPendingImport(null);
                   }} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s', textAlign: 'right', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: shelf.highlightColor || '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0, boxShadow: shelf.highlightColor ? `0 0 10px ${shelf.highlightColor}80` : 'none', fontSize: '1.2rem' }}>
