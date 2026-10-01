@@ -429,14 +429,22 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   const handleDone = (routingType?: 'receipt' | 'document' | 'image') => {
-    // If it's an image, we want the current mode (pure_color usually) as requested by the user for rich colors!
-    const currentImg = imageCache[mode];
-    if (!currentImg) return;
-    const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
-    const primary = allPageUrls[0];
-    let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
-    onComplete(primary, currentImg, allPageUrls.length > 1 ? allPageUrls : undefined, finalRouting as any);
-  };
+      // If it's an image, we want the current mode (pure_color usually) as requested by the user for rich colors!
+      const currentImg = imageCache[mode];
+      if (!currentImg) return;
+      const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
+      const primary = allPageUrls[0];
+      let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+      
+      if (!isClosingRef.current) {
+        isClosingRef.current = true;
+        window.history.back();
+      }
+      
+      setTimeout(() => {
+        onComplete(primary, currentImg, allPageUrls.length > 1 ? allPageUrls : undefined, finalRouting as any);
+      }, 50);
+    };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>

@@ -411,6 +411,39 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           })}
         </div>
       )}
+    
+      {pendingImport && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>לאיזה מדף לשמור את הקובץ?</h3>
+            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>בחר את המדף שאליו יתווסף המסמך החדש</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+              {shelves.map(shelf => {
+                 return (
+                  <button key={shelf.id} onClick={() => {
+                    addDocument(space.id, { shelfId: shelf.id, url: pendingImport.url, type: pendingImport.type, title: pendingImport.type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק', addedBy: user?.id || '' });
+                    setPendingImport(null);
+                  }} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s', textAlign: 'right', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: shelf.highlightColor || '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0, boxShadow: shelf.highlightColor ? `0 0 10px ${shelf.highlightColor}80` : 'none', fontSize: '1.2rem' }}>
+                      {shelf.icon || '📁'}
+                    </div>
+                    {shelf.name}
+                  </button>
+                 );
+              })}
+            </div>
+            <button onClick={() => setPendingImport(null)} style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>ביטול פעולה</button>
+          </div>
+        </div>
+      )}
+
+      {previewDocUrl && (
+        <div onClick={() => setPreviewDocUrl(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <img src={previewDocUrl} style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: '8px', objectFit: 'contain' }} alt="Preview" />
+          <button onClick={() => setPreviewDocUrl(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+        </div>
+      )}
+
     </div>
   );
 });
