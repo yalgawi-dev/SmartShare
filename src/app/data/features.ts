@@ -14,7 +14,7 @@ export const AVAILABLE_FEATURES: Feature[] = [
   { id: 'finance', name: 'התחשבנות וחשבוניות', desc: 'סריקת חשבוניות וחלוקת הוצאות בין שותפים', icon: '💰', recommends: ['scanner', 'partners', 'cashbox'] },
   { id: 'income', name: 'הכנסות עסק', desc: 'תיעוד וחלוקת הכנסות ומכירות', icon: '💼', requires: ['finance'] },
   { id: 'cashbox', name: 'קופת מזומן', desc: 'העברות כספים וקופה קטנה משותפת', icon: '💸' , inDevelopment: true },
-  { id: 'vault', name: 'מסמכים ותוכניות', desc: 'אחסון מסמכים, תוכניות וקבצי PDF', icon: '📁' },
+  { id: 'vault', name: 'מסמכים', desc: 'אחסון, ניהול ושיתוף חכם של המסמכים החשובים שלכם (חוזים, רשיונות, ביטוחים ועוד).', icon: '📁', inDevelopment: true },
   { id: 'scanner', name: 'סורק מסמכים', desc: 'סריקת חשבוניות ומסמכים רשמיים בצורה חכמה', icon: '🖨️', recommends: ['finance', 'vault'] },
   { id: 'gallery', name: 'מצלמה וגלריה', desc: 'צילום שטח ותמונות מהנייד לגלריה משותפת', icon: '📸' },
   { id: 'partners', name: 'שותפים לפרויקט', desc: 'ניהול חברי הפרויקט ואחוזי הבעלות', icon: '🤝', requires: ['finance'] },

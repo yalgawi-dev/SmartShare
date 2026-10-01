@@ -69,7 +69,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isScannerOpen, setIsScannerOpen] = useState(false);
-  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions') return t as any; } return 'summary'; });
+  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox' | 'documents'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions') return t as any; } return 'summary'; });
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -204,6 +204,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   const hasFinance = spaceFeatures.includes('finance');
   const hasScanner = spaceFeatures.includes('scanner');
+  const hasVault = spaceFeatures.includes('vault');
   const hasPartners = spaceFeatures.includes('partners');
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
@@ -588,7 +589,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           })}
 
           {/* Finance is always at the top if active */}
-          {hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab} setActiveTab={setFinanceTab} />}
+                    {hasFinance && financeTab !== 'documents' && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}
+          {hasVault && financeTab === 'documents' && (
+            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+              <h2>מסמכים (בפיתוח)</h2>
+              <p>כאן יופיע מחסן המסמכים עם המדפים החכמים.</p>
+            </div>
+          )}
           
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space} isGuestMode={isRestricted} />}
@@ -615,6 +622,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           <FloatingActionBar 
             hasFinance={hasFinance}
             hasScanner={hasScanner}
+            hasVault={hasVault}
             isAddingExpense={isAddingExpense}
             isScannerOpen={isScannerOpen}
             activeTab={financeTab}

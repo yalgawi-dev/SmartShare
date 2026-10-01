@@ -8,6 +8,7 @@ export function FloatingActionBar({
   hasScanner,
   isAddingExpense,
   isScannerOpen,
+  hasVault,
   activeTab,
   setActiveTab,
   onAddExpense,
@@ -18,8 +19,9 @@ export function FloatingActionBar({
   hasScanner: boolean;
   isAddingExpense: boolean;
   isScannerOpen: boolean;
-  activeTab?: 'summary' | 'transactions' | 'inbox';
-  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox') => void;
+  hasVault?: boolean;
+  activeTab?: 'summary' | 'transactions' | 'inbox' | 'documents';
+  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'documents') => void;
   onAddExpense: () => void;
   onOpenScanner: () => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -89,8 +91,24 @@ export function FloatingActionBar({
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>🧾</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>פירוט</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>הוצאות</span>
             </button>
+
+            {hasVault && (
+              <button 
+                onClick={() => setActiveTab && setActiveTab('documents')}
+                style={{
+                  background: activeTab === 'documents' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: activeTab === 'documents' ? '#2563eb' : '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'documents' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>📁</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'documents' ? '800' : '600' }}>מסמכים</span>
+              </button>
+            )}
           </>
         )}
       </div>
