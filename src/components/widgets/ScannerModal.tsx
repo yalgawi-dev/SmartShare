@@ -429,11 +429,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   const handleDone = (routingType?: 'receipt' | 'document' | 'image') => {
-    let finalMode = mode;
-    if (routingType === 'image') {
-      finalMode = 'original';
-    }
-    const currentImg = imageCache[finalMode];
+    // If it's an image, we want the current mode (pure_color usually) as requested by the user for rich colors!
+    const currentImg = imageCache[mode];
     if (!currentImg) return;
     const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
     const primary = allPageUrls[0];

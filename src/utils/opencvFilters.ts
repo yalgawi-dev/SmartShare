@@ -563,7 +563,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         if (forcedProfile === 'original') {
             cv.imshow(canvas, dst);
-            const originalUrl = compressCanvas(canvas, 0.95);
+            const originalUrl = compressCanvas(canvas, 0.55);
             resolve({ filtered: originalUrl, activeProfile: 'original', timings: { mathMs: 0, encodeMs: Math.round(performance.now() - t0_math), totalMs: Math.round(performance.now() - t0_total) } });
             
             try {
@@ -575,7 +575,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
 
         if (forcedProfile === 'original') {
             cv.imshow(canvas, dst);
-            const originalUrl = compressCanvas(canvas, 0.95);
+            const originalUrl = compressCanvas(canvas, 0.55);
             resolve({ filtered: originalUrl, activeProfile: 'original' });
             try {
                 src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
@@ -1118,28 +1118,28 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let finalUrl = '';
         if (activeProfile === 'original') {
           cv.imshow(canvas, dst);
-          finalUrl = compressCanvas(canvas, 0.95);
+          finalUrl = compressCanvas(canvas, 0.55);
         } else if (activeProfile === 'bw') {
           cv.imshow(canvas, bwRgba);
-          finalUrl = compressCanvas(canvas, 0.90);
+          finalUrl = compressCanvas(canvas, 0.55);
         } else if (activeProfile === 'pure_color') {
           cv.imshow(canvas, finalPureRgba);
-          finalUrl = compressCanvas(canvas, 0.90);
+          finalUrl = compressCanvas(canvas, 0.55);
 
         } else if (activeProfile === 'smart_plus') {
           cv.imshow(canvas, finalSmartPlusRgba);
-          finalUrl = compressCanvas(canvas, 0.90);
+          finalUrl = compressCanvas(canvas, 0.55);
         } else if (activeProfile === 'hybrid') {
           if (typeof finalHybrid !== 'undefined') {
              cv.imshow(canvas, finalHybrid);
-             finalUrl = compressCanvas(canvas, 0.90);
+             finalUrl = compressCanvas(canvas, 0.55);
           } else {
              cv.imshow(canvas, finalSmartPlusRgba);
-             finalUrl = compressCanvas(canvas, 0.90);
+             finalUrl = compressCanvas(canvas, 0.55);
           }
         } else {
           cv.imshow(canvas, dst);
-          finalUrl = compressCanvas(canvas, 0.90);
+          finalUrl = compressCanvas(canvas, 0.55);
         }
 
         const t1_total = performance.now();
