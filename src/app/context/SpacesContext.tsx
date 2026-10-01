@@ -87,6 +87,25 @@ export interface MediaItem {
   attachedPhotoUrl?: string;
 }
 
+
+export interface DocumentShelf {
+  id: string;
+  name: string;
+  allowedPartners: string[]; // empty means public
+  createdAt: string;
+}
+
+export interface SpaceDocument {
+  id: string;
+  shelfId: string;
+  partitionName?: string;
+  url: string;
+  title: string;
+  type: 'document' | 'image' | 'pdf';
+  addedBy: string;
+  createdAt: string;
+}
+
 export interface SpaceSettings {
   isCustomShare?: boolean;
   customCategories?: string[];
@@ -160,6 +179,8 @@ export interface Space {
   features: FeatureId[];
   settings: SpaceSettings;
   invoices: Invoice[];
+  documents?: SpaceDocument[];
+  shelves?: DocumentShelf[];
   mediaItems: MediaItem[];
   members: SpaceMember[];
   auditLogs?: AuditRecord[];
@@ -207,6 +228,12 @@ interface SpacesContextType {
 
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
   updateMediaItem: (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => void;
+  addDocument: (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => void;
+  updateDocument: (spaceId: string, docId: string, updates: Partial<SpaceDocument>) => void;
+  removeDocument: (spaceId: string, docId: string) => void;
+  addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => void;
+  updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
+  removeShelf: (spaceId: string, shelfId: string) => void;
   removeMediaItem: (spaceId: string, mediaId: string) => void;
   likeMediaItem: (spaceId: string, mediaId: string) => void;
   addComment: (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => void;
@@ -1363,6 +1390,49 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     }));
   };
 
+  
+  const addDocument = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documents: [{ ...doc, id: `doc-${Date.now()}`, createdAt: new Date().toISOString() }, ...(space.documents || [])]
+    }));
+  };
+
+  const updateDocument = (spaceId: string, docId: string, updates: Partial<SpaceDocument>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documents: (space.documents || []).map(d => d.id === docId ? { ...d, ...updates } : d)
+    }));
+  };
+
+  const removeDocument = (spaceId: string, docId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documents: (space.documents || []).filter(d => d.id !== docId)
+    }));
+  };
+
+  const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelves: [...(space.shelves || []), { ...shelf, id: `shelf-${Date.now()}`, createdAt: new Date().toISOString() }]
+    }));
+  };
+
+  const updateShelf = (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelves: (space.shelves || []).map(s => s.id === shelfId ? { ...s, ...updates } : s)
+    }));
+  };
+
+  const removeShelf = (spaceId: string, shelfId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelves: (space.shelves || []).filter(s => s.id !== shelfId)
+    }));
+  };
+
   const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
     const newItem: MediaItem = { 
       ...item, 
@@ -1494,7 +1564,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       updateMemberPermissions,
       sendConversationMessage,
         markConversationRead,
