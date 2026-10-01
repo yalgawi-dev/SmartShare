@@ -11,8 +11,8 @@ export interface Point {
 
 /**
  * Attempts to auto-detect a document contour in the given canvas.
- * Uses a multi-pass Canny + Otsu adaptive detection pipeline with 
- * geometric quadrilateral completion (4-corner extrapolation).
+ * v17.4 Engine: Multi-Pass Canny + Otsu + Internal Content Density ("Elephant in the Room") 
+ * + Center Prior + Parallelogram Corner Completion.
  * Returns an array of 4 ordered points (TL, TR, BR, BL) if found, otherwise returns null.
  */
 export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
@@ -33,7 +33,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
     const imgArea = tempCanvas.width * tempCanvas.height;
-    let candidateQuads: { pts: Point[]; area: number; score: number }[] = [];
+    let candidateQuads: { pts: Point[]; area: number; score: number; contentDensity: number }[] = [];
 
     // Helper: Sort 4 points strictly in clockwise order (TL, TR, BR, BL)
     const orderPoints = (pts: Point[]): Point[] => {
@@ -47,7 +47,6 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         return angleA - angleB;
       });
 
-      // Find top-left (closest to top-left corner sum x + y)
       let minVal = Infinity;
       let minDistIdx = 0;
       for (let i = 0; i < 4; i++) {
@@ -65,12 +64,36 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       return reordered;
     };
 
-    // Helper: Extract 4 bounding corners using PolyDP, Convex Hull max-area Quad, or minAreaRect
+    // Parallelogram Snapping Helper: Refines 4th corner if pulled by shadow
+    const snap4thCornerIfShadowed = (pts: Point[]): Point[] => {
+      if (pts.length !== 4) return pts;
+      const expBL = {
+        x: pts[0].x + (pts[2].x - pts[1].x),
+        y: pts[0].y + (pts[2].y - pts[1].y)
+      };
+
+      const distBL = Math.hypot(pts[3].x - expBL.x, pts[3].y - expBL.y);
+      const sideLen = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
+
+      if (sideLen > 0 && (distBL / sideLen) > 0.20) {
+        return [
+          pts[0],
+          pts[1],
+          pts[2],
+          {
+            x: pts[3].x * 0.35 + expBL.x * 0.65,
+            y: pts[3].y * 0.35 + expBL.y * 0.65
+          }
+        ];
+      }
+      return pts;
+    };
+
+    // Helper: Extract 4 bounding corners
     const extractBest4Corners = (cnt: any): Point[] | null => {
       let peri = cv.arcLength(cnt, true);
       let approx = new cv.Mat();
 
-      // 1. Try multiple epsilon thresholds for exact 4-corner approximation
       for (let eps of [0.02, 0.03, 0.04, 0.05, 0.015, 0.06]) {
         cv.approxPolyDP(cnt, approx, eps * peri, true);
         if (approx.rows === 4) {
@@ -82,12 +105,11 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
             });
           }
           approx.delete();
-          return orderPoints(pts);
+          return snap4thCornerIfShadowed(orderPoints(pts));
         }
       }
       approx.delete();
 
-      // 2. Geometric quad completion from Convex Hull (Max Quad Area Search)
       let hull = new cv.Mat();
       cv.convexHull(cnt, hull, false, true);
 
@@ -138,12 +160,11 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
             }
           }
         }
-        if (best4) return orderPoints(best4);
+        if (best4) return snap4thCornerIfShadowed(orderPoints(best4));
       } else {
         hull.delete();
       }
 
-      // 3. Fallback to minimum area bounding rectangle
       let rect = cv.minAreaRect(cnt);
       let vertices = cv.RotatedRect.points(rect);
       let pts: Point[] = [];
@@ -153,13 +174,48 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
           y: vertices[i].y / tempScale
         });
       }
-      return orderPoints(pts);
+      return snap4thCornerIfShadowed(orderPoints(pts));
+    };
+
+    // Helper: Compute Internal Edge / Text Density ("Elephant in the Room")
+    const getContentDensity = (quad: Point[]): number => {
+      try {
+        let mask = new cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
+        let ptsVector = new cv.MatVector();
+        let matPts = cv.matFromArray(4, 1, cv.CV_32SC2, [
+          Math.round(quad[0].x * tempScale), Math.round(quad[0].y * tempScale),
+          Math.round(quad[1].x * tempScale), Math.round(quad[1].y * tempScale),
+          Math.round(quad[2].x * tempScale), Math.round(quad[2].y * tempScale),
+          Math.round(quad[3].x * tempScale), Math.round(quad[3].y * tempScale)
+        ]);
+        ptsVector.push_back(matPts);
+        cv.fillPoly(mask, ptsVector, new cv.Scalar(255));
+
+        let erodeK = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+        cv.erode(mask, mask, erodeK);
+        erodeK.delete();
+
+        let edges = new cv.Mat();
+        cv.Canny(gray, edges, 40, 120);
+
+        let maskedEdges = new cv.Mat();
+        cv.bitwise_and(edges, mask, maskedEdges);
+
+        let maskPixels = cv.countNonZero(mask);
+        let textEdgePixels = cv.countNonZero(maskedEdges);
+
+        mask.delete(); ptsVector.delete(); matPts.delete(); edges.delete(); maskedEdges.delete();
+
+        return maskPixels > 0 ? (textEdgePixels / maskPixels) : 0;
+      } catch (e) {
+        return 0;
+      }
     };
 
     // Candidate Evaluation Helper
     const evaluateContour = (cnt: any, weightFactor: number = 1.0) => {
       let area = cv.contourArea(cnt);
-      if (area < imgArea * 0.10 || area > imgArea * 0.95) return;
+      if (area < imgArea * 0.05 || area > imgArea * 0.95) return;
 
       let quad = extractBest4Corners(cnt);
       if (!quad || quad.length !== 4) return;
@@ -172,7 +228,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       const avgW = (widthA + widthB) / 2;
       const avgH = (heightA + heightB) / 2;
 
-      if (avgW < 40 || avgH < 40) return;
+      if (avgW < 30 || avgH < 30) return;
       const aspect = avgW / avgH;
       if (aspect < 0.2 || aspect > 5.0) return;
 
@@ -182,9 +238,29 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       hull.delete();
 
       let solidity = hullArea > 0 ? (area / hullArea) : 0.8;
-      let score = area * solidity * weightFactor;
 
-      candidateQuads.push({ pts: quad, area, score });
+      // 1. Center Prior Weighting
+      const quadCx = quad.reduce((sum, p) => sum + p.x, 0) / 4;
+      const quadCy = quad.reduce((sum, p) => sum + p.y, 0) / 4;
+      const imgCx = canvas.width / 2;
+      const imgCy = canvas.height / 2;
+      const normDist = Math.hypot(quadCx - imgCx, quadCy - imgCy) / Math.hypot(imgCx, imgCy);
+      const centerWeight = Math.exp(-1.2 * normDist * normDist);
+
+      // 2. Content Density Score ("Finding the Elephant in the Room")
+      const contentDensity = getContentDensity(quad);
+
+      // Severe penalty if candidate is a huge blank surface (chair cushion / full frame) with zero text/content!
+      let densityMultiplier = 1.0;
+      if (area > imgArea * 0.25 && contentDensity < 0.008) {
+        densityMultiplier = 0.02; // Massive penalty for blank chair cushions/backgrounds!
+      } else if (contentDensity >= 0.015) {
+        densityMultiplier = 1.0 + Math.min(contentDensity * 40, 4.0); // Boost for printed documents with text!
+      }
+
+      let score = area * solidity * weightFactor * centerWeight * densityMultiplier;
+
+      candidateQuads.push({ pts: quad, area, score, contentDensity });
     };
 
     // --- PASS 1: Multi-Threshold Canny Passes ---
@@ -238,7 +314,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     otsuContours.delete(); otsuHierarchy.delete(); otsuClosed.delete(); M2.delete(); otsuMat.delete(); blurredGray.delete();
     gray.delete(); src.delete();
 
-    // Return the 4-corner quad with the highest score
+    // Return the candidate quad with highest score
     if (candidateQuads.length > 0) {
       candidateQuads.sort((a, b) => b.score - a.score);
       return candidateQuads[0].pts;
