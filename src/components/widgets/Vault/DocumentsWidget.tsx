@@ -114,6 +114,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     
     const handleTouchDragStart = (e: React.TouchEvent | React.MouseEvent, docId: string) => {
       setDraggedDocId(docId);
+      document.body.style.overflow = 'hidden';
     };
 
     const handleTouchDragMove = (e: React.TouchEvent) => {
@@ -141,6 +142,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
       setDraggedDocId(null);
+      document.body.style.overflow = '';
       setDragOverDocId(null);
     };
 
@@ -222,7 +224,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     });
 
     return (
-      <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
+      <>
+        <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button onClick={() => setActiveShelfId(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>
             ←
@@ -288,6 +291,89 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           )}
         </div>
       </div>
+      {pendingImport && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
+            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>{pendingImport?.docId ? 'לאיזה מדף להעביר את המסמך?' : 'לאיזה מדף לשמור את הקובץ?'}</h3>
+            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>{pendingImport?.docId ? 'בחר את המדף שאליו תרצה להעביר את המסמך' : 'בחר את המדף שאליו יתווסף המסמך החדש'}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+              {shelves.map(shelf => {
+                 return (
+                  <button key={shelf.id} onClick={() => {
+                      if (pendingImport.docId) {
+                        updateDocument(space.id, pendingImport.docId, { shelfId: shelf.id });
+                      } else {
+                        handleSaveDocument(shelf.id, pendingImport.url!, pendingImport.type || 'document', pendingImport.allPages);
+                      }
+                      setPendingImport(null);
+                    }} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s', textAlign: 'right', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: shelf.highlightColor || '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0, boxShadow: shelf.highlightColor ? `0 0 10px ${shelf.highlightColor}80` : 'none', fontSize: '1.2rem' }}>
+                      {shelf.icon || '📁'}
+                    </div>
+                    {shelf.name}
+                  </button>
+                 );
+              })}
+            </div>
+            <button onClick={() => setPendingImport(null)} style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>ביטול פעולה</button>
+          </div>
+        </div>
+      )}
+
+      
+      {previewState && (
+        <div 
+          onClick={(e) => {
+            // Close if background is clicked
+            if (e.target === e.currentTarget) setPreviewState(null);
+          }} 
+          onTouchStart={(e) => {
+            // Simple swipe detection
+            const touch = e.touches[0];
+            let startX = touch.clientX;
+            
+            const handleTouchMove = (moveEvent: any) => {
+              const currentX = moveEvent.touches[0].clientX;
+              const diff = startX - currentX;
+              if (Math.abs(diff) > 50) {
+                if (diff > 0 && previewState.index < previewState.docs.length - 1) { // swipe left -> next
+                  setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 }));
+                  startX = currentX; // prevent multiple triggers
+                } else if (diff < 0 && previewState.index > 0) { // swipe right -> prev
+                  setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 }));
+                  startX = currentX;
+                }
+              }
+            };
+            
+            const handleTouchEnd = () => {
+              document.removeEventListener('touchmove', handleTouchMove);
+              document.removeEventListener('touchend', handleTouchEnd);
+            };
+            
+            document.addEventListener('touchmove', handleTouchMove, { passive: true });
+            document.addEventListener('touchend', handleTouchEnd);
+          }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {previewState.index > 0 && (
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>‹</button>
+          )}
+          
+          <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+          
+          {previewState.index < previewState.docs.length - 1 && (
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>›</button>
+          )}
+          
+          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001 }}>✕</button>
+          
+          <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 20001 }}>
+             {previewState.index + 1} / {previewState.docs.length}
+          </div>
+        </div>
+      )}
+      </>
     );
   }
 
