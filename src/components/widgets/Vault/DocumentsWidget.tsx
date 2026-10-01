@@ -29,7 +29,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
-    const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
+    const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
+    const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
     const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [showViewMenu, setShowViewMenu] = useState(false);
@@ -110,6 +111,39 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     };
 
     
+    
+    const handleTouchDragStart = (e: React.TouchEvent | React.MouseEvent, docId: string) => {
+      setDraggedDocId(docId);
+    };
+
+    const handleTouchDragMove = (e: React.TouchEvent) => {
+      if (!draggedDocId) return;
+      // Note: we can't always e.preventDefault() here without passing { passive: false } to the event listener, 
+      // but React passive events allow it if not on document level in some cases.
+      const touch = e.touches[0];
+      const elem = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetCard = elem?.closest('[data-doc-id]');
+      if (targetCard) {
+        const targetId = targetCard.getAttribute('data-doc-id');
+        if (targetId && targetId !== dragOverDocId) {
+          setDragOverDocId(targetId);
+        }
+      }
+    };
+
+    const handleTouchDragEnd = () => {
+      if (draggedDocId && dragOverDocId && draggedDocId !== dragOverDocId) {
+        const docA = documents.find(d => d.id === draggedDocId);
+        const docB = documents.find(d => d.id === dragOverDocId);
+        if (docA && docB) {
+          updateDocument(space.id, docA.id, { createdAt: docB.createdAt });
+          updateDocument(space.id, docB.id, { createdAt: docA.createdAt });
+        }
+      }
+      setDraggedDocId(null);
+      setDragOverDocId(null);
+    };
+
     const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => {
       // Optimistic UI update
       const tempId = 'temp-' + Date.now();
@@ -137,16 +171,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
 
     
-    const handleMoveDocAdjacent = (docIndex: number, direction: -1 | 1, shelfDocs: any[]) => {
-      const targetIndex = docIndex + direction;
-      if (targetIndex >= 0 && targetIndex < shelfDocs.length) {
-        const docA = shelfDocs[docIndex];
-        const docB = shelfDocs[targetIndex];
-        updateDocument(space.id, docA.id, { createdAt: docB.createdAt });
-        updateDocument(space.id, docB.id, { createdAt: docA.createdAt });
-      }
-    };
-
+    
 
   const handleMoveDocument = (docId: string, currentShelfId: string) => {
       setPendingImport({ docId });
@@ -236,15 +261,21 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
                   {partitions[partName].map(doc => (
-                    <div key={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', position: 'relative', opacity: doc.id.startsWith('temp-') ? 0.6 : 1 }}>
+                    <div key={doc.id} data-doc-id={doc.id} 
+                      onTouchMove={handleTouchDragMove} 
+                      onTouchEnd={handleTouchDragEnd} 
+                      onMouseUp={handleTouchDragEnd}
+                      draggable 
+                      onDragStart={(e) => handleTouchDragStart(e, doc.id)}
+                      onDragOver={(e) => { e.preventDefault(); setDragOverDocId(doc.id); }}
+                      onDrop={(e) => { e.preventDefault(); handleTouchDragEnd(); }}
+                      style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0', position: 'relative', opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1), transition: 'all 0.2s', transform: dragOverDocId === doc.id ? 'scale(1.02)' : 'scale(1)' }}>
                       {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
                       <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
-                      <div onClick={() => setPreviewDocUrl(doc.url)} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0.5rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
-                        <button onClick={(e) => { e.stopPropagation(); handleMoveDocAdjacent(shelfDocs.findIndex(d => d.id === doc.id), -1, shelfDocs); }} style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', color: '#64748b' }}>◀</button>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center' }}>סדר</span>
-                        <button onClick={(e) => { e.stopPropagation(); handleMoveDocAdjacent(shelfDocs.findIndex(d => d.id === doc.id), 1, shelfDocs); }} style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0.2rem 0.5rem', cursor: 'pointer', color: '#64748b' }}>▶</button>
-                      </div>
+                      <div onClick={() => setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) })} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
+                      <div onTouchStart={(e) => handleTouchDragStart(e, doc.id)} onMouseDown={(e) => handleTouchDragStart(e, doc.id)} style={{ display: 'flex', justifyContent: 'center', padding: '0.4rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', cursor: 'grab' }}>
+                          <span style={{ fontSize: '0.8rem', color: '#94a3b8', letterSpacing: '2px' }}>|||</span>
+                        </div>
                       <div style={{ padding: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         {doc.title}
                       </div>
@@ -453,15 +484,59 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         </div>
       )}
 
-      {previewDocUrl && (
-        <div onClick={() => setPreviewDocUrl(null)} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <img src={previewDocUrl} style={{ maxWidth: '95%', maxHeight: '95%', borderRadius: '8px', objectFit: 'contain' }} alt="Preview" />
-          <button onClick={() => setPreviewDocUrl(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+      
+      {previewState && (
+        <div 
+          onClick={(e) => {
+            // Close if background is clicked
+            if (e.target === e.currentTarget) setPreviewState(null);
+          }} 
+          onTouchStart={(e) => {
+            // Simple swipe detection
+            const touch = e.touches[0];
+            let startX = touch.clientX;
+            
+            const handleTouchMove = (moveEvent: any) => {
+              const currentX = moveEvent.touches[0].clientX;
+              const diff = startX - currentX;
+              if (Math.abs(diff) > 50) {
+                if (diff > 0 && previewState.index < previewState.docs.length - 1) { // swipe left -> next
+                  setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 }));
+                  startX = currentX; // prevent multiple triggers
+                } else if (diff < 0 && previewState.index > 0) { // swipe right -> prev
+                  setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 }));
+                  startX = currentX;
+                }
+              }
+            };
+            
+            const handleTouchEnd = () => {
+              document.removeEventListener('touchmove', handleTouchMove);
+              document.removeEventListener('touchend', handleTouchEnd);
+            };
+            
+            document.addEventListener('touchmove', handleTouchMove, { passive: true });
+            document.addEventListener('touchend', handleTouchEnd);
+          }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {previewState.index > 0 && (
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>‹</button>
+          )}
+          
+          <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+          
+          {previewState.index < previewState.docs.length - 1 && (
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>›</button>
+          )}
+          
+          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001 }}>✕</button>
+          
+          <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 20001 }}>
+             {previewState.index + 1} / {previewState.docs.length}
+          </div>
         </div>
       )}
-
-    </div>
-  );
-});
+;
 
 DocumentsWidget.displayName = 'DocumentsWidget';
