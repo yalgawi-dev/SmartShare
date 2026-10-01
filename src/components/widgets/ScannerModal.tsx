@@ -28,6 +28,20 @@ interface ScannerModalProps {
 }
 
 export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance }: ScannerModalProps) {
+  
+  useEffect(() => {
+    // Intercept Android hardware back button
+    window.history.pushState({ modal: 'scanner' }, '', window.location.href);
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [onClose]);
+
   const videoRef = useRef<HTMLVideoElement>(null as unknown as HTMLVideoElement);
   const guideRef = useRef<HTMLDivElement>(null);
   

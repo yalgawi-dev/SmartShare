@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const HIGHLIGHT_COLORS = [
   '#3b82f6', // blue
@@ -14,52 +14,52 @@ const PREDEFINED_CATEGORIES = [
   {
     id: 'health', label: 'בריאות', icon: '🏥',
     images: [
-      { id: 'h1', url: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=400&q=80', label: 'כללי' },
-      { id: 'h2', url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=400&q=80', label: 'רופא / מרפאה' },
-      { id: 'h3', url: 'https://images.unsplash.com/photo-1584362917165-526a968579e8?auto=format&fit=crop&w=400&q=80', label: 'תרופות / מרשמים' },
-      { id: 'h4', url: 'https://images.unsplash.com/photo-1530497610245-94d3c16cda28?auto=format&fit=crop&w=400&q=80', label: 'שיניים' },
+      { id: 'h1', url: 'https://images.unsplash.com/photo-1505751172876-fa1923c5c528?auto=format&fit=crop&w=400&q=80', label: 'כללי', icon: '🏥' },
+      { id: 'h2', url: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&w=400&q=80', label: 'רופא / מרפאה', icon: '👨‍⚕️' },
+      { id: 'h3', url: 'https://images.unsplash.com/photo-1584362917165-526a968579e8?auto=format&fit=crop&w=400&q=80', label: 'תרופות / מרשמים', icon: '💊' },
+      { id: 'h4', url: 'https://images.unsplash.com/photo-1530497610245-94d3c16cda28?auto=format&fit=crop&w=400&q=80', label: 'שיניים', icon: '🦷' },
     ]
   },
   {
     id: 'car', label: 'רכבים', icon: '🚗',
     images: [
-      { id: 'c1', url: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=400&q=80', label: 'רכב כללי' },
-      { id: 'c2', url: 'https://images.unsplash.com/photo-1600705353592-8ec2323ccb11?auto=format&fit=crop&w=400&q=80', label: 'ביטוחים' },
-      { id: 'c3', url: 'https://images.unsplash.com/photo-1503376712351-564a4b49ec96?auto=format&fit=crop&w=400&q=80', label: 'מוסך וטיפולים' },
-      { id: 'c4', url: 'https://images.unsplash.com/photo-1563259960-4497e2056bf4?auto=format&fit=crop&w=400&q=80', label: 'תאונה / אירוע' },
+      { id: 'c1', url: 'https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=400&q=80', label: 'רכב כללי', icon: '🚗' },
+      { id: 'c2', url: 'https://images.unsplash.com/photo-1600705353592-8ec2323ccb11?auto=format&fit=crop&w=400&q=80', label: 'ביטוחים', icon: '🛡️' },
+      { id: 'c3', url: 'https://images.unsplash.com/photo-1503376712351-564a4b49ec96?auto=format&fit=crop&w=400&q=80', label: 'מוסך וטיפולים', icon: '🔧' },
+      { id: 'c4', url: 'https://images.unsplash.com/photo-1563259960-4497e2056bf4?auto=format&fit=crop&w=400&q=80', label: 'תאונה / אירוע', icon: '💥' },
     ]
   },
   {
     id: 'home', label: 'בית ודיור', icon: '🏠',
     images: [
-      { id: 'ho1', url: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=400&q=80', label: 'בית כללי' },
-      { id: 'ho2', url: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80', label: 'משכנתא / שכירות' },
-      { id: 'ho3', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=400&q=80', label: 'תיקונים' },
+      { id: 'ho1', url: 'https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=400&q=80', label: 'בית כללי', icon: '🏠' },
+      { id: 'ho2', url: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=400&q=80', label: 'משכנתא / שכירות', icon: '📄' },
+      { id: 'ho3', url: 'https://images.unsplash.com/photo-1581094794329-c8112a89af12?auto=format&fit=crop&w=400&q=80', label: 'תיקונים', icon: '🛠️' },
     ]
   },
   {
     id: 'finance', label: 'פיננסים', icon: '💰',
     images: [
-      { id: 'f1', url: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=400&q=80', label: 'כסף כללי' },
-      { id: 'f2', url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=400&q=80', label: 'מסמכי בנק' },
-      { id: 'f3', url: 'https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=400&q=80', label: 'חשבונות / מיסים' },
+      { id: 'f1', url: 'https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?auto=format&fit=crop&w=400&q=80', label: 'כסף כללי', icon: '💵' },
+      { id: 'f2', url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=400&q=80', label: 'מסמכי בנק', icon: '🏦' },
+      { id: 'f3', url: 'https://images.unsplash.com/photo-1620714223084-8fcacc6dfd8d?auto=format&fit=crop&w=400&q=80', label: 'חשבונות / מיסים', icon: '🧾' },
     ]
   },
   {
     id: 'kids', label: 'ילדים וחינוך', icon: '🎒',
     images: [
-      { id: 'k1', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=400&q=80', label: 'ילדים כללי' },
-      { id: 'k2', url: 'https://images.unsplash.com/photo-1473649085228-583485e6e4d7?auto=format&fit=crop&w=400&q=80', label: 'בית ספר' },
-      { id: 'k3', url: 'https://images.unsplash.com/photo-1519340333755-56e9c1d04579?auto=format&fit=crop&w=400&q=80', label: 'חוגים' },
+      { id: 'k1', url: 'https://images.unsplash.com/photo-1503676260728-1c00da094a0b?auto=format&fit=crop&w=400&q=80', label: 'ילדים כללי', icon: '🎒' },
+      { id: 'k2', url: 'https://images.unsplash.com/photo-1473649085228-583485e6e4d7?auto=format&fit=crop&w=400&q=80', label: 'בית ספר', icon: '🏫' },
+      { id: 'k3', url: 'https://images.unsplash.com/photo-1519340333755-56e9c1d04579?auto=format&fit=crop&w=400&q=80', label: 'חוגים', icon: '🎨' },
     ]
   },
   {
     id: 'general', label: 'כללי', icon: '📁',
     images: [
-      { id: 'g1', url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=400&q=80', label: 'שונות' },
-      { id: 'g2', url: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=400&q=80', label: 'חיות מחמד' },
-      { id: 'g3', url: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=400&q=80', label: 'נסיעות' },
-      { id: 'g4', url: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80', label: 'משפטי וחוזים' },
+      { id: 'g1', url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=400&q=80', label: 'שונות', icon: '📁' },
+      { id: 'g2', url: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?auto=format&fit=crop&w=400&q=80', label: 'חיות מחמד', icon: '🐾' },
+      { id: 'g3', url: 'https://images.unsplash.com/photo-1436491865332-7a61a109cc05?auto=format&fit=crop&w=400&q=80', label: 'נסיעות', icon: '✈️' },
+      { id: 'g4', url: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=400&q=80', label: 'משפטי וחוזים', icon: '⚖️' },
     ]
   }
 ];
@@ -70,8 +70,31 @@ interface ShelfCoverPickerProps {
 }
 
 export function ShelfCoverPicker({ onSelect, onClose }: ShelfCoverPickerProps) {
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [customColor, setCustomColor] = useState<string>('#3b82f6');
+
+  useEffect(() => {
+    window.history.pushState({ modal: 'coverPicker' }, '', window.location.href);
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      if (selectedCategoryId) {
+        setSelectedCategoryId(null);
+        window.history.pushState({ modal: 'coverPicker' }, '', window.location.href);
+      } else {
+        onClose();
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [onClose, selectedCategoryId]);
+
+  const handleCloseOrBack = () => {
+    if (selectedCategoryId) {
+      setSelectedCategoryId(null);
+    } else {
+      onClose();
+    }
+  };
 
   const selectedCategory = PREDEFINED_CATEGORIES.find(c => c.id === selectedCategoryId);
 
@@ -87,7 +110,7 @@ export function ShelfCoverPicker({ onSelect, onClose }: ShelfCoverPickerProps) {
               {selectedCategory ? selectedCategory.label : 'עיצוב מדף'}
             </h3>
           </div>
-          <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+          <button onClick={handleCloseOrBack} style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
         </div>
         
         {!selectedCategoryId ? (
