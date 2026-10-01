@@ -212,7 +212,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
-  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox'];
+  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault'];
   const genericFeatures = spaceFeatures
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))
@@ -236,7 +236,21 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const reader = new FileReader();
       reader.onload = (ev) => {
          const url = ev.target?.result as string;
-         financeRef.current?.processScan(url);
+         if (hasFinance && hasVault) {
+            const isDoc = window.confirm('האם לייבא כמסמך למחסן המסמכים?\n(אישור = מסמך, ביטול = חשבונית)');
+            if (isDoc) {
+                documentsRef.current?.addDocument(url, 'document');
+                setFinanceTab('documents' as any);
+            } else {
+                financeRef.current?.processScan(url);
+                setFinanceTab('summary' as any);
+            }
+         } else if (hasVault) {
+            documentsRef.current?.addDocument(url, 'document');
+            setFinanceTab('documents' as any);
+         } else {
+            financeRef.current?.processScan(url);
+         }
       };
       reader.readAsDataURL(file);
     }

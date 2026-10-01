@@ -32,18 +32,31 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   useImperativeHandle(ref, () => ({
     addDocument: (url, type, allPages) => {
-      let targetShelf = shelves[0];
-      if (!targetShelf) {
+      let targetShelfId = activeShelfId;
+      
+      // If we are not inside a shelf, prompt the user
+      if (!targetShelfId) {
+        if (shelves.length === 1) {
+           targetShelfId = shelves[0].id;
+        } else if (shelves.length > 1) {
+           const options = shelves.map((s, i) => `${i+1}. ${s.name}`).join('\n');
+           const choice = window.prompt('לאיזה מדף תרצה לשמור את המסמך?\n' + options + '\n(הכנס מספר, או השאר ריק למדף הראשון)');
+           const choiceIndex = parseInt(choice || '1', 10) - 1;
+           targetShelfId = shelves[choiceIndex] ? shelves[choiceIndex].id : shelves[0].id;
+        }
+      }
+
+      if (!targetShelfId) {
         const newShelfId = 'shelf_' + Date.now();
         addShelf(space.id, {
           name: 'כללי',
           allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
         });
-        targetShelf = { id: newShelfId } as any; 
+        targetShelfId = newShelfId; 
       }
       
       addDocument(space.id, {
-        shelfId: targetShelf.id,
+        shelfId: targetShelfId,
         url,
         title: type === 'image' ? 'תמונה חדשה' : 'מסמך חדש',
         type,
@@ -211,7 +224,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             onClick={() => setShowViewMenu(!showViewMenu)} 
             style={{ height: '100%', padding: '0 1rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '16px', color: '#475569', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
           >
-            <span>👁️ תצוגה</span>
+            <span>{viewMode === 'feed' ? '📑' : viewMode === 'grid' ? '▦' : '⭕'} תצוגה</span>
           </button>
           {showViewMenu && (
             <div style={{ position: 'absolute', top: '110%', left: 0, background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', padding: '0.5rem', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
@@ -327,7 +340,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', ...highlightStyle, position: 'relative' }}>
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
                   {isPrivate && <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#ef4444', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', border: '2px solid white' }}>🔒</div>}
-                  <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: 'white', fontSize: '0.65rem', padding: '1px 6px', borderRadius: '10px', fontWeight: 'bold', border: '2px solid white' }}>{shelfDocs.length}</div>
+                  <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.9)', color: '#334155', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{shelfDocs.length}</div>
                 </div>
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#334155', fontSize: '0.85rem', textAlign: 'center', lineHeight: '1.2', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shelf.name}</div>
               </div>
