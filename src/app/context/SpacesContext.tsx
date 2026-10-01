@@ -735,6 +735,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
       
       const updatePresence = () => {
         if (!db || !user?.id) return;
+        if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
         const userRef = doc(db, 'users', user.id);
         updateDoc(userRef, { lastActiveAt: new Date().toISOString() }).catch(() => {});
       };

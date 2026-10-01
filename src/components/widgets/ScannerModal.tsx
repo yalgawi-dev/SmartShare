@@ -451,6 +451,9 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               }}>
                <div style={{ background: 'rgba(0,0,0,0.6)', padding: '0.5rem 1rem', borderRadius: '20px', color: 'white', position: 'absolute', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', zIndex: 10 }}>
                  הכנס את המסמך למסגרת
+                 <div style={{ fontSize: '0.8rem', color: '#FFD700', marginTop: '0.25rem' }}>
+                   💡 מומלץ לצלם על רקע כהה
+                 </div>
                </div>
                
                {/* Green Scanning Line */}
