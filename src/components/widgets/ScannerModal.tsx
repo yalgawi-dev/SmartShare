@@ -589,7 +589,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'review' && (
           <>
-            {/* Type / Filter Unified Selector */}
+            <h3 style={{ color: 'white', textAlign: 'center', margin: '0.5rem 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>מה סרקת?</h3>
+              {/* Type / Filter Unified Selector */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {hasFinance && (

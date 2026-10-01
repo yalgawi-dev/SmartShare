@@ -236,20 +236,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const reader = new FileReader();
       reader.onload = (ev) => {
          const url = ev.target?.result as string;
-         if (hasFinance && hasVault) {
-            const isDoc = window.confirm('האם לייבא כמסמך למחסן המסמכים?\n(אישור = מסמך, ביטול = חשבונית)');
-            if (isDoc) {
-                documentsRef.current?.addDocument(url, 'document');
-                setFinanceTab('documents' as any);
-            } else {
-                financeRef.current?.processScan(url);
-                setFinanceTab('summary' as any);
-            }
+         if (hasVault && financeTab === 'documents') {
+            documentsRef.current?.addDocument(url, 'document');
+            showToast('שומר כמסמך במחסן המסמכים');
+         } else if (hasFinance) {
+            financeRef.current?.processScan(url);
+            showToast('שומר חשבונית...');
          } else if (hasVault) {
             documentsRef.current?.addDocument(url, 'document');
             setFinanceTab('documents' as any);
-         } else {
-            financeRef.current?.processScan(url);
+            showToast('שומר כמסמך במחסן המסמכים');
          }
       };
       reader.readAsDataURL(file);

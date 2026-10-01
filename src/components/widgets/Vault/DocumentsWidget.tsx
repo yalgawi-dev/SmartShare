@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, forwardRef, useImperativeHandle, useMemo } from 'react';
+import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
 import { Space, useSpaces } from '../../../app/context/SpacesContext';
 import { ShelfCoverPicker } from './ShelfCoverPicker';
@@ -129,18 +130,17 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   };
 
   const sortedShelves = useMemo(() => {
-    return [...shelves].sort((a, b) => {
-      const docsA = documents.filter(d => d.shelfId === a.id);
-      const docsB = documents.filter(d => d.shelfId === b.id);
-      
-      const timeA = docsA.length > 0 ? Math.max(...docsA.map(d => new Date(d.createdAt).getTime())) : new Date(a.createdAt || 0).getTime();
-      const timeB = docsB.length > 0 ? Math.max(...docsB.map(d => new Date(d.createdAt).getTime())) : new Date(b.createdAt || 0).getTime();
-      
-      return timeB - timeA;
-    });
+    return universalSort(
+      shelves, 
+      (s) => {
+        const docs = documents.filter(d => d.shelfId === s.id);
+        return docs.length > 0 ? Math.max(...docs.map(d => new Date(d.createdAt).getTime())) : new Date(s.createdAt || 0).getTime();
+      },
+      (s) => s.name
+    );
   }, [shelves, documents]);
 
-  const filteredShelves = sortedShelves.filter(s => s.name.includes(searchQuery) || documents.some(d => d.shelfId === s.id && d.title.includes(searchQuery)));
+  const filteredShelves = universalSearch(sortedShelves, searchQuery, ['name']);
 
   if (shelves.length === 0) {
     return (
@@ -300,7 +300,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const isPrivate = shelf.allowedPartners && shelf.allowedPartners.length > 0;
             const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
-            const highlightStyle = shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : {};
+            const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
+            const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : {});
 
             return (
               <div key={shelf.id} style={{ background: '#ffffff', borderRadius: '16px', padding: '1rem', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9', position: 'relative', ...highlightStyle }}>
@@ -345,7 +346,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
-            const highlightStyle = shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : { border: '1px solid #f1f5f9' };
+            const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
+            const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : { border: '1px solid #f1f5f9' });
 
             return (
               <div key={shelf.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', cursor: 'pointer', display: 'flex', flexDirection: 'column', position: 'relative', ...highlightStyle }}>
@@ -372,7 +374,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const isPrivate = shelf.allowedPartners && shelf.allowedPartners.length > 0;
             const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
-            const highlightStyle = shelf.highlightColor ? { border: '3px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '60' } : { border: '3px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' };
+            const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
+            const highlightStyle = hasRecentDoc ? { border: '3px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '3px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '60' } : { border: '3px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' });
 
             return (
               <div key={shelf.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', width: '90px', position: 'relative' }}>
