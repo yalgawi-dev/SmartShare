@@ -11,8 +11,8 @@ export interface Point {
 
 /**
  * Attempts to auto-detect a document contour in the given canvas.
- * v17.4 Engine: Multi-Pass Canny + Otsu + Internal Content Density ("Elephant in the Room") 
- * + Center Prior + Parallelogram Corner Completion.
+ * v17.5 Engine: Multi-Pass Canny + Otsu + Inner Quad Priority (Prefer receipt over chair cushion)
+ * + Universal 4-Corner Parallelogram Snapping + Non-Linear Scoring.
  * Returns an array of 4 ordered points (TL, TR, BR, BL) if found, otherwise returns null.
  */
 export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
@@ -33,7 +33,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
 
     const imgArea = tempCanvas.width * tempCanvas.height;
-    let candidateQuads: { pts: Point[]; area: number; score: number; contentDensity: number }[] = [];
+    let rawCandidates: { pts: Point[]; area: number; solidity: number; weightFactor: number }[] = [];
 
     // Helper: Sort 4 points strictly in clockwise order (TL, TR, BR, BL)
     const orderPoints = (pts: Point[]): Point[] => {
@@ -64,28 +64,46 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       return reordered;
     };
 
-    // Parallelogram Snapping Helper: Refines 4th corner if pulled by shadow
-    const snap4thCornerIfShadowed = (pts: Point[]): Point[] => {
+    // Universal 4-Corner Parallelogram Snapping: Fixes ANY single drifting corner (TL/TR/BR/BL)
+    const snapAnyOutlierCorner = (pts: Point[]): Point[] => {
       if (pts.length !== 4) return pts;
-      const expBL = {
-        x: pts[0].x + (pts[2].x - pts[1].x),
-        y: pts[0].y + (pts[2].y - pts[1].y)
-      };
+      const expPoints = [
+        { x: pts[1].x + (pts[3].x - pts[2].x), y: pts[1].y + (pts[3].y - pts[2].y) }, // TL exp
+        { x: pts[0].x + (pts[2].x - pts[3].x), y: pts[0].y + (pts[2].y - pts[3].y) }, // TR exp
+        { x: pts[1].x + (pts[3].x - pts[0].x), y: pts[1].y + (pts[3].y - pts[0].y) }, // BR exp
+        { x: pts[0].x + (pts[2].x - pts[1].x), y: pts[0].y + (pts[2].y - pts[1].y) }  // BL exp
+      ];
 
-      const distBL = Math.hypot(pts[3].x - expBL.x, pts[3].y - expBL.y);
-      const sideLen = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
+      const avgSide = (
+        Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) +
+        Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y) +
+        Math.hypot(pts[3].x - pts[2].x, pts[3].y - pts[2].y) +
+        Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y)
+      ) / 4;
 
-      if (sideLen > 0 && (distBL / sideLen) > 0.20) {
-        return [
-          pts[0],
-          pts[1],
-          pts[2],
-          {
-            x: pts[3].x * 0.35 + expBL.x * 0.65,
-            y: pts[3].y * 0.35 + expBL.y * 0.65
-          }
-        ];
+      if (avgSide <= 0) return pts;
+
+      let maxDevRatio = 0;
+      let outlierIdx = -1;
+
+      for (let i = 0; i < 4; i++) {
+        const dist = Math.hypot(pts[i].x - expPoints[i].x, pts[i].y - expPoints[i].y);
+        const ratio = dist / avgSide;
+        if (ratio > maxDevRatio) {
+          maxDevRatio = ratio;
+          outlierIdx = i;
+        }
       }
+
+      if (outlierIdx >= 0 && maxDevRatio > 0.12) {
+        const newPts = [...pts];
+        newPts[outlierIdx] = {
+          x: pts[outlierIdx].x * 0.25 + expPoints[outlierIdx].x * 0.75,
+          y: pts[outlierIdx].y * 0.25 + expPoints[outlierIdx].y * 0.75
+        };
+        return newPts;
+      }
+
       return pts;
     };
 
@@ -105,7 +123,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
             });
           }
           approx.delete();
-          return snap4thCornerIfShadowed(orderPoints(pts));
+          return snapAnyOutlierCorner(orderPoints(pts));
         }
       }
       approx.delete();
@@ -160,7 +178,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
             }
           }
         }
-        if (best4) return snap4thCornerIfShadowed(orderPoints(best4));
+        if (best4) return snapAnyOutlierCorner(orderPoints(best4));
       } else {
         hull.delete();
       }
@@ -174,10 +192,10 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
           y: vertices[i].y / tempScale
         });
       }
-      return snap4thCornerIfShadowed(orderPoints(pts));
+      return snapAnyOutlierCorner(orderPoints(pts));
     };
 
-    // Helper: Compute Internal Edge / Text Density ("Elephant in the Room")
+    // Helper: Compute Internal Text / Edge Density
     const getContentDensity = (quad: Point[]): number => {
       try {
         let mask = new cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
@@ -191,7 +209,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         ptsVector.push_back(matPts);
         cv.fillPoly(mask, ptsVector, new cv.Scalar(255));
 
-        let erodeK = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+        let erodeK = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
         cv.erode(mask, mask, erodeK);
         erodeK.delete();
 
@@ -212,10 +230,10 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       }
     };
 
-    // Candidate Evaluation Helper
-    const evaluateContour = (cnt: any, weightFactor: number = 1.0) => {
+    // Candidate Collector
+    const collectContourCandidate = (cnt: any, weightFactor: number = 1.0) => {
       let area = cv.contourArea(cnt);
-      if (area < imgArea * 0.05 || area > imgArea * 0.95) return;
+      if (area < imgArea * 0.04 || area > imgArea * 0.96) return;
 
       let quad = extractBest4Corners(cnt);
       if (!quad || quad.length !== 4) return;
@@ -228,7 +246,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       const avgW = (widthA + widthB) / 2;
       const avgH = (heightA + heightB) / 2;
 
-      if (avgW < 30 || avgH < 30) return;
+      if (avgW < 25 || avgH < 25) return;
       const aspect = avgW / avgH;
       if (aspect < 0.2 || aspect > 5.0) return;
 
@@ -238,29 +256,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       hull.delete();
 
       let solidity = hullArea > 0 ? (area / hullArea) : 0.8;
-
-      // 1. Center Prior Weighting
-      const quadCx = quad.reduce((sum, p) => sum + p.x, 0) / 4;
-      const quadCy = quad.reduce((sum, p) => sum + p.y, 0) / 4;
-      const imgCx = canvas.width / 2;
-      const imgCy = canvas.height / 2;
-      const normDist = Math.hypot(quadCx - imgCx, quadCy - imgCy) / Math.hypot(imgCx, imgCy);
-      const centerWeight = Math.exp(-1.2 * normDist * normDist);
-
-      // 2. Content Density Score ("Finding the Elephant in the Room")
-      const contentDensity = getContentDensity(quad);
-
-      // Severe penalty if candidate is a huge blank surface (chair cushion / full frame) with zero text/content!
-      let densityMultiplier = 1.0;
-      if (area > imgArea * 0.25 && contentDensity < 0.008) {
-        densityMultiplier = 0.02; // Massive penalty for blank chair cushions/backgrounds!
-      } else if (contentDensity >= 0.015) {
-        densityMultiplier = 1.0 + Math.min(contentDensity * 40, 4.0); // Boost for printed documents with text!
-      }
-
-      let score = area * solidity * weightFactor * centerWeight * densityMultiplier;
-
-      candidateQuads.push({ pts: quad, area, score, contentDensity });
+      rawCandidates.push({ pts: quad, area, solidity, weightFactor });
     };
 
     // --- PASS 1: Multi-Threshold Canny Passes ---
@@ -286,13 +282,13 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
       for (let i = 0; i < contours.size(); i++) {
-        evaluateContour(contours.get(i), tPair.weight);
+        collectContourCandidate(contours.get(i), tPair.weight);
       }
 
       contours.delete(); hierarchy.delete(); closed.delete(); M.delete(); edged.delete(); blurred.delete();
     }
 
-    // --- PASS 2: Otsu Adaptive Thresholding Pass (For light paper / low contrast backgrounds) ---
+    // --- PASS 2: Otsu Adaptive Thresholding Pass ---
     let blurredGray = new cv.Mat();
     cv.GaussianBlur(gray, blurredGray, new cv.Size(5, 5), 0, 0);
 
@@ -308,16 +304,72 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     cv.findContours(otsuClosed, otsuContours, otsuHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
     for (let i = 0; i < otsuContours.size(); i++) {
-      evaluateContour(otsuContours.get(i), 1.25);
+      collectContourCandidate(otsuContours.get(i), 1.25);
     }
 
     otsuContours.delete(); otsuHierarchy.delete(); otsuClosed.delete(); M2.delete(); otsuMat.delete(); blurredGray.delete();
     gray.delete(); src.delete();
 
-    // Return the candidate quad with highest score
-    if (candidateQuads.length > 0) {
-      candidateQuads.sort((a, b) => b.score - a.score);
-      return candidateQuads[0].pts;
+    // Helper: Check if Quad A is contained inside Quad B
+    const isInsideOtherQuad = (target: Point[], container: Point[]): boolean => {
+      let tMinX = Math.min(...target.map(p => p.x));
+      let tMaxX = Math.max(...target.map(p => p.x));
+      let tMinY = Math.min(...target.map(p => p.y));
+      let tMaxY = Math.max(...target.map(p => p.y));
+
+      let cMinX = Math.min(...container.map(p => p.x));
+      let cMaxX = Math.max(...container.map(p => p.x));
+      let cMinY = Math.min(...container.map(p => p.y));
+      let cMaxY = Math.max(...container.map(p => p.y));
+
+      return (tMinX >= cMinX - 10 && tMaxX <= cMaxX + 10 && tMinY >= cMinY - 10 && tMaxY <= cMaxY + 10);
+    };
+
+    // --- STAGE 2: Advanced Non-Linear Scoring (v17.5) ---
+    let scoredCandidates: { pts: Point[]; score: number }[] = [];
+
+    for (let candidate of rawCandidates) {
+      const quad = candidate.pts;
+
+      // 1. Center Prior Weighting
+      const quadCx = quad.reduce((sum, p) => sum + p.x, 0) / 4;
+      const quadCy = quad.reduce((sum, p) => sum + p.y, 0) / 4;
+      const imgCx = canvas.width / 2;
+      const imgCy = canvas.height / 2;
+      const normDist = Math.hypot(quadCx - imgCx, quadCy - imgCy) / Math.hypot(imgCx, imgCy);
+      const centerWeight = Math.exp(-1.5 * normDist * normDist);
+
+      // 2. Inner Quad Priority (Receipt inside chair cushion / desk frame)
+      let innerBonus = 1.0;
+      for (let other of rawCandidates) {
+        if (other.area > candidate.area * 2.0 && isInsideOtherQuad(quad, other.pts)) {
+          innerBonus = 4.0; // Massive 4x bonus for inner document quad!
+          break;
+        }
+      }
+
+      // 3. Content Density ("Elephant in the Room")
+      const contentDensity = getContentDensity(quad);
+      let contentBonus = 1.0;
+      if (contentDensity >= 0.015) {
+        contentBonus = 1.0 + Math.min(contentDensity * 30, 4.0);
+      }
+
+      // 4. Penalize massive outer boundary frames (> 80% screen area)
+      let areaPenalty = 1.0;
+      if (candidate.area > imgArea * 0.75) {
+        areaPenalty = 0.05; // Severe penalty for full chair cushions / full screen frames!
+      }
+
+      // Non-linear scoring formula independent of linear area multiplication!
+      let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * innerBonus * contentBonus * areaPenalty;
+
+      scoredCandidates.push({ pts: quad, score });
+    }
+
+    if (scoredCandidates.length > 0) {
+      scoredCandidates.sort((a, b) => b.score - a.score);
+      return scoredCandidates[0].pts;
     }
 
     return null;
