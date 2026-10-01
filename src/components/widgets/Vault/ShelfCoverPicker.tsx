@@ -12,8 +12,17 @@ export const PREDEFINED_COVERS = [
   { id: 'general', label: 'כללי', url: 'https://images.unsplash.com/photo-1517842645767-c639042777db?auto=format&fit=crop&w=400&q=80', icon: '📁' },
 ];
 
+const HIGHLIGHT_COLORS = [
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#22c55e', // green
+  '#f59e0b', // orange
+  '#a855f7', // purple
+  '#ec4899', // pink
+];
+
 interface ShelfCoverPickerProps {
-  onSelect: (coverUrl: string, icon: string) => void;
+  onSelect: (coverUrl: string, icon: string, highlightColor?: string) => void;
   onClose: () => void;
 }
 
@@ -26,6 +35,22 @@ export function ShelfCoverPicker({ onSelect, onClose }: ShelfCoverPickerProps) {
           <button onClick={onClose} style={{ background: '#f1f5f9', border: 'none', width: '32px', height: '32px', borderRadius: '50%', color: '#64748b', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
         </div>
         
+        
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', marginTop: 0 }}>בחר צבע הדגשה למדף:</h4>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button onClick={() => onSelect('', '', undefined)} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid #e2e8f0', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>∅</button>
+            {HIGHLIGHT_COLORS.map(color => (
+              <button 
+                key={color} 
+                onClick={() => onSelect('', '', color)} 
+                style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: color, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+              />
+            ))}
+          </div>
+        </div>
+        
+        <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', marginTop: 0 }}>או בחר תמונת נושא:</h4>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem' }}>
           {PREDEFINED_COVERS.map(cover => (
             <div 

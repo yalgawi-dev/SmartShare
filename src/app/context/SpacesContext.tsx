@@ -95,6 +95,7 @@ export interface DocumentShelf {
   createdAt: string;
   coverImage?: string;
   icon?: string;
+  highlightColor?: string;
 }
 
 export interface SpaceDocument {
