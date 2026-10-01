@@ -11,8 +11,9 @@ export interface Point {
 
 /**
  * Attempts to auto-detect a document contour in the given canvas.
- * v17.5 Engine: Multi-Pass Canny + Otsu + Inner Quad Priority (Prefer receipt over chair cushion)
- * + Universal 4-Corner Parallelogram Snapping + Non-Linear Scoring.
+ * v17.6 Dual-Engine: Multi-Pass Canny + Otsu + HSV Saturation Paper Boundary
+ * + Ink Containment Verification (Outward Text Enclosure) + Inner Quad Priority
+ * + Universal 4-Corner Parallelogram Snapping.
  * Returns an array of 4 ordered points (TL, TR, BR, BL) if found, otherwise returns null.
  */
 export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
@@ -230,6 +231,38 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       }
     };
 
+    // Helper: Check if Candidate Quad leaves text/ink outside it
+    const getOutsideInkRatio = (quad: Point[]): number => {
+      try {
+        let mask = new cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
+        let ptsVector = new cv.MatVector();
+        let matPts = cv.matFromArray(4, 1, cv.CV_32SC2, [
+          Math.round(quad[0].x * tempScale), Math.round(quad[0].y * tempScale),
+          Math.round(quad[1].x * tempScale), Math.round(quad[1].y * tempScale),
+          Math.round(quad[2].x * tempScale), Math.round(quad[2].y * tempScale),
+          Math.round(quad[3].x * tempScale), Math.round(quad[3].y * tempScale)
+        ]);
+        ptsVector.push_back(matPts);
+        cv.fillPoly(mask, ptsVector, new cv.Scalar(255));
+
+        let allEdges = new cv.Mat();
+        cv.Canny(gray, allEdges, 40, 120);
+
+        let insideEdges = new cv.Mat();
+        cv.bitwise_and(allEdges, mask, insideEdges);
+
+        let totalTextEdges = cv.countNonZero(allEdges);
+        let insideTextEdges = cv.countNonZero(insideEdges);
+
+        mask.delete(); ptsVector.delete(); matPts.delete(); allEdges.delete(); insideEdges.delete();
+
+        let outsideTextEdges = totalTextEdges - insideTextEdges;
+        return totalTextEdges > 0 ? (outsideTextEdges / totalTextEdges) : 0;
+      } catch (e) {
+        return 0;
+      }
+    };
+
     // Candidate Collector
     const collectContourCandidate = (cnt: any, weightFactor: number = 1.0) => {
       let area = cv.contourArea(cnt);
@@ -308,6 +341,32 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     }
 
     otsuContours.delete(); otsuHierarchy.delete(); otsuClosed.delete(); M2.delete(); otsuMat.delete(); blurredGray.delete();
+
+    // --- PASS 3: HSV Saturation Paper Boundary Pass (Isolates pure white paper from warm light backgrounds) ---
+    let hsv = new cv.Mat();
+    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
+    let hsvPlanes = new cv.MatVector();
+    cv.split(hsv, hsvPlanes);
+    let satChannel = hsvPlanes.get(1);
+
+    let paperMask = new cv.Mat();
+    cv.threshold(satChannel, paperMask, 25, 255, cv.THRESH_BINARY_INV);
+
+    let satClosed = new cv.Mat();
+    let M3 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
+    cv.morphologyEx(paperMask, satClosed, cv.MORPH_CLOSE, M3);
+
+    let satContours = new cv.MatVector();
+    let satHierarchy = new cv.Mat();
+    cv.findContours(satClosed, satContours, satHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    for (let i = 0; i < satContours.size(); i++) {
+      collectContourCandidate(satContours.get(i), 1.6); // Highest weight for HSV white paper mask!
+    }
+
+    satContours.delete(); satHierarchy.delete(); satClosed.delete(); M3.delete(); paperMask.delete();
+    satChannel.delete(); hsvPlanes.delete(); hsv.delete();
     gray.delete(); src.delete();
 
     // Helper: Check if Quad A is contained inside Quad B
@@ -325,7 +384,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       return (tMinX >= cMinX - 10 && tMaxX <= cMaxX + 10 && tMinY >= cMinY - 10 && tMaxY <= cMaxY + 10);
     };
 
-    // --- STAGE 2: Advanced Non-Linear Scoring (v17.5) ---
+    // --- STAGE 2: Dual-Engine Non-Linear Scoring (v17.6) ---
     let scoredCandidates: { pts: Point[]; score: number }[] = [];
 
     for (let candidate of rawCandidates) {
@@ -339,30 +398,37 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       const normDist = Math.hypot(quadCx - imgCx, quadCy - imgCy) / Math.hypot(imgCx, imgCy);
       const centerWeight = Math.exp(-1.5 * normDist * normDist);
 
-      // 2. Inner Quad Priority (Receipt inside chair cushion / desk frame)
+      // 2. Inner Quad Priority
       let innerBonus = 1.0;
       for (let other of rawCandidates) {
         if (other.area > candidate.area * 2.0 && isInsideOtherQuad(quad, other.pts)) {
-          innerBonus = 4.0; // Massive 4x bonus for inner document quad!
+          innerBonus = 4.0;
           break;
         }
       }
 
-      // 3. Content Density ("Elephant in the Room")
+      // 3. Content Density & Outward Text Enclosure Verification
       const contentDensity = getContentDensity(quad);
+      const outsideInkRatio = getOutsideInkRatio(quad);
+
       let contentBonus = 1.0;
       if (contentDensity >= 0.015) {
         contentBonus = 1.0 + Math.min(contentDensity * 30, 4.0);
       }
 
+      // Heavy penalty if candidate quad leaves > 25% of text/ink OUTSIDE it (like inner table box trap)!
+      let textEnclosureMultiplier = 1.0;
+      if (outsideInkRatio > 0.25) {
+        textEnclosureMultiplier = 0.05; // Penalty for inner table box trap!
+      }
+
       // 4. Penalize massive outer boundary frames (> 80% screen area)
       let areaPenalty = 1.0;
       if (candidate.area > imgArea * 0.75) {
-        areaPenalty = 0.05; // Severe penalty for full chair cushions / full screen frames!
+        areaPenalty = 0.05;
       }
 
-      // Non-linear scoring formula independent of linear area multiplication!
-      let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * innerBonus * contentBonus * areaPenalty;
+      let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * innerBonus * contentBonus * textEnclosureMultiplier * areaPenalty;
 
       scoredCandidates.push({ pts: quad, score });
     }
