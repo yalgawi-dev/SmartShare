@@ -22,10 +22,12 @@ interface ClassifyResult {
 
 interface ScannerModalProps {
   onClose: () => void;
-  onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[]) => void;
+  onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image') => void;
+  hasVault?: boolean;
+  hasFinance?: boolean;
 }
 
-export default function ScannerModal({ onClose, onComplete }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance }: ScannerModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null as unknown as HTMLVideoElement);
   const guideRef = useRef<HTMLDivElement>(null);
   
@@ -371,14 +373,17 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
     }
   };
 
-  const handleDone = () => {
-    const currentImg = imageCache[mode];
+    const handleDone = (routingType?: 'receipt' | 'document' | 'image') => {
+    let finalMode = mode;
+    if (routingType === 'image') {
+      finalMode = 'original';
+    }
+    const currentImg = imageCache[finalMode];
     if (!currentImg) return;
-    // Combine with previously scanned pages
     const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
-    // Primary image = first page (for OCR — or last page if only one added)
     const primary = allPageUrls[0];
-    onComplete(primary, currentImg, allPageUrls.length > 1 ? allPageUrls : undefined);
+    let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+    onComplete(primary, currentImg, allPageUrls.length > 1 ? allPageUrls : undefined, finalRouting as any);
   };
 
   return (
@@ -646,10 +651,39 @@ export default function ScannerModal({ onClose, onComplete }: ScannerModalProps)
               </button>
             </div>
 
-            {/* Row 2: primary action */}
-            <button onClick={handleDone} style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
-              {scannedPages.length > 0 ? `✔ אשר וצרף ${scannedPages.length + 1} עמודים` : '✔ אשר וצרף'}
+            {/* Routing Buttons */}
+            {hasVault && hasFinance ? (
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ textAlign: 'center', fontSize: '0.9rem', color: '#ccc', marginBottom: '0.25rem' }}>מה צילמתם?</div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => handleDone('receipt')} style={{ flex: 1, background: '#10b981', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <span>🧾</span> חשבונית+
+                </button>
+                <button onClick={() => handleDone('document')} style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <span>📄</span> מסמך+
+                </button>
+              </div>
+              <button onClick={() => handleDone('image')} style={{ width: '100%', background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.75rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                <span>🖼️</span> תמונה (שמירת מקור)
+              </button>
+            </div>
+            ) : hasVault && !hasFinance ? (
+            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '1rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ textAlign: 'center', fontSize: '0.9rem', color: '#ccc', marginBottom: '0.25rem' }}>מה תרצו לשמור?</div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button onClick={() => handleDone('document')} style={{ flex: 1, background: '#3b82f6', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <span>📄</span> מסמך+ (מותאם)
+                </button>
+                <button onClick={() => handleDone('image')} style={{ flex: 1, background: 'rgba(255,255,255,0.15)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', padding: '0.85rem', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', fontSize: '0.95rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                  <span>🖼️</span> תמונה (מקור)
+                </button>
+              </div>
+            </div>
+            ) : (
+            <button onClick={() => handleDone('receipt')} style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>
+              ✅ אישור ושליחה
             </button>
+            )}
           </>
         )}
 

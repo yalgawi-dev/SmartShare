@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useSpaces } from '../../context/SpacesContext';
 import { useAuth } from '../../context/AuthContext';
 import { getFeatureById, AVAILABLE_FEATURES, FeatureId } from '../../data/features';
+import { DocumentsWidget } from '../../../components/widgets/Vault/DocumentsWidget';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
 import AlbumWidget from '../../../components/widgets/AlbumWidget';
 import GalleryWidget from '../../../components/widgets/GalleryWidget';
@@ -168,6 +169,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }, [id, spaces, getRoleForSpace]);
 
   const financeRef = useRef<any>(null);
+  const documentsRef = useRef<any>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 // Auto-migrate guest token to real user ID if they are logged in
@@ -590,12 +593,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
           {/* Finance is always at the top if active */}
                     {hasFinance && financeTab !== 'documents' && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}
-          {hasVault && financeTab === 'documents' && (
-            <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
-              <h2>מסמכים (בפיתוח)</h2>
-              <p>כאן יופיע מחסן המסמכים עם המדפים החכמים.</p>
-            </div>
-          )}
+          {hasVault && financeTab === 'documents' && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}
           
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space} isGuestMode={isRestricted} />}
@@ -636,9 +634,19 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       
       {isScannerOpen && (
         <ScannerModal 
-          onClose={() => setIsScannerOpen(false)}
-          onComplete={(url, _, allPages) => { setIsScannerOpen(false); financeRef.current?.processScan(url, allPages); }}
-        />
+            onClose={() => setIsScannerOpen(false)}
+            hasVault={hasVault}
+            hasFinance={hasFinance}
+            onComplete={(url, _, allPages, routingType) => { 
+                setIsScannerOpen(false); 
+                if (routingType === 'receipt' || !routingType) {
+                    financeRef.current?.processScan(url, allPages); 
+                } else if (routingType === 'document' || routingType === 'image') {
+                    documentsRef.current?.addDocument(url, routingType, allPages);
+                    setFinanceTab('documents');
+                }
+            }}
+          />
       )}
 
       {/* Unified Partners Management Modal (v4.9) */}
