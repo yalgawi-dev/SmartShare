@@ -28,6 +28,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [searchQuery, setSearchQuery] = useState('');
     const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
     const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
     const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
@@ -108,22 +109,31 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       }
     };
 
+    
     const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => {
+      // Optimistic UI update
+      const tempId = 'temp-' + Date.now();
+      const title = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
+      
+      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, url, title, type }]);
+      
       try {
-        setIsUploading(true);
         let finalUrl = url;
         if (url.startsWith('data:image')) {
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
           finalUrl = await uploadImageToStorage(url, path);
         }
-        addDocument(space.id, { shelfId, url: finalUrl, type, title: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק', addedBy: user?.id || '' });
+        // Save to real database
+        addDocument(space.id, { shelfId, url: finalUrl, type, title, addedBy: user?.id || '' });
       } catch (e) {
         console.error("Failed to upload document", e);
-        alert("שגיאה בהעלאת המסמך, נסה שוב");
+        alert("שגיאה בהעלאת המסמך");
       } finally {
-        setIsUploading(false);
+        // Remove from optimistic UI
+        setUploadingDocs(prev => prev.filter(d => d.id !== tempId));
       }
     };
+
 
 
     
@@ -226,7 +236,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '1rem' }}>
                   {partitions[partName].map(doc => (
-                    <div key={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', position: 'relative' }}>
+                    <div key={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: '1px solid #e2e8f0', position: 'relative', opacity: doc.id.startsWith('temp-') ? 0.6 : 1 }}>
+                      {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
                       <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
                       <div onClick={() => setPreviewDocUrl(doc.url)} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
                       <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0.25rem 0.5rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0' }}>
@@ -416,15 +427,19 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       {pendingImport && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: 'white', width: '90%', maxWidth: '400px', borderRadius: '24px', padding: '1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
-            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>{isUploading ? 'מעלה קובץ לשרת...' : 'לאיזה מדף לשמור את הקובץ?'}</h3>
-            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>בחר את המדף שאליו יתווסף המסמך החדש</p>
+            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>{pendingImport?.docId ? 'לאיזה מדף להעביר את המסמך?' : 'לאיזה מדף לשמור את הקובץ?'}</h3>
+            <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>{pendingImport?.docId ? 'בחר את המדף שאליו תרצה להעביר את המסמך' : 'בחר את המדף שאליו יתווסף המסמך החדש'}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
               {shelves.map(shelf => {
                  return (
                   <button key={shelf.id} onClick={() => {
-                    handleSaveDocument(shelf.id, pendingImport.url, pendingImport.type, pendingImport.allPages);
-                    setPendingImport(null);
-                  }} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s', textAlign: 'right', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                      if (pendingImport.docId) {
+                        updateDocument(space.id, pendingImport.docId, { shelfId: shelf.id });
+                      } else {
+                        handleSaveDocument(shelf.id, pendingImport.url!, pendingImport.type || 'document', pendingImport.allPages);
+                      }
+                      setPendingImport(null);
+                    }} style={{ padding: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', fontSize: '1.1rem', fontWeight: 'bold', color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '1rem', transition: 'all 0.2s', textAlign: 'right', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: shelf.highlightColor || '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', flexShrink: 0, boxShadow: shelf.highlightColor ? `0 0 10px ${shelf.highlightColor}80` : 'none', fontSize: '1.2rem' }}>
                       {shelf.icon || '📁'}
                     </div>
