@@ -567,7 +567,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       </div>
 
       {/* Footer Controls */}
-      <div style={{ padding: '1.5rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '1rem', zIndex: 1000 }}>
+      <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 1000 }}>
         
         {step === 'scanning' && (
            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
@@ -603,14 +603,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'review' && (
           <>
-            <h3 style={{ color: 'white', textAlign: 'center', margin: '0.5rem 0 1rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>מה סרקת?</h3>
+            <h3 style={{ color: 'white', textAlign: 'center', margin: '0.5rem 0 0.5rem 0', fontSize: '1.2rem', fontWeight: 'bold' }}>מה סרקת?</h3>
               {/* Type / Filter Unified Selector */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 {hasFinance && (
                   <button 
                     onClick={() => handleCategorySelect('receipt')} 
-                    style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', background: selectedCategory === 'receipt' ? '#10b981' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'receipt' ? 'white' : '#aaa', border: selectedCategory === 'receipt' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: selectedCategory === 'receipt' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
+                    style={{ flex: 1, padding: '0.5rem', borderRadius: '12px', background: selectedCategory === 'receipt' ? '#10b981' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'receipt' ? 'white' : '#aaa', border: selectedCategory === 'receipt' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: selectedCategory === 'receipt' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
                   >
                     <span style={{ fontSize: '1.2rem' }}>🧾</span>
                     <span>חשבונית+</span>
@@ -619,7 +619,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 {hasVault && (
                   <button 
                     onClick={() => handleCategorySelect('document')} 
-                    style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', background: selectedCategory === 'document' ? '#3b82f6' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'document' ? 'white' : '#aaa', border: selectedCategory === 'document' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: selectedCategory === 'document' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
+                    style={{ flex: 1, padding: '0.5rem', borderRadius: '12px', background: selectedCategory === 'document' ? '#3b82f6' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'document' ? 'white' : '#aaa', border: selectedCategory === 'document' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: selectedCategory === 'document' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
                   >
                     <span style={{ fontSize: '1.2rem' }}>📄</span>
                     <span>מסמך+</span>
@@ -627,7 +627,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 )}
                 <button 
                   onClick={() => handleCategorySelect('image')} 
-                  style={{ flex: 1, padding: '0.75rem', borderRadius: '12px', background: selectedCategory === 'image' ? '#f59e0b' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'image' ? 'white' : '#aaa', border: selectedCategory === 'image' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: selectedCategory === 'image' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
+                  style={{ flex: 1, padding: '0.5rem', borderRadius: '12px', background: selectedCategory === 'image' ? '#f59e0b' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'image' ? 'white' : '#aaa', border: selectedCategory === 'image' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.9rem', fontWeight: selectedCategory === 'image' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', transition: 'all 0.2s' }}
                 >
                   <span style={{ fontSize: '1.2rem' }}>🖼️</span>
                   <span>תמונה</span>
@@ -707,21 +707,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
             {/* Row 1: secondary actions */}
             <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                 📷 צלם שוב
               </button>
-              <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                 ✂️ חיתוך ידני
               </button>
-              <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
+              <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}>
                 📤 שיתוף
               </button>
-              <button onClick={handleAddPage} style={{ flex: 1, background: 'transparent', color: '#FFD700', border: '1px solid #FFD700', padding: '0.6rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
+              <button onClick={handleAddPage} style={{ flex: 1, background: 'transparent', color: '#FFD700', border: '1px solid #FFD700', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold' }}>
                 📄 הוסף עמוד
               </button>
             </div>
 
-            <button onClick={() => handleDone(selectedCategory)} style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.85rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', marginTop: '0.5rem' }}>
+            <button onClick={() => handleDone(selectedCategory)} style={{ width: '100%', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', marginTop: '0.5rem' }}>
               {scannedPages.length > 0 ? `✅ שמירת ${scannedPages.length + 1} עמודים` : '✅ שמירה'}
             </button>
           </>

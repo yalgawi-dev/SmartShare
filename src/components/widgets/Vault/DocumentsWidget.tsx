@@ -25,6 +25,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const documents = space.documents || [];
   
   const [searchQuery, setSearchQuery] = useState('');
+    const [pendingImport, setPendingImport] = useState<{ url: string, type: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
@@ -40,16 +41,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         const url = ev.target?.result as string;
         // Re-use addDocument imperative flow which asks for shelf
         let targetShelfId = activeShelfId;
-        if (!targetShelfId) {
-          if (shelves.length === 1) {
-             targetShelfId = shelves[0].id;
-          } else if (shelves.length > 1) {
-             const options = shelves.map((s, i) => `${i+1}. ${s.name}`).join('\n');
-             const choice = window.prompt('לאיזה מדף תרצה לייבא את המסמך?\n' + options + '\n(הכנס מספר, או השאר ריק למדף הראשון)');
-             const choiceIndex = parseInt(choice || '1', 10) - 1;
-             targetShelfId = shelves[choiceIndex] ? shelves[choiceIndex].id : shelves[0].id;
+          if (!targetShelfId) {
+            if (shelves.length === 1) {
+               targetShelfId = shelves[0].id;
+            } else if (shelves.length > 1) {
+               setPendingImport({ url, type: 'document' });
+               return; // Exit and let modal handle it
+            }
           }
-        }
         if (!targetShelfId) {
           const newShelfId = 'shelf_' + Date.now();
           addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
