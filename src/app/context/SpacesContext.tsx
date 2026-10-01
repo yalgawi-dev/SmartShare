@@ -733,16 +733,39 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     useEffect(() => {
       if (!user?.id || (user as any).isAnonymous) return;
       
+      let lastActivityTime = Date.now();
+      const onUserActivity = () => { lastActivityTime = Date.now(); };
+      
+      if (typeof window !== 'undefined') {
+        window.addEventListener('touchstart', onUserActivity, { passive: true });
+        window.addEventListener('mousemove', onUserActivity, { passive: true });
+        window.addEventListener('keydown', onUserActivity, { passive: true });
+        window.addEventListener('scroll', onUserActivity, { passive: true });
+      }
+
       const updatePresence = () => {
         if (!db || !user?.id) return;
         if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+        
+        // Stop sending heartbeat if completely idle for 4 minutes
+        if (Date.now() - lastActivityTime > 4 * 60 * 1000) return;
+        
         const userRef = doc(db, 'users', user.id);
         updateDoc(userRef, { lastActiveAt: new Date().toISOString() }).catch(() => {});
       };
       
       updatePresence();
       const interval = setInterval(updatePresence, 2 * 60 * 1000);
-      return () => { clearInterval(interval); };
+      
+      return () => { 
+        clearInterval(interval); 
+        if (typeof window !== 'undefined') {
+          window.removeEventListener('touchstart', onUserActivity);
+          window.removeEventListener('mousemove', onUserActivity);
+          window.removeEventListener('keydown', onUserActivity);
+          window.removeEventListener('scroll', onUserActivity);
+        }
+      };
     }, [user?.id]);
 
   const finalizeGuestJoin = (spaceId: string, name: string, isRetroactiveParam: boolean, userId: string, inviteToken?: string, customShareParam?: number, sharesPlanParam?: { creator: number; partners?: Record<string, number> }) => {

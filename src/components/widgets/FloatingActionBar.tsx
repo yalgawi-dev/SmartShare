@@ -96,7 +96,24 @@ export function FloatingActionBar({
       </div>
 
       {/* Center Main Action */}
-      <div style={{ position: 'relative', marginTop: '-2rem', display: 'flex', justifyContent: 'center', flex: 0 }}>
+      <div style={{ position: 'relative', marginTop: '-2.5rem', display: 'flex', justifyContent: 'center', flex: 0, zIndex: 10 }}>
+        {hasScanner && (
+          <div style={{
+            position: 'absolute',
+            top: '0.1rem',
+            width: '74px',
+            height: '74px',
+            borderRadius: '50%',
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(15px)',
+            WebkitBackdropFilter: 'blur(15px)',
+            borderTop: '1px solid rgba(0,0,0,0.08)',
+            borderLeft: '1px solid rgba(0,0,0,0.03)',
+            borderRight: '1px solid rgba(0,0,0,0.03)',
+            boxShadow: '0 -10px 20px rgba(0,0,0,0.05)',
+            zIndex: -1
+          }} />
+        )}
         {hasScanner && (
            <button 
              onClick={onOpenScanner}

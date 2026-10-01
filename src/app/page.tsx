@@ -298,42 +298,80 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Floating Action Button for New Space */}
+      {/* Unified Bottom Bar for Main Page */}
       <>
-        <Link 
-          href="/space/new" 
-          className="fab" 
-          title="יצירת מרחב שיתוף חדש" 
-          style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', gap: '2px', left: '2rem' }}
-        >
-          <span style={{ fontSize: '1.4rem' }}>➕</span>
-          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>חדש</span>
-        </Link>
-        <button 
-          className="fab" 
-          onClick={() => setShowNotifications(true)}
-          title="מרכז התראות והודעות" 
-          style={{ left: 'auto', right: '6.5rem', background: '#f59e0b', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px', zIndex: 50 }}
-        >
-          <span style={{ fontSize: '1.3rem', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            ✉️
-            {unreadMessagesCount > 0 && (
-              <span style={{ position: 'absolute', top: '-6px', right: '-8px', minWidth: '18px', height: '18px', background: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '0.65rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', padding: '0 2px' }}>
-                {unreadMessagesCount}
-              </span>
-            )}
-          </span>
-          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>הודעות</span>
-        </button>
-        <button 
-          className="fab" 
-          onClick={() => setShowPersonalInbox(true)}
-          title="מחסן מסמכים אישי" 
-          style={{ left: 'auto', right: '2rem', background: '#4f46e5', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '2px' }}
-        >
-          <span style={{ fontSize: '1.4rem' }}>📥</span>
-          <span style={{ fontSize: '0.65rem', fontWeight: 'bold', lineHeight: 1 }}>מחסן</span>
-        </button>
+        <div style={{
+          position: 'fixed',
+          bottom: '1.5rem',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '90%',
+          maxWidth: '420px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(15px)',
+          WebkitBackdropFilter: 'blur(15px)',
+          border: '1px solid rgba(0,0,0,0.08)',
+          borderRadius: '24px',
+          padding: '0.8rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-evenly',
+          boxShadow: '0 20px 40px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1)',
+          zIndex: 50,
+          animation: 'slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+        }}>
+          {/* New Space */}
+          <Link 
+            href="/space/new" 
+            title="צור מרחב התחשבנויות חדש" 
+            style={{ 
+              textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem',
+              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
+            }}
+          >
+            <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              <span style={{ fontSize: '1.5rem' }}>➕</span>
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>חדש</span>
+          </Link>
+          
+          {/* Notifications */}
+          <button 
+            onClick={() => setShowNotifications(true)}
+            title="התראות והודעות פרטיות" 
+            style={{ 
+              background: 'transparent', border: 'none', padding: 0,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
+            }}
+          >
+            <div style={{ position: 'relative', width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+              <span style={{ fontSize: '1.5rem' }}>✉️</span>
+              {unreadMessagesCount > 0 && (
+                <span style={{ position: 'absolute', top: '-4px', right: '-4px', minWidth: '18px', height: '18px', background: '#ef4444', color: 'white', borderRadius: '50%', fontSize: '0.65rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2px solid white', padding: '0 2px' }}>
+                  {unreadMessagesCount}
+                </span>
+              )}
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>הודעות</span>
+          </button>
+
+          {/* Inbox */}
+          <button 
+            onClick={() => setShowPersonalInbox(true)}
+            title="מחסן מסמכים אישי" 
+            style={{ 
+              background: 'transparent', border: 'none', padding: 0,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
+            }}
+          >
+            <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'rgba(79, 70, 229, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(79, 70, 229, 0.2)' }}>
+              <span style={{ fontSize: '1.5rem' }}>📥</span>
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>מחסן</span>
+          </button>
+        </div>
 
         {showNotifications && typeof window !== 'undefined' && createPortal(<NotificationCenterWidget onClose={() => setShowNotifications(false)} />, document.body)}
         {showPersonalInbox && typeof window !== 'undefined' && createPortal(
