@@ -537,6 +537,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           </div>
         </div>
       )}
-;
+    </div>
+  );
+});
 
 DocumentsWidget.displayName = 'DocumentsWidget';
