@@ -77,7 +77,7 @@ export function ShelfCoverPicker({ onSelect, onClose }: ShelfCoverPickerProps) {
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-      <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '1.5rem 1.5rem 6rem 1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
+      <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', padding: '1.5rem 1.5rem 12rem 1.5rem', maxHeight: '80vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {selectedCategoryId && (
@@ -92,26 +92,8 @@ export function ShelfCoverPicker({ onSelect, onClose }: ShelfCoverPickerProps) {
         
         {!selectedCategoryId ? (
           <>
-            <div style={{ marginBottom: '1.5rem' }}>
-              <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', marginTop: 0 }}>קונטור זוהר להדגשה:</h4>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <button onClick={() => onSelect('', '', undefined)} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid #e2e8f0', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>∅</button>
-                {HIGHLIGHT_COLORS.map(color => (
-                  <button 
-                    key={color} 
-                    onClick={() => onSelect('', '', color)} 
-                    style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: color, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
-                  />
-                ))}
-                {/* Custom Color Input */}
-                <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'pointer', position: 'relative' }}>
-                  <input type="color" value={customColor} onChange={(e) => setCustomColor(e.target.value)} onBlur={() => onSelect('', '', customColor)} style={{ position: 'absolute', top: '-10px', left: '-10px', width: '50px', height: '50px', cursor: 'pointer' }} />
-                </div>
-              </div>
-            </div>
-            
             <h4 style={{ fontSize: '0.9rem', color: '#64748b', marginBottom: '0.5rem', marginTop: 0 }}>תמונת נושא:</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
               {PREDEFINED_CATEGORIES.map(category => (
                 <div 
                   key={category.id}
@@ -130,6 +112,24 @@ export function ShelfCoverPicker({ onSelect, onClose }: ShelfCoverPickerProps) {
               <div style={{ borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', border: '2px dashed #cbd5e1', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f8fafc', padding: '1rem' }}>
                 <span style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>📸</span>
                 <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', textAlign: 'center' }}>תמונה פרטית (בקרוב)</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem', padding: '1rem', background: '#f8fafc', borderRadius: '16px' }}>
+              <h4 style={{ fontSize: '0.9rem', color: '#1e293b', marginBottom: '0.5rem', marginTop: 0 }}>קונטור זוהר להדגשה:</h4>
+              <p style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '1rem' }}>בחר צבע שיעטוף את המדף ויבליט אותו ברשימה.</p>
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button onClick={() => onSelect('', '', undefined)} style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid #e2e8f0', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>∅</button>
+                {HIGHLIGHT_COLORS.map(color => (
+                  <button 
+                    key={color} 
+                    onClick={() => onSelect('', '', color)} 
+                    style={{ width: '32px', height: '32px', borderRadius: '50%', border: 'none', background: color, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} 
+                  />
+                ))}
+                <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', border: '1px solid #cbd5e1', cursor: 'pointer', position: 'relative' }}>
+                  <input type="color" value={customColor} onChange={(e) => setCustomColor(e.target.value)} onBlur={() => onSelect('', '', customColor)} style={{ position: 'absolute', top: '-10px', left: '-10px', width: '50px', height: '50px', cursor: 'pointer' }} />
+                </div>
               </div>
             </div>
           </>

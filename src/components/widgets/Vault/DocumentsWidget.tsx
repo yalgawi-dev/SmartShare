@@ -29,6 +29,42 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleLocalFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const url = ev.target?.result as string;
+        // Re-use addDocument imperative flow which asks for shelf
+        let targetShelfId = activeShelfId;
+        if (!targetShelfId) {
+          if (shelves.length === 1) {
+             targetShelfId = shelves[0].id;
+          } else if (shelves.length > 1) {
+             const options = shelves.map((s, i) => `${i+1}. ${s.name}`).join('\n');
+             const choice = window.prompt('לאיזה מדף תרצה לייבא את המסמך?\n' + options + '\n(הכנס מספר, או השאר ריק למדף הראשון)');
+             const choiceIndex = parseInt(choice || '1', 10) - 1;
+             targetShelfId = shelves[choiceIndex] ? shelves[choiceIndex].id : shelves[0].id;
+          }
+        }
+        if (!targetShelfId) {
+          const newShelfId = 'shelf_' + Date.now();
+          addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
+          targetShelfId = newShelfId; 
+        }
+        addDocument(space.id, {
+          shelfId: targetShelfId,
+          url,
+          title: 'מסמך מיובא',
+          type: 'document',
+          addedBy: user?.id || ''
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   useImperativeHandle(ref, () => ({
     addDocument: (url, type, allPages) => {
@@ -138,7 +174,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     });
 
     return (
-      <div style={{ padding: '1rem', paddingBottom: '6rem' }}>
+      <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <button onClick={() => setActiveShelfId(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>
             ←
@@ -164,7 +200,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           />
         )}
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '0 1rem' }}>
           {shelfDocs.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '3rem' }}>המדף ריק.</div>
           ) : (
@@ -203,15 +239,21 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }
 
   return (
-    <div style={{ padding: '1rem', paddingBottom: '6rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+    <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים</h2>
-        <button onClick={handleCreateShelf} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer' }}>
-          + מדף חדש
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => fileInputRef.current?.click()} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem', borderRadius: '20px', color: '#64748b', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+            📥 ייבוא
+          </button>
+          <input type="file" ref={fileInputRef} onChange={handleLocalFileUpload} style={{ display: 'none' }} accept="image/*,application/pdf" />
+          <button onClick={handleCreateShelf} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer' }}>
+            + מדף חדש
+          </button>
+        </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', width: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', width: '100%', boxSizing: 'border-box', padding: '0 1rem' }}>
         <input 
           type="text" 
           placeholder="חיפוש מדפים..." 
@@ -299,7 +341,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       )}
 
       {viewMode === 'grid' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', padding: '0 1rem' }}>
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
@@ -325,7 +367,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       )}
 
       {viewMode === 'circles' && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'flex-start' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'flex-start', padding: '0 1rem' }}>
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const isPrivate = shelf.allowedPartners && shelf.allowedPartners.length > 0;
