@@ -93,6 +93,8 @@ export interface DocumentShelf {
   name: string;
   allowedPartners: string[]; // empty means public
   createdAt: string;
+  coverImage?: string;
+  icon?: string;
 }
 
 export interface SpaceDocument {
