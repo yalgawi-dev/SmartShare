@@ -16,10 +16,24 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   const { spaces } = useSpaces() as any;
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+      if (typeof document !== 'undefined') document.body.style.overflow = 'hidden';
+    } else {
+      setIsVisible(false);
+      if (typeof document !== 'undefined') document.body.style.overflow = '';
+    }
+    return () => {
+      if (typeof document !== 'undefined') document.body.style.overflow = '';
+    };
+  }, [isOpen]);
 
   if (!mounted || !isOpen || !activeTarget || typeof document === 'undefined') return null;
 
@@ -41,21 +55,6 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
       title = `שיחה עם ${space.createdBy || 'מנהל המרחב'}`;
     }
   }
-
-  // Animation states
-  const [isVisible, setIsVisible] = useState(false);
-  useEffect(() => {
-    if (isOpen) {
-      setIsVisible(true);
-      document.body.style.overflow = 'hidden';
-    } else {
-      setIsVisible(false);
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
 
   const handleClose = () => {
     setIsVisible(false);

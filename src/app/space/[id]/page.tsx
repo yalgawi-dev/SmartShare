@@ -227,7 +227,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
-  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault'];
+  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault', 'chat'];
   const genericFeatures = spaceFeatures
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))
@@ -420,6 +420,29 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               </div>
             )}
           </div>
+          {spaceFeatures.includes('chat') && (
+            <button 
+              onClick={() => openChat('group')}
+              style={{
+                background: '#e0e7ff',
+                color: '#4338ca',
+                border: '1px solid #c7d2fe',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)',
+                fontSize: '1.2rem',
+                flexShrink: 0
+              }}
+              title="צ'אט קבוצתי"
+            >
+              💬
+            </button>
+          )}
           <div style={{ position: 'relative' }}>
               <button onClick={() => {
                 if (myMember && myMember.canAddPlugins === false) {
@@ -642,32 +665,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       {/* Floating Scanner & AppShare & Generic Setup Button */}
       {spaceFeatures.length > 0 && !isRestricted && (
         <>
-          {spaceFeatures.includes('chat') && (
-            <button 
-              onClick={() => openChat('group')}
-              style={{
-                position: 'fixed',
-                bottom: '6rem',
-                right: '1.5rem',
-                width: '56px',
-                height: '56px',
-                borderRadius: '50%',
-                background: 'var(--primary)',
-                color: 'white',
-                border: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 14px rgba(79,70,229,0.4)',
-                cursor: 'pointer',
-                zIndex: 90,
-                fontSize: '1.8rem',
-                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
-              }}
-            >
-              💬
-            </button>
-          )}
           <FloatingActionBar 
             hasFinance={hasFinance}
             hasScanner={hasScanner}

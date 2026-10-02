@@ -10,6 +10,7 @@ interface ChatEngineUIProps {
   member?: any; // To access legacy messages for peer-to-peer
   viewMode?: 'creator' | 'partner' | 'peer';
   isGroup?: boolean;
+  headerContent?: React.ReactNode;
 }
 
 const getChatDateLabel = (dateString: string) => {
@@ -38,7 +39,7 @@ const formatTimeSafe = (dateString: string) => {
   }
 };
 
-export default function ChatEngineUI({ space, conversationId, member, viewMode = 'creator', isGroup = false }: ChatEngineUIProps) {
+export default function ChatEngineUI({ space, conversationId, member, viewMode = 'creator', isGroup = false, headerContent }: ChatEngineUIProps) {
   const { sendConversationMessage, markConversationRead } = useSpaces() as any;
   const { user } = useAuth();
   
@@ -103,6 +104,7 @@ export default function ChatEngineUI({ space, conversationId, member, viewMode =
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+        {headerContent}
         {messagesArray.length === 0 && (
           <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem', marginTop: '2rem' }}>
             אין הודעות בשיחה זו עדיין.<br/>שלח הודעה כדי להתחיל!

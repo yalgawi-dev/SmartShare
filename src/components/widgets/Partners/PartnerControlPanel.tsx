@@ -324,42 +324,77 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         </div>
 
         {/* Chat Messages Area */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {viewMode === 'creator' && member?.extensionMessage && (
-            <div style={{ alignSelf: 'center', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
-              💬 <strong>בקשת הארכה:</strong> {member.extensionMessage}
-            </div>
-          )}
-          {viewMode === 'creator' && member?.disputeMessage && (
-            <div style={{ alignSelf: 'center', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#991b1b', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
-              ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
-            </div>
-          )}
-
-
-          {member?.shareChangeRequest && (
-            <div style={{ alignSelf: 'center', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', marginBottom: '1rem', maxWidth: '95%', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-              <strong>בקשה לשינוי אחוזים 📊</strong><br/>
-              {viewMode === 'creator' 
-                ? `בקשה לשינוי אחוזים מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}% נשלחה אל ${member.name}!!`
-                : `יוצר המרחב הציע לעדכן את האחוזים שלך מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}%.`
-              }
-              {viewMode === 'partner' ? (
-                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
-                  <button onClick={() => approveShareChange(space.id, member.userId)} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>אישור</button>
-                  <button onClick={() => rejectShareChange(space.id, member.userId)} style={{ background: 'white', color: '#0ea5e9', border: '1px solid #0ea5e9', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>דחייה</button>
-                </div>
-              ) : (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>ממתין לאישור השותף...</div>
-              )}
-            </div>
-          )}
-
-          {/* ChatUI Rendered here */}
-          {(space.features || []).includes('chat') && (
-            <ChatEngineUI space={space} conversationId={conversationId} member={member} viewMode={viewMode} isGroup={isGroup} />
-          )}
-        </div>
+        {(space.features || []).includes('chat') ? (
+          <ChatEngineUI
+            space={space}
+            conversationId={conversationId}
+            member={member}
+            viewMode={viewMode}
+            isGroup={isGroup}
+            headerContent={
+              <>
+                {viewMode === 'creator' && member?.extensionMessage && (
+                  <div style={{ alignSelf: 'center', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
+                    💬 <strong>בקשת הארכה:</strong> {member.extensionMessage}
+                  </div>
+                )}
+                {viewMode === 'creator' && member?.disputeMessage && (
+                  <div style={{ alignSelf: 'center', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#991b1b', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
+                    ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
+                  </div>
+                )}
+                {member?.shareChangeRequest && (
+                  <div style={{ alignSelf: 'center', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', marginBottom: '1rem', maxWidth: '95%', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+                    <strong>בקשה לשינוי אחוזים 📊</strong><br/>
+                    {viewMode === 'creator'
+                      ? `בקשה לשינוי אחוזים מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}% נשלחה אל ${member.name}!!`
+                      : `יוצר המרחב הציע לעדכן את האחוזים שלך מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}%.`
+                    }
+                    {viewMode === 'partner' ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
+                        <button onClick={() => approveShareChange(space.id, member.userId)} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>אישור</button>
+                        <button onClick={() => rejectShareChange(space.id, member.userId)} style={{ background: 'white', color: '#0ea5e9', border: '1px solid #0ea5e9', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>דחייה</button>
+                      </div>
+                    ) : (
+                      <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>ממתין לאישור השותף...</div>
+                    )}
+                  </div>
+                )}
+              </>
+            }
+          />
+        ) : (
+          /* No chat plugin – show only the finance banners in a compact area */
+          <>
+            {viewMode === 'creator' && member?.extensionMessage && (
+              <div style={{ margin: '1rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#92400e', textAlign: 'center' }}>
+                💬 <strong>בקשת הארכה:</strong> {member.extensionMessage}
+              </div>
+            )}
+            {viewMode === 'creator' && member?.disputeMessage && (
+              <div style={{ margin: '1rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#991b1b', textAlign: 'center' }}>
+                ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
+              </div>
+            )}
+            {member?.shareChangeRequest && (
+              <div style={{ margin: '1rem', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', textAlign: 'center' }}>
+                <strong>בקשה לשינוי אחוזים 📊</strong><br/>
+                {viewMode === 'creator'
+                  ? `בקשה לשינוי אחוזים מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}% נשלחה אל ${member.name}!!`
+                  : `יוצר המרחב הציע לעדכן את האחוזים שלך מ-${member.sharePercentage ?? 'ברירת מחדל'}% ל-${member.shareChangeRequest.proposedShare}%.`
+                }
+                {viewMode === 'partner' ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.75rem' }}>
+                    <button onClick={() => approveShareChange(space.id, member.userId)} style={{ background: '#0ea5e9', color: 'white', border: 'none', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>אישור</button>
+                    <button onClick={() => rejectShareChange(space.id, member.userId)} style={{ background: 'white', color: '#0ea5e9', border: '1px solid #0ea5e9', padding: '0.4rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer' }}>דחייה</button>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '0.5rem', fontSize: '0.75rem' }}>ממתין לאישור השותף...</div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
     </>,
