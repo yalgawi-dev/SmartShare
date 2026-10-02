@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { useChat } from '../../../app/context/ChatContext';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
+import { usePresence } from '../../../hooks/usePresence';
 import ChatEngineUI from './ChatEngineUI';
 
 interface ChatDrawerProps {
@@ -17,10 +18,14 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [showParticipants, setShowParticipants] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // Presence — always call hook, pass empty array when not needed
+  const space = spaces?.find((s: any) => s.id === spaceId);
+  const presenceUids: string[] = (space?.members || []).map((m: any) => m.userId).concat(space?.creatorId ? [space.creatorId] : []);
+  const { getPresenceColor } = usePresence(presenceUids);
+
+  useEffect(() => { setMounted(true); }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -36,11 +41,9 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   }, [isOpen]);
 
   if (!mounted || !isOpen || !activeTarget || typeof document === 'undefined') return null;
-
-  const space = spaces?.find((s: any) => s.id === spaceId);
   if (!space) return null;
 
-  // Determine chat titles
+  // Title + mode
   let title = 'צ\'אט';
   let isGroup = false;
 
@@ -48,79 +51,105 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
     title = 'צ\'אט קבוצתי';
     isGroup = true;
   } else {
-    const member = space.members?.find((m: any) => m.userId === activeTarget);
-    if (member) {
-      title = `שיחה עם ${member.name}`;
-    } else if (activeTarget === space.creatorId || activeTarget === space.createdBy) {
-      title = `שיחה עם ${space.createdBy || 'מנהל המרחב'}`;
-    }
+    const m = space.members?.find((x: any) => x.userId === activeTarget);
+    title = m ? `שיחה עם ${m.name}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`;
   }
+
+  const members: any[] = space.members || [];
 
   const handleClose = () => {
     setIsVisible(false);
-    setTimeout(() => {
-      closeChat();
-    }, 300); // Wait for transition
+    setShowParticipants(false);
+    setTimeout(() => closeChat(), 300);
   };
 
   return createPortal(
     <>
-      <div 
+      {/* Backdrop */}
+      <div
         onClick={handleClose}
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0,0,0,0.5)',
-          zIndex: 999998,
-          opacity: isVisible ? 1 : 0,
-          transition: 'opacity 0.3s ease',
-          pointerEvents: isVisible ? 'auto' : 'none'
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 999998,
+          opacity: isVisible ? 1 : 0, transition: 'opacity 0.3s ease',
+          pointerEvents: isVisible ? 'auto' : 'none',
         }}
       />
-      
-      {/* Side Drawer (slides from Right/Start in RTL) */}
+
+      {/* Drawer */}
       <div style={{
-        position: 'fixed',
-        top: 0,
-        bottom: 0,
-        right: 0,
-        width: '100%',
-        maxWidth: '500px', // On desktop it will be 500px right drawer
-        background: '#e5ded8', // WhatsApp-like background
+        position: 'fixed', top: 0, bottom: 0, right: 0,
+        width: '100%', maxWidth: '500px',
+        background: '#e5ded8',
         zIndex: 999999,
         transform: isVisible ? 'translateX(0)' : 'translateX(100%)',
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        display: 'flex',
-        flexDirection: 'column',
+        display: 'flex', flexDirection: 'column',
         boxShadow: '-4px 0 24px rgba(0,0,0,0.15)',
-        direction: 'rtl'
+        direction: 'rtl',
       }}>
         {/* Header */}
-        <div style={{ background: 'var(--primary)', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', flexShrink: 0, boxShadow: '0 2px 4px rgba(0,0,0,0.1)', zIndex: 10 }}>
-          <button onClick={handleClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.5rem', cursor: 'pointer', padding: '0 0.5rem' }}>
+        <div style={{
+          background: 'var(--primary)', color: 'white',
+          padding: '0.75rem 1rem',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+          flexShrink: 0, boxShadow: '0 2px 6px rgba(0,0,0,0.15)', zIndex: 10,
+        }}>
+          <button onClick={handleClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.4rem', cursor: 'pointer', padding: '0.25rem' }}>
             →
           </button>
-          <div style={{ flex: 1 }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 'bold' }}>{title}</h2>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {title}
+            </h2>
             {isGroup && (
-              <div style={{ fontSize: '0.8rem', opacity: 0.8, marginTop: '0.2rem' }}>
-                {space.members?.length || 0} משתתפים
-              </div>
+              /* Clickable participants count */
+              <button
+                onClick={() => setShowParticipants(p => !p)}
+                style={{
+                  background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.85)',
+                  fontSize: '0.78rem', cursor: 'pointer', padding: 0, textDecoration: 'underline', marginTop: '0.1rem',
+                }}
+              >
+                {members.length} משתתפים {showParticipants ? '▲' : '▼'}
+              </button>
             )}
           </div>
         </div>
 
-        {/* Chat Component */}
+        {/* Participants panel (expandable) */}
+        {isGroup && showParticipants && (
+          <div style={{
+            background: 'rgba(255,255,255,0.92)',
+            borderBottom: '1px solid #e2e8f0',
+            padding: '0.75rem 1rem',
+            display: 'flex', flexDirection: 'column', gap: '0.5rem',
+            maxHeight: '40vh', overflowY: 'auto', flexShrink: 0,
+          }}>
+            {members.map((m: any) => (
+              <div key={m.userId} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.9rem' }}>
+                <div style={{
+                  width: '10px', height: '10px', borderRadius: '50%',
+                  background: getPresenceColor(m.userId, user?.id),
+                  flexShrink: 0,
+                }} />
+                <span style={{ fontWeight: '600', flex: 1 }}>{m.name}</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  {m.status === 'active' ? '✓ פעיל' : m.status === 'pending' ? '⏳ ממתין' : m.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Chat Engine */}
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <ChatEngineUI 
-            space={space} 
-            conversationId={activeTarget} 
-            isGroup={isGroup} 
+          <ChatEngineUI
+            space={space}
+            conversationId={activeTarget}
+            isGroup={isGroup}
             viewMode={activeTarget === space.creatorId ? 'partner' : 'creator'}
-            member={space.members?.find((m: any) => m.userId === activeTarget)}
+            member={members.find((m: any) => m.userId === activeTarget)}
           />
         </div>
       </div>

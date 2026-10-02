@@ -57,15 +57,11 @@ interface Props {
 
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, sendConversationMessage, markConversationRead,  approveShareChange, rejectShareChange } = useSpaces() as any;
+  const { approveExtension, removeMember, updateMemberStatus, approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
-  
-  
-  const [messageText, setMessageText] = useState('');
+
   const [mounted, setMounted] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
-  
-  const messagesEndRef = useRef<HTMLDivElement>(null);
   const presenceUids = useMemo(() => {
     const uids = (space.members || []).map((m: any) => m.userId);
     if (space.creatorId) uids.push(space.creatorId);
@@ -111,11 +107,6 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     }
   };
 
-  const handleSendMessage = () => {
-    if (!messageText.trim()) return;
-    if (typeof sendConversationMessage === 'function') sendConversationMessage(space.id, conversationId, user?.id || 'me', messageText.trim());
-    setMessageText('');
-  };
 
   const statusLabel: Record<string, string> = {
     active: 'שותף רשמי',

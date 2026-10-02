@@ -3,11 +3,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
+import { usePresence } from '../../../hooks/usePresence';
 
 interface ChatEngineUIProps {
   space: any;
   conversationId: string;
-  member?: any; // To access legacy messages for peer-to-peer
+  member?: any;
   viewMode?: 'creator' | 'partner' | 'peer';
   isGroup?: boolean;
   headerContent?: React.ReactNode;
@@ -17,16 +18,12 @@ const getChatDateLabel = (dateString: string) => {
   if (!dateString) return '';
   const date = new Date(dateString);
   const now = new Date();
-  
-  const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-  
+  const isToday = date.toDateString() === now.toDateString();
   const yesterday = new Date(now);
   yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear();
-
+  const isYesterday = date.toDateString() === yesterday.toDateString();
   if (isToday) return 'היום';
   if (isYesterday) return 'אתמול';
-  
   return date.toLocaleDateString('he-IL', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
 };
 
@@ -39,56 +36,69 @@ const formatTimeSafe = (dateString: string) => {
   }
 };
 
-export default function ChatEngineUI({ space, conversationId, member, viewMode = 'creator', isGroup = false, headerContent }: ChatEngineUIProps) {
+export default function ChatEngineUI({
+  space,
+  conversationId,
+  member,
+  viewMode = 'creator',
+  isGroup = false,
+  headerContent,
+}: ChatEngineUIProps) {
   const { sendConversationMessage, markConversationRead } = useSpaces() as any;
   const { user } = useAuth();
-  
+
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  // ── Presence (online dots) ──────────────────────────────────────────────────
+  const presenceUids = useMemo(() => {
+    const uids = (space.members || []).map((m: any) => m.userId);
+    if (space.creatorId) uids.push(space.creatorId);
+    return uids;
+  }, [space]);
+  const { getPresenceColor } = usePresence(presenceUids);
 
+  useEffect(() => { setMounted(true); }, []);
+
+  // ── Message aggregation ─────────────────────────────────────────────────────
   const messagesRaw = member?.messages || [];
   let legacyMessages = (Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw)).map((msg: any) => ({
     id: msg.id,
     senderId: msg.from === 'creator' ? (space.creatorId || space.createdBy) : member?.userId,
     text: msg.text,
     createdAt: msg.createdAt || new Date().toISOString(),
-    readBy: msg.readAt ? [msg.from === 'creator' ? member?.userId : (space.creatorId || space.createdBy)] : []
+    readBy: msg.readAt ? [msg.from === 'creator' ? member?.userId : (space.creatorId || space.createdBy)] : [],
   }));
   if (isGroup || viewMode === 'peer') legacyMessages = [];
 
   const convo = space.conversations?.find((c: any) => c.id === conversationId);
   const meshMessages = convo?.messages || [];
-  
-  const messagesArray = [...legacyMessages, ...meshMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
+  const messagesArray = [...legacyMessages, ...meshMessages].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
+  // ── Mark read ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mounted || !user?.id) return;
     const timer = setTimeout(() => {
       if (typeof markConversationRead === 'function') {
-        const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(user?.id));
-        const hasUnreadLegacy = legacyMessages.some((m: any) => {
-           const isCreator = space.creatorId === user?.id || space.createdBy === user?.id;
-           if (isCreator && m.senderId !== space.creatorId) return true;
-           if (!isCreator && m.senderId === space.creatorId) return true;
-           return false;
-        });
-        if (hasUnreadMesh || hasUnreadLegacy) {
-          markConversationRead(space.id, conversationId, user?.id);
-        }
+        const hasUnread =
+          meshMessages.some((m: any) => !(m.readBy || []).includes(user?.id)) ||
+          legacyMessages.some((m: any) => {
+            const isCreator = space.creatorId === user?.id || space.createdBy === user?.id;
+            return isCreator ? m.senderId !== space.creatorId : m.senderId === space.creatorId;
+          });
+        if (hasUnread) markConversationRead(space.id, conversationId, user?.id);
       }
     }, 500);
     return () => clearTimeout(timer);
   }, [mounted, messagesArray.length, user?.id, space.id, conversationId]);
 
+  // ── Auto-scroll ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messagesArray.length]);
 
   const handleSendMessage = () => {
@@ -103,76 +113,129 @@ export default function ChatEngineUI({ space, conversationId, member, viewMode =
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+      {/* Messages list */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {headerContent}
+
         {messagesArray.length === 0 && (
           <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.9rem', marginTop: '2rem' }}>
-            אין הודעות בשיחה זו עדיין.<br/>שלח הודעה כדי להתחיל!
+            אין הודעות בשיחה זו עדיין.<br />שלח הודעה כדי להתחיל!
           </div>
         )}
+
         {messagesArray.map((m: any, idx: number) => {
           if (!m) return null;
-          const currentMessageDate = new Date(m.createdAt).toDateString();
-          let showDateBadge = false;
-          if (idx === 0) {
-             showDateBadge = true;
-          } else {
-             let prevM = messagesArray[idx - 1];
-             const prevMessageDate = prevM ? new Date(prevM.createdAt).toDateString() : null;
-             if (currentMessageDate !== prevMessageDate) showDateBadge = true;
-          }
-          const dateLabel = showDateBadge ? getChatDateLabel(m.createdAt) : "";
+
+          // Date divider
+          const currentDateStr = new Date(m.createdAt).toDateString();
+          const prevDateStr = idx > 0 && messagesArray[idx - 1] ? new Date(messagesArray[idx - 1].createdAt).toDateString() : null;
+          const showDateBadge = idx === 0 || currentDateStr !== prevDateStr;
+
+          // Is this MY message? (RTL: mine = right side = flex-end in row direction)
           const isMyMsg = m.senderId === user?.id || (m.from && m.from === viewMode);
-          
-          if (isMyMsg && m.text && m.text.startsWith('[הודעת מערכת]:')) {
-            return null;
-          }
+          if (isMyMsg && m.text?.startsWith('[הודעת מערכת]:')) return null;
 
           const timeStr = formatTimeSafe(m.createdAt);
-          let senderName = isMyMsg ? 'אני' : 'שותף';
-          if (!isMyMsg) {
+          const isRead = (m.readBy && m.readBy.length > 0) || !!m.readAt;
+
+          // Sender name for group chat
+          let senderName = '';
+          if (!isMyMsg && isGroup) {
             if (m.senderId === space.creatorId || m.from === 'creator') {
               senderName = space.createdBy || 'מנהל המרחב';
             } else {
-              const senderMember = space.members?.find((sm: any) => sm.userId === m.senderId);
-              if (senderMember) senderName = senderMember.name;
+              const sm = space.members?.find((x: any) => x.userId === m.senderId);
+              senderName = sm?.name || 'משתמש';
             }
           }
 
+          // Presence dot for sender (p2p only)
+          const senderPresenceUid = !isMyMsg && !isGroup
+            ? (m.senderId === space.creatorId ? space.creatorId : member?.userId)
+            : null;
+
           return (
             <React.Fragment key={m.id || idx}>
+              {/* Date badge */}
               {showDateBadge && (
-                <div style={{ alignSelf: 'center', background: 'rgba(0,0,0,0.05)', color: '#64748b', fontSize: '0.75rem', padding: '0.2rem 0.8rem', borderRadius: '12px', margin: '0.5rem 0', fontWeight: 'bold' }}>
-                  {dateLabel}
+                <div style={{
+                  alignSelf: 'center',
+                  background: 'rgba(0,0,0,0.08)',
+                  color: '#475569',
+                  fontSize: '0.72rem',
+                  padding: '0.2rem 0.9rem',
+                  borderRadius: '12px',
+                  margin: '0.75rem 0 0.25rem',
+                  fontWeight: '600',
+                  backdropFilter: 'blur(4px)',
+                }}>
+                  {getChatDateLabel(m.createdAt)}
                 </div>
               )}
+
+              {/* Bubble row — RTL: mine right, theirs left */}
               <div style={{
-                alignSelf: isMyMsg ? 'flex-start' : 'flex-end',
-                background: isMyMsg ? 'var(--primary)' : 'white',
-                color: isMyMsg ? 'white' : 'var(--text-primary)',
-                padding: '0.6rem 1rem',
-                borderRadius: isMyMsg ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                maxWidth: '85%',
-                boxShadow: isMyMsg ? '0 4px 12px rgba(79,70,229,0.2)' : '0 2px 8px rgba(0,0,0,0.05)',
-                border: isMyMsg ? 'none' : '1px solid var(--border-light)',
-                position: 'relative',
                 display: 'flex',
-                flexDirection: 'column',
-                gap: '0.2rem'
+                justifyContent: isMyMsg ? 'flex-end' : 'flex-start',
+                alignItems: 'flex-end',
+                gap: '0.4rem',
+                marginBottom: '0.1rem',
               }}>
-                {!isMyMsg && isGroup && (
-                  <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>{senderName}</span>
+                {/* Presence dot for others (left of bubble) */}
+                {!isMyMsg && senderPresenceUid && (
+                  <div style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: getPresenceColor(senderPresenceUid, user?.id),
+                    flexShrink: 0,
+                    marginBottom: '4px',
+                  }} />
                 )}
-                <span style={{ fontSize: '0.95rem', lineHeight: '1.4', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                  {m.text}
-                </span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', alignSelf: 'flex-end', marginTop: '0.1rem', opacity: 0.8 }}>
-                  <span style={{ fontSize: '0.65rem' }}>{timeStr}</span>
-                  {isMyMsg && (
-                    <span style={{ fontSize: '0.7rem' }}>
-                      {((m.readBy && m.readBy.length > 0) || m.readAt) ? '✓✓' : '✓'}
-                    </span>
+
+                {/* Message bubble */}
+                <div style={{
+                  background: isMyMsg ? '#dcf8c6' : '#ffffff', // WhatsApp green / white
+                  color: '#0f172a',
+                  padding: '0.5rem 0.75rem 0.35rem',
+                  borderRadius: isMyMsg ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  maxWidth: '78%',
+                  boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
+                  position: 'relative',
+                  wordBreak: 'break-word',
+                  whiteSpace: 'pre-wrap',
+                }}>
+                  {/* Sender name (group only) */}
+                  {!isMyMsg && isGroup && (
+                    <div style={{ fontSize: '0.68rem', color: '#7c3aed', fontWeight: '700', marginBottom: '0.15rem' }}>
+                      {senderName}
+                    </div>
                   )}
+
+                  {/* Message text */}
+                  <span style={{ fontSize: '0.95rem', lineHeight: '1.45' }}>{m.text}</span>
+
+                  {/* Timestamp + read receipt — OUTSIDE the text flow, bottom-right */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    justifyContent: 'flex-end',
+                    marginTop: '2px',
+                    marginLeft: '0.5rem', // push the bubble wider to leave room
+                  }}>
+                    <span style={{ fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>{timeStr}</span>
+                    {isMyMsg && (
+                      <span style={{
+                        fontSize: '0.72rem',
+                        color: isRead ? '#0ea5e9' : '#94a3b8', // blue = read, grey = sent
+                        lineHeight: 1,
+                        fontWeight: '700',
+                      }}>
+                        {isRead ? '✓✓' : '✓'}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </React.Fragment>
@@ -181,7 +244,16 @@ export default function ChatEngineUI({ space, conversationId, member, viewMode =
         <div ref={messagesEndRef} />
       </div>
 
-      <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', borderTop: '1px solid #e2e8f0' }}>
+      {/* Input bar */}
+      <div style={{
+        background: '#f0f2f5',
+        padding: '0.6rem 0.75rem',
+        display: 'flex',
+        gap: '0.5rem',
+        alignItems: 'flex-end',
+        borderTop: '1px solid #e2e8f0',
+        direction: 'rtl',
+      }}>
         <textarea
           value={messageText}
           onChange={e => setMessageText(e.target.value)}
@@ -195,33 +267,36 @@ export default function ChatEngineUI({ space, conversationId, member, viewMode =
           rows={1}
           style={{
             flex: 1,
-            padding: '0.6rem 1rem',
+            padding: '0.55rem 1rem',
             borderRadius: '24px',
             border: '1px solid #cbd5e1',
             background: '#ffffff',
             fontSize: '0.95rem',
             outline: 'none',
             resize: 'none',
-            maxHeight: '100px',
+            maxHeight: '120px',
             fontFamily: 'inherit',
+            direction: 'rtl',
+            overflowY: 'auto',
           }}
         />
         <button
           onClick={handleSendMessage}
           disabled={!messageText.trim()}
           style={{
-            background: messageText.trim() ? 'var(--primary)' : '#cbd5e1',
+            background: messageText.trim() ? '#25d366' : '#cbd5e1', // WhatsApp send green
             color: 'white',
             border: 'none',
-            width: '40px',
-            height: '40px',
+            width: '42px',
+            height: '42px',
             borderRadius: '50%',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             cursor: messageText.trim() ? 'pointer' : 'not-allowed',
             transition: 'all 0.2s',
-            boxShadow: messageText.trim() ? '0 4px 10px rgba(79,70,229,0.3)' : 'none'
+            flexShrink: 0,
+            boxShadow: messageText.trim() ? '0 4px 12px rgba(37,211,102,0.4)' : 'none',
           }}
         >
           <span style={{ transform: 'rotate(-45deg) translateX(2px)', fontSize: '1.2rem' }}>➤</span>
