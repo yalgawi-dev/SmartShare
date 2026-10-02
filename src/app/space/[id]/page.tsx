@@ -6,6 +6,8 @@ import styles from './page.module.css';
 import Link from 'next/link';
 import { useSpaces } from '../../context/SpacesContext';
 import { useAuth } from '../../context/AuthContext';
+import { useChat } from '../../context/ChatContext';
+import ChatDrawer from '../../../components/widgets/Chat/ChatDrawer';
 import { getFeatureById, AVAILABLE_FEATURES, FeatureId } from '../../data/features';
 import { DocumentsWidget } from '../../../components/widgets/Vault/DocumentsWidget';
 import FinanceWidget from '../../../components/widgets/FinanceWidget';
@@ -67,6 +69,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser } = useSpaces() as any;
   const { user } = useAuth();
+  const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
 
   
@@ -639,6 +642,32 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       {/* Floating Scanner & AppShare & Generic Setup Button */}
       {spaceFeatures.length > 0 && !isRestricted && (
         <>
+          {spaceFeatures.includes('chat') && (
+            <button 
+              onClick={() => openChat('group')}
+              style={{
+                position: 'fixed',
+                bottom: '6rem',
+                right: '1.5rem',
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'var(--primary)',
+                color: 'white',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 14px rgba(79,70,229,0.4)',
+                cursor: 'pointer',
+                zIndex: 90,
+                fontSize: '1.8rem',
+                transition: 'transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1)'
+              }}
+            >
+              💬
+            </button>
+          )}
           <FloatingActionBar 
             hasFinance={hasFinance}
             hasScanner={hasScanner}
@@ -732,6 +761,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           onClose={() => setActiveChatId(null)}
         />
       )}
+
+      {/* Standalone Chat Drawer */}
+      <ChatDrawer spaceId={id} />
     </div>
   );
 }

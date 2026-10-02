@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import ChatEngineUI from '../Chat/ChatEngineUI';
 import { usePresence } from '../../../hooks/usePresence';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
@@ -54,22 +55,6 @@ interface Props {
 }
 
 
-const getChatDateLabel = (dateString: string) => {
-  if (!dateString) return '';
-  const date = new Date(dateString);
-  const now = new Date();
-  
-  const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-  
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const isYesterday = date.getDate() === yesterday.getDate() && date.getMonth() === yesterday.getMonth() && date.getFullYear() === yesterday.getFullYear();
-
-  if (isToday) return 'היום';
-  if (isYesterday) return 'אתמול';
-  
-  return date.toLocaleDateString('he-IL', { weekday: 'short', day: '2-digit', month: '2-digit', year: '2-digit' });
-};
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
   const { approveExtension, removeMember, updateMemberStatus, sendConversationMessage, markConversationRead,  approveShareChange, rejectShareChange } = useSpaces() as any;
@@ -99,53 +84,6 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
       ? [user?.id, member.userId].filter(Boolean).sort().join('_')
       : [user?.id, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')
   );
-
-  // Legacy
-  const messagesRaw = member?.messages || [];
-  let legacyMessages = (Array.isArray(messagesRaw) ? [...messagesRaw] : Object.values(messagesRaw)).map((msg: any) => ({
-    id: msg.id,
-    senderId: msg.from === 'creator' ? (space.creatorId || space.createdBy) : member.userId,
-    text: msg.text,
-    createdAt: msg.createdAt || new Date().toISOString(),
-    readBy: msg.readAt ? [msg.from === 'creator' ? member.userId : (space.creatorId || space.createdBy)] : []
-  }));
-  if (isGroup || viewMode === 'peer') legacyMessages = [];
-
-  // Mesh
-  const convo = space.conversations?.find((c: any) => c.id === conversationId);
-  const meshMessages = convo?.messages || [];
-  
-  const messagesArray = [...legacyMessages, ...meshMessages].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
-  // Auto-mark messages as read when opening the panel - only when truly mounted and visible
-  useEffect(() => {
-    if (!mounted || !user?.id) return;
-    // Small delay to ensure the messages are actually rendered on screen
-    const timer = setTimeout(() => {
-      // Mark Mesh
-      if (typeof markConversationRead === 'function') {
-        const hasUnreadMesh = meshMessages.some((m: any) => !(m.readBy || []).includes(user?.id));
-        const hasUnreadLegacy = legacyMessages.some((m: any) => {
-           const isCreator = space.creatorId === user?.id || space.createdBy === user?.id;
-           if (isCreator && m.senderId !== space.creatorId) return true;
-           if (!isCreator && m.senderId === space.creatorId) return true;
-           return false;
-        });
-        if (hasUnreadMesh || hasUnreadLegacy) {
-          markConversationRead(space.id, conversationId, user?.id);
-        }
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [mounted, messagesArray.length]);
-
-  // Auto-scroll to bottom of chat
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [messagesArray.length]);
-
   if (!mounted || typeof document === 'undefined') return null;
   if (!member || !space) return null;
 
@@ -383,7 +321,6 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         </div>
 
         {/* Chat Messages Area */}
-        {true && (
         <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
           {viewMode === 'creator' && member?.extensionMessage && (
             <div style={{ alignSelf: 'center', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.5rem 1rem', fontSize: '0.8rem', color: '#92400e', marginBottom: '0.5rem', maxWidth: '90%', textAlign: 'center' }}>
@@ -414,137 +351,22 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               )}
             </div>
           )}
-          {messagesArray.map((m: any, idx: number) => {
-            if (!m) return null;
-            const currentMessageDate = new Date(m.createdAt).toDateString();
-            let showDateBadge = false;
-            if (idx === 0) {
-               showDateBadge = true;
-            } else {
-               let prevM = messagesArray[idx - 1];
-               const prevMessageDate = prevM ? new Date(prevM.createdAt).toDateString() : null;
-               if (currentMessageDate !== prevMessageDate) showDateBadge = true;
-            }
-            const dateLabel = showDateBadge ? getChatDateLabel(m.createdAt) : "";
-            const isMyMsg = m.senderId === user?.id || (m.from && m.from === viewMode);
-            
-            // Hide system messages from the person who triggered them
-            if (isMyMsg && m.text && m.text.startsWith('[הודעת מערכת]:')) {
-              return null;
-            }
 
-            const timeStr = formatTimeSafe(m.createdAt);
-            let senderName = isMyMsg ? 'אני' : 'שותף';
-            if (!isMyMsg) {
-              if (m.senderId === space.creatorId || m.from === 'creator') {
-                senderName = space.createdBy || 'מנהל המרחב';
-              } else {
-                const sm = space.members?.find((sm: any) => sm.userId === m.senderId);
-                if (sm) senderName = sm.name || 'שותף';
-              }
-            }
-
-            return (
-              <React.Fragment >
-                {showDateBadge && (
-                  <div style={{ display: "flex", justifyContent: "center", margin: "0.75rem 0", width: "100%" }}>
-                    <div style={{ background: "#e1f2fb", color: "#445b65", padding: "4px 12px", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "bold", boxShadow: "0 1px 1px rgba(0,0,0,0.05)" }}>
-                      {dateLabel}
-                    </div>
-                  </div>
-                )}
-              <div
-                key={m.id || idx}
-                style={{
-                  background: isMyMsg ? '#dcf8c6' : '#ffffff',
-                  alignSelf: isMyMsg ? 'flex-end' : 'flex-start',
-                  borderRadius: isMyMsg ? '12px 12px 0 12px' : '12px 12px 12px 0',
-                  padding: '0.5rem 0.6rem 0.2rem 0.6rem',
-                  maxWidth: '85%',
-                  boxShadow: '0 1px 1px rgba(0,0,0,0.1)',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  position: 'relative'
-                }}
-              >
-                {!isMyMsg && (
-                  <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold', marginBottom: '0.1rem', alignSelf: 'flex-start' }}>
-                    {senderName}
-                  </div>
-                )}
-                <div style={{ fontSize: '0.9rem', color: '#111b21', lineHeight: '1.4', paddingBottom: '2px', wordBreak: 'break-word', whiteSpace: 'pre-wrap' }}>
-                  {m.text || ''}
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '4px', alignSelf: 'flex-end', marginTop: '1px' }}>
-                  <span style={{ fontSize: '0.65rem', color: '#667781' }}>{timeStr}</span>
-                  {isMyMsg && (
-                    <span style={{ color: m.readAt || (m.readBy && m.readBy.length > 1) ? '#53bdeb' : '#8696a0', marginRight: '2px', display: 'flex', alignItems: 'center' }}>
-                      <svg viewBox="0 0 16 15" width="16" height="15" fill="currentColor">
-                        <path d="M15.01 3.316l-.478-.372a.365.365 0 0 0-.51.063L8.666 9.879a.32.32 0 0 1-.484.033l-.358-.325a.319.319 0 0 0-.484.032l-.378.483a.418.418 0 0 0 .036.541l1.32 1.266c.143.14.361.125.484-.033l6.272-8.048a.366.366 0 0 0-.064-.512zm-4.1 0l-.478-.372a.365.365 0 0 0-.51.063L4.566 9.879a.32.32 0 0 1-.484.033L1.891 7.769a.366.366 0 0 0-.515.006l-.423.433a.364.364 0 0 0 .006.514l3.258 3.185c.143.14.361.125.484-.033l6.272-8.048a.365.365 0 0 0-.063-.51z" />
-                      </svg>
-                    </span>
-                  )}
-                </div>
+          {/* ChatUI Rendered here */}
+          {(space.features || []).includes('chat') ? (
+            <ChatEngineUI space={space} conversationId={conversationId} member={member} viewMode={viewMode} isGroup={isGroup} />
+          ) : (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.9rem', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
+              <div style={{ fontSize: '3rem', opacity: 0.5 }}>💬</div>
+              <div style={{ textAlign: 'center' }}>
+                מערכת הצ'אט מנותקת במרחב זה.<br/>
+                ניתן להפעיל אותה בהגדרות התוספים.
               </div>
-              </React.Fragment>
-            );
-          })}
-          <div ref={messagesEndRef} />
+            </div>
+          )}
         </div>
-
-        )}
-        {/* Input Area */}
-        {true && (
-        <div style={{ background: '#f0f2f5', padding: '0.75rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center', flexShrink: 0 }}>
-          <textarea
-            value={messageText}
-            onChange={e => setMessageText(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSendMessage();
-              }
-            }}
-            placeholder="הקלד הודעה..."
-            rows={1}
-            style={{
-              flex: 1,
-              padding: '0.6rem 1rem',
-              borderRadius: '24px',
-              border: 'none',
-              background: '#ffffff',
-              fontSize: '0.95rem',
-              outline: 'none',
-              resize: 'none',
-              maxHeight: '100px',
-              fontFamily: 'inherit',
-              boxShadow: '0 1px 1px rgba(0,0,0,0.05)'
-            }}
-          />
-          <button
-            onClick={handleSendMessage}
-            disabled={!messageText.trim()}
-            style={{
-              background: messageText.trim() ? '#00a884' : '#a7a7a7',
-              color: '#ffffff',
-              border: 'none',
-              borderRadius: '50%',
-              width: '42px',
-              height: '42px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: messageText.trim() ? 'pointer' : 'default',
-              transition: 'background 0.2s'
-            }}
-          >
-            <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
-              <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
-            </svg>
-          </button>
-        </div>
-        )}
       </div>
+
     </>,
     document.body
   );

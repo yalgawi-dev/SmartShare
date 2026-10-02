@@ -11,6 +11,12 @@ export interface Feature {
 }
 
 export const AVAILABLE_FEATURES: Feature[] = [
+  {
+    id: 'chat',
+    name: 'צ\'אט מרחב',
+    desc: 'מערכת הודעות קבוצתית ואישית בין חברי המרחב',
+    icon: '💬'
+  },
   { id: 'finance', name: 'התחשבנות וחשבוניות', desc: 'סריקת חשבוניות וחלוקת הוצאות בין שותפים', icon: '💰', recommends: ['scanner', 'partners', 'cashbox'] },
   { id: 'income', name: 'הכנסות עסק', desc: 'תיעוד וחלוקת הכנסות ומכירות', icon: '💼', requires: ['finance'] },
   { id: 'cashbox', name: 'קופת מזומן', desc: 'העברות כספים וקופה קטנה משותפת', icon: '💸' , inDevelopment: true },
