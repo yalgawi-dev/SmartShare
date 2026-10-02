@@ -5,22 +5,16 @@ const search = `            webpush: {
               fcmOptions: {
                 link: (data && data.url) ? data.url : '/'
               },
-              notification: data?.tag ? { tag: data.tag } : undefined
-            },
-            android: data?.tag ? { notification: { tag: data.tag } } : undefined,
-            apns: data?.tag ? { headers: { 'apns-collapse-id': data.tag } } : undefined
-          });`;
+              ...(data?.tag ? { notification: { tag: data.tag } } : {})
+            }`;
 
 const replace = `            webpush: {
               fcmOptions: {
                 link: (data && data.url) ? data.url : '/'
               },
-              ...(data?.tag ? { notification: { tag: data.tag } } : {})
-            },
-            ...(data?.tag ? { android: { notification: { tag: data.tag } } } : {}),
-            ...(data?.tag ? { apns: { headers: { 'apns-collapse-id': data.tag } } } : {})
-          });`;
+              ...(data?.tag ? { notification: { title, body, tag: data.tag } } : {})
+            }`;
 
 txt = txt.replace(search, replace);
 fs.writeFileSync('src/app/api/send-notification/route.ts', txt);
-console.log('Fixed undefined in payload');
+console.log('Fixed webpush notification override');

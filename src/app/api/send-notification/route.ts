@@ -34,10 +34,8 @@ export async function POST(request: Request) {
               fcmOptions: {
                 link: (data && data.url) ? data.url : '/'
               },
-              ...(data?.tag ? { notification: { tag: data.tag } } : {})
-            },
-            ...(data?.tag ? { android: { notification: { tag: data.tag } } } : {}),
-            ...(data?.tag ? { apns: { headers: { 'apns-collapse-id': data.tag } } } : {})
+              ...(data?.tag ? { notification: { title, body, tag: data.tag } } : {})
+            }
           });
         });
       }
