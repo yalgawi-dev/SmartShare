@@ -427,7 +427,7 @@ export function FinanceSummary({
 })();
                   return (
                       <React.Fragment key={b.userId || b.name}>
-                        <tr id={`partner-row-${b.userId}`} style={{ scrollMarginTop: "100px" }}
+                        <tr id={`partner-row-${b.userId}`}
                           onClick={() => {
                               if (isCreatorMe) {
                                 // Creator: can click on partner rows, NOT own row
@@ -439,7 +439,7 @@ export function FinanceSummary({
                                 if (b.isMember && b.userId !== user?.id) { setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); }
                               }
                             }}
-                          style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe 
+                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe 
                           ? (b.isMember && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
                           : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
