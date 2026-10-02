@@ -221,7 +221,7 @@ export default function ChatEngineUI({
                         lineHeight: 1,
                         fontWeight: '700',
                       }}>
-                        {isReadByOther ? '✓✓' : '✓'}
+                        ✓✓
                       </span>
                     )}
                   </div>

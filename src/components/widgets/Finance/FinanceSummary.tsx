@@ -404,7 +404,27 @@ export function FinanceSummary({
                   const isInactive = activePartnersCount === 0 && b.userId !== myId;
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
                   const memberObj = space.members?.find((m: any) => m.userId === b.userId);
-                  const unreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
+                  const unreadCount = (() => {
+  if (!space.features?.includes('chat')) return 0;
+  let count = 0;
+  count += (memberObj?.messages || []).filter((m: any) => {
+     if (m.readAt) return false;
+     if (isCreatorMe && m.from === 'partner') return true;
+     if (!isCreatorMe && memberObj?.userId === user?.id && m.from === 'creator') return true;
+     return false;
+  }).length;
+  
+  if (user?.id && b.userId) {
+    const targetId = isCreatorMe ? b.userId : creatorId;
+    const p2pConvoId = [myId, targetId].filter(Boolean).sort().join('_');
+    const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+    if (convo) {
+       const unreadMesh = convo.messages?.filter((msg: any) => msg.senderId !== user.id && msg.senderId !== myId && !msg.readBy?.includes(user.id)) || [];
+       count += unreadMesh.length;
+    }
+  }
+  return count;
+})();
                   return (
                       <React.Fragment key={b.userId || b.name}>
                         <tr
@@ -427,13 +447,13 @@ export function FinanceSummary({
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
                                 {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
+                                  if (!space.features?.includes('chat')) return null;
                                   let myUnreadCount = 0;
                                   const targetId = b.isCreator ? (space.creatorId || space.createdBy) : b.userId;
-                                  const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
+                                  const p2pConvoId = [myId, targetId].filter(Boolean).sort().join('_');
                                   const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-                                  
                                   if (convo) {
-                                    myUnreadCount = convo.messages?.filter((msg: any) => !msg.readBy?.includes(user?.id))?.length || 0;
+                                    myUnreadCount = convo.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myId && !msg.readBy?.includes(user?.id))?.length || 0;
                                   } else {
                                     if (isCreatorMe && !b.isCreator) {
                                       myUnreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;

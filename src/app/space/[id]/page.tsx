@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState, useEffect, useRef } from 'react';
+import { use, useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import styles from './page.module.css';
 import Link from 'next/link';
@@ -93,6 +93,26 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
     return null;
   });
+
+  const unreadChatCount = useMemo(() => {
+    if (!user || !space || !space.features?.includes('chat')) return 0;
+    let count = 0;
+    const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+    const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
+    const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+    const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
+
+    (space.conversations || []).forEach((c: any) => {
+      if (c.id === 'group') {
+        const unread = c.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+        count += unread.length;
+      } else if (c.participants?.includes(myActualId)) {
+        const unread = c.messages?.filter((msg: any) => msg.senderId !== user.id && msg.senderId !== myActualId && !msg.readBy?.includes(user.id)) || [];
+        count += unread.length;
+      }
+    });
+    return count;
+  }, [space, user]);
   
   useEffect(() => {
     if (typeof window !== 'undefined' && activeChatId) {
@@ -436,11 +456,23 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 cursor: 'pointer',
                 boxShadow: 'var(--shadow-sm)',
                 fontSize: '1.2rem',
-                flexShrink: 0
+                flexShrink: 0,
+                position: 'relative'
               }}
               title="צ'אט קבוצתי"
             >
               💬
+              {unreadChatCount > 0 && (
+                <span style={{
+                  position: 'absolute', top: '-4px', right: '-4px',
+                  background: 'red', color: 'white', fontSize: '0.65rem',
+                  fontWeight: 'bold', width: '18px', height: '18px',
+                  borderRadius: '50%', display: 'flex', alignItems: 'center',
+                  justifyContent: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                }}>
+                  {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                </span>
+              )}
             </button>
           )}
           <div style={{ position: 'relative' }}>

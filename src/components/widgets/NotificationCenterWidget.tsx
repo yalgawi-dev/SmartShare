@@ -98,60 +98,60 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
               });
             }
 
-            // Chat Unread Summary
-            
-              
-              if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return; // Partners only process their own row
+            // P2P Chat Unread Summary
+            if (space.features?.includes('chat')) {
+              if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
               const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
               const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
               const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
               let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id)) || [];
             
-            // Legacy fallback
-            if (unreadChatMessages.length === 0) {
-              unreadChatMessages = (member.messages || []).filter((msg: any) => {
-                if (msg.readAt) return false;
-                if (isCreator && msg.from === 'partner') return true;
-                if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
-                return false;
-              });
-            }
+              // Legacy fallback
+              if (unreadChatMessages.length === 0) {
+                unreadChatMessages = (member.messages || []).filter((msg: any) => {
+                  if (msg.readAt) return false;
+                  if (isCreator && msg.from === 'partner') return true;
+                  if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
+                  return false;
+                });
+              }
 
-            if (unreadChatMessages.length > 0) {
-              notifs.push({
-                id: 'chat-' + member.userId,
-                type: 'chat',
-                priority: 'low',
-                title: "הודעה חדשה בפרטי",
-                text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + (isCreator ? member.name : 'מנהל המרחב') + '.',
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
-                actionable: true
-              });
+              if (unreadChatMessages.length > 0) {
+                notifs.push({
+                  id: 'chat-' + member.userId,
+                  type: 'chat',
+                  priority: 'low',
+                  title: "הודעה חדשה בפרטי",
+                  text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + (isCreator ? member.name : 'מנהל המרחב') + '.',
+                  spaceId: space.id,
+                  spaceName: space.title || 'מרחב',
+                  createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
+                  actionable: true
+                });
+              }
             }
           });
           
-          
           // Group Chat Summary
-          const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
-          if (groupConvo) {
-            const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
-            if (unreadGroup.length > 0) {
-              notifs.push({
-                id: 'chat-group',
-                type: 'chat',
-                priority: 'low',
-                title: "שיחה קבוצתית",
-                text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בקבוצת המרחב.',
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: unreadGroup[unreadGroup.length - 1].createdAt || new Date().toISOString(),
-                actionable: true
-              });
+          if (space.features?.includes('chat')) {
+            const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
+            if (groupConvo) {
+              const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+              if (unreadGroup.length > 0) {
+                notifs.push({
+                  id: 'chat-group',
+                  type: 'chat',
+                  priority: 'low',
+                  title: "שיחה קבוצתית",
+                  text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בקבוצת המרחב.',
+                  spaceId: space.id,
+                  spaceName: space.title || 'מרחב',
+                  createdAt: unreadGroup[unreadGroup.length - 1].createdAt || new Date().toISOString(),
+                  actionable: true
+                });
+              }
             }
           }
-          
           // 3. Pending Invites
           if (isCreator) {
             (space.pendingInvites || []).forEach((invite: any) => {
