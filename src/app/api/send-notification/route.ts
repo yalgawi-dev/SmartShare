@@ -33,8 +33,11 @@ export async function POST(request: Request) {
             webpush: {
               fcmOptions: {
                 link: (data && data.url) ? data.url : '/'
-              }
-            }
+              },
+              notification: data?.tag ? { tag: data.tag } : undefined
+            },
+            android: data?.tag ? { notification: { tag: data.tag } } : undefined,
+            apns: data?.tag ? { headers: { 'apns-collapse-id': data.tag } } : undefined
           });
         });
       }

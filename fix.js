@@ -1,13 +1,9 @@
 ﻿const fs = require('fs');
-let txt = fs.readFileSync('src/app/context/AuthContext.tsx', 'utf8');
+let txt = fs.readFileSync('src/app/context/SpacesContext.tsx', 'utf8');
 
-const searchImports = "import { auth, db, googleProvider } from '@/lib/firebase';";
-const replaceImports = "import { auth, db, googleProvider } from '@/lib/firebase';\nimport { setupForegroundFCM } from '@/utils/notifications';";
-txt = txt.replace(searchImports, replaceImports);
+const search = "triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId });";
+const replace = "triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId, tag: 'chat-' + spaceId + '-' + conversationId });";
 
-const searchInit = "getRedirectResult(auth).then(res =>";
-const replaceInit = "setupForegroundFCM();\n    getRedirectResult(auth).then(res =>";
-txt = txt.replace(searchInit, replaceInit);
-
-fs.writeFileSync('src/app/context/AuthContext.tsx', txt);
-console.log('Added foreground FCM setup to AuthContext');
+txt = txt.replace(search, replace);
+fs.writeFileSync('src/app/context/SpacesContext.tsx', txt);
+console.log('Replaced trigger payload');

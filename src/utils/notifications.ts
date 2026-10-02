@@ -66,7 +66,8 @@ export const setupForegroundFCM = async () => {
       if (Notification.permission === 'granted' && payload.notification) {
         new Notification(payload.notification.title || 'התראה', {
           body: payload.notification.body,
-          icon: '/icon-192x192.png'
+          icon: '/icon-192x192.png',
+          tag: payload.data?.tag || undefined
         });
       }
     });
