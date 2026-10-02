@@ -157,11 +157,11 @@ export function FloatingActionBar({
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
                 color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none', flex: 1
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📥</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'inbox' ? '800' : '600' }}>מחסן חשבוניות</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן חשבוניות</span>
             </button>
 
             <button 
@@ -169,11 +169,11 @@ export function FloatingActionBar({
               style={{
                 background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s'
+                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s', flex: 1
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📄</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: '600' }}>{activeTab === 'documents' ? 'ייבוא מסמך' : 'חשבונית/הוצאה'}</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>{activeTab === 'documents' ? 'ייבוא מסמך' : 'חשבונית/הוצאה'}</span>
             </button>
 
             <button 
@@ -181,11 +181,11 @@ export function FloatingActionBar({
               style={{
                 background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s'
+                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s', flex: 1
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>💳</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: '600' }}>הזנה</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזנת הוצאה</span>
             </button>
           </>
         )}

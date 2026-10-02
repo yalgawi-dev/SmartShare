@@ -148,11 +148,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           left: 0,
           right: 0,
           zIndex: 99999,
-          background: '#e5ded8', // WhatsApp background color
+          background: (space.features || []).includes('chat') ? '#e5ded8' : '#f8fafc', // WhatsApp background color
           color: '#0f172a',
           borderRadius: '24px 24px 0 0',
           boxShadow: '0 -10px 40px rgba(0, 0, 0, 0.3)',
-          height: '85vh',
+          height: (space.features || []).includes('chat') ? '85vh' : 'auto',
           maxHeight: '85vh',
           display: 'flex',
           flexDirection: 'column',
@@ -169,9 +169,12 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>{viewMode === 'creator' || viewMode === 'peer' 
-      ? `שיחה עם ${memberName}` 
-      : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>
+                      {(space.features || []).includes('chat') 
+                        ? (viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`)
+                        : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
+                      }
+                    </h3>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
@@ -353,16 +356,8 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           )}
 
           {/* ChatUI Rendered here */}
-          {(space.features || []).includes('chat') ? (
+          {(space.features || []).includes('chat') && (
             <ChatEngineUI space={space} conversationId={conversationId} member={member} viewMode={viewMode} isGroup={isGroup} />
-          ) : (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '0.9rem', flexDirection: 'column', gap: '1rem', padding: '2rem' }}>
-              <div style={{ fontSize: '3rem', opacity: 0.5 }}>💬</div>
-              <div style={{ textAlign: 'center' }}>
-                מערכת הצ'אט מנותקת במרחב זה.<br/>
-                ניתן להפעיל אותה בהגדרות התוספים.
-              </div>
-            </div>
           )}
         </div>
       </div>
