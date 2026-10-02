@@ -77,6 +77,29 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
         
+        {/* Empty State for Settings */}
+        {(!space.features || space.features.length === 0) && (
+          <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'white', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)', marginTop: '2rem' }}>
+            <div style={{ fontSize: '4rem', marginBottom: '1.5rem', opacity: 0.8 }}>⚙️</div>
+            <h2 style={{ fontSize: '1.75rem', color: 'var(--text-primary)', marginBottom: '1rem', fontWeight: '800' }}>לוח הבקרה שלך ריק</h2>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '450px', margin: '0 auto 2rem auto' }}>
+              כאן יופיעו ההגדרות המתקדמות של כל תוסף שתוסיף לקיר שלך.
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', textAlign: 'right', background: '#f8fafc', padding: '1.5rem', borderRadius: '16px' }}>
+              <div>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: '0.5rem' }}>🔧 ניהול תוספים</strong>
+                <span style={{ fontSize: '0.9rem', color: '#64748b' }}>תוכל לכבות או להסיר תוספים (המחיקה לא מוחקת את המידע שלך!).</span>
+              </div>
+              <div>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: '0.5rem' }}>⚙️ הגדרות מנוע</strong>
+                <span style={{ fontSize: '0.9rem', color: '#64748b' }}>תוכל לשלוט בהרשאות, להגדיר שיעור מע"מ לניהול הוצאות, ועוד.</span>
+              </div>
+            </div>
+            <Link href={`/space/${id}`} style={{ display: 'inline-block', marginTop: '2.5rem', padding: '0.75rem 2rem', background: 'var(--primary)', color: 'white', borderRadius: '100px', fontWeight: 'bold', textDecoration: 'none', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)' }}>
+              חזור לקיר כדי להוסיף מנועים
+            </Link>
+          </div>
+        )}
         {/* Dynamic Features Sections */}
         {(space.features || []).map((featureId: string) => {
           const feature = getFeatureById(featureId);

@@ -27,24 +27,36 @@ import { uploadImageToStorage } from '@/lib/firebase';
 import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
 
 function EmptyStateCarousel() {
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentIndex(prev => (prev + 1) % AVAILABLE_FEATURES.length);
-    }, 4000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const feature = AVAILABLE_FEATURES[currentIndex];
-
   return (
-    <div className={`card glass-panel ${styles.emptyStateWrapper}`}>
-      <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
-      <h2 style={{ fontSize: '1.75rem', marginBottom: '0.5rem', color: 'var(--text-primary)' }}>ברוך הבא לקיר!</h2>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '1.1rem', maxWidth: '500px', margin: '0 auto 1.5rem auto' }}>
-        הקיר כרגע ריק. תוכל להוסיף רכיבים חכמים ("מנועים") לקיר.
+    <div className="card glass-panel" style={{ textAlign: 'center', padding: '3rem 1.5rem', borderRadius: '24px', background: 'linear-gradient(135deg, rgba(255,255,255,0.8), rgba(240,244,248,0.6))', border: '1px solid rgba(255,255,255,0.5)', boxShadow: '0 10px 40px rgba(0,0,0,0.05)', marginTop: '2rem' }}>
+      <div style={{ fontSize: '3.5rem', marginBottom: '1rem', textShadow: '0 4px 10px rgba(0,0,0,0.1)' }}>🛠️</div>
+      <h2 style={{ fontSize: '1.8rem', fontWeight: '800', marginBottom: '1rem', color: '#1e293b' }}>ברוך הבא לקיר האישי שלך</h2>
+      <p style={{ color: '#475569', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '500px', margin: '0 auto 2rem auto' }}>
+        בניגוד למסך הראשי שמכיל את כל המרחבים, הקיר הזה הוא <strong>המרחב הפרטי שלך להרכבה עצמית</strong>.
+        <br/><br/>
+        כאן תוכל לחבר רק את ה"מנועים" שאתה באמת צריך: ניהול הוצאות עם שותפים, מחסן מסמכים חכם, גלריית תמונות, ועוד.
       </p>
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', textAlign: 'right', background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
+        <div>
+          <h4 style={{ color: '#3b82f6', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>1️⃣</span> בחר תוספים</h4>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>לחץ על הכפתור למטה או על גלגל השיניים כדי להדליק מנועים.</span>
+        </div>
+        <div>
+          <h4 style={{ color: '#10b981', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>2️⃣</span> התאם אישית</h4>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>כל מנוע יופיע כאן כבלוק חכם שמוכן לעבודה מיידית.</span>
+        </div>
+        <div>
+          <h4 style={{ color: '#8b5cf6', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>3️⃣</span> שתף</h4>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>הזמן שותפים לקיר שלך ונהלו את המידע יחד בזמן אמת.</span>
+        </div>
+      </div>
+      
+      <div style={{ marginTop: '2.5rem' }}>
+        <p style={{ fontSize: '0.9rem', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+           טיפ: כדי לנהל את התוספים בעתיד, לחץ על גלגל השיניים (⚙️) בראש העמוד.
+        </p>
+      </div>
     </div>
   );
 }
