@@ -258,7 +258,7 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
       ) : (
         <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem' }}>
           {sortedInboxItems.map((item: any, i: number) => (
-            <div key={item.id} style={{ 
+            <div key={item.id} id={`invoice-${item.id}`} style={{ scrollMarginTop: '100px', 
               minWidth: '220px', width: '220px', background: '#f8fafc', 
               border: item.status === 'duplicate' ? '2px solid #ef4444' : '1px solid #cbd5e1', 
               borderRadius: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column',

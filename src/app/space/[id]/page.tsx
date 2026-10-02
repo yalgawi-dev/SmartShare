@@ -127,6 +127,22 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       window.history.replaceState({}, document.title, url.toString());
     }
   }, [activeChatId, space?.features]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.hash) {
+      setTimeout(() => {
+        const id = window.location.hash.substring(1);
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const oldBg = el.style.backgroundColor;
+          el.style.transition = 'background-color 0.5s ease';
+          el.style.backgroundColor = 'rgba(239, 68, 68, 0.15)';
+          setTimeout(() => el.style.backgroundColor = oldBg, 2500);
+        }
+      }, 500);
+    }
+  }, []);
   
     const getChatMemberAndMode = (chatId: string) => {
     if (!space || !user) return null;
@@ -442,6 +458,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           </div>
           {spaceFeatures.includes('chat') && (
             <button 
+              id="chat-group-btn"
               onClick={() => openChat('group')}
               style={{
                 background: '#e0e7ff',
@@ -457,7 +474,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 boxShadow: 'var(--shadow-sm)',
                 fontSize: '1.2rem',
                 flexShrink: 0,
-                position: 'relative'
+                position: 'relative',
+                scrollMarginTop: '100px'
               }}
               title="צ'אט קבוצתי"
             >

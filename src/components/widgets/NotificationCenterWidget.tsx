@@ -122,7 +122,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                   type: 'chat',
                   priority: 'low',
                   title: "הודעה חדשה בפרטי",
-                  text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + (isCreator ? member.name : 'מנהל המרחב') + '.',
+                  text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + (isCreator ? member.name : (space.members?.find((m: any) => m.userId === space.creatorId)?.name || space.createdBy || 'מנהל המרחב')) + '.',
                   spaceId: space.id,
                   spaceName: space.title || 'מרחב',
                   createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
@@ -261,10 +261,10 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                 onClick={() => {
                   onClose();
                   let query = '?tab=partners';
-                  if (n.type === 'invoice') query = '?tab=inbox';
+                  if (n.type === 'invoice') query = '?tab=inbox#invoice-' + n.id.replace('inv-', '');
                   if (n.type === 'chat') {
-                     if (n.id === 'chat-group') query = '?chat=group';
-                     else query = '?chat=' + n.id.replace('chat-', '');
+                     if (n.id === 'chat-group') query = '#chat-group-btn';
+                     else query = '#partner-row-' + n.id.replace('chat-', '');
                   }
                   router.push('/space/' + n.spaceId + query);
                 }}

@@ -1,4 +1,8 @@
 ﻿const fs = require('fs');
-let txt = fs.readFileSync('src/components/widgets/Chat/ChatEngineUI.tsx', 'utf8');
-txt = txt.replace('                        ✓✓', "                        {(!isReadByOther && (now - new Date(m.createdAt).getTime() < 1500)) ? '✓' : '✓✓'}");
-fs.writeFileSync('src/components/widgets/Chat/ChatEngineUI.tsx', txt);
+let txt = fs.readFileSync('src/components/widgets/NotificationCenterWidget.tsx', 'utf8');
+txt = txt.replace(
+  "if (n.type === 'invoice') query = '?tab=inbox';",
+  "if (n.type === 'invoice') query = '?tab=inbox#invoice-' + n.id.replace('inv-', '');"
+);
+fs.writeFileSync('src/components/widgets/NotificationCenterWidget.tsx', txt);
+console.log('Replaced query invoice');

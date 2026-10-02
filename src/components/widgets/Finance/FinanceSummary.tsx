@@ -427,7 +427,7 @@ export function FinanceSummary({
 })();
                   return (
                       <React.Fragment key={b.userId || b.name}>
-                        <tr
+                        <tr id={`partner-row-${b.userId}`} style={{ scrollMarginTop: "100px" }}
                           onClick={() => {
                               if (isCreatorMe) {
                                 // Creator: can click on partner rows, NOT own row
