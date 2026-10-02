@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '@/lib/firebase';
+import { setupForegroundFCM } from '@/utils/notifications';
 import { signInWithPhoneNumber,  GoogleAuthProvider  } from 'firebase/auth';
 import { signInWithRedirect, linkWithRedirect, getRedirectResult, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential, deleteUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -126,6 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     if (typeof window !== 'undefined') window.addEventListener('smartshare_new_key', handleNewKey);
 
+    setupForegroundFCM();
     getRedirectResult(auth).then(res => { if (res && res.user) { console.log('Redirect result:', res.user); syncProviderData(res.user); } }).catch(err => console.error('Redirect Error:', err));
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {

@@ -1,5 +1,5 @@
 import { messaging } from '../lib/firebase';
-import { getToken } from 'firebase/messaging';
+import { getToken, onMessage } from 'firebase/messaging';
 import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -54,5 +54,23 @@ export const triggerPushNotification = async (userIds: string[], title: string, 
     });
   } catch (err) {
     console.error('Error triggering push notification', err);
+  }
+};
+
+export const setupForegroundFCM = async () => {
+  try {
+    if (!('Notification' in window)) return;
+    const msg = await messaging();
+    if (!msg) return;
+    onMessage(msg, (payload) => {
+      if (Notification.permission === 'granted' && payload.notification) {
+        new Notification(payload.notification.title || 'התראה', {
+          body: payload.notification.body,
+          icon: '/icon-192x192.png'
+        });
+      }
+    });
+  } catch (err) {
+    console.error('Foreground FCM setup failed', err);
   }
 };
