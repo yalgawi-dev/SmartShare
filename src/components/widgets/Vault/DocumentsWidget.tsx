@@ -233,7 +233,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           </button>
           <div style={{ flex: 1 }}>
             <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-              {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.8rem', color: '#3b82f6', marginLeft: '0.5rem' }}>v2.2</span> <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>✏️</span>
+              {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.8rem', color: '#3b82f6', marginLeft: '0.5rem' }}>v2.3</span> <span style={{ fontSize: '0.8rem', color: '#cbd5e1' }}>✏️</span>
             </h2>
             <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.25rem' }}>נוצר: {new Date(activeShelf.createdAt).toLocaleDateString('he-IL')}</div>
           </div>
@@ -329,45 +329,47 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             if (e.target === e.currentTarget) setPreviewState(null);
           }} 
           onTouchStart={(e) => {
-            // Simple swipe detection
-            const touch = e.touches[0];
-            let startX = touch.clientX;
-            
-            const handleTouchMove = (moveEvent: any) => {
-              const currentX = moveEvent.touches[0].clientX;
-              const diff = startX - currentX;
-              if (Math.abs(diff) > 50) {
-                if (diff > 0 && previewState.index < previewState.docs.length - 1) { // swipe left -> next
-                  setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 }));
-                  startX = currentX; // prevent multiple triggers
-                } else if (diff < 0 && previewState.index > 0) { // swipe right -> prev
-                  setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 }));
-                  startX = currentX;
+              const touch = e.touches[0];
+              const startX = touch.clientX;
+              let hasSwiped = false;
+              
+              const handleTouchMove = (moveEvent) => {
+                if (hasSwiped) return;
+                const currentX = moveEvent.touches[0].clientX;
+                const diff = startX - currentX;
+                
+                if (Math.abs(diff) > 50) {
+                  hasSwiped = true;
+                  setPreviewState(prev => {
+                    if (!prev) return prev;
+                    if (diff > 0 && prev.index < prev.docs.length - 1) return { ...prev, index: prev.index + 1 };
+                    if (diff < 0 && prev.index > 0) return { ...prev, index: prev.index - 1 };
+                    return prev;
+                  });
                 }
-              }
-            };
-            
-            const handleTouchEnd = () => {
-              document.removeEventListener('touchmove', handleTouchMove);
-              document.removeEventListener('touchend', handleTouchEnd);
-            };
-            
-            document.addEventListener('touchmove', handleTouchMove, { passive: true });
-            document.addEventListener('touchend', handleTouchEnd);
-          }}
+              };
+              
+              const handleTouchEnd = () => {
+                document.removeEventListener('touchmove', handleTouchMove);
+                document.removeEventListener('touchend', handleTouchEnd);
+              };
+              
+              document.addEventListener('touchmove', handleTouchMove, { passive: true });
+              document.addEventListener('touchend', handleTouchEnd);
+            }}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {previewState.index > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>‹</button>
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
           )}
           
           <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
           
           {previewState.index < previewState.docs.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>›</button>
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>›</button>
           )}
           
-          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001 }}>✕</button>
+          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>✕</button>
           
           <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 20001 }}>
              {previewState.index + 1} / {previewState.docs.length}
@@ -381,7 +383,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   return (
     <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 1rem' }}>
-        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.2</span></h2>
+        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.3</span></h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button onClick={() => fileInputRef.current?.click()} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem', borderRadius: '20px', color: '#64748b', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
             📥 ייבוא
@@ -571,45 +573,47 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             if (e.target === e.currentTarget) setPreviewState(null);
           }} 
           onTouchStart={(e) => {
-            // Simple swipe detection
-            const touch = e.touches[0];
-            let startX = touch.clientX;
-            
-            const handleTouchMove = (moveEvent: any) => {
-              const currentX = moveEvent.touches[0].clientX;
-              const diff = startX - currentX;
-              if (Math.abs(diff) > 50) {
-                if (diff > 0 && previewState.index < previewState.docs.length - 1) { // swipe left -> next
-                  setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 }));
-                  startX = currentX; // prevent multiple triggers
-                } else if (diff < 0 && previewState.index > 0) { // swipe right -> prev
-                  setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 }));
-                  startX = currentX;
+              const touch = e.touches[0];
+              const startX = touch.clientX;
+              let hasSwiped = false;
+              
+              const handleTouchMove = (moveEvent) => {
+                if (hasSwiped) return;
+                const currentX = moveEvent.touches[0].clientX;
+                const diff = startX - currentX;
+                
+                if (Math.abs(diff) > 50) {
+                  hasSwiped = true;
+                  setPreviewState(prev => {
+                    if (!prev) return prev;
+                    if (diff > 0 && prev.index < prev.docs.length - 1) return { ...prev, index: prev.index + 1 };
+                    if (diff < 0 && prev.index > 0) return { ...prev, index: prev.index - 1 };
+                    return prev;
+                  });
                 }
-              }
-            };
-            
-            const handleTouchEnd = () => {
-              document.removeEventListener('touchmove', handleTouchMove);
-              document.removeEventListener('touchend', handleTouchEnd);
-            };
-            
-            document.addEventListener('touchmove', handleTouchMove, { passive: true });
-            document.addEventListener('touchend', handleTouchEnd);
-          }}
+              };
+              
+              const handleTouchEnd = () => {
+                document.removeEventListener('touchmove', handleTouchMove);
+                document.removeEventListener('touchend', handleTouchEnd);
+              };
+              
+              document.addEventListener('touchmove', handleTouchMove, { passive: true });
+              document.addEventListener('touchend', handleTouchEnd);
+            }}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {previewState.index > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>‹</button>
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
           )}
           
           <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
           
           {previewState.index < previewState.docs.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001 }}>›</button>
+            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>›</button>
           )}
           
-          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001 }}>✕</button>
+          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>✕</button>
           
           <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 20001 }}>
              {previewState.index + 1} / {previewState.docs.length}
