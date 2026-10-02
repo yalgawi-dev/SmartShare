@@ -12,10 +12,12 @@ export interface UserContact {
   avatarUrl?: string;
   phone?: string;
   dismissedAlerts?: string[];
+  fcmTokens?: string[];
   addedAt: string;
 }
 
 export interface UserProfile {
+  fcmTokens?: string[];
   id: string;
   realName: string;
   nickname?: string;
