@@ -53,7 +53,7 @@ export default function Dashboard() {
           if (space.features?.includes('chat')) {
             if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
             const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-            const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
+            const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
             const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
             let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id)) || [];
 
@@ -274,7 +274,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.4.0</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.4.1</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>

@@ -102,7 +102,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
             if (space.features?.includes('chat')) {
               if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
               const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-              const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
+              const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
               const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
               let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id)) || [];
             

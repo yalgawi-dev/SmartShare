@@ -49,6 +49,11 @@ export default function ChatEngineUI({
 
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const interval = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(interval);
+  }, []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ── Presence (online dots) ──────────────────────────────────────────────────
@@ -221,7 +226,7 @@ export default function ChatEngineUI({
                         lineHeight: 1,
                         fontWeight: '700',
                       }}>
-                        ✓✓
+                        {(!isReadByOther && (now - new Date(m.createdAt).getTime() < 1500)) ? '✓' : '✓✓'}
                       </span>
                     )}
                   </div>
