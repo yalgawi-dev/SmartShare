@@ -34,27 +34,27 @@ function EmptyStateCarousel() {
       <p style={{ color: '#475569', fontSize: '1.1rem', lineHeight: '1.6', maxWidth: '500px', margin: '0 auto 2rem auto' }}>
         בניגוד למסך הראשי שמכיל את כל המרחבים, הקיר הזה הוא <strong>המרחב הפרטי שלך להרכבה עצמית</strong>.
         <br/><br/>
-        כאן תוכל לחבר רק את ה"מנועים" שאתה באמת צריך: ניהול הוצאות עם שותפים, מחסן מסמכים חכם, גלריית תמונות, ועוד.
+        כאן תוכל לחבר רק את הכלים והתוספים שאתה באמת צריך: ניהול הוצאות עם שותפים, מחסן מסמכים חכם, גלריית תמונות, ועוד.
       </p>
       
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', textAlign: 'right', background: 'white', padding: '1.5rem', borderRadius: '16px', border: '1px solid #e2e8f0', boxShadow: '0 4px 15px rgba(0,0,0,0.02)' }}>
         <div>
-          <h4 style={{ color: '#3b82f6', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>1️⃣</span> בחר תוספים</h4>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>לחץ על הכפתור למטה או על גלגל השיניים כדי להדליק מנועים.</span>
+          <h4 style={{ color: '#3b82f6', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>1️⃣</span> בחר כלים ותוספים</h4>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>לחץ על הכפתור <strong>"הוסף כלים"</strong> (למעלה) כדי להפעיל כלים חדשים לקיר.</span>
         </div>
         <div>
           <h4 style={{ color: '#10b981', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>2️⃣</span> התאם אישית</h4>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>כל מנוע יופיע כאן כבלוק חכם שמוכן לעבודה מיידית.</span>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>כל כלי שתבחר יתווסף וישתלב במערכת, מוכן לעבודה מיידית.</span>
         </div>
         <div>
-          <h4 style={{ color: '#8b5cf6', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>3️⃣</span> שתף</h4>
-          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>הזמן שותפים לקיר שלך ונהלו את המידע יחד בזמן אמת.</span>
+          <h4 style={{ color: '#8b5cf6', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem' }}><span>3️⃣</span> עבודת צוות (אופציונלי)</h4>
+          <span style={{ fontSize: '0.85rem', color: '#64748b' }}>אם תרצה, תוכל להזמין שותפים לקיר ולנהל את המידע יחד איתם.</span>
         </div>
       </div>
       
       <div style={{ marginTop: '2.5rem' }}>
         <p style={{ fontSize: '0.9rem', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
-           טיפ: כדי לנהל את התוספים בעתיד, לחץ על גלגל השיניים (⚙️) בראש העמוד.
+           טיפ: כדי להסיר כלים בעתיד, או לנהל את ההגדרות שלהם, לחץ על גלגל השיניים (⚙️) בראש העמוד.
         </p>
       </div>
     </div>
@@ -171,7 +171,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       const role = getRoleForSpace(id);
 
       if (!hasSeenTools && spaceFeatures.length === 0 && role === 'creator') {
-        setTooltipData({ id: 'tutorial_add_tools', text: 'התחל מכאן: הוסף כלים חכמים (מנועים) למרחב שלך כדי להתחיל לעבוד', target: 'tools' });
+        setTooltipData({ id: 'tutorial_add_tools', text: 'התחל מכאן: הוסף כלים חכמים  למרחב שלך כדי להתחיל לעבוד', target: 'tools' });
       } else if (!hasSeenArchive && spaceFeatures.length > 0 && role === 'creator') {
         setTooltipData({ id: 'tutorial_feature_archive', text: 'הידעת? כיבוי פיצ\'ר לא מוחק את הנתונים שלו! אפשר לכבות כדי לנקות את המסך ולהדליק שוב מתי שתרצה, הכל יישמר בדיוק איפה שעצרת.', target: 'settings' });
       } else if (!hasSeenUpsell && spaceFeatures.includes('finance') && !hasEverUsedPartners && role === 'creator') {

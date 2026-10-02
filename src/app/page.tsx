@@ -192,6 +192,17 @@ export default function Dashboard() {
 
 
   const searchedSpaces = [...universalSearch(visibleSpaces, searchQuery, ['title'])].sort((a, b) => {
+      // 1. Priority for new spaces (< 24h)
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      const isNewA = (Date.now() - timeA) < 86400000;
+      const isNewB = (Date.now() - timeB) < 86400000;
+      
+      if (isNewA && !isNewB) return -1;
+      if (!isNewA && isNewB) return 1;
+      if (isNewA && isNewB) return timeB - timeA; // Both new? newest first
+
+      // 2. Sort by visits
       let visitsA = 0;
       let visitsB = 0;
       if (typeof window !== 'undefined') {
@@ -200,11 +211,12 @@ export default function Dashboard() {
           visitsB = parseInt(localStorage.getItem(`space_visits_${b.id}`) || '0', 10);
         } catch (e) {}
       }
-      if (visitsA !== visitsB) return visitsB - visitsA; // Sort by visits first
+      if (visitsA !== visitsB) return visitsB - visitsA; // Higher visits first
       
-      const timeA = new Date(a.updatedAt || a.createdAt || 0).getTime();
-      const timeB = new Date(b.updatedAt || b.createdAt || 0).getTime();
-      return timeB - timeA;
+      // 3. Fallback to updatedAt / createdAt
+      const updateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
+      const updateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
+      return updateB - updateA;
     });
 
   // Mark tutorials as seen for veteran users
@@ -257,7 +269,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v5.4.58</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v5.5.0</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>

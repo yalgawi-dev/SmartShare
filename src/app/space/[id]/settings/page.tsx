@@ -91,12 +91,12 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                 <span style={{ fontSize: '0.9rem', color: '#64748b' }}>תוכל לכבות או להסיר תוספים (המחיקה לא מוחקת את המידע שלך!).</span>
               </div>
               <div>
-                <strong style={{ color: '#334155', display: 'block', marginBottom: '0.5rem' }}>⚙️ הגדרות מנוע</strong>
+                <strong style={{ color: '#334155', display: 'block', marginBottom: '0.5rem' }}>⚙️ הגדרות מתקדמות לכל כלי</strong>
                 <span style={{ fontSize: '0.9rem', color: '#64748b' }}>תוכל לשלוט בהרשאות, להגדיר שיעור מע"מ לניהול הוצאות, ועוד.</span>
               </div>
             </div>
             <Link href={`/space/${id}`} style={{ display: 'inline-block', marginTop: '2.5rem', padding: '0.75rem 2rem', background: 'var(--primary)', color: 'white', borderRadius: '100px', fontWeight: 'bold', textDecoration: 'none', boxShadow: '0 4px 15px rgba(59, 130, 246, 0.3)' }}>
-              חזור לקיר כדי להוסיף מנועים
+              חזור לקיר כדי להוסיף כלים
             </Link>
           </div>
         )}
@@ -109,7 +109,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
             <div key={featureId} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
                 <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-                  הגדרות מנוע &bull; {feature.name}
+                  הגדרות הכלים &bull; {feature.name}
                 </span>
                 <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(0,0,0,0.1), transparent)' }}></div>
               </div>
