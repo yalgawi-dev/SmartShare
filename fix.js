@@ -1,13 +1,47 @@
 ﻿const fs = require('fs');
-let txt = fs.readFileSync('src/components/widgets/Finance/FinanceSummary.tsx', 'utf8');
+let txt = fs.readFileSync('src/app/context/SpacesContext.tsx', 'utf8');
 
-const search = '<tr id={`partner-row-${b.userId}`} style={{ scrollMarginTop: "100px" }}';
-const replace = '<tr id={`partner-row-${b.userId}`}';
-txt = txt.replace(search, replace);
+const sendMsgSearch = `      const updatedConvos = [...convos.filter(c => c.id !== conversationId), { ...convo, messages: [...convo.messages, newMsg] }];
+      return { ...space, conversations: updatedConvos };
+    });`;
+const sendMsgReplace = `      const updatedConvos = [...convos.filter(c => c.id !== conversationId), { ...convo, messages: [...convo.messages, newMsg] }];
+      
+      setTimeout(() => {
+        const title = conversationId === 'group' ? "הודעה חדשה בקבוצה: " + (space.title || 'מרחב') : "הודעה חדשה בפרטי: " + (space.title || 'מרחב');
+        const senderName = senderId === space.creatorId ? (space.createdBy || 'מנהל') : (space.members?.find((m: any) => m.userId === senderId)?.name || 'שותף');
+        const body = senderName + ": " + text.trim();
+        let otherUserIds: string[] = [];
+        if (conversationId === 'group') {
+          otherUserIds = [space.creatorId, ...(space.members || []).map((m: any) => m.userId)].filter(id => id && id !== senderId);
+        } else {
+          otherUserIds = conversationId.split('_').filter(id => id && id !== senderId);
+        }
+        triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId });
+      }, 0);
 
-const styleSearch = "style={{ borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe";
-const styleReplace = "style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe";
-txt = txt.replace(styleSearch, styleReplace);
+      return { ...space, conversations: updatedConvos };
+    });`;
 
-fs.writeFileSync('src/components/widgets/Finance/FinanceSummary.tsx', txt);
-console.log('Replaced');
+txt = txt.replace(sendMsgSearch, sendMsgReplace);
+
+const inviteSearch = `          createdAt: new Date().toISOString(),
+          targetUserId: inviteData.targetUserId
+      };
+
+      return {`;
+const inviteReplace = `          createdAt: new Date().toISOString(),
+          targetUserId: inviteData.targetUserId
+      };
+
+      if (inviteData.targetUserId) {
+        setTimeout(() => {
+          triggerPushNotification([inviteData.targetUserId as string], "הזמנה למרחב", (space.createdBy || 'מנהל') + " הזמין אותך לפרויקט " + (space.title || 'חדש'), { url: '/join/' + inviteData.token });
+        }, 0);
+      }
+
+      return {`;
+
+txt = txt.replace(inviteSearch, inviteReplace);
+
+fs.writeFileSync('src/app/context/SpacesContext.tsx', txt);
+console.log('Replaced Push Notifications triggers');

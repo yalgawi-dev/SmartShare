@@ -118,7 +118,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
 
               if (unreadChatMessages.length > 0) {
                 notifs.push({
-                  id: 'chat-' + member.userId,
+                  id: 'chat-' + (isCreator ? member.userId : targetId),
                   type: 'chat',
                   priority: 'low',
                   title: "הודעה חדשה בפרטי",

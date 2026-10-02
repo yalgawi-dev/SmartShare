@@ -1056,6 +1056,20 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
       }
       const newMsg = { id: 'msg-' + Date.now() + '-' + Math.random().toString(36).substr(2,5), senderId, text: text.trim(), createdAt: new Date().toISOString(), readBy: [senderId] };
       const updatedConvos = [...convos.filter(c => c.id !== conversationId), { ...convo, messages: [...convo.messages, newMsg] }];
+      
+      setTimeout(() => {
+        const title = conversationId === 'group' ? "הודעה חדשה בקבוצה: " + (space.title || 'מרחב') : "הודעה חדשה בפרטי: " + (space.title || 'מרחב');
+        const senderName = senderId === space.creatorId ? (space.createdBy || 'מנהל') : (space.members?.find((m: any) => m.userId === senderId)?.name || 'שותף');
+        const body = senderName + ": " + text.trim();
+        let otherUserIds: string[] = [];
+        if (conversationId === 'group') {
+          otherUserIds = [space.creatorId, ...(space.members || []).map((m: any) => m.userId)].filter(id => id && id !== senderId);
+        } else {
+          otherUserIds = conversationId.split('_').filter(id => id && id !== senderId);
+        }
+        triggerPushNotification(otherUserIds, title, body, { url: '/space/' + spaceId });
+      }, 0);
+
       return { ...space, conversations: updatedConvos };
     });
   };

@@ -158,7 +158,7 @@ export default function SettingsPage() {
             <p style={{ margin: 0, color: '#15803d', fontSize: '0.9rem' }}>קבל התראות לטלפון על הודעות והוצאות חדשות.</p>
           </div>
           <button onClick={handleEnablePush} disabled={isPushEnabled} style={{ background: isPushEnabled ? '#86efac' : '#22c55e', color: isPushEnabled ? '#14532d' : 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: isPushEnabled ? 'default' : 'pointer' }}>
-            {isPushEnabled ? 'פעיל ✔️' : 'הפעל עכשיו'}
+            {isPushEnabled ? 'פעיל במכשיר זה ✔️' : ((user?.fcmTokens?.length || 0) > 0 ? 'הפעל גם בדפדפן זה' : 'הפעל עכשיו')}
           </button>
         </div>
 

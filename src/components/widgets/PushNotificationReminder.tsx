@@ -31,9 +31,15 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
   const handleAction = async (type: 'enable' | 'later' | 'forever') => {
     if (type === 'enable') {
       const success = userId ? await requestNotificationPermission(userId) : false;
-      setShow(false);
-      localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
-      localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
+      if (success) {
+        setShow(false);
+        localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
+        localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
+        alert('התראות הופעלו בהצלחה!');
+      } else {
+        alert('לא ניתן להפעיל התראות. ייתכן שהדפדפן חוסם אותן או שיש צורך לאשר בחלון הקופץ.');
+        // Don't dismiss forever if it failed, let them try again later.
+      }
     } else {
       setShow(false);
       localStorage.setItem('pushReminderDismiss_v2Type', type);
