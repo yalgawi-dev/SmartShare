@@ -1,20 +1,15 @@
 ﻿const fs = require('fs');
-let txt = fs.readFileSync('src/app/api/send-notification/route.ts', 'utf8');
+let txt = fs.readFileSync('src/app/settings/page.tsx', 'utf8');
 
-const search = `            webpush: {
-              fcmOptions: {
-                link: (data && data.url) ? data.url : '/'
-              },
-              ...(data?.tag ? { notification: { tag: data.tag } } : {})
-            }`;
+const searchBtn = `<button onClick={handleEnablePush} disabled={isPushEnabled} style={{ background: isPushEnabled ? '#86efac' : '#22c55e', color: isPushEnabled ? '#14532d' : 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: isPushEnabled ? 'default' : 'pointer' }}>`;
+const replaceBtn = `<button onClick={handleEnablePush} style={{ background: isPushEnabled ? '#86efac' : '#22c55e', color: isPushEnabled ? '#14532d' : 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}>`;
 
-const replace = `            webpush: {
-              fcmOptions: {
-                link: (data && data.url) ? data.url : '/'
-              },
-              ...(data?.tag ? { notification: { title, body, tag: data.tag } } : {})
-            }`;
+txt = txt.replace(searchBtn, replaceBtn);
 
-txt = txt.replace(search, replace);
-fs.writeFileSync('src/app/api/send-notification/route.ts', txt);
-console.log('Fixed webpush notification override');
+const searchBtnText = `{isPushEnabled ? 'פעיל במכשיר זה ✔️' : ((user?.fcmTokens?.length || 0) > 0 ? 'הפעל גם בדפדפן זה' : 'הפעל עכשיו')}`;
+const replaceBtnText = `{isPushEnabled ? 'פעיל ✔️ (לחץ לסנכרון מחדש)' : ((user?.fcmTokens?.length || 0) > 0 ? 'הפעל גם בדפדפן זה' : 'הפעל עכשיו')}`;
+
+txt = txt.replace(searchBtnText, replaceBtnText);
+
+fs.writeFileSync('src/app/settings/page.tsx', txt);
+console.log('Fixed settings button');

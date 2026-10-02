@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { auth, db, googleProvider } from '@/lib/firebase';
-import { setupForegroundFCM } from '@/utils/notifications';
+import { setupForegroundFCM, requestNotificationPermission } from '@/utils/notifications';
 import { signInWithPhoneNumber,  GoogleAuthProvider  } from 'firebase/auth';
 import { signInWithRedirect, linkWithRedirect, getRedirectResult, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential, deleteUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -204,6 +204,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (!activeUser.isBlocked) {
           setUser({ ...activeUser, id: firebaseUser.uid } as any);
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+            requestNotificationPermission(firebaseUser.uid).catch(console.error);
+          }
           // Update presence immediately on login
           try {
             await updateDoc(doc(db, 'users', firebaseUser.uid), { lastActiveAt: new Date().toISOString() });

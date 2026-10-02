@@ -53,11 +53,16 @@ export async function POST(request: Request) {
     
     response.responses.forEach((resp: any, idx: number) => {
       if (!resp.success) {
-        const failedToken = allMessages[idx].token;
-        const uid = tokenMap.get(failedToken)?.userId;
-        if (uid) {
-          if (!failedTokensByUser.has(uid)) failedTokensByUser.set(uid, []);
-          failedTokensByUser.get(uid)!.push(failedToken);
+        const errCode = resp.error?.code;
+        if (errCode === 'messaging/invalid-registration-token' || errCode === 'messaging/registration-token-not-registered') {
+          const failedToken = allMessages[idx].token;
+          const uid = tokenMap.get(failedToken)?.userId;
+          if (uid) {
+            if (!failedTokensByUser.has(uid)) failedTokensByUser.set(uid, []);
+            failedTokensByUser.get(uid)!.push(failedToken);
+          }
+        } else {
+          console.error('FCM Send Error:', resp.error);
         }
       }
     });
