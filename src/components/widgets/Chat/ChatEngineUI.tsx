@@ -136,7 +136,14 @@ export default function ChatEngineUI({
           if (isMyMsg && m.text?.startsWith('[הודעת מערכת]:')) return null;
 
           const timeStr = formatTimeSafe(m.createdAt);
-          const isRead = (m.readBy && m.readBy.length > 0) || !!m.readAt;
+          // ✓✓ blue = at least one OTHER user has read the message
+          const isReadByOther = (() => {
+            if (m.readAt) return true; // legacy field
+            if (!m.readBy || m.readBy.length === 0) return false;
+            // Filter out the sender themselves — blue only if another person read it
+            const senderId = m.senderId || user?.id;
+            return m.readBy.some((rid: string) => rid !== senderId);
+          })();
 
           // Sender name for group chat
           let senderName = '';
@@ -148,11 +155,6 @@ export default function ChatEngineUI({
               senderName = sm?.name || 'משתמש';
             }
           }
-
-          // Presence dot for sender (p2p only)
-          const senderPresenceUid = !isMyMsg && !isGroup
-            ? (m.senderId === space.creatorId ? space.creatorId : member?.userId)
-            : null;
 
           return (
             <React.Fragment key={m.id || idx}>
@@ -181,27 +183,14 @@ export default function ChatEngineUI({
                 gap: '0.4rem',
                 marginBottom: '0.1rem',
               }}>
-                {/* Presence dot for others (left of bubble) */}
-                {!isMyMsg && senderPresenceUid && (
-                  <div style={{
-                    width: '8px',
-                    height: '8px',
-                    borderRadius: '50%',
-                    background: getPresenceColor(senderPresenceUid, user?.id),
-                    flexShrink: 0,
-                    marginBottom: '4px',
-                  }} />
-                )}
-
                 {/* Message bubble */}
                 <div style={{
-                  background: isMyMsg ? '#dcf8c6' : '#ffffff', // WhatsApp green / white
+                  background: isMyMsg ? '#dcf8c6' : '#ffffff',
                   color: '#0f172a',
                   padding: '0.5rem 0.75rem 0.35rem',
                   borderRadius: isMyMsg ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                   maxWidth: '78%',
                   boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
-                  position: 'relative',
                   wordBreak: 'break-word',
                   whiteSpace: 'pre-wrap',
                 }}>
@@ -215,7 +204,7 @@ export default function ChatEngineUI({
                   {/* Message text */}
                   <span style={{ fontSize: '0.95rem', lineHeight: '1.45' }}>{m.text}</span>
 
-                  {/* Timestamp + read receipt — OUTSIDE the text flow, bottom-right */}
+                  {/* Timestamp + read receipt */}
                   <div style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -228,11 +217,11 @@ export default function ChatEngineUI({
                     {isMyMsg && (
                       <span style={{
                         fontSize: '0.72rem',
-                        color: isRead ? '#0ea5e9' : '#94a3b8', // blue = read, grey = sent
+                        color: isReadByOther ? '#0ea5e9' : '#94a3b8',
                         lineHeight: 1,
                         fontWeight: '700',
                       }}>
-                        {isRead ? '✓✓' : '✓'}
+                        {isReadByOther ? '✓✓' : '✓'}
                       </span>
                     )}
                   </div>

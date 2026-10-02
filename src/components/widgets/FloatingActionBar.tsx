@@ -173,7 +173,7 @@ export function FloatingActionBar({
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📄</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>{activeTab === 'documents' ? 'ייבוא מסמך' : 'חשבונית/הוצאה'}</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>{activeTab === 'documents' ? 'ייבוא מסמך' : 'ייבוא חשבונית'}</span>
             </button>
 
             <button 

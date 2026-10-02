@@ -49,29 +49,34 @@ export default function Dashboard() {
           if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
           
           
-            if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return; // Partners only process their own row
+          // P2P chat notifications — only if chat plugin is active
+          if (space.features?.includes('chat')) {
+            if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
             const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
             const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
             const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
             let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id)) || [];
-          
-          // Legacy fallback
-          if (unreadChatMessages.length === 0) {
-            unreadChatMessages = (member.messages || []).filter((msg: any) => {
-              if (msg.readAt) return false;
-              if (isCreator && msg.from === 'partner') return true;
-              if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
-              return false;
-            });
+
+            // Legacy fallback
+            if (unreadChatMessages.length === 0) {
+              unreadChatMessages = (member.messages || []).filter((msg: any) => {
+                if (msg.readAt) return false;
+                if (isCreator && msg.from === 'partner') return true;
+                if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
+                return false;
+              });
+            }
+            if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
           }
-          if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
         });
 
-        // Group Chat Summary
-        const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
-        if (groupConvo) {
-          const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
-          if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
+        // Group Chat Summary — only if chat plugin is active
+        if (space.features?.includes('chat')) {
+          const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
+          if (groupConvo) {
+            const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+            if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
+          }
         }
         
         if (isCreator) {
