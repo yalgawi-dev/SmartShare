@@ -34,10 +34,10 @@ export async function POST(request: Request) {
               fcmOptions: {
                 link: (data && data.url) ? data.url : '/'
               },
-              notification: data?.tag ? { tag: data.tag } : undefined
+              ...(data?.tag ? { notification: { tag: data.tag } } : {})
             },
-            android: data?.tag ? { notification: { tag: data.tag } } : undefined,
-            apns: data?.tag ? { headers: { 'apns-collapse-id': data.tag } } : undefined
+            ...(data?.tag ? { android: { notification: { tag: data.tag } } } : {}),
+            ...(data?.tag ? { apns: { headers: { 'apns-collapse-id': data.tag } } } : {})
           });
         });
       }
