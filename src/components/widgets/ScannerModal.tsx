@@ -412,45 +412,60 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const currentImg = imageCache[mode];
     if (!currentImg) return;
     
-    let shareImg = currentImg;
     const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
 
     if (allPageUrls.length > 1) {
       try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          const loadedImages = await Promise.all(allPageUrls.map(url => {
-            return new Promise<HTMLImageElement>((resolve, reject) => {
-              const img = new Image();
-              img.onload = () => resolve(img);
-              img.onerror = reject;
-              img.src = url;
-            });
-          }));
-          const maxWidth = Math.max(...loadedImages.map(img => img.width));
-          const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
-          canvas.width = maxWidth;
-          canvas.height = totalHeight;
-          let currentY = 0;
-          loadedImages.forEach((img, i) => {
-            ctx.drawImage(img, 0, currentY, img.width, img.height);
-            ctx.fillStyle = 'rgba(0,0,0,0.7)';
-            ctx.fillRect(20, currentY + 20, 160, 60);
-            ctx.fillStyle = '#FFD700';
-            ctx.font = 'bold 36px Arial';
-            ctx.fillText('עמוד ' + (i+1), 40, currentY + 62);
-            currentY += img.height;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        for (let i = 0; i < allPageUrls.length; i++) {
+          if (i > 0) pdf.addPage();
+          await new Promise<void>((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              const imgRatio = img.width / img.height;
+              const pdfRatio = pdfWidth / pdfHeight;
+              let finalW = pdfWidth;
+              let finalH = pdfHeight;
+              if (imgRatio > pdfRatio) {
+                finalH = pdfWidth / imgRatio;
+              } else {
+                finalW = pdfHeight * imgRatio;
+              }
+              const x = (pdfWidth - finalW) / 2;
+              const y = (pdfHeight - finalH) / 2;
+              pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = allPageUrls[i];
           });
-          shareImg = canvas.toDataURL('image/jpeg', 0.85);
         }
+        
+        const blob = pdf.output('blob');
+        const file = new File([blob], 'scanned-document.pdf', { type: 'application/pdf' });
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
+        } else {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'scanned-document.pdf';
+          a.click();
+          URL.revokeObjectURL(url);
+        }
+        return;
       } catch (e) {
-        console.error('Merge for share failed', e);
+        console.error('PDF share failed', e);
+        alert('שגיאה ביצירת PDF לשיתוף');
+        return;
       }
     }
 
     try {
-      const res = await fetch(shareImg);
+      const res = await fetch(currentImg);
       const blob = await res.blob();
       const file = new File([blob], 'scanned-document.jpg', { type: blob.type || 'image/jpeg' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -463,7 +478,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
-    const handleCategorySelect = (cat: 'receipt' | 'document' | 'image') => {
+  const handleCategorySelect = (cat: 'receipt' | 'document' | 'image') => {
     setSelectedCategory(cat);
     if (cat === 'receipt' || cat === 'document') {
       handleFilterSwitch('smart_plus');
