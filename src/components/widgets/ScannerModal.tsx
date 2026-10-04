@@ -164,20 +164,29 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       const url = ev.target?.result as string;
       const img = new Image();
       img.onload = () => {
+        let w = img.width;
+        let h = img.height;
+        if (w > 2000) {
+           h = Math.round(h * (2000 / w));
+           w = 2000;
+        }
         const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
+        canvas.width = w;
+        canvas.height = h;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0);
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, 0, 0, w, h);
           const pts = detectDocument(canvas) || [
-            {x: img.width * 0.1, y: img.height * 0.1},
-            {x: img.width * 0.9, y: img.height * 0.1},
-            {x: img.width * 0.9, y: img.height * 0.9},
-            {x: img.width * 0.1, y: img.height * 0.9}
+            {x: w * 0.1, y: h * 0.1},
+            {x: w * 0.9, y: h * 0.1},
+            {x: w * 0.9, y: h * 0.9},
+            {x: w * 0.1, y: h * 0.9}
           ];
           setCropPoints(pts);
-          setRawSnapshot(url);
+          const snapshotUrl = compressCanvas(canvas, 0.95);
+          setRawSnapshot(snapshotUrl);
           setStep('cropping');
         }
       };
