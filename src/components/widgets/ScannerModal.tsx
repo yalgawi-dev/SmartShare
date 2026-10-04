@@ -695,7 +695,20 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                </label>
              </div>
              {scannedPages.length > 0 && (
-               <div style={{ marginTop: '1rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+               <div style={{ marginTop: '1rem', width: '100%', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
+                 <button onClick={() => {
+                    const pages = [...scannedPages];
+                    const lastPage = pages.pop();
+                    if (lastPage) {
+                       setScannedPages(pages);
+                       setImageCache({ 'smart_plus': lastPage.imageUrl });
+                       setMode('smart_plus');
+                       setRawSnapshot(lastPage.imageUrl);
+                       setStep('review');
+                    }
+                 }} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '24px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                   ↩️ חזור שלב
+                 </button>
                  <button onClick={() => handleDone()} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
                    סיום ושמירה ({scannedPages.length} עמודים)
                  </button>
