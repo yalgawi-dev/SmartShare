@@ -195,6 +195,12 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
             ))}
           </div>
 
+          <div style={{ textAlign: 'center', marginTop: '-0.5rem' }}>
+            <button onClick={handleSendCode} disabled={isSubmitting} style={{ background: 'none', border: 'none', color: '#25D366', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}>
+              לא קיבלת קוד? שלח שוב
+            </button>
+          </div>
+
           <button onClick={verifyCode} disabled={isSubmitting || otp.join('').length !== 6} className={styles.primaryBtn} style={{ background: '#25D366' }}>
             {isSubmitting ? 'מאמת...' : 'אמת והיכנס'}
           </button>

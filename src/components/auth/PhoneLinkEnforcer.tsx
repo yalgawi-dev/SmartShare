@@ -17,12 +17,8 @@ export default function PhoneLinkEnforcer() {
   useEffect(() => {
     if (typeof window !== 'undefined' && !(window as any).recaptchaVerifierLink) {
       try {
-        const container = document.createElement('div');
-        container.id = 'recaptcha-container-link';
-        container.style.display = 'none';
-        document.body.appendChild(container);
-        (window as any).recaptchaVerifierLink = new RecaptchaVerifier(auth, container, {
-          size: 'invisible',
+        (window as any).recaptchaVerifierLink = new RecaptchaVerifier(auth, 'recaptcha-container-link', {
+          size: 'normal',
         });
       } catch (e) {
         console.error("Recaptcha error:", e);

@@ -41,7 +41,7 @@ export default function PhoneVerificationModal() {
         try {
           if (!(window as any).recaptchaVerifier) {
             (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-              size: 'invisible',
+              size: 'normal',
               callback: () => { /* reCAPTCHA solved */ },
               'expired-callback': () => { /* expired */ }
             });
@@ -210,13 +210,11 @@ export default function PhoneVerificationModal() {
   return createPortal(
     <>
       {/* reCAPTCHA Security Widget */}
-        <div style={{ display: step === 1 ? 'flex' : 'none', justifyContent: 'center', marginBottom: '1rem' }}>
-          <div style={{ display: 'none' }}>
-            <div id="recaptcha-container"></div>
-          </div>
-        </div>
+      <div style={{ display: step === 1 ? 'flex' : 'none', justifyContent: 'center', margin: '0.5rem 0', position: 'relative', zIndex: 1000000 }}>
+        <div id="recaptcha-container"></div>
+      </div>
         
-        {step === 2 && (
+      {step === 2 && (
           <style>{`
             .grecaptcha-badge { visibility: hidden !important; }
           `}</style>
@@ -398,6 +396,12 @@ export default function PhoneVerificationModal() {
                     }}
                   />
                 ))}
+              </div>
+              
+              <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                <button onClick={handleSendCode} disabled={isSubmitting} style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}>
+                  לא קיבלת קוד? שלח שוב
+                </button>
               </div>
 
               <button 

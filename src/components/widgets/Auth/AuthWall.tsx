@@ -30,7 +30,7 @@ export default function AuthWall() {
       if (!(window as any).recaptchaVerifier) {
         try {
           (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
+            size: 'normal',
             callback: () => { /* reCAPTCHA solved */ },
             'expired-callback': () => { /* expired */ }
           });
@@ -338,6 +338,12 @@ export default function AuthWall() {
                 {errorMsg}
               </div>
             )}
+
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <button onClick={handleSendCode} disabled={isSubmitting} style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}>
+                לא קיבלת קוד? שלח שוב
+              </button>
+            </div>
 
             <div className="auth-actions">
               <button
