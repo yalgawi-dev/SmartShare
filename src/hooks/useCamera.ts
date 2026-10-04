@@ -1,8 +1,8 @@
-import { useState, useEffect, RefObject } from 'react';
+import { useState, useEffect, useRef, RefObject } from 'react';
 
 export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boolean) {
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const activeStreamRef = require('react').useRef<MediaStream | null>(null);
+  const activeStreamRef = useRef<MediaStream | null>(null);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
   const [torchOn, setTorchOn] = useState(false);
