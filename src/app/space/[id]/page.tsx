@@ -693,6 +693,19 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                     <div style={{ display: hasFinance && financeTab !== 'documents' ? 'block' : 'none' }}>{hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}</div>
           <div style={{ display: hasVault && (!hasFinance || financeTab === 'documents') ? 'block' : 'none' }}>{hasVault && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}</div>
           
+          {hasPartners && !hasFinance && (
+            <div onClick={() => setShowPartnersModal(true)} style={{ background: 'var(--bg-card)', padding: '1.5rem', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', boxShadow: 'var(--shadow-sm)', border: '1px solid var(--border-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                <div style={{ fontSize: '2rem' }}>🤝</div>
+                <div>
+                  <h3 style={{ margin: 0 }}>ניהול שותפים</h3>
+                  <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{activePartnersCount} שותפים פעילים במרחב</p>
+                </div>
+              </div>
+              <div style={{ color: 'var(--primary)', fontWeight: 'bold' }}>ניהול &larr;</div>
+            </div>
+          )}
+
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space} isGuestMode={isRestricted} />}
           {hasGuestbook && <AlbumWidget space={space} isGuestMode={isRestricted} />}
