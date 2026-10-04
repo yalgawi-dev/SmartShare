@@ -15,6 +15,9 @@ export function FloatingActionBar({
   onAddExpense,
   onOpenScanner,
   onOpenPartners,
+  hasChat,
+  onOpenGroupChat,
+  onOpenInvite,
   onFileUpload
 }: {
   hasFinance: boolean;
@@ -28,6 +31,9 @@ export function FloatingActionBar({
   onAddExpense: () => void;
   onOpenScanner: () => void;
   onOpenPartners?: () => void;
+  hasChat?: boolean;
+  onOpenGroupChat?: () => void;
+  onOpenInvite?: () => void;
   onFileUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -152,6 +158,36 @@ export function FloatingActionBar({
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
+        {hasChat && (
+          <button 
+            onClick={onOpenGroupChat}
+            style={{
+              background: 'transparent', 
+              border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+              color: '#64748b',
+              minWidth: '45px', transition: 'all 0.2s', flex: 1
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>💬</span>
+            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>צ'אט</span>
+          </button>
+        )}
+        {hasPartners && (
+          <button 
+            onClick={onOpenInvite}
+            style={{
+              background: 'transparent', 
+              border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+              color: '#64748b',
+              minWidth: '45px', transition: 'all 0.2s', flex: 1
+            }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>➕</span>
+            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזמן</span>
+          </button>
+        )}
         {hasPartners && (
           <button 
             onClick={onOpenPartners}

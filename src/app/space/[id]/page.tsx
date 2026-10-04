@@ -23,6 +23,7 @@ import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
 import CreatorDisputesBanner from '../../../components/widgets/Partners/CreatorDisputesBanner';
 import PendingInvoicesBanner from '../../../components/widgets/Finance/PendingInvoicesBanner';
 import { PartnersSettingsList } from '../../../components/widgets/Partners/PartnersSettingsList';
+import { PartnersInviteModal } from '../../../components/widgets/Partners/PartnersInviteModal';
 import PartnerControlPanel from '../../../components/widgets/Partners/PartnerControlPanel';
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -81,6 +82,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [showInvite, setShowInvite] = useState(false);
   const [showFeatureMenu, setShowFeatureMenu] = useState(false);
   const [showPartnersModal, setShowPartnersModal] = useState(() => { if (typeof window !== 'undefined') { return new URLSearchParams(window.location.search).get('tab') === 'partners'; } return false; });
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const [showRestrictedActionModal, setShowRestrictedActionModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -727,6 +729,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             onAddExpense={() => handleRestrictedAction(() => setIsAddingExpense(true))}
             onOpenScanner={() => handleRestrictedAction(() => setIsScannerOpen(true))}
             onOpenPartners={() => handleRestrictedAction(() => setShowPartnersModal(true))}
+            hasChat={spaceFeatures.includes('chat')}
+            onOpenGroupChat={() => handleRestrictedAction(() => openChat('group'))}
+            onOpenInvite={() => handleRestrictedAction(() => setShowInviteModal(true))}
             onFileUpload={(file) => handleRestrictedAction(() => handleFileUpload(file))}
           />
         </>
@@ -760,6 +765,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               <PartnersSettingsList space={space} user={user} />
            </div>
         </div>
+      )}
+
+      {/* Invite Modal */}
+      {showInviteModal && (
+        <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />
       )}
 
       {/* Restricted Action Modal */}
