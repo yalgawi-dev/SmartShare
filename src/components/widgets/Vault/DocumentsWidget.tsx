@@ -367,6 +367,11 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.3</span></h2>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button onClick={() => fileInputRef.current?.click()} style={{ background: '#3b82f6', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: 'white', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+            העלאה
+          </button>
+          <input type="file" ref={fileInputRef} onChange={handleLocalFileUpload} style={{ display: 'none' }} accept="image/*,application/pdf" />
           
           <button onClick={handleCreateShelf} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer' }}>
             + מדף חדש

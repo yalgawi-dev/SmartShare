@@ -691,7 +691,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
           {/* Finance is always at the top if active */}
                     <div style={{ display: hasFinance && financeTab !== 'documents' ? 'block' : 'none' }}>{hasFinance && <FinanceWidget ref={financeRef} space={space} activePartnersCount={activePartnersCount} isAddingExpense={isAddingExpense} setIsAddingExpense={setIsAddingExpense} onRestrictedAction={handleRestrictedAction} onOpenPartnersModal={() => setShowPartnersModal(true)} activeTab={financeTab as any} setActiveTab={setFinanceTab as any} />}</div>
-          <div style={{ display: hasVault && financeTab === 'documents' ? 'block' : 'none' }}>{hasVault && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}</div>
+          <div style={{ display: hasVault && (!hasFinance || financeTab === 'documents') ? 'block' : 'none' }}>{hasVault && <DocumentsWidget ref={documentsRef} space={space} activePartnersCount={activePartnersCount} />}</div>
           
           {/* Other features */}
           {hasGallery && <GalleryWidget space={space} isGuestMode={isRestricted} />}

@@ -102,9 +102,9 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
             if (space.features?.includes('chat')) {
               if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
               const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-              const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
+              const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
               const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-              let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id)) || [];
+              let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id) && !msg.readBy?.includes(myActualId)) || [];
             
               // Legacy fallback
               if (unreadChatMessages.length === 0) {
@@ -327,7 +327,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                     טופל ומחק
                   </button>
                 </div>
-                <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.4' }}>{n.text}</p>
+                <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.4' }}>{n.text}</p>\n                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>\n                  {n.createdAt && !isNaN(new Date(n.createdAt).getTime()) ? new Date(n.createdAt).toLocaleDateString('he-IL', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' -') : ''}\n                </div>
               </div>
             ))
           )}
