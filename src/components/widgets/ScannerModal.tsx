@@ -155,7 +155,36 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
     };
     document.body.appendChild(script);
-  }, []);
+  }, []);  const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const url = ev.target?.result as string;
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const pts = detectDocument(canvas) || [
+            {x: img.width * 0.1, y: img.height * 0.1},
+            {x: img.width * 0.9, y: img.height * 0.1},
+            {x: img.width * 0.9, y: img.height * 0.9},
+            {x: img.width * 0.1, y: img.height * 0.9}
+          ];
+          setCropPoints(pts);
+          setRawSnapshot(url);
+          setStep('cropping');
+        }
+      };
+      img.src = url;
+    };
+    reader.readAsDataURL(file);
+  };
+
 
 
   const handleCapture = () => {
@@ -607,8 +636,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  2x
                </button>
              </div>
-
-             <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
+             <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
+               <div style={{ width: '60px' }} />
+               <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
+               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', color: 'white', width: '60px' }}>
+                 <input type="file" accept="image/*,application/pdf" onChange={handleGalleryImport} style={{ display: 'none' }} />
+                 <span style={{ fontSize: '1.5rem', background: 'rgba(255,255,255,0.2)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>🖼️</span>
+                 <span style={{ fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>ייבוא לסורק</span>
+               </label>
+             </div>
            </div>
         )}
 

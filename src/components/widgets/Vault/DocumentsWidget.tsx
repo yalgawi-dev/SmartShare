@@ -35,6 +35,11 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
+  React.useEffect(() => {
+    const handler = () => addShelf(space.id, { name: "מדף חדש", allowedPartners: activePartnersCount === 0 ? [user?.id || ""] : [] });
+    window.addEventListener('smartshare:add_shelf', handler);
+    return () => window.removeEventListener('smartshare:add_shelf', handler);
+  }, []);
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   const fileInputRef = React.useRef<HTMLInputElement>(null);

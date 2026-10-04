@@ -725,6 +725,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             hasVault={hasVault}
             hasPartners={hasPartners}
             hasActivePartners={hasActivePartners}
+            partnersCount={(space.members || []).filter(m => m.userId !== creatorId).length}
             isAddingExpense={isAddingExpense}
             isScannerOpen={isScannerOpen}
             activeTab={financeTab}

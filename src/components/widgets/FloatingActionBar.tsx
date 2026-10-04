@@ -11,6 +11,7 @@ export function FloatingActionBar({
   hasVault,
   hasPartners,
   hasActivePartners,
+  partnersCount,
   activeTab,
   setActiveTab,
   onAddExpense,
@@ -28,6 +29,7 @@ export function FloatingActionBar({
   hasVault?: boolean;
   hasPartners?: boolean;
   hasActivePartners?: boolean;
+  partnersCount?: number;
   activeTab?: 'summary' | 'transactions' | 'inbox' | 'documents';
   setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'documents') => void;
   onAddExpense: () => void;
@@ -123,8 +125,38 @@ export function FloatingActionBar({
             )}
           </>
         )}
+        {!hasFinance && hasVault && (
+          <>
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                background: 'transparent', 
+                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', flex: 1
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>📤</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
+            </button>
+            {/* Note: onAddShelf is not implemented in FloatingActionBar yet, passing null for now to avoid errors, or we can trigger a custom event */}
+            <button 
+              onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }}
+              style={{
+                background: 'transparent', 
+                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', flex: 1
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
+            </button>
+          </>
+        )}
       </div>
-
       {/* Center Main Action */}
       <div style={{ position: 'relative', marginTop: '-2.5rem', display: 'flex', justifyContent: 'center', flex: 0, zIndex: 10 }}>
         {hasScanner && (
@@ -177,7 +209,7 @@ export function FloatingActionBar({
         )}
         {hasPartners && (
           <button 
-            onClick={onOpenInvite}
+            onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
             style={{
               background: 'transparent', 
               border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
@@ -186,23 +218,15 @@ export function FloatingActionBar({
               minWidth: '45px', transition: 'all 0.2s', flex: 1
             }}
           >
-            <span style={{ fontSize: '1.2rem' }}>➕</span>
-            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזמן</span>
-          </button>
-        )}
-        {hasPartners && hasActivePartners && (
-          <button 
-            onClick={onOpenPartners}
-            style={{
-              background: 'transparent', 
-              border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: '#64748b',
-              minWidth: '45px', transition: 'all 0.2s', flex: 1
-            }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>🤝</span>
-            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>שותפים</span>
+            <span style={{ fontSize: '1.2rem', position: 'relative' }}>
+              👥
+              {hasActivePartners && partnersCount && partnersCount > 0 ? (
+                <span style={{ position: 'absolute', top: '-2px', right: '-8px', background: 'var(--primary)', color: 'white', borderRadius: '50%', fontSize: '0.6rem', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{partnersCount}</span>
+              ) : null}
+            </span>
+            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>
+              {hasActivePartners ? 'שותפים' : 'הזמן שותף'}
+            </span>
           </button>
         )}
         {hasFinance && (
@@ -218,37 +242,11 @@ export function FloatingActionBar({
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📥</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן חשבוניות</span>
-            </button>
-
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s', flex: 1
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>📄</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>{activeTab === 'documents' ? 'ייבוא מסמך' : 'ייבוא חשבונית'}</span>
-            </button>
-
-            <button 
-              onClick={onAddExpense}
-              style={{
-                background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s', flex: 1
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>💳</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזנת הוצאה</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן</span>
             </button>
           </>
         )}
       </div>
-
-    </div>,
-    document.body
-  );
+    </div>
+  , document.body);
 }

@@ -15,6 +15,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const { openChat } = useChat();
 
+  const [showInviteModal, setShowInviteModal] = useState(false);
   const handleEditWallToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateSpaceSettings(space.id, { allowPartnersToEditWall: e.target.checked });
   };
@@ -48,10 +49,15 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
 
 
 
+      {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
+
       {partners && partners.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 1rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
-            <span style={{ flex: 1 }}>שם השותף</span>
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 1rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)", alignItems: "center" }}>
+            <span style={{ flex: 1 }}>
+              שם השותף
+              <button onClick={() => setShowInviteModal(true)} style={{ marginRight: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>➕ הוסף</button>
+            </span>
             <span style={{ width: "80px", textAlign: "center" }}>סטאטוס</span>
             <span style={{ width: "90px", textAlign: "center" }}>הרשאות</span>
           </div>
