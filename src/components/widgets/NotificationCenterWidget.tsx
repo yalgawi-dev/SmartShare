@@ -184,18 +184,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
     
     result = universalSearch(result, searchQuery, ['title', 'text', 'spaceName']);
     
-    result.sort((a, b) => {
-      if (sortBy === 'priority') {
-        const pMap: any = { high: 3, medium: 2, low: 1 };
-        if (pMap[a.priority] !== pMap[b.priority]) return pMap[b.priority] - pMap[a.priority];
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-      if (sortBy === 'space') {
-        if (a.spaceName !== b.spaceName) return a.spaceName.localeCompare(b.spaceName);
-        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      }
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-    });
+    const parseTime = (val) => { if (!val) return 0; if (typeof val === 'number') return val; let d = val; if (typeof d === 'string') { if (d.includes('/')) { const p = d.split('/'); if (p.length === 3) { const year = p[2].length === 2 ? 20 : p[2]; d = ${year}--; } } else if (d.includes('.')) { const p = d.split('.'); if (p.length === 3) { const year = p[2].length === 2 ? 20 : p[2]; d = ${year}--; } } } const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; }; result.sort((a, b) => { const timeA = parseTime(a.createdAt); const timeB = parseTime(b.createdAt); if (sortBy === 'priority') { const pMap = { high: 3, medium: 2, low: 1 }; if (pMap[a.priority] !== pMap[b.priority]) return pMap[b.priority] - pMap[a.priority]; return timeB - timeA; } if (sortBy === 'space') { if (a.spaceName !== b.spaceName) return a.spaceName.localeCompare(b.spaceName); return timeB - timeA; } return timeB - timeA; });
     
     return result;
   }, [allNotifications, filterType, searchQuery, sortBy]);

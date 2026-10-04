@@ -162,17 +162,27 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   const parseSortDate = (item: any) => {
     let d = item.ocrData?.date || item.createdAt;
     if (!d) return 0;
+    
+    // If it's already a timestamp (number)
+    if (typeof d === 'number') return d;
+
     if (typeof d === 'string') {
       if (d.includes('/')) {
         const p = d.split('/');
-        if (p.length === 3) d = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        if (p.length === 3) {
+          const year = p[2].length === 2 ? `20${p[2]}` : p[2];
+          d = `${year}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        }
       } else if (d.includes('.')) {
         const p = d.split('.');
-        if (p.length === 3) d = `${p[2]}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        if (p.length === 3) {
+          const year = p[2].length === 2 ? `20${p[2]}` : p[2];
+          d = `${year}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+        }
       }
     }
     const t = new Date(d).getTime();
-    return isNaN(t) ? 0 : t;
+    return isNaN(t) ? (item.createdAt || 0) : t;
   };
 
   const sortedInboxItems = [...inboxItems].map((item, idx) => ({ ...item, originalIndex: idx })).sort((a, b) => {
