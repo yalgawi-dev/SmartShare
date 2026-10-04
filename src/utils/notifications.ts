@@ -51,11 +51,13 @@ export const requestNotificationPermission = async (userId: string) => {
 export const triggerPushNotification = async (userIds: string[], title: string, body: string, data?: any) => {
   if (!userIds || userIds.length === 0) return;
   try {
-    await fetch('/api/send-notification', {
+    const res = await fetch('/api/send-notification', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userIds, title, body, data })
     });
+    const result = await res.json().catch(() => null);
+    console.log('[FCM] push result', res.status, result, 'targets:', userIds);
   } catch (err) {
     console.error('Error triggering push notification', err);
   }
@@ -68,11 +70,14 @@ export const setupForegroundFCM = async () => {
     if (!msg) return;
     onMessage(msg, (payload) => {
       if (Notification.permission === 'granted' && payload.notification) {
-        new Notification(payload.notification.title || 'התראה', {
+        const tag = payload.data?.tag;
+        // renotify is only valid together with tag (otherwise the browser throws a TypeError)
+        const options: NotificationOptions & { renotify?: boolean } = {
           body: payload.notification.body,
           icon: '/icon-192x192.png',
-          tag: payload.data?.tag || undefined
-        });
+          ...(tag ? { tag, renotify: true } : {})
+        };
+        new Notification(payload.notification.title || 'התראה', options);
       }
     });
   } catch (err) {

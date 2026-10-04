@@ -34,7 +34,9 @@ export async function POST(request: Request) {
               fcmOptions: {
                 link: (data && data.url) ? data.url : '/'
               },
-              ...(data?.tag ? { notification: { title, body, tag: data.tag } } : {})
+              // renotify:true is REQUIRED with tag: without it the browser replaces the
+              // existing notification of the same conversation SILENTLY (no banner/sound).
+              ...(data?.tag ? { notification: { title, body, tag: data.tag, renotify: true, icon: '/icon-192x192.png' } } : {})
             }
           });
         });
