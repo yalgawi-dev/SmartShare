@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useSpaces } from "../../../app/context/SpacesContext";
+import { useChat } from "../../../app/context/ChatContext";
+import { PartnersInviteModal } from "./PartnersInviteModal";
 
 export function PartnersSettingsList({ space, user }: { space: any; user: any }) {
   const { removeMember, updateMemberPermissions, updateSpaceSettings, getRoleForSpace, refreshMemberInvite, updateMemberStatus } = useSpaces();
@@ -11,6 +13,8 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
   const partners = (space.members || []).filter((m: any) => m.userId !== creatorId);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const { openChat } = useChat();
 
   const handleEditWallToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
     updateSpaceSettings(space.id, { allowPartnersToEditWall: e.target.checked });
@@ -43,6 +47,19 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
         </label>
       </div>
 
+      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem" }}>
+        <button onClick={() => setShowInviteModal(true)} style={{ flex: 1, background: "var(--primary)", color: "white", border: "none", padding: "0.85rem", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "1rem" }}>
+          <span>➕</span> הוסף שותף
+        </button>
+        {space.features?.includes('chat') && (
+          <button onClick={() => openChat('group')} style={{ flex: 1, background: "#e0e7ff", color: "#4338ca", border: "1px solid #c7d2fe", padding: "0.85rem", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "1rem" }}>
+            <span>💬</span> צ'אט קבוצתי
+          </button>
+        )}
+      </div>
+
+      {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
+
       {partners && partners.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", padding: "0.5rem 1rem", borderRadius: "var(--radius-md)", fontWeight: "bold", fontSize: "0.85rem", color: "var(--text-secondary)" }}>
@@ -57,7 +74,18 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
             return (
               <div key={m.userId} style={{ border: "1px solid var(--border-light)", borderRadius: "var(--radius-md)", overflow: "hidden" }}>
                 <div onClick={(e) => { const t = e.target as HTMLElement; if (t.closest("button") || t.closest("input")) return; setExpandedMember(expandedMember === m.userId ? null : m.userId); }} style={{ cursor: "pointer", background: "#f8fafc", padding: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <span style={{ fontWeight: 600, flex: 1 }}>{m.name || m.displayName || m.email || m.userId}</span>
+                  <div style={{ fontWeight: 600, flex: 1, display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                    {m.name || m.displayName || m.email || m.userId}
+                    {space.features?.includes('chat') && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); openChat(m.userId); }}
+                        style={{ background: "#e0e7ff", color: "#4338ca", border: "none", borderRadius: "50%", width: "28px", height: "28px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.8rem", padding: 0 }}
+                        title="צ'אט אישי"
+                      >
+                        💬
+                      </button>
+                    )}
+                  </div>
                   <span style={{ width: "120px", textAlign: "center", fontSize: "0.8rem", color: m.status === "active" ? "#16a34a" : m.status === "disputed" ? "#dc2626" : "#b45309" }}>
                     {m.status === "active" ? "✅ פעיל" : 
                      m.status === "pending" ? (m.welcomed ? "⏳ ממתין שיאשר" : "✉️ טרם הצטרף") : 
