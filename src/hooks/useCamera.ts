@@ -78,8 +78,9 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
+      if (videoRef.current && videoRef.current.srcObject) {
+        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

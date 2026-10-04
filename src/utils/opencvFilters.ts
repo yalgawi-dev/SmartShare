@@ -475,7 +475,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 
     if (scoredCandidates.length > 0) {
       scoredCandidates.sort((a, b) => b.score - a.score);
-      return scoredCandidates[0].pts;
+      return scoredCandidates[0].pts.map(p => ({ x: p.x / tempScale, y: p.y / tempScale }));
     }
 
     return null;
@@ -1159,6 +1159,37 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           if(typeof finalPureRgba !== 'undefined' && !finalPureRgba.isDeleted()) finalPureRgba.delete();
           if(typeof finalSmartPlusRgba !== 'undefined' && !finalSmartPlusRgba.isDeleted()) finalSmartPlusRgba.delete();
           if(typeof finalHybrid !== 'undefined' && !finalHybrid.isDeleted()) finalHybrid.delete();
+          
+          // Cleanup all local Mat references that might have leaked
+          const locals = [
+             typeof smallDst !== 'undefined' ? smallDst : null,
+             typeof smallGray !== 'undefined' ? smallGray : null,
+             typeof bgKernelSmall !== 'undefined' ? bgKernelSmall : null,
+             typeof bgSmallest !== 'undefined' ? bgSmallest : null,
+             typeof smallBw !== 'undefined' ? smallBw : null,
+             typeof smallMask !== 'undefined' ? smallMask : null,
+             typeof contours !== 'undefined' ? contours : null,
+             typeof hierarchy !== 'undefined' ? hierarchy : null,
+             typeof hullMask !== 'undefined' ? hullMask : null,
+             typeof dilateKernelSmall !== 'undefined' ? dilateKernelSmall : null,
+             typeof hybridMask !== 'undefined' ? hybridMask : null,
+             typeof flatRgb !== 'undefined' ? flatRgb : null,
+             typeof blurredFlat !== 'undefined' ? blurredFlat : null,
+             typeof flatHsv !== 'undefined' ? flatHsv : null,
+             typeof planesHsv !== 'undefined' ? planesHsv : null,
+             typeof v !== 'undefined' ? v : null,
+             typeof smallLogoMask !== 'undefined' ? smallLogoMask : null,
+             typeof inpaintedSmallRgb !== 'undefined' ? inpaintedSmallRgb : null,
+             typeof bgSmall2 !== 'undefined' ? bgSmall2 : null,
+             typeof bgRgb !== 'undefined' ? bgRgb : null,
+             typeof planesRgb !== 'undefined' ? planesRgb : null,
+             typeof planesBg !== 'undefined' ? planesBg : null,
+             typeof textMask !== 'undefined' ? textMask : null,
+             typeof edges !== 'undefined' ? edges : null
+          ];
+          for (let m of locals) {
+             if (m && typeof m.delete === 'function' && !m.isDeleted()) m.delete();
+          }
         } catch(e) {}
 
 
