@@ -184,7 +184,49 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
     
     result = universalSearch(result, searchQuery, ['title', 'text', 'spaceName']);
     
-    const parseTime = (val) => { if (!val) return 0; if (typeof val === 'number') return val; let d = val; if (typeof d === 'string') { if (d.includes('/')) { const p = d.split('/'); if (p.length === 3) { const year = p[2].length === 2 ? 20 : p[2]; d = ${year}--; } } else if (d.includes('.')) { const p = d.split('.'); if (p.length === 3) { const year = p[2].length === 2 ? 20 : p[2]; d = ${year}--; } } } const t = new Date(d).getTime(); return isNaN(t) ? 0 : t; }; result.sort((a, b) => { const timeA = parseTime(a.createdAt); const timeB = parseTime(b.createdAt); if (sortBy === 'priority') { const pMap = { high: 3, medium: 2, low: 1 }; if (pMap[a.priority] !== pMap[b.priority]) return pMap[b.priority] - pMap[a.priority]; return timeB - timeA; } if (sortBy === 'space') { if (a.spaceName !== b.spaceName) return a.spaceName.localeCompare(b.spaceName); return timeB - timeA; } return timeB - timeA; });
+    const parseTime = (val: any) => {
+      if (!val) return 0;
+      if (typeof val === 'number') return val;
+      let d = val;
+      if (typeof d === 'string') {
+        if (d.includes('/')) {
+          const p = d.split('/');
+          if (p.length === 3) {
+            const year = p[2].length === 2 ? `20${p[2]}` : p[2];
+            d = `${year}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          }
+        } else if (d.includes('.')) {
+          const p = d.split('.');
+          if (p.length === 3) {
+            const year = p[2].length === 2 ? `20${p[2]}` : p[2];
+            d = `${year}-${p[1].padStart(2, '0')}-${p[0].padStart(2, '0')}`;
+          }
+        } else if (d.match(/^\d{2}-\d{2}-\d{2}$/)) {
+            const p = d.split('-');
+            d = `20${p[0]}-${p[1]}-${p[2]}`;
+        } else if (d.match(/^\d{2}-\d{2}-\d{4}$/)) {
+            const p = d.split('-');
+            d = `${p[2]}-${p[1]}-${p[0]}`;
+        }
+      }
+      const t = new Date(d).getTime();
+      return isNaN(t) ? 0 : t;
+    };
+
+    result.sort((a, b) => {
+      const timeA = parseTime(a.createdAt);
+      const timeB = parseTime(b.createdAt);
+      if (sortBy === 'priority') {
+        const pMap: any = { high: 3, medium: 2, low: 1 };
+        if (pMap[a.priority] !== pMap[b.priority]) return pMap[b.priority] - pMap[a.priority];
+        return timeB - timeA;
+      }
+      if (sortBy === 'space') {
+        if (a.spaceName !== b.spaceName) return a.spaceName.localeCompare(b.spaceName);
+        return timeB - timeA;
+      }
+      return timeB - timeA;
+    });
     
     return result;
   }, [allNotifications, filterType, searchQuery, sortBy]);
