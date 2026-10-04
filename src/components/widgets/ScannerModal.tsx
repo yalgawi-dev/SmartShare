@@ -178,7 +178,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, w, h);
-          const pts = detectDocument(canvas) || [
+          const pts = [
             {x: w * 0.1, y: h * 0.1},
             {x: w * 0.9, y: h * 0.1},
             {x: w * 0.9, y: h * 0.9},
