@@ -31,6 +31,11 @@ interface ScannerModalProps {
 export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance }: ScannerModalProps) {
   
   const isClosingRef = useRef(false);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     // Intercept Android hardware back button
@@ -39,7 +44,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       e.preventDefault();
       if (!isClosingRef.current) {
          isClosingRef.current = true;
-         onClose();
+         onCloseRef.current();
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -50,13 +55,13 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         window.history.back();
       }
     };
-  }, [onClose]);
+  }, []);
 
   const handleManualClose = () => {
     if (!isClosingRef.current) {
        isClosingRef.current = true;
        window.history.back(); // This triggers popstate, which calls onClose
-       setTimeout(() => onClose(), 50); // Fallback if popstate fails
+       setTimeout(() => onCloseRef.current(), 50); // Fallback if popstate fails
     }
   };
 
