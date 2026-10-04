@@ -272,7 +272,8 @@ export function PartnersInviteModal({
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
-        {space.features?.includes("finance") && (<>\n        {/* Allocation Modes */}
+        {space.features?.includes("finance") && (<>
+        {/* Allocation Modes */}
         <div>
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.5rem' }}>
             איך לחשב את אחוזי ההשתתפות?
@@ -459,7 +460,9 @@ export function PartnersInviteModal({
           </div>
         </div>
 
-        </>)}\n\n        {/* Retroactive Expense Checkbox */}
+        </>)}
+
+        {/* Retroactive Expense Checkbox */}
         {space.features?.includes("finance") && space.invoices && space.invoices.length > 0 && (
           <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
