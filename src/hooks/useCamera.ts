@@ -2,6 +2,7 @@ import { useState, useEffect, RefObject } from 'react';
 
 export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boolean) {
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const activeStreamRef = require('react').useRef<MediaStream | null>(null);
   const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
   const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
   const [torchOn, setTorchOn] = useState(false);
@@ -64,6 +65,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
 
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
         setStream(mediaStream);
+        activeStreamRef.current = mediaStream;
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
         }
@@ -78,9 +80,9 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
+        activeStreamRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
