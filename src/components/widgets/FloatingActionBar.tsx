@@ -10,6 +10,7 @@ export function FloatingActionBar({
   isScannerOpen,
   hasVault,
   hasPartners,
+  hasActivePartners,
   activeTab,
   setActiveTab,
   onAddExpense,
@@ -26,6 +27,7 @@ export function FloatingActionBar({
   isScannerOpen: boolean;
   hasVault?: boolean;
   hasPartners?: boolean;
+  hasActivePartners?: boolean;
   activeTab?: 'summary' | 'transactions' | 'inbox' | 'documents';
   setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'documents') => void;
   onAddExpense: () => void;
@@ -158,7 +160,7 @@ export function FloatingActionBar({
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasChat && (
+        {hasChat && hasActivePartners && (
           <button 
             onClick={onOpenGroupChat}
             style={{
@@ -188,7 +190,7 @@ export function FloatingActionBar({
             <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזמן</span>
           </button>
         )}
-        {hasPartners && (
+        {hasPartners && hasActivePartners && (
           <button 
             onClick={onOpenPartners}
             style={{

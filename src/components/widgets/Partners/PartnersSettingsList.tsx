@@ -13,7 +13,6 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
   const partners = (space.members || []).filter((m: any) => m.userId !== creatorId);
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
-  const [showInviteModal, setShowInviteModal] = useState(false);
   const { openChat } = useChat();
 
   const handleEditWallToggle = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,18 +46,7 @@ export function PartnersSettingsList({ space, user }: { space: any; user: any })
         </label>
       </div>
 
-      <div style={{ display: "flex", gap: "1rem", marginBottom: "1.25rem" }}>
-        <button onClick={() => setShowInviteModal(true)} style={{ flex: 1, background: "var(--primary)", color: "white", border: "none", padding: "0.85rem", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "1rem" }}>
-          <span>➕</span> הוסף שותף
-        </button>
-        {space.features?.includes('chat') && (
-          <button onClick={() => openChat('group')} style={{ flex: 1, background: "#e0e7ff", color: "#4338ca", border: "1px solid #c7d2fe", padding: "0.85rem", borderRadius: "12px", fontWeight: "bold", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", fontSize: "1rem" }}>
-            <span>💬</span> צ'אט קבוצתי
-          </button>
-        )}
-      </div>
 
-      {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
 
       {partners && partners.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>

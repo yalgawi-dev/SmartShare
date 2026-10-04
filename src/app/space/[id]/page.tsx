@@ -262,6 +262,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasScanner = spaceFeatures.includes('scanner');
   const hasVault = spaceFeatures.includes('vault');
   const hasPartners = spaceFeatures.includes('partners');
+  const creatorId = space.creatorId || space.createdBy;
+  const hasActivePartners = (space.members || []).filter((m: any) => m.userId !== creatorId).length > 0;
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
@@ -722,6 +724,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             hasScanner={hasScanner}
             hasVault={hasVault}
             hasPartners={hasPartners}
+            hasActivePartners={hasActivePartners}
             isAddingExpense={isAddingExpense}
             isScannerOpen={isScannerOpen}
             activeTab={financeTab}
