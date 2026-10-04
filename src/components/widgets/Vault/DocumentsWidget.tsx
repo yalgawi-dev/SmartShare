@@ -161,8 +161,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       
       try {
         let finalUrl = url;
-        if (url.startsWith('data:image')) {
-          const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+        if (url.startsWith('data:image') || url.startsWith('data:application/pdf')) {
+          const ext = url.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
+          const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
           finalUrl = await uploadImageToStorage(url, path);
         }
         // Save to real database

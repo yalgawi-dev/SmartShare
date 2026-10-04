@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { compressCanvas, mergeImagesCleanly } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
+import { jsPDF } from "jspdf";
 
 
 interface ScannedPage {
@@ -457,13 +458,60 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
-  const handleDone = (routingType?: 'receipt' | 'document' | 'image') => {
-      // If it's an image, we want the current mode (pure_color usually) as requested by the user for rich colors!
+  const handleDone = async (routingType?: 'receipt' | 'document' | 'image') => {
+      setIsProcessing(true);
       const currentImg = imageCache[mode];
-      if (!currentImg) return;
-      const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
-      const primary = allPageUrls[0];
+      
+      const allPageUrls = [...scannedPages.map(p => p.imageUrl)];
+      if (currentImg) {
+         allPageUrls.push(currentImg);
+      }
+      
+      if (allPageUrls.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+      
       let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+      
+      let primary = allPageUrls[0];
+      
+      // If it's a document (not a photo/receipt) we generate a PDF
+      if (finalRouting === 'document') {
+        try {
+          const pdf = new jsPDF('p', 'mm', 'a4');
+          const pdfWidth = pdf.internal.pageSize.getWidth();
+          const pdfHeight = pdf.internal.pageSize.getHeight();
+          
+          for (let i = 0; i < allPageUrls.length; i++) {
+            if (i > 0) pdf.addPage();
+            
+            await new Promise<void>((resolve, reject) => {
+              const img = new Image();
+              img.onload = () => {
+                const imgRatio = img.width / img.height;
+                const pdfRatio = pdfWidth / pdfHeight;
+                let finalW = pdfWidth;
+                let finalH = pdfHeight;
+                if (imgRatio > pdfRatio) {
+                  finalH = pdfWidth / imgRatio;
+                } else {
+                  finalW = pdfHeight * imgRatio;
+                }
+                const x = (pdfWidth - finalW) / 2;
+                const y = (pdfHeight - finalH) / 2;
+                pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
+                resolve();
+              };
+              img.onerror = reject;
+              img.src = allPageUrls[i];
+            });
+          }
+          primary = pdf.output('datauristring');
+        } catch (e) {
+          console.error("PDF generation failed", e);
+        }
+      }
       
       if (!isClosingRef.current) {
         isClosingRef.current = true;
@@ -471,7 +519,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
       
       setTimeout(() => {
-        onComplete(primary, currentImg, allPageUrls.length > 1 ? allPageUrls : undefined, finalRouting as any);
+        onComplete(primary, currentImg || primary, allPageUrls.length > 1 ? allPageUrls : undefined, finalRouting as any);
+        setIsProcessing(false);
       }, 50);
     };
 
@@ -603,7 +652,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
              )}
              
              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
+               <TransformWrapper initialScale={1} minScale={0.2} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
                     src={previewIndex !== null && previewIndex < scannedPages.length ? scannedPages[previewIndex].imageUrl : imageCache[mode]} 
@@ -645,6 +694,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <span style={{ fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>ייבוא לסורק</span>
                </label>
              </div>
+             {scannedPages.length > 0 && (
+               <div style={{ marginTop: '1rem', width: '100%', display: 'flex', justifyContent: 'center' }}>
+                 <button onClick={() => handleDone()} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                   סיום ושמירה ({scannedPages.length} עמודים)
+                 </button>
+               </div>
+             )}
+
            </div>
         )}
 

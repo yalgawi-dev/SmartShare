@@ -31,7 +31,7 @@ export const googleProvider = new GoogleAuthProvider();
 import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 
 export const uploadImageToStorage = async (dataUrl: string, path: string): Promise<string> => {
-  if (!dataUrl.startsWith('data:image')) {
+  if (!dataUrl.startsWith('data:image') && !dataUrl.startsWith('data:application/pdf')) {
     // If it's already a URL (e.g. from a previous upload or an external link), just return it
     return dataUrl;
   }
