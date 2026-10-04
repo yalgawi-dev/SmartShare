@@ -192,44 +192,7 @@ export function FloatingActionBar({
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasChat && hasActivePartners && (
-          <button 
-            onClick={onOpenGroupChat}
-            style={{
-              background: 'transparent', 
-              border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: '#64748b',
-              minWidth: '45px', transition: 'all 0.2s', flex: 1
-            }}
-          >
-            <span style={{ fontSize: '1.2rem' }}>💬</span>
-            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>צ'אט</span>
-          </button>
-        )}
-        {hasPartners && (
-          <button 
-            onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
-            style={{
-              background: 'transparent', 
-              border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-              color: '#64748b',
-              minWidth: '45px', transition: 'all 0.2s', flex: 1
-            }}
-          >
-            <span style={{ fontSize: '1.2rem', position: 'relative' }}>
-              👥
-              {hasActivePartners && partnersCount && partnersCount > 0 ? (
-                <span style={{ position: 'absolute', top: '-2px', right: '-8px', background: 'var(--primary)', color: 'white', borderRadius: '50%', fontSize: '0.6rem', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{partnersCount}</span>
-              ) : null}
-            </span>
-            <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>
-              {hasActivePartners ? 'שותפים' : 'הזמן שותף'}
-            </span>
-          </button>
-        )}
-        {hasFinance && (
+        {hasFinance && activeTab !== 'documents' ? (
           <>
             <button 
               onClick={() => setActiveTab && setActiveTab('inbox')}
@@ -242,10 +205,90 @@ export function FloatingActionBar({
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📥</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן חשבוניות</span>
+            </button>
+
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              style={{
+                background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s', flex: 1
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>📄</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>ייבוא חשבונית</span>
+            </button>
+
+            <button 
+              onClick={onAddExpense}
+              style={{
+                background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: 'var(--text-secondary)', minWidth: '45px', transition: 'all 0.2s', flex: 1
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>💳</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזנת הוצאה</span>
             </button>
           </>
+        ) : (
+          <>
+            {hasChat && hasActivePartners && (
+              <button 
+                onClick={onOpenGroupChat}
+                style={{
+                  background: 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', flex: 1
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>💬</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>צ'אט</span>
+              </button>
+            )}
+            {hasPartners && (
+              <button 
+                onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
+                style={{
+                  background: 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', flex: 1
+                }}
+              >
+                <span style={{ fontSize: '1.2rem', position: 'relative' }}>
+                  👥
+                  {hasActivePartners && partnersCount && partnersCount > 0 ? (
+                    <span style={{ position: 'absolute', top: '-2px', right: '-8px', background: 'var(--primary)', color: 'white', borderRadius: '50%', fontSize: '0.6rem', width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' }}>{partnersCount}</span>
+                  ) : null}
+                </span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>
+                  {hasActivePartners ? 'שותפים' : 'הזמן שותף'}
+                </span>
+              </button>
+            )}
+            {hasFinance && hasVault && activeTab === 'documents' && (
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  background: 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', flex: 1
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>📤</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
+              </button>
+            )}
+          </>
         )}
+
       </div>
     </div>
   , document.body);
