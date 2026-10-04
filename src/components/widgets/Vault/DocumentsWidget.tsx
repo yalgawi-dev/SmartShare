@@ -36,41 +36,20 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
   React.useEffect(() => {
-    const handler = () => addShelf(space.id, { name: "מדף חדש", allowedPartners: activePartnersCount === 0 ? [user?.id || ""] : [] });
+    const handler = () => {
+      const name = window.prompt('שם המדף החדש:');
+      if (name && name.trim()) {
+        addShelf(space.id, {
+          name: name.trim(),
+          allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
+        });
+      }
+    };
     window.addEventListener('smartshare:add_shelf', handler);
     return () => window.removeEventListener('smartshare:add_shelf', handler);
-  }, []);
+  }, [space.id, activePartnersCount, user?.id, addShelf]);
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleLocalFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        const url = ev.target?.result as string;
-        // Re-use addDocument imperative flow which asks for shelf
-        let targetShelfId = activeShelfId;
-          if (!targetShelfId) {
-            if (shelves.length === 1) {
-               targetShelfId = shelves[0].id;
-            } else if (shelves.length > 1) {
-               setPendingImport({ url, type: 'document' });
-               return; // Exit and let modal handle it
-            }
-          }
-        if (!targetShelfId) {
-          const newShelfId = 'shelf_' + Date.now();
-          addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
-          targetShelfId = newShelfId; 
-        }
-        handleSaveDocument(targetShelfId, url, 'document');
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
   useImperativeHandle(ref, () => ({
     addDocument: (url, type, allPages) => {
       let targetShelfId = activeShelfId;
@@ -91,16 +70,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages);
     }
   }));
-
-  const handleCreateShelf = () => {
-    const name = window.prompt('שם המדף החדש:');
-    if (name && name.trim()) {
-      addShelf(space.id, {
-        name: name.trim(),
-        allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
-      });
-    }
-  };
 
   const handleRenameShelf = (shelfId: string, currentName: string) => {
     const name = window.prompt('שינוי שם למדף:', currentName);
@@ -375,18 +344,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   return (
     <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 1rem' }}>
-        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.3</span></h2>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button onClick={() => fileInputRef.current?.click()} style={{ background: '#3b82f6', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: 'white', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
-            העלאה
-          </button>
-          <input type="file" ref={fileInputRef} onChange={handleLocalFileUpload} style={{ display: 'none' }} accept="image/*,application/pdf" />
-          
-          <button onClick={handleCreateShelf} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer' }}>
-            + מדף חדש
-          </button>
-        </div>
+        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.4</span></h2>
       </div>
 
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', width: '100%', boxSizing: 'border-box', padding: '0 1rem' }}>
