@@ -503,7 +503,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 
     if (scoredCandidates.length > 0) {
       scoredCandidates.sort((a, b) => b.score - a.score);
-      const finalPts = scoredCandidates[0].pts.map(p => ({ x: Math.max(0, Math.min(canvas.width, p.x / tempScale)), y: Math.max(0, Math.min(canvas.height, p.y / tempScale)) })); return finalPts;
+      return scoredCandidates[0].pts;
     }
 
     return null;
