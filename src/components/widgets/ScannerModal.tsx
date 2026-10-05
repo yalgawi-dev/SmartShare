@@ -87,7 +87,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     cycleCamera,
     toggleTorch,
     stopCamera
-  } = useCamera(videoRef, step === 'scanning');
+  } = useCamera(videoRef, step === 'scanning' && pendingImports.length === 0);
   
   const [rawSnapshot, setRawSnapshot] = useState<string | null>(null);
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
@@ -694,55 +694,68 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 </div>
               </div>
             )}
-            <video 
-              ref={videoRef} 
-              autoPlay 
-              playsInline 
-              muted
-              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-            />
-            {/* Dark Overlay with Transparent Center for Document Alignment */}
-            <div 
-              ref={guideRef}
-              style={{
-                position: 'absolute', top: '50%', left: '50%',
-                transform: 'translate(-50%, -50%)',
-                width: 'min(95%, 75vh)', 
-                aspectRatio: '1 / 1.414',
-                border: '2px solid rgba(255, 215, 0, 0.5)', borderRadius: '12px',
-                boxShadow: '0 0 0 4000px rgba(0,0,0,0.85)', pointerEvents: 'none',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                overflow: 'hidden'
-              }}>
-               <div style={{ background: 'rgba(0,0,0,0.6)', padding: '0.5rem 1rem', borderRadius: '20px', color: 'white', position: 'absolute', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', zIndex: 10 }}>
-                 הכנס את המסמך למסגרת
-                 <div style={{ fontSize: '0.8rem', color: '#FFD700', marginTop: '0.25rem' }}>
-                   💡 מומלץ לצלם על רקע כהה
-                 </div>
+            {pendingImports.length > 0 ? (
+               <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem', opacity: 0.8 }}>📂</div>
+                  <h3 style={{ color: 'white', margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>מצב ייבוא מרובה</h3>
+                  <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '80%', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
+                    ישנם <b>{pendingImports.length}</b> מסמכים ממתינים בתור.<br/><br/>
+                    בחר מסמך במגש ה"לא ערוכים" למטה כדי לחתוך אותו, או לחץ על הכפתור "אשר הכל" ⏩.
+                  </p>
                </div>
-               
-               {/* Green Scanning Line */}
-               <div style={{
-                 position: 'absolute', top: 0, left: 0, right: 0, height: '3px',
-                 background: '#00FF00', boxShadow: '0 0 10px #00FF00',
-                 animation: 'scanLine 2.5s infinite linear', opacity: 0.7
-               }} />
-               <style>
-                 {`
-                   @keyframes scanLine {
-                     0% { top: 0%; opacity: 0; }
-                     10% { opacity: 0.7; }
-                     90% { opacity: 0.7; }
-                     100% { top: 100%; opacity: 0; }
-                   }
-                 `}
-               </style>
-               
-               <div style={{ position: 'absolute', top: '-2px', left: '-2px', width: '20px', height: '20px', borderTop: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
-               <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '20px', height: '20px', borderTop: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
-               <div style={{ position: 'absolute', bottom: '-2px', left: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
-               <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
-            </div>
+            ) : (
+              <>
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                />
+                {/* Dark Overlay with Transparent Center for Document Alignment */}
+                <div 
+                  ref={guideRef}
+                  style={{
+                    position: 'absolute', top: '50%', left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    width: 'min(95%, 75vh)', 
+                    aspectRatio: '1 / 1.414',
+                    border: '2px solid rgba(255, 215, 0, 0.5)', borderRadius: '12px',
+                    boxShadow: '0 0 0 4000px rgba(0,0,0,0.85)', pointerEvents: 'none',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    overflow: 'hidden'
+                  }}>
+                   <div style={{ background: 'rgba(0,0,0,0.6)', padding: '0.5rem 1rem', borderRadius: '20px', color: 'white', position: 'absolute', top: '50%', transform: 'translateY(-50%)', textAlign: 'center', zIndex: 10 }}>
+                     הכנס את המסמך למסגרת
+                     <div style={{ fontSize: '0.8rem', color: '#FFD700', marginTop: '0.25rem' }}>
+                       💡 מומלץ לצלם על רקע כהה
+                     </div>
+                   </div>
+                   
+                   {/* Green Scanning Line */}
+                   <div style={{
+                     position: 'absolute', top: 0, left: 0, right: 0, height: '3px',
+                     background: '#00FF00', boxShadow: '0 0 10px #00FF00',
+                     animation: 'scanLine 2.5s infinite linear', opacity: 0.7
+                   }} />
+                   <style>
+                     {`
+                       @keyframes scanLine {
+                         0% { top: 0%; opacity: 0; }
+                         10% { opacity: 0.7; }
+                         90% { opacity: 0.7; }
+                         100% { top: 100%; opacity: 0; }
+                       }
+                     `}
+                   </style>
+                   
+                   <div style={{ position: 'absolute', top: '-2px', left: '-2px', width: '20px', height: '20px', borderTop: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
+                   <div style={{ position: 'absolute', top: '-2px', right: '-2px', width: '20px', height: '20px', borderTop: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
+                   <div style={{ position: 'absolute', bottom: '-2px', left: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
+                   <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
+                </div>
+              </>
+            )}
           </>
         )}
 
