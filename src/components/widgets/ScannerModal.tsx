@@ -167,7 +167,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     };
     document.body.appendChild(script);
   }, []);  const processImportUrl = (url: string) => {
+    setStep('cropping');
+    setRawSnapshot(null); // Triggers loading state
+    
+    // Fix mobile Safari canvas tainting just in case
     const img = new Image();
+    img.crossOrigin = 'Anonymous';
     img.onload = () => {
       let w = img.width;
       let h = img.height;
@@ -385,9 +390,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const newPage: ScannedPage = {
       id: Date.now().toString(),
       imageUrl: currentImg,
-      pageNum: scannedPages.length + 1
+      pageNum: scannedPages.length + 1,
+      rawImageUrl: rawSnapshot || undefined
     };
-    newPage.rawImageUrl = rawSnapshot || undefined;
     setScannedPages(prev => [...prev, newPage]);
     
     setRawSnapshot(null);
@@ -396,8 +401,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setMode('smart_plus');
     setDetectedType(null);
     setClassifyResult(null);
+    setClassifyOverride(false);
 
-    setStep('scanning');
+    if (pendingImports.length > 0) {
+        const nextUrl = pendingImports[0];
+        setPendingImports(prev => prev.slice(1));
+        processImportUrl(nextUrl);
+    } else {
+        setStep('scanning');
+    }
   };
 
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original') => {
@@ -634,7 +646,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     const currentImg = imageCache[mode];
     let allPageUrls = [...scannedPages.map(p => p.imageUrl)];
-    
     if (currentImg && step !== 'scanning') {
        allPageUrls.push(currentImg);
     }
@@ -806,7 +817,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         )}
 
         {step === 'review' && (
-           <div style={{ flex: 1, position: 'relative', overflow: 'hidden', background: '#111' }}>
+           <div style={{ flex: 1, width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#111' }}>
              {/* TIMING TELEMETRY DISPLAY */}
              {timingCache[mode] && (
                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.8)', color: '#0f0', padding: '0.5rem', borderRadius: '8px', zIndex: 100, fontSize: '0.8rem', fontFamily: 'monospace' }}>
@@ -976,46 +987,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                     ? `זיהוי: ${getClassifyLabel()} (${classifyResult.confidence}%)`
                     : `זיהוי: ${getClassifyLabel()} – ייתכן שזה לא מתאים ל-OCR`}
                 </span>
-              </div>
-            )}
-
-            {/* Pages thumbnail strip */}
-            {scannedPages.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
-                {scannedPages.map((page, idx) => (
-                  <div 
-                    key={page.id} 
-                    draggable
-                    onDragStart={(e) => {
-                      setDraggedIndex(idx);
-                      e.dataTransfer.effectAllowed = 'move';
-                    }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      if (draggedIndex === null || draggedIndex === idx) return;
-                      const newPages = [...scannedPages];
-                      const [draggedItem] = newPages.splice(draggedIndex, 1);
-                      newPages.splice(idx, 0, draggedItem);
-                      const renumbered = newPages.map((p, i) => ({...p, pageNum: i + 1}));
-                      setScannedPages(renumbered);
-                      setDraggedIndex(null);
-                      if (previewIndex === draggedIndex) setPreviewIndex(idx);
-                      else if (previewIndex !== null) setPreviewIndex(null);
-                    }}
-                    onClick={() => setPreviewIndex(idx)}
-                    style={{ position: 'relative', flexShrink: 0, cursor: 'pointer', border: previewIndex === idx ? '2px solid #10b981' : 'none', borderRadius: '4px' }}
-                  >
-                    <img src={page.imageUrl} style={{ width: '44px', height: '60px', objectFit: 'cover', borderRadius: '4px', border: previewIndex === idx ? 'none' : '2px solid #FFD700', opacity: previewIndex === idx ? 1 : 0.8 }} alt={`עמוד ${page.pageNum}`} />
-                    <span style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'rgba(0,0,0,0.8)', color: '#FFD700', fontSize: '0.6rem', padding: '1px 3px', borderRadius: '3px', fontWeight: 'bold' }}>{page.pageNum}</span>
-                  </div>
-                ))}
-                <div 
-                  onClick={() => setPreviewIndex(null)}
-                  style={{ display: 'flex', alignItems: 'center', flexShrink: 0, background: previewIndex === null ? 'rgba(16,185,129,0.2)' : 'rgba(255,215,0,0.1)', border: previewIndex === null ? '2px solid #10b981' : '1px solid #FFD700', borderRadius: '4px', padding: '0.25rem 0.5rem', fontSize: '0.75rem', color: previewIndex === null ? '#10b981' : '#FFD700', cursor: 'pointer' }}
-                >
-                  עמוד {scannedPages.length + 1} (תצוגה נוכחית)
-                </div>
               </div>
             )}
 
