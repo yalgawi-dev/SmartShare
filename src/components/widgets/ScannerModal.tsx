@@ -205,7 +205,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     // Instead of using FileReader concurrently (which crashes mobile browsers with high-res photos due to RAM limits),
     // we use URL.createObjectURL which is instantaneous and consumes virtually no RAM.
     const urls = Array.from(files).map(file => URL.createObjectURL(file));
-    setPendingImports(prev => [...prev, ...urls]);
+    if (urls.length > 0) {
+      const first = urls[0];
+      const rest = urls.slice(1);
+      setPendingImports(prev => [...prev, ...rest]);
+      processImportUrl(first);
+    }
     
     e.target.value = '';
   };
@@ -601,29 +606,50 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   const handleDone = async (routingType?: 'receipt' | 'document' | 'image') => {
-      setIsProcessing(true);
-      const currentImg = imageCache[mode];
-      
-      const allPageUrls = [...scannedPages.map(p => p.imageUrl)];
-      if (currentImg) {
-         allPageUrls.push(currentImg);
-      }
-      
-      if (allPageUrls.length === 0) {
-        setIsProcessing(false);
-        return;
-      }
-      
-      let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
-      
-      let primary = allPageUrls[0];
-      
-      if (allPageUrls.length > 1) {
-        setExportOptions({ type: 'save', urls: allPageUrls, routingType });
-        return; // Don't process further, modal will handle it via executeExport
-      }
-      
-      if (!isClosingRef.current) {
+    setIsProcessing(true);
+    
+    const currentImg = imageCache[mode];
+    let allPageUrls = [...scannedPages.map(p => p.imageUrl)];
+    
+    if (currentImg && step !== 'scanning') {
+       allPageUrls.push(currentImg);
+    }
+    
+    // Auto-approve any pending imports that were skipped!
+    if (pendingImports.length > 0) {
+        for (let idx = 0; idx < pendingImports.length; idx++) {
+           const url = pendingImports[idx];
+           const img = new Image();
+           img.src = url;
+           await new Promise((res) => { img.onload = res; });
+           let w = img.width; let h = img.height;
+           if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
+           const canvas = document.createElement('canvas');
+           canvas.width = w; canvas.height = h;
+           const ctx = canvas.getContext('2d');
+           if (ctx) {
+              ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+              ctx.drawImage(img, 0, 0, w, h);
+              allPageUrls.push(compressCanvas(canvas, 0.82));
+           }
+        }
+        setPendingImports([]);
+    }
+    
+    if (allPageUrls.length === 0) {
+      setIsProcessing(false);
+      return;
+    }
+    
+    let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+    let primary = allPageUrls[0];
+    
+    if (allPageUrls.length > 1) {
+      setExportOptions({ type: 'save', urls: allPageUrls, routingType });
+      return; // Don't process further, modal will handle it via executeExport
+    }
+    
+    if (!isClosingRef.current) {
         isClosingRef.current = true;
         window.history.back();
       }
