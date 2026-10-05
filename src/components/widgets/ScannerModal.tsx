@@ -98,7 +98,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original'>('smart_plus');
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
-  const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[] } | null>(null);
+  const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'jpeg'>('pdf');
   const [exportNumbers, setExportNumbers] = useState<boolean>(true);
 
@@ -537,7 +537,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
          }
       } else if (type === 'save') {
          const result = await processMultiPage(urls, exportFormat, exportNumbers);
-         let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+         let finalRouting = exportOptions.routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
          if (result.format === 'jpeg') finalRouting = 'image';
          onComplete(result.dataUrl, undefined, urls, finalRouting);
       }
@@ -603,7 +603,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       let primary = allPageUrls[0];
       
       if (allPageUrls.length > 1) {
-        setExportOptions({ type: 'save', urls: allPageUrls });
+        setExportOptions({ type: 'save', urls: allPageUrls, routingType });
         return; // Don't process further, modal will handle it via executeExport
       }
       
