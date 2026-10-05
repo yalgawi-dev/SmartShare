@@ -26,10 +26,8 @@ export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: 
     transition,
     zIndex: isDragging ? 1000 : 1,
     position: 'relative' as const,
-    cursor: 'grab',
     opacity: isDragging ? 0.8 : 1,
     flexShrink: 0,
-    
   };
 
   let borderColor = '#ef4444'; // default red (unedited)
@@ -38,9 +36,7 @@ export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: 
   return (
     <div 
       ref={setNodeRef} 
-      style={style} 
-      {...attributes} 
-      {...listeners}
+      style={style}
     >
       <div 
         onClick={(e) => {
@@ -54,10 +50,10 @@ export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: 
           overflow: 'hidden',
           position: 'relative' as const,
           background: '#000',
-          boxShadow: status === 'active' ? `0 0 0 3px #3b82f6` : 'none', // Blue outer ring when active!
+          boxShadow: status === 'active' ? `0 0 0 3px #3b82f6` : 'none',
           transform: isDragging ? 'scale(1.1)' : (status === 'active' ? 'scale(1.02)' : 'scale(1)'),
           transition: 'transform 0.2s, box-shadow 0.2s, opacity 0.2s',
-          margin: status === 'active' ? '0 3px' : '0' // Make room for the extra shadow ring
+          margin: status === 'active' ? '0 3px' : '0'
         }}
       >
         <img 
@@ -77,7 +73,8 @@ export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: 
           fontSize: '0.8rem',
           padding: '2px 6px',
           borderRadius: '4px',
-          zIndex: 10
+          zIndex: 10,
+          pointerEvents: 'none'
         }}>
           {index + 1}
         </div>
@@ -94,11 +91,35 @@ export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: 
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '0.7rem'
+          fontSize: '0.7rem',
+          pointerEvents: 'none'
         }}>
-          {status === 'cropped' && '✅'}
+          {status === 'cropped' && '✔️'}
           {status === 'active' && '👁️'}
           {status === 'pending' && '⏳'}
+        </div>
+
+        {/* Drag Grip Handle */}
+        <div 
+          {...attributes}
+          {...listeners}
+          style={{ 
+            position: 'absolute', 
+            top: 0, 
+            right: 0, 
+            width: '28px', 
+            height: '28px', 
+            background: 'rgba(0,0,0,0.5)', 
+            borderBottomLeftRadius: '8px',
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            cursor: 'grab', 
+            touchAction: 'none' 
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span style={{ color: 'white', fontSize: '14px', transform: 'rotate(90deg)' }}>:::</span>
         </div>
       </div>
     </div>

@@ -7,9 +7,6 @@ import { compressCanvas, mergeImagesCleanly } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 import { jsPDF } from "jspdf";
-import SortableTray from './SortableTray';
-import type { TrayItem } from './SortableTray';
-
 
 
 interface ScannedPage {
@@ -82,7 +79,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
   const [pendingImports, setPendingImports] = useState<string[]>([]);
-
   const {
     stream,
     torchOn,
@@ -123,47 +119,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       setMode('pure_color');
     }
   }, [hasFinance, hasVault]);
-
-  const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
-  const [activeDocId, setActiveDocId] = React.useState<string>('active-doc');
-  
-  // Derived state for sorting tray
-  const derivedTrayItems = React.useMemo(() => {
-    const items: TrayItem[] = [
-      ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
-      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? [{ id: activeDocId, type: 'active' as const, url: imageCache[mode] || rawSnapshot, isEdited: step === 'review' }] : []),
-      ...pendingImports.map((url, i) => ({ id: `pending-${i}-${url.substring(0,10)}`, type: 'pending' as const, url }))
-    ];
-    return items;
-  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports]);
-
-  const sortedTrayItems = React.useMemo(() => {
-    return [...derivedTrayItems].sort((a, b) => {
-      const idxA = trayOrder.indexOf(a.id);
-      const idxB = trayOrder.indexOf(b.id);
-      if (idxA === -1 && idxB === -1) return 0;
-      if (idxA === -1) return 1;
-      if (idxB === -1) return -1;
-      return idxA - idxB;
-    });
-  }, [derivedTrayItems, trayOrder]);
-
-  React.useEffect(() => {
-    const allIds = derivedTrayItems.map(i => i.id);
-    let changed = false;
-    const newOrder = [...trayOrder];
-    allIds.forEach(id => {
-      if (!newOrder.includes(id)) {
-         newOrder.push(id);
-         changed = true;
-      }
-    });
-    const cleanOrder = newOrder.filter(id => allIds.includes(id));
-    if (changed || cleanOrder.length !== trayOrder.length) {
-       setTrayOrder(cleanOrder);
-    }
-  }, [derivedTrayItems, trayOrder]);
-
+  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Document classifier
@@ -491,22 +447,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
 
   const saveCurrentStateToTrays = () => {
-    if (step === 'scanning') return;
-    
-    if (step === 'cropping') {
-      if (rawSnapshot) {
+    const currentImg = imageCache[mode];
+    if (currentImg && step !== 'scanning') {
+      if (step === 'cropping') {
         setPendingImports(prev => {
-          if (!prev.includes(rawSnapshot)) {
-            return [rawSnapshot, ...prev];
+          const imgToSave = rawSnapshot || currentImg;
+          if (!prev.includes(imgToSave)) {
+            return [imgToSave, ...prev];
           }
           return prev;
         });
-      }
-    } else if (step === 'review') {
-      const currentImg = imageCache[mode];
-      if (currentImg) {
+      } else if (step === 'review') {
         const newPage: ScannedPage = {
-          id: activeDocId,
+          id: Date.now().toString() + Math.random().toString(),
           imageUrl: currentImg,
           pageNum: scannedPages.length + 1,
           rawImageUrl: rawSnapshot || undefined
@@ -529,41 +482,47 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const processMultiPage = async (urls: string[], format: 'pdf'|'scroll_pdf', includeNumbers: boolean): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' }> => {
     if (format === 'pdf') {
-      let pdf = null as any;
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
       
       for (let i = 0; i < urls.length; i++) {
+        if (i > 0) pdf.addPage();
         await new Promise<void>((resolve, reject) => {
           const img = new Image();
           img.onload = () => {
-            const orientation = img.width > img.height ? 'l' : 'p';
-            if (!pdf) {
-               pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
+            const imgRatio = img.width / img.height;
+            const pdfRatio = pdfWidth / pdfHeight;
+            let finalW = pdfWidth;
+            let finalH = pdfHeight;
+            if (imgRatio > pdfRatio) {
+              finalH = pdfWidth / imgRatio;
             } else {
-               pdf.addPage([img.width, img.height], orientation);
+              finalW = pdfHeight * imgRatio;
             }
+            const x = (pdfWidth - finalW) / 2;
+            const y = (pdfHeight - finalH) / 2;
             
             if (includeNumbers) {
+               // Draw number on an offscreen canvas first
                const canvas = document.createElement('canvas');
                canvas.width = img.width;
                canvas.height = img.height;
                const ctx = canvas.getContext('2d');
                if (ctx) {
-                 ctx.imageSmoothingEnabled = true;
-                 ctx.imageSmoothingQuality = 'high';
                  ctx.drawImage(img, 0, 0);
                  ctx.fillStyle = 'rgba(0,0,0,0.7)';
                  ctx.fillRect(20, 20, 300, 100);
                  ctx.fillStyle = '#FFD700';
                  ctx.font = 'bold 72px Arial';
                  ctx.fillText('עמוד ' + (i+1), 40, 92);
-                 const numImgUrl = canvas.toDataURL('image/jpeg', 0.95);
-                 pdf.addImage(numImgUrl, 'JPEG', 0, 0, img.width, img.height);
+                 const numImgUrl = canvas.toDataURL('image/jpeg', 0.9);
+                 pdf.addImage(numImgUrl, 'JPEG', x, y, finalW, finalH);
                } else {
-                 pdf.addImage(urls[i], 'JPEG', 0, 0, img.width, img.height);
+                 pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
                }
             } else {
-               // Directly embed the high-quality Data URL without going through canvas compression again
-               pdf.addImage(urls[i], 'JPEG', 0, 0, img.width, img.height);
+               pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
             }
             resolve();
           };
@@ -571,8 +530,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           img.src = urls[i];
         });
       }
-      
-      if (!pdf) throw new Error("Failed to generate PDF");
       const blob = pdf.output('blob');
       const dataUrl = pdf.output('datauristring');
       return { dataUrl, blob, format: 'pdf' };
@@ -588,55 +545,47 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           });
         }));
         
-        // Add a tiny 4px dark separator between pages
-        const GAP = 4;
+        const GAP = 160;
         const maxWidth = Math.max(...loadedImages.map(img => img.width));
-        
-        // Compute scaled heights so all images perfectly fit maxWidth
-        const scaledHeights = loadedImages.map(img => (maxWidth / img.width) * img.height);
-        const totalHeight = scaledHeights.reduce((sum, h) => sum + h, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
+        const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
         
         const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [maxWidth, totalHeight] });
         
-        // Fill background with dark gray for the separators
-        pdf.setFillColor(50, 50, 50);
+        // Fill background with light gray so the gaps look like natural page separators
+        pdf.setFillColor(220, 224, 232); // Light slate/gray
         pdf.rect(0, 0, maxWidth, totalHeight, 'F');
         
         let currentY = 0;
         for (let i = 0; i < loadedImages.length; i++) {
           const img = loadedImages[i];
-          const scaledH = scaledHeights[i];
-          
           if (includeNumbers) {
             const canvas = document.createElement('canvas');
-            canvas.width = maxWidth;
-            canvas.height = scaledH;
+            canvas.width = img.width;
+            canvas.height = img.height;
             const ctx = canvas.getContext('2d');
             if (ctx) {
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, maxWidth, scaledH);
+              ctx.drawImage(img, 0, 0);
               ctx.fillStyle = 'rgba(0,0,0,0.7)';
               ctx.fillRect(20, 20, 300, 100);
               ctx.fillStyle = '#FFD700';
               ctx.font = 'bold 72px Arial';
               ctx.fillText('עמוד ' + (i+1), 40, 92);
-              const numImgUrl = canvas.toDataURL('image/jpeg', 0.95);
-              pdf.addImage(numImgUrl, 'JPEG', 0, currentY, maxWidth, scaledH);
+              const numImgUrl = canvas.toDataURL('image/jpeg', 0.9);
+              pdf.addImage(numImgUrl, 'JPEG', 0, currentY, img.width, img.height);
             } else {
-              pdf.addImage(urls[i], 'JPEG', 0, currentY, maxWidth, scaledH);
+              pdf.addImage(img, 'JPEG', 0, currentY, img.width, img.height);
             }
           } else {
-            pdf.addImage(urls[i], 'JPEG', 0, currentY, maxWidth, scaledH);
+            pdf.addImage(img, 'JPEG', 0, currentY, img.width, img.height);
           }
-          currentY += scaledH + GAP;
+          currentY += img.height + GAP;
         }
         
         const blob = pdf.output('blob');
         const dataUrl = pdf.output('datauristring');
         return { dataUrl, blob, format: 'pdf' };
       } catch (e) {
-        console.error('Scroll PDF error:', e);
+        console.error("Scroll PDF generation failed", e);
         throw e;
       }
     }
@@ -678,65 +627,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   const handleShare = async () => {
-    setIsProcessing(true);
-    let allPageUrls: string[] = [];
+    const currentImg = imageCache[mode];
+    if (!currentImg) return;
     
-    for (const item of sortedTrayItems) {
-      if (item.type === 'scanned' || item.type === 'active') {
-        allPageUrls.push(item.url);
-      } else if (item.type === 'pending') {
-         try {
-           const img = new Image();
-           img.src = item.url;
-           await new Promise((res, rej) => { 
-              img.onload = res; 
-              img.onerror = () => rej(new Error('Failed to load pending image'));
-           });
-           let w = img.width; let h = img.height;
-           if (w === 0 || h === 0) {
-              console.warn("Invalid image dimensions", w, h);
-              continue;
-           }
-           if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
-           const canvas = document.createElement('canvas');
-           canvas.width = w; canvas.height = h;
-           const ctx = canvas.getContext('2d');
-           if (ctx) {
-              ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, w, h);
-              const data = compressCanvas(canvas, 0.82);
-              if (data && data !== 'data:,') {
-                 allPageUrls.push(data);
-              }
-           }
-         } catch (e) {
-           console.error("Error processing pending image:", e);
-         }
-      }
-    }
-    
-    setIsProcessing(false);
-    
-    if (allPageUrls.length === 0) return;
-    
+    const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
+
     if (allPageUrls.length > 1) {
       setExportOptions({ type: 'share', urls: allPageUrls });
       return;
     }
 
     try {
-      const res = await fetch(allPageUrls[0]);
+      const res = await fetch(currentImg);
       const blob = await res.blob();
       const file = new File([blob], 'scanned-document.jpg', { type: blob.type || 'image/jpeg' });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
       } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'scanned-document.jpg';
-        a.click();
-        URL.revokeObjectURL(url);
+        alert('הדפדפן שלך אינו תומך בשיתוף קבצים.');
       }
     } catch (e) {
       console.error('Share failed', e);
@@ -754,27 +662,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleDone = async (routingType?: 'receipt' | 'document' | 'image') => {
     setIsProcessing(true);
+    
     const currentImg = imageCache[mode];
+    let allPageUrls = [...scannedPages.map(p => p.imageUrl)];
+    if (currentImg && step !== 'scanning') {
+       allPageUrls.push(currentImg);
+    }
     
-    let allPageUrls: string[] = [];
-    
-    // Process everything in sorted order
-    for (const item of sortedTrayItems) {
-      if (item.type === 'scanned' || item.type === 'active') {
-        allPageUrls.push(item.url);
-      } else if (item.type === 'pending') {
-         try {
+    // Auto-approve any pending imports that were skipped!
+    if (pendingImports.length > 0) {
+        for (let idx = 0; idx < pendingImports.length; idx++) {
+           const url = pendingImports[idx];
            const img = new Image();
-           img.src = item.url;
-           await new Promise((res, rej) => { 
-              img.onload = res; 
-              img.onerror = () => rej(new Error('Failed to load pending image'));
-           });
+           img.src = url;
+           await new Promise((res) => { img.onload = res; });
            let w = img.width; let h = img.height;
-           if (w === 0 || h === 0) {
-              console.warn("Invalid image dimensions", w, h);
-              continue;
-           }
            if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
@@ -782,17 +684,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            if (ctx) {
               ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(img, 0, 0, w, h);
-              const data = compressCanvas(canvas, 0.82);
-              if (data && data !== 'data:,') {
-                 allPageUrls.push(data);
-              }
+              allPageUrls.push(compressCanvas(canvas, 0.82));
            }
-         } catch (e) {
-           console.error("Error processing pending image:", e);
-         }
-      }
+        }
+        setPendingImports([]);
     }
-    setPendingImports([]);
     
     if (allPageUrls.length === 0) {
       setIsProcessing(false);
@@ -807,26 +703,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       return; // Don't process further, modal will handle it via executeExport
     }
     
-    // Process single page as PDF
-    if (allPageUrls.length === 1) {
-       try {
-         const result = await processMultiPage(allPageUrls, 'pdf', false);
-         primary = result.dataUrl;
-       } catch (e) {
-         console.error('Failed to auto-pdf 1 page', e);
-       }
-    }
-
     if (!isClosingRef.current) {
         isClosingRef.current = true;
         window.history.back();
-    }
+      }
       
-    setTimeout(() => {
-      onComplete(primary, currentImg || primary, undefined, finalRouting as any);
-      setIsProcessing(false);
-    }, 50);
-  };
+      setTimeout(() => {
+        onComplete(primary, currentImg || primary, allPageUrls.length > 1 ? allPageUrls : undefined, finalRouting as any);
+        setIsProcessing(false);
+      }, 50);
+    };
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
@@ -835,7 +721,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v18.6</span>
+            <span>סורק מסמכים v17.9</span>
           </h2>
         </div>
         
@@ -942,15 +828,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         )}
 
         {step === 'cropping' && rawSnapshot && (
-          <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit panning={{ excluded: ['no-pan'] }}>
-             <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1, minHeight: '300px' }} contentStyle={{ width: '100%', height: '100%' }}>
-                <ManualCropper 
-                  imageUrl={rawSnapshot} 
-                  initialPoints={cropPoints} 
-                  onChange={setCropPoints} 
-                />
-             </TransformComponent>
-          </TransformWrapper>
+          <ManualCropper 
+            imageUrl={rawSnapshot} 
+            initialPoints={cropPoints} 
+            onChange={setCropPoints} 
+          />
         )}
 
         {step === 'review' && (
@@ -976,7 +858,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <TransformWrapper initialScale={1} minScale={0.2} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
-                    src={imageCache[mode]} 
+                    src={previewIndex !== null && previewIndex < scannedPages.length ? scannedPages[previewIndex].imageUrl : imageCache[mode]} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     alt="Scanned document" 
                   />
@@ -1147,11 +1029,22 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   <span style={{ fontSize: '1rem' }}>✂️</span>
                   עריכה/חיתוך
                 </button>
-                
-                <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span style={{ fontSize: '1rem' }}>📤</span>
-                  שיתוף
-                </button>
+                {scannedPages.length > 0 && (
+                  <button onClick={() => {
+                     const pages = [...scannedPages];
+                     const lastPage = pages.pop();
+                     if (lastPage) {
+                        setScannedPages(pages);
+                        setImageCache({ 'smart_plus': lastPage.imageUrl });
+                        setMode('smart_plus');
+                        setRawSnapshot(lastPage.rawImageUrl || lastPage.imageUrl);
+                        setStep('review');
+                     }
+                  }} style={{ flex: 1, background: 'transparent', color: '#3b82f6', border: '1px solid #3b82f6', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <span style={{ fontSize: '1rem' }}>↩️</span>
+                    חזור שלב
+                  </button>
+                )}
                 <button onClick={handleAddPage} style={{ flex: 1, background: 'transparent', color: '#FFD700', border: '1px solid #FFD700', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>📄</span>
                   הוסף עמוד
@@ -1163,28 +1056,60 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {/* GLOBAL TRAYS */}
              {(scannedPages.length > 0 || pendingImports.length > 0) && (
                <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                 <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', direction: 'ltr', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
-                    <SortableTray 
-                       items={sortedTrayItems}
-                       onReorder={(newItems) => setTrayOrder(newItems.map(i => i.id))}
-                       onItemClick={(item) => {
-                           if (item.type === 'scanned') {
+                 
+                 {/* Pending Tray */}
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', overflowX: 'auto', direction: 'rtl', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
+                    
+                    {scannedPages.length > 0 && (
+                      <>
+                        <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', flexShrink: 0 }}>ערוכים</div>
+                        {scannedPages.map((page, i) => (
+                          <div key={page.id} onClick={() => {
                               saveCurrentStateToTrays();
-                              const docToLoad = scannedPages.find(p => p.id === item.id);
-                              if (docToLoad) {
-                                setScannedPages(prev => prev.filter(p => p.id !== item.id));
-                                setImageCache({ [mode]: docToLoad.imageUrl });
-                                setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
-                                setStep('review');
-                              }
-                           } else if (item.type === 'pending') {
+                              setScannedPages(prev => prev.filter(p => p.id !== page.id));
+                              setImageCache({ 'smart_plus': page.imageUrl });
+                              setMode('smart_plus');
+                              setRawSnapshot(page.rawImageUrl || page.imageUrl);
+                              setStep('review');
+                          }} style={{ position: 'relative', flexShrink: 0, width: '56px', height: '76px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #10b981', cursor: 'pointer' }}>
+                            <img src={page.imageUrl} alt={`Page ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(16,185,129,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>✓ {i+1}</div>
+                          </div>
+                        ))}
+                        <div style={{ width: '1px', height: '50px', background: 'rgba(255,255,255,0.2)', flexShrink: 0, margin: '0 0.2rem' }} />
+                      </>
+                    )}
+
+                    {step !== 'scanning' && (rawSnapshot || imageCache[mode]) && (
+                      <>
+                        <div style={{ color: '#3b82f6', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', flexShrink: 0 }}>פתוח</div>
+                        <div style={{ position: 'relative', flexShrink: 0, width: '60px', height: '80px', borderRadius: '4px', overflow: 'hidden', border: '3px solid #3b82f6', boxShadow: '0 0 10px rgba(59,130,246,0.5)' }}>
+                           <img src={(step === 'cropping' ? rawSnapshot : imageCache[mode]) || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                           <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(59,130,246,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>👁️ {scannedPages.length + 1}</div>
+                        </div>
+                        <div style={{ width: '1px', height: '50px', background: 'rgba(255,255,255,0.2)', flexShrink: 0, margin: '0 0.2rem' }} />
+                      </>
+                    )}
+
+                    {pendingImports.length > 0 && (
+                      <>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
+                          <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>לא ערוכים</div>
+                          
+                        </div>
+                        {pendingImports.map((url, i) => (
+                          <div key={`pending-${i}`} onClick={() => {
                               saveCurrentStateToTrays();
-                              setPendingImports(prev => prev.filter(p => p !== item.url));
-                              processImportUrl(item.url);
-                           }
-                        }}
-                    />
-                 </div>
+                              setPendingImports(prev => prev.filter((_, idx) => idx !== i));
+                              processImportUrl(url);
+                          }} style={{ position: 'relative', flexShrink: 0, width: '56px', height: '76px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #ef4444', cursor: 'pointer' }}>
+                            <img src={url} alt={`Pending ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(239,68,68,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>{scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + i + 1}</div>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', width: '100%' }}>
                    {pendingImports.length > 0 && (
                      <button onClick={async () => {
@@ -1215,7 +1140,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                          setPendingImports([]);
                          setIsProcessing(false);
                      }} style={{ flex: '1', background: 'rgba(16,185,129,0.2)', color: '#10b981', border: '1px solid #10b981', padding: '0.5rem', borderRadius: '12px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                       ❌ סיום ללא עריכה
+                       ⏭️ דלג על השאר
                      </button>
                    )}
                    {(scannedPages.length > 0 || pendingImports.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
@@ -1285,28 +1210,21 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
 
   // Convert screen coordinates to natural image coordinates
   const toNatural = (clientX: number, clientY: number) => {
-    const currentImgRect = imgRef.current?.getBoundingClientRect();
-    if (!currentImgRect || naturalSize.w === 1) return { x: 0, y: 0 };
+    const dims = getRenderedDimensions();
+    if (!dims || !imgRect) return { x: 0, y: 0 };
     
-    const ratio = Math.min(currentImgRect.width / naturalSize.w, currentImgRect.height / naturalSize.h);
-    const renderedWidth = naturalSize.w * ratio;
-    const renderedHeight = naturalSize.h * ratio;
-    const offsetX = (currentImgRect.width - renderedWidth) / 2;
-    const offsetY = (currentImgRect.height - renderedHeight) / 2;
-    
-    // Position relative to the actual rendered image area (this works flawlessly with CSS scales!)
-    const relX = clientX - currentImgRect.left - offsetX;
-    const relY = clientY - currentImgRect.top - offsetY;
+    // Position relative to the actual rendered image area
+    const relX = clientX - imgRect.left - dims.offsetX;
+    const relY = clientY - imgRect.top - dims.offsetY;
     
     return {
-      x: Math.max(0, Math.min(naturalSize.w, relX / ratio)),
-      y: Math.max(0, Math.min(naturalSize.h, relY / ratio))
+      x: Math.max(0, Math.min(naturalSize.w, relX / dims.ratio)),
+      y: Math.max(0, Math.min(naturalSize.h, relY / dims.ratio))
     };
   };
 
   const handlePointerDown = (type: 'corner' | 'edge', idx: number, e: React.PointerEvent) => {
     e.preventDefault();
-    e.stopPropagation(); // VERY IMPORTANT: stops TransformWrapper from panning!
     setActiveHandle({ type, index: idx });
     setDragStartPos(toNatural(e.clientX, e.clientY));
     setInitialPointsAtDragStart([...points]);
@@ -1413,8 +1331,7 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
               <g 
                 key={`edge-${idx}`}
                 style={{ pointerEvents: 'auto', cursor: 'grab' }}
-                className="no-pan"
-                  onPointerDown={(e) => handlePointerDown('edge', idx, e)}
+                onPointerDown={(e) => handlePointerDown('edge', idx, e)}
               >
                 <circle cx={s.x} cy={s.y} r="25" fill="transparent" />
                 <rect x={s.x - 6} y={s.y - 6} width="12" height="12" fill="#FFD700" stroke="white" strokeWidth="2" rx="2" />
@@ -1430,8 +1347,7 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
               <g 
                 key={`corner-${idx}`}
                 style={{ pointerEvents: 'auto', cursor: 'grab' }}
-                className="no-pan"
-                  onPointerDown={(e) => handlePointerDown('corner', idx, e)}
+                onPointerDown={(e) => handlePointerDown('corner', idx, e)}
               >
                 {/* Invisible larger touch target */}
                 <circle cx={s.x} cy={s.y} r="30" fill="transparent" />
