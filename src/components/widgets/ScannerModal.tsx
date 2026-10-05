@@ -101,6 +101,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
   const [exportNumbers, setExportNumbers] = useState<boolean>(true);
+  const [importQueue, setImportQueue] = useState<File[]>([]);
 
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
@@ -164,9 +165,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
     };
     document.body.appendChild(script);
-  }, []);  const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  }, []);  const processImportFile = (file: File) => {
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const url = ev.target?.result as string;
@@ -201,6 +200,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       img.src = url;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    const filesArray = Array.from(files);
+    const firstFile = filesArray[0];
+    const rest = filesArray.slice(1);
+    
+    if (rest.length > 0) {
+      setImportQueue(rest);
+    } else {
+      setImportQueue([]);
+    }
+    
+    processImportFile(firstFile);
+    e.target.value = '';
   };
 
 
@@ -376,14 +393,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       pageNum: scannedPages.length + 1
     };
     setScannedPages(prev => [...prev, newPage]);
-    // Reset for next scan
-    setStep('scanning');
+    
     setRawSnapshot(null);
     setImageCache({});
     setTimingCache({});
     setMode('smart_plus');
     setDetectedType(null);
     setClassifyResult(null);
+
+    if (importQueue.length > 0) {
+      const nextFile = importQueue[0];
+      setImportQueue(prev => prev.slice(1));
+      processImportFile(nextFile);
+    } else {
+      setStep('scanning');
+    }
   };
 
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original') => {
@@ -821,7 +845,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <div style={{ width: '60px' }} />
                <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
                <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', color: 'white', width: '60px' }}>
-                 <input type="file" accept="image/*,application/pdf" onChange={handleGalleryImport} style={{ display: 'none' }} />
+                 <input type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
                  <span style={{ background: 'rgba(255,255,255,0.2)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                  </span>
