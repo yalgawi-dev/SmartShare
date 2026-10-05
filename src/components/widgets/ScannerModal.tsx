@@ -1176,8 +1176,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                              setPreviewType('scanned');
                              setPreviewIndex(scannedPages.findIndex(p => p.id === item.id));
                           } else if (item.type === 'pending') {
-                             setPreviewType('pending');
-                             setPreviewIndex(pendingImports.findIndex(p => p === item.url));
+                             saveCurrentStateToTrays();
+                             setPendingImports(prev => prev.filter(p => p !== item.url));
+                             processImportUrl(item.url);
                           } else {
                              setPreviewType(null);
                              setPreviewIndex(null);
