@@ -537,15 +537,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           img.onload = () => {
             const imgRatio = img.width / img.height;
             const pdfRatio = pdfWidth / pdfHeight;
-            let finalW = pdfWidth;
-            let finalH = pdfHeight;
-            if (imgRatio > pdfRatio) {
-              finalH = pdfWidth / imgRatio;
-            } else {
-              finalW = pdfHeight * imgRatio;
-            }
-            const x = (pdfWidth - finalW) / 2;
-            const y = (pdfHeight - finalH) / 2;
+            // Force the cropped image to fill the entire A4 page to prevent white margins
+            const finalW = pdfWidth;
+            const finalH = pdfHeight;
+            const x = 0;
+            const y = 0;
             
             if (includeNumbers) {
                // Draw number on an offscreen canvas first
@@ -589,14 +585,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           });
         }));
         
-        const GAP = 160;
+        const GAP = 0;
         const maxWidth = Math.max(...loadedImages.map(img => img.width));
         const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
         
         const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [maxWidth, totalHeight] });
         
-        // Fill background with light gray so the gaps look like natural page separators
-        pdf.setFillColor(220, 224, 232); // Light slate/gray
+        // Fill background with white
+        pdf.setFillColor(255, 255, 255);
         pdf.rect(0, 0, maxWidth, totalHeight, 'F');
         
         let currentY = 0;
