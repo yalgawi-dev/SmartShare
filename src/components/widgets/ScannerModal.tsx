@@ -78,6 +78,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
+  const [pendingImports, setPendingImports] = useState<string[]>([]);
   const {
     stream,
     torchOn,
@@ -102,7 +103,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
   const [exportNumbers, setExportNumbers] = useState<boolean>(true);
-  const [pendingImports, setPendingImports] = useState<string[]>([]);
 
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
