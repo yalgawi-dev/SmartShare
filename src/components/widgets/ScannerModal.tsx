@@ -491,17 +491,20 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
 
   const saveCurrentStateToTrays = () => {
-    const currentImg = imageCache[mode];
-    if (currentImg && step !== 'scanning') {
-      if (step === 'cropping') {
+    if (step === 'scanning') return;
+    
+    if (step === 'cropping') {
+      if (rawSnapshot) {
         setPendingImports(prev => {
-          const imgToSave = rawSnapshot || currentImg;
-          if (!prev.includes(imgToSave)) {
-            return [imgToSave, ...prev];
+          if (!prev.includes(rawSnapshot)) {
+            return [rawSnapshot, ...prev];
           }
           return prev;
         });
-      } else if (step === 'review') {
+      }
+    } else if (step === 'review') {
+      const currentImg = imageCache[mode];
+      if (currentImg) {
         const newPage: ScannedPage = {
           id: Date.now().toString() + Math.random().toString(),
           imageUrl: currentImg,
@@ -825,7 +828,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v18.0</span>
+            <span>סורק מסמכים v18.2</span>
           </h2>
         </div>
         
