@@ -99,7 +99,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'jpeg'>('pdf');
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
   const [exportNumbers, setExportNumbers] = useState<boolean>(true);
 
   // Multi-page scanning
@@ -411,7 +411,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setClassifyOverride(false);
   };
 
-  const processMultiPage = async (urls: string[], format: 'pdf'|'jpeg', includeNumbers: boolean): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' | 'jpeg' }> => {
+  const processMultiPage = async (urls: string[], format: 'pdf'|'scroll_pdf', includeNumbers: boolean): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' }> => {
     if (format === 'pdf') {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
@@ -465,47 +465,55 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       const dataUrl = pdf.output('datauristring');
       return { dataUrl, blob, format: 'pdf' };
     } else {
-      // Scroll (JPEG)
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      return new Promise((resolve, reject) => {
-        if (!ctx) return reject('No context');
-        Promise.all(urls.map(url => {
-          return new Promise<HTMLImageElement>((res, rej) => {
+      // Scroll (PDF with custom single page height)
+      try {
+        const loadedImages = await Promise.all(urls.map(url => {
+          return new Promise<HTMLImageElement>((resolve, reject) => {
             const img = new Image();
-            img.onload = () => res(img);
-            img.onerror = rej;
+            img.onload = () => resolve(img);
+            img.onerror = reject;
             img.src = url;
           });
-        })).then(loadedImages => {
-          const maxWidth = Math.max(...loadedImages.map(img => img.width));
-          const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
-          
-          canvas.width = maxWidth;
-          canvas.height = totalHeight;
-          let currentY = 0;
-          loadedImages.forEach((img, i) => {
-            ctx.drawImage(img, 0, currentY, img.width, img.height);
-            if (includeNumbers) {
+        }));
+        
+        const maxWidth = Math.max(...loadedImages.map(img => img.width));
+        const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
+        
+        const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [maxWidth, totalHeight] });
+        
+        let currentY = 0;
+        for (let i = 0; i < loadedImages.length; i++) {
+          const img = loadedImages[i];
+          if (includeNumbers) {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0);
               ctx.fillStyle = 'rgba(0,0,0,0.7)';
-              ctx.fillRect(20, currentY + 20, 300, 100);
+              ctx.fillRect(20, 20, 300, 100);
               ctx.fillStyle = '#FFD700';
               ctx.font = 'bold 72px Arial';
-              ctx.fillText('עמוד ' + (i+1), 40, currentY + 92);
+              ctx.fillText('עמוד ' + (i+1), 40, 92);
+              const numImgUrl = canvas.toDataURL('image/jpeg', 0.9);
+              pdf.addImage(numImgUrl, 'JPEG', 0, currentY, img.width, img.height);
+            } else {
+              pdf.addImage(img, 'JPEG', 0, currentY, img.width, img.height);
             }
-            currentY += img.height;
-          });
-          
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          
-          // Use fetch(dataUrl).blob() instead of canvas.toBlob() because canvas.toBlob()
-          // fails or returns null on some Android devices for very large canvases!
-          fetch(dataUrl)
-            .then(res => res.blob())
-            .then(blob => resolve({ dataUrl, blob, format: 'jpeg' }))
-            .catch(err => reject(err));
-        }).catch(reject);
-      });
+          } else {
+            pdf.addImage(img, 'JPEG', 0, currentY, img.width, img.height);
+          }
+          currentY += img.height;
+        }
+        
+        const blob = pdf.output('blob');
+        const dataUrl = pdf.output('datauristring');
+        return { dataUrl, blob, format: 'pdf' };
+      } catch (e) {
+        console.error("Scroll PDF generation failed", e);
+        throw e;
+      }
     }
   };
 
@@ -516,8 +524,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       const { type, urls } = exportOptions;
       if (type === 'share') {
          const result = await processMultiPage(urls, exportFormat, exportNumbers);
-         const filename = result.format === 'pdf' ? 'scanned-document.pdf' : 'scanned-scroll.jpg';
-         const mimeType = result.format === 'pdf' ? 'application/pdf' : 'image/jpeg';
+         const filename = 'scanned-document.pdf';
+         const mimeType = 'application/pdf';
          
          const file = new File([result.blob], filename, { type: mimeType });
          if (navigator.canShare && navigator.canShare({ files: [file] })) {
@@ -533,7 +541,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       } else if (type === 'save') {
          const result = await processMultiPage(urls, exportFormat, exportNumbers);
          let finalRouting = exportOptions.routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
-         if (result.format === 'jpeg') finalRouting = 'image';
          onComplete(result.dataUrl, undefined, urls, finalRouting);
       }
     } catch (e) {
@@ -770,11 +777,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.3rem', fontWeight: 'bold' }}>פורמט פלט:</div>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
                 <input type="radio" checked={exportFormat === 'pdf'} onChange={() => setExportFormat('pdf')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
-                <span style={{ fontSize: '1rem' }}>PDF (עמודים נפרדים)</span>
+                <span style={{ fontSize: '1rem' }}>PDF (דפים נפרדים - ערמת קלפים)</span>
               </label>
               <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
-                <input type="radio" checked={exportFormat === 'jpeg'} onChange={() => setExportFormat('jpeg')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
-                <span style={{ fontSize: '1rem' }}>מגילה (תמונה אחת ארוכה)</span>
+                <input type="radio" checked={exportFormat === 'scroll_pdf'} onChange={() => setExportFormat('scroll_pdf')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
+                <span style={{ fontSize: '1rem' }}>PDF כמגילה (עמוד אחד ארוך)</span>
               </label>
             </div>
 
