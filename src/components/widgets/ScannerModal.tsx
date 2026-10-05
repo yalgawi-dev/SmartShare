@@ -855,7 +855,27 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  {/* Pending Tray */}
                  {pendingImports.length > 0 && (
                    <div style={{ display: 'flex', gap: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', overflowX: 'auto', direction: 'rtl' }}>
-                     <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>לא ערוכים</div>
+                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                       <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>לא ערוכים</div>
+                       {pendingImports.length > 1 && (
+                         <button 
+                           onClick={() => {
+                             const newPages = pendingImports.map((url, idx) => ({
+                               id: Date.now().toString() + '-' + idx,
+                               imageUrl: url,
+                               rawImageUrl: url,
+                               pageNum: scannedPages.length + idx + 1
+                             }));
+                             setScannedPages(prev => [...prev, ...newPages]);
+                             setPendingImports([]);
+                           }}
+                           title="אשר הכל והעבר לערוכים"
+                           style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid #10b981', color: '#10b981', borderRadius: '4px', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                         >
+                           <span style={{ fontSize: '1rem', lineHeight: 1 }}>⏩</span>
+                         </button>
+                       )}
+                     </div>
                      {pendingImports.map((url, i) => (
                        <div key={`pending-${i}`} onClick={() => {
                            setPendingImports(prev => prev.filter((_, idx) => idx !== i));
