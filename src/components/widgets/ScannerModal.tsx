@@ -834,7 +834,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v18.4</span>
+            <span>סורק מסמכים v18.5</span>
           </h2>
         </div>
         
@@ -941,11 +941,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         )}
 
         {step === 'cropping' && rawSnapshot && (
-          <ManualCropper 
-            imageUrl={rawSnapshot} 
-            initialPoints={cropPoints} 
-            onChange={setCropPoints} 
-          />
+          <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit panning={{ excluded: ['no-pan'] }}>
+             <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1, minHeight: '300px' }} contentStyle={{ width: '100%', height: '100%' }}>
+                <ManualCropper 
+                  imageUrl={rawSnapshot} 
+                  initialPoints={cropPoints} 
+                  onChange={setCropPoints} 
+                />
+             </TransformComponent>
+          </TransformWrapper>
         )}
 
         {step === 'review' && (
@@ -1280,21 +1284,28 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
 
   // Convert screen coordinates to natural image coordinates
   const toNatural = (clientX: number, clientY: number) => {
-    const dims = getRenderedDimensions();
-    if (!dims || !imgRect) return { x: 0, y: 0 };
+    const currentImgRect = imgRef.current?.getBoundingClientRect();
+    if (!currentImgRect || naturalSize.w === 1) return { x: 0, y: 0 };
     
-    // Position relative to the actual rendered image area
-    const relX = clientX - imgRect.left - dims.offsetX;
-    const relY = clientY - imgRect.top - dims.offsetY;
+    const ratio = Math.min(currentImgRect.width / naturalSize.w, currentImgRect.height / naturalSize.h);
+    const renderedWidth = naturalSize.w * ratio;
+    const renderedHeight = naturalSize.h * ratio;
+    const offsetX = (currentImgRect.width - renderedWidth) / 2;
+    const offsetY = (currentImgRect.height - renderedHeight) / 2;
+    
+    // Position relative to the actual rendered image area (this works flawlessly with CSS scales!)
+    const relX = clientX - currentImgRect.left - offsetX;
+    const relY = clientY - currentImgRect.top - offsetY;
     
     return {
-      x: Math.max(0, Math.min(naturalSize.w, relX / dims.ratio)),
-      y: Math.max(0, Math.min(naturalSize.h, relY / dims.ratio))
+      x: Math.max(0, Math.min(naturalSize.w, relX / ratio)),
+      y: Math.max(0, Math.min(naturalSize.h, relY / ratio))
     };
   };
 
   const handlePointerDown = (type: 'corner' | 'edge', idx: number, e: React.PointerEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // VERY IMPORTANT: stops TransformWrapper from panning!
     setActiveHandle({ type, index: idx });
     setDragStartPos(toNatural(e.clientX, e.clientY));
     setInitialPointsAtDragStart([...points]);
@@ -1401,7 +1412,8 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
               <g 
                 key={`edge-${idx}`}
                 style={{ pointerEvents: 'auto', cursor: 'grab' }}
-                onPointerDown={(e) => handlePointerDown('edge', idx, e)}
+                className="no-pan"
+                  onPointerDown={(e) => handlePointerDown('edge', idx, e)}
               >
                 <circle cx={s.x} cy={s.y} r="25" fill="transparent" />
                 <rect x={s.x - 6} y={s.y - 6} width="12" height="12" fill="#FFD700" stroke="white" strokeWidth="2" rx="2" />
@@ -1417,7 +1429,8 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
               <g 
                 key={`corner-${idx}`}
                 style={{ pointerEvents: 'auto', cursor: 'grab' }}
-                onPointerDown={(e) => handlePointerDown('corner', idx, e)}
+                className="no-pan"
+                  onPointerDown={(e) => handlePointerDown('corner', idx, e)}
               >
                 {/* Invisible larger touch target */}
                 <circle cx={s.x} cy={s.y} r="30" fill="transparent" />
