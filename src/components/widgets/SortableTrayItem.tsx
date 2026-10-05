@@ -27,12 +27,12 @@ export function SortableTrayItem({ id, index, status, url, onClick }: SortableTr
     position: 'relative' as const,
     cursor: 'grab',
     opacity: isDragging ? 0.8 : 1,
-    flexShrink: 0
+    flexShrink: 0,
+    
   };
 
-  let borderColor = '#3b82f6'; // active (blue)
-  if (status === 'cropped') borderColor = '#10b981'; // green
-  if (status === 'pending') borderColor = '#ef4444'; // red
+  let borderColor = '#ef4444'; // default red (unedited)
+  if (status === 'cropped') borderColor = '#10b981'; // green (edited)
 
   return (
     <div 
@@ -53,9 +53,10 @@ export function SortableTrayItem({ id, index, status, url, onClick }: SortableTr
           overflow: 'hidden',
           position: 'relative' as const,
           background: '#000',
-          boxShadow: status === 'active' ? `0 0 15px ${borderColor}` : 'none',
-          transform: status === 'active' ? 'scale(1.05)' : 'scale(1)',
-          transition: 'transform 0.2s, box-shadow 0.2s'
+          boxShadow: status === 'active' ? `0 0 0 3px #3b82f6` : 'none', // Blue outer ring when active!
+          transform: status === 'active' ? 'scale(1.02)' : 'scale(1)',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          margin: status === 'active' ? '0 3px' : '0' // Make room for the extra shadow ring
         }}
       >
         <img 
@@ -69,7 +70,7 @@ export function SortableTrayItem({ id, index, status, url, onClick }: SortableTr
           position: 'absolute',
           top: '4px',
           left: '4px',
-          background: borderColor,
+          background: status === 'active' ? '#3b82f6' : borderColor,
           color: 'white',
           fontWeight: 'bold',
           fontSize: '0.8rem',
