@@ -835,7 +835,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v18.6</span>
+            <span>סורק מסמכים v18.8</span>
           </h2>
         </div>
         
@@ -945,6 +945,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           <TransformWrapper initialScale={1} minScale={1} maxScale={4} centerOnInit panning={{ excluded: ['no-pan'] }}>
              <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1, minHeight: '300px' }} contentStyle={{ width: '100%', height: '100%' }}>
                 <ManualCropper 
+                  key={rawSnapshot}
                   imageUrl={rawSnapshot} 
                   initialPoints={cropPoints} 
                   onChange={setCropPoints} 
@@ -1242,13 +1243,14 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
   const [activeHandle, setActiveHandle] = useState<{type: 'corner' | 'edge', index: number} | null>(null);
   const [dragStartPos, setDragStartPos] = useState<Point | null>(null);
   const [initialPointsAtDragStart, setInitialPointsAtDragStart] = useState<Point[] | null>(null);
-  const [imgRect, setImgRect] = useState<DOMRect | null>(null);
+  // imgRect removed
+  const [, setTick] = useState(0);
   const [naturalSize, setNaturalSize] = useState({w: 1, h: 1});
 
   useEffect(() => {
     const handleResize = () => {
       if (imgRef.current) {
-        setImgRect(imgRef.current.getBoundingClientRect());
+        setTick(t => t + 1);
       }
     };
     window.addEventListener('resize', handleResize);
@@ -1257,19 +1259,24 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
 
   const handleImgLoad = () => {
     if (imgRef.current) {
-      setImgRect(imgRef.current.getBoundingClientRect());
+      setTick(t => t + 1);
       setNaturalSize({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight });
     }
   };
 
   // Get actual rendered image dimensions and offsets inside the object-fit: contain box
-  const getRenderedDimensions = () => {
-    if (!imgRect || naturalSize.w === 1) return null;
-    const ratio = Math.min(imgRect.width / naturalSize.w, imgRect.height / naturalSize.h);
+    const getRenderedDimensions = () => {
+    const container = containerRef.current;
+    if (!container || naturalSize.w === 1) return null;
+    
+    const cw = container.clientWidth;
+    const ch = container.clientHeight;
+    
+    const ratio = Math.min(cw / naturalSize.w, ch / naturalSize.h);
     const renderedWidth = naturalSize.w * ratio;
     const renderedHeight = naturalSize.h * ratio;
-    const offsetX = (imgRect.width - renderedWidth) / 2;
-    const offsetY = (imgRect.height - renderedHeight) / 2;
+    const offsetX = (cw - renderedWidth) / 2;
+    const offsetY = (ch - renderedHeight) / 2;
     return { ratio, offsetX, offsetY };
   };
 
@@ -1375,14 +1382,14 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
         draggable={false}
       />
       
-      {imgRect && (
+      {naturalSize.w > 1 && (
         <svg 
           style={{ 
             position: 'absolute', 
-            top: imgRect.top - (containerRef.current?.getBoundingClientRect().top || 0), 
-            left: imgRect.left - (containerRef.current?.getBoundingClientRect().left || 0),
-            width: imgRect.width, 
-            height: imgRect.height,
+            top: 0, 
+            left: 0,
+            width: '100%', 
+            height: '100%',
             pointerEvents: 'none',
             overflow: 'visible'
           }}
