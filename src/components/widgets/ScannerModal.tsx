@@ -7,6 +7,9 @@ import { compressCanvas, mergeImagesCleanly } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 import { jsPDF } from "jspdf";
+import SortableTray from './SortableTray';
+import type { TrayItem } from './SortableTray';
+
 
 
 interface ScannedPage {
@@ -79,6 +82,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
   const [pendingImports, setPendingImports] = useState<string[]>([]);
+
   const {
     stream,
     torchOn,
@@ -120,6 +124,46 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   }, [hasFinance, hasVault]);
   const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+  const [previewType, setPreviewType] = React.useState<'scanned' | 'pending' | null>(null);
+  const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
+  
+  // Derived state for sorting tray
+  const derivedTrayItems = React.useMemo(() => {
+    const items: TrayItem[] = [
+      ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
+      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? [{ id: 'active-doc', type: 'active' as const, url: imageCache[mode] || rawSnapshot }] : []),
+      ...pendingImports.map((url, i) => ({ id: `pending-${i}-${url.substring(0,10)}`, type: 'pending' as const, url }))
+    ];
+    return items;
+  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports]);
+
+  const sortedTrayItems = React.useMemo(() => {
+    return [...derivedTrayItems].sort((a, b) => {
+      const idxA = trayOrder.indexOf(a.id);
+      const idxB = trayOrder.indexOf(b.id);
+      if (idxA === -1 && idxB === -1) return 0;
+      if (idxA === -1) return 1;
+      if (idxB === -1) return -1;
+      return idxA - idxB;
+    });
+  }, [derivedTrayItems, trayOrder]);
+
+  React.useEffect(() => {
+    const allIds = derivedTrayItems.map(i => i.id);
+    let changed = false;
+    const newOrder = [...trayOrder];
+    allIds.forEach(id => {
+      if (!newOrder.includes(id)) {
+         newOrder.push(id);
+         changed = true;
+      }
+    });
+    const cleanOrder = newOrder.filter(id => allIds.includes(id));
+    if (changed || cleanOrder.length !== trayOrder.length) {
+       setTrayOrder(cleanOrder);
+    }
+  }, [derivedTrayItems, trayOrder]);
+
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Document classifier
@@ -662,33 +706,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleDone = async (routingType?: 'receipt' | 'document' | 'image') => {
     setIsProcessing(true);
-    
     const currentImg = imageCache[mode];
-    let allPageUrls = [...scannedPages.map(p => p.imageUrl)];
-    if (currentImg && step !== 'scanning') {
-       allPageUrls.push(currentImg);
-    }
     
-    // Auto-approve any pending imports that were skipped!
-    if (pendingImports.length > 0) {
-        for (let idx = 0; idx < pendingImports.length; idx++) {
-           const url = pendingImports[idx];
-           const img = new Image();
-           img.src = url;
-           await new Promise((res) => { img.onload = res; });
-           let w = img.width; let h = img.height;
-           if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
-           const canvas = document.createElement('canvas');
-           canvas.width = w; canvas.height = h;
-           const ctx = canvas.getContext('2d');
-           if (ctx) {
-              ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, w, h);
-              allPageUrls.push(compressCanvas(canvas, 0.82));
-           }
-        }
-        setPendingImports([]);
+    let allPageUrls: string[] = [];
+    
+    // Process everything in sorted order
+    for (const item of sortedTrayItems) {
+      if (item.type === 'scanned' || item.type === 'active') {
+        allPageUrls.push(item.url);
+      } else if (item.type === 'pending') {
+         const img = new Image();
+         img.src = item.url;
+         await new Promise((res) => { img.onload = res; });
+         let w = img.width; let h = img.height;
+         if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
+         const canvas = document.createElement('canvas');
+         canvas.width = w; canvas.height = h;
+         const ctx = canvas.getContext('2d');
+         if (ctx) {
+            ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+            ctx.drawImage(img, 0, 0, w, h);
+            allPageUrls.push(compressCanvas(canvas, 0.82));
+         }
+      }
     }
+    setPendingImports([]);
     
     if (allPageUrls.length === 0) {
       setIsProcessing(false);
@@ -858,7 +900,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <TransformWrapper initialScale={1} minScale={0.2} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
-                    src={previewIndex !== null && previewIndex < scannedPages.length ? scannedPages[previewIndex].imageUrl : imageCache[mode]} 
+                    src={previewIndex !== null ? (previewType === 'pending' ? pendingImports[previewIndex] : scannedPages[previewIndex]?.imageUrl) : imageCache[mode]} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     alt="Scanned document" 
                   />
@@ -1056,60 +1098,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {/* GLOBAL TRAYS */}
              {(scannedPages.length > 0 || pendingImports.length > 0) && (
                <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                 
-                 {/* Pending Tray */}
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', overflowX: 'auto', direction: 'rtl', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
-                    
-                    {scannedPages.length > 0 && (
-                      <>
-                        <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', flexShrink: 0 }}>ערוכים</div>
-                        {scannedPages.map((page, i) => (
-                          <div key={page.id} onClick={() => {
-                              saveCurrentStateToTrays();
-                              setScannedPages(prev => prev.filter(p => p.id !== page.id));
-                              setImageCache({ 'smart_plus': page.imageUrl });
-                              setMode('smart_plus');
-                              setRawSnapshot(page.rawImageUrl || page.imageUrl);
-                              setStep('review');
-                          }} style={{ position: 'relative', flexShrink: 0, width: '56px', height: '76px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #10b981', cursor: 'pointer' }}>
-                            <img src={page.imageUrl} alt={`Page ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(16,185,129,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>✓ {i+1}</div>
-                          </div>
-                        ))}
-                        <div style={{ width: '1px', height: '50px', background: 'rgba(255,255,255,0.2)', flexShrink: 0, margin: '0 0.2rem' }} />
-                      </>
-                    )}
-
-                    {step !== 'scanning' && (rawSnapshot || imageCache[mode]) && (
-                      <>
-                        <div style={{ color: '#3b82f6', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center', flexShrink: 0 }}>פתוח</div>
-                        <div style={{ position: 'relative', flexShrink: 0, width: '60px', height: '80px', borderRadius: '4px', overflow: 'hidden', border: '3px solid #3b82f6', boxShadow: '0 0 10px rgba(59,130,246,0.5)' }}>
-                           <img src={(step === 'cropping' ? rawSnapshot : imageCache[mode]) || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                           <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(59,130,246,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>👁️ {scannedPages.length + 1}</div>
-                        </div>
-                        <div style={{ width: '1px', height: '50px', background: 'rgba(255,255,255,0.2)', flexShrink: 0, margin: '0 0.2rem' }} />
-                      </>
-                    )}
-
-                    {pendingImports.length > 0 && (
-                      <>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
-                          <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>לא ערוכים</div>
-                          
-                        </div>
-                        {pendingImports.map((url, i) => (
-                          <div key={`pending-${i}`} onClick={() => {
-                              saveCurrentStateToTrays();
-                              setPendingImports(prev => prev.filter((_, idx) => idx !== i));
-                              processImportUrl(url);
-                          }} style={{ position: 'relative', flexShrink: 0, width: '56px', height: '76px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #ef4444', cursor: 'pointer' }}>
-                            <img src={url} alt={`Pending ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(239,68,68,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>{scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + i + 1}</div>
-                          </div>
-                        ))}
-                      </>
-                    )}
-                  </div>
+                 <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', direction: 'ltr', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
+                    <SortableTray 
+                       items={sortedTrayItems}
+                       onReorder={(newItems) => setTrayOrder(newItems.map(i => i.id))}
+                       onItemClick={(item) => {
+                          if (item.type === 'scanned') {
+                             setPreviewType('scanned');
+                             setPreviewIndex(scannedPages.findIndex(p => p.id === item.id));
+                          } else if (item.type === 'pending') {
+                             setPreviewType('pending');
+                             setPreviewIndex(pendingImports.findIndex(p => p === item.url));
+                          } else {
+                             setPreviewType(null);
+                             setPreviewIndex(null);
+                          }
+                       }}
+                    />
+                 </div>
                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', width: '100%' }}>
                    {pendingImports.length > 0 && (
                      <button onClick={async () => {
