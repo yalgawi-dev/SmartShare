@@ -21,7 +21,7 @@ export default function SortableTray({ items, onReorder, onItemClick }: Sortable
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
     // Reduced delay and increased tolerance to make DND easier to trigger on mobile
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 10 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 15 } }),
     useSensor(KeyboardSensor)
   );
 
