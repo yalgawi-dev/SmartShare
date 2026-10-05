@@ -414,6 +414,30 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }, 50);
   };
 
+
+  const saveCurrentStateToTrays = () => {
+    const currentImg = imageCache[mode];
+    if (currentImg && step !== 'scanning') {
+      if (step === 'cropping') {
+        setPendingImports(prev => {
+          const imgToSave = rawSnapshot || currentImg;
+          if (!prev.includes(imgToSave)) {
+            return [imgToSave, ...prev];
+          }
+          return prev;
+        });
+      } else if (step === 'review') {
+        const newPage: ScannedPage = {
+          id: Date.now().toString() + Math.random().toString(),
+          imageUrl: currentImg,
+          pageNum: scannedPages.length + 1,
+          rawImageUrl: rawSnapshot || undefined
+        };
+        setScannedPages(prev => [...prev, newPage]);
+      }
+    }
+  };
+
   const handleRetake = () => {
     setStep('scanning');
     setRawSnapshot(null);
@@ -1071,11 +1095,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                      </div>
                      {pendingImports.map((url, i) => (
                        <div key={`pending-${i}`} onClick={() => {
+                           saveCurrentStateToTrays();
                            setPendingImports(prev => prev.filter((_, idx) => idx !== i));
                            processImportUrl(url);
-                       }} style={{ position: 'relative', flexShrink: 0, width: '44px', height: '60px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #ef4444', cursor: 'pointer' }}>
+                       }} style={{ position: 'relative', flexShrink: 0, width: '56px', height: '76px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #ef4444', cursor: 'pointer' }}>
                          <img src={url} alt={`Pending ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                         <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(239,68,68,0.9)', color: 'white', fontSize: '0.55rem', padding: '0.1rem', width: '100%', textAlign: 'center' }}>ערוך</div>
+                         <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(239,68,68,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>{i + 1}</div>
                        </div>
                      ))}
                    </div>
@@ -1087,16 +1112,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                      <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>ערוכים</div>
                      {scannedPages.map((page, i) => (
                        <div key={page.id} onClick={() => {
-                           if (page.rawImageUrl) {
-                              setPendingImports(prev => [...prev, page.rawImageUrl]);
-                              setScannedPages(prev => prev.filter(p => p.id !== page.id));
-                           }
-                       }} style={{ position: 'relative', flexShrink: 0, width: '44px', height: '60px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #10b981', cursor: 'pointer' }}>
+                           saveCurrentStateToTrays();
+                           setScannedPages(prev => prev.filter(p => p.id !== page.id));
+                           setImageCache({ 'smart_plus': page.imageUrl });
+                           setMode('smart_plus');
+                           setRawSnapshot(page.rawImageUrl || page.imageUrl);
+                           setStep('review');
+                       }} style={{ position: 'relative', flexShrink: 0, width: '56px', height: '76px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #10b981', cursor: 'pointer' }}>
                          <img src={page.imageUrl} alt={`Page ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                         <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(16,185,129,0.9)', color: 'white', fontSize: '0.6rem', padding: '0.1rem 0.3rem' }}>✓ {i+1}</div>
-                         {page.rawImageUrl && (
-                            <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '0.5rem', padding: '0.1rem', width: '100%', textAlign: 'center' }}>↩️</div>
-                         )}
+                         <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(16,185,129,0.9)', color: 'white', fontSize: '0.75rem', padding: '0.1rem 0.4rem', borderBottomRightRadius: '4px', fontWeight: 'bold' }}>✓ {i+1}</div>
                        </div>
                      ))}
                    </div>
