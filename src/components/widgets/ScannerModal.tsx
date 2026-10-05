@@ -13,6 +13,7 @@ interface ScannedPage {
   id: string;
   imageUrl: string;
   pageNum: number;
+  rawImageUrl?: string;
 }
 
 interface ClassifyResult {
@@ -101,7 +102,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
   const [exportNumbers, setExportNumbers] = useState<boolean>(true);
-  const [importQueue, setImportQueue] = useState<File[]>([]);
+  const [pendingImports, setPendingImports] = useState<string[]>([]);
 
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
@@ -165,58 +166,59 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
     };
     document.body.appendChild(script);
-  }, []);  const processImportFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = async (ev) => {
-      const url = ev.target?.result as string;
-      const img = new Image();
-      img.onload = () => {
-        let w = img.width;
-        let h = img.height;
-        if (w > 2000) {
-           h = Math.round(h * (2000 / w));
-           w = 2000;
-        }
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = 'high';
-          ctx.drawImage(img, 0, 0, w, h);
-          const pts = detectDocument(canvas) || [
-            {x: w * 0.1, y: h * 0.1},
-            {x: w * 0.9, y: h * 0.1},
-            {x: w * 0.9, y: h * 0.9},
-            {x: w * 0.1, y: h * 0.9}
-          ];
-          setCropPoints(pts);
-          const snapshotUrl = compressCanvas(canvas, 0.95);
-          setRawSnapshot(snapshotUrl);
-          setStep('cropping');
-        }
-      };
-      img.src = url;
+  }, []);  const processImportUrl = (url: string) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width;
+      let h = img.height;
+      if (w > 2000) {
+         h = Math.round(h * (2000 / w));
+         w = 2000;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+        const pts = detectDocument(canvas) || [
+          {x: w * 0.1, y: h * 0.1},
+          {x: w * 0.9, y: h * 0.1},
+          {x: w * 0.9, y: h * 0.9},
+          {x: w * 0.1, y: h * 0.9}
+        ];
+        setCropPoints(pts);
+        const snapshotUrl = compressCanvas(canvas, 0.95);
+        setRawSnapshot(snapshotUrl);
+        setStep('cropping');
+      }
     };
-    reader.readAsDataURL(file);
+    img.src = url;
   };
 
   const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
-    const filesArray = Array.from(files);
-    const firstFile = filesArray[0];
-    const rest = filesArray.slice(1);
+    const urls: string[] = [];
+    let count = 0;
+    Array.from(files).forEach((file, i) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        urls[i] = ev.target?.result as string;
+        count++;
+        if (count === files.length) {
+           const validUrls = urls.filter(u => u);
+           if (validUrls.length > 0) {
+              setPendingImports(prev => [...prev, ...validUrls]);
+           }
+        }
+      };
+      reader.readAsDataURL(file);
+    });
     
-    if (rest.length > 0) {
-      setImportQueue(rest);
-    } else {
-      setImportQueue([]);
-    }
-    
-    processImportFile(firstFile);
     e.target.value = '';
   };
 
@@ -392,6 +394,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       imageUrl: currentImg,
       pageNum: scannedPages.length + 1
     };
+    newPage.rawImageUrl = rawSnapshot || undefined;
     setScannedPages(prev => [...prev, newPage]);
     
     setRawSnapshot(null);
@@ -401,13 +404,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setDetectedType(null);
     setClassifyResult(null);
 
-    if (importQueue.length > 0) {
-      const nextFile = importQueue[0];
-      setImportQueue(prev => prev.slice(1));
-      processImportFile(nextFile);
-    } else {
-      setStep('scanning');
-    }
+    setStep('scanning');
   };
 
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original') => {
@@ -852,24 +849,68 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <span style={{ fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>ייבוא לסורק</span>
                </label>
              </div>
-             {scannedPages.length > 0 && (
-               <div style={{ marginTop: '1rem', width: '100%', display: 'flex', justifyContent: 'center', gap: '1rem' }}>
-                 <button onClick={() => {
-                    const pages = [...scannedPages];
-                    const lastPage = pages.pop();
-                    if (lastPage) {
-                       setScannedPages(pages);
-                       setImageCache({ 'smart_plus': lastPage.imageUrl });
-                       setMode('smart_plus');
-                       setRawSnapshot(lastPage.imageUrl);
-                       setStep('review');
-                    }
-                 }} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '24px', fontSize: '0.9rem', cursor: 'pointer' }}>
-                   ↩️ חזור שלב
-                 </button>
-                 <button onClick={() => handleDone()} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                   סיום ושמירה ({scannedPages.length} עמודים)
-                 </button>
+             {(scannedPages.length > 0 || pendingImports.length > 0) && (
+               <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                 
+                 {/* Pending Tray */}
+                 {pendingImports.length > 0 && (
+                   <div style={{ display: 'flex', gap: '0.5rem', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)', alignItems: 'center', overflowX: 'auto', direction: 'rtl' }}>
+                     <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>לא ערוכים</div>
+                     {pendingImports.map((url, i) => (
+                       <div key={`pending-${i}`} onClick={() => {
+                           setPendingImports(prev => prev.filter((_, idx) => idx !== i));
+                           processImportUrl(url);
+                       }} style={{ position: 'relative', flexShrink: 0, width: '44px', height: '60px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #ef4444', cursor: 'pointer' }}>
+                         <img src={url} alt={`Pending ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                         <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(239,68,68,0.9)', color: 'white', fontSize: '0.55rem', padding: '0.1rem', width: '100%', textAlign: 'center' }}>ערוך</div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 {/* Edited Tray */}
+                 {scannedPages.length > 0 && (
+                   <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', overflowX: 'auto', direction: 'rtl' }}>
+                     <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>ערוכים</div>
+                     {scannedPages.map((page, i) => (
+                       <div key={page.id} onClick={() => {
+                           if (page.rawImageUrl) {
+                              setPendingImports(prev => [...prev, page.rawImageUrl]);
+                              setScannedPages(prev => prev.filter(p => p.id !== page.id));
+                           }
+                       }} style={{ position: 'relative', flexShrink: 0, width: '44px', height: '60px', borderRadius: '4px', overflow: 'hidden', border: '2px solid #10b981', cursor: 'pointer' }}>
+                         <img src={page.imageUrl} alt={`Page ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                         <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(16,185,129,0.9)', color: 'white', fontSize: '0.6rem', padding: '0.1rem 0.3rem' }}>✓ {i+1}</div>
+                         {page.rawImageUrl && (
+                            <div style={{ position: 'absolute', bottom: 0, left: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '0.5rem', padding: '0.1rem', width: '100%', textAlign: 'center' }}>↩️</div>
+                         )}
+                       </div>
+                     ))}
+                   </div>
+                 )}
+
+                 <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', marginTop: '0.5rem' }}>
+                   {scannedPages.length > 0 && (
+                     <button onClick={() => {
+                        const pages = [...scannedPages];
+                        const lastPage = pages.pop();
+                        if (lastPage) {
+                           setScannedPages(pages);
+                           setImageCache({ 'smart_plus': lastPage.imageUrl });
+                           setMode('smart_plus');
+                           setRawSnapshot(lastPage.rawImageUrl || lastPage.imageUrl);
+                           setStep('review');
+                        }
+                     }} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '24px', fontSize: '0.9rem', cursor: 'pointer' }}>
+                       ↩️ חזור שלב
+                     </button>
+                   )}
+                   {(scannedPages.length > 0 || pendingImports.length > 0) && (
+                     <button onClick={() => handleDone()} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
+                       סיום ושמירה ({scannedPages.length} עמודים)
+                     </button>
+                   )}
+                 </div>
                </div>
              )}
 
