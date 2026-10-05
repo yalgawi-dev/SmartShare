@@ -476,10 +476,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           });
         }));
         
+        const GAP = 40;
         const maxWidth = Math.max(...loadedImages.map(img => img.width));
-        const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
+        const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
         
         const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [maxWidth, totalHeight] });
+        
+        // Fill background with light gray so the gaps look like natural page separators
+        pdf.setFillColor(220, 224, 232); // Light slate/gray
+        pdf.rect(0, 0, maxWidth, totalHeight, 'F');
         
         let currentY = 0;
         for (let i = 0; i < loadedImages.length; i++) {
@@ -504,7 +509,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           } else {
             pdf.addImage(img, 'JPEG', 0, currentY, img.width, img.height);
           }
-          currentY += img.height;
+          currentY += img.height + GAP;
         }
         
         const blob = pdf.output('blob');
