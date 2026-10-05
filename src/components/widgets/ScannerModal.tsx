@@ -17,6 +17,7 @@ interface ScannedPage {
   imageUrl: string;
   pageNum: number;
   rawImageUrl?: string;
+  cropPoints?: Point[];
 }
 
 interface ClassifyResult {
@@ -135,7 +136,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       ...pendingImports.map((url, i) => ({ id: `pending-${i}-${url.substring(0,10)}`, type: 'pending' as const, url }))
     ];
     return items;
-  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports]);
+  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports, activeDocId]);
 
   const sortedTrayItems = React.useMemo(() => {
     return [...derivedTrayItems].sort((a, b) => {
@@ -147,6 +148,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       return idxA - idxB;
     });
   }, [derivedTrayItems, trayOrder]);
+
+  React.useEffect(() => {
+    setTrayOrder(prev => {
+      const newIds = derivedTrayItems.map(i => i.id).filter(id => !prev.includes(id));
+      if (newIds.length > 0) {
+        return [...prev, ...newIds];
+      }
+      return prev;
+    });
+  }, [derivedTrayItems]);
 
   React.useEffect(() => {
     const allIds = derivedTrayItems.map(i => i.id);
@@ -451,12 +462,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const currentImg = imageCache[mode];
     if (!currentImg) return;
     const newPage: ScannedPage = {
-      id: Date.now().toString(),
+      id: activeDocId, // Preserve the ID so the tray order doesn't shift
       imageUrl: currentImg,
       pageNum: scannedPages.length + 1,
-      rawImageUrl: rawSnapshot || undefined
+      rawImageUrl: rawSnapshot || undefined,
+      cropPoints: cropPoints
     };
-    setScannedPages(prev => [...prev, newPage]);
+    setScannedPages(prev => {
+      if (prev.some(p => p.id === activeDocId)) return prev;
+      return [...prev, newPage];
+    });
     
     setRawSnapshot(null);
     setImageCache({});
@@ -509,7 +524,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           id: activeDocId,
           imageUrl: currentImg,
           pageNum: scannedPages.length + 1,
-          rawImageUrl: rawSnapshot || undefined
+          rawImageUrl: rawSnapshot || undefined,
+          cropPoints: cropPoints
         };
         setScannedPages(prev => [...prev, newPage]);
       }
@@ -835,7 +851,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v18.8</span>
+            <span>סורק מסמכים v19.1</span>
           </h2>
         </div>
         
@@ -1176,6 +1192,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                 setScannedPages(prev => prev.filter(p => p.id !== item.id));
                                 setImageCache({ [mode]: docToLoad.imageUrl });
                                 setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
+                                if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
                                 setStep('review');
                               }
                            } else if (item.type === 'pending') {
