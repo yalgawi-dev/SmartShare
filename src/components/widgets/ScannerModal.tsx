@@ -306,6 +306,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const [isProcessing, setIsProcessing] = useState(false);
 
+  useEffect(() => {
+    if (rawSnapshot) {
+      setIsProcessing(false);
+    }
+  }, [rawSnapshot]);
+
   // 5. Apply Perspective Crop
   const performCrop = async (snapshot: string, pts: Point[], targetProfile?: any) => {
     try {
@@ -1054,48 +1060,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                       <>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
                           <div style={{ color: 'white', fontSize: '0.7rem', writingMode: 'vertical-rl', transform: 'rotate(180deg)', textAlign: 'center' }}>לא ערוכים</div>
-                          {pendingImports.length > 1 && (
-                            <button 
-                               onClick={async () => {
-                                 const newPages = [];
-                                 for (let idx = 0; idx < pendingImports.length; idx++) {
-                                   const url = pendingImports[idx];
-                                   const img = new Image();
-                                   img.src = url;
-                                   await new Promise((res) => { img.onload = res; });
-                                   
-                                   let w = img.width;
-                                   let h = img.height;
-                                   if (w > 2000) {
-                                     h = Math.round(h * (2000 / w));
-                                     w = 2000;
-                                   }
-                                   const canvas = document.createElement('canvas');
-                                   canvas.width = w;
-                                   canvas.height = h;
-                                   const ctx = canvas.getContext('2d');
-                                   if (ctx) {
-                                     ctx.imageSmoothingEnabled = true;
-                                     ctx.imageSmoothingQuality = 'high';
-                                     ctx.drawImage(img, 0, 0, w, h);
-                                     const optimizedUrl = compressCanvas(canvas, 0.82);
-                                     newPages.push({
-                                       id: Date.now().toString() + '-' + idx,
-                                       imageUrl: optimizedUrl,
-                                       rawImageUrl: optimizedUrl,
-                                       pageNum: scannedPages.length + (step !== 'scanning' ? 1 : 0) + idx + 1
-                                     });
-                                   }
-                                 }
-                                 setScannedPages(prev => [...prev, ...newPages]);
-                                 setPendingImports([]);
-                               }}
-                               title="אשר הכל והעבר לערוכים"
-                               style={{ background: 'rgba(16,185,129,0.2)', border: '1px solid #10b981', color: '#10b981', borderRadius: '4px', cursor: 'pointer', padding: '0.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                             >
-                               <span style={{ fontSize: '1rem', lineHeight: 1 }}>⏩</span>
-                             </button>
-                           )}
+                          
                         </div>
                         {pendingImports.map((url, i) => (
                           <div key={`pending-${i}`} onClick={() => {
