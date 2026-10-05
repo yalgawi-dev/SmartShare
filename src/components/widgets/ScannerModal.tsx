@@ -202,22 +202,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
-    const urls: string[] = [];
-    let count = 0;
-    Array.from(files).forEach((file, i) => {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-        urls[i] = ev.target?.result as string;
-        count++;
-        if (count === files.length) {
-           const validUrls = urls.filter(u => u);
-           if (validUrls.length > 0) {
-              setPendingImports(prev => [...prev, ...validUrls]);
-           }
-        }
-      };
-      reader.readAsDataURL(file);
-    });
+    // Instead of using FileReader concurrently (which crashes mobile browsers with high-res photos due to RAM limits),
+    // we use URL.createObjectURL which is instantaneous and consumes virtually no RAM.
+    const urls = Array.from(files).map(file => URL.createObjectURL(file));
+    setPendingImports(prev => [...prev, ...urls]);
     
     e.target.value = '';
   };
