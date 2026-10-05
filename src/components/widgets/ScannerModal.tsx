@@ -305,6 +305,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [detectedType, setDetectedType] = useState<'text_bw' | 'text_color' | 'photo' | 'mixed' | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (rawSnapshot) {
@@ -333,6 +334,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       console.error("Crop failed:", err);
       alert("Error in crop: " + (err?.message || err));
     }
+  };
+
+  
+  const handleSkipCrop = () => {
+    if (!rawSnapshot) return;
+    setIsProcessing(true);
+    setTimeout(() => {
+      setIsProcessing(false);
+      setImageCache(prev => ({ ...prev, 'original': rawSnapshot }));
+      setMode('original');
+      setStep('review');
+    }, 50);
   };
 
   const handleCropComplete = () => {
@@ -857,6 +870,20 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       </div>
 
 
+      
+      {fullScreenImage && (
+        <div 
+          onClick={() => setFullScreenImage(null)}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 40000, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}
+        >
+          <img src={fullScreenImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+          <button onClick={() => setFullScreenImage(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            ✕
+          </button>
+        </div>
+      )}
+
+
       {exportOptions && (
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '16px', width: '85%', maxWidth: '340px', color: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
@@ -923,8 +950,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'cropping' && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button onClick={handleRetake} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
-              צלם שוב
+            <button onClick={pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg')) ? handleSkipCrop : handleRetake} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
+              {(pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) ? 'בטל עריכה' : 'צלם שוב'}
             </button>
             <button onClick={handleCropComplete} disabled={isProcessing} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}>
               {isProcessing ? 'מעבד באיכות מקסימלית...' : 'אשר חיתוך'}
