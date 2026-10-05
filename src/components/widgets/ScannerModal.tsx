@@ -1120,7 +1120,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                    )}
                    {(scannedPages.length > 0 || pendingImports.length > 0) && (
                      <button onClick={() => handleDone()} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 2rem', borderRadius: '24px', fontSize: '1rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                       סיום ושמירה ({scannedPages.length} עמודים)
+                       סיום ושמירה ({scannedPages.length + pendingImports.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0)} עמודים)
                      </button>
                    )}
                  </div>
