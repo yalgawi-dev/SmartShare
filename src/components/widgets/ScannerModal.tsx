@@ -123,8 +123,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       setMode('pure_color');
     }
   }, [hasFinance, hasVault]);
-  const [previewIndex, setPreviewIndex] = useState<number | null>(null);
-  const [previewType, setPreviewType] = React.useState<'scanned' | 'pending' | null>(null);
+
   const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
   
   // Derived state for sorting tray
@@ -835,7 +834,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v18.2</span>
+            <span>סורק מסמכים v18.4</span>
           </h2>
         </div>
         
@@ -972,7 +971,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <TransformWrapper initialScale={1} minScale={0.2} maxScale={5} centerOnInit={true}>
                <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
                   <img 
-                    src={previewIndex !== null ? (previewType === 'pending' ? pendingImports[previewIndex] : scannedPages[previewIndex]?.imageUrl) : imageCache[mode]} 
+                    src={imageCache[mode]} 
                     style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
                     alt="Scanned document" 
                   />
@@ -1143,22 +1142,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   <span style={{ fontSize: '1rem' }}>✂️</span>
                   עריכה/חיתוך
                 </button>
-                {scannedPages.length > 0 && (
-                  <button onClick={() => {
-                     const pages = [...scannedPages];
-                     const lastPage = pages.pop();
-                     if (lastPage) {
-                        setScannedPages(pages);
-                        setImageCache({ 'smart_plus': lastPage.imageUrl });
-                        setMode('smart_plus');
-                        setRawSnapshot(lastPage.rawImageUrl || lastPage.imageUrl);
-                        setStep('review');
-                     }
-                  }} style={{ flex: 1, background: 'transparent', color: '#3b82f6', border: '1px solid #3b82f6', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <span style={{ fontSize: '1rem' }}>↩️</span>
-                    חזור שלב
-                  </button>
-                )}
+                
                 <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>📤</span>
                   שיתוף
