@@ -8,9 +8,10 @@ interface SortableTrayItemProps {
   status: 'pending' | 'cropped' | 'active';
   url: string;
   onClick: () => void;
+  isEdited?: boolean;
 }
 
-export function SortableTrayItem({ id, index, status, url, onClick }: SortableTrayItemProps) {
+export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: SortableTrayItemProps) {
   const {
     attributes,
     listeners,
@@ -32,7 +33,7 @@ export function SortableTrayItem({ id, index, status, url, onClick }: SortableTr
   };
 
   let borderColor = '#ef4444'; // default red (unedited)
-  if (status === 'cropped') borderColor = '#10b981'; // green (edited)
+  if (status === 'cropped' || isEdited) borderColor = '#10b981'; // green (edited)
 
   return (
     <div 
@@ -54,8 +55,8 @@ export function SortableTrayItem({ id, index, status, url, onClick }: SortableTr
           position: 'relative' as const,
           background: '#000',
           boxShadow: status === 'active' ? `0 0 0 3px #3b82f6` : 'none', // Blue outer ring when active!
-          transform: status === 'active' ? 'scale(1.02)' : 'scale(1)',
-          transition: 'transform 0.2s, box-shadow 0.2s',
+          transform: isDragging ? 'scale(1.1)' : (status === 'active' ? 'scale(1.02)' : 'scale(1)'),
+          transition: 'transform 0.2s, box-shadow 0.2s, opacity 0.2s',
           margin: status === 'active' ? '0 3px' : '0' // Make room for the extra shadow ring
         }}
       >

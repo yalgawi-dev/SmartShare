@@ -8,6 +8,7 @@ export interface TrayItem {
   type: 'scanned' | 'pending' | 'active';
   url: string;
   pageNum?: number;
+  isEdited?: boolean;
 }
 
 interface SortableTrayProps {
@@ -44,6 +45,7 @@ export default function SortableTray({ items, onReorder, onItemClick }: Sortable
               index={idx}
               status={item.type === 'scanned' ? 'cropped' : item.type}
               url={item.url}
+              isEdited={item.isEdited}
               onClick={() => onItemClick(item)}
             />
           ))}

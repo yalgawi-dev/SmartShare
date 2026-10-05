@@ -131,7 +131,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const derivedTrayItems = React.useMemo(() => {
     const items: TrayItem[] = [
       ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
-      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? [{ id: 'active-doc', type: 'active' as const, url: imageCache[mode] || rawSnapshot }] : []),
+      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? [{ id: 'active-doc', type: 'active' as const, url: imageCache[mode] || rawSnapshot, isEdited: step === 'review' }] : []),
       ...pendingImports.map((url, i) => ({ id: `pending-${i}-${url.substring(0,10)}`, type: 'pending' as const, url }))
     ];
     return items;
@@ -585,14 +585,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           });
         }));
         
-        const GAP = 0;
+        // Add a tiny 4px dark separator between pages so it doesn't look like a single crooked page when crops are uneven
+        const GAP = 4;
         const maxWidth = Math.max(...loadedImages.map(img => img.width));
         const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
         
         const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [maxWidth, totalHeight] });
         
-        // Fill background with white
-        pdf.setFillColor(255, 255, 255);
+        // Fill background with dark gray for the separators
+        pdf.setFillColor(50, 50, 50);
         pdf.rect(0, 0, maxWidth, totalHeight, 'F');
         
         let currentY = 0;
