@@ -2,7 +2,7 @@
 // Maintains aspect ratio while reducing file size to save storage.
 // This is the SINGLE SOURCE OF TRUTH (Engine) for all image compression in the app.
 
-export async function compressImage(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.5): Promise<string> {
+export async function compressImage(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.82): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -56,7 +56,7 @@ export async function compressImage(file: File, maxWidth = 1000, maxHeight = 100
  * Used by ScannerModal and other components that manipulate images in-memory.
  */
 export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.5, type = 'image/jpeg'): string {
-  // We use 0.5 quality and JPEG format across the app to hit the ~100KB target size
+  // We use 0.82 quality and JPEG format across the app for sharp text while keeping sizes small. Single Source of Truth.
   // This is crucial for keeping our cloud storage under 5GB.
   // PNG is supported for signatures which require transparency.
   return canvas.toDataURL(type, quality);
@@ -121,5 +121,5 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
     currentY += scaledHeights[i] + gap;
   });
 
-  return canvas.toDataURL('image/jpeg', 0.85);
+  return compressCanvas(canvas, 0.82);
 }
