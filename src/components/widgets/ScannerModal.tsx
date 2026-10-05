@@ -478,37 +478,32 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             img.src = url;
           });
         })).then(loadedImages => {
-          const MAX_HEIGHT = 8192; // Safe max height for mobile browsers
-          let totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
-          let scale = 1;
-          if (totalHeight > MAX_HEIGHT) {
-            scale = MAX_HEIGHT / totalHeight;
-          }
-          const maxWidth = Math.max(...loadedImages.map(img => img.width)) * scale;
-          totalHeight = totalHeight * scale;
+          const maxWidth = Math.max(...loadedImages.map(img => img.width));
+          const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
           
           canvas.width = maxWidth;
           canvas.height = totalHeight;
           let currentY = 0;
           loadedImages.forEach((img, i) => {
-            const h = img.height * scale;
-            const w = img.width * scale;
-            ctx.drawImage(img, 0, currentY, w, h);
+            ctx.drawImage(img, 0, currentY, img.width, img.height);
             if (includeNumbers) {
-              const fontSize = Math.max(36, 72 * scale);
               ctx.fillStyle = 'rgba(0,0,0,0.7)';
-              ctx.fillRect(20, currentY + 20, 180, 80);
+              ctx.fillRect(20, currentY + 20, 300, 100);
               ctx.fillStyle = '#FFD700';
-              ctx.font = `bold ${fontSize}px Arial`;
-              ctx.fillText('עמוד ' + (i+1), 40, currentY + 70);
+              ctx.font = 'bold 72px Arial';
+              ctx.fillText('עמוד ' + (i+1), 40, currentY + 92);
             }
-            currentY += h;
+            currentY += img.height;
           });
+          
           const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          canvas.toBlob(blob => {
-            if (blob) resolve({ dataUrl, blob, format: 'jpeg' });
-            else reject('Blob failed');
-          }, 'image/jpeg', 0.85);
+          
+          // Use fetch(dataUrl).blob() instead of canvas.toBlob() because canvas.toBlob()
+          // fails or returns null on some Android devices for very large canvases!
+          fetch(dataUrl)
+            .then(res => res.blob())
+            .then(blob => resolve({ dataUrl, blob, format: 'jpeg' }))
+            .catch(err => reject(err));
         }).catch(reject);
       });
     }
