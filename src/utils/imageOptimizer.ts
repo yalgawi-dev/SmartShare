@@ -55,7 +55,7 @@ export async function compressImage(file: File, maxWidth = 1000, maxHeight = 100
  * Single Source of Truth for Canvas compression.
  * Used by ScannerModal and other components that manipulate images in-memory.
  */
-export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.5, type = 'image/jpeg'): string {
+export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.82, type = 'image/jpeg'): string {
   // We use 0.82 quality and JPEG format across the app for sharp text while keeping sizes small. Single Source of Truth.
   // This is crucial for keeping our cloud storage under 5GB.
   // PNG is supported for signatures which require transparency.
