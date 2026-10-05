@@ -408,6 +408,102 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setClassifyOverride(false);
   };
 
+  const processMultiPage = async (urls: string[]): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' | 'jpeg' }> => {
+    const includeNumbers = window.confirm("האם להוסיף מספור עמודים על גבי המסמך?");
+    const usePdf = window.confirm("באיזה פורמט לייצא את המסמך?\n\n[אישור] = PDF (עמודים נפרדים)\n[ביטול] = תמונה אחת ארוכה (מגילה)");
+
+    if (usePdf) {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      for (let i = 0; i < urls.length; i++) {
+        if (i > 0) pdf.addPage();
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => {
+            const imgRatio = img.width / img.height;
+            const pdfRatio = pdfWidth / pdfHeight;
+            let finalW = pdfWidth;
+            let finalH = pdfHeight;
+            if (imgRatio > pdfRatio) {
+              finalH = pdfWidth / imgRatio;
+            } else {
+              finalW = pdfHeight * imgRatio;
+            }
+            const x = (pdfWidth - finalW) / 2;
+            const y = (pdfHeight - finalH) / 2;
+            
+            if (includeNumbers) {
+               // Draw number on an offscreen canvas first
+               const canvas = document.createElement('canvas');
+               canvas.width = img.width;
+               canvas.height = img.height;
+               const ctx = canvas.getContext('2d');
+               if (ctx) {
+                 ctx.drawImage(img, 0, 0);
+                 ctx.fillStyle = 'rgba(0,0,0,0.7)';
+                 ctx.fillRect(20, 20, 300, 100);
+                 ctx.fillStyle = '#FFD700';
+                 ctx.font = 'bold 72px Arial';
+                 ctx.fillText('עמוד ' + (i+1), 40, 92);
+                 const numImgUrl = canvas.toDataURL('image/jpeg', 0.9);
+                 pdf.addImage(numImgUrl, 'JPEG', x, y, finalW, finalH);
+               } else {
+                 pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
+               }
+            } else {
+               pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
+            }
+            resolve();
+          };
+          img.onerror = reject;
+          img.src = urls[i];
+        });
+      }
+      const blob = pdf.output('blob');
+      const dataUrl = pdf.output('datauristring');
+      return { dataUrl, blob, format: 'pdf' };
+    } else {
+      // Scroll (JPEG)
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      return new Promise((resolve, reject) => {
+        if (!ctx) return reject('No context');
+        Promise.all(urls.map(url => {
+          return new Promise<HTMLImageElement>((res, rej) => {
+            const img = new Image();
+            img.onload = () => res(img);
+            img.onerror = rej;
+            img.src = url;
+          });
+        })).then(loadedImages => {
+          const maxWidth = Math.max(...loadedImages.map(img => img.width));
+          const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
+          canvas.width = maxWidth;
+          canvas.height = totalHeight;
+          let currentY = 0;
+          loadedImages.forEach((img, i) => {
+            ctx.drawImage(img, 0, currentY, img.width, img.height);
+            if (includeNumbers) {
+              ctx.fillStyle = 'rgba(0,0,0,0.7)';
+              ctx.fillRect(20, currentY + 20, 300, 100);
+              ctx.fillStyle = '#FFD700';
+              ctx.font = 'bold 72px Arial';
+              ctx.fillText('עמוד ' + (i+1), 40, currentY + 92);
+            }
+            currentY += img.height;
+          });
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          canvas.toBlob(blob => {
+            if (blob) resolve({ dataUrl, blob, format: 'jpeg' });
+            else reject('Blob failed');
+          }, 'image/jpeg', 0.85);
+        }).catch(reject);
+      });
+    }
+  };
+
   const handleShare = async () => {
     const currentImg = imageCache[mode];
     if (!currentImg) return;
@@ -416,50 +512,25 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
     if (allPageUrls.length > 1) {
       try {
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const result = await processMultiPage(allPageUrls);
+        const filename = result.format === 'pdf' ? 'scanned-document.pdf' : 'scanned-scroll.jpg';
+        const mimeType = result.format === 'pdf' ? 'application/pdf' : 'image/jpeg';
         
-        for (let i = 0; i < allPageUrls.length; i++) {
-          if (i > 0) pdf.addPage();
-          await new Promise<void>((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => {
-              const imgRatio = img.width / img.height;
-              const pdfRatio = pdfWidth / pdfHeight;
-              let finalW = pdfWidth;
-              let finalH = pdfHeight;
-              if (imgRatio > pdfRatio) {
-                finalH = pdfWidth / imgRatio;
-              } else {
-                finalW = pdfHeight * imgRatio;
-              }
-              const x = (pdfWidth - finalW) / 2;
-              const y = (pdfHeight - finalH) / 2;
-              pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
-              resolve();
-            };
-            img.onerror = reject;
-            img.src = allPageUrls[i];
-          });
-        }
-        
-        const blob = pdf.output('blob');
-        const file = new File([blob], 'scanned-document.pdf', { type: 'application/pdf' });
+        const file = new File([result.blob], filename, { type: mimeType });
         if (navigator.canShare && navigator.canShare({ files: [file] })) {
           await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
         } else {
-          const url = URL.createObjectURL(blob);
+          const url = URL.createObjectURL(result.blob);
           const a = document.createElement('a');
           a.href = url;
-          a.download = 'scanned-document.pdf';
+          a.download = filename;
           a.click();
           URL.revokeObjectURL(url);
         }
         return;
       } catch (e) {
-        console.error('PDF share failed', e);
-        alert('שגיאה ביצירת PDF לשיתוף');
+        console.error('Share failed', e);
+        alert('שגיאה בשיתוף המסמך המרובה');
         return;
       }
     }
@@ -505,40 +576,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       
       let primary = allPageUrls[0];
       
-      // If it's a document (not a photo/receipt) we generate a PDF
-      if (finalRouting === 'document') {
+      if (allPageUrls.length > 1) {
         try {
-          const pdf = new jsPDF('p', 'mm', 'a4');
-          const pdfWidth = pdf.internal.pageSize.getWidth();
-          const pdfHeight = pdf.internal.pageSize.getHeight();
-          
-          for (let i = 0; i < allPageUrls.length; i++) {
-            if (i > 0) pdf.addPage();
-            
-            await new Promise<void>((resolve, reject) => {
-              const img = new Image();
-              img.onload = () => {
-                const imgRatio = img.width / img.height;
-                const pdfRatio = pdfWidth / pdfHeight;
-                let finalW = pdfWidth;
-                let finalH = pdfHeight;
-                if (imgRatio > pdfRatio) {
-                  finalH = pdfWidth / imgRatio;
-                } else {
-                  finalW = pdfHeight * imgRatio;
-                }
-                const x = (pdfWidth - finalW) / 2;
-                const y = (pdfHeight - finalH) / 2;
-                pdf.addImage(img, 'JPEG', x, y, finalW, finalH);
-                resolve();
-              };
-              img.onerror = reject;
-              img.src = allPageUrls[i];
-            });
+          const result = await processMultiPage(allPageUrls);
+          primary = result.dataUrl;
+          if (finalRouting === 'document' && result.format === 'pdf') {
+             // Keep as document
+          } else if (result.format === 'jpeg') {
+             finalRouting = 'image';
           }
-          primary = pdf.output('datauristring');
         } catch (e) {
-          console.error("PDF generation failed", e);
+          console.error('Failed to process multi-page', e);
         }
       }
       

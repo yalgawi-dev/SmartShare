@@ -231,11 +231,16 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                 <div key={doc.id} data-doc-id={doc.id} style={{ background: '#f8fafc', borderRadius: '12px', overflow: 'hidden', border: dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0', position: 'relative', opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1), transition: 'all 0.2s', transform: dragOverDocId === doc.id ? 'scale(1.02)' : 'scale(1)' }}>
                   {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
                   <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
-                  <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }}  style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
-                    <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>
-                      {(doc.url && doc.url.includes('.pdf')) || doc.type === 'pdf' ? 'PDF' : 'JPG'}
+                  {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
+                    <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                      <span style={{ fontSize: '3rem' }}>📄</span>
+                      <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
                     </div>
-                  </div>
+                  ) : (
+                    <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                      <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>JPG</div>
+                    </div>
+                  )}
                   <div onTouchStart={(e) => handleTouchDragStart(e, doc.id)} onMouseDown={(e) => handleTouchDragStart(e, doc.id)} style={{ display: 'flex', justifyContent: 'center', padding: '0.4rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', cursor: 'grab' }}>
                       <span style={{ fontSize: '0.8rem', color: '#94a3b8', letterSpacing: '2px' }}>|||</span>
                     </div>
@@ -324,7 +329,11 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
           )}
           
-          <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+          {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].type === 'pdf' || previewState.docs[previewState.index].url?.startsWith('data:application/pdf')) ? (
+              <iframe src={previewState.docs[previewState.index].url} style={{ width: '90%', height: '85%', border: 'none', background: 'white', borderRadius: '8px' }} />
+            ) : (
+              <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+            )}
           
           {previewState.index < previewState.docs.length - 1 && (
             <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>›</button>
