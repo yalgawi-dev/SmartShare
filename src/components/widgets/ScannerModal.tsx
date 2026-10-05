@@ -408,11 +408,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setClassifyOverride(false);
   };
 
-  const processMultiPage = async (urls: string[]): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' | 'jpeg' }> => {
-    const includeNumbers = window.confirm("האם להוסיף מספור עמודים על גבי המסמך?");
-    const usePdf = window.confirm("באיזה פורמט לייצא את המסמך?\n\n[אישור] = PDF (עמודים נפרדים)\n[ביטול] = תמונה אחת ארוכה (מגילה)");
-
-    if (usePdf) {
+  const processMultiPage = async (urls: string[], format: 'pdf'|'jpeg', includeNumbers: boolean): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' | 'jpeg' }> => {
+    if (format === 'pdf') {
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -478,21 +475,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             img.src = url;
           });
         })).then(loadedImages => {
-          const maxWidth = Math.max(...loadedImages.map(img => img.width));
-          const totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
+          const MAX_HEIGHT = 8192; // Safe max height for mobile browsers
+          let totalHeight = loadedImages.reduce((sum, img) => sum + img.height, 0);
+          let scale = 1;
+          if (totalHeight > MAX_HEIGHT) {
+            scale = MAX_HEIGHT / totalHeight;
+          }
+          const maxWidth = Math.max(...loadedImages.map(img => img.width)) * scale;
+          totalHeight = totalHeight * scale;
+          
           canvas.width = maxWidth;
           canvas.height = totalHeight;
           let currentY = 0;
           loadedImages.forEach((img, i) => {
-            ctx.drawImage(img, 0, currentY, img.width, img.height);
+            const h = img.height * scale;
+            const w = img.width * scale;
+            ctx.drawImage(img, 0, currentY, w, h);
             if (includeNumbers) {
+              const fontSize = Math.max(36, 72 * scale);
               ctx.fillStyle = 'rgba(0,0,0,0.7)';
-              ctx.fillRect(20, currentY + 20, 300, 100);
+              ctx.fillRect(20, currentY + 20, 180, 80);
               ctx.fillStyle = '#FFD700';
-              ctx.font = 'bold 72px Arial';
-              ctx.fillText('עמוד ' + (i+1), 40, currentY + 92);
+              ctx.font = `bold ${fontSize}px Arial`;
+              ctx.fillText('עמוד ' + (i+1), 40, currentY + 70);
             }
-            currentY += img.height;
+            currentY += h;
           });
           const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
           canvas.toBlob(blob => {
@@ -504,6 +511,42 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
+  const executeExport = async () => {
+    if (!exportOptions) return;
+    setIsProcessing(true);
+    try {
+      const { type, urls } = exportOptions;
+      if (type === 'share') {
+         const result = await processMultiPage(urls, exportFormat, exportNumbers);
+         const filename = result.format === 'pdf' ? 'scanned-document.pdf' : 'scanned-scroll.jpg';
+         const mimeType = result.format === 'pdf' ? 'application/pdf' : 'image/jpeg';
+         
+         const file = new File([result.blob], filename, { type: mimeType });
+         if (navigator.canShare && navigator.canShare({ files: [file] })) {
+           await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
+         } else {
+           const url = URL.createObjectURL(result.blob);
+           const a = document.createElement('a');
+           a.href = url;
+           a.download = filename;
+           a.click();
+           URL.revokeObjectURL(url);
+         }
+      } else if (type === 'save') {
+         const result = await processMultiPage(urls, exportFormat, exportNumbers);
+         let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+         if (result.format === 'jpeg') finalRouting = 'image';
+         onComplete(result.dataUrl, undefined, urls, finalRouting);
+      }
+    } catch (e) {
+       console.error('Export failed', e);
+       alert('שגיאה בתהליך');
+    } finally {
+       setIsProcessing(false);
+       setExportOptions(null);
+    }
+  };
+
   const handleShare = async () => {
     const currentImg = imageCache[mode];
     if (!currentImg) return;
@@ -511,28 +554,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const allPageUrls = [...scannedPages.map(p => p.imageUrl), currentImg];
 
     if (allPageUrls.length > 1) {
-      try {
-        const result = await processMultiPage(allPageUrls);
-        const filename = result.format === 'pdf' ? 'scanned-document.pdf' : 'scanned-scroll.jpg';
-        const mimeType = result.format === 'pdf' ? 'application/pdf' : 'image/jpeg';
-        
-        const file = new File([result.blob], filename, { type: mimeType });
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
-        } else {
-          const url = URL.createObjectURL(result.blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = filename;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-        return;
-      } catch (e) {
-        console.error('Share failed', e);
-        alert('שגיאה בשיתוף המסמך המרובה');
-        return;
-      }
+      setExportOptions({ type: 'share', urls: allPageUrls });
+      return;
     }
 
     try {
@@ -577,17 +600,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       let primary = allPageUrls[0];
       
       if (allPageUrls.length > 1) {
-        try {
-          const result = await processMultiPage(allPageUrls);
-          primary = result.dataUrl;
-          if (finalRouting === 'document' && result.format === 'pdf') {
-             // Keep as document
-          } else if (result.format === 'jpeg') {
-             finalRouting = 'image';
-          }
-        } catch (e) {
-          console.error('Failed to process multi-page', e);
-        }
+        setExportOptions({ type: 'save', urls: allPageUrls });
+        return; // Don't process further, modal will handle it via executeExport
       }
       
       if (!isClosingRef.current) {
@@ -743,6 +757,37 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         )}
       </div>
 
+
+      {exportOptions && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '16px', width: '85%', maxWidth: '340px', color: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+            <h3 style={{ margin: 0, textAlign: 'center', color: '#f8fafc', fontSize: '1.3rem', fontWeight: 'bold' }}>{exportOptions.type === 'share' ? 'הגדרות שיתוף' : 'הגדרות שמירה'}</h3>
+            
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <input type="checkbox" checked={exportNumbers} onChange={e => setExportNumbers(e.target.checked)} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
+              <span style={{ fontSize: '1rem' }}>מספור עמודים</span>
+            </label>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.3rem', fontWeight: 'bold' }}>פורמט פלט:</div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
+                <input type="radio" checked={exportFormat === 'pdf'} onChange={() => setExportFormat('pdf')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
+                <span style={{ fontSize: '1rem' }}>PDF (עמודים נפרדים)</span>
+              </label>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
+                <input type="radio" checked={exportFormat === 'jpeg'} onChange={() => setExportFormat('jpeg')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
+                <span style={{ fontSize: '1rem' }}>מגילה (תמונה אחת ארוכה)</span>
+              </label>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
+              <button onClick={() => setExportOptions(null)} style={{ flex: 1, padding: '0.9rem', background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>ביטול</button>
+              <button onClick={executeExport} style={{ flex: 1, padding: '0.9rem', background: '#10b981', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>{exportOptions.type === 'share' ? 'שתף עכשיו' : 'שמור עכשיו'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {/* Footer Controls */}
       <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 1000 }}>
         
@@ -767,7 +812,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
                <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', color: 'white', width: '60px' }}>
                  <input type="file" accept="image/*,application/pdf" onChange={handleGalleryImport} style={{ display: 'none' }} />
-                 <span style={{ fontSize: '1.5rem', background: 'rgba(255,255,255,0.2)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>🖼️</span>
+                 <span style={{ background: 'rgba(255,255,255,0.2)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
+                   <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                 </span>
                  <span style={{ fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>ייבוא לסורק</span>
                </label>
              </div>
