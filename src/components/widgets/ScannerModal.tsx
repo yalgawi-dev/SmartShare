@@ -1163,18 +1163,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                        items={sortedTrayItems}
                        onReorder={(newItems) => setTrayOrder(newItems.map(i => i.id))}
                        onItemClick={(item) => {
-                          if (item.type === 'scanned') {
-                             setPreviewType('scanned');
-                             setPreviewIndex(scannedPages.findIndex(p => p.id === item.id));
-                          } else if (item.type === 'pending') {
-                             saveCurrentStateToTrays();
-                             setPendingImports(prev => prev.filter(p => p !== item.url));
-                             processImportUrl(item.url);
-                          } else {
-                             setPreviewType(null);
-                             setPreviewIndex(null);
-                          }
-                       }}
+                           if (item.type === 'scanned') {
+                              saveCurrentStateToTrays();
+                              const docToLoad = scannedPages.find(p => p.id === item.id);
+                              if (docToLoad) {
+                                setScannedPages(prev => prev.filter(p => p.id !== item.id));
+                                setImageCache({ [mode]: docToLoad.imageUrl });
+                                setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
+                                setStep('review');
+                              }
+                           } else if (item.type === 'pending') {
+                              saveCurrentStateToTrays();
+                              setPendingImports(prev => prev.filter(p => p !== item.url));
+                              processImportUrl(item.url);
+                           }
+                        }}
                     />
                  </div>
                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', width: '100%' }}>
