@@ -620,11 +620,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         const scaledHeights = loadedImages.map(img => (maxWidth / img.width) * img.height);
         const totalHeight = scaledHeights.reduce((sum, h) => sum + h, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
         
-        const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [maxWidth, totalHeight] });
+        
+        let finalFormatHeight = totalHeight;
+        let finalFormatWidth = maxWidth;
+        let scaleDown = 1.0;
+        if (totalHeight > 14000) {
+            scaleDown = 14000 / totalHeight;
+            finalFormatHeight = 14000;
+            finalFormatWidth = maxWidth * scaleDown;
+        }
+        
+        const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [finalFormatWidth, finalFormatHeight] });
         
         // Fill background with dark gray for the separators
         pdf.setFillColor(50, 50, 50);
-        pdf.rect(0, 0, maxWidth, totalHeight, 'F');
+        pdf.rect(0, 0, finalFormatWidth, finalFormatHeight, 'F');
         
         let currentY = 0;
         for (let i = 0; i < loadedImages.length; i++) {
@@ -646,15 +656,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               ctx.font = 'bold 72px Arial';
               ctx.fillText('עמוד ' + (i+1), 40, 92);
               const numImgUrl = canvas.toDataURL('image/jpeg', 0.95);
-              pdf.addImage(numImgUrl, 'JPEG', 0, currentY, maxWidth, scaledH);
+              pdf.addImage(numImgUrl, 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
             } else {
-              pdf.addImage(urls[i], 'JPEG', 0, currentY, maxWidth, scaledH);
+              pdf.addImage(urls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
             }
           } else {
-            pdf.addImage(urls[i], 'JPEG', 0, currentY, maxWidth, scaledH);
+            pdf.addImage(urls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
           }
           currentY += scaledH + GAP;
         }
+
         
         const blob = pdf.output('blob');
         const dataUrl = pdf.output('datauristring');
@@ -743,18 +754,52 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               console.warn("Invalid image dimensions", w, h);
               continue;
            }
-           if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
+           
+           if (w > 4000) { h = Math.round(h * (4000 / w)); w = 4000; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
            const ctx = canvas.getContext('2d');
            if (ctx) {
               ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(img, 0, 0, w, h);
-              const data = compressCanvas(canvas, 0.82);
-              if (data && data !== 'data:,') {
-                 allPageUrls.push(data);
+              
+              // Auto-crop magic for batch imports!
+              const pts = detectDocument(canvas) || [
+                {x: w * 0.1, y: h * 0.1},
+                {x: w * 0.9, y: h * 0.1},
+                {x: w * 0.9, y: h * 0.9},
+                {x: w * 0.1, y: h * 0.9}
+              ];
+              const snapshotUrl = compressCanvas(canvas, 1.0);
+              
+              try {
+                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, 'smart_plus');
+                  
+                  // Now compress the processed smart_plus image
+                  const imgProcessed = new Image();
+                  imgProcessed.src = result.filtered;
+                  await new Promise((r) => { imgProcessed.onload = r; imgProcessed.onerror = r; });
+                  
+                  const processedCanvas = document.createElement('canvas');
+                  processedCanvas.width = imgProcessed.width; processedCanvas.height = imgProcessed.height;
+                  const pCtx = processedCanvas.getContext('2d');
+                  if (pCtx) {
+                      pCtx.drawImage(imgProcessed, 0, 0);
+                      const data = compressCanvas(processedCanvas, 0.82);
+                      if (data && data !== 'data:,') {
+                          allPageUrls.push(data);
+                      }
+                  }
+              } catch (e) {
+                  // Fallback to raw if OpenCV fails
+                  console.error("Batch crop failed", e);
+                  const data = compressCanvas(canvas, 0.82);
+                  if (data && data !== 'data:,') {
+                      allPageUrls.push(data);
+                  }
               }
            }
+
          } catch (e) {
            console.error("Error processing pending image:", e);
          }
@@ -807,18 +852,52 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               console.warn("Invalid image dimensions", w, h);
               continue;
            }
-           if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
+           
+           if (w > 4000) { h = Math.round(h * (4000 / w)); w = 4000; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
            const ctx = canvas.getContext('2d');
            if (ctx) {
               ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(img, 0, 0, w, h);
-              const data = compressCanvas(canvas, 0.82);
-              if (data && data !== 'data:,') {
-                 allPageUrls.push(data);
+              
+              // Auto-crop magic for batch imports!
+              const pts = detectDocument(canvas) || [
+                {x: w * 0.1, y: h * 0.1},
+                {x: w * 0.9, y: h * 0.1},
+                {x: w * 0.9, y: h * 0.9},
+                {x: w * 0.1, y: h * 0.9}
+              ];
+              const snapshotUrl = compressCanvas(canvas, 1.0);
+              
+              try {
+                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, 'smart_plus');
+                  
+                  // Now compress the processed smart_plus image
+                  const imgProcessed = new Image();
+                  imgProcessed.src = result.filtered;
+                  await new Promise((r) => { imgProcessed.onload = r; imgProcessed.onerror = r; });
+                  
+                  const processedCanvas = document.createElement('canvas');
+                  processedCanvas.width = imgProcessed.width; processedCanvas.height = imgProcessed.height;
+                  const pCtx = processedCanvas.getContext('2d');
+                  if (pCtx) {
+                      pCtx.drawImage(imgProcessed, 0, 0);
+                      const data = compressCanvas(processedCanvas, 0.82);
+                      if (data && data !== 'data:,') {
+                          allPageUrls.push(data);
+                      }
+                  }
+              } catch (e) {
+                  // Fallback to raw if OpenCV fails
+                  console.error("Batch crop failed", e);
+                  const data = compressCanvas(canvas, 0.82);
+                  if (data && data !== 'data:,') {
+                      allPageUrls.push(data);
+                  }
               }
            }
+
          } catch (e) {
            console.error("Error processing pending image:", e);
          }
@@ -867,7 +946,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.14</span>
+            <span>סורק מסמכים v19.15</span>
           </h2>
         </div>
         
