@@ -18,6 +18,8 @@ interface ScannedPage {
   pageNum: number;
   rawImageUrl?: string;
   cropPoints?: Point[];
+  mode?: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow';
+  category?: 'receipt' | 'document' | 'image' | 'advanced';
 }
 
 interface ClassifyResult {
@@ -78,7 +80,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const missedFramesRef = useRef<number>(0);
   
   const [cvLoaded, setCvLoaded] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image'>('receipt');
+  const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>('receipt');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
@@ -514,7 +516,13 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     if (!rawSnapshot || cropPoints.length !== 4) return;
     if (imageCache[targetMode]) {
        setMode(targetMode);
+       if (targetMode !== 'smart_plus' && targetMode !== 'pure_color' && targetMode !== 'bw') {
+          setSelectedCategory('advanced');
+       }
        return;
+    }
+    if (targetMode !== 'smart_plus' && targetMode !== 'pure_color' && targetMode !== 'bw') {
+       setSelectedCategory('advanced');
     }
     setIsProcessing(true);
     setTimeout(async () => {
@@ -952,7 +960,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.36</span>
+            <span>סורק מסמכים v19.37</span>
           </h2>
         </div>
         
@@ -1296,12 +1304,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                               setActiveDocId(item.id);
                               const docToLoad = scannedPages.find(p => p.id === item.id);
                               if (docToLoad) {
-                                setScannedPages(prev => prev.filter(p => p.id !== item.id));
-                                setImageCache({ [mode]: docToLoad.imageUrl });
-                                setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
-                                if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
-                                setStep('review');
-                              }
+                                 setScannedPages(prev => prev.filter(p => p.id !== item.id));
+                                 const restoredMode = docToLoad.mode || 'smart_plus';
+                                 const restoredCat = docToLoad.category || 'document';
+                                 setMode(restoredMode);
+                                 setSelectedCategory(restoredCat);
+                                 setImageCache({ [restoredMode]: docToLoad.imageUrl });
+                                 setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
+                                 if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
+                                 setStep('review');
+                               }
                            } else if (item.type === 'pending') {
                               saveCurrentStateToTrays();
                               setActiveDocId(item.id);
