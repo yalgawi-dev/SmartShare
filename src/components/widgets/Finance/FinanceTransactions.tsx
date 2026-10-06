@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { universalSearch } from '../../../utils/searchEngine';
 import { useSpaces } from '../../../app/context/SpacesContext';
+import ScannerModal from '../ScannerModal';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -42,61 +43,26 @@ export function FinanceTransactions({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [uploadingRetroId, setUploadingRetroId] = useState<string | null>(null);
+  const [retroScanInvoice, setRetroScanInvoice] = useState<any>(null);
 
-  const handleRetroactiveUpload = async (e: React.ChangeEvent<HTMLInputElement>, inv: any) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    
+  // Receives the output of the shared ScannerModal (already filtered/cropped/grouped) and ONLY attaches it - no OCR.
+  const handleRetroScanComplete = async (url: string, singleImg?: string, allPages?: string[]) => {
+    const inv = retroScanInvoice;
+    setRetroScanInvoice(null);
+    if (!inv || !space) return;
     setUploadingRetroId(inv.id);
     try {
       const { uploadImageToStorage } = await import('../../../lib/firebase');
-      const isPdf = file.type === 'application/pdf';
-      let urlToUpload = '';
-      
-      if (isPdf) {
-        if (file.size > 5 * 1024 * 1024) {
-          alert("קובץ ה-PDF גדול מדי (מעל 5MB).");
-          setUploadingRetroId(null);
-          return;
-        }
-        const reader = new FileReader();
-        urlToUpload = await new Promise((resolve) => {
-          reader.onload = (ev) => resolve(ev.target?.result as string);
-          reader.readAsDataURL(file);
-        });
-      } else {
-        const rawData = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (ev) => resolve(ev.target?.result as string);
-          reader.readAsDataURL(file);
-        });
-        const img = new Image();
-        img.src = rawData;
-        await new Promise((resolve) => { img.onload = resolve; });
-        
-        const canvas = document.createElement('canvas');
-        let w = img.width;
-        let h = img.height;
-        if (w > 1600) { h = Math.round(h * (1600 / w)); w = 1600; }
-        if (h > 1600) { w = Math.round(w * (1600 / h)); h = 1600; }
-        
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, w, h);
-          urlToUpload = canvas.toDataURL('image/jpeg', 0.85);
-        } else {
-          urlToUpload = rawData;
-        }
+      const isMulti = !!allPages && allPages.length > 1;
+      const dataUrl = isMulti || !singleImg ? url : singleImg;
+      const isPdf = dataUrl.startsWith('data:application/pdf');
+      if (isPdf && dataUrl.length > 2.5 * 1024 * 1024) {
+        alert("קובץ ה-PDF גדול מדי (מעל 2MB). נסה פחות עמודים.");
+        return;
       }
-      
-      const filename = `invoices/${space?.id || 'unknown'}/retro_${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
-      const finalUrl = await uploadImageToStorage(urlToUpload, filename);
-      
-      if (updateInvoice && space) {
-         updateInvoice(space.id, inv.id, { attachmentUrl: finalUrl, hasAttachment: true }, user?.id, 'retroactive_attachment');
-      }
+      const filename = `invoices/${space.id}/retro_${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
+      const finalUrl = await uploadImageToStorage(dataUrl, filename);
+      updateInvoice?.(space.id, inv.id, { attachmentUrl: finalUrl, hasAttachment: true }, user?.id, 'retroactive_attachment');
     } catch (error) {
       console.error("Failed to upload retroactive attachment", error);
       alert("שגיאה בהעלאת הקובץ.");
@@ -690,16 +656,14 @@ export function FinanceTransactions({
                         ) : (
                           <>
                             <span style={{ fontWeight: 'bold' }}>לא צורפה קבלה או חשבונית.</span>
-                            <label style={{ background: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
+                            <button onClick={(e) => { e.stopPropagation(); setRetroScanInvoice(inv); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
                               <span>📷 צלם או ייבא</span>
-                              <input 
-                                type="file" 
-                                accept="image/*,application/pdf" 
-                                capture="environment" 
-                                style={{ display: 'none' }}
-                                onChange={(e) => handleRetroactiveUpload(e, inv)}
-                              />
-                            </label>
+                            </button>
+                            {retroScanInvoice?.id === inv.id && (
+                              <div onClick={(e) => e.stopPropagation()}>
+                                <ScannerModal hasFinance onClose={() => setRetroScanInvoice(null)} onComplete={handleRetroScanComplete} />
+                              </div>
+                            )}
                           </>
                         )}
                       </div>
