@@ -787,7 +787,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     // Process everything in sorted order
     // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
     // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = true; // Always compress when saving to server    for (const item of sortedTrayItems) {
+    const needsCompression = true;
+    for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
         const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
         allPageUrls.push(urlToUse);
