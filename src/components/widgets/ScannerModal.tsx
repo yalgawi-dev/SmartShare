@@ -102,7 +102,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original'>('smart_plus');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow'>('smart_plus');
   const [defaultBatchEngine, setDefaultBatchEngine] = useState<'smart_plus'|'experimental'>('smart_plus');
   const [showEngineModal, setShowEngineModal] = useState(false);
 
