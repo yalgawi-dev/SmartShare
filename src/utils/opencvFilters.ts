@@ -1127,13 +1127,15 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             cv.divide(hsRgb, bgMapRgb, flatRgb, 255.0, -1);
             
             let punchyRgb = new cv.Mat();
-              flatRgb.convertTo(punchyRgb, -1, 3.5, -500); 
+              // Darken the ink uniformly so faint text doesn't turn white
+              flatRgb.convertTo(punchyRgb, -1, 1.2, -80); 
               
-              let punchyGray = new cv.Mat();
-              cv.cvtColor(punchyRgb, punchyGray, cv.COLOR_RGB2GRAY);
+              let flatGray = new cv.Mat();
+              cv.cvtColor(flatRgb, flatGray, cv.COLOR_RGB2GRAY);
               
               let mask = new cv.Mat();
-              cv.adaptiveThreshold(punchyGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 15);
+              // C=4 is highly sensitive, catching faint lines and filling holes
+              cv.adaptiveThreshold(flatGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 4);
               
               let finalRgb = new cv.Mat(hsRgb.rows, hsRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
               punchyRgb.copyTo(finalRgb, mask);
@@ -1141,7 +1143,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             cv.cvtColor(finalRgb, finalHybridShadowRgba, cv.COLOR_RGB2RGBA);
             
             hsRgb.delete(); smallRgb.delete(); bgMapRgb.delete(); 
-            flatRgb.delete(); punchyRgb.delete(); punchyGray.delete(); 
+            flatRgb.delete(); punchyRgb.delete(); flatGray.delete(); 
             mask.delete(); finalRgb.delete();
             
             t_engine = performance.now() - hsT0;
