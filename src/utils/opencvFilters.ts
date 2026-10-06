@@ -1102,6 +1102,51 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         
         // --- EXPERIMENTAL ENGINE (Background Division) ---
         let finalExperimentalRgba = new cv.Mat();
+        
+        let finalHybridShadowRgba = new cv.Mat();
+        if (activeProfile === 'hybrid_shadow' || forcedProfile === 'hybrid_shadow') {
+            const hsT0 = performance.now();
+            
+            let hsRgb = new cv.Mat();
+            cv.cvtColor(dst, hsRgb, cv.COLOR_RGBA2RGB);
+            
+            let smallRgb = new cv.Mat();
+            let scale = 0.2;
+            cv.resize(hsRgb, smallRgb, new cv.Size(0,0), scale, scale, cv.INTER_AREA);
+            
+            let k = Math.floor(Math.max(dst.cols, dst.rows) / 8);
+            let smallK = Math.floor(k * scale);
+            if (smallK % 2 === 0) smallK++;
+            if (smallK < 15) smallK = 15;
+            
+            cv.GaussianBlur(smallRgb, smallRgb, new cv.Size(smallK, smallK), 0, 0, cv.BORDER_DEFAULT);
+            let bgMapRgb = new cv.Mat();
+            cv.resize(smallRgb, bgMapRgb, new cv.Size(hsRgb.cols, hsRgb.rows), 0, 0, cv.INTER_LINEAR);
+            
+            let flatRgb = new cv.Mat();
+            cv.divide(hsRgb, bgMapRgb, flatRgb, 255.0, -1);
+            
+            let punchyRgb = new cv.Mat();
+            flatRgb.convertTo(punchyRgb, -1, 1.5, -50); 
+            
+            let flatGray = new cv.Mat();
+            cv.cvtColor(flatRgb, flatGray, cv.COLOR_RGB2GRAY);
+            
+            let mask = new cv.Mat();
+            cv.adaptiveThreshold(flatGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 15);
+            
+            let finalRgb = new cv.Mat(hsRgb.rows, hsRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
+            punchyRgb.copyTo(finalRgb, mask);
+            
+            cv.cvtColor(finalRgb, finalHybridShadowRgba, cv.COLOR_RGB2RGBA);
+            
+            hsRgb.delete(); smallRgb.delete(); bgMapRgb.delete(); 
+            flatRgb.delete(); punchyRgb.delete(); flatGray.delete(); 
+            mask.delete(); finalRgb.delete();
+            
+            t_engine = performance.now() - hsT0;
+        }
+
         if (activeProfile === 'experimental' || forcedProfile === 'experimental') {
             const expT0 = performance.now();
             let expRgb = new cv.Mat();
