@@ -566,29 +566,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                pdf.addPage([img.width, img.height], orientation);
             }
             
+            
+            pdf.addImage(urls[i], 'JPEG', 0, 0, img.width, img.height);
             if (includeNumbers) {
-               const canvas = document.createElement('canvas');
-               canvas.width = img.width;
-               canvas.height = img.height;
-               const ctx = canvas.getContext('2d');
+               const textCanvas = document.createElement('canvas');
+               textCanvas.width = 300;
+               textCanvas.height = 100;
+               const ctx = textCanvas.getContext('2d');
                if (ctx) {
-                 ctx.imageSmoothingEnabled = true;
-                 ctx.imageSmoothingQuality = 'high';
-                 ctx.drawImage(img, 0, 0);
                  ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                 ctx.fillRect(20, 20, 300, 100);
+                 ctx.fillRect(0, 0, 300, 100);
                  ctx.fillStyle = '#FFD700';
                  ctx.font = 'bold 72px Arial';
-                 ctx.fillText('עמוד ' + (i+1), 40, 92);
-                 const numImgUrl = canvas.toDataURL('image/jpeg', 0.95);
-                 pdf.addImage(numImgUrl, 'JPEG', 0, 0, img.width, img.height);
-               } else {
-                 pdf.addImage(urls[i], 'JPEG', 0, 0, img.width, img.height);
+                 ctx.fillText('עמוד ' + (i+1), 40, 72);
+                 const numImgUrl = textCanvas.toDataURL('image/png');
+                 pdf.addImage(numImgUrl, 'PNG', 20, 20, 300, 100);
                }
-            } else {
-               // Directly embed the high-quality Data URL without going through canvas compression again
-               pdf.addImage(urls[i], 'JPEG', 0, 0, img.width, img.height);
             }
+
             resolve();
           };
           img.onerror = reject;
@@ -641,28 +636,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           const img = loadedImages[i];
           const scaledH = scaledHeights[i];
           
+          
+          pdf.addImage(urls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
           if (includeNumbers) {
-            const canvas = document.createElement('canvas');
-            canvas.width = maxWidth;
-            canvas.height = scaledH;
-            const ctx = canvas.getContext('2d');
+            const textCanvas = document.createElement('canvas');
+            textCanvas.width = 300;
+            textCanvas.height = 100;
+            const ctx = textCanvas.getContext('2d');
             if (ctx) {
-              ctx.imageSmoothingEnabled = true;
-              ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, maxWidth, scaledH);
               ctx.fillStyle = 'rgba(0,0,0,0.7)';
-              ctx.fillRect(20, 20, 300, 100);
+              ctx.fillRect(0, 0, 300, 100);
               ctx.fillStyle = '#FFD700';
               ctx.font = 'bold 72px Arial';
-              ctx.fillText('עמוד ' + (i+1), 40, 92);
-              const numImgUrl = canvas.toDataURL('image/jpeg', 0.95);
-              pdf.addImage(numImgUrl, 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
-            } else {
-              pdf.addImage(urls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
+              ctx.fillText('עמוד ' + (i+1), 40, 72);
+              const numImgUrl = textCanvas.toDataURL('image/png');
+              pdf.addImage(numImgUrl, 'PNG', 20, 20 + (currentY * scaleDown), 300, 100);
             }
-          } else {
-            pdf.addImage(urls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
           }
+
           currentY += scaledH + GAP;
         }
 
@@ -946,7 +937,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.16</span>
+            <span>סורק מסמכים v19.17</span>
           </h2>
         </div>
         
