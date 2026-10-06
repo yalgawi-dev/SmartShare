@@ -947,7 +947,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.22</span>
+            <span>סורק מסמכים v19.23</span>
           </h2>
         </div>
         
@@ -1220,7 +1220,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               </div>
               {showAdvancedFilters && (
                 <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => handleFilterSwitch('smart_plus')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'smart_plus' ? '#10b981' : 'transparent', color: mode === 'smart_plus' ? '#fff' : '#10b981', border: '1px solid #10b981', fontSize: '0.8rem', cursor: 'pointer' }}>חשבונית+</button>
                   <button onClick={() => handleFilterSwitch('experimental')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'experimental' ? '#3b82f6' : 'transparent', color: mode === 'experimental' ? '#fff' : '#3b82f6', border: '1px solid #3b82f6', fontSize: '0.8rem', cursor: 'pointer' }}>ניסיוני (חדש)</button>
                   <button onClick={() => handleFilterSwitch('bw')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>שחור-לבן</button>
                   <button onClick={() => handleFilterSwitch('original')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>מקור</button>
