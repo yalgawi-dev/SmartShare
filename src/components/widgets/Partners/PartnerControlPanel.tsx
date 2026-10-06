@@ -221,16 +221,37 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
               {onTriggerTransfer && (
                 <button
-                  onClick={() => { onClose(); onTriggerTransfer(); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.3)' }}
+                  onClick={() => {
+                    if ((space?.features || []).includes('partners')) {
+                      onClose(); onTriggerTransfer();
+                    }
+                  }}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
+                    fontWeight: 'bold',
+                    cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
+                    opacity: (space?.features || []).includes('partners') ? 1 : 0.5,
+                    boxShadow: (space?.features || []).includes('partners') ? '0 2px 4px rgba(16,185,129,0.3)' : 'none'
+                  }}
                 >
                   <span style={{ fontSize: '1.1rem' }}>💸</span> תשלום
                 </button>
               )}
               {onEditShares && (
                 <button
-                  onClick={() => { onClose(); onEditShares(); }}
-                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                  onClick={() => {
+                    if ((space?.features || []).includes('partners')) {
+                      onClose(); onEditShares();
+                    }
+                  }}
+                  style={{
+                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                    background: 'white', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '12px',
+                    fontWeight: 'bold',
+                    cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
+                    opacity: (space?.features || []).includes('partners') ? 1 : 0.5
+                  }}
                 >
                   <span style={{ fontSize: '1.1rem' }}>📊</span> שינוי אחוזים
                 </button>
