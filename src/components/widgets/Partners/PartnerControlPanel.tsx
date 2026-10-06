@@ -317,6 +317,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         {/* Chat Messages Area */}
         {(space.features || []).includes('chat') ? (
           <ChatEngineUI
+            isFrozen={!(space.features || []).includes('partners')}
             space={space}
             conversationId={conversationId}
             member={member}

@@ -119,10 +119,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   
   useEffect(() => {
     if (typeof window !== 'undefined' && activeChatId) {
-      if (space && !space.features?.includes('partners')) {
-         alert("תוסף השותפים כבוי כרגע במרחב זה, ולכן לא ניתן לגשת להודעה או לצ'אט.");
-         setActiveChatId(null);
-      }
+      // Allow opening the chat panel to view history (it will be frozen)
       
       // Clear URL so refreshing doesn't keep opening it if they close it
       const url = new URL(window.location.href);
@@ -818,7 +815,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Global Modals */}
-      {activeChatId && space?.features?.includes('partners') && getChatMemberAndMode(activeChatId) && (
+      {activeChatId && getChatMemberAndMode(activeChatId) && (
         <PartnerControlPanel
           member={getChatMemberAndMode(activeChatId)!.member}
           space={space}
