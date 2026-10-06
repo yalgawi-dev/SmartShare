@@ -185,6 +185,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   // Document classifier
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
   const [isClassifying, setIsClassifying] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setShowDebug(localStorage.getItem('show_scanner_debug') === 'true');
+    }
+  }, []);
   const [classifyOverride, setClassifyOverride] = useState(false);
   
   // 1. Load OpenCV.js safely
@@ -947,7 +953,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.23</span>
+            <span>סורק מסמכים v19.25</span>
           </h2>
         </div>
         
@@ -1069,7 +1075,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {step === 'review' && (
            <div style={{ flex: 1, width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#111' }}>
              {/* TIMING TELEMETRY DISPLAY */}
-             {timingCache[mode] && (
+             {showDebug && timingCache[mode] && (
                <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.8)', color: '#0f0', padding: '0.5rem', borderRadius: '8px', zIndex: 100, fontSize: '0.8rem', fontFamily: 'monospace' }}>
                  OpenCV Math: {timingCache[mode].mathMs}ms<br/>
                  {timingCache[mode].breakdown && (
