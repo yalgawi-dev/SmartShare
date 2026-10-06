@@ -721,9 +721,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
          canvas.width = img.width; canvas.height = img.height;
          const ctx = canvas.getContext('2d');
          if (!ctx) return res(url);
-         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+         ctx.imageSmoothingEnabled = false; // MUST BE FALSE for 1:1 copies to prevent edge blurring on text!
          ctx.drawImage(img, 0, 0);
-         res(compressCanvas(canvas, 0.82));
+         res(compressCanvas(canvas, 0.90)); // Increase to 0.90 for high-contrast crisp text
       };
       img.onerror = () => res(url);
     });
@@ -785,7 +785,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   const pCtx = processedCanvas.getContext('2d');
                   if (pCtx) {
                       pCtx.drawImage(imgProcessed, 0, 0);
-                      const data = compressCanvas(processedCanvas, 0.82);
+                      const data = compressCanvas(processedCanvas, 0.90);
                       if (data && data !== 'data:,') {
                           allPageUrls.push(data);
                       }
@@ -793,7 +793,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               } catch (e) {
                   // Fallback to raw if OpenCV fails
                   console.error("Batch crop failed", e);
-                  const data = compressCanvas(canvas, 0.82);
+                  const data = compressCanvas(canvas, 0.90);
                   if (data && data !== 'data:,') {
                       allPageUrls.push(data);
                   }
@@ -883,7 +883,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   const pCtx = processedCanvas.getContext('2d');
                   if (pCtx) {
                       pCtx.drawImage(imgProcessed, 0, 0);
-                      const data = compressCanvas(processedCanvas, 0.82);
+                      const data = compressCanvas(processedCanvas, 0.90);
                       if (data && data !== 'data:,') {
                           allPageUrls.push(data);
                       }
@@ -891,7 +891,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               } catch (e) {
                   // Fallback to raw if OpenCV fails
                   console.error("Batch crop failed", e);
-                  const data = compressCanvas(canvas, 0.82);
+                  const data = compressCanvas(canvas, 0.90);
                   if (data && data !== 'data:,') {
                       allPageUrls.push(data);
                   }
@@ -946,7 +946,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.15</span>
+            <span>סורק מסמכים v19.16</span>
           </h2>
         </div>
         
@@ -1124,17 +1124,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               <span style={{ fontSize: '1rem' }}>מספור עמודים</span>
             </label>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <div style={{ fontSize: '0.9rem', color: '#94a3b8', marginBottom: '0.3rem', fontWeight: 'bold' }}>פורמט פלט:</div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
-                <input type="radio" checked={exportFormat === 'pdf'} onChange={() => setExportFormat('pdf')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
-                <span style={{ fontSize: '1rem' }}>PDF (דפים נפרדים - ערמת קלפים)</span>
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
-                <input type="radio" checked={exportFormat === 'scroll_pdf'} onChange={() => setExportFormat('scroll_pdf')} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
-                <span style={{ fontSize: '1rem' }}>PDF כמגילה (עמוד אחד ארוך)</span>
-              </label>
-            </div>
+            
 
             <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
               <button onClick={() => setExportOptions(null)} style={{ flex: 1, padding: '0.9rem', background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>ביטול</button>
