@@ -509,7 +509,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
-  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original') => {
+  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow') => {
     if (mode === targetMode) return;
     if (!rawSnapshot || cropPoints.length !== 4) return;
     if (imageCache[targetMode]) {
