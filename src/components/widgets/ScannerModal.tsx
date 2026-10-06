@@ -722,7 +722,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
     // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = sortedTrayItems.length > 1;
+    const needsCompression = true; // Always compress since we only export PDF
 
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
@@ -763,27 +763,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     if (allPageUrls.length === 0) return;
     
-    if (allPageUrls.length > 1) {
+    if (allPageUrls.length > 0) {
       setExportOptions({ type: 'share', urls: allPageUrls });
       return;
-    }
-
-    try {
-      const res = await fetch(allPageUrls[0]);
-      const blob = await res.blob();
-      const file = new File([blob], 'scanned-document.jpg', { type: blob.type || 'image/jpeg' });
-      if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
-      } else {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'scanned-document.jpg';
-        a.click();
-        URL.revokeObjectURL(url);
-      }
-    } catch (e) {
-      console.error('Share failed', e);
     }
   };
 
