@@ -131,26 +131,25 @@ export function FinanceSummary({
     });
   }
 
+  const resolveUserId = (invoiceObj: any, idField: string, nameField: string) => {
+    let resolvedId = invoiceObj[idField];
+    const trimmedName = (invoiceObj[nameField] || '').trim();
+    if (trimmedName) {
+      if (trimmedName === user?.realName || trimmedName === creatorName || trimmedName === space.createdBy) return creatorId;
+      const existingMember = validMembers.find((m: any) => m.name === trimmedName);
+      if (existingMember) return existingMember.userId;
+    }
+    if ((isCreatorMe && resolvedId === user?.id) || (space.creatorId && resolvedId === space.creatorId) || (space.createdBy && resolvedId === space.createdBy)) return creatorId;
+    
+    if (resolvedId !== TREASURY_MEMBER_ID && !unifiedBalances.has(resolvedId)) {
+      if (trimmedName) return 'guest_name_' + trimmedName;
+      if (!resolvedId) return 'unknown_' + (invoiceObj.id || Math.random());
+    }
+    return resolvedId || 'unknown';
+  };
+
   expensesOnly.forEach((inv: any) => {
-    let matchedId = inv.payerId;
-    if (!matchedId) {
-      const trimmedName = (inv.payerName || '').trim();
-      if (trimmedName && (trimmedName === user?.realName || trimmedName === creatorName || trimmedName === space.createdBy)) {
-        matchedId = creatorId;
-      } else {
-        const existingMember = validMembers.find((m: any) => m.name === trimmedName);
-        if (existingMember) {
-          matchedId = existingMember.userId;
-        } else if (trimmedName) {
-          matchedId = 'guest_name_' + trimmedName;
-        } else {
-          matchedId = 'unknown_' + (inv.id || Math.random());
-        }
-      }
-    }
-    if ((isCreatorMe && matchedId === user?.id) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
-      matchedId = creatorId; // Merge split identities globally so guests see creator correctly
-    }
+    let matchedId = resolveUserId(inv, 'payerId', 'payerName');
     
     if (!unifiedBalances.has(matchedId)) {
       unifiedBalances.set(matchedId, { 
@@ -171,8 +170,8 @@ export function FinanceSummary({
   });
 
   transfersOnly.forEach((inv: any) => {
-    const senderId = inv.payerId || 'unknown_sender';
-    const receiverId = inv.targetId || 'unknown_receiver';
+    const senderId = resolveUserId(inv, 'payerId', 'payerName') || 'unknown_sender';
+    const receiverId = resolveUserId(inv, 'targetId', 'targetName') || 'unknown_receiver';
     if (unifiedBalances.has(senderId)) unifiedBalances.get(senderId)!.transfersSent += (inv.amount || 0);
     if (unifiedBalances.has(receiverId)) unifiedBalances.get(receiverId)!.transfersReceived += (inv.amount || 0);
   });
