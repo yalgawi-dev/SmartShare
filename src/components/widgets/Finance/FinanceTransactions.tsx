@@ -624,7 +624,7 @@ export function FinanceTransactions({
                               מחכה ל: {waitingText}
                             </span>
                           ) : null;
-                        )}()}
+                        })()}
                       </div>
                     )}
                   </div>
