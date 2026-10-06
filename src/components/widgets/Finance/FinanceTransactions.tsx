@@ -41,6 +41,71 @@ export function FinanceTransactions({
   const [memberFilter, setMemberFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [uploadingRetroId, setUploadingRetroId] = useState<string | null>(null);
+
+  const handleRetroactiveUpload = async (e: React.ChangeEvent<HTMLInputElement>, inv: any) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploadingRetroId(inv.id);
+    try {
+      const { uploadImageToStorage } = await import('../../../lib/firebase');
+      const isPdf = file.type === 'application/pdf';
+      let urlToUpload = '';
+      
+      if (isPdf) {
+        if (file.size > 5 * 1024 * 1024) {
+          alert("קובץ ה-PDF גדול מדי (מעל 5MB).");
+          setUploadingRetroId(null);
+          return;
+        }
+        const reader = new FileReader();
+        urlToUpload = await new Promise((resolve) => {
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+      } else {
+        const rawData = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (ev) => resolve(ev.target?.result as string);
+          reader.readAsDataURL(file);
+        });
+        const img = new Image();
+        img.src = rawData;
+        await new Promise((resolve) => { img.onload = resolve; });
+        
+        const canvas = document.createElement('canvas');
+        let w = img.width;
+        let h = img.height;
+        if (w > 1600) { h = Math.round(h * (1600 / w)); w = 1600; }
+        if (h > 1600) { w = Math.round(w * (1600 / h)); h = 1600; }
+        
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          urlToUpload = canvas.toDataURL('image/jpeg', 0.85);
+        } else {
+          urlToUpload = rawData;
+        }
+      }
+      
+      const filename = `invoices/${space?.id || 'unknown'}/retro_${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
+      const finalUrl = await uploadImageToStorage(urlToUpload, filename);
+      
+      if (updateInvoice && space) {
+         updateInvoice(space.id, inv.id, { attachmentUrl: finalUrl, hasAttachment: true }, user?.id, 'retroactive_attachment');
+      }
+    } catch (error) {
+      console.error("Failed to upload retroactive attachment", error);
+      alert("שגיאה בהעלאת הקובץ.");
+    } finally {
+      setUploadingRetroId(null);
+    }
+  };
+
+
   const showIncome = space?.features?.includes('income');
 
   const allUsers = [
