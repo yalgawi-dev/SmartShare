@@ -128,16 +128,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
   const generateDocId = () => 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
   const [activeDocId, setActiveDocId] = React.useState<string>(generateDocId());
+  const [activeOriginalUrl, setActiveOriginalUrl] = React.useState<string | null>(null);
   
   // Derived state for sorting tray
   const derivedTrayItems = React.useMemo(() => {
     const items: TrayItem[] = [
       ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
-      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? [{ id: activeDocId, type: 'active' as const, url: imageCache[mode] || rawSnapshot, isEdited: step === 'review' }] : []),
+      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode] || activeOriginalUrl) ? [{ id: activeDocId, type: 'active' as const, url: (imageCache[mode] || rawSnapshot || activeOriginalUrl) as string, isEdited: step === 'review' }] : []),
       ...pendingImports.map((p) => ({ id: p.id, type: 'pending' as const, url: p.url }))
     ];
     return items;
-  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports, activeDocId]);
+  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports, activeDocId, activeOriginalUrl]);
 
   const sortedTrayItems = React.useMemo(() => {
     return [...derivedTrayItems].sort((a, b) => {
@@ -223,6 +224,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     };
     document.body.appendChild(script);
   }, []);  const processImportUrl = (url: string, preserveId?: string) => {
+    setActiveOriginalUrl(url);
     setStep('cropping');
     setRawSnapshot(null); // Triggers loading state
     
@@ -865,7 +867,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.10</span>
+            <span>סורק מסמכים v19.11</span>
           </h2>
         </div>
         
