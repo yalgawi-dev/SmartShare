@@ -17,6 +17,7 @@ import { PushNotificationReminder } from '../../../components/widgets/PushNotifi
 import GenericWidget from '../../../components/widgets/GenericWidget';
 import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
 import ScannerModal from '../../../components/widgets/ScannerModal';
+import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
 import PendingApprovalBanner from '../../../components/widgets/Partners/PendingApprovalBanner';
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
@@ -746,6 +747,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             onClose={() => setIsScannerOpen(false)}
             hasVault={hasVault}
             hasFinance={hasFinance}
+            maxBytes={DOCUMENT_MAX_BYTES}
             onComplete={(url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
                 if (routingType === 'receipt' || !routingType) {

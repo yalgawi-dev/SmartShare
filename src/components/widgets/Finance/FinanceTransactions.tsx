@@ -2,7 +2,9 @@
 import React, { useState, useEffect } from 'react';
 import { universalSearch } from '../../../utils/searchEngine';
 import { useSpaces } from '../../../app/context/SpacesContext';
+import { createPortal } from 'react-dom';
 import ScannerModal from '../ScannerModal';
+import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -53,13 +55,11 @@ export function FinanceTransactions({
     setUploadingRetroId(inv.id);
     try {
       const { uploadImageToStorage } = await import('../../../lib/firebase');
+      const { compressToBudget } = await import('../../../utils/imageOptimizer');
       const isMulti = !!allPages && allPages.length > 1;
-      const dataUrl = isMulti || !singleImg ? url : singleImg;
+      // Multi-page: the scanner already built a budget-sized PDF. Single page: shrink the image once.
+      const dataUrl = isMulti || !singleImg ? url : await compressToBudget(singleImg);
       const isPdf = dataUrl.startsWith('data:application/pdf');
-      if (isPdf && dataUrl.length > 2.5 * 1024 * 1024) {
-        alert("קובץ ה-PDF גדול מדי (מעל 2MB). נסה פחות עמודים.");
-        return;
-      }
       const filename = `invoices/${space.id}/retro_${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
       const finalUrl = await uploadImageToStorage(dataUrl, filename);
       updateInvoice?.(space.id, inv.id, { attachmentUrl: finalUrl, hasAttachment: true }, user?.id, 'retroactive_attachment');
@@ -659,11 +659,7 @@ export function FinanceTransactions({
                             <button onClick={(e) => { e.stopPropagation(); setRetroScanInvoice(inv); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
                               <span>📷 צלם או ייבא</span>
                             </button>
-                            {retroScanInvoice?.id === inv.id && (
-                              <div onClick={(e) => e.stopPropagation()}>
-                                <ScannerModal hasFinance onClose={() => setRetroScanInvoice(null)} onComplete={handleRetroScanComplete} />
-                              </div>
-                            )}
+                            {retroScanInvoice?.id === inv.id && typeof document !== 'undefined' && createPortal(<div onClick={(e) => e.stopPropagation()}><ScannerModal hasFinance maxBytes={DOCUMENT_MAX_BYTES} onClose={() => setRetroScanInvoice(null)} onComplete={handleRetroScanComplete} /></div>, document.body)}
                           </>
                         )}
                       </div>

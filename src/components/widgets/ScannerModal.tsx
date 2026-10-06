@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { createPortal } from 'react-dom';
-import { compressCanvas, mergeImagesCleanly } from '../../utils/imageOptimizer';
+import { compressCanvas, mergeImagesCleanly, compressToBudget } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 import { jsPDF } from "jspdf";
@@ -33,9 +33,11 @@ interface ScannerModalProps {
   onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image') => void;
   hasVault?: boolean;
   hasFinance?: boolean;
+  /** When set, saved pages are shrunk to this total byte budget (once, before PDF build). */
+  maxBytes?: number;
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, maxBytes }: ScannerModalProps) {
   
   const isClosingRef = useRef(false);
   const onCloseRef = useRef(onClose);
@@ -919,6 +921,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
     setPendingImports([]);
     
+    if (maxBytes && allPageUrls.length > 0) {
+      const perPage = Math.max(Math.floor(maxBytes / allPageUrls.length), 60 * 1024);
+      allPageUrls = await Promise.all(allPageUrls.map(u => compressToBudget(u, perPage)));
+    }
+    
     if (allPageUrls.length === 0) {
       setIsProcessing(false);
       return;
@@ -948,7 +955,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
       
     setTimeout(() => {
-      onComplete(primary, currentImg || primary, undefined, finalRouting as any);
+      onComplete(primary, (maxBytes ? allPageUrls[0] : currentImg) || primary, undefined, finalRouting as any);
       setIsProcessing(false);
     }, 50);
   };

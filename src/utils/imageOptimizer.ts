@@ -123,3 +123,43 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
 
   return compressCanvas(canvas, 0.82);
 }
+
+/** Every stored document must fit this budget. Documents are never rejected - they are shrunk. */
+export const DOCUMENT_MAX_BYTES = 300 * 1024;
+
+const dataUrlBytes = (u: string) => Math.round((u.length - u.indexOf(',') - 1) * 0.75);
+
+/**
+ * Shrinks an image to fit maxBytes. Always re-encodes from the ORIGINAL source (never from an
+ * intermediate result) so there is at most one extra generation of loss. A JPEG already within
+ * budget is returned untouched. Never throws on size - returns the best effort.
+ */
+export async function compressToBudget(src: string, maxBytes = DOCUMENT_MAX_BYTES): Promise<string> {
+  if (src.startsWith('data:image/jpeg') && dataUrlBytes(src) <= maxBytes) return src;
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = src;
+  });
+  let scale = Math.min(1, 2000 / Math.max(img.width, img.height));
+  let best = src;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return best;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    for (const q of [0.85, 0.75, 0.65, 0.55]) {
+      best = canvas.toDataURL('image/jpeg', q);
+      if (dataUrlBytes(best) <= maxBytes) return best;
+    }
+    scale *= 0.85;
+  }
+  return best;
+}
