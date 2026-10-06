@@ -108,7 +108,7 @@ export function FinanceSummary({
   
   
   const creatorId = space.creatorId || (isCreatorMe ? myId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
-  const creatorName = space.createdBy || (isCreatorMe ? myRealName : 'יוצר המרחב');
+  const creatorName = (isCreatorMe && myRealName && myRealName !== 'אני' && myRealName !== 'אורח') ? myRealName : ((!space.createdBy || space.createdBy === 'אורח' || space.createdBy === 'אני') ? 'יוצר המרחב' : space.createdBy);
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: true });
 
@@ -134,6 +134,7 @@ export function FinanceSummary({
   const resolveUserId = (invoiceObj: any, idField: string, nameField: string) => {
     let resolvedId = invoiceObj[idField];
     const trimmedName = (invoiceObj[nameField] || '').trim();
+    if (resolvedId === 'me' || trimmedName === 'אני' || trimmedName === 'אורח' || trimmedName === 'אני (לא פעיל)') return creatorId;
     if (trimmedName) {
       if (trimmedName === user?.realName || trimmedName === creatorName || trimmedName === space.createdBy) return creatorId;
       const existingMember = validMembers.find((m: any) => m.name === trimmedName);
