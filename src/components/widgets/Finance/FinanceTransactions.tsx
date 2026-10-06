@@ -860,48 +860,4 @@ export function FinanceTransactions({
       )}
     </div>
   );
-}
-\n                      <div style={{ flex: '1 1 200px', maxWidth: '300px', padding: '1rem', border: '1px dashed #3b82f6', borderRadius: '12px', color: '#3b82f6', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', background: 'rgba(59, 130, 246, 0.05)', position: 'relative' }}>
-                        {uploadingRetroId === inv.id ? (
-                          <div style={{ fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                            <span>מעלה קובץ...</span>
-                          </div>
-                        ) : (
-                          <>
-                            <span style={{ fontWeight: 'bold' }}>לא צורפה קבלה או חשבונית.</span>
-                            <label style={{ background: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
-                              <span>📷 צלם או ייבא</span>
-                              <input 
-                                type="file" 
-                                accept="image/*,application/pdf" 
-                                capture="environment" 
-                                style={{ display: 'none' }}
-                                onChange={(e) => handleRetroactiveUpload(e, inv)}
-                              />
-                            </label>
-                          </>
-                        )}
-                      </div>\n                      <div style={{ flex: '1 1 200px', maxWidth: '300px', padding: '1rem', border: '1px dashed #3b82f6', borderRadius: '12px', color: '#3b82f6', fontSize: '0.9rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContenu: 'center', gap: '0.75rem', background: 'rgba(59, 130, 246, 0.05)', position: 'relative' }}>
-                        {uploadingRetroId === inv.id ? (
-                          <div style={{ fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-                            <div className="spinner" style={{ width: '24px', height: '24px', border: '3px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
-                            <span>מעגה קובס...</span>
-                          </div>
-                        ) : (
-                          <>
-                            <span style={{ fontWeight: 'bold' }}>לא צרפה ץבלה או חשבוניא.</span>
-                            <label style={{ background: '#3b82f6', color: 'white', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
-                              <span>📷 צלם או ייבא</span>
-                              <input 
-                                type="file" 
-                                accept="image/*,application/pdf" 
-                                capture="environment" 
-                                style={{ display: 'none' }}
-                                onChange={(e) => handleRetroactiveUpload(e, inv)}
-                              />
-                            </label>
-                          </>
-                        })
-                      </div>
-                    )}
+}
