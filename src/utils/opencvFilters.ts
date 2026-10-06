@@ -1127,15 +1127,17 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             cv.divide(hsRgb, bgMapRgb, flatRgb, 255.0, -1);
             
             let punchyRgb = new cv.Mat();
-              // Darken the ink uniformly so faint text doesn't turn white
               flatRgb.convertTo(punchyRgb, -1, 1.2, -80); 
               
               let flatGray = new cv.Mat();
               cv.cvtColor(flatRgb, flatGray, cv.COLOR_RGB2GRAY);
               
+              // Destroy amplified shadow noise speckles without blurring text edges
+              cv.medianBlur(flatGray, flatGray, 3);
+              
               let mask = new cv.Mat();
-              // C=4 is highly sensitive, catching faint lines and filling holes
-              cv.adaptiveThreshold(flatGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 4);
+              // C=6 is very sensitive to catch all faint text, but safe from noise thanks to medianBlur
+              cv.adaptiveThreshold(flatGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 6);
               
               let finalRgb = new cv.Mat(hsRgb.rows, hsRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
               punchyRgb.copyTo(finalRgb, mask);
