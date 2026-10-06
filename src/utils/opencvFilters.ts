@@ -1126,7 +1126,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             cv.cvtColor(stretched, finalExperimentalRgba, cv.COLOR_GRAY2RGBA);
             
             expGray.delete(); bgMap.delete(); divided.delete(); stretched.delete();
-            if (timings) timings.bwMs = performance.now() - expT0;
+            t_engine = performance.now() - expT0;
         }
 
         // --- LAZY EVALUATION: Choose the active profile and encode ONLY that one! ---
