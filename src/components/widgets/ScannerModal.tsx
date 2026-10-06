@@ -699,13 +699,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
+    const getFinalCompressedUrl = async (url: string) => {
+    return new Promise<string>((res, rej) => {
+      const img = new Image();
+      img.src = url;
+      img.onload = () => {
+         const canvas = document.createElement('canvas');
+         canvas.width = img.width; canvas.height = img.height;
+         const ctx = canvas.getContext('2d');
+         if (!ctx) return res(url);
+         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+         ctx.drawImage(img, 0, 0);
+         res(compressCanvas(canvas, 0.82));
+      };
+      img.onerror = () => res(url);
+    });
+  };
+
   const handleShare = async () => {
     setIsProcessing(true);
     let allPageUrls: string[] = [];
     
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
-        allPageUrls.push(item.url);
+        const compressed = await getFinalCompressedUrl(item.url);
+        allPageUrls.push(compressed);
       } else if (item.type === 'pending') {
          try {
            const img = new Image();
@@ -783,7 +801,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     // Process everything in sorted order
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
-        allPageUrls.push(item.url);
+        const compressed = await getFinalCompressedUrl(item.url);
+        allPageUrls.push(compressed);
       } else if (item.type === 'pending') {
          try {
            const img = new Image();
