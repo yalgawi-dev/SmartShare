@@ -295,7 +295,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     // Calculate a scale factor that targets a high-res ~2000px width.
     // 1000px was too low for OCR and caused extreme blurriness when cropping small receipts.
-    const scaleFactor = 2000 / videoBox.width;
+    const scaleFactor = 2400 / videoBox.width;
     canvas.width = videoBox.width * scaleFactor;
     canvas.height = videoBox.height * scaleFactor;
     const ctx = canvas.getContext('2d');
@@ -743,7 +743,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               console.warn("Invalid image dimensions", w, h);
               continue;
            }
-           if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
+           if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
            const ctx = canvas.getContext('2d');
@@ -807,7 +807,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               console.warn("Invalid image dimensions", w, h);
               continue;
            }
-           if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
+           if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
            const ctx = canvas.getContext('2d');
@@ -867,7 +867,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.11</span>
+            <span>סורק מסמכים v19.12</span>
           </h2>
         </div>
         
@@ -1234,7 +1234,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                             img.src = url;
                            await new Promise((res) => { img.onload = res; });
                            let w = img.width; let h = img.height;
-                           if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
+                           if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
                            const canvas = document.createElement('canvas');
                            canvas.width = w; canvas.height = h;
                            const ctx = canvas.getContext('2d');
