@@ -310,17 +310,9 @@ export function FinanceAddExpenseForm({
                 {validMembers.map((m: any) => (
                   <option key={m.userId} value={m.userId}>{m.name}</option>
                 ))}
-                <option value="other">אחר (הקלד שם)...</option>
+                
               </select>
-              {selectedPayerId === 'other' && (
-                <input 
-                  required 
-                  name="payerNameCustom" 
-                  placeholder="הקלד שם איש קשר..." 
-                  style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--primary)', fontSize: '1rem', background: '#fff' }} 
-                />
-              )}
-            </div>
+              </div>
           )}
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>

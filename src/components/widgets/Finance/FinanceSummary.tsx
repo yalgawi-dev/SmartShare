@@ -86,9 +86,9 @@ export function FinanceSummary({
   // UNIFIED FINANCIAL ENGINE
   const unifiedBalances = new Map<string, any>();
 
-  // Smart name resolution: avoid showing stale 'אורח' name if Google/Facebook already provided a real name.
+  // Smart name resolution: avoid showing stale 'משתמש' name if Google/Facebook already provided a real name.
   // AuthContext updates Firestore async, but the render may happen before that round-trip completes.
-  const GUEST_PLACEHOLDERS = ['אורח', 'אורח אנונימי', 'Guest'];
+  const GUEST_PLACEHOLDERS = ['משתמש', 'אורח אנונימי', 'Guest'];
   const myRealName = (user?.realName && !GUEST_PLACEHOLDERS.includes(user.realName))
     ? user.realName
     : (user?.nickname && !GUEST_PLACEHOLDERS.includes(user.nickname))
@@ -117,7 +117,7 @@ export function FinanceSummary({
     if ((isCreatorMe && m.userId === user?.id) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
     if (!unifiedBalances.has(m.userId)) {
-      unifiedBalances.set(m.userId, { name: m.name || (m.userId === user?.id ? myRealName : 'אורח'), paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+      unifiedBalances.set(m.userId, { name: m.name || (m.userId === user?.id ? myRealName : 'משתמש'), paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
     }
   });
 
@@ -607,7 +607,7 @@ export function FinanceSummary({
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
                   <span style={{ fontWeight: 'bold' }}>
                     {b.name} 
-                    {b.userId === user?.id ? ' (שלי)' : (!b.isMember ? <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(אורח חיצון)</span> : '')}
+                    {b.userId === user?.id ? ' (שלי)' : ''}
                     {isInactive && <span style={{ fontSize: '0.75rem', color: '#ef4444', marginRight: '0.25rem' }}>(לא פעיל)</span>}
                   </span>
                   <span dir="ltr">₪{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>

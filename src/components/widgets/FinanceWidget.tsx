@@ -343,9 +343,6 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
         const partner = validMembers.find((m: any) => m.userId === payerId);
         if (partner) payerName = partner.name;
       }
-    } else if (selectedPayerId === 'other') {
-      payerName = (formData.get('payerNameCustom') as string) || 'אחר';
-      payerId = undefined;
     } else if (selectedPayerId !== 'me' && selectedPayerId !== user?.id && selectedPayerId !== myEffectiveId) {
       const partner = validMembers.find((m: any) => m.userId === selectedPayerId);
       if (partner) {
