@@ -82,7 +82,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   
-  const [pendingImports, setPendingImports] = useState<string[]>([]);
+  const [pendingImports, setPendingImports] = useState<{id: string, url: string}[]>([]);
 
   const {
     stream,
@@ -134,7 +134,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const items: TrayItem[] = [
       ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
       ...(step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? [{ id: activeDocId, type: 'active' as const, url: imageCache[mode] || rawSnapshot, isEdited: step === 'review' }] : []),
-      ...pendingImports.map((url, i) => ({ id: `pending-${i}-${url.substring(0,10)}`, type: 'pending' as const, url }))
+      ...pendingImports.map((p) => ({ id: p.id, type: 'pending' as const, url: p.url }))
     ];
     return items;
   }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports, activeDocId]);
@@ -222,7 +222,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
     };
     document.body.appendChild(script);
-  }, []);  const processImportUrl = (url: string) => {
+  }, []);  const processImportUrl = (url: string, preserveId?: string) => {
     setStep('cropping');
     setRawSnapshot(null); // Triggers loading state
     
@@ -253,8 +253,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         setCropPoints(pts);
         const snapshotUrl = compressCanvas(canvas, 1.0);
         setRawSnapshot(snapshotUrl);
-      setActiveDocId(generateDocId());
-      setStep('cropping');
+        if (!preserveId) setActiveDocId(generateDocId());
+        setStep('cropping');
       }
     };
     img.src = url;
@@ -269,7 +269,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const urls = Array.from(files).map(file => URL.createObjectURL(file));
     if (urls.length > 0) {
       const first = urls[0];
-      const rest = urls.slice(1);
+      const rest = urls.slice(1).map(url => ({ id: generateDocId(), url }));
       setPendingImports(prev => [...prev, ...rest]);
       setActiveDocId(generateDocId());
       processImportUrl(first);
@@ -485,10 +485,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setClassifyOverride(false);
 
     if (pendingImports.length > 0) {
-        const nextUrl = pendingImports[0];
+        const nextItem = pendingImports[0];
         setPendingImports(prev => prev.slice(1));
-        setActiveDocId(generateDocId());
-        processImportUrl(nextUrl);
+        setActiveDocId(nextItem.id);
+        processImportUrl(nextItem.url, nextItem.id);
     } else {
         setActiveDocId(generateDocId());
         setStep('scanning');
@@ -516,8 +516,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     if (step === 'cropping') {
       if (rawSnapshot) {
         setPendingImports(prev => {
-          if (!prev.includes(rawSnapshot)) {
-            return [rawSnapshot, ...prev];
+          if (!prev.some(p => p.url === rawSnapshot)) {
+            return [{ id: activeDocId, url: rawSnapshot }, ...prev];
           }
           return prev;
         });
@@ -865,7 +865,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.9</span>
+            <span>סורק מסמכים v19.10</span>
           </h2>
         </div>
         
@@ -1213,9 +1213,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                               }
                            } else if (item.type === 'pending') {
                               saveCurrentStateToTrays();
-                              setActiveDocId(generateDocId());
-                              setPendingImports(prev => prev.filter(p => p !== item.url));
-                              processImportUrl(item.url);
+                              setActiveDocId(item.id);
+                              setPendingImports(prev => prev.filter(p => p.id !== item.id));
+                              processImportUrl(item.url, item.id);
                            }
                         }}
                     />
@@ -1226,9 +1226,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                          setIsProcessing(true);
                          const newPages = [];
                          for (let idx = 0; idx < pendingImports.length; idx++) {
-                           const url = pendingImports[idx];
-                           const img = new Image();
-                           img.src = url;
+                           const pItem = pendingImports[idx];
+                            const url = pItem.url;
+                            const img = new Image();
+                            img.src = url;
                            await new Promise((res) => { img.onload = res; });
                            let w = img.width; let h = img.height;
                            if (w > 2000) { h = Math.round(h * (2000 / w)); w = 2000; }
@@ -1239,7 +1240,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                              ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
                              ctx.drawImage(img, 0, 0, w, h);
                              newPages.push({
-                               id: Date.now().toString() + '-' + idx,
+                               id: pItem.id,
                                imageUrl: compressCanvas(canvas, 0.82),
                                rawImageUrl: compressCanvas(canvas, 1.0),
                                pageNum: scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + idx + 1
