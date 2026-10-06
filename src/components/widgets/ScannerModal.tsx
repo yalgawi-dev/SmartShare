@@ -851,7 +851,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.1</span>
+            <span>סורק מסמכים v19.3</span>
           </h2>
         </div>
         
@@ -1286,14 +1286,23 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
     const container = containerRef.current;
     if (!container || naturalSize.w === 1) return null;
     
-    const cw = container.clientWidth;
-    const ch = container.clientHeight;
+    // Account for the padding we added in v6.5.46
+    const paddingLeft = 32;
+    const paddingRight = 32;
+    const paddingTop = 40;
+    const paddingBottom = 80;
+    
+    const cw = container.clientWidth - paddingLeft - paddingRight;
+    const ch = container.clientHeight - paddingTop - paddingBottom;
     
     const ratio = Math.min(cw / naturalSize.w, ch / naturalSize.h);
     const renderedWidth = naturalSize.w * ratio;
     const renderedHeight = naturalSize.h * ratio;
-    const offsetX = (cw - renderedWidth) / 2;
-    const offsetY = (ch - renderedHeight) / 2;
+    
+    // The offset is relative to the SVG, which covers the entire container (including padding).
+    // So we must add the padding back to the offset so the SVG points align with the image!
+    const offsetX = (cw - renderedWidth) / 2 + paddingLeft;
+    const offsetY = (ch - renderedHeight) / 2 + paddingTop;
     return { ratio, offsetX, offsetY };
   };
 
