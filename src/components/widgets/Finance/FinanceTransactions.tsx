@@ -624,7 +624,7 @@ export function FinanceTransactions({
                               מחכה ל: {waitingText}
                             </span>
                           ) : null;
-                        })()}
+                        )}()}
                       </div>
                     )}
                   </div>
@@ -701,7 +701,7 @@ export function FinanceTransactions({
                               />
                             </label>
                           </>
-                        })
+                        )}
                       </div>
                     )}
                     <div style={{ flex: '2 1 300px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
