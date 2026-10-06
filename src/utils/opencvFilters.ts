@@ -1216,6 +1216,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           cv.imshow(canvas, finalPureRgba);
           finalUrl = compressCanvas(canvas, 0.85);
 
+        } else if (activeProfile === 'hybrid_shadow') {
+          cv.imshow(canvas, finalHybridShadowRgba);
+          finalUrl = compressCanvas(canvas, 0.85);
         } else if (activeProfile === 'experimental') {
           cv.imshow(canvas, finalExperimentalRgba);
           finalUrl = compressCanvas(canvas, 0.85);
