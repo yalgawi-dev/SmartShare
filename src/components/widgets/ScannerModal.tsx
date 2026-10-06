@@ -1299,7 +1299,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           </>
         )}
         {/* GLOBAL TRAYS */}
-             {(scannedPages.length > 0 || pendingImports.length > 0) && (
+             {(scannedPages.length > 0 || pendingImports.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
                <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                  <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', direction: 'ltr', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
                     <SortableTray 
