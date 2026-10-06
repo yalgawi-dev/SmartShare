@@ -126,7 +126,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   }, [hasFinance, hasVault]);
 
   const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
-  const [activeDocId, setActiveDocId] = React.useState<string>('active-doc');
+  const generateDocId = () => 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+  const [activeDocId, setActiveDocId] = React.useState<string>(generateDocId());
   
   // Derived state for sorting tray
   const derivedTrayItems = React.useMemo(() => {
@@ -252,7 +253,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         setCropPoints(pts);
         const snapshotUrl = compressCanvas(canvas, 0.95);
         setRawSnapshot(snapshotUrl);
-        setStep('cropping');
+      setActiveDocId(generateDocId());
+      setStep('cropping');
       }
     };
     img.src = url;
@@ -269,6 +271,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       const first = urls[0];
       const rest = urls.slice(1);
       setPendingImports(prev => [...prev, ...rest]);
+      setActiveDocId(generateDocId());
       processImportUrl(first);
     }
     
@@ -484,8 +487,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     if (pendingImports.length > 0) {
         const nextUrl = pendingImports[0];
         setPendingImports(prev => prev.slice(1));
+        setActiveDocId(generateDocId());
         processImportUrl(nextUrl);
     } else {
+        setActiveDocId(generateDocId());
         setStep('scanning');
     }
   };
@@ -533,7 +538,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   const handleRetake = () => {
-    setStep('scanning');
+    setActiveDocId(generateDocId());
+        setStep('scanning');
     setRawSnapshot(null);
     setImageCache({});
     setTimingCache({});
@@ -851,7 +857,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.3</span>
+            <span>סורק מסמכים v19.4</span>
           </h2>
         </div>
         
@@ -1156,7 +1162,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
               {/* Row 1: secondary actions */}
               <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
-                <button onClick={() => { if (pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) { setRawSnapshot(null); setStep('scanning'); } else { handleRetake(); } }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <button onClick={() => { if (pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) { setRawSnapshot(null); setActiveDocId(generateDocId());
+        setStep('scanning'); } else { handleRetake(); } }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>🗑️</span>
                   {(pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) ? 'מחק עמוד' : 'צלם שוב'}
                 </button>
@@ -1187,6 +1194,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                        onItemClick={(item) => {
                            if (item.type === 'scanned') {
                               saveCurrentStateToTrays();
+                              setActiveDocId(item.id);
                               const docToLoad = scannedPages.find(p => p.id === item.id);
                               if (docToLoad) {
                                 setScannedPages(prev => prev.filter(p => p.id !== item.id));
@@ -1197,6 +1205,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                               }
                            } else if (item.type === 'pending') {
                               saveCurrentStateToTrays();
+                              setActiveDocId(generateDocId());
                               setPendingImports(prev => prev.filter(p => p !== item.url));
                               processImportUrl(item.url);
                            }
