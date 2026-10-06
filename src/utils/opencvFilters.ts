@@ -1109,9 +1109,9 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             
             // Create background map with heavy blur
             let bgMap = new cv.Mat();
-            let expK = Math.floor(Math.max(dst.cols, dst.rows) / 20);
+            let expK = Math.floor(Math.max(dst.cols, dst.rows) / 8); // Huge blur to completely erase text from the shadow map
             if (expK % 2 === 0) expK++;
-            if (expK < 31) expK = 31;
+            if (expK < 51) expK = 51;
             cv.GaussianBlur(expGray, bgMap, new cv.Size(expK, expK), 0, 0, cv.BORDER_DEFAULT);
             
             // Divide image by background map to flatten lighting perfectly!
@@ -1119,9 +1119,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             let divided = new cv.Mat();
             cv.divide(expGray, bgMap, divided, 255.0, -1);
             
-            // Minor contrast stretch to blacken text without hard thresholding
+            // Aggressive contrast stretch to blacken text without hard thresholding (Preserves Anti-Aliasing)
+            // Maps ~190 to 0 (Black) and 255 to 255 (White)
             let stretched = new cv.Mat();
-            divided.convertTo(stretched, -1, 1.6, -70);
+            divided.convertTo(stretched, -1, 4.0, -760);
             
             cv.cvtColor(stretched, finalExperimentalRgba, cv.COLOR_GRAY2RGBA);
             
