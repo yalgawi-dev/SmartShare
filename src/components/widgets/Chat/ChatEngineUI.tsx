@@ -11,6 +11,7 @@ interface ChatEngineUIProps {
   member?: any;
   viewMode?: 'creator' | 'partner' | 'peer';
   isGroup?: boolean;
+  isFrozen?: boolean;
   headerContent?: React.ReactNode;
 }
 
@@ -42,6 +43,7 @@ export default function ChatEngineUI({
   member,
   viewMode = 'creator',
   isGroup = false,
+  isFrozen = false,
   headerContent,
 }: ChatEngineUIProps) {
   const { sendConversationMessage, markConversationRead } = useSpaces() as any;
@@ -248,9 +250,15 @@ export default function ChatEngineUI({
         borderTop: '1px solid #e2e8f0',
         direction: 'rtl',
       }}>
-        <textarea
-          value={messageText}
-          onChange={e => setMessageText(e.target.value)}
+        {isFrozen ? (
+          <div style={{ width: '100%', textAlign: 'center', padding: '0.8rem', background: '#fee2e2', color: '#ef4444', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
+            הצ'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.
+          </div>
+        ) : (
+          <>
+            <textarea
+              value={messageText}
+              onChange={e => setMessageText(e.target.value)}
           onKeyDown={e => {
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
@@ -295,6 +303,8 @@ export default function ChatEngineUI({
         >
           <span style={{ transform: 'rotate(-45deg) translateX(2px)', fontSize: '1.2rem' }}>➤</span>
         </button>
+          </>
+        )}
       </div>
     </div>
   );

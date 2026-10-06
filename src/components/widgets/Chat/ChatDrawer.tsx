@@ -148,6 +148,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
             space={space}
             conversationId={activeTarget}
             isGroup={isGroup}
+            isFrozen={!(space.features || []).includes('partners')}
             viewMode={activeTarget === space.creatorId ? 'partner' : 'creator'}
             member={members.find((m: any) => m.userId === activeTarget)}
           />
