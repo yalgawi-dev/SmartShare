@@ -1132,7 +1132,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             // 150 -> 160
             // 100 -> 90
             // 50 -> 20 (darker shadows)
-            dividedRgb.convertTo(stretchedRgb, -1, 2.5, -350);
+            dividedRgb.convertTo(stretchedRgb, -1, 3.0, -470);
             
             cv.cvtColor(stretchedRgb, finalExperimentalRgba, cv.COLOR_RGB2RGBA);
             
