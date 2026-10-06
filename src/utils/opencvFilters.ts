@@ -1127,13 +1127,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             cv.divide(hsRgb, bgMapRgb, flatRgb, 255.0, -1);
             
             let punchyRgb = new cv.Mat();
-            flatRgb.convertTo(punchyRgb, -1, 1.5, -50); 
+            flatRgb.convertTo(punchyRgb, -1, 2.5, -150); 
             
             let flatGray = new cv.Mat();
             cv.cvtColor(flatRgb, flatGray, cv.COLOR_RGB2GRAY);
             
             let mask = new cv.Mat();
-            cv.adaptiveThreshold(flatGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 15);
+            cv.adaptiveThreshold(flatGray, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 8);
             
             let finalRgb = new cv.Mat(hsRgb.rows, hsRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
             punchyRgb.copyTo(finalRgb, mask);
