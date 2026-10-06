@@ -622,7 +622,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         }));
         
         // Add a tiny 4px dark separator between pages
-        const GAP = 4;
+        const GAP = 0;
         const maxWidth = Math.max(...loadedImages.map(img => img.width));
         
         // Compute scaled heights so all images perfectly fit maxWidth
@@ -642,8 +642,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [finalFormatWidth, finalFormatHeight] });
         
         // Fill background with dark gray for the separators
-        pdf.setFillColor(50, 50, 50);
-        pdf.rect(0, 0, finalFormatWidth, finalFormatHeight, 'F');
+        
         
         let currentY = 0;
         for (let i = 0; i < loadedImages.length; i++) {
@@ -953,7 +952,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.35</span>
+            <span>סורק מסמכים v19.36</span>
           </h2>
         </div>
         
@@ -1126,7 +1125,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '16px', width: '85%', maxWidth: '340px', color: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
             <h3 style={{ margin: 0, textAlign: 'center', color: '#f8fafc', fontSize: '1.3rem', fontWeight: 'bold' }}>{exportOptions.type === 'share' ? 'הגדרות שיתוף' : 'הגדרות שמירה'}</h3>
             
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+               <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold' }}>פורמט יצוא</span>
+               <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
+                 <input type="radio" name="exportFmt" checked={exportFormat === 'pdf'} onChange={() => setExportFormat('pdf')} style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} />
+                 <span style={{ fontSize: '1rem' }}>מסמך רגיל (דפים נפרדים)</span>
+               </label>
+               <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
+                 <input type="radio" name="exportFmt" checked={exportFormat === 'scroll_pdf'} onChange={() => setExportFormat('scroll_pdf')} style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} />
+                 <span style={{ fontSize: '1rem' }}>מגילה (רצף אחד ארוך)</span>
+               </label>
+             </div>
+
+             <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
               <input type="checkbox" checked={exportNumbers} onChange={e => setExportNumbers(e.target.checked)} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
               <span style={{ fontSize: '1rem' }}>מספור עמודים</span>
             </label>
