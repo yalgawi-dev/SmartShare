@@ -102,7 +102,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original'>('smart_plus');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original'>('smart_plus');
+  const [defaultBatchEngine, setDefaultBatchEngine] = useState<'smart_plus'|'experimental'>('smart_plus');
+  const [showEngineModal, setShowEngineModal] = useState(false);
+
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
@@ -262,7 +265,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     img.src = url;
   };
 
-  const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => handleGalleryImportWithEngine('smart_plus')(e);
+  const handleGalleryImportWithEngine = (engine: 'smart_plus'|'experimental') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setDefaultBatchEngine(engine);
+    setShowEngineModal(false);
     const files = e.target.files;
     if (!files || files.length === 0) return;
     
@@ -497,7 +503,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
-  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'original') => {
+  const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original') => {
     if (mode === targetMode) return;
     if (!rawSnapshot || cropPoints.length !== 4) return;
     if (imageCache[targetMode]) {
@@ -768,7 +774,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               const snapshotUrl = compressCanvas(canvas, 1.0);
               
               try {
-                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, 'smart_plus');
+                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, defaultBatchEngine);
                   
                   // Now compress the processed smart_plus image
                   const imgProcessed = new Image();
@@ -866,7 +872,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               const snapshotUrl = compressCanvas(canvas, 1.0);
               
               try {
-                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, 'smart_plus');
+                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, defaultBatchEngine);
                   
                   // Now compress the processed smart_plus image
                   const imgProcessed = new Image();
@@ -941,7 +947,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.18</span>
+            <span>סורק מסמכים v19.19</span>
           </h2>
         </div>
         
@@ -1213,7 +1219,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 </button>
               </div>
               {showAdvancedFilters && (
-                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.25rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => handleFilterSwitch('smart_plus')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'smart_plus' ? '#10b981' : 'transparent', color: mode === 'smart_plus' ? '#fff' : '#10b981', border: '1px solid #10b981', fontSize: '0.8rem', cursor: 'pointer' }}>חשבונית+</button>
+                  <button onClick={() => handleFilterSwitch('experimental')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'experimental' ? '#3b82f6' : 'transparent', color: mode === 'experimental' ? '#fff' : '#3b82f6', border: '1px solid #3b82f6', fontSize: '0.8rem', cursor: 'pointer' }}>ניסיוני (חדש)</button>
                   <button onClick={() => handleFilterSwitch('bw')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>שחור-לבן</button>
                   <button onClick={() => handleFilterSwitch('original')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>מקור</button>
                 </div>
