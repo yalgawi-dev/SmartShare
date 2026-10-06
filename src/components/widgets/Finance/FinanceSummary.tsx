@@ -132,7 +132,22 @@ export function FinanceSummary({
   }
 
   expensesOnly.forEach((inv: any) => {
-    let matchedId = inv.payerId || `unknown_${inv.id || Math.random()}`;
+    let matchedId = inv.payerId;
+    if (!matchedId) {
+      const trimmedName = (inv.payerName || '').trim();
+      if (trimmedName && (trimmedName === user?.realName || trimmedName === creatorName || trimmedName === space.createdBy)) {
+        matchedId = creatorId;
+      } else {
+        const existingMember = validMembers.find((m: any) => m.name === trimmedName);
+        if (existingMember) {
+          matchedId = existingMember.userId;
+        } else if (trimmedName) {
+          matchedId = 'guest_name_' + trimmedName;
+        } else {
+          matchedId = 'unknown_' + (inv.id || Math.random());
+        }
+      }
+    }
     if ((isCreatorMe && matchedId === user?.id) || (space.creatorId && matchedId === space.creatorId) || (space.createdBy && matchedId === space.createdBy)) {
       matchedId = creatorId; // Merge split identities globally so guests see creator correctly
     }
