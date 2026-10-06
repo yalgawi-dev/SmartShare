@@ -720,10 +720,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setIsProcessing(true);
     let allPageUrls: string[] = [];
     
+    // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
+    // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
+    const needsCompression = sortedTrayItems.length > 1;
+
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
-        const compressed = await getFinalCompressedUrl(item.url);
-        allPageUrls.push(compressed);
+        const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
+        allPageUrls.push(urlToUse);
       } else if (item.type === 'pending') {
          try {
            const img = new Image();
@@ -799,10 +803,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     let allPageUrls: string[] = [];
     
     // Process everything in sorted order
-    for (const item of sortedTrayItems) {
+    // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
+    // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
+    const needsCompression = true; // Always compress when saving to server    for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
-        const compressed = await getFinalCompressedUrl(item.url);
-        allPageUrls.push(compressed);
+        const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
+        allPageUrls.push(urlToUse);
       } else if (item.type === 'pending') {
          try {
            const img = new Image();
