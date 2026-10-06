@@ -724,7 +724,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
     // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = true; // Always compress since we only export PDF
+    const needsCompression = false; // Bypass double compression to guarantee pristine quality
 
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
@@ -750,7 +750,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            if (ctx) {
               ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(img, 0, 0, w, h);
-              const data = compressCanvas(canvas, 0.82);
+              const data = compressCanvas(canvas, 0.95);
               if (data && data !== 'data:,') {
                  allPageUrls.push(data);
               }
@@ -789,7 +789,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     // Process everything in sorted order
     // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
     // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = true;
+    const needsCompression = false;
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
         const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
@@ -814,7 +814,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            if (ctx) {
               ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
               ctx.drawImage(img, 0, 0, w, h);
-              const data = compressCanvas(canvas, 0.82);
+              const data = compressCanvas(canvas, 0.95);
               if (data && data !== 'data:,') {
                  allPageUrls.push(data);
               }
@@ -867,7 +867,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.12</span>
+            <span>סורק מסמכים v19.13</span>
           </h2>
         </div>
         
@@ -1243,7 +1243,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                              ctx.drawImage(img, 0, 0, w, h);
                              newPages.push({
                                id: pItem.id,
-                               imageUrl: compressCanvas(canvas, 0.82),
+                               imageUrl: compressCanvas(canvas, 0.95),
                                rawImageUrl: compressCanvas(canvas, 1.0),
                                pageNum: scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + idx + 1
                              });
