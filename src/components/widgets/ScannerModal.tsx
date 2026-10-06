@@ -251,7 +251,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           {x: w * 0.1, y: h * 0.9}
         ];
         setCropPoints(pts);
-        const snapshotUrl = compressCanvas(canvas, 0.95);
+        const snapshotUrl = compressCanvas(canvas, 1.0);
         setRawSnapshot(snapshotUrl);
       setActiveDocId(generateDocId());
       setStep('cropping');
@@ -352,7 +352,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     // CRITICAL FIX: Save the raw snapshot with 0.95 quality!
     // Using 0.5 quality here introduced heavy JPEG mosquito noise, which the OpenCV filters 
     // amplified into massive "cloudy" halos and blurry text.
-    const snapshotUrl = compressCanvas(canvas, 0.95);
+    const snapshotUrl = compressCanvas(canvas, 1.0);
     setRawSnapshot(snapshotUrl);
     
     stopCamera();
@@ -857,7 +857,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.4</span>
+            <span>סורק מסמכים v19.5</span>
           </h2>
         </div>
         
@@ -1233,7 +1233,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                              newPages.push({
                                id: Date.now().toString() + '-' + idx,
                                imageUrl: compressCanvas(canvas, 0.82),
-                               rawImageUrl: compressCanvas(canvas, 0.95),
+                               rawImageUrl: compressCanvas(canvas, 1.0),
                                pageNum: scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + idx + 1
                              });
                            }
@@ -1458,8 +1458,8 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
                 className="no-pan"
                   onPointerDown={(e) => handlePointerDown('edge', idx, e)}
               >
-                <circle cx={s.x} cy={s.y} r="25" fill="transparent" />
-                <rect x={s.x - 6} y={s.y - 6} width="12" height="12" fill="#FFD700" stroke="white" strokeWidth="2" rx="2" />
+                <circle cx={s.x} cy={s.y} r="20" fill="transparent" />
+                <rect x={s.x - 4} y={s.y - 4} width="8" height="8" fill="#FFD700" stroke="white" strokeWidth="1.5" rx="2" />
               </g>
             );
           })}
@@ -1476,9 +1476,9 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
                   onPointerDown={(e) => handlePointerDown('corner', idx, e)}
               >
                 {/* Invisible larger touch target */}
-                <circle cx={s.x} cy={s.y} r="30" fill="transparent" />
+                <circle cx={s.x} cy={s.y} r="25" fill="transparent" />
                 {/* Visible handle */}
-                <circle cx={s.x} cy={s.y} r={isActive ? "12" : "8"} fill="#FFD700" stroke="white" strokeWidth="2" />
+                <circle cx={s.x} cy={s.y} r={isActive ? "9" : "6"} fill="#FFD700" stroke="white" strokeWidth="1.5" />
               </g>
             );
           })}

@@ -121,5 +121,5 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
     currentY += scaledHeights[i] + gap;
   });
 
-  return compressCanvas(canvas, 0.82);
+  return compressCanvas(canvas, 0.90);
 }
