@@ -1120,28 +1120,28 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let finalUrl = '';
         if (activeProfile === 'original') {
           cv.imshow(canvas, dst);
-          finalUrl = compressCanvas(canvas, 1.0);
+          finalUrl = compressCanvas(canvas, 0.85);
         } else if (activeProfile === 'bw') {
           cv.imshow(canvas, bwRgba);
-          finalUrl = compressCanvas(canvas, 1.0);
+          finalUrl = compressCanvas(canvas, 0.85);
         } else if (activeProfile === 'pure_color') {
           cv.imshow(canvas, finalPureRgba);
-          finalUrl = compressCanvas(canvas, 1.0);
+          finalUrl = compressCanvas(canvas, 0.85);
 
         } else if (activeProfile === 'smart_plus') {
           cv.imshow(canvas, finalSmartPlusRgba);
-          finalUrl = compressCanvas(canvas, 1.0);
+          finalUrl = compressCanvas(canvas, 0.85);
         } else if (activeProfile === 'hybrid') {
           if (typeof finalHybrid !== 'undefined') {
              cv.imshow(canvas, finalHybrid);
-             finalUrl = compressCanvas(canvas, 1.0);
+             finalUrl = compressCanvas(canvas, 0.85);
           } else {
              cv.imshow(canvas, finalSmartPlusRgba);
-             finalUrl = compressCanvas(canvas, 1.0);
+             finalUrl = compressCanvas(canvas, 0.85);
           }
         } else {
           cv.imshow(canvas, dst);
-          finalUrl = compressCanvas(canvas, 1.0);
+          finalUrl = compressCanvas(canvas, 0.85);
         }
 
         const t1_total = performance.now();

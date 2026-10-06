@@ -593,7 +593,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       
       if (!pdf) throw new Error("Failed to generate PDF");
       const blob = pdf.output('blob');
-      const dataUrl = pdf.output('datauristring');
+      let dataUrl = pdf.output('datauristring');
+      // Fix jsPDF's non-standard data URI format which breaks Firebase uploadString
+      dataUrl = dataUrl.replace(/;filename=[^;]+/, '');
       return { dataUrl, blob, format: 'pdf' };
     } else {
       // Scroll (PDF with custom single page height)
@@ -659,7 +661,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         
         const blob = pdf.output('blob');
-        const dataUrl = pdf.output('datauristring');
+        let dataUrl = pdf.output('datauristring');
+      // Fix jsPDF's non-standard data URI format which breaks Firebase uploadString
+      dataUrl = dataUrl.replace(/;filename=[^;]+/, '');
         return { dataUrl, blob, format: 'pdf' };
       } catch (e) {
         console.error('Scroll PDF error:', e);
@@ -726,7 +730,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
     // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = true; // Respect the 200-300KB limit rule as standard
+    const needsCompression = false; // We now compress to 0.85 at the OpenCV source to prevent double-compression! // Respect the 200-300KB limit rule as standard
 
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
@@ -825,7 +829,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     // Process everything in sorted order
     // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
     // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = true;
+    const needsCompression = false; // We now compress to 0.85 at the OpenCV source to prevent double-compression!
     for (const item of sortedTrayItems) {
       if (item.type === 'scanned' || item.type === 'active') {
         const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
@@ -937,7 +941,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.17</span>
+            <span>סורק מסמכים v19.18</span>
           </h2>
         </div>
         
