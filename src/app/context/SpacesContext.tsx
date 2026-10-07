@@ -115,7 +115,7 @@ export interface ShelfEvent {
   createdBy: string;
   documentIds: string[];
   comments: ShelfEventComment[];
-  tasks?: { id: string; text: string; isCompleted: boolean }[];
+  tasks?: { id: string; text: string; isCompleted: boolean; documentId?: string }[];
 }
 
 export interface SpaceDocument {

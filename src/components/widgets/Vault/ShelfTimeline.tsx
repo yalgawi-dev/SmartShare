@@ -25,6 +25,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [newTaskInput, setNewTaskInput] = useState('');
   const [taskInputs, setTaskInputs] = useState<Record<string, string>>({});
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
+  const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
 
   const events = (space.shelfEvents || [])
     .filter(e => e.shelfId === activeShelfId)
@@ -182,34 +184,54 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.5rem', textAlign: 'center', background: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: '12px', width: 'fit-content', margin: '0 auto 0.5rem auto' }}>
                       כל השותפים במדף רואים את הטוקבקים
                     </div>
-                    {event.comments && event.comments.length > 0 && (
-                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                         {event.comments.map(comment => {
-                           const isMe = comment.userId === user?.id;
-                           return (
-                             <div key={comment.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-start' : 'flex-end' }}>
-                               <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px', padding: '0 4px' }}>
-                                 {getUserName(comment.userId)}
+                    {event.comments && event.comments.length > 0 && (() => {
+                       const isExpanded = expandedChats[event.id];
+                       const visibleComments = isExpanded ? event.comments : event.comments.slice(-2);
+                       return (
+                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                           {!isExpanded && event.comments.length > 2 && (
+                             <button 
+                               onClick={() => setExpandedChats(prev => ({ ...prev, [event.id]: true }))}
+                               style={{ background: 'rgba(255,255,255,0.6)', border: 'none', borderRadius: '12px', padding: '4px', fontSize: '0.75rem', color: '#3b82f6', cursor: 'pointer', marginBottom: '0.5rem' }}
+                             >
+                               הצג עוד {event.comments.length - 2} הודעות קודמות...
+                             </button>
+                           )}
+                           {isExpanded && event.comments.length > 2 && (
+                             <button 
+                               onClick={() => setExpandedChats(prev => ({ ...prev, [event.id]: false }))}
+                               style={{ background: 'rgba(255,255,255,0.6)', border: 'none', borderRadius: '12px', padding: '4px', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', marginBottom: '0.5rem' }}
+                             >
+                               הסתר הודעות ישנות
+                             </button>
+                           )}
+                           {visibleComments.map(comment => {
+                             const isMe = comment.userId === user?.id;
+                             return (
+                               <div key={comment.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+                                 <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px', padding: '0 4px' }}>
+                                   {getUserName(comment.userId)}
+                                 </div>
+                                 <div style={{ 
+                                   background: isMe ? '#dcf8c6' : '#ffffff', 
+                                   padding: '6px 10px', 
+                                   borderRadius: '12px', 
+                                   borderTopRightRadius: isMe ? '12px' : '4px',
+                                   borderTopLeftRadius: isMe ? '4px' : '12px',
+                                   fontSize: '0.85rem', 
+                                   color: '#334155',
+                                   maxWidth: '85%',
+                                   wordBreak: 'break-word',
+                                   boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                                 }}>
+                                   {comment.text}
+                                 </div>
                                </div>
-                               <div style={{ 
-                                 background: isMe ? '#dcf8c6' : '#ffffff', 
-                                 padding: '6px 10px', 
-                                 borderRadius: '12px', 
-                                 borderTopRightRadius: isMe ? '4px' : '12px',
-                                 borderTopLeftRadius: isMe ? '12px' : '4px',
-                                 fontSize: '0.85rem', 
-                                 color: '#334155',
-                                 maxWidth: '85%',
-                                 wordBreak: 'break-word',
-                                 boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                               }}>
-                                 {comment.text}
-                               </div>
-                             </div>
-                           );
-                         })}
-                       </div>
-                    )}
+                             );
+                           })}
+                         </div>
+                       );
+                    })()}
                     
                     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
                       <input 
