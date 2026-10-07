@@ -96,7 +96,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     if (targetId) setSelectedPayerId(targetId);
     if (setIsAddingExpense) setIsAddingExpense(true);
   };
-  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem, addInboxItems } = useSpaces();
+  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === 'creator' || (space.creatorId && user?.id === space.creatorId);
   const myEffectiveId = user?.id || 'me';
