@@ -37,6 +37,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (activeShelfId) {
+      window.dispatchEvent(new CustomEvent('smartshare:shelf_opened'));
+    } else {
+      window.dispatchEvent(new CustomEvent('smartshare:shelf_closed'));
+    }
+  }, [activeShelfId]);
   React.useEffect(() => {
     const handler = () => {
       const name = window.prompt('שם המדף החדש:');
