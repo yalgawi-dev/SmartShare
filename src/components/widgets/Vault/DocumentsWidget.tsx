@@ -430,7 +430,16 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                   ) : (
                     shelfDocs.map(doc => (
                       <div key={doc.id} style={{ width: '100px', flexShrink: 0, background: '#f8fafc', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                        <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '120px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in' }} />
+                        {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
+                          <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '120px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                            <span style={{ fontSize: '2.5rem' }}>📄</span>
+                            <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>PDF</div>
+                          </div>
+                        ) : (
+                          <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '120px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                            <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>JPG</div>
+                          </div>
+                        )}
                         <div style={{ padding: '0.4rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                           {doc.title}
                         </div>
@@ -568,7 +577,16 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
           )}
           
-          <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+          {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].url?.startsWith('data:application/pdf') || previewState.docs[previewState.index].type === 'pdf') ? (
+            <div style={{ width: '90%', height: '80%', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
+               <iframe src={previewState.docs[previewState.index].url} style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: '12px' }} title="PDF Preview" />
+               <button onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', zIndex: 20002 }}>
+                 פתח מסמך בחלון חדש
+               </button>
+            </div>
+          ) : (
+            <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+          )}
           
           {previewState.index < previewState.docs.length - 1 && (
             <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>›</button>
