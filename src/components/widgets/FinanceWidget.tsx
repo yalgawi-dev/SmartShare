@@ -52,16 +52,13 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
       runOcrPipeline(url, allPages);
     },
     processBatch: (urls: string[]) => {
-      if (!addInboxItems) return;
-      const newItems = urls.map(url => ({
-        imageUrl: url,
-        status: 'processing' as const,
-        uploadedBy: user?.realName || 'משתמש',
-      }));
-      addInboxItems(space.id, newItems);
-      setActiveTab('inbox');
-      setToastMsg('החשבוניות נשלחו לעיבוד רקע בהצלחה!');
-      setTimeout(() => setToastMsg(null), 3500);
+      if (!urls || urls.length === 0) return;
+      if (urls.length > 1) {
+        setBatchQueue(urls.slice(1));
+        setToastMsg(`מעבד חשבונית 1 מתוך ${urls.length}...`);
+        setTimeout(() => setToastMsg(null), 3500);
+      }
+      runOcrPipeline(urls[0]);
     },
     setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => {
       setActiveTab('transactions');
@@ -84,6 +81,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [reviewingInboxItemId, setReviewingInboxItemId] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [batchQueue, setBatchQueue] = useState<string[]>([]);
   const searchParams = useSearchParams();
     const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
     
