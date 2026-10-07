@@ -61,6 +61,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
       addInboxItems(space.id, newItems);
       setActiveTab('inbox');
       setToastMsg('החשבוניות נשלחו לעיבוד רקע בהצלחה!');
+      setTimeout(() => setToastMsg(null), 3500);
     },
     setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => {
       setActiveTab('transactions');
