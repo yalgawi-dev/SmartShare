@@ -922,7 +922,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setPendingImports([]);
     
     if (maxBytes && allPageUrls.length > 0) {
-      const perPage = Math.max(Math.floor(maxBytes / allPageUrls.length), 60 * 1024);
+      const perPage = maxBytes; // Apply full budget PER PAGE so multi-page quality does not degrade
       allPageUrls = await Promise.all(allPageUrls.map(u => compressToBudget(u, perPage)));
     }
     
