@@ -98,6 +98,25 @@ export interface DocumentShelf {
   highlightColor?: string;
 }
 
+export interface ShelfEventComment {
+  id: string;
+  userId: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface ShelfEvent {
+  id: string;
+  shelfId: string;
+  title: string;
+  description: string;
+  eventDate: string; // Contextual date
+  createdAt: string;
+  createdBy: string;
+  documentIds: string[];
+  comments: ShelfEventComment[];
+}
+
 export interface SpaceDocument {
   id: string;
   shelfId: string;
@@ -185,6 +204,7 @@ export interface Space {
   invoices: Invoice[];
   documents?: SpaceDocument[];
   shelves?: DocumentShelf[];
+  shelfEvents?: ShelfEvent[];
   mediaItems: MediaItem[];
   members: SpaceMember[];
   auditLogs?: AuditRecord[];
@@ -238,6 +258,11 @@ interface SpacesContextType {
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => void;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
+  addShelfEvent: (spaceId: string, event: Omit<ShelfEvent, 'id' | 'createdAt' | 'createdBy' | 'comments'>) => void;
+  updateShelfEvent: (spaceId: string, eventId: string, updates: Partial<ShelfEvent>) => void;
+  removeShelfEvent: (spaceId: string, eventId: string) => void;
+  addShelfEventComment: (spaceId: string, eventId: string, text: string) => void;
+  removeShelfEventComment: (spaceId: string, eventId: string, commentId: string) => void;
   removeMediaItem: (spaceId: string, mediaId: string) => void;
   likeMediaItem: (spaceId: string, mediaId: string) => void;
   addComment: (spaceId: string, mediaId: string, comment: Omit<Comment, 'id' | 'timestamp'>) => void;
@@ -1451,6 +1476,64 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     }));
   };
 
+  const addShelfEvent = (spaceId: string, event: Omit<ShelfEvent, 'id' | 'createdAt' | 'createdBy' | 'comments'>) => {
+    const newEvent: ShelfEvent = {
+      ...event,
+      id: Math.random().toString(36).substring(2, 9),
+      createdAt: new Date().toISOString(),
+      createdBy: user?.id || '',
+      comments: []
+    };
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelfEvents: [...(space.shelfEvents || []), newEvent]
+    }));
+  };
+
+  const updateShelfEvent = (spaceId: string, eventId: string, updates: Partial<ShelfEvent>) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelfEvents: (space.shelfEvents || []).map(e => e.id === eventId ? { ...e, ...updates } : e)
+    }));
+  };
+
+  const removeShelfEvent = (spaceId: string, eventId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelfEvents: (space.shelfEvents || []).filter(e => e.id !== eventId)
+    }));
+  };
+
+  const addShelfEventComment = (spaceId: string, eventId: string, text: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelfEvents: (space.shelfEvents || []).map(e => {
+        if (e.id === eventId) {
+          const newComment: ShelfEventComment = {
+            id: Math.random().toString(36).substring(2, 9),
+            userId: user?.id || '',
+            text,
+            createdAt: new Date().toISOString()
+          };
+          return { ...e, comments: [...(e.comments || []), newComment] };
+        }
+        return e;
+      })
+    }));
+  };
+
+  const removeShelfEventComment = (spaceId: string, eventId: string, commentId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelfEvents: (space.shelfEvents || []).map(e => {
+        if (e.id === eventId) {
+          return { ...e, comments: (e.comments || []).filter(c => c.id !== commentId) };
+        }
+        return e;
+      })
+    }));
+  };
+
   const addMediaItem = (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => {
     const newItem: MediaItem = { 
       ...item, 
@@ -1582,7 +1665,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       updateMemberPermissions,
       sendConversationMessage,
         markConversationRead,

@@ -5,6 +5,7 @@ import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
 import { Space, useSpaces } from '../../../app/context/SpacesContext';
 import { ShelfCoverPicker } from './ShelfCoverPicker';
+import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 
 export interface DocumentsWidgetRef {
@@ -20,12 +21,13 @@ type ViewMode = 'feed' | 'grid' | 'circles';
 
 export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetProps>(({ space, activePartnersCount }, ref) => {
   const { user } = useAuth();
-  const { addShelf, updateShelf, addDocument, updateDocument, removeDocument } = useSpaces();
+  const { addShelf, updateShelf, addDocument, updateDocument, removeDocument, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment } = useSpaces();
   
   const shelves = space.shelves || [];
   const documents = space.documents || [];
   
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>('timeline');
     const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
@@ -217,6 +219,15 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           </div>
           <button onClick={() => setEditingShelfCoverId(activeShelf.id)} style={{ background: '#f1f5f9', border: 'none', padding: '0.5rem 1rem', borderRadius: '20px', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>
             🎨 עיצוב
+          </button>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', padding: '0 1rem', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+          <button onClick={() => setActiveTab('timeline')} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'timeline' ? '3px solid #3b82f6' : '3px solid transparent', color: activeTab === 'timeline' ? '#3b82f6' : '#64748b', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
+            ציר זמן (הסיפור)
+          </button>
+          <button onClick={() => setActiveTab('vault')} style={{ flex: 1, padding: '0.75rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'vault' ? '3px solid #3b82f6' : '3px solid transparent', color: activeTab === 'vault' ? '#3b82f6' : '#64748b', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer' }}>
+            מחסן מסמכים (חומר גלם)
           </button>
         </div>
 
