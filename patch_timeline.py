@@ -1,23 +1,24 @@
-const fs = require('fs');
+import re
 
-let content = fs.readFileSync('src/components/widgets/Vault/ShelfTimeline.tsx', 'utf8');
+with open('src/components/widgets/Vault/ShelfTimeline.tsx', 'r', encoding='utf-8') as f:
+    content = f.read()
 
-// 1. Add states
+# 1. Add states
 content = content.replace(
     "const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);",
     "const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);\n  const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);\n  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});"
-);
+)
 
-// 2. Add completedAt to handleToggleTask
-content = content.replace(
-    "const updatedTasks = (event.tasks || []).map(t => t.id === taskId ? { ...t, isCompleted } : t);",
-    "const updatedTasks = (event.tasks || []).map(t => t.id === taskId ? { ...t, isCompleted, completedAt: isCompleted ? new Date().toISOString() : undefined } : t);"
-);
+# 2. Add completedAt to handleToggleTask
+content = re.sub(
+    r"const updatedTasks = \(event\.tasks \|\| \[\]\)\.map\(t => t\.id === taskId \? \{ \.\.\.t, isCompleted \} : t\);",
+    "const updatedTasks = (event.tasks || []).map(t => t.id === taskId ? { ...t, isCompleted, completedAt: isCompleted ? new Date().toISOString() : undefined } : t);",
+    content
+)
 
-// 3. Events map rendering for Year Marker
-const eventsMapPattern = /\{events\.map\(\(event, idx\) => \{\s*const eventDocs = shelfDocs\.filter\(d => event\.documentIds\?\.includes\(d\.id\)\);\s*return \(\s*<React\.Fragment key=\{event\.id\}>\s*<div style=\{\{ position: 'relative', zIndex: 1, paddingRight: '3rem' \}\}>/m;
-const eventsMapPattern2 = /\{events\.map\(event => \{\s*const eventDocs = shelfDocs\.filter\(d => event\.documentIds\?\.includes\(d\.id\)\);\s*return \(\s*<div key=\{event\.id\} style=\{\{ position: 'relative', zIndex: 1, paddingRight: '3rem' \}\}>/m;
-const eventsMapRepl = `{events.map((event, idx) => {
+# 3. Events map rendering for Year Marker
+events_map_pattern = r"\{events\.map\(event => \{\n\s*const eventDocs = shelfDocs\.filter\(d => event\.documentIds\?\.includes\(d\.id\)\);\n\s*return \(\n\s*<div key=\{event\.id\} style=\{\{ position: 'relative', zIndex: 1, paddingRight: '3rem' \}\}>"
+events_map_repl = """{events.map((event, idx) => {
             const eventDocs = shelfDocs.filter(d => event.documentIds?.includes(d.id));
             const year = event.eventDate.substring(0, 4);
             const prevYear = idx > 0 ? events[idx - 1].eventDate.substring(0, 4) : null;
@@ -32,23 +33,18 @@ const eventsMapRepl = `{events.map((event, idx) => {
                     <span style={{ background: '#e2e8f0', color: '#475569', padding: '4px 12px', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem' }}>{year}</span>
                   </div>
                 )}
-                <div style={{ position: 'relative', zIndex: 1, paddingRight: '3rem' }}>`;
-content = content.replace(eventsMapPattern2, eventsMapRepl).replace(eventsMapPattern, eventsMapRepl);
+                <div style={{ position: 'relative', zIndex: 1, paddingRight: '3rem' }}>"""
+content = re.sub(events_map_pattern, events_map_repl, content)
 
 
-const eventEndPattern = /                  <\/div>\s*<\/div>\s*<\/div>\s*\);\s*\}\)\}/m;
-const eventEndRepl = `                  </div>
-                </div>
-              </div>
-              </React.Fragment>
-            );
-          })}`;
-content = content.replace(eventEndPattern, eventEndRepl);
+event_end_pattern = r"                  </div>\n                </div>\n              </div>\n            \);\n          \}\)\}"
+event_end_repl = "                  </div>\n                </div>\n              </div>\n              </React.Fragment>\n            );\n          })}"
+content = re.sub(event_end_pattern, event_end_repl, content)
 
 
-// 4. Tasks Accordion
-const tasksPattern = /\{\/\* TASKS \*\/\}.*?\{\/\* COMMENTS - WHATSAPP STYLE \*\/\}/s;
-const tasksRepl = `{/* TASKS ACCORDION */}
+# 4. Tasks Accordion
+tasks_pattern = r"\{/\* TASKS \*/\}.*?\{/\* COMMENTS - WHATSAPP STYLE \*/\}"
+tasks_repl = """{/* TASKS ACCORDION */}
                   <div style={{ marginTop: '1rem', background: '#fffbeb', borderRadius: '12px', padding: '1rem', border: '1px solid #fde68a' }}>
                     <div 
                       onClick={() => setExpandedTasks(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
@@ -123,7 +119,7 @@ const tasksRepl = `{/* TASKS ACCORDION */}
                           <div 
                             key={doc.id} 
                             onClick={() => window.open(doc.url, '_blank')}
-                            style={{ flexShrink: 0, width: '100px', height: '140px', background: '#e2e8f0', borderRadius: '12px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? \`url(\${doc.thumbnailUrl || doc.url})\` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
+                            style={{ flexShrink: 0, width: '100px', height: '140px', background: '#e2e8f0', borderRadius: '12px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
                             title={doc.title}
                           >
                             {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
@@ -140,14 +136,13 @@ const tasksRepl = `{/* TASKS ACCORDION */}
                     </div>
                   )}
 
-                  {/* CHAT TRIGGER */}`;
-content = content.replace(tasksPattern, tasksRepl);
+                  {/* CHAT TRIGGER */}"""
+content = re.sub(tasks_pattern, tasks_repl, content, flags=re.DOTALL)
 
 
-// 5. Replace inline comments with just a button
-const commentsPattern = /\{\/\* CHAT TRIGGER \*\/\}.*?<\/div>\s*<\/div>\s*<\/div>\s*<\/React\.Fragment>\s*\);\s*\}\)\}/s;
-const commentsPatternOld = /\{\/\* COMMENTS - WHATSAPP STYLE \*\/\}.*?<\/div>\s*<\/div>\s*<\/div>\s*\);\s*\}\)\}/s;
-const commentsRepl = `{/* CHAT TRIGGER */}
+# 5. Replace inline comments with just a button
+comments_pattern = r"\{/\* COMMENTS - WHATSAPP STYLE \*/\}.*?</div>\n                  </div>\n                </div>\n              </div>\n              </React.Fragment>\n            \);\n          \}\)\}"
+comments_repl = """{/* CHAT TRIGGER */}
                   <div style={{ marginTop: '1rem' }}>
                     <button 
                       onClick={() => setActiveChatEventId(event.id)}
@@ -163,12 +158,12 @@ const commentsRepl = `{/* CHAT TRIGGER */}
               </div>
               </React.Fragment>
             );
-          })}`;
-content = content.replace(commentsPatternOld, commentsRepl).replace(commentsPattern, commentsRepl);
+          })}"""
+content = re.sub(comments_pattern, comments_repl, content, flags=re.DOTALL)
 
 
-// 6. Add Chat Modal before showAddModal
-const chatModalStr = `
+# 6. Add Chat Modal before showAddModal
+chat_modal_str = """
       {activeChatEventId && (() => {
         const activeEvent = events.find(e => e.id === activeChatEventId);
         if (!activeEvent) return null;
@@ -233,7 +228,9 @@ const chatModalStr = `
           </div>
         );
       })()}
-`;
-content = content.replace("{showAddModal && (", chatModalStr + "\n      {showAddModal && (");
+"""
+content = content.replace("{showAddModal && (", chat_modal_str + "\n      {showAddModal && (")
 
-fs.writeFileSync('src/components/widgets/Vault/ShelfTimeline.tsx', content);
+
+with open('src/components/widgets/Vault/ShelfTimeline.tsx', 'w', encoding='utf-8') as f:
+    f.write(content)
