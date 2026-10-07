@@ -21,6 +21,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [newEventDate, setNewEventDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [newTasks, setNewTasks] = useState<{id: string, text: string, isCompleted: boolean}[]>([]);
+  const [newTaskInput, setNewTaskInput] = useState('');
 
   const events = (space.shelfEvents || [])
     .filter(e => e.shelfId === activeShelfId)
@@ -33,12 +35,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       title: newEventTitle.trim(),
       description: newEventDesc.trim(),
       eventDate: newEventDate,
-      documentIds: selectedDocIds
+      documentIds: selectedDocIds,
+      tasks: newTasks
     });
     setShowAddModal(false);
     setNewEventTitle('');
     setNewEventDesc('');
     setSelectedDocIds([]);
+    setNewTasks([]);
   };
 
   const handlePostComment = (eventId: string) => {
@@ -48,9 +52,21 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     setCommentInputs(prev => ({ ...prev, [eventId]: '' }));
   };
 
+  const handleToggleTask = (eventId: string, taskId: string, isCompleted: boolean) => {
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+    const updatedTasks = (event.tasks || []).map(t => t.id === taskId ? { ...t, isCompleted } : t);
+    onUpdateEvent(eventId, { tasks: updatedTasks });
+  };
+
   const getUserName = (uid: string) => {
+    if (uid === user?.id) return 'אני';
     const member = space.members?.find(m => m.userId === uid);
     return member?.name || 'משתמש';
+  };
+
+  const handleOpenScanner = () => {
+    window.dispatchEvent(new CustomEvent('smartshare:open_scanner'));
   };
 
   return (
@@ -93,6 +109,30 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     </p>
                   )}
 
+                  {/* TASKS */}
+                  {event.tasks && event.tasks.length > 0 && (
+                    <div style={{ marginTop: '1rem', background: '#fffbeb', borderRadius: '12px', padding: '1rem', border: '1px solid #fde68a' }}>
+                      <div style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span>📋</span> יומן משימות לביצוע:
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {event.tasks.map(task => (
+                          <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={task.isCompleted} 
+                              onChange={(e) => handleToggleTask(event.id, task.id, e.target.checked)}
+                              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#10b981' }}
+                            />
+                            <span style={{ fontSize: '0.9rem', color: task.isCompleted ? '#94a3b8' : '#334155', textDecoration: task.isCompleted ? 'line-through' : 'none' }}>
+                              {task.text}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {eventDocs.length > 0 && (
                     <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
                       <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.5rem', fontWeight: 'bold' }}>מסמכים מצורפים:</div>
@@ -101,7 +141,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                           <div 
                             key={doc.id} 
                             onClick={() => window.open(doc.url, '_blank')}
-                            style={{ flexShrink: 0, width: '70px', height: '70px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
+                            style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
                             title={doc.title}
                           >
                             {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
@@ -111,33 +151,55 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     </div>
                   )}
 
-                  <div style={{ marginTop: '1rem', background: '#f8fafc', borderRadius: '12px', padding: '0.75rem' }}>
+                  {/* COMMENTS - WHATSAPP STYLE */}
+                  <div style={{ marginTop: '1rem', background: '#e5ddd5', borderRadius: '12px', padding: '0.75rem', border: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '0.5rem', textAlign: 'center', background: 'rgba(255,255,255,0.6)', padding: '2px 8px', borderRadius: '12px', width: 'fit-content', margin: '0 auto 0.5rem auto' }}>
+                      כל השותפים במדף רואים את הטוקבקים
+                    </div>
                     {event.comments && event.comments.length > 0 && (
-                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                         {event.comments.map(comment => (
-                           <div key={comment.id} style={{ fontSize: '0.8rem' }}>
-                             <span style={{ fontWeight: 'bold', color: '#334155', marginLeft: '0.25rem' }}>{getUserName(comment.userId)}:</span>
-                             <span style={{ color: '#475569' }}>{comment.text}</span>
-                           </div>
-                         ))}
+                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+                         {event.comments.map(comment => {
+                           const isMe = comment.userId === user?.id;
+                           return (
+                             <div key={comment.id} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-start' : 'flex-end' }}>
+                               <div style={{ fontSize: '0.7rem', color: '#64748b', marginBottom: '2px', padding: '0 4px' }}>
+                                 {getUserName(comment.userId)}
+                               </div>
+                               <div style={{ 
+                                 background: isMe ? '#dcf8c6' : '#ffffff', 
+                                 padding: '6px 10px', 
+                                 borderRadius: '12px', 
+                                 borderTopRightRadius: isMe ? '4px' : '12px',
+                                 borderTopLeftRadius: isMe ? '12px' : '4px',
+                                 fontSize: '0.85rem', 
+                                 color: '#334155',
+                                 maxWidth: '85%',
+                                 wordBreak: 'break-word',
+                                 boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                               }}>
+                                 {comment.text}
+                               </div>
+                             </div>
+                           );
+                         })}
                        </div>
                     )}
                     
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <input 
                         type="text" 
-                        placeholder="הוסף טוקבק או עדכון..." 
+                        placeholder="הוסף הודעה..." 
                         value={commentInputs[event.id] || ''}
                         onChange={(e) => setCommentInputs(prev => ({ ...prev, [event.id]: e.target.value }))}
                         onKeyDown={(e) => e.key === 'Enter' && handlePostComment(event.id)}
-                        style={{ flex: 1, padding: '0.4rem 0.75rem', borderRadius: '20px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.8rem' }}
+                        style={{ flex: 1, padding: '0.5rem 1rem', borderRadius: '24px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
                       />
                       <button 
                         onClick={() => handlePostComment(event.id)}
                         disabled={!commentInputs[event.id]?.trim()}
-                        style={{ background: commentInputs[event.id]?.trim() ? '#3b82f6' : '#cbd5e1', color: 'white', border: 'none', borderRadius: '20px', padding: '0 1rem', fontWeight: 'bold', cursor: commentInputs[event.id]?.trim() ? 'pointer' : 'not-allowed', fontSize: '0.8rem', transition: 'all 0.2s' }}
+                        style={{ background: commentInputs[event.id]?.trim() ? '#25d366' : '#cbd5e1', color: 'white', border: 'none', borderRadius: '50%', width: '38px', height: '38px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: commentInputs[event.id]?.trim() ? 'pointer' : 'not-allowed', transition: 'all 0.2s', flexShrink: 0 }}
                       >
-                        שלח
+                        <span style={{ transform: 'rotate(-45deg)', marginLeft: '2px', marginBottom: '2px' }}>➤</span>
                       </button>
                     </div>
                   </div>
@@ -149,15 +211,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         </div>
       )}
 
+      {/* ADD EVENT MODAL */}
       {showAddModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
               <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>תחנה חדשה בציר הזמן</h2>
               <button onClick={() => setShowAddModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
             </div>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>כותרת האירוע / פגישה</label>
                 <input type="text" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} placeholder="לדוגמא: פגישת ייעוץ אצל ד״ר כהן" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
@@ -173,9 +236,51 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 <textarea value={newEventDesc} onChange={(e) => setNewEventDesc(e.target.value)} placeholder="מה הוחלט? על מה דיברתם?" rows={3} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
               </div>
 
-              {shelfDocs.length > 0 && (
-                <div>
-                  <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>שיוך מסמכים מתוך המדף</label>
+              {/* TASKS IN ADD EVENT */}
+              <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>יומן משימות לפגישה זו (אופציונלי)</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                  {newTasks.map(task => (
+                    <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '0.85rem' }}>{task.text}</span>
+                      <button onClick={() => setNewTasks(prev => prev.filter(t => t.id !== task.id))} style={{ background: 'transparent', border: 'none', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    placeholder="הוסף מטלה לביצוע..."
+                    value={newTaskInput}
+                    onChange={(e) => setNewTaskInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newTaskInput.trim()) {
+                        setNewTasks(prev => [...prev, { id: Math.random().toString(36).substring(2), text: newTaskInput.trim(), isCompleted: false }]);
+                        setNewTaskInput('');
+                      }
+                    }}
+                    style={{ flex: 1, padding: '0.5rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.85rem' }}
+                  />
+                  <button 
+                    onClick={() => {
+                      if (newTaskInput.trim()) {
+                        setNewTasks(prev => [...prev, { id: Math.random().toString(36).substring(2), text: newTaskInput.trim(), isCompleted: false }]);
+                        setNewTaskInput('');
+                      }
+                    }}
+                    style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0 0.75rem', borderRadius: '8px', cursor: 'pointer', fontSize: '0.85rem' }}
+                  >הוסף</button>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>שיוך מסמכים</label>
+                  <button onClick={handleOpenScanner} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '4px 12px', borderRadius: '16px', color: '#3b82f6', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '1rem' }}>📷</span> סרוק מסמך חדש
+                  </button>
+                </div>
+                {shelfDocs.length > 0 ? (
                   <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                     {shelfDocs.map(doc => {
                       const isSelected = selectedDocIds.includes(doc.id);
@@ -183,7 +288,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                         <div 
                           key={doc.id} 
                           onClick={() => setSelectedDocIds(prev => isSelected ? prev.filter(id => id !== doc.id) : [...prev, doc.id])}
-                          style={{ flexShrink: 0, width: '70px', height: '70px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.6 }}
+                          style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.6 }}
                           title={doc.title}
                         >
                           {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
@@ -192,8 +297,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                       );
                     })}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+                    אין מסמכים במחסן. לחץ על כפתור הסורק למעלה.
+                  </div>
+                )}
+              </div>
 
               <button onClick={handleAddEvent} style={{ width: '100%', background: '#3b82f6', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
                 הוסף תחנה
