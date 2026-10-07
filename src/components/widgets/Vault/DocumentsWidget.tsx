@@ -359,23 +359,23 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }
 
   return (
-    <div style={{ padding: '1rem 0', paddingBottom: '6rem' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 1rem' }}>
-        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.3rem' }}>מחסן מסמכים <span style={{ fontSize: '0.8rem', color: '#3b82f6' }}>v2.4</span></h2>
-      </div>
-
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', width: '100%', boxSizing: 'border-box', padding: '0 1rem' }}>
+    <div style={{ padding: '0', paddingBottom: '6rem' }}>
+      <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
+          מחסן
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.5</span>
+        </h2>
         <input 
           type="text" 
           placeholder="חיפוש מדפים..." 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ flex: 1, padding: '0.75rem 1rem', borderRadius: '16px', border: '1px solid #e2e8f0', outline: 'none', minWidth: 0 }}
+          style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', minWidth: 0, fontSize: '0.9rem' }}
         />
         <div style={{ position: 'relative' }}>
           <button 
             onClick={() => setShowViewMenu(!showViewMenu)} 
-            style={{ height: '100%', padding: '0 1rem', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '16px', color: '#475569', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', whiteSpace: 'nowrap' }}
+            style={{ height: '100%', padding: '0 0.75rem', background: 'white', border: '1px solid #cbd5e1', borderRadius: '12px', color: '#475569', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap', fontSize: '0.9rem' }}
           >
             <span>{viewMode === 'feed' ? '📑' : viewMode === 'grid' ? '▦' : '⭕'} תצוגה</span>
           </button>
