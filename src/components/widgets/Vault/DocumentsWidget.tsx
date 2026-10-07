@@ -241,6 +241,18 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           />
         )}
 
+        {activeTab === 'timeline' ? (
+          <ShelfTimeline 
+            space={space} 
+            activeShelfId={activeShelfId} 
+            shelfDocs={shelfDocs} 
+            onAddEvent={(e) => addShelfEvent(space.id, e)} 
+            onUpdateEvent={(id, u) => updateShelfEvent(space.id, id, u)} 
+            onRemoveEvent={(id) => removeShelfEvent(space.id, id)} 
+            onAddComment={(id, text) => addShelfEventComment(space.id, id, text)} 
+            onRemoveComment={(id, cid) => removeShelfEventComment(space.id, id, cid)} 
+          />
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '0 1rem' }}>
           {shelfDocs.length === 0 ? (
             <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '3rem' }}>המדף ריק.</div>
@@ -279,6 +291,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             </div>
           )}
         </div>
+        )}
       </div>
       {pendingImport && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 10000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
