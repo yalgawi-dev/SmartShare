@@ -285,6 +285,17 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
     setOcrData({});
     setOcrDebugMessage(null);
     setOcrElapsedTime(0);
+  
+    setBatchQueue(prev => {
+      if (prev.length > 0) {
+        const nextUrl = prev[0];
+        setTimeout(() => {
+          runOcrPipeline(nextUrl);
+        }, 400);
+        return prev.slice(1);
+      }
+      return prev;
+    });
   };
 
   const hasScanner = space.features.includes('scanner');

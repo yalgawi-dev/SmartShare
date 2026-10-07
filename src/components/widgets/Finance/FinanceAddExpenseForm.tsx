@@ -369,6 +369,11 @@ export function FinanceAddExpenseForm({
           <textarea name="note" placeholder="הערות (אופציונלי)" rows={2} style={{ padding: '0.875rem', borderRadius: '12px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'rgba(0,0,0,0.02)', resize: 'vertical' }}></textarea>
           
           <div style={{ marginTop: '0.5rem' }}>
+            {ocrData?._duplicateWarning && (
+              <button type="button" onClick={() => handleCloseForm()} style={{ width: '100%', marginBottom: '1rem', background: '#fee2e2', color: '#b91c1c', border: '1px solid #f87171', padding: '1rem', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: 'all 0.2s ease' }}>
+                דלג על חשבונית זו (כפילות)
+              </button>
+            )}
             <button type="submit" disabled={!isFormValid && !isAnalyzing} style={{ width: '100%', background: (isFormValid || isAnalyzing) ? 'var(--primary)' : '#9ca3af', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: (isFormValid || isAnalyzing) ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', boxShadow: (isFormValid || isAnalyzing) ? '0 4px 12px rgba(79, 70, 229, 0.3)' : 'none', transition: 'all 0.2s ease' }}>
               שמור הוצאה
             </button>
