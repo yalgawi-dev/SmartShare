@@ -33,7 +33,7 @@ export function FloatingActionBar({
   activeTab?: 'summary' | 'transactions' | 'inbox' | 'documents';
   setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'documents') => void;
   onAddExpense: () => void;
-  onOpenScanner: (mode?: 'camera' | 'upload') => void;
+  onOpenScanner: (mode?: 'camera' | 'upload', category?: 'receipt' | 'document' | 'image') => void;
   onOpenPartners?: () => void;
   hasChat?: boolean;
   onOpenGroupChat?: () => void;
@@ -147,7 +147,7 @@ export function FloatingActionBar({
           <>
             {isVaultTab && (
               <button 
-                onClick={() => onOpenScanner('upload')}
+                onClick={() => onOpenScanner('upload', 'document')}
                 style={{
                   background: 'transparent', 
                   border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
@@ -197,7 +197,7 @@ export function FloatingActionBar({
         )}
         {hasScanner && (
            <button 
-             onClick={() => onOpenScanner('camera')}
+             onClick={() => onOpenScanner('camera', isVaultTab ? 'document' : 'receipt')}
              style={{
                position: 'relative', zIndex: 2,
                background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',

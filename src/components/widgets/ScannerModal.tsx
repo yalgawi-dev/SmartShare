@@ -36,9 +36,10 @@ interface ScannerModalProps {
   /** When set, saved pages are shrunk to this total byte budget (once, before PDF build). */
   maxBytes?: number;
   defaultMode?: 'camera' | 'upload';
+  defaultCategory?: 'receipt' | 'document' | 'image';
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, maxBytes, defaultMode = 'camera' }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt' }: ScannerModalProps) {
   
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
@@ -84,7 +85,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const missedFramesRef = useRef<number>(0);
   
   const [cvLoaded, setCvLoaded] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>('receipt');
+  const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>(defaultCategory);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   useEffect(() => {
