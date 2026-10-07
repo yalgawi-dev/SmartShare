@@ -571,6 +571,33 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
   };
 
+  const handleDeleteActive = () => {
+    const nextPending = pendingImports.length > 0 ? pendingImports[0] : null;
+    const nextScanned = scannedPages.length > 0 ? scannedPages[scannedPages.length - 1] : null;
+
+    if (nextPending) {
+       setPendingImports(prev => prev.filter(p => p.id !== nextPending.id));
+       setActiveDocId(nextPending.id);
+       processImportUrl(nextPending.url, nextPending.id);
+    } else if (nextScanned) {
+       setScannedPages(prev => prev.filter(p => p.id !== nextScanned.id));
+       const restoredMode = nextScanned.mode || 'smart_plus';
+       const restoredCat = nextScanned.category || 'document';
+       setMode(restoredMode);
+       setSelectedCategory(restoredCat);
+       setImageCache({ [restoredMode]: nextScanned.imageUrl });
+       setRawSnapshot(nextScanned.rawImageUrl || nextScanned.imageUrl);
+       if (nextScanned.cropPoints) setCropPoints(nextScanned.cropPoints);
+       setStep('review');
+       setActiveDocId(nextScanned.id);
+    } else {
+       setRawSnapshot(null); 
+       setActiveDocId(generateDocId());
+       setImageCache({});
+       if (step !== 'scanning') setStep('scanning');
+    }
+  };
+
   const handleRetake = () => {
     setActiveDocId(generateDocId());
         setStep('scanning');
@@ -1299,8 +1326,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
               {/* Row 1: secondary actions */}
               <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
-                <button onClick={() => { if (pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) { setRawSnapshot(null); setActiveDocId(generateDocId());
-        setStep('scanning'); } else { handleRetake(); } }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <button onClick={() => { if (pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) { handleDeleteActive(); } else { handleRetake(); } }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>🗑️</span>
                   {(pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) ? 'מחק עמוד' : 'צלם שוב'}
                 </button>
@@ -1357,9 +1383,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                            } else if (item.type === 'pending') {
                                setPendingImports(prev => prev.filter(p => p.id !== item.id));
                            } else if (item.type === 'active') {
-                               setRawSnapshot(null);
-                               setActiveDocId(generateDocId());
-                               if (step !== 'scanning') setStep('scanning');
+                               handleDeleteActive();
                            }
                            setTrayOrder(prev => prev.filter(id => id !== item.id));
                        }}
