@@ -43,6 +43,24 @@ export function FloatingActionBar({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+  const [isInShelf, setIsInShelf] = useState(false);
+  const [isVaultTab, setIsVaultTab] = useState(false);
+  useEffect(() => {
+    const handleOpen = () => setIsInShelf(true);
+    const handleClose = () => setIsInShelf(false);
+    const handleVaultOn = () => setIsVaultTab(true);
+    const handleVaultOff = () => setIsVaultTab(false);
+    window.addEventListener("smartshare:shelf_opened", handleOpen);
+    window.addEventListener("smartshare:shelf_closed", handleClose);
+    window.addEventListener("smartshare:vault_tab_active", handleVaultOn);
+    window.addEventListener("smartshare:vault_tab_inactive", handleVaultOff);
+    return () => {
+      window.removeEventListener("smartshare:shelf_opened", handleOpen);
+      window.removeEventListener("smartshare:shelf_closed", handleClose);
+      window.removeEventListener("smartshare:vault_tab_active", handleVaultOn);
+      window.removeEventListener("smartshare:vault_tab_inactive", handleVaultOff);
+    };
+  }, []);
 
   if (isAddingExpense || isScannerOpen || !mounted) return null;
 
@@ -127,33 +145,36 @@ export function FloatingActionBar({
         )}
         {!hasFinance && hasVault && (
           <>
-            <button 
-              onClick={() => fileInputRef.current?.click()}
-              style={{
-                background: 'transparent', 
-                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', flex: 1
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>📤</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
-            </button>
-            {/* Note: onAddShelf is not implemented in FloatingActionBar yet, passing null for now to avoid errors, or we can trigger a custom event */}
-            <button 
-              onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }}
-              style={{
-                background: 'transparent', 
-                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', flex: 1
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
-              <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
-            </button>
+            {isVaultTab && (
+              <button 
+                onClick={onOpenScanner}
+                style={{
+                  background: 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', flex: 1
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>📤</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
+              </button>
+            )}
+            {!isInShelf && (
+              <button 
+                onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }}
+                style={{
+                  background: 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', flex: 1
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
+              </button>
+            )}
           </>
         )}
       </div>
