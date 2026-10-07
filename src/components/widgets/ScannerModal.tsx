@@ -30,7 +30,7 @@ interface ClassifyResult {
 
 interface ScannerModalProps {
   onClose: () => void;
-  onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image') => void;
+  onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image' | 'receipt_batch') => void;
   hasVault?: boolean;
   hasFinance?: boolean;
   /** When set, saved pages are shrunk to this total byte budget (once, before PDF build). */
@@ -726,7 +726,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
          }
       } else if (type === 'save') {
          const result = await processMultiPage(urls, exportFormat, exportNumbers);
-         let finalRouting = exportOptions.routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+         let finalRouting = exportOptions.routingType || defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
          onComplete(result.dataUrl, undefined, urls, finalRouting);
       }
     } catch (e) {
@@ -941,7 +941,20 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       return;
     }
     
-    let finalRouting = routingType || (hasFinance && !hasVault ? 'receipt' : 'document');
+    let finalRouting = routingType || defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
+    
+    // Batch OCR Logic for Invoices
+    if (finalRouting === 'receipt' && allPageUrls.length > 1) {
+      if (!isClosingRef.current) {
+        isClosingRef.current = true;
+        window.history.back();
+      }
+      setTimeout(() => {
+        onComplete(allPageUrls[0], undefined, allPageUrls, 'receipt_batch');
+        setIsProcessing(false);
+      }, 50);
+      return;
+    }
     let primary = allPageUrls[0];
     
     if (allPageUrls.length > 1) {

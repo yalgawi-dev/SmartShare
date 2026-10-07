@@ -749,7 +749,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             maxBytes={DOCUMENT_MAX_BYTES}
             onComplete={(url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
-                if (routingType === 'receipt' || !routingType) {
+                if (routingType === 'receipt_batch' && allPages && allPages.length > 1) {
+                    financeRef.current?.processBatch(allPages);
+                } else if (routingType === 'receipt' || !routingType) {
                     financeRef.current?.processScan(url, allPages); 
                 } else if (routingType === 'document' || routingType === 'image') {
                     documentsRef.current?.addDocument(url, routingType, allPages);
