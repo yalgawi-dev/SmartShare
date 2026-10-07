@@ -2,11 +2,12 @@
 import { useState } from 'react';
 import { useAuth } from '../../app/context/AuthContext';
 import { createPortal } from 'react-dom';
-import ContactSelector, { SelectedContact } from '../common/ContactSelector';
 
 export default function ShareAppModal({ onClose }: { onClose: () => void }) {
   const { user } = useAuth();
   const [copied, setCopied] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [invitePhone, setInvitePhone] = useState('');
 
   const shareUrl = typeof window !== 'undefined' 
     ? `${window.location.origin}/?ref=${user?.id || 'guest'}` 
@@ -29,13 +30,8 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const handleContactSelect = (contact: SelectedContact) => {
-    if (contact.userId) {
-      alert(`${contact.name} כבר שותף במערכת! אין צורך לשלוח הזמנה חדשה.`);
-      return;
-    }
-
-    const whatsappUrl = `https://wa.me/${contact.phone.replace(/\D/g, '')}?text=${encodeURIComponent('היי ' + contact.name + ', \n' + shareText + '\n' + shareUrl)}`;
+  const handleWhatsAppSend = () => {
+    const whatsappUrl = `https://wa.me/${invitePhone.replace(/\D/g, '')}?text=${encodeURIComponent('היי ' + inviteName + ', \n' + shareText + '\n' + shareUrl)}`;
     window.open(whatsappUrl, '_blank');
     onClose();
   };
@@ -59,15 +55,22 @@ export default function ShareAppModal({ onClose }: { onClose: () => void }) {
         </button>
 
         <div style={{ textAlign: 'center', marginBottom: '1.5rem', marginTop: '1rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', animation: 'bounce 2s infinite' }}>🔗</div>
-          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.4rem' }}>שתף את MySpace</h2>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem', animation: 'bounce 2s infinite' }}>🎁</div>
+          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.4rem' }}>הזמן לאפליקציה</h2>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4' }}>
             הזמן חברים ומשפחה לנהל יחד מרחבים חכמים בקלות.
           </p>
         </div>
 
         <div style={{ marginBottom: '1.5rem' }}>
-          <ContactSelector onSelect={handleContactSelect} title="בחר למי לשלוח את ההזמנה:" />
+          <div style={{ background: 'var(--bg-card)', padding: '1.25rem', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
+            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>שלח הזמנה אישית בוואטסאפ:</h3>
+            <input type="text" placeholder="שם החבר/ה" value={inviteName} onChange={e => setInviteName(e.target.value)} style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border-light)', marginBottom: '0.75rem', boxSizing: 'border-box', fontSize: '0.95rem', background: 'var(--bg-main)', color: 'var(--text-primary)' }} />
+            <input type="tel" placeholder="מספר טלפון" value={invitePhone} onChange={e => setInvitePhone(e.target.value)} style={{ width: '100%', padding: '0.8rem', borderRadius: '12px', border: '1px solid var(--border-light)', marginBottom: '1rem', boxSizing: 'border-box', fontSize: '0.95rem', background: 'var(--bg-main)', color: 'var(--text-primary)' }} dir="ltr" />
+            <button onClick={handleWhatsAppSend} disabled={!inviteName || !invitePhone} style={{ width: '100%', padding: '1rem', background: (!inviteName || !invitePhone) ? '#e2e8f0' : '#22c55e', color: (!inviteName || !invitePhone) ? '#94a3b8' : 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: (!inviteName || !invitePhone) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '1rem', transition: 'all 0.2s' }}>
+              💬 שלח הודעת הזמנה
+            </button>
+          </div>
         </div>
 
         <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

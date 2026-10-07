@@ -35,10 +35,12 @@ interface ScannerModalProps {
   hasFinance?: boolean;
   /** When set, saved pages are shrunk to this total byte budget (once, before PDF build). */
   maxBytes?: number;
+  defaultMode?: 'camera' | 'upload';
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, maxBytes }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, maxBytes, defaultMode = 'camera' }: ScannerModalProps) {
   
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
   const onCloseRef = useRef(onClose);
 
@@ -85,6 +87,13 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>('receipt');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
+  useEffect(() => {
+    if (defaultMode === 'upload' && step === 'scanning') {
+      setTimeout(() => {
+        galleryInputRef.current?.click();
+      }, 100);
+    }
+  }, [defaultMode, step]);
   
   const [pendingImports, setPendingImports] = useState<{id: string, url: string}[]>([]);
 
@@ -1190,7 +1199,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <div style={{ width: '60px' }} />
                <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
                <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', color: 'white', width: '60px' }}>
-                 <input type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
+                 <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
                  <span style={{ background: 'rgba(255,255,255,0.2)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                  </span>
