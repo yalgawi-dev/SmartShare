@@ -23,10 +23,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
   const [newTasks, setNewTasks] = useState<{id: string, text: string, isCompleted: boolean}[]>([]);
   const [newTaskInput, setNewTaskInput] = useState('');
+  const [taskInputs, setTaskInputs] = useState<Record<string, string>>({});
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
 
   const events = (space.shelfEvents || [])
     .filter(e => e.shelfId === activeShelfId)
-    .sort((a, b) => new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime());
+    .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
 
   const handleAddEvent = () => {
     if (!newEventTitle.trim()) return alert('יש להזין כותרת לאירוע');
@@ -59,6 +61,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     onUpdateEvent(eventId, { tasks: updatedTasks });
   };
 
+  const handleAddTaskInline = (eventId: string) => {
+    const text = taskInputs[eventId];
+    if (!text || !text.trim()) return;
+    const event = events.find(e => e.id === eventId);
+    if (!event) return;
+    const updatedTasks = [...(event.tasks || []), { id: Math.random().toString(36).substring(2), text: text.trim(), isCompleted: false }];
+    onUpdateEvent(eventId, { tasks: updatedTasks });
+    setTaskInputs(prev => ({ ...prev, [eventId]: '' }));
+  };
+
   const getUserName = (uid: string) => {
     if (uid === user?.id) return 'אני';
     const member = space.members?.find(m => m.userId === uid);
@@ -72,9 +84,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   return (
     <div style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
-        <button onClick={() => setShowAddModal(true)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-          <span>+</span> הוסף תחנה / פגישה
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+          <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
+        </button>
+        <button onClick={() => setShowAddModal(true)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
+          <span>+</span> הוסף תחנה
         </button>
       </div>
 
@@ -110,12 +125,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                   )}
 
                   {/* TASKS */}
-                  {event.tasks && event.tasks.length > 0 && (
-                    <div style={{ marginTop: '1rem', background: '#fffbeb', borderRadius: '12px', padding: '1rem', border: '1px solid #fde68a' }}>
-                      <div style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        <span>📋</span> יומן משימות לביצוע:
-                      </div>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ marginTop: '1rem', background: '#fffbeb', borderRadius: '12px', padding: '1rem', border: '1px solid #fde68a' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#b45309', fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>📋</span> יומן משימות לביצוע:
+                    </div>
+                    {event.tasks && event.tasks.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
                         {event.tasks.map(task => (
                           <div key={task.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <input 
@@ -130,8 +145,19 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                           </div>
                         ))}
                       </div>
+                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <input 
+                        type="text" 
+                        placeholder="הוסף משימה חדשה..." 
+                        value={taskInputs[event.id] || ''}
+                        onChange={(e) => setTaskInputs(prev => ({ ...prev, [event.id]: e.target.value }))}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTaskInline(event.id)}
+                        style={{ flex: 1, padding: '0.4rem 0.75rem', borderRadius: '8px', border: '1px solid #fcd34d', outline: 'none', fontSize: '0.8rem', boxSizing: 'border-box' }}
+                      />
+                      <button onClick={() => handleAddTaskInline(event.id)} style={{ background: '#f59e0b', color: 'white', border: 'none', borderRadius: '8px', padding: '0 0.75rem', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}>הוסף</button>
                     </div>
-                  )}
+                  </div>
 
                   {eventDocs.length > 0 && (
                     <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9' }}>
@@ -185,14 +211,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                        </div>
                     )}
                     
-                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
                       <input 
                         type="text" 
                         placeholder="הוסף הודעה..." 
                         value={commentInputs[event.id] || ''}
                         onChange={(e) => setCommentInputs(prev => ({ ...prev, [event.id]: e.target.value }))}
                         onKeyDown={(e) => e.key === 'Enter' && handlePostComment(event.id)}
-                        style={{ flex: 1, padding: '0.5rem 1rem', borderRadius: '24px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff' }}
+                        style={{ flex: 1, padding: '0.5rem 1rem', borderRadius: '24px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.9rem', background: '#fff', boxSizing: 'border-box', minWidth: 0 }}
                       />
                       <button 
                         onClick={() => handlePostComment(event.id)}
