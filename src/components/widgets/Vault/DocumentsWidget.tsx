@@ -199,7 +199,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       setActiveShelfId(null);
       return null;
     }
-    const shelfDocs = [...documents.filter(d => d.shelfId === activeShelfId), ...uploadingDocs.filter(d => d.shelfId === activeShelfId).map(d => ({ ...d, createdAt: new Date().toISOString(), addedBy: user?.id || '' }))] as any[];
+    const shelfDocs = [...documents.filter(d => d.shelfId === activeShelfId), ...uploadingDocs.filter(d => d.shelfId === activeShelfId).map(d => ({ ...d, createdAt: new Date().toISOString(), addedBy: user?.id || '' }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) as any[];
     
 
     return (
@@ -252,8 +252,11 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                   <div onTouchStart={(e) => handleTouchDragStart(e, doc.id)} onMouseDown={(e) => handleTouchDragStart(e, doc.id)} style={{ display: 'flex', justifyContent: 'center', padding: '0.4rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', cursor: 'grab' }}>
                       <span style={{ fontSize: '0.8rem', color: '#94a3b8', letterSpacing: '2px' }}>|||</span>
                     </div>
-                  <div style={{ padding: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                  <div onClick={(e) => { e.stopPropagation(); const newTitle = window.prompt('הזן כותרת למסמך:', doc.title); if (newTitle && newTitle.trim()) { updateDocument(space.id, doc.id, { title: newTitle.trim() }); } }} style={{ padding: '0.5rem 0.5rem 0.2rem 0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }} title="לחץ לשינוי שם">
                     {doc.title}
+                  </div>
+                  <div style={{ padding: '0 0.5rem 0.5rem 0.5rem', fontSize: '0.7rem', color: '#64748b' }}>
+                    {new Date(doc.createdAt).toLocaleDateString('he-IL')}
                   </div>
                   <div style={{ display: 'flex', borderTop: '1px solid #e2e8f0', background: '#f1f5f9' }}>
                     <div onClick={() => handleMoveDocument(doc.id, activeShelf.id)} style={{ flex: 1, padding: '0.4rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer' }}>
