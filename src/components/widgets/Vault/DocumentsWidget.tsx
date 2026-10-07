@@ -126,17 +126,25 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       const tempId = 'temp-' + Date.now();
       const title = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
       
-      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, url, title, type }]);
+      let previewUrl = (allPages && allPages.length > 0) ? allPages[0] : (url.startsWith('data:image') ? url : undefined);
+      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, url, title, type, thumbnailUrl: previewUrl }]);
       
       try {
         let finalUrl = url;
+        let finalThumbnailUrl = previewUrl;
         if (url.startsWith('data:image') || url.startsWith('data:application/pdf')) {
           const ext = url.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
           finalUrl = await uploadImageToStorage(url, path);
         }
+
+        if (previewUrl && previewUrl.startsWith('data:image')) {
+          const thumbPath = `documents/${space.id}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+          finalThumbnailUrl = await uploadImageToStorage(previewUrl, thumbPath);
+        }
+
         // Save to real database
-        addDocument(space.id, { shelfId, url: finalUrl, type, title, addedBy: user?.id || '' });
+        addDocument(space.id, { shelfId, url: finalUrl, type, title, addedBy: user?.id || '', thumbnailUrl: finalThumbnailUrl });
       } catch (e) {
         console.error("Failed to upload document", e);
         alert("שגיאה בהעלאת המסמך");
@@ -232,12 +240,12 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                   {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
                   <button onClick={() => handleDeleteDocument(doc.id)} style={{ position: 'absolute', top: '4px', right: '4px', background: 'rgba(239,68,68,0.9)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', cursor: 'pointer', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem' }}>✕</button>
                   {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
-                    <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
-                      <span style={{ fontSize: '3rem' }}>📄</span>
+                    <div onClick={(e) => { e.stopPropagation(); window.open(doc.url, '_blank'); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? 'url(' + doc.thumbnailUrl + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                      {!doc.thumbnailUrl && <span style={{ fontSize: '3rem' }}>📄</span>}
                       <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
                     </div>
                   ) : (
-                    <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                    <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs.filter(d => !d.url?.includes('.pdf') && !d.url?.startsWith('data:application/pdf') && d.type !== 'pdf'), index: shelfDocs.filter(d => !d.url?.includes('.pdf') && !d.url?.startsWith('data:application/pdf') && d.type !== 'pdf').findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
                       <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>JPG</div>
                     </div>
                   )}
@@ -424,29 +432,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
                   </div>
                 </div>
                 
-                <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                  {shelfDocs.length === 0 ? (
-                    <div style={{ color: '#cbd5e1', fontSize: '0.9rem', padding: '1rem 0' }}>המדף ריק. המצלמה תסרוק לכאן.</div>
-                  ) : (
-                    shelfDocs.map(doc => (
-                      <div key={doc.id} style={{ width: '100px', flexShrink: 0, background: '#f8fafc', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e2e8f0' }}>
-                        {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
-                          <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '120px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
-                            <span style={{ fontSize: '2.5rem' }}>📄</span>
-                            <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>PDF</div>
-                          </div>
-                        ) : (
-                          <div onClick={(e) => { e.stopPropagation(); setPreviewState({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '120px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
-                            <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>JPG</div>
-                          </div>
-                        )}
-                        <div style={{ padding: '0.4rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {doc.title}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
+                {/* Removed document previews here per user request, user must click shelf to see contents */}
               </div>
             );
           })}

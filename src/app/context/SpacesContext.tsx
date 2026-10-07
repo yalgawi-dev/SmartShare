@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
@@ -107,6 +107,7 @@ export interface SpaceDocument {
   type: 'document' | 'image' | 'pdf';
   addedBy: string;
   createdAt: string;
+  thumbnailUrl?: string;
 }
 
 export interface SpaceSettings {

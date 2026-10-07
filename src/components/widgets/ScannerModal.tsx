@@ -955,7 +955,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
       
     setTimeout(() => {
-      onComplete(primary, (maxBytes ? allPageUrls[0] : currentImg) || primary, undefined, finalRouting as any);
+      onComplete(primary, (maxBytes ? allPageUrls[0] : currentImg) || primary, allPageUrls, finalRouting as any);
       setIsProcessing(false);
     }, 50);
   };
