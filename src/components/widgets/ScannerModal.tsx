@@ -89,12 +89,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   useEffect(() => {
-    if (defaultMode === 'upload' && step === 'scanning') {
+    if (defaultMode === 'upload') {
       setTimeout(() => {
         galleryInputRef.current?.click();
       }, 100);
     }
-  }, [defaultMode, step]);
+  }, []); // Only run once on mount!
   
   const [pendingImports, setPendingImports] = useState<{id: string, url: string}[]>([]);
 
@@ -1396,7 +1396,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                          setPendingImports([]);
                          setIsProcessing(false);
                      }} style={{ flex: '1', background: 'rgba(16,185,129,0.2)', color: '#10b981', border: '1px solid #10b981', padding: '0.5rem', borderRadius: '12px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                       ❌ סיום ללא עריכה
+                       ⏩ אשר הכל (ללא עריכה)
                      </button>
                    )}
                    {(scannedPages.length > 0 || pendingImports.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
