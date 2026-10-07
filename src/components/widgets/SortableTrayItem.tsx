@@ -9,9 +9,10 @@ interface SortableTrayItemProps {
   url: string;
   onClick: () => void;
   isEdited?: boolean;
+  onDelete?: (e: React.MouseEvent) => void;
 }
 
-export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: SortableTrayItemProps) {
+export function SortableTrayItem({ id, index, status, url, onClick, isEdited, onDelete }: SortableTrayItemProps) {
   const {
     attributes,
     listeners,
@@ -62,6 +63,36 @@ export function SortableTrayItem({ id, index, status, url, onClick, isEdited }: 
           style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
         />
         
+        {onDelete && (
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(e);
+            }}
+            style={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              background: 'rgba(239, 68, 68, 0.9)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '50%',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              zIndex: 20,
+              fontSize: '12px',
+              padding: 0,
+              boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+            }}
+          >
+            ✕
+          </button>
+        )}
+
         {/* Page Number Badge */}
         <div style={{
           position: 'absolute',

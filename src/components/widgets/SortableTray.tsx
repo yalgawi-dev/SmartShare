@@ -15,9 +15,10 @@ interface SortableTrayProps {
   items: TrayItem[];
   onReorder: (newItems: TrayItem[]) => void;
   onItemClick: (item: TrayItem) => void;
+  onItemDelete?: (item: TrayItem) => void;
 }
 
-export default function SortableTray({ items, onReorder, onItemClick }: SortableTrayProps) {
+export default function SortableTray({ items, onReorder, onItemClick, onItemDelete }: SortableTrayProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 10 } }),
     // Reduced delay and increased tolerance to make DND easier to trigger on mobile
@@ -47,6 +48,7 @@ export default function SortableTray({ items, onReorder, onItemClick }: Sortable
               url={item.url}
               isEdited={item.isEdited}
               onClick={() => onItemClick(item)}
+              onDelete={onItemDelete ? (e) => onItemDelete(item) : undefined}
             />
           ))}
         </div>

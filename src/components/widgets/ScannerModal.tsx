@@ -1351,6 +1351,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                               processImportUrl(item.url, item.id);
                            }
                         }}
+                       onItemDelete={(item) => {
+                           if (item.type === 'scanned') {
+                               setScannedPages(prev => prev.filter(p => p.id !== item.id));
+                           } else if (item.type === 'pending') {
+                               setPendingImports(prev => prev.filter(p => p.id !== item.id));
+                           } else if (item.type === 'active') {
+                               setRawSnapshot(null);
+                               setActiveDocId(generateDocId());
+                               if (step !== 'scanning') setStep('scanning');
+                           }
+                           setTrayOrder(prev => prev.filter(id => id !== item.id));
+                       }}
                     />
                  </div>
                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', width: '100%' }}>
