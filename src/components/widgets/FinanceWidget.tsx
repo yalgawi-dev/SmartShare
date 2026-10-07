@@ -51,6 +51,17 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     processScan: (url: string, allPages?: string[]) => {
       runOcrPipeline(url, allPages);
     },
+    processBatch: (urls: string[]) => {
+      if (!addInboxItems) return;
+      const newItems = urls.map(url => ({
+        imageUrl: url,
+        status: 'processing' as const,
+        uploadedBy: user?.realName || 'משתמש',
+      }));
+      addInboxItems(space.id, newItems);
+      setActiveTab('inbox');
+      setToastMsg('החשבוניות נשלחו לעיבוד רקע בהצלחה!');
+    },
     setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => {
       setActiveTab('transactions');
       setFilter(newFilter);
