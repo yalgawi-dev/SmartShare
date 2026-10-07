@@ -1253,8 +1253,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'cropping' && (
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button onClick={pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg')) ? handleSkipCrop : handleRetake} style={{ background: 'transparent', color: 'white', border: '1px solid white', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer' }}>
-              {(pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) ? 'בטל עריכה' : 'צלם שוב'}
+            <button onClick={() => handleDeleteActive()} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
+              <span style={{ fontSize: '1.2rem' }}>🗑️</span>
+              מחק עמוד
             </button>
             <button onClick={handleCropComplete} disabled={isProcessing} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}>
               {isProcessing ? 'מעבד באיכות מקסימלית...' : 'אשר חיתוך'}
@@ -1326,9 +1327,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
               {/* Row 1: secondary actions */}
               <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
-                <button onClick={() => { if (pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) { handleDeleteActive(); } else { handleRetake(); } }} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <button onClick={() => handleDeleteActive()} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>🗑️</span>
-                  {(pendingImports.length > 0 || (rawSnapshot && !rawSnapshot.startsWith('data:image/jpeg'))) ? 'מחק עמוד' : 'צלם שוב'}
+                  מחק עמוד
                 </button>
                 <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>✂️</span>
