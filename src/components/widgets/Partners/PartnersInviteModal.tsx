@@ -22,6 +22,7 @@ export function PartnersInviteModal({
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
   const [customShare, setCustomShare] = useState('10');
+  const isFinancial = space.features?.includes('finance');
 
   // Existing active partners (excluding creator)
   const validMembers = useMemo(() => {
@@ -44,6 +45,7 @@ export function PartnersInviteModal({
 
   // Calculate planned shares based on mode
   const { plannedGuestShare, plannedCreatorShare, plannedPartnerShares } = useMemo(() => {
+    if (!isFinancial) return { plannedGuestShare: 0, plannedCreatorShare: 100, plannedPartnerShares: {} };
     const totalCount = validMembers.length + 2; // existing partners + creator + new guest
 
     if (allocationMode === 'equal') {
@@ -120,7 +122,7 @@ export function PartnersInviteModal({
     return Number(sum.toFixed(1));
   }, [plannedGuestShare, plannedCreatorShare, plannedPartnerShares]);
 
-  const isBalanced = Math.abs(totalCalculated - 100) < 0.2;
+  const isBalanced = !isFinancial || Math.abs(totalCalculated - 100) < 0.2;
 
   const handleGenerateLink = async (contactName?: string, targetUserId?: string) => {
     if (!isBalanced) {
@@ -153,7 +155,7 @@ export function PartnersInviteModal({
       partnerShares: plannedPartnerShares, targetUserId
     });
 
-    return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: `היי! צירפתי אותך לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` };
+    return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: isFinancial ? `היי! צירפתי אותך לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` : `היי! הוזמנת לשתף פעולה במרחב "${space.title}". לחץ כאן כדי להיכנס:\n${link}` };
   };
 
   const handleContactSelect = async (contact: SelectedContact) => {
@@ -263,14 +265,16 @@ export function PartnersInviteModal({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
             <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
-              הזמנת שותף חדש (v3.8)
+              {isFinancial ? 'הזמנת שותף פיננסי' : 'הזמנת משתף פעולה'}
             </h3>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-              הגדרת שותפות ואחוזים מראש
+              {isFinancial ? 'הגדרת שותפות ואחוזים מראש' : 'שיתוף גישה למרחב'}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
+
+        {isFinancial && (<>
 
         {space.features?.includes("finance") && (<>
         {/* Allocation Modes */}
@@ -484,6 +488,7 @@ export function PartnersInviteModal({
           </div>
         )}
 
+        </>)}
         {/* Submit / Share Button */}
         <div style={{ borderTop: '2px solid #f1f5f9', paddingTop: '1.25rem', marginTop: '0.5rem' }}>
           <div style={{ marginBottom: '1.5rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>

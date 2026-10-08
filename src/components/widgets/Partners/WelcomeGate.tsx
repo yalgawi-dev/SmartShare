@@ -48,6 +48,7 @@ export default function WelcomeGate({
     return null;
   }, [propToken, spaceId, space?.members]);
 
+  const isFinancial = space?.features?.includes('finance');
   const currentMember = space?.members?.find((m: any) => m.userId === resolvedToken);
   const isAlreadyWelcomedOrActive = Boolean(
     currentMember && (currentMember.status === 'active' || currentMember.welcomed === true)
