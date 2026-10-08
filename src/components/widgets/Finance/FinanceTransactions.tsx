@@ -44,6 +44,7 @@ export function FinanceTransactions({
   const [memberFilter, setMemberFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [uploadingRetroId, setUploadingRetroId] = useState<string | null>(null);
   const [retroScanInvoice, setRetroScanInvoice] = useState<any>(null);
 
@@ -337,271 +338,9 @@ export function FinanceTransactions({
     return uniqueWaitingFor.join(', ');
   };
 
-  return (
-    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEndHandler}>
-      {/* Main Category Tabs */}
-      {(showIncome || showTransfers) && (() => {
-        const pendingExpenses = invoices.filter((i: any) => i.status === 'pending' && i.type !== 'transfer' && i.type !== 'income' && i.isActive !== false).length;
-        const pendingIncomes = invoices.filter((i: any) => i.status === 'pending' && i.type === 'income' && i.isActive !== false).length;
-        const pendingTransfers = invoices.filter((i: any) => i.status === 'pending' && i.type === 'transfer' && i.isActive !== false).length;
-        return (
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '12px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
-            <button 
-              onClick={() => { setTypeFilter('expense'); setFilter('all'); }} 
-              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'expense' ? 'var(--primary)' : 'transparent', color: typeFilter === 'expense' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'expense' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-            >
-              הוצאות
-              {pendingExpenses > 0 && (
-                <span style={{ background: typeFilter === 'expense' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'expense' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingExpenses}</span>
-              )}
-            </button>
-            {showIncome && (
-              <button 
-                onClick={() => { setTypeFilter('income'); setFilter('all'); }} 
-                style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'income' ? '#10b981' : 'transparent', color: typeFilter === 'income' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'income' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-              >
-                הכנסות
-                {pendingIncomes > 0 && (
-                  <span style={{ background: typeFilter === 'income' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'income' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingIncomes}</span>
-                )}
-              </button>
-            )}
-            {showTransfers && (
-              <button 
-                onClick={() => { setTypeFilter('transfer'); setFilter('all'); }} 
-                style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'transfer' ? '#f59e0b' : 'transparent', color: typeFilter === 'transfer' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'transfer' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-              >
-                העברות
-                {pendingTransfers > 0 && (
-                  <span style={{ background: typeFilter === 'transfer' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'transfer' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingTransfers}</span>
-                )}
-              </button>
-            )}
-          </div>
-        );
-      })()}
 
-      {/* Filter Pills */}
-      {(() => {
-        const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
-        const pendingMeCount = relevantInvoices.filter((i: any) => calculateCanApprove(i)).length;
-        const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")).length;
-        
-        return (
-          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
-            <button id="finance-tab-all" onClick={() => setFilter("all")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", fontWeight: filter === "all" ? "bold" : "normal", cursor: "pointer", whiteSpace: "nowrap", background: filter === "all" ? "var(--bg-hover)" : "transparent" }}>
-              הוצאות פעילות
-            </button>
-            {hasArchive && (
-              <button id="finance-tab-archive" onClick={() => setFilter("archive")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "archive" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "archive" ? "bold" : "normal", cursor: "pointer", whiteSpace: "nowrap" }}>
-                ארכיון מחוקים
-              </button>
-            )}
-            {activePartnersCount > 0 && (
-              <button id="finance-tab-pending_me" onClick={() => setFilter("pending_me")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_me" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_me" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
-                ממתינים לאישורי
-                {pendingMeCount > 0 && (
-                  <span style={{ background: "#f59e0b", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
-                    {pendingMeCount}
-                  </span>
-                )}
-              </button>
-            )}
-            {activePartnersCount > 0 && (
-              <button id="finance-tab-pending_partners" onClick={() => setFilter("pending_partners")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_partners" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_partners" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
-                ממתין לאישור השותפים
-                {pendingPartnersCount > 0 && (
-                  <span style={{ background: "#3b82f6", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
-                    {pendingPartnersCount}
-                  </span>
-                )}
-              </button>
-            )}
-            {(() => {
-              const hasDispute = relevantInvoices.some((i: any) => i.status === "dispute");
-              if (!hasDispute) return null;
-              return (
-                <button id="finance-tab-dispute" onClick={() => setFilter("dispute")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "dispute" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "dispute" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
-                  בבירור / במחלוקת
-                </button>
-              );
-            })()}
-          </div>
-        );
-      })()}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
-        {/* Search Bar */}
-        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '0.4rem 0.8rem' }}>
-          <span style={{ marginRight: '0.5rem', color: 'var(--text-secondary)' }}>🔍</span>
-          <input 
-            type="text" 
-            placeholder="חיפוש לפי ספק, הערה או קטגוריה..." 
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.9rem', color: 'var(--text-main)', width: '100%' }}
-          />
-        </div>
-
-        {/* Filters Container */}
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
-          {/* Category Filter (Global) */}
-          {allCategories.length > 0 && (
-            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                קטגוריה:
-              </span>
-              <select 
-                value={categoryFilter} 
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.9rem' }}
-              >
-                <option value="all">הכל</option>
-                {allCategories.map((c: any) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* Member Filter (hidden in pending_me) */}
-          {activePartnersCount > 0 && filter !== 'pending_me' && (
-            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                {filter === 'pending_partners' ? 'לאישור של:' : filter === 'dispute' ? 'נדחה ע"י:' : 'שולם ע"י:'}
-              </span>
-              <select 
-                value={memberFilter} 
-                onChange={(e) => setMemberFilter(e.target.value)}
-                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.9rem' }}
-              >
-                <option value="all">הכל</option>
-                {allUsers
-                  .filter(u => filter === 'pending_partners' ? u.id !== myEffectiveId : true)
-                  .map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
-
-        {activePartnersCount > 0 && filter !== 'pending_me' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {/* Dynamic Banner to explain the filter as requested by user */}
-            {memberFilter !== 'all' && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.2rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.4rem', borderRadius: '6px', textAlign: 'center', fontWeight: '500' }}>
-                {(() => {
-                  const selectedName = allUsers.find(u => u.id === memberFilter)?.name || '';
-                  if (filter === 'pending_partners') return `מציג הוצאות שמחכות לאישור של ${selectedName}`;
-                  if (filter === 'dispute') return `מציג מחלוקות שקשורות אל ${selectedName}`;
-                  return `מציג הוצאות ששולמו על ידי ${selectedName}`;
-                })()}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
-      {finallyFiltered.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
-            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
-            {(() => {
-              const selectedName = memberFilter !== 'all' ? (allUsers.find(u => u.id === memberFilter)?.name || '') : '';
-              const itemName = typeFilter === 'transfer' ? 'העברות' : typeFilter === 'income' ? 'הכנסות' : 'חשבוניות';
-
-              if (searchQuery && searchQuery.trim()) return `לא נמצאו תוצאות התואמות לחיפוש "${searchQuery}"`;
-              if (filter === 'pending_me') return `אין ${itemName} שממתינות לאישור שלך.`;
-              if (filter === 'pending_partners') return selectedName ? `אין ${itemName} שממתינות לאישור של ${selectedName}.` : `אין ${itemName} שממתינות לאישור השותפים.`;
-              if (filter === 'dispute') return selectedName ? `אין סכסוכים או מחלוקות שקשורים אל ${selectedName}.` : 'אין סכסוכים או מחלוקות פתוחים.';
-              return selectedName ? `אין ${itemName} פעילות ששולמו על ידי ${selectedName}.` : `אין ${itemName} פעילות.`;
-            })()}
-          </div>
-        ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
-          {finallyFiltered.map((inv: any) => (
-            <div key={inv.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-              
-              <div 
-                onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', cursor: 'pointer' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-                  <div style={{ 
-                    width: '40px', height: '40px', flexShrink: 0,
-                    borderRadius: '50%', 
-                    background: inv.status === 'approved' ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.1rem'
-                  }}>
-                    {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', display: 'inline-block' }}>{inv.supplier}</span>
-                        {inv.source === 'inbox' && (
-                          <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
-                            🗃️ ממחסן
-                          </span>
-                        )}
-                      {inv.hasAttachment ? (
-                        <span title="מצורפת חשבונית" style={{ fontSize: '0.9rem' }}>📎</span>
-                      ) : (
-                        <span title="חסר מסמך/קבלה" style={{ fontSize: '0.9rem', color: '#ef4444' }}>⚠️</span>
-                      )}
-                    </h4>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ whiteSpace: 'nowrap' }}>{inv.date}</span>
-                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
-                        {inv.status === 'dispute' && (
-                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
-                        )}
-                      </div>
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <div>
-                    
-                      {inv.amount < 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                          <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: '#ef4444' }}>
-                            -₪{Math.abs(inv.amount)?.toLocaleString()}
-                          </h3>
-                          <span style={{ fontSize: '0.65rem', background: '#fef2f2', color: '#ef4444', padding: '0.1rem 0.3rem', borderRadius: '4px', border: '1px solid #fecaca' }}>
-                            {inv.isStoreCredit ? 'מקדמה (נשאר בחנות)' : 'זיכוי'}
-                          </span>
-                        </div>
-                      ) : (
-                        <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-                          ₪{inv.amount?.toLocaleString()}
-                        </h3>
-                      )}
-
-                    {activePartnersCount > 0 && inv.status === 'pending' && (
-                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                        <span>{inv.approvalsReceived}/{inv.approvalsNeeded} אושר</span>
-                        {(() => {
-                          const waitingText = getPendingApproversText(inv);
-                          // Do not render "DEBUG..." in the small preview, just normal text
-                          return waitingText && !waitingText.startsWith('DEBUG:') ? (
-                            <span style={{ fontSize: '0.7rem', color: '#b45309' }}>
-                              מחכה ל: {waitingText}
-                            </span>
-                          ) : null;
-                        })()}
-                      </div>
-                    )}
-                  </div>
-                  <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', transform: expandedInvoiceId === inv.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
-                    ⌄
-                  </div>
-                </div>
-              </div>
-
-              {/* EXPANDED DETAILS */}
-              {expandedInvoiceId === inv.id && (
+  const renderExpandedDetails = (inv: any) => {
+    return (
                 <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                     
@@ -813,10 +552,343 @@ export function FinanceTransactions({
 
                   </div>
                 </div>
+    );
+  };
+
+  return (
+    <div onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEndHandler}>
+      {/* Main Category Tabs */}
+      {(showIncome || showTransfers) && (() => {
+        const pendingExpenses = invoices.filter((i: any) => i.status === 'pending' && i.type !== 'transfer' && i.type !== 'income' && i.isActive !== false).length;
+        const pendingIncomes = invoices.filter((i: any) => i.status === 'pending' && i.type === 'income' && i.isActive !== false).length;
+        const pendingTransfers = invoices.filter((i: any) => i.status === 'pending' && i.type === 'transfer' && i.isActive !== false).length;
+        return (
+          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: 'var(--bg-card)', padding: '0.25rem', borderRadius: '12px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.05)' }}>
+            <button 
+              onClick={() => { setTypeFilter('expense'); setFilter('all'); }} 
+              style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'expense' ? 'var(--primary)' : 'transparent', color: typeFilter === 'expense' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'expense' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              הוצאות
+              {pendingExpenses > 0 && (
+                <span style={{ background: typeFilter === 'expense' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'expense' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingExpenses}</span>
+              )}
+            </button>
+            {showIncome && (
+              <button 
+                onClick={() => { setTypeFilter('income'); setFilter('all'); }} 
+                style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'income' ? '#10b981' : 'transparent', color: typeFilter === 'income' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'income' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                הכנסות
+                {pendingIncomes > 0 && (
+                  <span style={{ background: typeFilter === 'income' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'income' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingIncomes}</span>
+                )}
+              </button>
+            )}
+            {showTransfers && (
+              <button 
+                onClick={() => { setTypeFilter('transfer'); setFilter('all'); }} 
+                style={{ flex: 1, padding: '0.6rem', borderRadius: '10px', border: 'none', background: typeFilter === 'transfer' ? '#f59e0b' : 'transparent', color: typeFilter === 'transfer' ? 'white' : 'var(--text-secondary)', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s', boxShadow: typeFilter === 'transfer' ? 'var(--shadow-sm)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                העברות
+                {pendingTransfers > 0 && (
+                  <span style={{ background: typeFilter === 'transfer' ? 'rgba(255,255,255,0.2)' : 'rgba(239,68,68,0.1)', color: typeFilter === 'transfer' ? 'white' : '#ef4444', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.75rem' }}>{pendingTransfers}</span>
+                )}
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* Filter Pills */}
+      {(() => {
+        const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
+        const pendingMeCount = relevantInvoices.filter((i: any) => calculateCanApprove(i)).length;
+        const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")).length;
+        
+        return (
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
+            <button id="finance-tab-all" onClick={() => setFilter("all")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", fontWeight: filter === "all" ? "bold" : "normal", cursor: "pointer", whiteSpace: "nowrap", background: filter === "all" ? "var(--bg-hover)" : "transparent" }}>
+              הוצאות פעילות
+            </button>
+            {hasArchive && (
+              <button id="finance-tab-archive" onClick={() => setFilter("archive")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "archive" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "archive" ? "bold" : "normal", cursor: "pointer", whiteSpace: "nowrap" }}>
+                ארכיון מחוקים
+              </button>
+            )}
+            {activePartnersCount > 0 && (
+              <button id="finance-tab-pending_me" onClick={() => setFilter("pending_me")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_me" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_me" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                ממתינים לאישורי
+                {pendingMeCount > 0 && (
+                  <span style={{ background: "#f59e0b", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
+                    {pendingMeCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {activePartnersCount > 0 && (
+              <button id="finance-tab-pending_partners" onClick={() => setFilter("pending_partners")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "pending_partners" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "pending_partners" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                ממתין לאישור השותפים
+                {pendingPartnersCount > 0 && (
+                  <span style={{ background: "#3b82f6", color: "white", borderRadius: "50%", width: "18px", height: "18px", display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "0.7rem" }}>
+                    {pendingPartnersCount}
+                  </span>
+                )}
+              </button>
+            )}
+            {(() => {
+              const hasDispute = relevantInvoices.some((i: any) => i.status === "dispute");
+              if (!hasDispute) return null;
+              return (
+                <button id="finance-tab-dispute" onClick={() => setFilter("dispute")} style={{ padding: "0.4rem 1rem", borderRadius: "var(--radius-full)", border: "1px solid var(--border-light)", background: filter === "dispute" ? "var(--bg-hover)" : "transparent", fontWeight: filter === "dispute" ? "bold" : "normal", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.5rem", whiteSpace: "nowrap" }}>
+                  בבירור / במחלוקת
+                </button>
+              );
+            })()}
+          </div>
+        );
+      })()}
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+        {/* Search Bar */}
+        <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', padding: '0.4rem 0.8rem' }}>
+          <span style={{ marginRight: '0.5rem', color: 'var(--text-secondary)' }}>🔍</span>
+          <input 
+            type="text" 
+            placeholder="חיפוש לפי ספק, הערה או קטגוריה..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: '0.9rem', color: 'var(--text-main)', width: '100%' }}
+          />
+        </div>
+
+        {/* Filters Container */}
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+          {/* Category Filter (Global) */}
+          {allCategories.length > 0 && (
+            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                קטגוריה:
+              </span>
+              <select 
+                value={categoryFilter} 
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.9rem' }}
+              >
+                <option value="all">הכל</option>
+                {allCategories.map((c: any) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {/* Member Filter (hidden in pending_me) */}
+          {activePartnersCount > 0 && filter !== 'pending_me' && (
+            <div style={{ flex: 1, minWidth: '120px', display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                {filter === 'pending_partners' ? 'לאישור של:' : filter === 'dispute' ? 'נדחה ע"י:' : 'שולם ע"י:'}
+              </span>
+              <select 
+                value={memberFilter} 
+                onChange={(e) => setMemberFilter(e.target.value)}
+                style={{ width: '100%', padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', background: 'var(--bg-main)', fontSize: '0.9rem' }}
+              >
+                <option value="all">הכל</option>
+                {allUsers
+                  .filter(u => filter === 'pending_partners' ? u.id !== myEffectiveId : true)
+                  .map(u => (
+                  <option key={u.id} value={u.id}>{u.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {activePartnersCount > 0 && filter !== 'pending_me' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {/* Dynamic Banner to explain the filter as requested by user */}
+            {memberFilter !== 'all' && (
+              <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginTop: '0.2rem', background: 'rgba(16, 185, 129, 0.1)', padding: '0.4rem', borderRadius: '6px', textAlign: 'center', fontWeight: '500' }}>
+                {(() => {
+                  const selectedName = allUsers.find(u => u.id === memberFilter)?.name || '';
+                  if (filter === 'pending_partners') return `מציג הוצאות שמחכות לאישור של ${selectedName}`;
+                  if (filter === 'dispute') return `מציג מחלוקות שקשורות אל ${selectedName}`;
+                  return `מציג הוצאות ששולמו על ידי ${selectedName}`;
+                })()}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 0.5rem' }}>
+        <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
+          סך הכל: ₪{finallyFiltered.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0).toLocaleString()}
+        </div>
+        <button 
+          onClick={() => setViewMode(prev => prev === 'cards' ? 'table' : 'cards')}
+          style={{ background: 'transparent', border: '1px solid var(--border-light)', borderRadius: '8px', padding: '0.4rem 0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-primary)', fontSize: '0.8rem' }}
+        >
+          {viewMode === 'cards' ? (
+            <><span style={{ fontSize: '1rem' }}>📄</span> תצוגת טבלה</>
+          ) : (
+            <><span style={{ fontSize: '1rem' }}>🗂️</span> תצוגת קוביות</>
+          )}
+        </button>
+      </div>
+      {finallyFiltered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)' }}>
+            <span style={{ fontSize: '2rem', display: 'block', marginBottom: '0.5rem' }}>📄</span>
+            {(() => {
+              const selectedName = memberFilter !== 'all' ? (allUsers.find(u => u.id === memberFilter)?.name || '') : '';
+              const itemName = typeFilter === 'transfer' ? 'העברות' : typeFilter === 'income' ? 'הכנסות' : 'חשבוניות';
+
+              if (searchQuery && searchQuery.trim()) return `לא נמצאו תוצאות התואמות לחיפוש "${searchQuery}"`;
+              if (filter === 'pending_me') return `אין ${itemName} שממתינות לאישור שלך.`;
+              if (filter === 'pending_partners') return selectedName ? `אין ${itemName} שממתינות לאישור של ${selectedName}.` : `אין ${itemName} שממתינות לאישור השותפים.`;
+              if (filter === 'dispute') return selectedName ? `אין סכסוכים או מחלוקות שקשורים אל ${selectedName}.` : 'אין סכסוכים או מחלוקות פתוחים.';
+              return selectedName ? `אין ${itemName} פעילות ששולמו על ידי ${selectedName}.` : `אין ${itemName} פעילות.`;
+            })()}
+          </div>
+        ) : (
+        viewMode === 'table' ? (
+          <div style={{ overflowX: 'auto', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '500px' }}>
+              <thead>
+                <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '2px solid var(--border-light)', textAlign: 'right' }}>
+                  <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{typeFilter === 'transfer' ? 'מקור' : typeFilter === 'income' ? 'לקוח/מקור' : 'ספק/עסק'}</th>
+                  <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>תאריך</th>
+                  <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סכום</th>
+                  <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>משלם</th>
+                  <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סטטוס</th>
+                  <th style={{ padding: '0.8rem 1rem', textAlign: 'center', color: 'var(--text-secondary)', fontWeight: 'bold' }}>📎</th>
+                </tr>
+              </thead>
+              <tbody>
+                {finallyFiltered.map((inv: any) => (
+                  <React.Fragment key={inv.id}>
+                    <tr 
+                      onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
+                      style={{ borderBottom: '1px solid var(--border-light)', cursor: 'pointer', background: expandedInvoiceId === inv.id ? 'rgba(99,102,241,0.05)' : 'transparent', transition: 'background 0.2s' }}
+                    >
+                      <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold' }}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}</td>
+                      <td style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{inv.date}</td>
+                      <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', color: inv.type === 'income' ? '#10b981' : 'inherit' }}>₪{Number(inv.amount || 0).toLocaleString()}</td>
+                      <td style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)' }}>{allUsers.find(u => u.id === inv.payerId)?.name || inv.payerName || '---'}</td>
+                      <td style={{ padding: '0.8rem 1rem' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.2rem 0.5rem', borderRadius: '12px', fontSize: '0.75rem', background: inv.status === 'approved' ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2', color: inv.status === 'approved' ? '#065f46' : inv.status === 'pending' ? '#92400e' : '#991b1b', fontWeight: 'bold' }}>
+                          {inv.status === 'approved' ? '✓ מאושר' : inv.status === 'pending' ? '⏳ ממתין' : '❌ נדחה'}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.8rem 1rem', textAlign: 'center' }}>
+                        {inv.hasAttachment ? <span title="מצורפת חשבונית">📎</span> : <span style={{ color: '#ef4444' }}>⚠️</span>}
+                      </td>
+                    </tr>
+                    {expandedInvoiceId === inv.id && (
+                      <tr>
+                        <td colSpan={6} style={{ padding: 0 }}>
+                          <div style={{ borderBottom: '2px solid var(--primary)' }}>
+                            {renderExpandedDetails(inv)}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
+          {finallyFiltered.map((inv: any) => (
+            <div key={inv.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+              
+              <div 
+                onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
+                  <div style={{ 
+                    width: '40px', height: '40px', flexShrink: 0,
+                    borderRadius: '50%', 
+                    background: inv.status === 'approved' ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: '1.1rem'
+                  }}>
+                    {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', display: 'inline-block' }}>{inv.supplier}</span>
+                        {inv.source === 'inbox' && (
+                          <span title="הגיע ממחסן - עבר אוטומציה" style={{ background: '#fef3c7', color: '#d97706', padding: '0.1rem 0.4rem', borderRadius: '12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', border: '1px solid #fde68a' }}>
+                            🗃️ ממחסן
+                          </span>
+                        )}
+                      {inv.hasAttachment ? (
+                        <span title="מצורפת חשבונית" style={{ fontSize: '0.9rem' }}>📎</span>
+                      ) : (
+                        <span title="חסר מסמך/קבלה" style={{ fontSize: '0.9rem', color: '#ef4444' }}>⚠️</span>
+                      )}
+                    </h4>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        <span style={{ whiteSpace: 'nowrap' }}>{inv.date}</span>
+                        <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
+                        {inv.status === 'dispute' && (
+                          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
+                        )}
+                      </div>
+                  </div>
+                </div>
+
+                <div style={{ textAlign: 'left', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div>
+                    
+                      {inv.amount < 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                          <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: '#ef4444' }}>
+                            -₪{Math.abs(inv.amount)?.toLocaleString()}
+                          </h3>
+                          <span style={{ fontSize: '0.65rem', background: '#fef2f2', color: '#ef4444', padding: '0.1rem 0.3rem', borderRadius: '4px', border: '1px solid #fecaca' }}>
+                            {inv.isStoreCredit ? 'מקדמה (נשאר בחנות)' : 'זיכוי'}
+                          </span>
+                        </div>
+                      ) : (
+                        <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                          ₪{inv.amount?.toLocaleString()}
+                        </h3>
+                      )}
+
+                    {activePartnersCount > 0 && inv.status === 'pending' && (
+                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                        <span>{inv.approvalsReceived}/{inv.approvalsNeeded} אושר</span>
+                        {(() => {
+                          const waitingText = getPendingApproversText(inv);
+                          // Do not render "DEBUG..." in the small preview, just normal text
+                          return waitingText && !waitingText.startsWith('DEBUG:') ? (
+                            <span style={{ fontSize: '0.7rem', color: '#b45309' }}>
+                              מחכה ל: {waitingText}
+                            </span>
+                          ) : null;
+                        })()}
+                      </div>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', transform: expandedInvoiceId === inv.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+                    ⌄
+                  </div>
+                </div>
+              </div>
+
+              {/* EXPANDED DETAILS */}
+              {expandedInvoiceId === inv.id && (
+                renderExpandedDetails(inv)
               )}
             </div>
           ))}
         </div>
+        )
       )}
     </div>
   );
