@@ -989,15 +989,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       return; // Don't process further, modal will handle it via executeExport
     }
     
-    // Process single page as PDF
-    if (allPageUrls.length === 1) {
-       try {
-         const result = await processMultiPage(allPageUrls, 'pdf', false);
-         primary = result.dataUrl;
-       } catch (e) {
-         console.error('Failed to auto-pdf 1 page', e);
-       }
-    }
+
 
     if (!isClosingRef.current) {
         isClosingRef.current = true;
