@@ -723,7 +723,7 @@ export function FinanceTransactions({
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', position: 'sticky', top: '70px', zIndex: 40, background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '1rem', margin: '0 -0.5rem 1rem -0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', position: 'sticky', top: '73px', zIndex: 40, background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '1rem', margin: '0 -0.5rem 1rem -0.5rem' }}>
         <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
           סך הכל: ₪{finallyFiltered.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0).toLocaleString()}
         </div>
@@ -757,7 +757,7 @@ export function FinanceTransactions({
           <div style={{ overflowX: 'auto', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '500px' }}>
               <thead>
-                <tr style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border-light)', textAlign: 'right', position: 'sticky', top: '125px', zIndex: 30 }}>
+                <tr style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border-light)', textAlign: 'right' }}>
                   <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{typeFilter === 'transfer' ? 'מקור' : typeFilter === 'income' ? 'לקוח/מקור' : 'ספק/עסק'}</th>
                   <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>תאריך</th>
                   <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סכום</th>
