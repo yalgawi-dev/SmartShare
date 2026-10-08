@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [expandedSpaceId, setExpandedSpaceId] = useState<string | null>(null);
   const [showPersonalInbox, setShowPersonalInbox] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadMessagesCount = useMemo(() => {
@@ -274,7 +275,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.36</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.37</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -488,7 +489,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-        <div className={styles.grid}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '2rem' }}>
           {searchedSpaces.length === 0 && visibleSpaces.length > 0 && (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               לא נמצאו מרחבים תואמים לחיפוש
@@ -498,151 +499,128 @@ export default function Dashboard() {
         {searchedSpaces.map((space, index) => {
           let showFirstSpaceTip = false;
           if (visibleSpaces.length === 1 && index === 0 && typeof window !== 'undefined') {
-            try {
-              showFirstSpaceTip = !localStorage.getItem('tutorial_enter_space');
-            } catch(e) {}
+            try { showFirstSpaceTip = !localStorage.getItem('tutorial_enter_space'); } catch(e) {}
           }
+          const isExpanded = expandedSpaceId === space.id;
+          
           return (
-          <div id={`space-${space.id}`} key={space.id} style={{ position: 'relative', height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {/* Unread messages badge */}
-            {(() => {
-              const totalUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
-              const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
-              const count = totalUnread + (hasExtension ? 1 : 0);
-              return count > 0 ? (
-                <div style={{ position: 'absolute', top: '-8px', right: '-8px', zIndex: 20, background: '#ef4444', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold', boxShadow: '0 2px 6px rgba(239,68,68,0.5)', border: '2px solid white' }}>
-                  {count}
-                </div>
-              ) : null;
-            })()}
-            <button 
-              onClick={(e) => {
-                e.preventDefault();
-                if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
-                  deleteSpace(space.id);
-                }
-              }}
-              style={{
-                position: 'absolute',
-                bottom: '1rem',
-                left: '1rem',
-                zIndex: 10,
-                background: 'rgba(239, 68, 68, 0.1)',
-                color: '#ef4444',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                cursor: 'pointer',
-                transition: 'background 0.2s'
-              }}
-              title="מחק מרחב"
+          <div id={`space-${space.id}`} key={space.id} style={{ position: 'relative', display: 'flex', flexDirection: 'column', background: 'var(--bg-main)', border: isExpanded ? '2px solid var(--primary)' : '1px solid var(--border-light)', borderRadius: '16px', overflow: 'hidden', transition: 'all 0.2s ease', boxShadow: isExpanded ? '0 8px 24px rgba(0,0,0,0.1)' : '0 2px 8px rgba(0,0,0,0.05)' }}>
+            
+            {/* Header / Accordion Toggle */}
+            <div 
+              onClick={() => setExpandedSpaceId(isExpanded ? null : space.id)}
+              style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: isExpanded ? 'rgba(99,102,241,0.05)' : 'transparent' }}
             >
-              🗑️
-            </button>
-            <Link href={`/space/${space.id}`} style={{ display: 'flex', flexDirection: 'column', flex: 1, textDecoration: 'none' }}>
-              <div 
-                className={`card ${styles.projectCard} glass-panel`}
-                onClick={() => {
-                  try { 
-                    sessionStorage.setItem('lastSpaceVisited', space.id); 
-                    const currentVisits = parseInt(localStorage.getItem(`space_visits_${space.id}`) || '0', 10);
-                    localStorage.setItem(`space_visits_${space.id}`, (currentVisits + 1).toString());
-                  } catch(e){}
-                  if (showFirstSpaceTip) {
-                    try { localStorage.setItem('tutorial_enter_space', '1'); } catch(e){}
-                  }
-                }}
-                style={{
-                  animation: showFirstSpaceTip ? 'pulseGlow 2.5s infinite' : 'none',
-                  border: showFirstSpaceTip ? '2px solid var(--primary)' : undefined,
-                  position: 'relative',
-                  flex: 1
-                }}
-              >
-                {showFirstSpaceTip && (
-                  <div style={{ position: 'absolute', top: '-15px', right: '1rem', background: 'var(--primary)', color: 'white', padding: '0.4rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold', zIndex: 20, animation: 'bounce 2s infinite', boxShadow: '0 4px 12px rgba(99,102,241,0.4)' }}>
-                    היכנס למרחב שלך כדי להתחיל! 👇
-                  </div>
-                )}
+              <div style={{ fontSize: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '48px', height: '48px', background: 'var(--bg-body)', borderRadius: '12px' }}>
+                {space.icon}
+              </div>
+              <div style={{ flex: 1 }}>
+                <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{space.title}</h3>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{space.features.length} פיצ'רים</span>
+                  {(() => {
+                    const totalUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
+                    const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
+                    const count = totalUnread + (hasExtension ? 1 : 0);
+                    return count > 0 ? (
+                      <span style={{ background: '#ef4444', color: 'white', borderRadius: '12px', padding: '0.1rem 0.5rem', fontSize: '0.7rem', fontWeight: 'bold' }}>{count} עדכונים</span>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+              <div style={{ color: 'var(--text-secondary)', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                ▼
+              </div>
+            </div>
+
+            {/* Expanded Content */}
+            {isExpanded && (
+              <div style={{ padding: '0 1rem 1rem 1rem', borderTop: '1px solid var(--border-light)' }}>
                 {space.coverImage && (
-                  <div style={{ height: '120px', width: 'calc(100% + 3rem)', margin: '-1.5rem -1.5rem 1rem -1.5rem', background: 'var(--border-light)', overflow: 'hidden', borderTopLeftRadius: '24px', borderTopRightRadius: '24px' }}>
+                  <div style={{ height: '120px', width: 'calc(100% + 2rem)', margin: '0 -1rem 1rem -1rem', background: 'var(--border-light)', overflow: 'hidden' }}>
                     <img src={space.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                 )}
-                <div className={styles.projectHeader} style={{ position: 'relative' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1 }}>
-                    <div className={styles.projectIcon}>{space.icon}</div>
-                    {editingSpaceId === space.id ? (
-                      <form onSubmit={(e) => {
-                        e.preventDefault();
+                
+                {editingSpaceId === space.id ? (
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    if (editTitleValue.trim()) updateSpaceTitle(space.id, editTitleValue.trim());
+                    setEditingSpaceId(null);
+                  }} style={{ margin: '0 0 1rem 0' }}>
+                    <input
+                      type="text"
+                      value={editTitleValue}
+                      onChange={(e) => setEditTitleValue(e.target.value)}
+                      onBlur={() => {
                         if (editTitleValue.trim()) updateSpaceTitle(space.id, editTitleValue.trim());
                         setEditingSpaceId(null);
-                      }} style={{ margin: 0, flex: 1 }}>
-                        <input
-                          type="text"
-                          value={editTitleValue}
-                          onChange={(e) => setEditTitleValue(e.target.value)}
-                          onBlur={() => {
-                            if (editTitleValue.trim()) updateSpaceTitle(space.id, editTitleValue.trim());
-                            setEditingSpaceId(null);
-                          }}
-                          autoFocus
-                          onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 50); }}
-                          onClick={(e) => e.preventDefault()}
-                          style={{
-                            margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)',
-                            border: '1px solid var(--primary)', borderRadius: '6px',
-                            padding: '0.2rem 0.4rem', outline: 'none', background: 'var(--bg-main)', width: '100%',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                      </form>
-                    ) : (
-                      <h3 className={styles.projectTitle} style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {space.title}
-                        <button 
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setEditTitleValue(space.title);
-                            setEditingSpaceId(space.id);
-                          }}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.4, padding: '0.2rem', fontSize: '1rem' }}
-                          title="ערוך שם"
-                        >
-                          ✏️
-                        </button>
-                      </h3>
-                    )}
+                      }}
+                      autoFocus
+                      onFocus={(e) => { const t = e.target; setTimeout(() => t.select(), 50); }}
+                      style={{
+                        margin: 0, fontSize: '1.2rem', fontWeight: 'bold', color: 'var(--text-primary)',
+                        border: '1px solid var(--primary)', borderRadius: '6px',
+                        padding: '0.4rem', outline: 'none', background: 'var(--bg-main)', width: '100%',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </form>
+                ) : (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+                    <p style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-secondary)', flex: 1 }}>{space.description}</p>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setEditTitleValue(space.title); setEditingSpaceId(space.id); }}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.2rem' }}
+                      title="שנה שם"
+                    >
+                      ✏️
+                    </button>
                   </div>
-                  
-                </div>
-                
-                <p className={styles.projectDesc} style={{ flex: 1 }}>{space.description}</p>
+                )}
 
-                <p style={{ margin: '0 0 1rem 0', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  נוצר ב-{(space as any).createdAt ? new Date((space as any).createdAt).toLocaleDateString('he-IL') : (space.date ? space.date : new Date(space.id && !isNaN(Number(space.id)) ? Number(space.id) : 1725148800000).toLocaleDateString('he-IL'))}
-                </p>
-                <div className={styles.badges}>
-                  {space.features.slice(0, 3).map(fId => {
+                <div className={styles.badges} style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
+                  {space.features.slice(0, 5).map(fId => {
                     const feature = getFeatureById(fId);
                     return feature ? <span key={fId} className={styles.badge}>{feature.name}</span> : null;
                   })}
-                  {space.features.length > 3 && (
-                    <span className={styles.badge}>+{space.features.length - 3}</span>
+                  {space.features.length > 5 && (
+                    <span className={styles.badge}>+{space.features.length - 5}</span>
                   )}
                 </div>
 
-                <div className={styles.projectFooter}>
-                  <span>עודכן: {space.updatedAt}</span>
-                  <span>{space.features.length} פיצ'רים</span>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <Link href={`/space/${space.id}`} 
+                    onClick={() => {
+                      try { 
+                        sessionStorage.setItem('lastSpaceVisited', space.id); 
+                        const currentVisits = parseInt(localStorage.getItem(`space_visits_${space.id}`) || '0', 10);
+                        localStorage.setItem(`space_visits_${space.id}`, (currentVisits + 1).toString());
+                      } catch(e){}
+                      if (showFirstSpaceTip) {
+                        try { localStorage.setItem('tutorial_enter_space', '1'); } catch(e){}
+                      }
+                    }}
+                    style={{ flex: 1, background: 'var(--primary)', color: 'white', textDecoration: 'none', textAlign: 'center', padding: '0.8rem', borderRadius: '12px', fontWeight: 'bold', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '0.5rem' }}
+                  >
+                    כניסה למרחב <span>→</span>
+                  </Link>
+                  <button 
+                    onClick={(e) => {
+                      e.preventDefault();
+                      if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
+                        deleteSpace(space.id);
+                      }
+                    }}
+                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.8rem', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    title="מחק מרחב"
+                  >
+                    🗑️
+                  </button>
                 </div>
+
               </div>
-            </Link>
+            )}
           </div>
         );
         })}
