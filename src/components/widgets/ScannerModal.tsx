@@ -1011,7 +1011,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   return (
-    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 1000, display: 'flex', flexDirection: 'column', color: 'white' }}>
+    <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 100000, display: 'flex', flexDirection: 'column', color: 'white' }}>
       {/* Header */}
       <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
@@ -1175,7 +1175,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       {fullScreenImage && (
         <div 
           onClick={() => setFullScreenImage(null)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 40000, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100005, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}
         >
           <img src={fullScreenImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
           <button onClick={() => setFullScreenImage(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1186,7 +1186,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
 
       {exportOptions && (
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 30000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 100003, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '16px', width: '85%', maxWidth: '340px', color: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
             <h3 style={{ margin: 0, textAlign: 'center', color: '#f8fafc', fontSize: '1.3rem', fontWeight: 'bold' }}>{exportOptions.type === 'share' ? 'הגדרות שיתוף' : 'הגדרות שמירה'}</h3>
             
@@ -1218,7 +1218,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       )}
       
       {/* Footer Controls */}
-      <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 1000 }}>
+      <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 100000 }}>
         
         {step === 'scanning' && (
            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
