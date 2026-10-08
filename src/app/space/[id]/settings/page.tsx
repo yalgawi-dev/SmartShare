@@ -1,9 +1,9 @@
 'use client';
+import { PartnersDirectoryWidget } from '../../../../components/widgets/Partners/PartnersDirectoryWidget';
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { PartnersSettingsList } from '../../../../components/widgets/Partners/PartnersSettingsList';
 import { useSpaces } from '../../../context/SpacesContext';
 import { useAuth } from '../../../context/AuthContext';
 import styles from '../page.module.css';
@@ -175,7 +175,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
                 {/* Specific configs for Partners */}
                 {featureId === 'partners' && (
-                  <PartnersSettingsList space={space} user={user} />
+                  <PartnersDirectoryWidget space={space} />
                 )}
 
                 {/* Generic features message */}

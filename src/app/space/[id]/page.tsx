@@ -23,7 +23,7 @@ import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
 import CreatorDisputesBanner from '../../../components/widgets/Partners/CreatorDisputesBanner';
 import PendingInvoicesBanner from '../../../components/widgets/Finance/PendingInvoicesBanner';
-import { PartnersSettingsList } from '../../../components/widgets/Partners/PartnersSettingsList';
+import { PartnersDirectoryWidget } from '../../../components/widgets/Partners/PartnersDirectoryWidget';
 import { PartnersInviteModal } from '../../../components/widgets/Partners/PartnersInviteModal';
 import PartnerControlPanel from '../../../components/widgets/Partners/PartnerControlPanel';
 import { compressImage } from '../../../utils/imageOptimizer';
@@ -772,15 +772,14 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           />
       )}
 
-      {/* Unified Partners Management Modal (v4.9) */}
+      {/* Unified Partners Management Modal (v5.0) */}
       {showPartnersModal && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.5)', padding: '1rem' }}>
-           <div style={{ background: 'var(--bg-main)', borderRadius: '24px', padding: '1.5rem', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 10px 40px rgba(0,0,0,0.2)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem' }}>
-                <h3 style={{ margin: 0, fontSize: '1.25rem' }}>רשימת השותפים והגדרות (v4.9)</h3>
-                <button onClick={() => setShowPartnersModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>&times;</button>
+        <div onClick={() => setShowPartnersModal(false)} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '1rem', backdropFilter: 'blur(4px)' }}>
+           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-main)', borderRadius: '24px', padding: '1.5rem', width: '100%', maxWidth: '550px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+                <button onClick={() => setShowPartnersModal(false)} style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--text-secondary)' }}>&times;</button>
               </div>
-              <PartnersSettingsList space={space} user={user} />
+              <PartnersDirectoryWidget space={space} />
            </div>
         </div>
       )}
