@@ -447,7 +447,7 @@ export function FinanceTransactions({
                               <div style={{ color: '#991b1b', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>❌ נדחה / במחלוקת</div>
                               {inv.rejectedBy && <div style={{ fontSize: '0.85rem', color: '#991b1b' }}><strong>נדחה ע"י:</strong> {inv.rejectedBy}</div>}
                               {inv.rejectedReason && <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '0.2rem' }}><strong>סיבה:</strong> {inv.rejectedReason}</div>}
-                              {(inv.payerId === myEffectiveId || inv.payerId === 'me' || (isCreatorMe && (inv.payerId === space.creatorId || inv.payerId === space.createdBy))) && (
+                              {updateInvoice && (inv.payerId === myEffectiveId || inv.payerId === 'me' || (isCreatorMe && (inv.payerId === space.creatorId || inv.payerId === space.createdBy))) && (
                                 <button onClick={() => handleResubmit(inv)} style={{ marginTop: '0.5rem', background: 'white', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.4rem 0.8rem', borderRadius: '16px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                                   🔄 שלח שוב לאישור
                                 </button>
@@ -478,7 +478,7 @@ export function FinanceTransactions({
 
                       {/* Action Buttons */}
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
-                        {calculateCanApprove(inv) && (
+                        {updateInvoice && calculateCanApprove(inv) && (
                           <button onClick={() => handleApprove(inv)} style={{ flex: 1, padding: '0.75rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                             ✅ {inv.type === 'transfer' ? 'אשר קבלת תשלום' : 'אשר הוצאה זו'}
                           </button>
@@ -488,7 +488,7 @@ export function FinanceTransactions({
                             {inv.type === 'transfer' ? 'פתח מחלוקת' : 'דחה / פתח מחלוקת'}
                           </button>
                         )}
-                        {(inv.payerId === myEffectiveId || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
+                        {updateInvoice && (inv.payerId === myEffectiveId || inv.payerId === 'me') && inv.status === 'pending' && activePartnersCount > 0 && (
                           <button onClick={() => {
                             if (updateInvoice && space) {
                               updateInvoice(space.id, inv.id, { nudgedAt: Date.now() }, user?.realName || user?.id || 'me', `שלח/ה נדנוד לשותפים לאישור הוצאה מול '${inv.supplier}'`);

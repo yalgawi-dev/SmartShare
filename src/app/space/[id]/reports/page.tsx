@@ -4,6 +4,8 @@
 import { use, useState } from 'react';
 import Link from 'next/link';
 import { useSpaces } from '../../../context/SpacesContext';
+import { useAuth } from '../../../context/AuthContext';
+import { FinanceTransactions } from '../../../../components/widgets/Finance/FinanceTransactions';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
 
@@ -12,6 +14,12 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   const { spaces } = useSpaces();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [isZipping, setIsZipping] = useState(false);
+  const { user } = useAuth();
+  const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
+  const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportFilename, setExportFilename] = useState('');
+  const [exportConvertToPdf, setExportConvertToPdf] = useState(true);
   
   const space = spaces.find(s => s.id === id);
 
@@ -71,15 +79,15 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
       alert('אין חשבוניות עם מסמכים מצורפים להורדה.');
       return;
     }
+    setExportFilename(space.title || 'MySpace');
+    setShowExportModal(true);
+  };
 
-const defaultName = space.title || 'MySpace';
-    const userFilename = window.prompt('בחר שם לקובץ ה-ZIP:', defaultName);
-    if (!userFilename) {
-      return; // User cancelled
-    }
-    
-    const convertToPdf = window.confirm("האם תרצה להמיר את כל תמונות החשבוניות לקבצי PDF בתוך ה-ZIP?\n\n- אישור (OK): כל התמונות יומרו ל-PDF מסודר.\n- ביטול (Cancel): התמונות ישמרו בפורמט התמונה המקורי (JPEG).");
-
+  const executeExportZIP = async () => {
+    setShowExportModal(false);
+    const invoicesWithFiles = invoices.filter(inv => inv.hasAttachment && inv.attachmentUrl);
+    const userFilename = exportFilename || 'MySpace';
+    const convertToPdf = exportConvertToPdf;
     setIsZipping(true);
     try {
       const JSZip = (await import('jszip')).default;
@@ -168,7 +176,7 @@ const defaultName = space.title || 'MySpace';
 
       {/* Analytics Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
-        <div className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)' }}>
+        <div className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', position: 'sticky', top: '75px', zIndex: 50, border: '2px solid var(--primary)', boxShadow: '0 8px 16px rgba(0,0,0,0.1)' }}>
           <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-secondary)' }}>סך כל ההוצאות בפרויקט</h3>
           <h2 style={{ margin: 0, fontSize: '2.5rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString()}</h2>
         </div>
@@ -189,62 +197,24 @@ const defaultName = space.title || 'MySpace';
         </div>
       </div>
 
-      {/* Table Row */}
-      <div className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', overflow: 'hidden' }}>
-        <h3 style={{ margin: '0 0 1.5rem 0', color: 'var(--text-primary)' }}>טבלת הוצאות מפורטת</h3>
+      {/* Table Row via FinanceTransactions Component */}
+      <div className="card glass-panel" style={{ background: 'var(--bg-card)' }}>
+        <h3 style={{ margin: '0 0 1.5rem 0', padding: '1.5rem 1.5rem 0', color: 'var(--text-primary)' }}>טבלת הוצאות מפורטת</h3>
         
-        {invoices.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '3rem', color: 'var(--text-secondary)' }}>
-            אין חשבוניות בפרויקט זה.
-          </div>
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--border-light)' }}>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>תאריך</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>ספק / תיאור</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>קטגוריה</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>שולם ע"י</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>סכום</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>סטטוס</th>
-                  <th style={{ padding: '1rem', color: 'var(--text-secondary)' }}>מסמך</th>
-                </tr>
-              </thead>
-              <tbody>
-                {invoices.map(inv => (
-                  <tr key={inv.id} style={{ borderBottom: '1px solid var(--border-light)', transition: 'background 0.2s' }}>
-                    <td style={{ padding: '1rem' }}>{inv.date}</td>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>{inv.supplier}</td>
-                    <td style={{ padding: '1rem' }}><span style={{ background: 'rgba(0,0,0,0.05)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.9rem' }}>{inv.category || 'כללי'}</span></td>
-                    <td style={{ padding: '1rem' }}>{inv.payerName}</td>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>₪{inv.amount?.toLocaleString()}</td>
-                    <td style={{ padding: '1rem' }}>
-                      <span style={{ 
-                        background: inv.status === 'approved' ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                        color: inv.status === 'approved' ? '#065f46' : inv.status === 'pending' ? '#92400e' : '#991b1b',
-                        padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.85rem' 
-                      }}>
-                        {inv.status === 'approved' ? 'מאושר' : inv.status === 'pending' ? 'ממתין' : 'נדחה'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '1rem', fontSize: '1.25rem', textAlign: 'center' }}>
-                      {inv.hasAttachment && inv.attachmentUrl ? (
-                        <button 
-                          onClick={() => setPreviewImage(inv.attachmentUrl || null)}
-                          style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1.25rem' }}
-                          title="צפה בחשבונית"
-                        >
-                          📄
-                        </button>
-                      ) : '➖'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div style={{ padding: '0 1.5rem 1.5rem' }}>
+          <FinanceTransactions 
+            invoices={invoices}
+            filteredInvoices={invoices}
+            activePartnersCount={0}
+            user={user}
+            space={space}
+            filter={filter}
+            setFilter={setFilter}
+            expandedInvoiceId={expandedInvoiceId}
+            setExpandedInvoiceId={setExpandedInvoiceId}
+            setPreviewImage={setPreviewImage}
+          />
+        </div>
       </div>
 
       {/* Full Screen Image Preview Modal */}
@@ -265,6 +235,36 @@ const defaultName = space.title || 'MySpace';
                   <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', margin: 'auto' }} />
                 </TransformComponent>
               </TransformWrapper>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* Custom ZIP Export Modal */}
+      {showExportModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div className="card glass-panel" style={{ background: 'var(--bg-main)', padding: '2rem', borderRadius: '16px', maxWidth: '400px', width: '100%', border: '1px solid var(--border-light)' }}>
+            <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)' }}>ייצוא קבצים (ZIP)</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>שם קובץ ה-ZIP:</label>
+                <input type="text" value={exportFilename} onChange={e => setExportFilename(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-card)', color: 'var(--text-primary)' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 'bold' }}>פורמט הקבצים:</label>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button onClick={() => setExportConvertToPdf(true)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: exportConvertToPdf ? '2px solid var(--primary)' : '1px solid var(--border-light)', background: exportConvertToPdf ? 'rgba(99,102,241,0.1)' : 'var(--bg-card)', cursor: 'pointer', fontWeight: 'bold', color: 'var(--text-primary)' }}>📄 PDF</button>
+                  <button onClick={() => setExportConvertToPdf(false)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: !exportConvertToPdf ? '2px solid var(--primary)' : '1px solid var(--border-light)', background: !exportConvertToPdf ? 'rgba(99,102,241,0.1)' : 'var(--bg-card)', cursor: 'pointer', fontWeight: 'bold', color: 'var(--text-primary)' }}>🖼️ מקור</button>
+                </div>
+                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                  {exportConvertToPdf ? 'כל החשבוניות יומרו ויסודרו כקובצי PDF נקיים (מומלץ לרואה חשבון).' : 'החשבוניות יישמרו בפורמט המקורי שלהן (קובצי JPEG או PDF).'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                <button onClick={() => setShowExportModal(false)} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'transparent', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 'bold' }}>ביטול</button>
+                <button onClick={executeExportZIP} style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: 'none', background: 'var(--primary)', color: 'white', cursor: 'pointer', fontWeight: 'bold' }}>הורד עכשיו 📦</button>
+              </div>
             </div>
           </div>
         </div>
