@@ -47,6 +47,7 @@ export function FinanceTransactions({
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [uploadingRetroId, setUploadingRetroId] = useState<string | null>(null);
   const [retroScanInvoice, setRetroScanInvoice] = useState<any>(null);
+  const formatDisplayDate = (d: string) => { if (!d) return '---'; if (d.includes('-')) return d.split('-').reverse().join('.'); return d; };
 
   // Receives the output of the shared ScannerModal (already filtered/cropped/grouped) and ONLY attaches it - no OCR.
   const handleRetroScanComplete = async (url: string, singleImg?: string, allPages?: string[]) => {
@@ -344,6 +345,7 @@ export function FinanceTransactions({
                 <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)' }}>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
                     
+                    <div style={{ flex: '1 1 100%', marginBottom: '-0.5rem' }}><h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || 'עסק/לקוח'}</h3></div>
                     {/* Action Details for Transfers and Incomes */}
                     {(inv.type === 'transfer' || inv.type === 'income') && (
                       <div style={{ flex: '1 1 100%', padding: '0.75rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-light)' }}>
@@ -721,7 +723,7 @@ export function FinanceTransactions({
         )}
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', padding: '0 0.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', position: 'sticky', top: '70px', zIndex: 40, background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', marginBottom: '1rem', margin: '0 -0.5rem 1rem -0.5rem' }}>
         <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
           סך הכל: ₪{finallyFiltered.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0).toLocaleString()}
         </div>
@@ -755,7 +757,7 @@ export function FinanceTransactions({
           <div style={{ overflowX: 'auto', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem', minWidth: '500px' }}>
               <thead>
-                <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '2px solid var(--border-light)', textAlign: 'right' }}>
+                <tr style={{ background: 'var(--bg-card)', borderBottom: '2px solid var(--border-light)', textAlign: 'right', position: 'sticky', top: '125px', zIndex: 30 }}>
                   <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>{typeFilter === 'transfer' ? 'מקור' : typeFilter === 'income' ? 'לקוח/מקור' : 'ספק/עסק'}</th>
                   <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>תאריך</th>
                   <th style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>סכום</th>
@@ -771,8 +773,8 @@ export function FinanceTransactions({
                       onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
                       style={{ borderBottom: '1px solid var(--border-light)', cursor: 'pointer', background: expandedInvoiceId === inv.id ? 'rgba(99,102,241,0.05)' : 'transparent', transition: 'background 0.2s' }}
                     >
-                      <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold' }}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}</td>
-                      <td style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{inv.date}</td>
+                      <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', maxWidth: '140px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}</td>
+                      <td style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</td>
                       <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', color: inv.type === 'income' ? '#10b981' : 'inherit' }}>₪{Number(inv.amount || 0).toLocaleString()}</td>
                       <td style={{ padding: '0.8rem 1rem', color: 'var(--text-secondary)' }}>{allUsers.find(u => u.id === inv.payerId)?.name || inv.payerName || '---'}</td>
                       <td style={{ padding: '0.8rem 1rem' }}>
@@ -833,7 +835,7 @@ export function FinanceTransactions({
                       )}
                     </h4>
                       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        <span style={{ whiteSpace: 'nowrap' }}>{inv.date}</span>
+                        <span style={{ whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</span>
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>• {inv.type === 'transfer' ? 'הועבר ע"י:' : inv.type === 'income' ? 'הוכנס ע"י:' : 'שולם ע"י:'} {inv.payerName}</span>
                         {inv.status === 'dispute' && (
                           <span style={{ color: '#ef4444', fontWeight: 'bold' }}>• נדחה ע"י {inv.rejectedBy || 'שותף'}</span>
