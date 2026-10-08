@@ -33,7 +33,8 @@ export function FinanceTransactions({
   setFilter,
   expandedInvoiceId,
   setExpandedInvoiceId,
-  setPreviewImage
+  setPreviewImage,
+  processRetroScan
 }: FinanceTransactionsProps) {
 
   const { getTokenForSpace, getRoleForSpace, sendMessageToMember } = useSpaces();
