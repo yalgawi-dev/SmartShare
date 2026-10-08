@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Space, SpaceDocument, ShelfEvent } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
 
@@ -30,6 +30,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    const handleAddStation = () => setShowAddModal(true);
+    window.addEventListener('smartshare:add_station', handleAddStation);
+    return () => window.removeEventListener('smartshare:add_station', handleAddStation);
+  }, []);
 
   const events = (space.shelfEvents || [])
     .filter(e => e.shelfId === activeShelfId)
@@ -93,9 +99,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <button onClick={() => setShowAddModal(true)} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
-          <span>+</span> הוסף תחנה
-        </button>
+        
       </div>
 
       {events.length === 0 ? (
