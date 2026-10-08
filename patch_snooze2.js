@@ -1,63 +1,42 @@
-'use client';
+const fs = require('fs');
 
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../../app/context/AuthContext';
-import { useSpaces } from '../../../app/context/SpacesContext';
+let tx = fs.readFileSync('src/components/widgets/Finance/PendingInvoicesBanner.tsx', 'utf8');
 
-export default function PendingInvoicesBanner({ space, onScrollToFinance }: { space: any, onScrollToFinance: () => void }) {
-  const { user } = useAuth();
-  const { getTokenForSpace, getRoleForSpace } = useSpaces();
-  const [isSnoozed, setIsSnoozed] = useState(false);
+// Ensure import has useState, useEffect
+if (!tx.includes('useState')) {
+  tx = tx.replace(/import \{ useAuth \} from '..\/..\/..\/app\/context\/AuthContext';/, "import { useState, useEffect } from 'react';\nimport { useAuth } from '../../../app/context/AuthContext';");
+}
+
+// Ensure snooze logic exists before `if (!user || ...`
+const snoozeLogic = `  const [isSnoozed, setIsSnoozed] = useState(false);
 
   useEffect(() => {
     const snoozeTime = localStorage.getItem('pendingInvoicesSnooze_' + space?.id);
-    if (snoozeTime) {
-      if (Date.now() < parseInt(snoozeTime, 10)) {
-        setIsSnoozed(true);
-      } else {
-        localStorage.removeItem('pendingInvoicesSnooze_' + space?.id);
-      }
+    if (snoozeTime && Date.now() < parseInt(snoozeTime, 10)) {
+      setIsSnoozed(true);
     }
   }, [space?.id]);
 
-  if (!user || !user.id || !space?.invoices || isSnoozed) return null;
+  if (!user || !user.id || !space?.invoices || isSnoozed) return null;`;
 
-  const myRole = space ? getRoleForSpace(space.id) : 'none';
-  const isCreatorMe = myRole === 'creator' || (space?.creatorId && user.id === space.creatorId);
-  const myEffectiveId = user?.id || 'me';
-  const pendingInvoices = space.invoices.filter((inv: any) => {
-    if (inv.status !== 'pending' || inv.isActive === false) return false;
-    if (inv.type === 'transfer') {
-      return inv.targetId === myEffectiveId;
-    }
-    const approvedBy = inv.approvedBy || [];
-    const excluded = inv.excludedMembers || [];
-    return inv.payerId !== myEffectiveId && inv.payerId !== 'me' && !approvedBy.includes(myEffectiveId) && !excluded.includes(myEffectiveId);
-  });
+if (!tx.includes('isSnoozed')) {
+  tx = tx.replace(/  if \(!user \|\| !user\.id \|\| !space\?\.invoices\) return null;/, snoozeLogic);
+}
 
-  const pendingCount = pendingInvoices.length;
-  if (pendingCount === 0) return null;
-
-  const hasRecentNudge = pendingInvoices.some((inv: any) => inv.nudgedAt && Date.now() - inv.nudgedAt < 24 * 60 * 60 * 1000);
-
-  const bgColor = hasRecentNudge ? 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)' : 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
-  const borderColor = hasRecentNudge ? '#ef4444' : '#f59e0b';
-  const iconBg = hasRecentNudge ? '#ef4444' : '#f59e0b';
-  const titleColor = hasRecentNudge ? '#7f1d1d' : '#92400e';
-  const descColor = hasRecentNudge ? '#b91c1c' : '#b45309';
-  const titleText = hasRecentNudge ? 'תזכורת דחופה מהשותפים!' : 'ממתין לאישורך!';
-
-  return (
+// Find `return (` and replace it entirely
+const start = tx.indexOf('  return (');
+if (start > -1) {
+  tx = tx.substring(0, start) + `  return (
     <div style={{ flexShrink: 0, minWidth: '100%', scrollSnapAlign: 'center', boxSizing: 'border-box' }}>
     <div style={{
       background: bgColor,
-      border: `1px solid ${borderColor}`,
+      border: \`1px solid \${borderColor}\`,
       borderRadius: '16px',
       padding: '1.25rem',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      boxShadow: `0 4px 15px ${hasRecentNudge ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.15)'}`,
+      boxShadow: \`0 4px 15px \${hasRecentNudge ? 'rgba(239, 68, 68, 0.25)' : 'rgba(245, 158, 11, 0.15)'}\`,
       animation: hasRecentNudge ? 'urgentPulse 1.5s infinite' : 'pulseGlow 2.5s infinite',
       position: 'relative'
     }}>
@@ -106,7 +85,7 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
       <div style={{ fontSize: '1.5rem', animation: 'bounceDown 1.5s infinite', marginRight: '0.5rem', cursor: 'pointer' }} onClick={onScrollToFinance}>
         👇
       </div>
-      <style>{`
+      <style>{\`
         @keyframes pulseGlow {
           0% { box-shadow: 0 4px 15px rgba(245, 158, 11, 0.15); }
           50% { box-shadow: 0 4px 25px rgba(245, 158, 11, 0.4); }
@@ -121,8 +100,13 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(5px); }
         }
-      `}</style>
+      \`}</style>
     </div>
     </div>
   );
 }
+`;
+}
+
+fs.writeFileSync('src/components/widgets/Finance/PendingInvoicesBanner.tsx', tx);
+console.log("Patched correctly");

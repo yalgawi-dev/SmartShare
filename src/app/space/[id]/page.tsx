@@ -413,7 +413,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>
-      <PushNotificationReminder userId={user?.id} />
 
       
       {/* Toast Notification */}
@@ -651,17 +650,29 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
       {/* The Unified Wall (Single Column Centered) */}
       <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-        <PendingInvoicesBanner 
-          space={space} 
-          onScrollToFinance={() => {
-            financeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // Let the FinanceWidget know we want to jump to pending tab
-            financeRef.current?.setFilter('pending_me');
-          }} 
-        />
         <WelcomeGate spaceId={id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
-        <CreatorDisputesBanner space={space} />
-        <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
+        
+        {/* Dynamic Alerts Carousel */}
+        <div className="hide-scrollbars" style={{ 
+          display: 'flex', 
+          overflowX: 'auto', 
+          gap: '1rem', 
+          scrollSnapType: 'x mandatory', 
+          scrollbarWidth: 'none', 
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: '0.5rem'
+        }}>
+          <PushNotificationReminder userId={user?.id} />
+          <PendingInvoicesBanner 
+            space={space} 
+            onScrollToFinance={() => {
+              financeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              financeRef.current?.setFilter('pending_me');
+            }} 
+          />
+          <CreatorDisputesBanner space={space} />
+          <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
+        </div>
         
         {/* Gamification / Wall of Fame */}
         <TopGuestsWidget space={space} />

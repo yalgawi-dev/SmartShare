@@ -191,7 +191,7 @@ export default function WelcomeGate({
         
         <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '1.1rem', lineHeight: '1.5' }}>
           הוזמנת להצטרף כשותף פעיל למיזם <strong>"{space?.title || 'המרחב'}"</strong>
-          {displayShare ? ` עם חלק של ${displayShare}%.` : '.'}
+          {isFinancial && displayShare !== undefined ? ` עם חלק של ${displayShare}%.` : '.'}
         </p>
         
         <div style={{ background: '#f8fafc', padding: '1.2rem', borderRadius: '16px', textAlign: 'right', marginBottom: '1.5rem', border: '1px solid #e2e8f0' }}>

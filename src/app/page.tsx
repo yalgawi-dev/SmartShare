@@ -463,7 +463,7 @@ export default function Dashboard() {
                   <div>
                     <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-main)' }}>הזמנה למרחב חדש</h3>
                     <p style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                      הוזמנת להצטרף למרחב <strong>{item.spaceTitle}</strong> כשותף ({item.invite.guestShare}%)
+                      הוזמנת להצטרף למרחב <strong>{item.spaceTitle}</strong> {item.invite.guestShare > 0 ? `כשותף (${item.invite.guestShare}%)` : 'כמשתף פעולה'}
                     </p>
                   </div>
                 </div>

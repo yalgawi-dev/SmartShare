@@ -50,7 +50,7 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
   if (!show) return null;
 
   return (
-    <div style={{
+    <div style={{ flexShrink: 0, minWidth: '100%', scrollSnapAlign: 'center', boxSizing: 'border-box', 
       background: 'var(--bg-card)',
       border: '1px solid var(--border-light)',
       borderRadius: 'var(--radius-lg)',

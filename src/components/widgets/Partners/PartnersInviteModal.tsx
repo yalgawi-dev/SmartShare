@@ -155,7 +155,7 @@ export function PartnersInviteModal({
       partnerShares: plannedPartnerShares, targetUserId
     });
 
-    return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: isFinancial ? `היי! צירפתי אותך לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` : `היי! הוזמנת לשתף פעולה במרחב "${space.title}". לחץ כאן כדי להיכנס:\n${link}` };
+    return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: isFinancial ? `היי! הוזמנת על ידי ${creatorName} להצטרף לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` : `היי! הוזמנת על ידי ${creatorName} לשתף פעולה במרחב "${space.title}". לחץ כאן כדי להיכנס:\n${link}` };
   };
 
   const handleContactSelect = async (contact: SelectedContact) => {
