@@ -257,10 +257,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     img.onload = () => {
       let w = img.width;
       let h = img.height;
-      if (w > 4000) {
-         h = Math.round(h * (4000 / w));
-         w = 4000;
-      }
+      if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
       const canvas = document.createElement('canvas');
       canvas.width = w;
       canvas.height = h;
@@ -808,7 +805,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               continue;
            }
            
-           if (w > 4000) { h = Math.round(h * (4000 / w)); w = 4000; }
+           if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
            const ctx = canvas.getContext('2d');
@@ -906,7 +903,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               continue;
            }
            
-           if (w > 4000) { h = Math.round(h * (4000 / w)); w = 4000; }
+           if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
            const canvas = document.createElement('canvas');
            canvas.width = w; canvas.height = h;
            const ctx = canvas.getContext('2d');
@@ -988,6 +985,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       setExportOptions({ type: 'save', urls: allPageUrls, routingType });
       return; // Don't process further, modal will handle it via executeExport
     }
+
+    
+    // Process single page as PDF ONLY for Documents, not Receipts!
+    // Receipts need to stay as images so OCR works fast and doesn't upload 7MB PDFs!
+    if (allPageUrls.length === 1 && finalRouting !== 'receipt') {
+       try {
+         const result = await processMultiPage(allPageUrls, 'pdf', false);
+         primary = result.dataUrl;
+       } catch (e) {
+         console.error('Failed to auto-pdf 1 page', e);
+       }
+    }
+
     
 
 
