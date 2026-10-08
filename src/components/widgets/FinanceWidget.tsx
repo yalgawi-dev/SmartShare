@@ -48,8 +48,8 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const rootRef = useRef<HTMLDivElement>(null);
   
   useImperativeHandle(ref, () => ({
-    processScan: (url: string, allPages?: string[]) => {
-      runOcrPipeline(url, allPages);
+    processScan: (url: string, allPages?: string[], retroInvoice?: any) => {
+      runOcrPipeline(url, allPages, retroInvoice);
     },
     processBatch: (urls: string[]) => {
       if (!urls || urls.length === 0) return;
@@ -72,6 +72,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   
+  const [retroInvoiceToEdit, setRetroInvoiceToEdit] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, clientName?: string, vatNumber?: string, invoiceNumber?: string}>({});
@@ -145,7 +146,8 @@ const [isMounted, setIsMounted] = useState(false);
   
   
 
-const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
+const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any) => {
+    if (retroInvoice) setRetroInvoiceToEdit(retroInvoice); else setRetroInvoiceToEdit(null);
     setIsScanning(false);
     if(setIsAddingExpense) setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
@@ -220,7 +222,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
         const data = await response.json();
           
           if (space?.invoices && space.invoices.length > 0) {
-            const exists = space.invoices.find((inv: any) => isDuplicateInvoice(inv, data));
+            const exists = space.invoices.find((inv: any) => (retroInvoice ? inv.id !== retroInvoice.id : true) && isDuplicateInvoice(inv, data));
             if (exists) {
               const warnPrefix = data.invoiceNumber ? ' (מספר ' + data.invoiceNumber + ')' : '';
               data._duplicateWarning = 'נראה שחשבונית/קבלה זו' + warnPrefix + ' כבר הועלתה למערכת בעבר.';
@@ -464,10 +466,17 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
       newInvoice.source = 'inbox';
     }
 
-    addInvoice(space.id, newInvoice);
+    if (retroInvoiceToEdit) {
+      updateInvoice(space.id, retroInvoiceToEdit.id, newInvoice, payerName, "צורפה חשבונית דרך הסורק ועודכנו פרטים");
+      setRetroInvoiceToEdit(null);
+      if(setIsAddingExpense) setIsAddingExpense(false);
+    } else {
+      addInvoice(space.id, newInvoice);
+    }
       if (reviewingInboxItemId) {
         removeInboxItem(space.id, reviewingInboxItemId);
         setReviewingInboxItemId(null);
+    setRetroInvoiceToEdit(null);
       }
 
     handleCloseForm();
@@ -593,6 +602,8 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
 
         {activeTab === 'transactions' && (
           <FinanceTransactions 
+            processRetroScan={(url, allPages, retroInv) => { if (retroInv) setRetroInvoiceToEdit(retroInv); runOcrPipeline(url, allPages, retroInv); }}
+
             invoices={invoices}
             filteredInvoices={filteredInvoices}
             activePartnersCount={activePartnersCount}
@@ -631,6 +642,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[]) => {
       {/* Add Expense Modal (Bottom Sheet Style) */}
       {isMounted && isAddingExpense && selectedCategory !== 'העברה/קיזוז' && createPortal(
         <FinanceAddExpenseForm 
+          retroInvoiceToEdit={retroInvoiceToEdit}
           user={user}
           validMembers={validMembers}
           activePartnersCount={activePartnersCount}

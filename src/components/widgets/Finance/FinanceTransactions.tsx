@@ -17,6 +17,7 @@ interface FinanceTransactionsProps {
   filter: string;
   setFilter: (filter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => void;
   expandedInvoiceId: string | null;
+  processRetroScan?: (url: string, allPages?: string[], retroInv?: any) => void;
   setExpandedInvoiceId: (id: string | null) => void;
   setPreviewImage: (url: string | null) => void;
 }
@@ -46,72 +47,17 @@ export function FinanceTransactions({
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
-  const [uploadingRetroId, setUploadingRetroId] = useState<string | null>(null);
-  const [retroScanInvoice, setRetroScanInvoice] = useState<any>(null);
-  const [retroScanWarning, setRetroScanWarning] = useState<any>(null);
-
+    const [retroScanInvoice, setRetroScanInvoice] = useState<any>(null);
+  
   const formatDisplayDate = (d: string) => { if (!d) return '---'; if (d.includes('-')) return d.split('-').reverse().join('.'); return d; };
 
   // Receives the output of the shared ScannerModal (already filtered/cropped/grouped) and ONLY attaches it - no OCR.
     const handleRetroScanComplete = async (url: string, singleImg?: string, allPages?: string[]) => {
     const inv = retroScanInvoice;
-    setRetroScanInvoice(null);
-    if (!inv || !space) return;
-    setUploadingRetroId(inv.id);
-    try {
-      const { uploadImageToStorage } = await import('../../../lib/firebase');
-      const { compressToBudget } = await import('../../../utils/imageOptimizer');
-      const isMulti = !!allPages && allPages.length > 1;
-      const dataUrl = isMulti || !singleImg ? url : await compressToBudget(singleImg);
-      const isPdf = dataUrl.startsWith('data:application/pdf');
-      const filename = `invoices/${space.id}/retro_${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
-      const finalUrl = await uploadImageToStorage(dataUrl, filename);
-
-      const ocrRes = await fetch('/api/ocr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: finalUrl })
-      });
-      
-      let ocrAmt = 0;
-      let isDup = false;
-      let dupMsg = '';
-      
-      if (ocrRes.ok) {
-        const ocrData = await ocrRes.json();
-        if (ocrData && ocrData.data) {
-          ocrAmt = Number(ocrData.data.amount) || 0;
-          const exists = invoices.find((e: any) => e.id !== inv.id && isDuplicateInvoice(e, ocrData.data));
-          if (exists) {
-            isDup = true;
-            dupMsg = `נראה שחשבונית זו הועלתה כבר בעבר (₪${exists.amount}).`;
-          }
-        }
-      }
-
-      const currentAmt = Number(inv.amount || 0);
-      const isMismatch = ocrAmt > 0 && Math.abs(ocrAmt - currentAmt) > 0.05;
-
-      if (isDup || isMismatch) {
-        setRetroScanWarning({
-          invId: inv.id,
-          finalUrl,
-          ocrAmount: ocrAmt,
-          isDuplicate: isDup,
-          duplicateMsg: dupMsg,
-          currentAmount: currentAmt
-        });
-        setUploadingRetroId(null);
-        return;
-      }
-
-      updateInvoice?.(space.id, inv.id, { attachmentUrl: finalUrl, hasAttachment: true }, user?.id, 'retroactive_attachment');
-    } catch (error) {
-      console.error("Failed to upload retroactive attachment", error);
-      alert("שגיאה בהעלאת הקובץ.");
-    } finally {
-      setUploadingRetroId(null);
+    if (inv && processRetroScan) {
+      processRetroScan(url, allPages, inv);
     }
+    setRetroScanInvoice(null);
   };
 
   const showIncome = space?.features?.includes('income');

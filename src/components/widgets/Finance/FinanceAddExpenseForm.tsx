@@ -7,6 +7,7 @@ interface FinanceAddExpenseFormProps {
   validMembers: any[];
   activePartnersCount: number;
   ocrData: any;
+  retroInvoiceToEdit?: any;
   customCategories?: string[];
   scannedImage: string | null;
   isAnalyzing: boolean;
@@ -31,6 +32,7 @@ export function FinanceAddExpenseForm({
   activePartnersCount,
   customCategories,
   ocrData,
+  retroInvoiceToEdit,
   scannedImage,
   isAnalyzing,
   ocrElapsedTime,
@@ -56,24 +58,24 @@ export function FinanceAddExpenseForm({
     }, [ocrData]);
 
     const [formValues, setFormValues] = React.useState({
-    supplier: ocrData?.vendor || '',
-      clientName: ocrData?.clientName || '',
-    amount: ocrData?.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
+    supplier: ocrData?.vendor || retroInvoiceToEdit?.supplier || '',
+      clientName: ocrData?.clientName || retroInvoiceToEdit?.clientName || '',
+    amount: ocrData?.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : (retroInvoiceToEdit?.amount ? String(retroInvoiceToEdit.amount) : ''),
     vatAmount: ocrData?.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
-    date: ocrData?.date || new Date().toISOString().split('T')[0]
+    date: ocrData?.date || retroInvoiceToEdit?.date || new Date().toISOString().split('T')[0]
   });
 
   React.useEffect(() => {
-    if (ocrData) {
+    if (ocrData || retroInvoiceToEdit) {
       setFormValues({
-        supplier: ocrData.vendor || '',
-          clientName: ocrData.clientName || '',
-        amount: ocrData.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : '',
-        vatAmount: ocrData.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
-        date: ocrData.date || new Date().toISOString().split('T')[0]
+        supplier: ocrData?.vendor || retroInvoiceToEdit?.supplier || '',
+          clientName: ocrData?.clientName || retroInvoiceToEdit?.clientName || '',
+        amount: ocrData?.amount ? String(ocrData.amount).replace(/[^\d.]/g, '') : (retroInvoiceToEdit?.amount ? String(retroInvoiceToEdit.amount) : ''),
+        vatAmount: ocrData?.vatAmount ? String(ocrData.vatAmount).replace(/[^\d.]/g, '') : '',
+        date: ocrData?.date || retroInvoiceToEdit?.date || new Date().toISOString().split('T')[0]
       });
     }
-  }, [ocrData]);
+  }, [ocrData, retroInvoiceToEdit]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormValues(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -416,7 +418,7 @@ export function FinanceAddExpenseForm({
               </button>
             )}
             <button type="submit" disabled={!isFormValid && !isAnalyzing} style={{ width: '100%', background: (isFormValid || isAnalyzing) ? 'var(--primary)' : '#9ca3af', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', cursor: (isFormValid || isAnalyzing) ? 'pointer' : 'not-allowed', fontWeight: 'bold', fontSize: '1rem', boxShadow: (isFormValid || isAnalyzing) ? '0 4px 12px rgba(79, 70, 229, 0.3)' : 'none', transition: 'all 0.2s ease' }}>
-              שמור הוצאה
+              {retroInvoiceToEdit ? 'שמור וצרף חשבונית' : 'שמור הוצאה'}
             </button>
           </div>
         </form>
