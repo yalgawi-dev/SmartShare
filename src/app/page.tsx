@@ -280,7 +280,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.65</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.66</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -563,7 +563,7 @@ export default function Dashboard() {
                           const file = e.target.files?.[0];
                           if (file) {
                             const base64 = await compressImage(file, 256, 256, 0.85, 'image/webp');
-                            const storageUrl = await uploadImageToStorage(base64, `logos/${space.id}_${Date.now()}`);
+                            const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}`);
                             updateSpaceLogo(space.id, storageUrl);
                           }
                         } catch(err) { console.error(err); }
@@ -578,7 +578,7 @@ export default function Dashboard() {
                           const file = e.target.files?.[0];
                           if (file) {
                             const base64 = await compressImage(file, 256, 256, 0.85, 'image/webp');
-                            const storageUrl = await uploadImageToStorage(base64, `logos/${space.id}_${Date.now()}`);
+                            const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}`);
                             updateSpaceLogo(space.id, storageUrl);
                           }
                         } catch(err) { console.error(err); }
