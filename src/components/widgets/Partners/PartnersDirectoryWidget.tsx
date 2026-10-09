@@ -21,7 +21,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const allMembers = [
     {
       userId: creatorId,
-      name: space.creatorName || (isCreatorMe ? (user?.displayName || user?.name || user?.email || "מנהל") : "מנהל"),
+      name: space.creatorName || (isCreatorMe ? (user?.realName || user?.nickname || user?.email || "מנהל") : "מנהל"),
       role: "creator",
       status: "active"
     },
