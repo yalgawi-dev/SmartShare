@@ -28,6 +28,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>('timeline');
+  const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all');
     const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
     const [isUploading, setIsUploading] = useState(false);
     const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
