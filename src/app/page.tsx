@@ -275,7 +275,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.60</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.61</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -512,18 +512,11 @@ export default function Dashboard() {
               style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: isExpanded ? 'rgba(99,102,241,0.05)' : 'transparent' }}
             >
               <div 
-                onClick={(e) => {
-                  if (isExpanded) {
-                    e.stopPropagation();
-                    document.getElementById(`logo-upload-${space.id}`)?.click();
-                  }
-                }}
                 style={{ 
                   fontSize: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', 
                   width: '48px', height: '48px', 
                   background: space.logoUrl ? 'transparent' : 'var(--bg-body)', 
                   borderRadius: '16px', overflow: 'hidden', position: 'relative',
-                  cursor: isExpanded ? 'pointer' : 'inherit',
                   boxShadow: space.logoUrl ? '0 2px 8px rgba(0,0,0,0.1)' : 'none',
                   flexShrink: 0
                 }}
@@ -533,30 +526,7 @@ export default function Dashboard() {
                 ) : (
                   space.icon
                 )}
-                {isExpanded && (
-                  <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', padding: '2px 0' }}>
-                    <span style={{ fontSize: '10px' }}>📷</span>
-                  </div>
-                )}
               </div>
-              {isExpanded && (
-                <input 
-                  type="file" 
-                  id={`logo-upload-${space.id}`} 
-                  accept="image/*" 
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onload = (ev) => {
-                        updateSpaceLogo(space.id, ev.target?.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-              )}
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{space.title}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -621,6 +591,51 @@ export default function Dashboard() {
                     </button>
                   </div>
                 )}
+
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', marginTop: '0.5rem' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); document.getElementById(`logo-camera-${space.id}`)?.click(); }}
+                    style={{ flex: 1, background: 'rgba(99,102,241,0.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                  >
+                    <span>📷</span> צלם לוגו
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); document.getElementById(`logo-gallery-${space.id}`)?.click(); }}
+                    style={{ flex: 1, background: 'rgba(99,102,241,0.08)', color: 'var(--primary)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                  >
+                    <span>🖼️</span> ייבא תמונה
+                  </button>
+                </div>
+                
+                <input 
+                  type="file" 
+                  id={`logo-camera-${space.id}`} 
+                  accept="image/*" 
+                  capture="environment"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => { updateSpaceLogo(space.id, ev.target?.result as string); };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <input 
+                  type="file" 
+                  id={`logo-gallery-${space.id}`} 
+                  accept="image/*" 
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onload = (ev) => { updateSpaceLogo(space.id, ev.target?.result as string); };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
 
                 <div className={styles.badges} style={{ marginBottom: '1rem', flexWrap: 'wrap' }}>
                   {space.features.slice(0, 5).map(fId => {
