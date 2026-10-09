@@ -1,6 +1,6 @@
 'use client';
 import { createPortal } from 'react-dom';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import NotificationCenterWidget from '../components/widgets/NotificationCenterWidget';
 
 import styles from './page.module.css';
@@ -29,6 +29,7 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSpaceId, setExpandedSpaceId] = useState<string | null>(null);
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
+  const activeLogoSpaceIdRef = useRef<string | null>(null);
   const [showPersonalInbox, setShowPersonalInbox] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadMessagesCount = useMemo(() => {
@@ -280,7 +281,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.67</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.68</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -543,81 +544,15 @@ export default function Dashboard() {
                 )}
                 {isExpanded && logoMenuOpenId === space.id && (
                   <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'white', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', padding: '0.5rem', zIndex: 20, minWidth: '130px', border: '1px solid var(--border-light)' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); setTimeout(() => document.getElementById(`logo-camera-${space.id}`)?.click(), 50); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); activeLogoSpaceIdRef.current = space.id; setTimeout(() => document.getElementById('global-logo-camera')?.click(), 50); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold' }}>
                       <span>📷</span> צלם לוגו
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); setTimeout(() => document.getElementById(`logo-gallery-${space.id}`)?.click(), 50); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold', marginTop: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); activeLogoSpaceIdRef.current = space.id; setTimeout(() => document.getElementById('global-logo-gallery')?.click(), 50); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold', marginTop: '4px' }}>
                       <span>🖼️</span> ייבא תמונה
                     </button>
                   </div>
                 )}
-                {isExpanded && (
-                  <div style={{ display: 'none' }}>
-                    <input 
-                      type="file" 
-                      id={`logo-camera-${space.id}`} 
-                      accept="image/*" 
-                      capture="environment"
-                      onChange={async (e) => {
-                        try {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            // 1. INSTANT OPTIMISTIC UI!
-                            const tempUrl = URL.createObjectURL(file);
-                            updateSpaceLogo(space.id, tempUrl);
-                            
-                            // 2. Compress (use PNG for 100% compat & transparency)
-                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/png');
-                            
-                            // 3. Fallback to base64 if Firebase Storage fails
-                            updateSpaceLogo(space.id, base64);
-                            
-                            try {
-                              const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}.png`);
-                              updateSpaceLogo(space.id, storageUrl);
-                            } catch(uploadErr) {
-                              console.warn("Storage fail, keeping base64", uploadErr);
-                            }
-                          }
-                        } catch(err) { 
-                          console.error(err); 
-                          alert("שגיאה בעיבוד התמונה: " + String(err));
-                        }
-                      }}
-                    />
-                    <input 
-                      type="file" 
-                      id={`logo-gallery-${space.id}`} 
-                      accept="image/*" 
-                      onChange={async (e) => {
-                        try {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            // 1. INSTANT OPTIMISTIC UI!
-                            const tempUrl = URL.createObjectURL(file);
-                            updateSpaceLogo(space.id, tempUrl);
-                            
-                            // 2. Compress (use PNG for 100% compat & transparency)
-                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/png');
-                            
-                            // 3. Fallback to base64 if Firebase Storage fails
-                            updateSpaceLogo(space.id, base64);
-                            
-                            try {
-                              const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}.png`);
-                              updateSpaceLogo(space.id, storageUrl);
-                            } catch(uploadErr) {
-                              console.warn("Storage fail, keeping base64", uploadErr);
-                            }
-                          }
-                        } catch(err) { 
-                          console.error(err); 
-                          alert("שגיאה בעיבוד התמונה: " + String(err));
-                        }
-                      }}
-                    />
-                  </div>
-                )}              </div>
+                              </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{space.title}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -750,7 +685,69 @@ export default function Dashboard() {
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
         v5.1.0 - שלב 5: מנוע הזמנות חכם, זיהוי טלפוני (Phone Auth) ומאגר אנשי קשר
       </div>
+      
+      {/* Global hidden inputs for Logo Upload */}
+      <div style={{ display: 'none' }}>
+        <input 
+          type="file" 
+          id="global-logo-camera" 
+          accept="image/*" 
+          capture="environment"
+          onChange={async (e) => {
+            const spaceId = activeLogoSpaceIdRef.current;
+            if (!spaceId) return;
+            try {
+              const file = e.target.files?.[0];
+              if (file) {
+                const tempUrl = URL.createObjectURL(file);
+                updateSpaceLogo(spaceId, tempUrl);
+                const base64 = await compressImage(file, 256, 256, 0.85, 'image/png');
+                updateSpaceLogo(spaceId, base64);
+                try {
+                  const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${spaceId}_${Date.now()}.png`);
+                  updateSpaceLogo(spaceId, storageUrl);
+                } catch(uploadErr) {
+                  console.warn("Storage fail", uploadErr);
+                }
+              }
+            } catch(err) { 
+              console.error(err); 
+              alert("שגיאה בהעלאה: " + String(err));
+            }
+            e.target.value = ''; // Reset input
+          }}
+        />
+        <input 
+          type="file" 
+          id="global-logo-gallery" 
+          accept="image/*" 
+          onChange={async (e) => {
+            const spaceId = activeLogoSpaceIdRef.current;
+            if (!spaceId) return;
+            try {
+              const file = e.target.files?.[0];
+              if (file) {
+                const tempUrl = URL.createObjectURL(file);
+                updateSpaceLogo(spaceId, tempUrl);
+                const base64 = await compressImage(file, 256, 256, 0.85, 'image/png');
+                updateSpaceLogo(spaceId, base64);
+                try {
+                  const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${spaceId}_${Date.now()}.png`);
+                  updateSpaceLogo(spaceId, storageUrl);
+                } catch(uploadErr) {
+                  console.warn("Storage fail", uploadErr);
+                }
+              }
+            } catch(err) { 
+              console.error(err); 
+              alert("שגיאה בהעלאה: " + String(err));
+            }
+            e.target.value = ''; // Reset input
+          }}
+        />
+      </div>
       {showAuthModal && (
+
         <AuthModal onClose={() => setShowAuthModal(false)} />
       )}
       {showShareModal && (
