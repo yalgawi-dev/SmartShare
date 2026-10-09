@@ -38,7 +38,7 @@ export default function CreatorDisputesBanner({ space }: { space: any }) {
   }
 
   return (
-    <div style={{ flexShrink: 0, minWidth: '100%', scrollSnapAlign: 'center', boxSizing: 'border-box',  background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem', boxShadow: '0 4px 12px rgba(239,68,68,0.1)', position: 'relative' }}>
+    <div style={{  background: '#fef2f2', border: '1px solid #ef4444', borderRadius: '16px', padding: '1.25rem', marginBottom: '1.5rem', boxShadow: '0 4px 12px rgba(239,68,68,0.1)', position: 'relative' }}>
       
       <button 
         onClick={() => setIsCollapsed(true)}

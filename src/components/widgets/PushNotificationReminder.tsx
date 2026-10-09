@@ -9,7 +9,7 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
     if (!('Notification' in window)) return;
     
     const permission = Notification.permission;
-    if (permission === 'granted') return; // Already enabled
+    if (permission === 'granted' || permission === 'denied') return; // Already enabled
 
     // Check localStorage for cooldown
     const lastDismissed = localStorage.getItem('pushReminderDismiss_v2edAt');
@@ -50,7 +50,7 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
   if (!show) return null;
 
   return (
-    <div style={{ flexShrink: 0, minWidth: '100%', scrollSnapAlign: 'center', boxSizing: 'border-box', 
+    <div style={{ 
       background: 'var(--bg-card)',
       border: '1px solid var(--border-light)',
       borderRadius: 'var(--radius-lg)',

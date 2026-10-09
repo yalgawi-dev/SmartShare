@@ -48,7 +48,7 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
   const titleText = hasRecentNudge ? 'תזכורת דחופה מהשותפים!' : 'ממתין לאישורך!';
 
   return (
-    <div style={{ flexShrink: 0, minWidth: '100%', scrollSnapAlign: 'center', boxSizing: 'border-box' }}>
+    <>
     <div style={{
       background: bgColor,
       border: `1px solid ${borderColor}`,
@@ -123,6 +123,6 @@ export default function PendingInvoicesBanner({ space, onScrollToFinance }: { sp
         }
       `}</style>
     </div>
-    </div>
+    </>
   );
 }

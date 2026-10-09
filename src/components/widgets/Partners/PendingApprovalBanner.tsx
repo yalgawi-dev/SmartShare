@@ -144,7 +144,7 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   }
 
   return (
-    <div style={{ flexShrink: 0, minWidth: '100%', scrollSnapAlign: 'center', boxSizing: 'border-box',  position: 'relative', background: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '#fef3c7' : '#eff6ff', border: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '1px solid #f59e0b' : '1px solid #3b82f6', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+    <div style={{  position: 'relative', background: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '#fef3c7' : '#eff6ff', border: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '1px solid #f59e0b' : '1px solid #3b82f6', padding: '1.25rem', borderRadius: '16px', marginBottom: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
       
       <button 
         onClick={() => setIsExpanded(false)}

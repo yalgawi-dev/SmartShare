@@ -655,11 +655,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Dynamic Alerts Carousel */}
         <div className="hide-scrollbars" style={{ 
           display: 'flex', 
-          overflowX: 'auto', 
+          flexDirection: 'column', 
           gap: '1rem', 
-          scrollSnapType: 'x mandatory', 
-          scrollbarWidth: 'none', 
-          WebkitOverflowScrolling: 'touch',
           paddingBottom: '0.5rem'
         }}>
           <PushNotificationReminder userId={user?.id} />
