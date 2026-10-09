@@ -298,7 +298,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.62</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.63</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -561,43 +561,47 @@ export default function Dashboard() {
                 )}
                 {isExpanded && logoMenuOpenId === space.id && (
                   <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '8px', background: 'white', borderRadius: '12px', boxShadow: '0 4px 15px rgba(0,0,0,0.15)', padding: '0.5rem', zIndex: 20, minWidth: '130px', border: '1px solid var(--border-light)' }}>
-                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); document.getElementById(`logo-camera-${space.id}`)?.click(); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); setTimeout(() => document.getElementById(`logo-camera-${space.id}`)?.click(), 50); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold' }}>
                       <span>📷</span> צלם לוגו
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); document.getElementById(`logo-gallery-${space.id}`)?.click(); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold', marginTop: '4px' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setLogoMenuOpenId(null); setTimeout(() => document.getElementById(`logo-gallery-${space.id}`)?.click(), 50); }} style={{ width: '100%', background: 'transparent', border: 'none', padding: '0.6rem', textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', cursor: 'pointer', color: 'var(--text-primary)', borderRadius: '8px', fontWeight: 'bold', marginTop: '4px' }}>
                       <span>🖼️</span> ייבא תמונה
                     </button>
-                    
+                  </div>
+                )}
+                {isExpanded && (
+                  <div style={{ display: 'none' }}>
                     <input 
                       type="file" 
                       id={`logo-camera-${space.id}`} 
                       accept="image/*" 
                       capture="environment"
-                      style={{ display: 'none' }}
                       onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const base64 = await resizeAndCompressImage(file);
-                          updateSpaceLogo(space.id, base64);
-                        }
+                        try {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const base64 = await resizeAndCompressImage(file);
+                            updateSpaceLogo(space.id, base64);
+                          }
+                        } catch(err) { console.error(err); }
                       }}
                     />
                     <input 
                       type="file" 
                       id={`logo-gallery-${space.id}`} 
                       accept="image/*" 
-                      style={{ display: 'none' }}
                       onChange={async (e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          const base64 = await resizeAndCompressImage(file);
-                          updateSpaceLogo(space.id, base64);
-                        }
+                        try {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const base64 = await resizeAndCompressImage(file);
+                            updateSpaceLogo(space.id, base64);
+                          }
+                        } catch(err) { console.error(err); }
                       }}
                     />
                   </div>
-                )}
-              </div>
+                )}              </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{space.title}</h3>
                 <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
