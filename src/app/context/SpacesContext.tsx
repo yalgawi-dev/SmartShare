@@ -1535,7 +1535,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       };
 
       setTimeout(() => {
-        const senderName = user?.realName || user?.displayName || 'שותף';
+        const senderName = user?.realName || user?.name || 'שותף';
         const allIds = [space.creatorId, ...(space.members || []).map((m: any) => m.userId)];
         // Add anyone else who commented on this event (useful if guests don't have user.id)
         const event = space.shelfEvents?.find(e => e.id === eventId);
