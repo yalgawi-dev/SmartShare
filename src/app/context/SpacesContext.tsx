@@ -94,6 +94,7 @@ export interface DocumentShelf {
   allowedPartners: string[]; // empty means public
   createdAt: string;
   coverImage?: string;
+  logoUrl?: string;
   icon?: string;
   highlightColor?: string;
 }
@@ -211,6 +212,7 @@ export interface Space {
   auditLogs?: AuditRecord[];
   date?: string;
   coverImage?: string;
+  logoUrl?: string;
   albumSize?: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square';
   albumAtmospherePhotos?: string[];
   status?: 'active' | 'pending_deletion';
@@ -240,6 +242,7 @@ interface SpacesContextType {
   updateSpaceTitle: (spaceId: string, newTitle: string) => void;
   updateSpaceDate: (spaceId: string, newDate: string) => void;
   updateSpaceCover: (spaceId: string, newCoverUrl: string) => void;
+  updateSpaceLogo: (spaceId: string, newLogoUrl: string) => void;
   updateSpaceIcon: (spaceId: string, newIcon: string) => void;
   toggleFeature: (spaceId: string, featureId: FeatureId, performedBy?: string) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
@@ -700,6 +703,10 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   const updateSpaceDate = (spaceId: string, newDate: string) => {
     saveSpaceUpdate(spaceId, space => ({ ...space, date: newDate, updatedAt: '\u05e2\u05d5\u05d3\u05db\u05df \u05e2\u05db\u05e9\u05d9\u05d5' }));
+  };
+
+    const updateSpaceLogo = (spaceId: string, newLogoUrl: string) => {
+    saveSpaceUpdate(spaceId, space => ({ ...space, logoUrl: newLogoUrl, updatedAt: 'עודכן עכשיו' }));
   };
 
   const updateSpaceCover = (spaceId: string, newCoverUrl: string) => {
@@ -1705,7 +1712,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       updateMemberPermissions,
       sendConversationMessage,
         markConversationRead,
