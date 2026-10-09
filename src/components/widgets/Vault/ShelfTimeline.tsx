@@ -129,7 +129,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     <span style={{ background: '#e2e8f0', color: '#475569', padding: '4px 12px', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem' }}>{year}</span>
                   </div>
                 )}
-                <div style={{ position: 'relative', zIndex: 1, paddingRight: '3rem' }}>
+                <div id={`event-${event.id}`} style={{ position: 'relative', zIndex: 1, paddingRight: '3rem' }}>
                   <div style={{ position: 'absolute', right: '12px', top: '24px', width: '18px', height: '18px', background: '#3b82f6', borderRadius: '50%', border: '4px solid #eff6ff', boxShadow: '0 0 0 1px #cbd5e1' }}></div>
                   
                   <div style={{ background: 'white', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
