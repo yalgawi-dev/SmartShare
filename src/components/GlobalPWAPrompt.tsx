@@ -43,13 +43,13 @@ export default function GlobalPWAPrompt() {
     if (!isIOS && !isAndroid) return;
 
     if (isAndroid && isWebView)      setPlatform('android-webview');
-    else if (isAndroid)              setPlatform('android-chrome');
+    // Android Chrome auto-prompt is handled ONLY by beforeinstallprompt now.
     else if (isIOS && isWebView)     setPlatform('ios-webview');
     else if (isIOS && isSafari)      setPlatform('ios-safari');
     else                             setPlatform('other');
 
     // Grab Chrome's native install prompt
-    const onPrompt = (e: any) => { e.preventDefault(); setDeferredPrompt(e); };
+    const onPrompt = (e: any) => { e.preventDefault(); setDeferredPrompt(e); setPlatform('android-chrome'); };
     window.addEventListener('beforeinstallprompt', onPrompt);
     const onTrigger = () => { 
       try { localStorage.removeItem('pwa_v5'); } catch (e) {}
