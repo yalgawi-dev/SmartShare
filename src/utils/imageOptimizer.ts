@@ -2,7 +2,7 @@
 // Maintains aspect ratio while reducing file size to save storage.
 // This is the SINGLE SOURCE OF TRUTH (Engine) for all image compression in the app.
 
-export async function compressImage(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.82): Promise<string> {
+export async function compressImage(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.82, type = "image/jpeg"): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -41,7 +41,7 @@ export async function compressImage(file: File, maxWidth = 1000, maxHeight = 100
         ctx.drawImage(img, 0, 0, width, height);
         
         // Use the unified canvas compressor
-        resolve(compressCanvas(canvas, quality));
+        resolve(compressCanvas(canvas, quality, type));
       };
       
       img.onerror = (err) => reject(err);

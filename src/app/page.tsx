@@ -16,36 +16,9 @@ import PersonalInboxWidget from '../components/widgets/PersonalInboxWidget';
 import { PushNotificationReminder } from '../components/widgets/PushNotificationReminder';
 import { universalSearch } from '../utils/searchEngine';
 import { uploadImageToStorage } from '@/lib/firebase';
+import { compressImage } from '../utils/imageOptimizer';
 
-const resizeAndCompressImage = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          const MAX_DIM = 512; // Increased for better logo quality
-          let { width, height } = img;
-          if (width > height) { if (width > MAX_DIM) { height *= MAX_DIM / width; width = MAX_DIM; } }
-          else { if (height > MAX_DIM) { width *= MAX_DIM / height; height = MAX_DIM; } }
-          canvas.width = Math.round(width); 
-          canvas.height = Math.round(height);
-          const ctx = canvas.getContext('2d');
-          if (ctx) ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-          // Use PNG to preserve logo transparency!
-          resolve(canvas.toDataURL('image/png'));
-        } catch (e) {
-          resolve(event.target?.result as string); // fallback
-        }
-      };
-      img.onerror = () => resolve(event.target?.result as string); // fallback on error
-      img.src = event.target?.result as string;
-    };
-    reader.onerror = (error) => reject(error);
-    reader.readAsDataURL(file);
-  });
-};
+
 
 export default function Dashboard() {
   const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite } = useSpaces();
@@ -307,7 +280,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.64</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.65</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -589,7 +562,7 @@ export default function Dashboard() {
                         try {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const base64 = await resizeAndCompressImage(file);
+                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/webp');
                             const storageUrl = await uploadImageToStorage(base64, `logos/${space.id}_${Date.now()}`);
                             updateSpaceLogo(space.id, storageUrl);
                           }
@@ -604,7 +577,7 @@ export default function Dashboard() {
                         try {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const base64 = await resizeAndCompressImage(file);
+                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/webp');
                             const storageUrl = await uploadImageToStorage(base64, `logos/${space.id}_${Date.now()}`);
                             updateSpaceLogo(space.id, storageUrl);
                           }
