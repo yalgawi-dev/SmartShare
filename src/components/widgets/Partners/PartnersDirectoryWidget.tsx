@@ -21,7 +21,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const allMembers = [
     {
       userId: creatorId,
-      name: space.creatorName || "מנהל המרחב",
+      name: space.creatorName || (isCreatorMe ? (user?.displayName || user?.name || user?.email || "מנהל") : "מנהל"),
       role: "creator",
       status: "active"
     },
@@ -105,11 +105,11 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
                       <span style={{ fontWeight: isMe ? 800 : 600, color: 'var(--text-primary)', fontSize: '1rem' }}>{m.name || m.userId}</span>
                       {isMe && <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold' }}>אני</span>}
-                      {m.role === 'creator' && !isMe && <span style={{ fontSize: '0.75rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold' }}>מנהל מרחב</span>}
+                      {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.75rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold' }}>מנהל</span>}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                      {m.status === "active" ? <span style={{ fontSize: '0.8rem', color: '#16a34a', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>✅ פעיל</span> : 
+                      {m.status === "active" ? null : 
                        isExpired ? <span style={{ fontSize: '0.8rem', color: '#ef4444' }}>פג תוקף</span> :
                        m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
                        m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>🔄 מבקש הארכה</span> : 

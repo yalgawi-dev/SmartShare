@@ -146,7 +146,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <ChatEngineUI
             space={space}
-            conversationId={activeTarget}
+            conversationId={activeTarget === 'group' ? 'group' : [user?.id, activeTarget].filter(Boolean).sort().join('_')}
             isGroup={isGroup}
             isFrozen={!(space.features || []).includes('partners')}
             viewMode={activeTarget === space.creatorId ? 'partner' : 'creator'}

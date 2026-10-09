@@ -270,6 +270,7 @@ interface SpacesContextType {
   deleteComment: (spaceId: string, mediaId: string, commentId: string) => void;
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   updateMemberStatus: (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => void;
+  updateMemberRole: (spaceId: string, userId: string, role: 'admin' | 'partner') => void;
   
   refreshMemberInvite: (spaceId: string, userId: string) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string, forceHardDelete?: boolean) => void;
@@ -931,6 +932,14 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     });
   };
 
+  
+  const updateMemberRole = (spaceId: string, userId: string, role: 'admin' | 'partner') => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      members: (space.members || []).map(m => m.userId === userId ? { ...m, role } : m)
+    }));
+  };
+
   const updateMemberStatus = (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
@@ -1506,21 +1515,51 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const addShelfEventComment = (spaceId: string, eventId: string, text: string) => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      shelfEvents: (space.shelfEvents || []).map(e => {
-        if (e.id === eventId) {
-          const newComment: ShelfEventComment = {
-            id: Math.random().toString(36).substring(2, 9),
-            userId: user?.id || '',
-            text,
-            createdAt: new Date().toISOString()
-          };
-          return { ...e, comments: [...(e.comments || []), newComment] };
+    saveSpaceUpdate(spaceId, space => {
+      let eventTitle = '';
+      const newSpace = {
+        ...space,
+        shelfEvents: (space.shelfEvents || []).map(e => {
+          if (e.id === eventId) {
+            eventTitle = e.title;
+            const newComment: ShelfEventComment = {
+              id: Math.random().toString(36).substring(2, 9),
+              userId: user?.id || '',
+              text,
+              createdAt: new Date().toISOString()
+            };
+            return { ...e, comments: [...(e.comments || []), newComment] };
+          }
+          return e;
+        })
+      };
+
+      setTimeout(() => {
+        const senderName = user?.realName || user?.displayName || 'שותף';
+        const allIds = [space.creatorId, ...(space.members || []).map((m: any) => m.userId)];
+        // Add anyone else who commented on this event (useful if guests don't have user.id)
+        const event = space.shelfEvents?.find(e => e.id === eventId);
+        if (event?.comments) {
+           event.comments.forEach(c => allIds.push(c.userId));
         }
-        return e;
-      })
-    }));
+        
+        const otherUserIds = Array.from(new Set(allIds)).filter(id => id && id !== user?.id);
+        
+        if (otherUserIds.length > 0) {
+          const inboxItems = otherUserIds.map(uid => ({
+            userId: uid,
+            type: 'timeline_comment' as any,
+            title: 'תגובה חדשה במסמכים',
+            message: `${senderName} הגיב על "${eventTitle}": ${text}`,
+            isRead: false,
+            actionUrl: `/space/${spaceId}?tab=documents`
+          }));
+          addInboxItems(spaceId, inboxItems);
+        }
+      }, 0);
+
+      return newSpace;
+    });
   };
 
   const removeShelfEventComment = (spaceId: string, eventId: string, commentId: string) => {

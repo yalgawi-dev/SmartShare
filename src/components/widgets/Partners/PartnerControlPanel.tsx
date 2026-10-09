@@ -57,7 +57,7 @@ interface Props {
 
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, approveShareChange, rejectShareChange } = useSpaces() as any;
+  const { approveExtension, removeMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange } = useSpaces() as any;
   const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
@@ -97,6 +97,19 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const handleResetStatus = () => {
     if (confirm(`לאפס את סטטוס "${memberName}" לממתין?`)) {
       if(typeof updateMemberStatus === 'function') updateMemberStatus(space.id, member.userId, 'pending');
+    }
+  };
+
+  
+  const handleMakeAdmin = () => {
+    if (confirm(`להגדיר את "${memberName}" כמנהל למרחב זה?`)) {
+      if(typeof updateMemberRole === 'function') updateMemberRole(space.id, member.userId, 'admin');
+    }
+  };
+
+  const handleRemoveAdmin = () => {
+    if (confirm(`להסיר את הרשאות הניהול של "${memberName}"?`)) {
+      if(typeof updateMemberRole === 'function') updateMemberRole(space.id, member.userId, 'partner');
     }
   };
 
@@ -179,7 +192,19 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 )}
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
-                {memberStatus !== 'active' && (
+                
+              {member.role !== 'creator' && member.role !== 'admin' && (
+                <button onClick={handleMakeAdmin} style={{ background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  👑 הגדר כמנהל
+                </button>
+              )}
+              {member.role === 'admin' && (
+                <button onClick={handleRemoveAdmin} style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                  👤 בטל ניהול
+                </button>
+              )}
+              {memberStatus !== 'active' && (
+
                   <span style={{ 
                     background: memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
                     color: memberStatus === 'pending' ? '#854d0e' : '#991b1b',
