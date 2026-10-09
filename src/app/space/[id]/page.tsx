@@ -554,7 +554,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             cursor: !isRestricted ? 'pointer' : 'default', fontSize: '1.5rem'
           }}>
-            {space.icon || space.title.charAt(0)}
+            {space.logoUrl ? <img src={space.logoUrl} alt="Logo" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}} /> : (space.icon || space.title.charAt(0))}
         </div>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', flexWrap: 'wrap' }}>
           <h1 

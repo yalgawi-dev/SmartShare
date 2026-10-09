@@ -280,7 +280,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.66</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.67</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -562,11 +562,27 @@ export default function Dashboard() {
                         try {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/webp');
-                            const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}`);
-                            updateSpaceLogo(space.id, storageUrl);
+                            // 1. INSTANT OPTIMISTIC UI!
+                            const tempUrl = URL.createObjectURL(file);
+                            updateSpaceLogo(space.id, tempUrl);
+                            
+                            // 2. Compress (use PNG for 100% compat & transparency)
+                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/png');
+                            
+                            // 3. Fallback to base64 if Firebase Storage fails
+                            updateSpaceLogo(space.id, base64);
+                            
+                            try {
+                              const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}.png`);
+                              updateSpaceLogo(space.id, storageUrl);
+                            } catch(uploadErr) {
+                              console.warn("Storage fail, keeping base64", uploadErr);
+                            }
                           }
-                        } catch(err) { console.error(err); }
+                        } catch(err) { 
+                          console.error(err); 
+                          alert("שגיאה בעיבוד התמונה: " + String(err));
+                        }
                       }}
                     />
                     <input 
@@ -577,11 +593,27 @@ export default function Dashboard() {
                         try {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/webp');
-                            const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}`);
-                            updateSpaceLogo(space.id, storageUrl);
+                            // 1. INSTANT OPTIMISTIC UI!
+                            const tempUrl = URL.createObjectURL(file);
+                            updateSpaceLogo(space.id, tempUrl);
+                            
+                            // 2. Compress (use PNG for 100% compat & transparency)
+                            const base64 = await compressImage(file, 256, 256, 0.85, 'image/png');
+                            
+                            // 3. Fallback to base64 if Firebase Storage fails
+                            updateSpaceLogo(space.id, base64);
+                            
+                            try {
+                              const storageUrl = await uploadImageToStorage(base64, `spaces/covers/logo_${space.id}_${Date.now()}.png`);
+                              updateSpaceLogo(space.id, storageUrl);
+                            } catch(uploadErr) {
+                              console.warn("Storage fail, keeping base64", uploadErr);
+                            }
                           }
-                        } catch(err) { console.error(err); }
+                        } catch(err) { 
+                          console.error(err); 
+                          alert("שגיאה בעיבוד התמונה: " + String(err));
+                        }
                       }}
                     />
                   </div>
