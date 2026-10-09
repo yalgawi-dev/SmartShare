@@ -1714,7 +1714,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       setExtensionMessage, updateSharesBulk,
     approveShareChange,
     rejectShareChange,
-        updateMemberStatus,
+        updateMemberStatus, updateMemberRole,
         
       addComment,
       deleteComment,
