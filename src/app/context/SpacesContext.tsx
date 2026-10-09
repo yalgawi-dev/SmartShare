@@ -1554,7 +1554,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
             isRead: false,
             actionUrl: `/space/${spaceId}?tab=documents`
           }));
-          addInboxItems(spaceId, inboxItems);
+          
         }
       }, 0);
 
