@@ -410,7 +410,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               );
               }) : (
                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                  המחסן ריק.<br />אנא הוסף מסמכים למדף קודם (באמצעות כפתור המצלמה הכחול).
+                  המחסן ריק. לחץ על הכפתור למעלה כדי להעלות מסמכים.
                 </div>
               )}
             </div>

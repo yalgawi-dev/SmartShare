@@ -50,6 +50,8 @@ export function FloatingActionBar({
     const handleClose = () => setIsInShelf(false);
     const handleVaultOn = () => setIsVaultTab(true);
     const handleVaultOff = () => setIsVaultTab(false);
+    const handleTriggerUpload = () => fileInputRef.current?.click();
+    window.addEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     window.addEventListener("smartshare:shelf_opened", handleOpen);
     window.addEventListener("smartshare:shelf_closed", handleClose);
     window.addEventListener("smartshare:vault_tab_active", handleVaultOn);
@@ -59,6 +61,7 @@ export function FloatingActionBar({
       window.removeEventListener("smartshare:shelf_closed", handleClose);
       window.removeEventListener("smartshare:vault_tab_active", handleVaultOn);
       window.removeEventListener("smartshare:vault_tab_inactive", handleVaultOff);
+      window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     };
   }, []);
 
@@ -285,7 +288,7 @@ export function FloatingActionBar({
                 <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>צ'אט</span>
               </button>
             )}
-            {hasPartners && (
+            {hasPartners && activeTab !== 'documents' && (
               <button 
                 onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
                 style={{
