@@ -256,7 +256,7 @@ interface SpacesContextType {
 
   addMediaItem: (spaceId: string, item: Omit<MediaItem, 'id' | 'timestamp' | 'likes'>) => void;
   updateMediaItem: (spaceId: string, mediaId: string, updates: Partial<MediaItem>) => void;
-  addDocument: (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => void;
+  addDocument: (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => string;
   updateDocument: (spaceId: string, docId: string, updates: Partial<SpaceDocument>) => void;
   removeDocument: (spaceId: string, docId: string) => void;
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => void;
@@ -1452,10 +1452,12 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   
   const addDocument = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => {
+    const docId = `doc-${Date.now()}`;
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      documents: [{ ...doc, id: `doc-${Date.now()}`, createdAt: new Date().toISOString() }, ...(space.documents || [])]
+      documents: [{ ...doc, id: docId, createdAt: new Date().toISOString() }, ...(space.documents || [])]
     }));
+    return docId;
   };
 
   const updateDocument = (spaceId: string, docId: string, updates: Partial<SpaceDocument>) => {

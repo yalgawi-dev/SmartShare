@@ -11,9 +11,10 @@ interface ShelfTimelineProps {
   onRemoveEvent: (eventId: string) => void;
   onAddComment: (eventId: string, text: string) => void;
   onRemoveComment: (eventId: string, commentId: string) => void;
+  onUploadAndLink?: (eventId: string, url: string) => Promise<void>;
 }
 
-export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment }: ShelfTimelineProps) {
+export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment, onUploadAndLink }: ShelfTimelineProps) {
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
@@ -21,6 +22,25 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [editEventDesc, setEditEventDesc] = useState('');
   const [editEventDate, setEditEventDate] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const [isUploadingLocal, setIsUploadingLocal] = useState(false);
+
+  const handleLocalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && showDocSelector?.eventId && onUploadAndLink) {
+      setIsUploadingLocal(true);
+      const reader = new FileReader();
+      reader.onload = async (ev) => {
+         const url = ev.target?.result as string;
+         try {
+            await onUploadAndLink(showDocSelector.eventId, url);
+         } catch(e) {}
+         setIsUploadingLocal(false);
+         setShowDocSelector(null); // Close modal on success!
+      };
+      reader.readAsDataURL(file);
+    }
+  };
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventDate, setNewEventDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
@@ -109,7 +129,9 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   };
 
   return (
-    <div style={{ padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+    <>
+      <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} ref={fileInputRef} onChange={handleLocalUpload} />
+      <div style={{padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
@@ -381,6 +403,15 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               <button onClick={() => setShowDocSelector(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
             </div>
             
+            
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+               <button 
+                  onClick={() => fileInputRef.current?.click()} 
+                  disabled={isUploadingLocal}
+                  style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)', opacity: isUploadingLocal ? 0.7 : 1 }}>
+                  <span style={{ fontSize: '1.2rem' }}>📤</span> {isUploadingLocal ? 'מעלה מסמך...' : 'העלה מסמך חדש'}
+               </button>
+            </div>
             <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', paddingBottom: '1rem' }}>
               {shelfDocs.length > 0 ? shelfDocs.map(doc => {
                   const event = events.find(e => e.id === showDocSelector?.eventId);
@@ -555,5 +586,6 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       )}
 
     </div>
+    </>
   );
 }

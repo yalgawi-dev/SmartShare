@@ -129,18 +129,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
   
-  useEffect(() => {
-    if (hasFinance) {
-      setSelectedCategory('receipt');
-      setMode('smart_plus');
-    } else if (hasVault) {
-      setSelectedCategory('document');
-      setMode('smart_plus');
-    } else {
-      setSelectedCategory('image');
-      setMode('pure_color');
-    }
-  }, [hasFinance, hasVault]);
+  
 
   const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
   const generateDocId = () => 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);

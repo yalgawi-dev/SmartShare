@@ -10,6 +10,7 @@ import { uploadImageToStorage } from '@/lib/firebase';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => void;
+  uploadAndLinkDocument?: (shelfId: string, eventId: string, url: string, type: 'document' | 'image' | 'pdf') => Promise<void>;
 }
 
 interface DocumentsWidgetProps {
@@ -155,7 +156,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
 
         // Save to real database
-        addDocument(space.id, { shelfId, url: finalUrl, type, title, addedBy: user?.id || '', thumbnailUrl: finalThumbnailUrl });
+        const docId = addDocument(space.id, { shelfId, url: finalUrl, type, title, addedBy: user?.id || '', thumbnailUrl: finalThumbnailUrl });
+        return docId;
       } catch (e) {
         console.error("Failed to upload document", e);
         alert("שגיאה בהעלאת המסמך");
@@ -262,6 +264,15 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
             onRemoveEvent={(id) => removeShelfEvent(space.id, id)} 
             onAddComment={(id, text) => addShelfEventComment(space.id, id, text)} 
             onRemoveComment={(id, cid) => removeShelfEventComment(space.id, id, cid)} 
+            onUploadAndLink={async (eventId, url) => {
+               const docId = await handleSaveDocument(activeShelfId, url, 'document');
+               if (docId) {
+                  const ev = space.shelfEvents?.find(e => e.id === eventId);
+                  if (ev) {
+                     updateShelfEvent(space.id, eventId, { documentIds: [...(ev.documentIds || []), docId] });
+                  }
+               }
+            }}
           />
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0 1rem' }}>
