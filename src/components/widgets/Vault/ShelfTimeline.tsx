@@ -12,9 +12,10 @@ interface ShelfTimelineProps {
   onAddComment: (eventId: string, text: string) => void;
   onRemoveComment: (eventId: string, commentId: string) => void;
   onUploadAndLink?: (eventId: string, url: string) => Promise<void>;
+  onPreviewDocs?: (docs: SpaceDocument[], index: number) => void;
 }
 
-export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment, onUploadAndLink }: ShelfTimelineProps) {
+export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment, onUploadAndLink, onPreviewDocs }: ShelfTimelineProps) {
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [editEventId, setEditEventId] = useState<string | null>(null);
@@ -301,10 +302,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
 
                         {/* DOCUMENTS */}
                         <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '1rem', overflowX: 'auto' }}>
-                          {eventDocs.map(doc => (
+                          {eventDocs.map((doc, docIdx) => (
                             <div 
                               key={doc.id} 
-                              onClick={() => window.open(doc.url, '_blank')}
+                              onClick={() => {
+                                if (onPreviewDocs) {
+                                  onPreviewDocs(eventDocs, docIdx);
+                                } else {
+                                  window.open(doc.url, '_blank');
+                                }
+                              }}
                               style={{ flexShrink: 0, width: '60px', height: '80px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
                               title={doc.title}
                             >

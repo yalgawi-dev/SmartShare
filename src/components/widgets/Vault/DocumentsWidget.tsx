@@ -289,6 +289,7 @@ const shareDocument = async (url: string, title: string) => {
             onRemoveEvent={(id) => removeShelfEvent(space.id, id)} 
             onAddComment={(id, text) => addShelfEventComment(space.id, id, text)} 
             onRemoveComment={(id, cid) => removeShelfEventComment(space.id, id, cid)} 
+            onPreviewDocs={(docs, index) => setPreviewState({ docs, index })}
             onUploadAndLink={async (eventId, url) => {
                const docId = await handleSaveDocument(activeShelfId, url, 'document');
                if (docId) {
