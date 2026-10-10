@@ -16,6 +16,10 @@ interface ShelfTimelineProps {
 export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment }: ShelfTimelineProps) {
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editEventTitle, setEditEventTitle] = useState('');
+  const [editEventDesc, setEditEventDesc] = useState('');
+  const [editEventDate, setEditEventDate] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventDate, setNewEventDate] = useState(new Date().toISOString().split('T')[0]);
@@ -40,6 +44,18 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const events = (space.shelfEvents || [])
     .filter(e => e.shelfId === activeShelfId)
     .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+  
+  const handleSaveEdit = () => {
+    if (!editEventId || !editEventTitle.trim()) return alert('יש להזין כותרת');
+    onUpdateEvent(editEventId, {
+      title: editEventTitle.trim(),
+      description: editEventDesc.trim(),
+      eventDate: editEventDate
+    });
+    setEditEventId(null);
+  };
+
 
   const handleAddEvent = () => {
     if (!newEventTitle.trim()) return alert('יש להזין כותרת לאירוע');
@@ -138,7 +154,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer', marginBottom: isExpanded ? '0.5rem' : '0' }}
                     >
                       <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', flex: 1 }}>{event.title}</h3>
+                      
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          setEditEventId(event.id);
+                          setEditEventTitle(event.title);
+                          setEditEventDesc(event.description || '');
+                          setEditEventDate(event.eventDate);
+                        }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title="ערוך תחנה">✏️</button>
+
                         <div style={{ background: '#f1f5f9', color: '#475569', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                           {new Date(event.eventDate).toLocaleDateString('he-IL')}
                         </div>
@@ -357,7 +382,11 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             </div>
             
             <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', paddingBottom: '1rem' }}>
-              {shelfDocs.length > 0 ? shelfDocs.map(doc => (
+              {shelfDocs.length > 0 ? shelfDocs.map(doc => {
+                  const event = events.find(e => e.id === showDocSelector?.eventId);
+                  const isSelected = event ? event.documentIds?.includes(doc.id) : false;
+                  return (
+
                 <div 
                   key={doc.id}
                   onClick={() => {
@@ -378,7 +407,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 >
                   {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
                 </div>
-              )) : (
+              );
+              }) : (
                 <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
                   המחסן ריק.<br />אנא הוסף מסמכים למדף קודם (באמצעות כפתור המצלמה הכחול).
                 </div>
@@ -388,7 +418,42 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         </div>
       )}
 
+      
+      {/* EDIT EVENT MODAL */}
+      {editEventId && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>עריכת אירוע</h2>
+              <button onClick={() => setEditEventId(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>כותרת האירוע / התחנה</label>
+                <input type="text" value={editEventTitle} onChange={(e) => setEditEventTitle(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>תאריך האירוע</label>
+                <input type="date" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט מה היה (אופציונלי)</label>
+                <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+              </div>
+
+              <button onClick={handleSaveEdit} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}>
+                שמור שינויים
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showAddModal && (
+
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
