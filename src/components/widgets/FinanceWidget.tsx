@@ -83,6 +83,31 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [batchQueue, setBatchQueue] = useState<string[]>([]);
+
+const shareDocument = async (url: string, title: string) => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
+    const ext = isPdf ? 'pdf' : 'jpg';
+    const mime = isPdf ? 'application/pdf' : 'image/jpeg';
+    const file = new File([blob], `${title || 'document'}.${ext}`, { type: mime });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: title || 'מסמך' });
+    } else {
+      const a = document.createElement('a');
+      const objUrl = URL.createObjectURL(blob);
+      a.href = objUrl;
+      a.download = `${title || 'document'}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+    }
+  } catch (e) {
+    console.error('Error sharing', e);
+    alert('שגיאה בשיתוף מסמך');
+  }
+};
+
   const searchParams = useSearchParams();
     const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
     
@@ -683,7 +708,12 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', height: '100%' }}>
               <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                 <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
-                  <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', margin: 'auto' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem', width: '100%' }}>
+                    <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '80%', objectFit: 'contain', margin: 'auto' }} />
+                    <button onClick={(e) => { e.stopPropagation(); shareDocument(previewImage, 'חשבונית_סרוקה'); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', zIndex: 20002 }}>
+                      <span>שתף מסמך 📤</span>
+                    </button>
+                  </div>
                 </TransformComponent>
               </TransformWrapper>
             </div>

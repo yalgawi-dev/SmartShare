@@ -76,14 +76,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
-  const [editTitleValue, setEditTitleValue] = useState('');
-  const [isEditingDate, setIsEditingDate] = useState(false);
+    const [isEditingDate, setIsEditingDate] = useState(false);
   const [editDateValue, setEditDateValue] = useState('');
   
   const [showInvite, setShowInvite] = useState(false);
   const [showFeatureMenu, setShowFeatureMenu] = useState(false);
   const [showPartnersModal, setShowPartnersModal] = useState(() => { if (typeof window !== 'undefined') { return new URLSearchParams(window.location.search).get('tab') === 'partners'; } return false; });
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
+  const [editTitleValue, setEditTitleValue] = useState('');
   const [showRestrictedActionModal, setShowRestrictedActionModal] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAddingExpense, setIsAddingExpense] = useState(false);
@@ -560,8 +561,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           <h1 
             onClick={() => {
               if (!isRestricted) {
-                const newTitle = prompt('ערוך שם למרחב:', space.title);
-                if (newTitle && newTitle.trim()) updateSpaceTitle(id, newTitle.trim());
+                setEditTitleValue(space.title);
+                setEditingSpaceId(id);
               }
             }}
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
@@ -822,6 +823,31 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      
+      {editingSpaceId && (
+        <div onClick={() => setEditingSpaceId(null)} style={{ position: 'fixed', inset: 0, zIndex: 10000, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', background: 'rgba(0,0,0,0.6)', padding: '1rem', backdropFilter: 'blur(4px)' }}>
+           <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--bg-main)', borderRadius: '24px', padding: '1.5rem', width: '100%', maxWidth: '400px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+              <h3 style={{ margin: '0 0 1rem 0', color: 'var(--text-primary)', textAlign: 'center' }}>ערוך שם למרחב</h3>
+              <input 
+                autoFocus
+                type="text" 
+                value={editTitleValue} 
+                onChange={e => setEditTitleValue(e.target.value)} 
+                style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid var(--border-light)', marginBottom: '1rem', fontSize: '1rem', textAlign: 'right' }} 
+              />
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button onClick={() => setEditingSpaceId(null)} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '12px', color: 'var(--text-secondary)' }}>ביטול</button>
+                <button onClick={() => { 
+                  if (editTitleValue.trim()) {
+                    updateSpaceTitle(id, editTitleValue.trim());
+                    setEditingSpaceId(null);
+                  }
+                }} style={{ flex: 1, padding: '0.75rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold' }}>שמור שינויים</button>
+              </div>
+           </div>
         </div>
       )}
 

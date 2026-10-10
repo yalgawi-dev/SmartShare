@@ -248,7 +248,7 @@ export function FloatingActionBar({
             </button>
 
             <button 
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => onOpenScanner('upload', 'receipt')}
               style={{
                 background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
@@ -313,7 +313,7 @@ export function FloatingActionBar({
             )}
             {hasFinance && hasVault && activeTab === 'documents' && (
               <button 
-                onClick={() => fileInputRef.current?.click()}
+                onClick={() => onOpenScanner('upload', 'document')}
                 style={{
                   background: 'transparent', 
                   border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',

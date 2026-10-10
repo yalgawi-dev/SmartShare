@@ -83,6 +83,31 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   }));
 
+  
+const shareDocument = async (url: string, title: string) => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
+    const ext = isPdf ? 'pdf' : 'jpg';
+    const mime = isPdf ? 'application/pdf' : 'image/jpeg';
+    const file = new File([blob], `${title || 'document'}.${ext}`, { type: mime });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: title || 'מסמך' });
+    } else {
+      const a = document.createElement('a');
+      const objUrl = URL.createObjectURL(blob);
+      a.href = objUrl;
+      a.download = `${title || 'document'}.${ext}`;
+      a.click();
+      URL.revokeObjectURL(objUrl);
+    }
+  } catch (e) {
+    console.error('Error sharing', e);
+    alert('שגיאה בשיתוף מסמך');
+  }
+};
+
   const handleRenameShelf = (shelfId: string, currentName: string) => {
     const name = window.prompt('שינוי שם למדף:', currentName);
     if (name && name.trim()) {
@@ -430,7 +455,12 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].type === 'pdf' || previewState.docs[previewState.index].url?.startsWith('data:application/pdf')) ? (
               <iframe src={previewState.docs[previewState.index].url} style={{ width: '90%', height: '85%', border: 'none', background: 'white', borderRadius: '8px' }} />
             ) : (
-              <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem' }}>
+              <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '80%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
+              <button onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', zIndex: 20002 }}>
+                   <span>שתף מסמך 📤</span>
+              </button>
+            </div>
             )}
           
           {previewState.index < previewState.docs.length - 1 && (
@@ -656,9 +686,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].url?.startsWith('data:application/pdf') || previewState.docs[previewState.index].type === 'pdf') ? (
             <div style={{ width: '90%', height: '80%', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
                <iframe src={previewState.docs[previewState.index].url} style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: '12px' }} title="PDF Preview" />
-               <button onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', zIndex: 20002 }}>
-                 פתח מסמך בחלון חדש
-               </button>
+               <div style={{ display: 'flex', gap: '1rem', zIndex: 20002 }}>
+                 <button onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                   <span>הורדה / צפייה</span>
+                 </button>
+                 <button onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                   <span>שתף 📤</span>
+                 </button>
+               </div>
             </div>
           ) : (
             <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
