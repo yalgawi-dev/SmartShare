@@ -344,7 +344,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginLeft: '0.2rem' }}>v2.7</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginLeft: '0.2rem' }}>v2.8</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -569,27 +569,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
                       {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
                       
-                      {!isMultiSelect && (
-                        <>
-                          {/* DELETE BUTTON (Triggers custom ConfirmModal) */}
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id, doc.title); }} 
-                            style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(239,68,68,0.92)', color: 'white', border: 'none', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', zIndex: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                            title="מחק מסמך"
-                          >
-                            ✕
-                          </button>
-
-                          {/* DIRECT SHARE BUTTON */}
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} 
-                            style={{ position: 'absolute', top: '6px', left: '6px', background: 'rgba(16, 185, 129, 0.92)', color: 'white', border: 'none', borderRadius: '50%', width: '26px', height: '26px', cursor: 'pointer', zIndex: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                            title="שתף מסמך"
-                          >
-                            📤
-                          </button>
-                        </>
-                      )}
 
                       {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
                         <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? 'url(' + doc.thumbnailUrl + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
@@ -654,12 +633,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         )}
                         
                         {!isMultiSelect && (
-                          <div style={{ marginTop: 'auto', display: 'flex', borderTop: '1px solid #e2e8f0', background: '#f1f5f9' }}>
-                            <div onClick={(e) => { e.stopPropagation(); handleMoveDocument(doc.id, activeShelf.id); }} style={{ flex: 1, padding: '0.45rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }}>
+                          <div style={{ marginTop: 'auto', display: 'flex', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                            <div onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }}>
+                              📤 שתף
+                            </div>
+                            <div onClick={(e) => { e.stopPropagation(); handleMoveDocument(doc.id, activeShelf.id); }} style={{ flex: 1, padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }}>
                               🔄 העבר
                             </div>
-                            <div onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem', textAlign: 'center', fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer' }}>
-                              📤 שתף
+                            <div onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>
+                              🗑️ מחק
                             </div>
                           </div>
                         )}

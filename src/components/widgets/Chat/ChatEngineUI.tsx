@@ -89,19 +89,12 @@ export default function ChatEngineUI({
   // ── Mark read ───────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mounted || !user?.id) return;
-    const timer = setTimeout(() => {
-      if (typeof markConversationRead === 'function') {
-        const hasUnread =
-          meshMessages.some((m: any) => !(m.readBy || []).includes(user?.id)) ||
-          legacyMessages.some((m: any) => {
-            const isCreator = space.creatorId === user?.id || space.createdBy === user?.id;
-            return isCreator ? m.senderId !== space.creatorId : m.senderId === space.creatorId;
-          });
-        if (hasUnread) markConversationRead(space.id, conversationId, user?.id);
-      }
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [mounted, messagesArray.length, user?.id, space.id, conversationId]);
+    if (typeof markConversationRead === 'function') {
+      const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+      const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+      markConversationRead(space.id, conversationId, user.id, partnerToken);
+    }
+  }, [mounted, messagesArray.length, user?.id, space.id, conversationId, markConversationRead]);
 
   // ── Auto-scroll ─────────────────────────────────────────────────────────────
   useEffect(() => {

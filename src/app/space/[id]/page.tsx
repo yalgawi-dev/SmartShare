@@ -69,7 +69,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -110,10 +110,18 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
     (space.conversations || []).forEach((c: any) => {
       if (c.id === 'group') {
-        const unread = c.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+        const unread = c.messages?.filter((msg: any) => {
+          if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
+          const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
+          return !isRead;
+        }) || [];
         count += unread.length;
-      } else if (c.participants?.includes(myActualId)) {
-        const unread = c.messages?.filter((msg: any) => msg.senderId !== user.id && msg.senderId !== myActualId && !msg.readBy?.includes(user.id)) || [];
+      } else if (c.participants?.includes(myActualId) || (user.id && c.participants?.includes(user.id))) {
+        const unread = c.messages?.filter((msg: any) => {
+          if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
+          const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
+          return !isRead;
+        }) || [];
         count += unread.length;
       }
     });
@@ -479,7 +487,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           {spaceFeatures.includes('chat') && (
             <button 
               id="chat-group-btn"
-              onClick={() => openChat('group')}
+              onClick={() => {
+                const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+                const isCreator = space.creatorId === user?.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
+                const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+                const myActualId = isCreator ? (space.creatorId || space.createdBy || user?.id) : (partnerToken || user?.id);
+                if (typeof markConversationRead === 'function' && user?.id) {
+                  markConversationRead(space.id, 'group', user.id, myActualId);
+                }
+                openChat('group');
+              }}
               style={{
                 background: '#e0e7ff',
                 color: '#4338ca',
@@ -759,7 +776,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             onOpenScanner={(mode = 'camera', category = 'receipt') => handleRestrictedAction(() => { setScannerMode(mode); setScannerCategory(category); setIsScannerOpen(true); })}
             onOpenPartners={() => handleRestrictedAction(() => setShowPartnersModal(true))}
             hasChat={spaceFeatures.includes('chat')}
-            onOpenGroupChat={() => handleRestrictedAction(() => openChat('group'))}
+            onOpenGroupChat={() => handleRestrictedAction(() => {
+              const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+              const isCreator = space.creatorId === user?.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
+              const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+              const myActualId = isCreator ? (space.creatorId || space.createdBy || user?.id) : (partnerToken || user?.id);
+              if (typeof markConversationRead === 'function' && user?.id) {
+                markConversationRead(space.id, 'group', user.id, myActualId);
+              }
+              openChat('group');
+            })}
             onOpenInvite={() => handleRestrictedAction(() => setShowInviteModal(true))}
             onFileUpload={(file) => handleRestrictedAction(() => handleFileUpload(file))}
           />

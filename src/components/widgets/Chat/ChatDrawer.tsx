@@ -14,7 +14,7 @@ interface ChatDrawerProps {
 
 export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   const { isOpen, activeTarget, closeChat } = useChat();
-  const { spaces } = useSpaces() as any;
+  const { spaces, markConversationRead } = useSpaces() as any;
   const { user } = useAuth();
   const [mounted, setMounted] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -31,6 +31,13 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
     if (isOpen) {
       setIsVisible(true);
       if (typeof document !== 'undefined') document.body.style.overflow = 'hidden';
+
+      if (activeTarget && user?.id && typeof markConversationRead === 'function') {
+        const convId = activeTarget === 'group' ? 'group' : [user.id, activeTarget].filter(Boolean).sort().join('_');
+        const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[spaceId]) : null;
+        const partnerToken = user?.spaceKeys?.[spaceId]?.token || mySpaceKey?.token;
+        markConversationRead(spaceId, convId, user.id, partnerToken);
+      }
     } else {
       setIsVisible(false);
       if (typeof document !== 'undefined') document.body.style.overflow = '';
@@ -38,7 +45,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
     return () => {
       if (typeof document !== 'undefined') document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, activeTarget, spaceId, user?.id, markConversationRead]);
 
   if (!mounted || !isOpen || !activeTarget || typeof document === 'undefined') return null;
   if (!space) return null;

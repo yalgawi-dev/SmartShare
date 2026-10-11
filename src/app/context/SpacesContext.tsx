@@ -1117,21 +1117,32 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     });
   };
 
-  const markConversationRead = (spaceId: string, conversationId: string, readerId: string) => {
+  const markConversationRead = (spaceId: string, conversationId: string, readerId: string, alternateReaderId?: string) => {
     saveSpaceUpdate(spaceId, space => {
       const convos = space.conversations || [];
+      const readers = [readerId, alternateReaderId].filter(Boolean) as string[];
+      if (readers.length === 0) return space;
       const updatedConvos = convos.map(c => {
         if (c.id !== conversationId) return c;
-        return { ...c, messages: c.messages.map(msg => { if (!msg.readBy.includes(readerId)) { return { ...msg, readBy: [...msg.readBy, readerId] }; } return msg; }) };
+        return {
+          ...c,
+          messages: (c.messages || []).map(msg => {
+            const missing = readers.filter(r => !msg.readBy || !msg.readBy.includes(r));
+            if (missing.length > 0) {
+              return { ...msg, readBy: [...(msg.readBy || []), ...missing] };
+            }
+            return msg;
+          })
+        };
       });
       
       let updatedMembers = space.members;
       if (conversationId !== 'group') {
         const isCreator = readerId === space.creatorId;
-        const otherUserId = conversationId.split('_').find(id => id !== readerId);
+        const otherUserId = conversationId.split('_').find(id => id !== readerId && id !== alternateReaderId);
         updatedMembers = (space.members || []).map(m => {
            const targetMemberId = isCreator ? otherUserId : readerId;
-           if (m.userId !== targetMemberId) return m;
+           if (m.userId !== targetMemberId && m.userId !== alternateReaderId) return m;
            
            if (!m.messages) return m;
            let changed = false;

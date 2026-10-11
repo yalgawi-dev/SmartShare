@@ -136,7 +136,11 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
           if (space.features?.includes('chat')) {
             const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
             if (groupConvo) {
-              const unreadGroup = groupConvo.messages?.filter((msg: any) => !msg.readBy?.includes(user.id)) || [];
+              const unreadGroup = groupConvo.messages?.filter((msg: any) => {
+                if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
+                const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
+                return !isRead;
+              }) || [];
               if (unreadGroup.length > 0) {
                 notifs.push({
                   id: 'chat-group',
