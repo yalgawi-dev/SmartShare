@@ -39,7 +39,12 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
   const [showViewMenu, setShowViewMenu] = useState(false);
-  const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
+  const [activeShelfId, setActiveShelfId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return new URLSearchParams(window.location.search).get('shelfId');
+    }
+    return null;
+  });
 
   // Custom modal states (replacing browser alert/prompt/confirm)
   const [docToDelete, setDocToDelete] = useState<{ id: string, title: string } | null>(null);
@@ -59,12 +64,22 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [isSharingBatch, setIsSharingBatch] = useState(false);
 
   React.useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const paramShelfId = new URLSearchParams(window.location.search).get('shelfId');
+      if (paramShelfId && shelves.some(s => s.id === paramShelfId)) {
+        setActiveShelfId(paramShelfId);
+      }
+    }
+  }, [shelves]);
+
+  React.useEffect(() => {
     if (activeShelfId) {
-      window.dispatchEvent(new CustomEvent('smartshare:shelf_opened'));
+      window.dispatchEvent(new CustomEvent('smartshare:shelf_opened', { detail: { shelfId: activeShelfId, subTab: activeTab } }));
+      window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: activeTab }));
     } else {
       window.dispatchEvent(new CustomEvent('smartshare:shelf_closed'));
     }
-  }, [activeShelfId]);
+  }, [activeShelfId, activeTab]);
 
   React.useEffect(() => {
     const handler = () => {
@@ -329,7 +344,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginLeft: '0.2rem' }}>v2.6</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginLeft: '0.2rem' }}>v2.7</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>

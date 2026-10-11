@@ -259,7 +259,7 @@ interface SpacesContextType {
   addDocument: (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => string;
   updateDocument: (spaceId: string, docId: string, updates: Partial<SpaceDocument>) => void;
   removeDocument: (spaceId: string, docId: string) => void;
-  addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => void;
+  addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
   addShelfEvent: (spaceId: string, event: Omit<ShelfEvent, 'id' | 'createdAt' | 'createdBy' | 'comments'>) => void;
@@ -1475,10 +1475,12 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
+    const shelfId = `shelf-${Date.now()}`;
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      shelves: [...(space.shelves || []), { ...shelf, id: `shelf-${Date.now()}`, createdAt: new Date().toISOString() }]
+      shelves: [...(space.shelves || []), { ...shelf, id: shelfId, createdAt: new Date().toISOString() }]
     }));
+    return shelfId;
   };
 
   const updateShelf = (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => {

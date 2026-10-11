@@ -44,21 +44,33 @@ export function FloatingActionBar({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [isInShelf, setIsInShelf] = useState(false);
+  const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('timeline');
   const [isVaultTab, setIsVaultTab] = useState(false);
   useEffect(() => {
-    const handleOpen = () => setIsInShelf(true);
-    const handleClose = () => setIsInShelf(false);
+    const handleOpen = (e?: any) => {
+      setIsInShelf(true);
+      if (e?.detail?.subTab) setShelfSubTab(e.detail.subTab);
+    };
+    const handleClose = () => {
+      setIsInShelf(false);
+      setShelfSubTab('timeline');
+    };
+    const handleSubTab = (e: any) => {
+      if (e?.detail) setShelfSubTab(e.detail);
+    };
     const handleVaultOn = () => setIsVaultTab(true);
     const handleVaultOff = () => setIsVaultTab(false);
     const handleTriggerUpload = () => fileInputRef.current?.click();
     window.addEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     window.addEventListener("smartshare:shelf_opened", handleOpen);
     window.addEventListener("smartshare:shelf_closed", handleClose);
+    window.addEventListener("smartshare:shelf_subtab_changed", handleSubTab);
     window.addEventListener("smartshare:vault_tab_active", handleVaultOn);
     window.addEventListener("smartshare:vault_tab_inactive", handleVaultOff);
     return () => {
       window.removeEventListener("smartshare:shelf_opened", handleOpen);
       window.removeEventListener("smartshare:shelf_closed", handleClose);
+      window.removeEventListener("smartshare:shelf_subtab_changed", handleSubTab);
       window.removeEventListener("smartshare:vault_tab_active", handleVaultOn);
       window.removeEventListener("smartshare:vault_tab_inactive", handleVaultOff);
       window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
@@ -164,19 +176,35 @@ export function FloatingActionBar({
               </button>
             )}
             {isInShelf && (
-              <button 
-                onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }}
-                style={{
-                  background: 'transparent', 
-                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                  color: '#10b981',
-                  minWidth: '45px', transition: 'all 0.2s', flex: 1
-                }}
-              >
-                <span style={{ fontSize: '1.2rem' }}>📍</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
-              </button>
+              shelfSubTab === 'timeline' ? (
+                <button 
+                  onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }}
+                  style={{
+                    background: 'transparent', 
+                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                    color: '#10b981',
+                    minWidth: '45px', transition: 'all 0.2s', flex: 1
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📍</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={() => onOpenScanner('upload', 'document')}
+                  style={{
+                    background: 'transparent', 
+                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                    color: '#2563eb',
+                    minWidth: '45px', transition: 'all 0.2s', flex: 1
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📄</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>ייבוא מסמך</span>
+                </button>
+              )
             )}
           </>
         )}
@@ -268,16 +296,23 @@ export function FloatingActionBar({
                   </button>
                 )}
                 {isInShelf && (
-                  <button onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
-                    <span style={{ fontSize: '1.2rem' }}>📍</span>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
-                  </button>
+                  shelfSubTab === 'timeline' ? (
+                    <button onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
+                      <span style={{ fontSize: '1.2rem' }}>📍</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
+                    </button>
+                  ) : (
+                    <button onClick={() => onOpenScanner('upload', 'document')} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
+                      <span style={{ fontSize: '1.2rem' }}>📄</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>ייבוא מסמך</span>
+                    </button>
+                  )
                 )}
               </>
             )}
             
-            {/* Direct Upload/Import to Scanner button for vault */}
-            {hasVault && (
+            {/* Direct Upload/Import to Scanner button for vault - only show outside shelf or in timeline to prevent duplicate */}
+            {hasVault && (!isInShelf || shelfSubTab === 'timeline') && (
               <button 
                 onClick={() => onOpenScanner('upload', 'document')}
                 style={{

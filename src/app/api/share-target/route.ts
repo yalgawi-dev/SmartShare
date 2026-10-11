@@ -1,12 +1,22 @@
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 import { NextResponse } from 'next/server';
+
+export async function GET(request: Request) {
+  return NextResponse.redirect(new URL('/?shared=true', request.url), 303);
+}
 
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const files = formData.getAll('shared_file') as File[];
+    const rawFiles = formData.getAll('shared_file');
+    
+    // Filter valid files or blobs
+    const files = rawFiles.filter(f => f && typeof f === 'object' && 'arrayBuffer' in f && (f as any).size > 0) as File[];
     
     if (!files || files.length === 0) {
-      return NextResponse.redirect(new URL('/', request.url));
+      return NextResponse.redirect(new URL('/', request.url), 303);
     }
 
     const dataUris = await Promise.all(files.map(async (file) => {
@@ -34,7 +44,7 @@ export async function POST(request: Request) {
       </head>
       <body>
         <div class="loader"></div>
-        <h2>מעביר ל-MySpace...</h2>
+        <h2>מעביר ל-SmartShare...</h2>
         <script>
           const request = indexedDB.open('MySpaceDB', 1);
           
@@ -53,16 +63,16 @@ export async function POST(request: Request) {
             store.put(${arrayString}, 'latest_shared');
             
             tx.oncomplete = () => {
-              window.location.href = '/?shared=true';
+              window.location.replace('/?shared=true');
             };
             
             tx.onerror = () => {
-              window.location.href = '/?shared=error';
+              window.location.replace('/?shared=error');
             };
           };
           
           request.onerror = () => {
-            window.location.href = '/?shared=error';
+            window.location.replace('/?shared=error');
           };
         </script>
       </body>
@@ -70,10 +80,14 @@ export async function POST(request: Request) {
     `;
     
     return new NextResponse(html, {
-      headers: { 'Content-Type': 'text/html; charset=utf-8' }
+      status: 200,
+      headers: { 
+        'Content-Type': 'text/html; charset=utf-8',
+        'Cache-Control': 'no-store, no-cache, must-revalidate'
+      }
     });
   } catch (err) {
     console.error("Share target error:", err);
-    return NextResponse.redirect(new URL('/?shared=error', request.url));
+    return NextResponse.redirect(new URL('/?shared=error', request.url), 303);
   }
 }

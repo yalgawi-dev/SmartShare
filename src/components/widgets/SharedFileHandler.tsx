@@ -9,7 +9,7 @@ import { uploadImageToStorage } from '../../lib/firebase';
 import { downscaleBase64 } from '../../utils/imageOptimizer';
 
 export default function SharedFileHandler() {
-  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox } = useSpaces();
+  const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf } = useSpaces();
   const { user } = useAuth();
   
   const [clientKeys, setClientKeys] = useState<any>({});
@@ -17,11 +17,12 @@ export default function SharedFileHandler() {
   const [sharedFiles, setSharedFiles] = useState<string[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
+  const [selectedShelfId, setSelectedShelfId] = useState<string>('');
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal'>('personal');
+  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault'>('personal');
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const router = useRouter();
@@ -122,6 +123,20 @@ export default function SharedFileHandler() {
     }
   }, [isModalOpen, displayedSpaces, selectedSpaceId]);
 
+  useEffect(() => {
+    if (selectedSpaceId) {
+      const sp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+      const sh = sp?.shelves || [];
+      if (sh.length > 0) {
+        if (!selectedShelfId || !sh.some((x: any) => x.id === selectedShelfId)) {
+          setSelectedShelfId(sh[0].id);
+        }
+      } else {
+        setSelectedShelfId('__new__');
+      }
+    }
+  }, [selectedSpaceId, activeSpaces, selectedShelfId]);
+
   const handleProcess = async () => {
     if (routeDestination !== 'personal' && !selectedSpaceId) return;
     if (sharedFiles.length === 0) return;
@@ -210,8 +225,64 @@ export default function SharedFileHandler() {
         
         setIsModalOpen(false);
         setIsProcessing(false);
-        alert('הקבצים הועברו למחסן הפרויקט בהצלחה!');
+        // הועבר בהצלחה
         router.push('/space/' + selectedSpaceId);
+      } else if (routeDestination === 'vault') {
+        let targetShelfId = selectedShelfId;
+        const currentSpace = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+        const existingShelves = currentSpace?.shelves || [];
+        
+        if (!targetShelfId || targetShelfId === '__new__') {
+          if (existingShelves.length > 0 && targetShelfId !== '__new__') {
+            targetShelfId = existingShelves[0].id;
+          } else {
+            targetShelfId = addShelf(selectedSpaceId, {
+              name: 'כללי',
+              allowedPartners: []
+            });
+          }
+        }
+
+        setUploadProgress({ current: 0, total: sharedFiles.length });
+        let currentIdx = 0;
+        for (const dataUri of sharedFiles) {
+          currentIdx++;
+          setUploadProgress({ current: currentIdx, total: sharedFiles.length });
+          const cleanUri = dataUri.replace(/^"|"$/g, '');
+          const isPdf = cleanUri.includes('.pdf') || cleanUri.startsWith('data:application/pdf');
+          const ext = isPdf ? 'pdf' : 'jpg';
+          let compressedUri = cleanUri;
+          if (!isPdf) {
+            try {
+              compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+            } catch (err) {
+              console.error('Downscale failed', err);
+            }
+          }
+          const publicUrl = await uploadImageToStorage(
+            compressedUri,
+            `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
+          );
+          addDocument(selectedSpaceId, {
+            shelfId: targetShelfId,
+            url: publicUrl,
+            title: isPdf ? 'מסמך PDF ששותף' : 'מסמך ששותף',
+            type: isPdf ? 'pdf' : 'document',
+            addedBy: user?.id || 'guest'
+          });
+        }
+
+        const request = indexedDB.open('MySpaceDB', 1);
+        request.onsuccess = (e: any) => {
+          const db = e.target.result;
+          const tx = db.transaction('sharedFiles', 'readwrite');
+          tx.objectStore('sharedFiles').delete('latest_shared');
+        };
+
+        setIsModalOpen(false);
+        setIsProcessing(false);
+        setSharedFiles([]);
+        router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId);
       } else {
         setIsModalOpen(false);
         setIsProcessing(false);
@@ -301,6 +372,13 @@ export default function SharedFileHandler() {
                 <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>פותח את המרחב ומפעיל סורק AI מיידי. דורש אישור באותו רגע.</div>
               </div>
             </label>
+            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'vault' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'vault' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+              <input type="radio" name="routeDest" checked={routeDestination === 'vault'} onChange={() => setRouteDestination('vault')} style={{ marginTop: '0.25rem' }} />
+              <div>
+                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן מסמכים (מדף בפרויקט) 🗂️</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>שומר ישירות לתוך מדף במחסן המסמכים של הפרויקט ללא סורק חשבוניות.</div>
+              </div>
+            </label>
           </div>
 
           {routeDestination !== 'personal' && (
@@ -331,7 +409,23 @@ export default function SharedFileHandler() {
           )}
 
 
-            {routeDestination !== 'personal' && selectedSpaceId && (
+            {routeDestination === 'vault' && selectedSpaceId && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>בחר מדף יעד במחסן המסמכים:</label>
+                <select 
+                  value={selectedShelfId} 
+                  onChange={e => setSelectedShelfId(e.target.value)}
+                  style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
+                >
+                  {(activeSpaces.find((s: any) => s.id === selectedSpaceId)?.shelves || []).map((sh: any) => (
+                    <option key={sh.id} value={sh.id}>{sh.icon || '📁'} {sh.name}</option>
+                  ))}
+                  <option value="__new__">+ צור מדף חדש בשם &quot;כללי&quot;</option>
+                </select>
+              </div>
+            )}
+
+            {routeDestination !== 'personal' && routeDestination !== 'vault' && selectedSpaceId && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
                 <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מי שילם בפועל? (רשות):</label>
                 <select 

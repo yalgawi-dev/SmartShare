@@ -91,7 +91,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>('camera');
   const [scannerCategory, setScannerCategory] = useState<'receipt' | 'document' | 'image'>('receipt');
-  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox' | 'documents'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions') return t as any; } return 'summary'; });
+  const [financeTab, setFinanceTab] = useState<'summary' | 'transactions' | 'inbox' | 'documents'>(() => { if (typeof window !== 'undefined') { const t = new URLSearchParams(window.location.search).get('tab'); if (t === 'inbox' || t === 'transactions' || t === 'documents') return t as any; } return 'summary'; });
   const [tooltipData, setTooltipData] = useState<{ id: string, text: string, target: 'tools' | 'settings' } | null>(null);
   const [activeChatId, setActiveChatId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
