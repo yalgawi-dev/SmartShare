@@ -60,8 +60,18 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
 
   useEffect(() => {
     const handleAddStation = () => setShowAddModal(true);
+    const handleDocSavedForNewStation = (e: any) => {
+      const { docId } = e.detail || {};
+      if (docId) {
+        setSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
+      }
+    };
     window.addEventListener('smartshare:add_station', handleAddStation);
-    return () => window.removeEventListener('smartshare:add_station', handleAddStation);
+    window.addEventListener('smartshare:doc_saved_for_new_station', handleDocSavedForNewStation);
+    return () => {
+      window.removeEventListener('smartshare:add_station', handleAddStation);
+      window.removeEventListener('smartshare:doc_saved_for_new_station', handleDocSavedForNewStation);
+    };
   }, []);
 
   const events = (space.shelfEvents || [])
@@ -127,9 +137,6 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     return member?.name || 'משתמש';
   };
 
-  const handleOpenScanner = () => {
-    window.dispatchEvent(new CustomEvent('smartshare:open_scanner'));
-  };
 
   return (
     <>
@@ -597,11 +604,24 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               </div>
 
               <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
                   <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>שיוך מסמכים</label>
-                  <button onClick={handleOpenScanner} style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', padding: '4px 12px', borderRadius: '16px', color: '#3b82f6', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-                    <span style={{ fontSize: '1rem' }}>📷</span> סרוק מסמך חדש
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button 
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', mode: 'camera' } }))} 
+                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <span>📸</span> צלם בסורק
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', mode: 'upload' } }))} 
+                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <span>📁</span> העלאת קבצים
+                    </button>
+                  </div>
                 </div>
                 {shelfDocs.length > 0 ? (
                   <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>

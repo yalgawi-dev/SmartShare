@@ -812,11 +812,15 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 } else if (routingType === 'document' || routingType === 'image') {
                     setFinanceTab('documents');
                     documentsRef.current?.addDocument(url, routingType, allPages).then(docId => {
-                      if (targetEventId && docId) {
-                        const ev = space.shelfEvents?.find(e => e.id === targetEventId);
-                        if (ev) {
-                          updateShelfEvent(space.id, targetEventId, { documentIds: [...(ev.documentIds || []), docId] });
-                        }
+                      if (!targetEventId || !docId) return;
+                      if (targetEventId === '__new_station__') {
+                        // Station not created yet: hand the doc to the open "add station" form
+                        window.dispatchEvent(new CustomEvent('smartshare:doc_saved_for_new_station', { detail: { docId } }));
+                        return;
+                      }
+                      const ev = space.shelfEvents?.find(e => e.id === targetEventId);
+                      if (ev) {
+                        updateShelfEvent(space.id, targetEventId, { documentIds: [...(ev.documentIds || []), docId] });
                       }
                     });
                 }
