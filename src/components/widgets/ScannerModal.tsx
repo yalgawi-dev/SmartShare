@@ -976,16 +976,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
 
     
-    // Process single page as PDF ONLY for Documents, not Receipts!
-    // Receipts need to stay as images so OCR works fast and doesn't upload 7MB PDFs!
-    if (allPageUrls.length === 1 && finalRouting !== 'receipt') {
-       try {
-         const result = await processMultiPage(allPageUrls, 'pdf', false);
-         primary = result.dataUrl;
-       } catch (e) {
-         console.error('Failed to auto-pdf 1 page', e);
-       }
-    }
+    // Single page stays a JPEG (like CamScanner): ~5-10x smaller than a PDF wrapper,
+    // instantly previewable, and OCR-ready. PDF is created only for multi-page (see export dialog above).
 
     
 
