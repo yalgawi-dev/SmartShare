@@ -148,22 +148,7 @@ export function FloatingActionBar({
         )}
         {!hasFinance && hasVault && (
           <>
-            {isVaultTab && (
-              <button 
-                onClick={() => onOpenScanner('upload', 'document')}
-                style={{
-                  background: 'transparent', 
-                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                  color: '#64748b',
-                  minWidth: '45px', transition: 'all 0.2s', flex: 1
-                }}
-              >
-                <span style={{ fontSize: '1.2rem' }}>📤</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
-              </button>
-            )}
-            {!isInShelf && !isVaultTab && (
+            {!isInShelf && (
               <button 
                 onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }}
                 style={{
@@ -178,7 +163,7 @@ export function FloatingActionBar({
                 <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
               </button>
             )}
-            {isInShelf && !isVaultTab && (
+            {isInShelf && (
               <button 
                 onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }}
                 style={{
@@ -215,7 +200,7 @@ export function FloatingActionBar({
         )}
         {hasScanner && (
            <button 
-             onClick={() => onOpenScanner('camera', (activeTab === 'documents' || isVaultTab) ? 'document' : 'receipt')}
+             onClick={() => onOpenScanner('camera', (activeTab === 'documents' || isVaultTab || !hasFinance) ? 'document' : 'receipt')}
              style={{
                position: 'relative', zIndex: 2,
                background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',
@@ -270,10 +255,11 @@ export function FloatingActionBar({
               <span style={{ fontSize: '1.2rem' }}>💳</span>
               <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הזנת הוצאה</span>
             </button>
-                    </>
+          </>
         ) : (
           <>
-            {hasVault && activeTab === 'documents' && (
+            {/* When hasFinance AND activeTab is documents: show shelf/station button on the left (since right side is occupied by tabs) */}
+            {hasFinance && hasVault && activeTab === 'documents' && (
               <>
                 {!isInShelf && (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
@@ -289,7 +275,25 @@ export function FloatingActionBar({
                 )}
               </>
             )}
-            {hasPartners && activeTab !== 'documents' && (
+            
+            {/* Direct Upload/Import to Scanner button for vault */}
+            {hasVault && (
+              <button 
+                onClick={() => onOpenScanner('upload', 'document')}
+                style={{
+                  background: 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', flex: 1
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>📤</span>
+                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
+              </button>
+            )}
+
+            {hasPartners && (
               <button 
                 onClick={hasActivePartners ? onOpenPartners : onOpenInvite}
                 style={{
@@ -309,21 +313,6 @@ export function FloatingActionBar({
                 <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>
                   {hasActivePartners ? 'שותפים' : 'הזמן שותף'}
                 </span>
-              </button>
-            )}
-            {hasFinance && hasVault && activeTab === 'documents' && (
-              <button 
-                onClick={() => onOpenScanner('upload', 'document')}
-                style={{
-                  background: 'transparent', 
-                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                  color: '#64748b',
-                  minWidth: '45px', transition: 'all 0.2s', flex: 1
-                }}
-              >
-                <span style={{ fontSize: '1.2rem' }}>📤</span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
               </button>
             )}
           </>

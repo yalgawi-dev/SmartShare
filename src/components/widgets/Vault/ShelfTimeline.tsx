@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Space, SpaceDocument, ShelfEvent } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 interface ShelfTimelineProps {
   space: Space;
@@ -18,6 +19,7 @@ interface ShelfTimelineProps {
 export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment, onUploadAndLink, onPreviewDocs }: ShelfTimelineProps) {
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [eventToDelete, setEventToDelete] = useState<{ id: string, title: string } | null>(null);
   const [editEventId, setEditEventId] = useState<string | null>(null);
   const [editEventTitle, setEditEventTitle] = useState('');
   const [editEventDesc, setEditEventDesc] = useState('');
@@ -494,13 +496,43 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
               </div>
 
-              <button onClick={handleSaveEdit} style={{ width: '100%', background: '#10b981', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem' }}>
-                שמור שינויים
-              </button>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button 
+                  type="button"
+                  onClick={() => setEventToDelete({ id: editEventId, title: editEventTitle })}
+                  style={{ flex: 1, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '0.9rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
+                >
+                  <span>🗑️</span> מחק תחנה
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleSaveEdit} 
+                  style={{ flex: 1.5, background: '#10b981', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}
+                >
+                  שמור שינויים
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+
+      {/* CONFIRM DELETE STATION MODAL */}
+      <ConfirmModal 
+        isOpen={Boolean(eventToDelete)}
+        title="מחיקת תחנה"
+        message="האם אתה בטוח שברצונך למחוק תחנה זו מציר הזמן? פעולה זו תסיר את התחנה וכל המשימות המשויכות אליה."
+        itemTitle={eventToDelete?.title}
+        confirmText="מחק תחנה"
+        onConfirm={() => {
+          if (eventToDelete) {
+            onRemoveEvent(eventToDelete.id);
+            setEditEventId(null);
+            setEventToDelete(null);
+          }
+        }}
+        onClose={() => setEventToDelete(null)}
+      />
 
       {showAddModal && (
 
