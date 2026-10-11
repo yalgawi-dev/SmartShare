@@ -17,7 +17,18 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const isCreatorMe = myRole === "creator";
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
   
-  // Combine creator and members for full directory
+  // Combine creator, members, and pending invites for full directory
+  const pendingMembers = (space.pendingInvites || []).map((inv: any) => ({
+    userId: inv.token,
+    name: inv.name || 'שותף מוזמן',
+    role: 'partner',
+    status: 'pending',
+    welcomed: false,
+    joinedAt: inv.createdAt,
+    sharePercentage: inv.guestShare,
+    isInvite: true
+  }));
+
   const allMembers = [
     {
       userId: creatorId,
@@ -25,7 +36,8 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       role: "creator",
       status: "active"
     },
-    ...(space.members || []).filter((m: any) => m.userId !== creatorId)
+    ...(space.members || []).filter((m: any) => m.userId !== creatorId),
+    ...pendingMembers
   ];
 
   const [expandedMember, setExpandedMember] = useState<string | null>(null);

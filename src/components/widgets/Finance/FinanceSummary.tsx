@@ -321,7 +321,7 @@ export function FinanceSummary({
         </div>
 
         {/* Row 2: Pending and Balances */}
-        {hasPartners && activeMembersCount > 1 && (
+        {hasPartners && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div 
                 onClick={() => { 

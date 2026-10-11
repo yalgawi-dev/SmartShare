@@ -57,7 +57,7 @@ interface Props {
 
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange } = useSpaces() as any;
+  const { approveExtension, removeMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange, declinePendingInvite } = useSpaces() as any;
   const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
@@ -115,7 +115,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const handleRemove = () => {
     if (confirm(`להסיר את "${memberName}" לחלוטין מהמרחב (מחיקה מלאה)?`)) {
-      if(typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', true);
+      if (member?.isInvite) {
+        if (typeof declinePendingInvite === 'function') declinePendingInvite(space.id, member.userId);
+      } else {
+        if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', true);
+      }
       onClose();
     }
   };
