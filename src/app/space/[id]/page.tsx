@@ -18,7 +18,7 @@ import GenericWidget from '../../../components/widgets/GenericWidget';
 import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
 import ScannerModal from '../../../components/widgets/ScannerModal';
 import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
-import PendingApprovalBanner from '../../../components/widgets/Partners/PendingApprovalBanner';
+
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
 import CreatorDisputesBanner from '../../../components/widgets/Partners/CreatorDisputesBanner';
@@ -702,8 +702,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             }} 
           />
           <CreatorDisputesBanner space={space} />
-          <PendingApprovalBanner spaceId={space.id} inviteToken={new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '').get('invite')} />
-        </div>
+                  </div>
         
         {/* Gamification / Wall of Fame */}
         <TopGuestsWidget space={space} />

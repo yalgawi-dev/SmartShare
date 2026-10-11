@@ -247,13 +247,15 @@ export function FinanceSummary({
   let myLookupId = myId;
   if (isCreatorMe) {
     myLookupId = creatorId;
+  } else if (user?.id && (unifiedBalances.has(user.id) || validMembers.some((m: any) => m.userId === user.id))) {
+    myLookupId = user.id;
   } else {
-    if (user?.spaceKeys?.[space.id]?.token) {
+    if (user?.spaceKeys?.[space.id]?.token && unifiedBalances.has(user.spaceKeys[space.id].token)) {
       myLookupId = user.spaceKeys[space.id].token;
     } else if (typeof window !== 'undefined') {
       try {
         const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
-        if (localKeys[space.id]?.token) {
+        if (localKeys[space.id]?.token && unifiedBalances.has(localKeys[space.id].token)) {
           myLookupId = localKeys[space.id].token;
         }
       } catch(e) {}

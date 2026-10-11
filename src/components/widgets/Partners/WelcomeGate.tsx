@@ -49,9 +49,13 @@ export default function WelcomeGate({
   }, [propToken, spaceId, space?.members]);
 
   const isFinancial = space?.features?.includes('finance');
-  const currentMember = space?.members?.find((m: any) => m.userId === resolvedToken);
+  const currentMember = space?.members?.find((m: any) => 
+    (resolvedToken && m.userId === resolvedToken) || 
+    (user?.id && m.userId === user.id)
+  );
   const isAlreadyWelcomedOrActive = Boolean(
-    currentMember && (currentMember.status === 'active' || currentMember.welcomed === true)
+    (currentMember && (currentMember.status === 'active' || currentMember.welcomed === true)) ||
+    (user?.id && space?.members?.some((m: any) => m.userId === user.id && (m.status === 'active' || m.welcomed === true)))
   );
 
   useEffect(() => {
@@ -117,6 +121,15 @@ export default function WelcomeGate({
       } catch (e) {}
 
       if (typeof window !== 'undefined') {
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('invite');
+          cleanUrl.searchParams.delete('share');
+          cleanUrl.searchParams.delete('retro');
+          cleanUrl.searchParams.delete('plan');
+          window.history.replaceState({}, '', cleanUrl);
+        } catch (e) {}
+
         window.dispatchEvent(new CustomEvent('smartshare_new_key', { 
           detail: { spaceId, role: 'partner', token: resolvedToken } 
         }));
