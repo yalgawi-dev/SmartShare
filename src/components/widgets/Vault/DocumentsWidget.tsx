@@ -9,7 +9,7 @@ import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 
 export interface DocumentsWidgetRef {
-  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => void;
+  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => Promise<string | undefined>;
   uploadAndLinkDocument?: (shelfId: string, eventId: string, url: string, type: 'document' | 'image' | 'pdf') => Promise<void>;
 }
 
@@ -63,7 +63,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
-    addDocument: (url, type, allPages) => {
+    addDocument: async (url, type, allPages) => {
       let targetShelfId = activeShelfId;
       
       if (!targetShelfId) {
@@ -71,7 +71,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
            targetShelfId = shelves[0].id;
         } else if (shelves.length > 1) {
            setPendingImport({ url, type: typeof type !== 'undefined' ? type : 'document', allPages: typeof allPages !== 'undefined' ? allPages : [] });
-           return;
+           return undefined;
         } else {
            const newShelfId = 'shelf_' + Date.now();
            addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
@@ -79,7 +79,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
       
-      handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages);
+      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages);
     }
   }));
 

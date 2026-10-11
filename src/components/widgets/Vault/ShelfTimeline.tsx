@@ -411,12 +411,24 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             </div>
             
             
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem' }}>
                <button 
-                  onClick={() => fileInputRef.current?.click()} 
-                  disabled={isUploadingLocal}
-                  style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)', opacity: isUploadingLocal ? 0.7 : 1 }}>
-                  <span style={{ fontSize: '1.2rem' }}>📤</span> {isUploadingLocal ? 'מעלה מסמך...' : 'העלה מסמך חדש'}
+                  onClick={() => {
+                    const eventId = showDocSelector.eventId;
+                    setShowDocSelector(null);
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, mode: 'camera' } }));
+                  }} 
+                  style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '0.65rem 0.75rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
+                  <span style={{ fontSize: '1.1rem' }}>📸</span> סרוק במצלמה
+               </button>
+               <button 
+                  onClick={() => {
+                    const eventId = showDocSelector.eventId;
+                    setShowDocSelector(null);
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, mode: 'upload' } }));
+                  }} 
+                  style={{ flex: 1, background: '#f1f5f9', color: '#1e293b', border: '1px solid #cbd5e1', padding: '0.65rem 0.75rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '1.1rem' }}>📤</span> ייבא קובץ לעריכה
                </button>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', paddingBottom: '1rem' }}>

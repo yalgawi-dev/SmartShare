@@ -69,7 +69,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -130,6 +130,22 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       window.history.replaceState({}, document.title, url.toString());
     }
   }, [activeChatId, space?.features]);
+
+  const [pendingEventScan, setPendingEventScan] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleScannerForEvent = (e: any) => {
+      const { eventId, mode } = e.detail || {};
+      if (eventId) {
+        setPendingEventScan(eventId);
+        setScannerMode(mode || 'camera');
+        setScannerCategory('document');
+        setIsScannerOpen(true);
+      }
+    };
+    window.addEventListener('smartshare:open_scanner_event', handleScannerForEvent);
+    return () => window.removeEventListener('smartshare:open_scanner_event', handleScannerForEvent);
+  }, []);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && window.location.hash) {
@@ -752,19 +768,31 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       
       {isScannerOpen && (
         <ScannerModal 
-            onClose={() => setIsScannerOpen(false)}
+            onClose={() => { setIsScannerOpen(false); setPendingEventScan(null); }}
             hasVault={hasVault}
             hasFinance={hasFinance}
             maxBytes={DOCUMENT_MAX_BYTES}
+            defaultMode={scannerMode}
+            defaultCategory={scannerCategory}
             onComplete={(url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
+                const targetEventId = pendingEventScan;
+                setPendingEventScan(null);
+
                 if (routingType === 'receipt_batch' && allPages && allPages.length > 1) {
                     financeRef.current?.processBatch(allPages);
                 } else if (routingType === 'receipt' || !routingType) {
                     financeRef.current?.processScan(url, allPages); 
                 } else if (routingType === 'document' || routingType === 'image') {
-                    documentsRef.current?.addDocument(url, routingType, allPages);
                     setFinanceTab('documents');
+                    documentsRef.current?.addDocument(url, routingType, allPages).then(docId => {
+                      if (targetEventId && docId) {
+                        const ev = space.shelfEvents?.find(e => e.id === targetEventId);
+                        if (ev) {
+                          updateShelfEvent(space.id, targetEventId, { documentIds: [...(ev.documentIds || []), docId] });
+                        }
+                      }
+                    });
                 }
             }}
           />

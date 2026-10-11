@@ -215,7 +215,7 @@ export function FloatingActionBar({
         )}
         {hasScanner && (
            <button 
-             onClick={() => onOpenScanner('camera', isVaultTab ? 'document' : 'receipt')}
+             onClick={() => onOpenScanner('camera', (activeTab === 'documents' || isVaultTab) ? 'document' : 'receipt')}
              style={{
                position: 'relative', zIndex: 2,
                background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',

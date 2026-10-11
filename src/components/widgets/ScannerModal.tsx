@@ -1008,7 +1008,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.40</span>
+            <span>סורק מסמכים v19.50</span>
           </h2>
         </div>
         
@@ -1243,13 +1243,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         )}
 
         {step === 'cropping' && (
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <button onClick={() => handleDeleteActive()} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem 1.5rem', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
-              <span style={{ fontSize: '1.2rem' }}>🗑️</span>
-              מחק עמוד
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+            <button onClick={() => handleDeleteActive()} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem 1rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>🗑️</span>
+              מחק
             </button>
-            <button onClick={handleCropComplete} disabled={isProcessing} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '8px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}>
-              {isProcessing ? 'מעבד באיכות מקסימלית...' : 'אשר חיתוך'}
+            <button onClick={handleSkipCrop} disabled={isProcessing} style={{ flex: 1, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.75rem 1rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+              <span>⚡</span> דלג על עריכה
+            </button>
+            <button onClick={handleCropComplete} disabled={isProcessing} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.9rem' }}>
+              {isProcessing ? 'מעבד...' : 'אשר חיתוך'}
             </button>
           </div>
         )}
