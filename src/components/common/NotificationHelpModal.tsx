@@ -258,7 +258,7 @@ export default function NotificationHelpModal({ onClose, onRetry }: Notification
                 מדוע זה קורה?
               </div>
               <p style={{ margin: 0, fontSize: '0.88rem', color: '#7f1d1d', lineHeight: '1.5' }}>
-                הדפדפן זוכר שבעבר נלחץ <strong>'חסום'</strong>. כדי להגן עליך, הטלפון לא יציג שוב את הבקשה עד שתשחרר את החסימה באופן ידני.
+                הטלפון זוכר שבעבר נלחץ <strong>'חסום'</strong>. כדי למנוע הטרדות, המכשיר לא ישאל שוב מעצמו עד שתשחרר את זה בהגדרות הטלפון.
               </p>
             </div>
 
@@ -269,22 +269,25 @@ export default function NotificationHelpModal({ onClose, onRetry }: Notification
               padding: '1.1rem',
               marginBottom: '1.25rem'
             }}>
-              <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.95rem', marginBottom: '0.6rem' }}>
-                איך לשחרר ב-2 שניות:
+              <div style={{ fontWeight: '800', color: '#0f172a', fontSize: '0.95rem', marginBottom: '0.75rem' }}>
+                📱 איך לשחרר ב-3 שניות מהטלפון:
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.9rem', color: '#334155' }}>
                   <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>1.</span>
-                  <span>הקש על סמל המנעול / ההגדרות <strong>🔒</strong> בראש הדפדפן (ליד הכתובת).</span>
+                  <span><strong>לחיצה ארוכה (2 שניות)</strong> על סמל האפליקציה במסך הבית של הטלפון.</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.9rem', color: '#334155' }}>
                   <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>2.</span>
-                  <span>הקש על <strong>הרשאות</strong> (Permissions) ➔ <strong>התראות</strong>.</span>
+                  <span>בתפריט הקטן שקופץ, לחץ על עיגול המידע <strong>ⓘ פרטי יישום</strong> (App Info).</span>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.88rem', color: '#334155' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.9rem', color: '#334155' }}>
                   <span style={{ fontWeight: 'bold', color: '#10b981' }}>3.</span>
-                  <span>העבר את המתג למצב <strong>'אפשר'</strong> (Allow) ➔ וחזור לכאן!</span>
+                  <span>לחץ על <strong>התראות</strong> ➔ והפעל את המתג ל-<strong>'אפשר התראות'</strong>!</span>
                 </div>
+              </div>
+              <div style={{ marginTop: '0.85rem', paddingTop: '0.75rem', borderTop: '1px dashed #cbd5e1', fontSize: '0.8rem', color: '#64748b' }}>
+                גולש ישירות מהדפדפן? הקש על 3 הנקודות <strong>⋮</strong> למעלה ➔ הגדרות ➔ התראות.
               </div>
             </div>
 

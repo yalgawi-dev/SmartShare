@@ -158,8 +158,10 @@ export default function SettingsPage() {
             
         <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
-            <h3 style={{ margin: '0 0 0.5rem 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>🔔</span> התראות פוש</h3>
-            <p style={{ margin: 0, color: '#15803d', fontSize: '0.9rem' }}>קבל התראות לטלפון על הודעות והוצאות חדשות.</p>
+            <h3 style={{ margin: '0 0 0.35rem 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>🔔</span> התראות ישירות לטלפון</h3>
+            <p style={{ margin: 0, color: '#15803d', fontSize: '0.9rem', lineHeight: '1.4' }}>
+              קופץ לך למכשיר ברגע ששותף מעלה הוצאה, שולח הודעה חדשה או מעביר כסף.
+            </p>
           </div>
           <button onClick={handleEnablePush} style={{ background: isPushEnabled ? '#86efac' : '#22c55e', color: isPushEnabled ? '#14532d' : 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}>
             {isPushEnabled ? 'פעיל ✔️ (לחץ לסנכרון מחדש)' : ((user?.fcmTokens?.length || 0) > 0 ? 'הפעל גם בדפדפן זה' : 'הפעל עכשיו')}
