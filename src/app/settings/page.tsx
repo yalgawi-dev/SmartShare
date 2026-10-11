@@ -1,4 +1,5 @@
 'use client';
+import NotificationHelpModal from '../../components/common/NotificationHelpModal';
 import { useState, useRef, useEffect } from 'react';
 
 import { auth } from '@/lib/firebase';
@@ -10,6 +11,8 @@ import Link from 'next/link';
 export default function SettingsPage() {
   const { user, updateProfile, logout, deleteMyAccount } = useAuth();
   const [isPushEnabled, setIsPushEnabled] = useState(false);
+  const [showNotificationHelp, setShowNotificationHelp] = useState(false);
+  const [pushSuccessMessage, setPushSuccessMessage] = useState(false);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -24,9 +27,10 @@ export default function SettingsPage() {
       const success = await requestNotificationPermission(user.id);
       if (success) {
         setIsPushEnabled(true);
-        alert('התראות הופעלו בהצלחה!');
+        setPushSuccessMessage(true);
+        setTimeout(() => setPushSuccessMessage(false), 4000);
       } else {
-        alert('שגיאה או שהבקשה נדחתה. ודא שהגדרות הדפדפן מאפשרות התראות.');
+        setShowNotificationHelp(true);
       }
     }
   };
@@ -461,6 +465,17 @@ export default function SettingsPage() {
         </div>
 
 
+              {showNotificationHelp && (
+          <NotificationHelpModal 
+            onClose={() => setShowNotificationHelp(false)} 
+            onRetry={handleEnablePush} 
+          />
+        )}
+        {pushSuccessMessage && (
+          <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.85rem 1.75rem', borderRadius: '999px', fontWeight: 'bold', boxShadow: '0 10px 25px rgba(16,185,129,0.4)', zIndex: 99999 }}>
+            ✓ ההתראות הופעלו בהצלחה!
+          </div>
+        )}
       </div>
     </div>
   );

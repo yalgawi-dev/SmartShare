@@ -313,12 +313,28 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                   cursor: 'pointer'
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem', gap: '0.5rem' }}>
                   <div style={{ flex: 1 }}>
-                    <span style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '0.95rem', display: 'block' }}>{n.title}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                      {n.priority === 'high' ? '🔴 דחוף' : n.priority === 'medium' ? '🟠 בינוני' : '🔵 רגיל'} • 📍 {n.spaceName}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem', flexWrap: 'wrap' }}>
+                      <span style={{ 
+                        background: '#e0e7ff', 
+                        color: '#4338ca', 
+                        padding: '0.2rem 0.6rem', 
+                        borderRadius: '6px', 
+                        fontWeight: '800', 
+                        fontSize: '0.85rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        border: '1px solid #c7d2fe'
+                      }}>
+                        🏠 {n.spaceName}
+                      </span>
+                      <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                        {n.priority === 'high' ? '🔴 דחוף' : n.priority === 'medium' ? '🟠 בינוני' : '🔵 רגיל'}
+                      </span>
+                    </div>
+                    <span style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '1rem', display: 'block' }}>{n.title}</span>
                   </div>
                   
                   <button 

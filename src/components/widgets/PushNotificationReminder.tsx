@@ -1,8 +1,10 @@
+import NotificationHelpModal from '../common/NotificationHelpModal';
 import React, { useState, useEffect } from 'react';
 import { requestNotificationPermission } from '../../utils/notifications';
 
 export function PushNotificationReminder({ userId }: { userId?: string }) {
   const [show, setShow] = useState(false);
+  const [showNotificationHelp, setShowNotificationHelp] = useState(false);
 
   useEffect(() => {
     // Check if notifications are supported and not yet granted/denied
@@ -35,10 +37,8 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
         setShow(false);
         localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
         localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
-        alert('התראות הופעלו בהצלחה!');
       } else {
-        alert('לא ניתן להפעיל התראות. ייתכן שהדפדפן חוסם אותן או שיש צורך לאשר בחלון הקופץ.');
-        // Don't dismiss forever if it failed, let them try again later.
+        setShowNotificationHelp(true);
       }
     } else {
       setShow(false);
@@ -50,6 +50,13 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
   if (!show) return null;
 
   return (
+    <>
+    {showNotificationHelp && (
+      <NotificationHelpModal 
+        onClose={() => setShowNotificationHelp(false)} 
+        onRetry={() => handleAction('enable')} 
+      />
+    )}
     <div style={{ 
       background: 'var(--bg-card)',
       border: '1px solid var(--border-light)',
@@ -122,5 +129,6 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
         </div>
       )}
     </div>
+    </>
   );
 }
