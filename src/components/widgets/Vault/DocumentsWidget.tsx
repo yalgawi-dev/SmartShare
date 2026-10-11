@@ -310,18 +310,86 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
   if (shelves.length === 0) {
     return (
-      <div style={{ padding: '2rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🗄️</div>
-        <h2 style={{ fontSize: '1.5rem', color: '#1e293b', marginBottom: '0.5rem' }}>ברוכים הבאים למחסן המסמכים</h2>
-        <p style={{ color: '#64748b', maxWidth: '400px', lineHeight: '1.6' }}>
-          כאן תוכלו לשמור, לארגן ולשתף כל מסמך חשוב. צרו מדפים וחלוקות, סרקו מסמכים, ונהלו את המידע החשוב לכם במקום אחד.
-        </p>
-        <button 
-          onClick={() => addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] })}
-          style={{ marginTop: '2rem', background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
-          צור מדף ראשון
-        </button>
-      </div>
+      <>
+        <div style={{ padding: '2rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🗄️</div>
+          <h2 style={{ fontSize: '1.5rem', color: '#1e293b', marginBottom: '0.5rem' }}>ברוכים הבאים למחסן המסמכים</h2>
+          <p style={{ color: '#64748b', maxWidth: '400px', lineHeight: '1.6' }}>
+            כאן תוכלו לשמור, לארגן ולשתף כל מסמך חשוב. צרו מדפים וחלוקות, סרקו מסמכים, ונהלו את המידע החשוב לכם במקום אחד.
+          </p>
+          <button 
+            onClick={() => {
+              setPromptInput('');
+              setCustomPrompt({
+                isOpen: true,
+                title: 'יצירת מדף ראשון',
+                placeholder: 'הזן שם למדף (לדוגמה: כללי, מסמכים אישיים)...',
+                defaultValue: '',
+                onSave: (name: string) => {
+                  if (name.trim()) {
+                    addShelf(space.id, {
+                      name: name.trim(),
+                      allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
+                    });
+                  }
+                }
+              });
+            }}
+            style={{ marginTop: '2rem', background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
+            צור מדף ראשון
+          </button>
+        </div>
+
+        {customPrompt?.isOpen && (
+          <div 
+            onClick={() => setCustomPrompt(null)}
+            style={{ position: 'fixed', inset: 0, zIndex: 100006, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', padding: '1rem' }}
+          >
+            <div 
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: 'white', width: '100%', maxWidth: '380px', borderRadius: '24px', padding: '1.75rem 1.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}
+            >
+              <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
+                {customPrompt.title}
+              </h3>
+              <input 
+                autoFocus
+                type="text"
+                value={promptInput}
+                onChange={(e) => setPromptInput(e.target.value)}
+                placeholder={customPrompt.placeholder}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && promptInput.trim()) {
+                    customPrompt.onSave(promptInput.trim());
+                    setCustomPrompt(null);
+                  }
+                }}
+                style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
+              />
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button 
+                  onClick={() => setCustomPrompt(null)}
+                  style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  ביטול
+                </button>
+                <button 
+                  onClick={() => {
+                    if (promptInput.trim()) {
+                      customPrompt.onSave(promptInput.trim());
+                      setCustomPrompt(null);
+                    }
+                  }}
+                  disabled={!promptInput.trim()}
+                  style={{ flex: 1.2, padding: '0.85rem', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: promptInput.trim() ? 'pointer' : 'not-allowed', opacity: promptInput.trim() ? 1 : 0.6 }}
+                >
+                  אישור
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -783,56 +851,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onClose={() => setBatchDeleteConfirm(false)}
       />
 
-      {/* CUSTOM PROMPT MODAL (REPLACES BROWSER window.prompt) */}
-      {customPrompt?.isOpen && (
-        <div 
-          onClick={() => setCustomPrompt(null)}
-          style={{ position: 'fixed', inset: 0, zIndex: 100006, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', padding: '1rem' }}
-        >
-          <div 
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'white', width: '100%', maxWidth: '380px', borderRadius: '24px', padding: '1.75rem 1.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}
-          >
-            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
-              {customPrompt.title}
-            </h3>
-            <input 
-              autoFocus
-              type="text"
-              value={promptInput}
-              onChange={(e) => setPromptInput(e.target.value)}
-              placeholder={customPrompt.placeholder}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && promptInput.trim()) {
-                  customPrompt.onSave(promptInput.trim());
-                  setCustomPrompt(null);
-                }
-              }}
-              style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
-            />
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button 
-                onClick={() => setCustomPrompt(null)}
-                style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                ביטול
-              </button>
-              <button 
-                onClick={() => {
-                  if (promptInput.trim()) {
-                    customPrompt.onSave(promptInput.trim());
-                    setCustomPrompt(null);
-                  }
-                }}
-                disabled={!promptInput.trim()}
-                style={{ flex: 1.2, padding: '0.85rem', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: promptInput.trim() ? 'pointer' : 'not-allowed', opacity: promptInput.trim() ? 1 : 0.6 }}
-              >
-                אישור
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       </>
     );
   }
@@ -842,7 +860,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.5</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8</span>
         </h2>
         <input 
           type="text" 
@@ -901,9 +919,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', cursor: 'pointer' }}>
                       {!shelf.coverImage && (shelf.icon || '🗂️')}
                     </div>
-                    <h3 onClick={() => setActiveShelfId(shelf.id)} style={{ margin: 0, fontSize: '1.1rem', color: '#334155', cursor: 'pointer' }}>
-                      {shelf.name} <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'normal' }}>({shelfDocs.length})</span>
-                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                      <h3 onClick={() => setActiveShelfId(shelf.id)} style={{ margin: 0, fontSize: '1.1rem', color: '#334155', cursor: 'pointer' }}>
+                        {shelf.name} <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'normal' }}>({shelfDocs.length})</span>
+                      </h3>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleRenameShelf(shelf.id, shelf.name); }} 
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px 4px', fontSize: '0.85rem', color: '#64748b', opacity: 0.7 }}
+                        title="עריכת שם מדף"
+                      >
+                        ✏️
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {isPrivate && <span style={{ background: '#fef2f2', color: '#ef4444', fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 'bold' }}>🔒</span>}
@@ -934,7 +961,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
                 </div>
                 <div style={{ padding: '0.75rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', position: 'relative' }}>
-                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem', marginBottom: '0.25rem' }}>{shelf.name}</div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.25rem', marginBottom: '0.25rem' }}>
+                    <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{shelf.name}</div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); handleRenameShelf(shelf.id, shelf.name); }} 
+                      style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', fontSize: '0.8rem', color: '#64748b', opacity: 0.7 }}
+                      title="עריכת שם מדף"
+                    >
+                      ✏️
+                    </button>
+                  </div>
                   <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{shelfDocs.length} מסמכים</div>
                   <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#cbd5e1', fontSize: '0.65rem', marginTop: '0.25rem' }}>נוצר: {new Date(shelf.createdAt).toLocaleDateString('he-IL')}</div>
                   <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', bottom: '0.5rem', left: '0.5rem', background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎨</button>
@@ -964,7 +1000,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   {isPrivate && <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#ef4444', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', border: '2px solid white' }}>🔒</div>}
                   <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.9)', color: '#334155', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{shelfDocs.length}</div>
                 </div>
-                <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#334155', fontSize: '0.85rem', textAlign: 'center', lineHeight: '1.2', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shelf.name}</div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', width: '100%' }}>
+                  <div onClick={() => setActiveShelfId(shelf.id)} style={{ fontWeight: 'bold', color: '#334155', fontSize: '0.85rem', textAlign: 'center', lineHeight: '1.2', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{shelf.name}</div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleRenameShelf(shelf.id, shelf.name); }} 
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '1px', fontSize: '0.75rem', color: '#64748b', opacity: 0.7, flexShrink: 0 }}
+                    title="עריכת שם מדף"
+                  >
+                    ✏️
+                  </button>
+                </div>
               </div>
             );
           })}
@@ -1066,6 +1111,57 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           
           <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 20001 }}>
              {previewState.index + 1} / {previewState.docs.length}
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM PROMPT MODAL (REPLACES BROWSER window.prompt) */}
+      {customPrompt?.isOpen && (
+        <div 
+          onClick={() => setCustomPrompt(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100006, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', padding: '1rem' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'white', width: '100%', maxWidth: '380px', borderRadius: '24px', padding: '1.75rem 1.5rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}
+          >
+            <h3 style={{ margin: '0 0 1rem 0', color: '#0f172a', fontSize: '1.25rem', fontWeight: '800', textAlign: 'center' }}>
+              {customPrompt.title}
+            </h3>
+            <input 
+              autoFocus
+              type="text"
+              value={promptInput}
+              onChange={(e) => setPromptInput(e.target.value)}
+              placeholder={customPrompt.placeholder}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && promptInput.trim()) {
+                  customPrompt.onSave(promptInput.trim());
+                  setCustomPrompt(null);
+                }
+              }}
+              style={{ width: '100%', padding: '0.85rem 1rem', borderRadius: '14px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '1rem', boxSizing: 'border-box', marginBottom: '1.25rem' }}
+            />
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                onClick={() => setCustomPrompt(null)}
+                style={{ flex: 1, padding: '0.85rem', borderRadius: '14px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                ביטול
+              </button>
+              <button 
+                onClick={() => {
+                  if (promptInput.trim()) {
+                    customPrompt.onSave(promptInput.trim());
+                    setCustomPrompt(null);
+                  }
+                }}
+                disabled={!promptInput.trim()}
+                style={{ flex: 1.2, padding: '0.85rem', borderRadius: '14px', border: 'none', background: '#3b82f6', color: 'white', fontWeight: 'bold', cursor: promptInput.trim() ? 'pointer' : 'not-allowed', opacity: promptInput.trim() ? 1 : 0.6 }}
+              >
+                אישור
+              </button>
+            </div>
           </div>
         </div>
       )}
