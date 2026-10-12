@@ -63,27 +63,6 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   const [mounted, setMounted] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
-  const presenceUids = useMemo(() => {
-    const uids = (space.members || []).map((m: any) => m.userId);
-    if (space.creatorId) uids.push(space.creatorId);
-    return uids;
-  }, [space]);
-  const { getPresenceColor } = usePresence(showParticipants || member.userId !== 'group' ? presenceUids : []);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const isGroup = member.userId === 'group';
-  // For p2p conversations, always use sorted IDs to ensure both sides read from same document
-  const conversationId = isGroup ? 'group' : (
-    viewMode === 'peer' || viewMode === 'creator'
-      ? [user?.id, member.userId].filter(Boolean).sort().join('_')
-      : [user?.id, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')
-  );
-  if (!mounted || typeof document === 'undefined') return null;
-  if (!member || !space) return null;
-
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -99,6 +78,30 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     message: '',
     onConfirm: () => {}
   });
+
+  const presenceUids = useMemo(() => {
+    if (!space) return [];
+    const uids = (space.members || []).map((m: any) => m.userId);
+    if (space.creatorId) uids.push(space.creatorId);
+    return uids;
+  }, [space]);
+
+  const { getPresenceColor } = usePresence(showParticipants || member?.userId !== 'group' ? presenceUids : []);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted || typeof document === 'undefined') return null;
+  if (!member || !space) return null;
+
+  const isGroup = member.userId === 'group';
+  // For p2p conversations, always use sorted IDs to ensure both sides read from same document
+  const conversationId = isGroup ? 'group' : (
+    viewMode === 'peer' || viewMode === 'creator'
+      ? [user?.id, member.userId].filter(Boolean).sort().join('_')
+      : [user?.id, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')
+  );
 
   const memberName = viewMode === 'partner' ? (space?.createdBy || 'מנהל המרחב') : (member?.name || 'שותף');
   const memberStatus = member?.status || 'active';
