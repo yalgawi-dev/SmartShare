@@ -5,6 +5,7 @@ import { usePresence } from '../../../hooks/usePresence';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
+import ConfirmModal from '../../common/ConfirmModal';
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, error: any }> {
   constructor(props: any) { super(props); this.state = { hasError: false, error: null }; }
@@ -83,6 +84,22 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   if (!mounted || typeof document === 'undefined') return null;
   if (!member || !space) return null;
 
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'primary';
+    icon?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
   const memberName = viewMode === 'partner' ? (space?.createdBy || 'מנהל המרחב') : (member?.name || 'שותף');
   const memberStatus = member?.status || 'active';
   const joinedDateText = formatDateSafe(member?.joinedAt);
@@ -95,33 +112,74 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   };
 
   const handleResetStatus = () => {
-    if (confirm(`לאפס את סטטוס "${memberName}" לממתין?`)) {
-      if(typeof updateMemberStatus === 'function') updateMemberStatus(space.id, member.userId, 'pending');
-    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'איפוס סטטוס שותף',
+      message: `האם לאפס את הסטטוס של "${memberName}" לממתין?`,
+      confirmText: 'אפס סטטוס',
+      cancelText: 'ביטול',
+      variant: 'primary',
+      icon: '🔄',
+      onConfirm: () => {
+        if (typeof updateMemberStatus === 'function') {
+          updateMemberStatus(space.id, member.userId, 'pending');
+        }
+      }
+    });
   };
 
-  
   const handleMakeAdmin = () => {
-    if (confirm(`להגדיר את "${memberName}" כמנהל למרחב זה?`)) {
-      if(typeof updateMemberRole === 'function') updateMemberRole(space.id, member.userId, 'admin');
-    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'מינוי מנהל למרחב',
+      message: `האם להגדיר את "${memberName}" כמנהל במרחב זה? תהיה לו גישה לניהול הגדרות המרחב.`,
+      confirmText: 'מנה למנהל',
+      cancelText: 'ביטול',
+      variant: 'warning',
+      icon: '👑',
+      onConfirm: () => {
+        if (typeof updateMemberRole === 'function') {
+          updateMemberRole(space.id, member.userId, 'admin');
+        }
+      }
+    });
   };
 
   const handleRemoveAdmin = () => {
-    if (confirm(`להסיר את הרשאות הניהול של "${memberName}"?`)) {
-      if(typeof updateMemberRole === 'function') updateMemberRole(space.id, member.userId, 'partner');
-    }
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'ביטול הרשאות ניהול',
+      message: `האם להסיר את הרשאות הניהול של "${memberName}" ולהחזירו לשותף רגיל?`,
+      confirmText: 'בטל ניהול',
+      cancelText: 'חזור',
+      variant: 'warning',
+      icon: '👤',
+      onConfirm: () => {
+        if (typeof updateMemberRole === 'function') {
+          updateMemberRole(space.id, member.userId, 'partner');
+        }
+      }
+    });
   };
 
   const handleRemove = () => {
-    if (confirm(`להסיר את "${memberName}" מהמרחב ולהעביר לארכיון?\n(תוכל לשחזר אותו בכל עת מהארכיון)`)) {
-      if (member?.isInvite) {
-        if (typeof declinePendingInvite === 'function') declinePendingInvite(space.id, member.userId);
-      } else {
-        if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'הסרת שותף מהמרחב',
+      message: `האם להסיר את "${memberName}" מהמרחב ולהעביר לארכיון? תוכל לשחזר אותו בכל עת מארכיון השותפים.`,
+      confirmText: 'העבר לארכיון',
+      cancelText: 'ביטול',
+      variant: 'danger',
+      icon: '📁',
+      onConfirm: () => {
+        if (member?.isInvite) {
+          if (typeof declinePendingInvite === 'function') declinePendingInvite(space.id, member.userId);
+        } else {
+          if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
+        }
+        onClose();
       }
-      onClose();
-    }
+    });
   };
 
 
@@ -454,6 +512,17 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         )}
       </div>
 
+      <ConfirmModal
+        isOpen={confirmModalConfig.isOpen}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        confirmText={confirmModalConfig.confirmText}
+        cancelText={confirmModalConfig.cancelText}
+        variant={confirmModalConfig.variant}
+        icon={confirmModalConfig.icon}
+        onConfirm={confirmModalConfig.onConfirm}
+        onClose={() => setConfirmModalConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </>,
     document.body
   );

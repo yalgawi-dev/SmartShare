@@ -7,6 +7,7 @@ import { usePresence } from '../../../hooks/usePresence';
 import { PartnersInviteModal } from './PartnersInviteModal';
 import PartnerControlPanel from './PartnerControlPanel';
 import { getRemainingTimeText } from '../../../utils/partnerUtils';
+import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
   const { user } = useAuth();
@@ -45,6 +46,21 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    variant?: 'danger' | 'warning' | 'primary';
+    icon?: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   const presenceUids = allMembers.map((m: any) => m.userId).filter(Boolean);
   const { getPresenceColor } = usePresence(presenceUids);
@@ -201,9 +217,18 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                   </div>
                   <button
                     onClick={() => {
-                      if (confirm(`להחזיר את "${arch.name}" לפעילות במרחב?`)) {
-                        restoreMember(space.id, arch.userId, user?.realName || 'מנהל');
-                      }
+                      setConfirmModalConfig({
+                        isOpen: true,
+                        title: 'החזרת שותף לפעילות',
+                        message: `האם להחזיר את "${arch.name}" לפעילות מלאה במרחב?`,
+                        confirmText: 'החזר שותף',
+                        cancelText: 'ביטול',
+                        variant: 'primary',
+                        icon: '🔄',
+                        onConfirm: () => {
+                          restoreMember(space.id, arch.userId, user?.realName || 'מנהל');
+                        }
+                      });
                     }}
                     style={{
                       background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0',
@@ -219,6 +244,18 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           </details>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={confirmModalConfig.isOpen}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        confirmText={confirmModalConfig.confirmText}
+        cancelText={confirmModalConfig.cancelText}
+        variant={confirmModalConfig.variant}
+        icon={confirmModalConfig.icon}
+        onConfirm={confirmModalConfig.onConfirm}
+        onClose={() => setConfirmModalConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   );
 }
