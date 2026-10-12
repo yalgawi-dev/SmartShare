@@ -185,24 +185,32 @@ export function FinanceSummary({
   const activeMembersCount = totalParticipatingMembers;
   const defaultShare = totalParticipatingMembers > 0 ? (100 / totalParticipatingMembers) : 100;
   
+  // First pass: assign shares to partners
+  let totalPartnerShares = 0;
   balances.forEach(b => {
-    let p = 0;
     if (b.userId === TREASURY_MEMBER_ID) {
-      p = 0;
-    } else if (totalParticipatingMembers <= 1) { // Only creator or nobody
-      if (b.userId === user?.id || b.isCreator) p = 100;
-      else p = 0;
-    } else {
-      if (b.isMember) {
-        if (b.isCreator) p = space.settings?.mySharePercentage ?? defaultShare;
-        else {
-          const m = validMembers.find((vm: any) => vm.userId === b.userId);
-          if (m && m.sharePercentage !== undefined && m.sharePercentage > 0) p = m.sharePercentage;
-          else p = defaultShare;
-        }
-      }
+      b.p = 0;
+    } else if (!b.isCreator && b.isMember) {
+      const m = validMembers.find((vm: any) => vm.userId === b.userId);
+      const partnerP = (m && m.sharePercentage !== undefined && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
+      b.p = partnerP;
+      totalPartnerShares += partnerP;
     }
-    b.p = p;
+  });
+
+  // Second pass: creator gets remainder to guarantee total = 100%
+  balances.forEach(b => {
+    if (b.isCreator) {
+      if (totalParticipatingMembers <= 1) {
+        b.p = 100;
+      } else {
+        // If custom shares are set and valid, check space.settings, otherwise ensure exact 100% balance
+        const remainingForCreator = Math.max(0, 100 - totalPartnerShares);
+        b.p = remainingForCreator;
+      }
+    } else if (b.userId !== TREASURY_MEMBER_ID && !b.isMember) {
+      b.p = 0;
+    }
   });
 
   balances.forEach(b => { b.expected = 0; b.incomeExpected = 0; });
