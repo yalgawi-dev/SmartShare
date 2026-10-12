@@ -333,41 +333,60 @@ export function FinanceTransactions({
     }
   };
 
-  const getPendingApproversText = (inv: any) => {
-    if (inv.status !== 'pending') return null;
-    if (!space.members) return null;
+  const getInvoiceApprovalMeta = (inv: any) => {
+    if (inv.status === 'approved') return { waitingText: null, effectiveApprovalsNeeded: inv.approvalsNeeded || 1, isAutoApprovedPast: false, uniqueWaitingFor: [] };
     
     if (inv.type === 'transfer') {
       const targetId = inv.targetId;
-      if (!targetId) return 'המקבל';
-      if (targetId === user?.id || targetId === myEffectiveId) return 'אותך (לאישורך)';
-      const targetName = targetId === space.creatorId ? (space.createdBy || 'יוצר המרחב') : space.members.find((m: any) => m.userId === targetId)?.name || 'השותף';
-      return targetName;
+      if (!targetId) return { waitingText: 'המקבל', effectiveApprovalsNeeded: 1, isAutoApprovedPast: false, uniqueWaitingFor: ['המקבל'] };
+      if (targetId === user?.id || targetId === myEffectiveId) return { waitingText: 'אותך (לאישורך)', effectiveApprovalsNeeded: 1, isAutoApprovedPast: false, uniqueWaitingFor: ['אותך (לאישורך)'] };
+      const targetName = targetId === space.creatorId ? (space.createdBy || 'יוצר המרחב') : space.members?.find((m: any) => m.userId === targetId)?.name || 'השותף';
+      return { waitingText: targetName, effectiveApprovalsNeeded: 1, isAutoApprovedPast: false, uniqueWaitingFor: [targetName] };
     }
-    
+
     const creatorId = space.creatorId || (space.masterKey ? 'creator_master' : space.createdBy);
-    const creatorObj = { userId: creatorId, name: space.createdBy || 'יוצר המרחב' };
-    
-    const allValidMembers = space.members.filter((m: any) => m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested');
-    const everyone = [creatorObj, ...allValidMembers];
-    
+    const creatorName = space.creatorName || (isCreatorMe ? (user?.realName || user?.nickname || 'יוצר המרחב') : space.createdBy || 'יוצר המרחב');
+    const creatorObj = { userId: creatorId, name: creatorName };
+
+    const allValidMembers = (space.members || []).filter((m: any) => m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested');
+    const pendingInviteMembers = (space.pendingInvites || []).map((pi: any) => ({
+      userId: pi.token,
+      name: pi.name || 'שותף מוזמן'
+    }));
+
+    const everyone = [creatorObj, ...allValidMembers, ...pendingInviteMembers];
     const excluded = inv.excludedMembers || [];
     const approvedBy = inv.approvedBy || [];
-    
-    const waitingFor = everyone.filter((m: any) => {
+
+    const participating = everyone.filter((m: any) => !excluded.includes(m.userId) && m.userId !== 'treasury_virtual');
+
+    const waitingFor = participating.filter((m: any) => {
       if (m.userId === inv.payerId) return false;
       if (m.userId === 'me') return false;
+      if (isCreatorMe && inv.payerId === space.creatorId && m.userId === creatorId) return false;
       if (approvedBy.includes(m.userId)) return false;
-      if (excluded.includes(m.userId)) return false;
       return true;
     }).map((m: any) => {
       if (m.userId === user?.id || m.userId === myEffectiveId) return 'את/ה';
-      return m.name;
+      return m.name || 'שותף';
     }).filter(Boolean);
-    
+
     const uniqueWaitingFor = Array.from(new Set(waitingFor));
-    if (uniqueWaitingFor.length === 0) return null;
-    return uniqueWaitingFor.join(', ');
+    const waitingText = uniqueWaitingFor.length > 0 ? uniqueWaitingFor.join(', ') : null;
+
+    const effectiveApprovalsNeeded = Math.max(1, Math.min(inv.approvalsNeeded || 1, participating.length));
+    const isAutoApprovedPast = uniqueWaitingFor.length === 0 && (excluded.length > 0 || participating.length <= 1) && inv.status === 'pending';
+
+    return {
+      waitingText,
+      effectiveApprovalsNeeded,
+      isAutoApprovedPast,
+      uniqueWaitingFor
+    };
+  };
+
+  const getPendingApproversText = (inv: any) => {
+    return getInvoiceApprovalMeta(inv).waitingText;
   };
 
 
@@ -438,44 +457,55 @@ export function FinanceTransactions({
                     )}
                     <div style={{ flex: '2 1 300px', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                       <div>
-                        <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>סטטוס אישורים ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}):</p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                          {inv.status === 'approved' ? (
-                            <span style={{ color: '#10b981', fontSize: '0.9rem' }}>✅ מאושר.</span>
-                          ) : inv.status === 'dispute' ? (
-                            <div style={{ background: '#fee2e2', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fecdd3', width: '100%' }}>
-                              <div style={{ color: '#991b1b', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>❌ נדחה / במחלוקת</div>
-                              {inv.rejectedBy && <div style={{ fontSize: '0.85rem', color: '#991b1b' }}><strong>נדחה ע"י:</strong> {inv.rejectedBy}</div>}
-                              {inv.rejectedReason && <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '0.2rem' }}><strong>סיבה:</strong> {inv.rejectedReason}</div>}
-                              {updateInvoice && (inv.payerId === myEffectiveId || inv.payerId === 'me' || (isCreatorMe && (inv.payerId === space.creatorId || inv.payerId === space.createdBy))) && (
-                                <button onClick={() => handleResubmit(inv)} style={{ marginTop: '0.5rem', background: 'white', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.4rem 0.8rem', borderRadius: '16px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                                  🔄 שלח שוב לאישור
-                                </button>
-                              )}
-                            </div>
-                          ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                              <span style={{ color: '#f59e0b', fontSize: '0.9rem' }}>
-  ⏳ ממתין לאישור {(() => { const w = getPendingApproversText(inv); return w ? 'מ-' + w : ''; })()} ({inv.approvalsReceived} מתוך {inv.approvalsNeeded}).
-</span>
-                              {inv.wasDisputed && (
-                                <span style={{ color: '#991b1b', fontSize: '0.75rem', background: '#fee2e2', padding: '0.2rem 0.4rem', borderRadius: '4px', border: '1px solid #fecdd3', display: 'inline-block' }}>
-                                  ⚠️ הוצאה זו הייתה במחלוקת בעבר ותוקנה/נשלחה שוב.
-                                </span>
-                              )}
-                              {(() => {
-                                const waitingText = getPendingApproversText(inv);
-                                return waitingText ? (
-                                  <span style={{ color: '#b45309', fontSize: '0.85rem', background: '#fef3c7', padding: '0.25rem 0.5rem', borderRadius: '6px', display: 'inline-block', border: '1px solid #fde68a' }}>
-                                    מחכה לאישור של: <strong>{waitingText}</strong>
-                                  </span>
-                                ) : null;
-                              })()}
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                        {(() => {
+                        const meta = getInvoiceApprovalMeta(inv);
+                        const isActuallyApproved = inv.status === 'approved' || meta.isAutoApprovedPast;
+                        const neededCount = meta.effectiveApprovalsNeeded;
 
+                        return (
+                          <>
+                            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                              סטטוס אישורים ({isActuallyApproved ? neededCount : (inv.approvalsReceived || 0)} מתוך {neededCount}):
+                            </p>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                              {isActuallyApproved ? (
+                                <span style={{ color: '#10b981', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                  ✅ מאושר {meta.isAutoApprovedPast ? '(שותפים פטורים מהוצאת עבר)' : ''}
+                                </span>
+                              ) : inv.status === 'dispute' ? (
+                                <div style={{ background: '#fee2e2', padding: '0.75rem', borderRadius: '8px', border: '1px solid #fecdd3', width: '100%' }}>
+                                  <div style={{ color: '#991b1b', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>❌ נדחה / במחלוקת</div>
+                                  {inv.rejectedBy && <div style={{ fontSize: '0.85rem', color: '#991b1b' }}><strong>נדחה ע"י:</strong> {inv.rejectedBy}</div>}
+                                  {inv.rejectedReason && <div style={{ fontSize: '0.85rem', color: '#991b1b', marginTop: '0.2rem' }}><strong>סיבה:</strong> {inv.rejectedReason}</div>}
+                                  {updateInvoice && (inv.payerId === myEffectiveId || inv.payerId === 'me' || (isCreatorMe && (inv.payerId === space.creatorId || inv.payerId === space.createdBy))) && (
+                                    <button onClick={() => handleResubmit(inv)} style={{ marginTop: '0.5rem', background: 'white', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.4rem 0.8rem', borderRadius: '16px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                      🔄 שלח שוב לאישור
+                                    </button>
+                                  )}
+                                </div>
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                  <span style={{ color: '#f59e0b', fontSize: '0.9rem', fontWeight: 'bold' }}>
+                                    ⏳ ממתין לאישור {meta.waitingText ? 'מ-' + meta.waitingText : ''} ({inv.approvalsReceived || 0} מתוך {neededCount}).
+                                  </span>
+                                  {inv.wasDisputed && (
+                                    <span style={{ color: '#991b1b', fontSize: '0.75rem', background: '#fee2e2', padding: '0.2rem 0.4rem', borderRadius: '4px', border: '1px solid #fecdd3', display: 'inline-block' }}>
+                                      ⚠️ הוצאה זו הייתה במחלוקת בעבר ותוקנה/נשלחה שוב.
+                                    </span>
+                                  )}
+                                  {meta.waitingText && (
+                                    <span style={{ color: '#b45309', fontSize: '0.85rem', background: '#fef3c7', padding: '0.25rem 0.5rem', borderRadius: '6px', display: 'inline-block', border: '1px solid #fde68a' }}>
+                                      מחכה לאישור של: <strong>{meta.waitingText}</strong>
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                      </div>
+                      
                       {/* Action Buttons */}
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
                         {updateInvoice && calculateCanApprove(inv) && (
@@ -890,20 +920,27 @@ export function FinanceTransactions({
                         </h3>
                       )}
 
-                    {activePartnersCount > 0 && inv.status === 'pending' && (
-                      <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
-                        <span>{inv.approvalsReceived}/{inv.approvalsNeeded} אושר</span>
-                        {(() => {
-                          const waitingText = getPendingApproversText(inv);
-                          // Do not render "DEBUG..." in the small preview, just normal text
-                          return waitingText && !waitingText.startsWith('DEBUG:') ? (
+                    {(() => {
+                      if (activePartnersCount === 0 || inv.status !== 'pending') return null;
+                      const meta = getInvoiceApprovalMeta(inv);
+                      if (meta.isAutoApprovedPast) {
+                        return (
+                          <div style={{ fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold' }}>
+                            <span>✓ מאושר</span>
+                          </div>
+                        );
+                      }
+                      return (
+                        <div style={{ fontSize: '0.75rem', color: '#f59e0b', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.1rem' }}>
+                          <span>{inv.approvalsReceived || 0}/{meta.effectiveApprovalsNeeded} אושר</span>
+                          {meta.waitingText && !meta.waitingText.startsWith('DEBUG:') && (
                             <span style={{ fontSize: '0.7rem', color: '#b45309' }}>
-                              מחכה ל: {waitingText}
+                              מחכה ל: {meta.waitingText}
                             </span>
-                          ) : null;
-                        })()}
-                      </div>
-                    )}
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                   <div style={{ fontSize: '1.2rem', color: 'var(--text-secondary)', transform: expandedInvoiceId === inv.id ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
                     ⌄

@@ -114,11 +114,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   };
 
   const handleRemove = () => {
-    if (confirm(`להסיר את "${memberName}" לחלוטין מהמרחב (מחיקה מלאה)?`)) {
+    if (confirm(`להסיר את "${memberName}" מהמרחב ולהעביר לארכיון?\n(תוכל לשחזר אותו בכל עת מהארכיון)`)) {
       if (member?.isInvite) {
         if (typeof declinePendingInvite === 'function') declinePendingInvite(space.id, member.userId);
       } else {
-        if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', true);
+        if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
       }
       onClose();
     }
@@ -355,11 +355,26 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   🔄 אפס סטטוס
                 </button>
               )}
-              {memberStatus !== 'active' && (
-                <button onClick={handleRemove} style={{ background: '#fff1f2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                  🗑️ הסר
-                </button>
-              )}
+              <button 
+                onClick={handleRemove} 
+                style={{ 
+                  background: '#f8fafc', 
+                  color: '#64748b', 
+                  border: '1px solid #cbd5e1', 
+                  padding: '0.45rem 0.75rem', 
+                  borderRadius: '20px', 
+                  fontWeight: '600', 
+                  cursor: 'pointer', 
+                  fontSize: '0.8rem', 
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s'
+                }}
+                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                onMouseLeave={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                title="הסרת שותף והעברה לארכיון"
+              >
+                🗑️ הסר מהמרחב
+              </button>
             </div>
           )}
         </div>
