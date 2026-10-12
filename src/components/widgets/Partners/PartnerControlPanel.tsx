@@ -58,7 +58,7 @@ interface Props {
 
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange, declinePendingInvite } = useSpaces() as any;
+  const { approveExtension, removeMember, restoreMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange, declinePendingInvite } = useSpaces() as any;
   const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
@@ -179,6 +179,24 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           if (typeof declinePendingInvite === 'function') declinePendingInvite(space.id, member.userId);
         } else {
           if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
+        }
+        onClose();
+      }
+    });
+  };
+
+  const handleRestore = () => {
+    setConfirmModalConfig({
+      isOpen: true,
+      title: 'החזרת שותף לפעילות',
+      message: `האם להחזיר את "${memberName}" לפעילות מלאה במרחב?`,
+      confirmText: 'החזר שותף',
+      cancelText: 'ביטול',
+      variant: 'primary',
+      icon: '🔄',
+      onConfirm: () => {
+        if (typeof restoreMember === 'function') {
+          restoreMember(space.id, member.userId, user?.realName || 'מנהל');
         }
         onClose();
       }
@@ -416,26 +434,47 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   🔄 אפס סטטוס
                 </button>
               )}
-              <button 
-                onClick={handleRemove} 
-                style={{ 
-                  background: '#f8fafc', 
-                  color: '#64748b', 
-                  border: '1px solid #cbd5e1', 
-                  padding: '0.45rem 0.75rem', 
-                  borderRadius: '20px', 
-                  fontWeight: '600', 
-                  cursor: 'pointer', 
-                  fontSize: '0.8rem', 
-                  whiteSpace: 'nowrap',
-                  transition: 'all 0.15s'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#fca5a5'; }}
-                onMouseLeave={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                title="הסרת שותף והעברה לארכיון"
-              >
-                🗑️ הסר מהמרחב
-              </button>
+              {member?.isActive === false ? (
+                <button 
+                  onClick={handleRestore} 
+                  style={{ 
+                    background: '#ecfdf5', 
+                    color: '#059669', 
+                    border: '1px solid #a7f3d0', 
+                    padding: '0.45rem 0.75rem', 
+                    borderRadius: '20px', 
+                    fontWeight: '700', 
+                    cursor: 'pointer', 
+                    fontSize: '0.8rem', 
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s'
+                  }}
+                  title="החזרת שותף לפעילות במרחב"
+                >
+                  🔄 החזר שותף לפעילות
+                </button>
+              ) : (
+                <button 
+                  onClick={handleRemove} 
+                  style={{ 
+                    background: '#f8fafc', 
+                    color: '#64748b', 
+                    border: '1px solid #cbd5e1', 
+                    padding: '0.45rem 0.75rem', 
+                    borderRadius: '20px', 
+                    fontWeight: '600', 
+                    cursor: 'pointer', 
+                    fontSize: '0.8rem', 
+                    whiteSpace: 'nowrap',
+                    transition: 'all 0.15s'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#fca5a5'; }}
+                  onMouseLeave={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
+                  title="הסרת שותף והעברה לארכיון"
+                >
+                  🗑️ הסר מהמרחב
+                </button>
+              )}
             </div>
           )}
         </div>

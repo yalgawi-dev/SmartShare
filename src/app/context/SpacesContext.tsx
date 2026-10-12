@@ -1305,10 +1305,11 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
       if (forceHardDelete) {
         newMembers = space.members?.filter(m => m.userId !== userId) || [];
-        details = `׳³ג€׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ${memberToRemove.name} ׳³ֲ ׳³ֲ׳³ג€”׳³ֲ§ ׳³ֲ׳³ֲ¦׳³ֲ׳³ג„¢׳³ֳ—׳³ג€¢׳³ֳ—.`;
+        details = `השותף ${memberToRemove.name} נמחק לצמיתות.`;
       } else {
-        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false, sharePercentage: undefined } : m) || [];
-        details = `׳³ג€׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ${memberToRemove.name} ׳³ֲ¡׳³ג€¢׳³ֲ׳³ֲ ׳³ג€÷׳³ֲ׳³ֲ-׳³ג‚×׳³ֲ¢׳³ג„¢׳³ֲ.`;
+        // Keep previous sharePercentage so historical transactions continue to balance accurately
+        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false } : m) || [];
+        details = `השותף ${memberToRemove.name} הועבר לארכיון (לא פעיל).`;
       }
       
       const newLog: AuditRecord = {
@@ -1318,34 +1319,13 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         performedBy,
         details
       };
-      
-      // If shares were custom, give the removed member's share back to the creator.
-      // Do NOT wipe isCustomShare, as other partners might still have their custom shares!
-      let newCreatorShare = space.settings?.mySharePercentage;
-      if (space.settings?.isCustomShare) {
-        const removedShare = memberToRemove.sharePercentage || 0;
-        if (newCreatorShare !== undefined) {
-          newCreatorShare = Math.min(100, newCreatorShare + removedShare);
-        }
-      }
-
-      const newSettings = { 
-        ...space.settings, 
-        mySharePercentage: space.settings?.isCustomShare ? newCreatorShare : undefined 
-      };
 
       return {
         ...space,
-        settings: newSettings,
         members: newMembers,
         auditLogs: [newLog, ...(space.auditLogs || [])]
       };
     });
-    
-    // Auto balance after removing
-    setTimeout(() => {
-      autoBalanceShares(spaceId, performedBy);
-    }, 100);
   };
 
   const restoreMember = (spaceId: string, userId: string, performedBy: string) => {

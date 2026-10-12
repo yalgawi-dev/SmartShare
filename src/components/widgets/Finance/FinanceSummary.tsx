@@ -112,7 +112,7 @@ export function FinanceSummary({
   
   unifiedBalances.set(creatorId, { name: creatorName, paid: 0, expected: 0, balance: 0, userId: creatorId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: true });
 
-  const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
+  const validMembers = space.members?.filter((m: any) => m.userId && m.status !== 'removed') || [];
   validMembers.forEach((m: any) => {
     if ((isCreatorMe && m.userId === user?.id) || m.userId === space.creatorId || m.userId === space.createdBy) return; 
     
@@ -181,14 +181,15 @@ export function FinanceSummary({
   
   // Calculate expected & balance for ALL involved
   const balances = allBalancesArray.filter(b => (b.isMember || b.paid > 0) && !b.userId.startsWith('equity_') && b.userId !== 'none' && b.userId !== TREASURY_MEMBER_ID);
-  const activeMembersCount = balances.filter(b => b.isMember && b.userId !== TREASURY_MEMBER_ID).length;
-  const defaultShare = activeMembersCount > 0 ? (100 / activeMembersCount) : 100;
+  const totalParticipatingMembers = balances.filter(b => b.isMember && b.userId !== TREASURY_MEMBER_ID).length;
+  const activeMembersCount = totalParticipatingMembers;
+  const defaultShare = totalParticipatingMembers > 0 ? (100 / totalParticipatingMembers) : 100;
   
   balances.forEach(b => {
     let p = 0;
     if (b.userId === TREASURY_MEMBER_ID) {
       p = 0;
-    } else if (activeMembersCount <= 1) { // Only creator or nobody
+    } else if (totalParticipatingMembers <= 1) { // Only creator or nobody
       if (b.userId === user?.id || b.isCreator) p = 100;
       else p = 0;
     } else {
@@ -196,7 +197,7 @@ export function FinanceSummary({
         if (b.isCreator) p = space.settings?.mySharePercentage ?? defaultShare;
         else {
           const m = validMembers.find((vm: any) => vm.userId === b.userId);
-          if (m && m.sharePercentage !== undefined) p = m.sharePercentage;
+          if (m && m.sharePercentage !== undefined && m.sharePercentage > 0) p = m.sharePercentage;
           else p = defaultShare;
         }
       }
@@ -418,9 +419,9 @@ export function FinanceSummary({
               </thead>
               <tbody>
                 {balances.filter(b => b.userId !== TREASURY_MEMBER_ID).map((b) => {
-                  const isInactive = activePartnersCount === 0 && b.userId !== myId;
-                  const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
                   const memberObj = space.members?.find((m: any) => m.userId === b.userId);
+                  const isInactive = (memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId);
+                  const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
                   const unreadCount = (() => {
   if (!space.features?.includes('chat')) return 0;
   let count = 0;
