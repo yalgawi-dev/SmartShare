@@ -89,18 +89,45 @@ export default function SharedFileHandler() {
     return activeSpaces.filter((s: any) => s.title?.toLowerCase().includes(lowerQuery));
   }, [activeSpaces, searchQuery]);
 
+  const [checkpointLogs, setCheckpointLogs] = useState<string[]>([]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const searchParams = new URLSearchParams(window.location.search);
-    const hasSharedParam = searchParams.get('shared') === 'true';
+    const hasSharedParam = searchParams.get('shared');
+    
+    // Read any recorded checkpoints from localStorage
+    const readLogs = () => {
+      try {
+        const stored = JSON.parse(localStorage.getItem('smartshare_share_checkpoints') || '[]');
+        return Array.isArray(stored) ? stored : [];
+      } catch (e) {
+        return [];
+      }
+    };
+    
+    let currentLogs = readLogs();
     if (hasSharedParam) {
+      currentLogs.push('PARAM_SHARED: ' + hasSharedParam + ' at ' + new Date().toLocaleTimeString());
+      try {
+        localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
+      } catch (e) {}
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    setCheckpointLogs(currentLogs);
     
-    const processFoundFiles = (rawResult: any) => {
+    const processFoundFiles = (rawResult: any, source: string) => {
       if (!rawResult) return;
       const files = Array.isArray(rawResult) ? rawResult : [rawResult];
       if (files.length === 0) return;
+      
+      const updated = readLogs();
+      updated.push('LOADED_FROM_' + source + ': ' + files.length + ' files');
+      try {
+        localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(updated));
+      } catch(e) {}
+      setCheckpointLogs(updated);
+
       setSharedFiles(files);
       setRouteDestination(files.length > 1 ? 'personal' : 'direct');
       setIsModalOpen(true);
@@ -116,12 +143,12 @@ export default function SharedFileHandler() {
           const getReq = store.get('latest_shared');
           getReq.onsuccess = () => {
             if (getReq.result) {
-              processFoundFiles(getReq.result);
+              processFoundFiles(getReq.result, 'INDEXED_DB');
             } else {
               try {
                 const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
                 if (backup) {
-                  processFoundFiles(backup);
+                  processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
                   localStorage.removeItem('smartshare_latest_shared_backup');
                 }
               } catch (err) {}
@@ -131,7 +158,7 @@ export default function SharedFileHandler() {
           try {
             const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
             if (backup) {
-              processFoundFiles(backup);
+              processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
               localStorage.removeItem('smartshare_latest_shared_backup');
             }
           } catch (err) {}
@@ -141,7 +168,7 @@ export default function SharedFileHandler() {
         try {
           const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
           if (backup) {
-            processFoundFiles(backup);
+            processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
             localStorage.removeItem('smartshare_latest_shared_backup');
           }
         } catch (err) {}
@@ -339,10 +366,37 @@ export default function SharedFileHandler() {
       }
   };
 
-  if (!isModalOpen) return null;
-
   return (
     <>
+      {/* Floating Diagnostics Badge: ALWAYS accessible to see share checkpoints */}
+      {checkpointLogs.length > 0 && !isModalOpen && (
+        <div style={{
+          position: 'fixed', bottom: '80px', left: '16px', zIndex: 99998,
+          background: '#0f172a', color: '#38bdf8', border: '1px solid #38bdf8',
+          borderRadius: '12px', padding: '0.6rem 0.85rem', maxWidth: '320px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)', fontSize: '0.75rem', direction: 'ltr'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+            <span style={{ fontWeight: 'bold', color: '#facc15' }}>🔍 Share Pipeline Status</span>
+            <button 
+              onClick={() => {
+                localStorage.removeItem('smartshare_share_checkpoints');
+                setCheckpointLogs([]);
+              }}
+              style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem' }}
+            >
+              ✕ Clear
+            </button>
+          </div>
+          {checkpointLogs.map((log, idx) => (
+            <div key={idx} style={{ opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              • {log}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {isModalOpen && (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
         backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999,
@@ -545,6 +599,7 @@ export default function SharedFileHandler() {
           </div>
         </div>
       </div>
+      )}
       
       {zoomedIndex !== null && (
         <div 
