@@ -181,7 +181,15 @@ export function FinanceSummary({
   
   // Calculate expected & balance for ALL involved
   const balances = allBalancesArray.filter(b => (b.isMember || b.paid > 0) && !b.userId.startsWith('equity_') && b.userId !== 'none' && b.userId !== TREASURY_MEMBER_ID);
-  const totalParticipatingMembers = balances.filter(b => b.isMember && b.userId !== TREASURY_MEMBER_ID).length;
+  
+  // Only ACTIVE members participate in percentage sharing
+  const activeParticipatingMembers = balances.filter(b => {
+    if (!b.isMember || b.userId === TREASURY_MEMBER_ID) return false;
+    const memberObj = validMembers.find((vm: any) => vm.userId === b.userId);
+    if (memberObj && memberObj.isActive === false) return false;
+    return true;
+  });
+  const totalParticipatingMembers = activeParticipatingMembers.length;
   const activeMembersCount = totalParticipatingMembers;
   const defaultShare = totalParticipatingMembers > 0 ? (100 / totalParticipatingMembers) : 100;
   
@@ -192,9 +200,13 @@ export function FinanceSummary({
       b.p = 0;
     } else if (!b.isCreator && b.isMember) {
       const m = validMembers.find((vm: any) => vm.userId === b.userId);
-      const partnerP = (m && m.sharePercentage !== undefined && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
-      b.p = partnerP;
-      totalPartnerShares += partnerP;
+      if (m && m.isActive === false) {
+        b.p = 0;
+      } else {
+        const partnerP = (m && typeof m.sharePercentage === 'number' && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
+        b.p = partnerP;
+        totalPartnerShares += partnerP;
+      }
     }
   });
 
@@ -204,7 +216,6 @@ export function FinanceSummary({
       if (totalParticipatingMembers <= 1) {
         b.p = 100;
       } else {
-        // If custom shares are set and valid, check space.settings, otherwise ensure exact 100% balance
         const remainingForCreator = Math.max(0, 100 - totalPartnerShares);
         b.p = remainingForCreator;
       }

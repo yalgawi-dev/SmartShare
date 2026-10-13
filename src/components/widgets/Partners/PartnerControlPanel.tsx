@@ -307,7 +307,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           )}
           
           {/* Action Buttons */}
-          {viewMode === 'creator' && (
+          {viewMode === 'creator' && member?.isActive !== false && (
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
               {onTriggerTransfer && (
                 <button
@@ -463,7 +463,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                     ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
                   </div>
                 )}
-                {member?.shareChangeRequest && (
+                {member?.isActive !== false && member?.shareChangeRequest && (
                   <div style={{ alignSelf: 'center', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', marginBottom: '1rem', maxWidth: '95%', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                     <strong>בקשה לשינוי אחוזים 📊</strong><br/>
                     {viewMode === 'creator'
@@ -496,7 +496,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
               </div>
             )}
-            {member?.shareChangeRequest && (
+            {member?.isActive !== false && member?.shareChangeRequest && (
               <div style={{ margin: '1rem', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', textAlign: 'center' }}>
                 <strong>בקשה לשינוי אחוזים 📊</strong><br/>
                 {viewMode === 'creator'

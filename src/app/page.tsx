@@ -37,11 +37,9 @@ export default function Dashboard() {
       setTimeout(() => {
         const el = document.getElementById(`space-${spaceId}`);
         if (el) {
-          const rect = el.getBoundingClientRect();
-          const targetY = window.scrollY + rect.top - 20; // 20px padding from top
-          window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-      }, 50);
+      }, 100);
     }
   };
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
@@ -305,7 +303,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.92</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7}}>v6.7.93</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -707,7 +705,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v6.7.92 - CamScanner Document Model, Clean Partner Lifecycle, Smart Share Target
+        v6.7.93 - CamScanner Document Model, Clean Partner Lifecycle, Smart Share Target
       </div>
       
       {/* Global hidden inputs for Logo Upload */}
