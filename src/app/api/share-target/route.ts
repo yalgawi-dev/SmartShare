@@ -44,7 +44,8 @@ export async function POST(request: Request) {
       </head>
       <body>
         <div class="loader"></div>
-        <h2>מעביר ל-SmartShare...</h2>
+        <h2 style="font-size: 1.3rem; margin-bottom: 0.5rem; color: #1e293b;">📥 מקבל קובץ חיצוני...</h2>
+        <p style="font-size: 0.95rem; color: #64748b; margin: 0;">פותח את SmartShare לניתוב הקובץ</p>
         <script>
           const filesData = ${arrayString};
           try {

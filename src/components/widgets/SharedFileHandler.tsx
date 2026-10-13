@@ -348,12 +348,31 @@ export default function SharedFileHandler() {
           width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
           maxHeight: '90vh', overflowY: 'auto'
         }}>
-          <h2 style={{ marginTop: 0, marginBottom: '1rem', color: '#1e293b', fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>📄</span> {sharedFiles.length > 1 ? 'קבצים חדשים התקבלו' : 'קובץ חדש התקבל'}
+          {/* Industry Banner for External Share */}
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
+            color: '#fff', padding: '0.6rem 0.85rem', borderRadius: '10px',
+            marginBottom: '1rem', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.25rem', animation: 'spin 4s linear infinite' }}>🔄</span>
+              <div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare</div>
+                <div style={{ fontSize: '0.72rem', opacity: 0.9 }}>מנותב ל: {routeDestination === 'personal' ? 'מחסן אישי פרטי' : (displayedSpaces.find((s:any) => s.id === selectedSpaceId)?.title || 'בחר פרויקט')}</div>
+              </div>
+            </div>
+            <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.25)', padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold' }}>
+              {sharedFiles.length} {sharedFiles.length > 1 ? 'קבצים' : 'קובץ'}
+            </span>
+          </div>
+
+          <h2 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#1e293b', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>📄</span> בחר לאן לנתב {sharedFiles.length > 1 ? 'את המסמכים' : 'את המסמך'}
           </h2>
           
-          <p style={{ fontSize: '0.95rem', color: '#475569', marginBottom: '1.5rem' }}>
-            לאיזו פעולה תרצה לנתב {sharedFiles.length > 1 ? 'את המסמכים ששיתפת?' : 'את המסמך ששיתפת?'}
+          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.25rem' }}>
+            הקובץ התקבל בהצלחה. בחר את היעד והמערכת תעביר אותו לשם מיד:
           </p>
 
           {sharedFiles.length > 0 && (
@@ -508,7 +527,15 @@ export default function SharedFileHandler() {
               disabled={(routeDestination !== 'personal' && !selectedSpaceId) || isProcessing}
               style={{ flex: 2, padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}
             >
-              {isProcessing ? 'מעבד...' : 'המשך'}
+              {isProcessing 
+                ? 'מעביר נתונים...' 
+                : routeDestination === 'personal'
+                  ? '📥 שמור במחסן האישי'
+                  : routeDestination === 'direct'
+                    ? '🧾 פתח הוצאה והפעל סריקה ⚡'
+                    : routeDestination === 'vault'
+                      ? '🗂️ שמור במחסן מסמכים'
+                      : '📥 העבר למחסן הפרויקט'}
             </button>
           </div>
         </div>
