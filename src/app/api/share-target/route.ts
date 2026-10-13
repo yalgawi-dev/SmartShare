@@ -9,26 +9,41 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const formData = await request.formData();
+    const contentType = request.headers.get('content-type') || 'none';
+    const contentLength = request.headers.get('content-length') || '0';
     
-    const allKeys = Array.from(formData.keys());
+    let formData: FormData | null = null;
+    let parseError = '';
+    try {
+      formData = await request.formData();
+    } catch (e: any) {
+      parseError = e?.message || 'formData_error';
+    }
+    
+    const allKeys = formData ? Array.from(formData.keys()) : [];
     const files: File[] = [];
-    const debugEntries: string[] = [];
+    const debugEntries: string[] = [
+      `ct:${contentType.substring(0, 25)}`,
+      `len:${contentLength}`,
+      ...(parseError ? [`err:${parseError}`] : [])
+    ];
 
-    for (const [key, val] of formData.entries()) {
-      if (val && typeof val === 'object' && 'arrayBuffer' in val && (val as any).size > 0) {
-        files.push(val as File);
-        debugEntries.push(`${key}:file(${(val as any).name || 'noname'},${(val as any).size}b,${(val as any).type})`);
-      } else if (typeof val === 'string') {
-        debugEntries.push(`${key}:str(${val.substring(0, 30)})`);
-      } else {
-        debugEntries.push(`${key}:unknown`);
+    if (formData) {
+      for (const [key, val] of formData.entries()) {
+        if (val && typeof val === 'object' && 'arrayBuffer' in val && (val as any).size > 0) {
+          files.push(val as File);
+          debugEntries.push(`${key}:file(${(val as any).name || 'noname'},${(val as any).size}b,${(val as any).type})`);
+        } else if (typeof val === 'string') {
+          debugEntries.push(`${key}:str(${val.substring(0, 30)})`);
+        } else {
+          debugEntries.push(`${key}:unknown`);
+        }
       }
     }
     
     if (!files || files.length === 0) {
       const info = encodeURIComponent(debugEntries.join('|') || 'NO_ENTRIES');
-      console.warn("Share target received no files. Keys:", allKeys, "Entries:", debugEntries);
+      console.warn("Share target received no files. Info:", debugEntries);
       return NextResponse.redirect(new URL(`/?shared=empty&info=${info}`, request.url), 303);
     }
 
