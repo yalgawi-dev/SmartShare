@@ -1025,22 +1025,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'scanning' && (
           <>
-            {/* Pages thumbnail strip */}
-            {scannedPages.length > 0 && (
-              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 20, background: 'rgba(0,0,0,0.7)', padding: '0.5rem', display: 'flex', gap: '0.5rem', overflowX: 'auto' }}>
-                {scannedPages.map((page) => (
-                  <div key={page.id} style={{ position: 'relative', flexShrink: 0 }}>
-                    <img src={page.imageUrl} style={{ width: '50px', height: '70px', objectFit: 'cover', borderRadius: '4px', border: '2px solid #FFD700' }} alt={`עמוד ${page.pageNum}`} />
-                    <span style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'rgba(0,0,0,0.8)', color: 'white', fontSize: '0.65rem', padding: '1px 4px', borderRadius: '4px', fontWeight: 'bold' }}>{page.pageNum}</span>
-                    <button onClick={() => setScannedPages(prev => prev.filter(p => p.id !== page.id).map((p,i) => ({...p, pageNum: i+1})))}
-                      style={{ position: 'absolute', top: '-6px', left: '-6px', background: '#ef4444', border: 'none', color: 'white', borderRadius: '50%', width: '16px', height: '16px', fontSize: '0.6rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                  </div>
-                ))}
-                <div style={{ display: 'flex', alignItems: 'center', color: '#FFD700', fontSize: '0.8rem', fontWeight: 'bold', padding: '0 0.5rem' }}>
-                  עמוד {scannedPages.length + 1} →
-                </div>
-              </div>
-            )}
+            {/* Top thumbnail strip removed: single source of truth is SortableTray at the bottom */}
             {pendingImports.length > 0 ? (
                <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
                   <div style={{ fontSize: '4rem', marginBottom: '1rem', opacity: 0.8 }}>📂</div>
@@ -1236,15 +1221,27 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'cropping' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-            <button onClick={handleRetake} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem 1rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
-              <span style={{ fontSize: '1.1rem' }}>📷</span>
-              צלם שוב
+            <button 
+              onClick={handleRetake} 
+              style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+            >
+              <span>📷</span>
+              <span>צלם שוב</span>
             </button>
-            <button onClick={handleSkipCrop} disabled={isProcessing} style={{ flex: 1, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.75rem 1rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-              <span>⚡</span> דלג על עריכה
+            <button 
+              onClick={handleSkipCrop} 
+              disabled={isProcessing} 
+              style={{ flex: 1, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+            >
+              <span>⚡</span>
+              <span>דלג חיתוך</span>
             </button>
-            <button onClick={handleCropComplete} disabled={isProcessing} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.75rem 1.25rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.9rem' }}>
-              {isProcessing ? 'מעבד...' : 'אשר חיתוך'}
+            <button 
+              onClick={handleCropComplete} 
+              disabled={isProcessing} 
+              style={{ flex: 1.2, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.65rem 0.5rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+            >
+              {isProcessing ? 'מעבד...' : 'אשר חיתוך ✓'}
             </button>
           </div>
         )}
