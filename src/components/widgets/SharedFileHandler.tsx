@@ -146,21 +146,37 @@ export default function SharedFileHandler() {
     }
   }, []);
 
+  const currentSelectedSpace = React.useMemo(() => {
+    return activeSpaces.find((s: any) => s.id === selectedSpaceId) || displayedSpaces[0] || null;
+  }, [activeSpaces, displayedSpaces, selectedSpaceId]);
+
+  const spaceHasFinance = React.useMemo(() => {
+    return (currentSelectedSpace?.features || []).includes('finance');
+  }, [currentSelectedSpace]);
+
+  const spaceHasVault = React.useMemo(() => {
+    const f = currentSelectedSpace?.features || [];
+    return f.includes('vault') || f.includes('documents');
+  }, [currentSelectedSpace]);
+
   useEffect(() => {
     if (isModalOpen && displayedSpaces && displayedSpaces.length > 0) {
       if (!selectedSpaceId || !displayedSpaces.find((s:any) => s.id === selectedSpaceId)) {
         const initSpace = displayedSpaces[0];
         setSelectedSpaceId(initSpace.id);
-        const feats = initSpace.features || [];
-        const hasFin = feats.includes('finance');
-        const hasVlt = feats.includes('vault') || feats.includes('documents');
-        if (sharedFiles.length === 1) {
-          if (!hasFin && hasVlt) setRouteDestination('vault');
-          else if (hasFin && !hasVlt) setRouteDestination('direct');
-        }
       }
     }
-  }, [isModalOpen, displayedSpaces, selectedSpaceId, sharedFiles.length]);
+  }, [isModalOpen, displayedSpaces, selectedSpaceId]);
+
+  // Automatically tune destination based on the space capabilities
+  useEffect(() => {
+    if (routeDestination === 'personal') return;
+    if (spaceHasFinance && !spaceHasVault) {
+      if (routeDestination === 'vault') setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
+    } else if (!spaceHasFinance && spaceHasVault) {
+      if (routeDestination === 'direct' || routeDestination === 'inbox') setRouteDestination('vault');
+    }
+  }, [selectedSpaceId, spaceHasFinance, spaceHasVault, routeDestination, sharedFiles.length]);
 
   useEffect(() => {
     if (selectedSpaceId) {
@@ -183,52 +199,36 @@ export default function SharedFileHandler() {
     
     try {
       if (routeDestination === 'personal') {
-          // Transparent Background Upload
+          setUploadProgress({ current: 0, total: sharedFiles.length });
           const filesToProcess = [...sharedFiles];
-          const tempItems = filesToProcess.map(uri => ({
-            id: 'temp_' + Math.random().toString(36).substr(2, 9),
-            imageUrl: uri.replace(/^"|"$/g, ''),
-            status: 'uploading',
-            isTemp: true,
-            createdAt: new Date().toISOString()
-          }));
-          
-          if (setPersonalInbox) {
-             setPersonalInbox((prev) => [...tempItems, ...prev]);
+          for (let i = 0; i < filesToProcess.length; i++) {
+            setUploadProgress({ current: i + 1, total: filesToProcess.length });
+            const cleanUri = filesToProcess[i].replace(/^"|"$/g, '');
+            const compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+            await addToPersonalInbox({
+              imageUrl: publicUrl,
+              status: 'processing',
+              suggestedPayerId: selectedPayerId || user?.id,
+              uploadedBy: user?.id || 'guest'
+            });
           }
           
-          const dbReq = indexedDB.open('MySpaceDB', 1);
-          dbReq.onsuccess = (e: any) => {
-            const db = e.target.result;
-            const tx = db.transaction('sharedFiles', 'readwrite');
-            tx.objectStore('sharedFiles').delete('latest_shared');
-          };
+          try {
+            const dbReq = indexedDB.open('MySpaceDB', 1);
+            dbReq.onsuccess = (e: any) => {
+              const db = e.target.result;
+              if (db.objectStoreNames.contains('sharedFiles')) {
+                const tx = db.transaction('sharedFiles', 'readwrite');
+                tx.objectStore('sharedFiles').delete('latest_shared');
+              }
+            };
+          } catch(e) {}
+          
           setSharedFiles([]);
           setIsModalOpen(false);
+          setIsProcessing(false);
           router.replace('/');
-          
-          (async () => {
-             for (let i = 0; i < filesToProcess.length; i++) {
-                const dataUri = filesToProcess[i];
-                const tempId = tempItems[i].id;
-                const cleanUri = dataUri.replace(/^"|"$/g, '');
-                let compressedUri = cleanUri;
-                try {
-                  compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
-                } catch (err) { }
-                const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
-                await addToPersonalInbox({
-                  imageUrl: publicUrl,
-                  status: 'processing',
-                  suggestedPayerId: selectedPayerId || user?.id,
-                  uploadedBy: user?.id || 'guest'
-                });
-                
-                if (setPersonalInbox) {
-                  setPersonalInbox(prev => prev.filter(item => item.id !== tempId));
-                }
-             }
-          })();
           return;
         } else if (routeDestination === 'inbox') {
         const itemsToAdd = [];
@@ -386,38 +386,45 @@ export default function SharedFileHandler() {
           )}
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>בחר פעולה:</label>
+            <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>בחר יעד ניתוב:</label>
             
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'personal' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'personal' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
               <input type="radio" name="routeDest" checked={routeDestination === 'personal'} onChange={() => setRouteDestination('personal')} style={{ marginTop: '0.25rem' }} />
               <div>
-                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן מיון אישי (פרטי)</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>רק אתה רואה את זה. מאפשר לשמור הכל עכשיו ולמיין לפרויקטים אחר כך בניחותא.</div>
+                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>📥 למחסן מיון אישי (פרטי)</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>רק אתה רואה את זה. שומר מיד במחסן שלך ומאפשר למיין לפרויקטים אחר כך.</div>
               </div>
             </label>
 
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-              <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} style={{ marginTop: '0.25rem' }} />
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן פרויקט (משותף)</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>נכנס למחסן ההמתנה של פרויקט ספציפי, כל השותפים בפרויקט יכולים לראות ולטפל.</div>
-              </div>
-            </label>
+            {spaceHasFinance && (
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px', opacity: sharedFiles.length > 1 ? 0.5 : 1 }}>
+                <input type="radio" name="routeDest" checked={routeDestination === 'direct'} disabled={sharedFiles.length > 1} onChange={() => setRouteDestination('direct')} style={{ marginTop: '0.25rem' }} />
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#1e293b' }}>🧾 להוצאות הפרויקט + סריקת AI מיידית {sharedFiles.length > 1 ? '(קובץ בודד)' : ''}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>פותח ישירות את טופס ההוצאה ומפעיל סריקת AI מהירה תוך 2-3 שניות.</div>
+                </div>
+              </label>
+            )}
 
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px', opacity: sharedFiles.length > 1 ? 0.5 : 1 }}>
-              <input type="radio" name="routeDest" checked={routeDestination === 'direct'} disabled={sharedFiles.length > 1} onChange={() => setRouteDestination('direct')} style={{ marginTop: '0.25rem' }} />
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>ישירות להוצאות הפרויקט {sharedFiles.length > 1 ? '(מוגבל לקובץ יחיד)' : ''}</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>פותח את המרחב ומפעיל סורק AI מיידי. דורש אישור באותו רגע.</div>
-              </div>
-            </label>
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'vault' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'vault' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-              <input type="radio" name="routeDest" checked={routeDestination === 'vault'} onChange={() => setRouteDestination('vault')} style={{ marginTop: '0.25rem' }} />
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>למחסן מסמכים (מדף בפרויקט) 🗂️</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>שומר ישירות לתוך מדף במחסן המסמכים של הפרויקט ללא סורק חשבוניות.</div>
-              </div>
-            </label>
+            {spaceHasFinance && (
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+                <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} style={{ marginTop: '0.25rem' }} />
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#1e293b' }}>📥 למחסן ההמתנה של הפרויקט</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>נכנס למחסן המשותף של הפרויקט כדי שכל השותפים יוכלו לראות ולטפל.</div>
+                </div>
+              </label>
+            )}
+
+            {spaceHasVault && (
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'vault' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'vault' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
+                <input type="radio" name="routeDest" checked={routeDestination === 'vault'} onChange={() => setRouteDestination('vault')} style={{ marginTop: '0.25rem' }} />
+                <div>
+                  <div style={{ fontWeight: 'bold', color: '#1e293b' }}>🗂️ למחסן מסמכים (מדף בפרויקט)</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>שומר מסמך/חוזה ישירות לתוך מדף במחסן המסמכים ללא פתיחת הוצאה.</div>
+                </div>
+              </label>
+            )}
           </div>
 
           {routeDestination !== 'personal' && (

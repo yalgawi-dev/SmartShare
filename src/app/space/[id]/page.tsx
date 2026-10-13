@@ -201,16 +201,33 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           request.onsuccess = (e: any) => {
             const db = e.target.result;
             if (!db.objectStoreNames.contains('sharedFiles')) return;
-            const tx = db.transaction('sharedFiles', 'readwrite');
+            const tx = db.transaction('sharedFiles', 'readonly');
             const store = tx.objectStore('sharedFiles');
             const getReq = store.get('latest_shared');
             getReq.onsuccess = () => {
               const filesArray = Array.isArray(getReq.result) ? getReq.result : (getReq.result?.files || []);
               if (filesArray.length > 0) {
-                setTimeout(() => {
-                  financeRef.current?.processScan(filesArray[0]);
-                }, 500);
-                store.delete('latest_shared');
+                const targetFile = filesArray[0];
+                let attempts = 0;
+                const checkAndTrigger = setInterval(() => {
+                  attempts++;
+                  if (financeRef.current && typeof financeRef.current.processScan === 'function') {
+                    clearInterval(checkAndTrigger);
+                    financeRef.current.processScan(targetFile);
+                    try {
+                      const delDbReq = indexedDB.open('MySpaceDB', 1);
+                      delDbReq.onsuccess = (ev: any) => {
+                        const d = ev.target.result;
+                        if (d.objectStoreNames.contains('sharedFiles')) {
+                          const dtx = d.transaction('sharedFiles', 'readwrite');
+                          dtx.objectStore('sharedFiles').delete('latest_shared');
+                        }
+                      };
+                    } catch (err) {}
+                  } else if (attempts > 30) {
+                    clearInterval(checkAndTrigger);
+                  }
+                }, 200);
               }
             };
           };

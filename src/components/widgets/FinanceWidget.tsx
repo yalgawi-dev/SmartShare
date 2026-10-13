@@ -208,14 +208,17 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
       }
       
       // Check if this is a PDF
-      const isPdf = processingUrl.startsWith('data:application/pdf');
-      
+      const isPdf = processingUrl.startsWith('data:application/pdf') || processingUrl.includes('application/pdf');
       
       let ocrPayload = processingUrl;
       let archiveImgUrl = processingUrl;
-      let filename = `invoices/${space.id}/${Date.now()}.${isPdf ? 'pdf' : 'jpg'}`;
       
-      if (!isPdf) {
+      if (isPdf) {
+        // Industry standard: convert PDF to optimized crisp JPEG to prevent cloud bloat and ensure fast processing
+        const converted = await downscaleBase64(processingUrl, 1500, 0.85);
+        archiveImgUrl = converted;
+        ocrPayload = await downscaleBase64(converted, 800, 0.60);
+      } else {
         // --- TRACK A (Foreground): The 40KB OCR Micro-Payload ---
         // Scale down aggressively (800px, 60% quality) just for the AI.
         ocrPayload = await downscaleBase64(imgUrl, 800, 0.60);
@@ -223,6 +226,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
         // --- TRACK B (Background): The High Quality Archive ---
         archiveImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
       }
+      const filename = `invoices/${space.id}/${Date.now()}.jpg`;
       
       // 1. Kick off the heavy Firebase upload, but DO NOT WAIT FOR IT!
       uploadPromiseRef.current = uploadImageToStorage(archiveImgUrl, filename).then(url => {

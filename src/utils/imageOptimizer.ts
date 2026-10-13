@@ -62,7 +62,65 @@ export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.82, type =
   return canvas.toDataURL(type, quality);
 }
 
+export async function convertPdfToOptimizedImage(pdfDataUri: string, maxDim = 1500, quality = 0.82): Promise<string> {
+  if (typeof window === 'undefined') return pdfDataUri;
+  try {
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            resolve(null);
+          } else {
+            reject(new Error('pdfjsLib not found on window'));
+          }
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    const base64Data = pdfDataUri.includes('base64,') ? pdfDataUri.split('base64,')[1] : pdfDataUri;
+    const binaryString = window.atob(base64Data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+    
+    // Calculate viewport scale based on maxDim to keep memory and CPU low
+    const unscaledViewport = page.getViewport({ scale: 1.0 });
+    const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+    const scale = Math.min(2.0, maxDim / currentMax);
+    const viewport = page.getViewport({ scale: Math.max(1.0, scale) });
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('No 2d context for PDF rendering');
+
+    // Fill white background for transparent PDF pages
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+
+    await page.render({ canvasContext: context, viewport }).promise;
+    return canvas.toDataURL('image/jpeg', quality);
+  } catch (err) {
+    console.error('Failed to convert PDF to image:', err);
+    return pdfDataUri;
+  }
+}
+
 export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0.7): Promise<string> {
+  if (base64.startsWith('data:application/pdf') || base64.includes('application/pdf')) {
+    return convertPdfToOptimizedImage(base64, maxDim, quality);
+  }
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64;

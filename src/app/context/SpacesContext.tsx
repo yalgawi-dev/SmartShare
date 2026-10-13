@@ -552,7 +552,19 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   };
 
   const addToPersonalInbox = async (item: any) => {
-    if (!user || !user.id) throw new Error("No user");
+    if (!user || !user.id) {
+      const guestItem = {
+        id: 'local_' + Date.now() + '_' + Math.random().toString(36).substring(7),
+        ...item,
+        createdAt: new Date().toISOString()
+      };
+      setPersonalInbox(prev => [guestItem, ...prev]);
+      try {
+        const stored = JSON.parse(localStorage.getItem('smartshare_personal_inbox_local') || '[]');
+        localStorage.setItem('smartshare_personal_inbox_local', JSON.stringify([guestItem, ...stored]));
+      } catch (err) {}
+      return guestItem.id;
+    }
     const docRef = await addDoc(collection(db, 'users', user.id, 'personal_inbox'), {
       ...item,
       createdAt: new Date().toISOString()
