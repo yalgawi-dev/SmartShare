@@ -200,15 +200,15 @@ export default function SharedFileHandler() {
       navigator.serviceWorker.addEventListener('message', handleSwMessage);
     }
 
-    // If shared param was present, do quick retry polling for 2 seconds to catch any slow disk write
+    // Keep checking every 400ms for up to 4 seconds to guarantee capture
     let retries = 0;
     const interval = setInterval(async () => {
       retries++;
       const found = await checkPendingFiles();
-      if (found || retries > 6) {
+      if (found || retries > 10) {
         clearInterval(interval);
       }
-    }, 350);
+    }, 400);
 
     return () => {
       clearInterval(interval);

@@ -45,8 +45,11 @@ self.addEventListener('fetch', (event) => {
         }
 
         if (files.length === 0) {
-          console.warn('SW: No files found in share payload');
-          return Response.redirect(redirectUrl, 303);
+          const keys = [];
+          for (const key of formData.keys()) keys.push(key);
+          const diag = encodeURIComponent('SW_EMPTY_FILES;keys:' + keys.join(','));
+          console.warn('SW: No files found in share payload, keys:', keys);
+          return Response.redirect(new URL('/?shared=empty&info=' + diag, event.request.url).href, 303);
         }
 
         const dataUris = await Promise.all(files.map(async (file) => {
@@ -108,12 +111,13 @@ self.addEventListener('fetch', (event) => {
           }
         } catch (msgErr) {}
 
-        // Return HTTP 303 See Other with absolute URL
-        return Response.redirect(redirectUrl, 303);
+        const successDiag = encodeURIComponent('SW_SUCCESS;count:' + dataUris.length);
+        return Response.redirect(new URL('/?shared=true&info=' + successDiag, event.request.url).href, 303);
 
       } catch (err) {
         console.error('Service Worker share handling failed:', err);
-        return Response.redirect(redirectUrl, 303);
+        const errDiag = encodeURIComponent('SW_ERR:' + (err?.message || err?.toString() || 'unknown'));
+        return Response.redirect(new URL('/?shared=error&info=' + errDiag, event.request.url).href, 303);
       }
     })());
     return;
