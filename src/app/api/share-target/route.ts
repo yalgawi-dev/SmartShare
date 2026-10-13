@@ -10,13 +10,18 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const formData = await request.formData();
-    const rawFiles = formData.getAll('shared_file');
     
-    // Filter valid files or blobs
-    const files = rawFiles.filter(f => f && typeof f === 'object' && 'arrayBuffer' in f && (f as any).size > 0) as File[];
+    // Extract any file or blob regardless of the field name used by the source app
+    const files: File[] = [];
+    for (const [key, val] of formData.entries()) {
+      if (val && typeof val === 'object' && 'arrayBuffer' in val && (val as any).size > 0) {
+        files.push(val as File);
+      }
+    }
     
     if (!files || files.length === 0) {
-      return NextResponse.redirect(new URL('/', request.url), 303);
+      console.warn("Share target received no files. Keys received:", Array.from(formData.keys()));
+      return NextResponse.redirect(new URL('/?shared=empty', request.url), 303);
     }
 
     const dataUris = await Promise.all(files.map(async (file) => {

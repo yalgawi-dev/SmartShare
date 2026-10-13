@@ -92,18 +92,21 @@ export default function SharedFileHandler() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.get('shared') === 'true') {
+    const hasSharedParam = searchParams.get('shared') === 'true';
+    if (hasSharedParam) {
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      const processFoundFiles = (rawResult: any) => {
-        if (!rawResult) return;
-        const files = Array.isArray(rawResult) ? rawResult : [rawResult];
-        if (files.length === 0) return;
-        setSharedFiles(files);
-        setRouteDestination(files.length > 1 ? 'personal' : 'direct');
-        setIsModalOpen(true);
-      };
+    }
+    
+    const processFoundFiles = (rawResult: any) => {
+      if (!rawResult) return;
+      const files = Array.isArray(rawResult) ? rawResult : [rawResult];
+      if (files.length === 0) return;
+      setSharedFiles(files);
+      setRouteDestination(files.length > 1 ? 'personal' : 'direct');
+      setIsModalOpen(true);
+    };
 
+    const checkPendingFiles = () => {
       const request = indexedDB.open('MySpaceDB', 1);
       request.onsuccess = (e: any) => {
         const db = e.target.result;
@@ -143,7 +146,9 @@ export default function SharedFileHandler() {
           }
         } catch (err) {}
       };
-    }
+    };
+
+    checkPendingFiles();
   }, []);
 
   const currentSelectedSpace = React.useMemo(() => {

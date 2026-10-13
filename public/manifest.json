@@ -52,7 +52,12 @@
           "name": "shared_file",
           "accept": [
             "image/*",
-            "application/pdf"
+            "application/pdf",
+            ".pdf",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp"
           ]
         }
       ]
