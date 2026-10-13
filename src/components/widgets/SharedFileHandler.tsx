@@ -25,7 +25,6 @@ export default function SharedFileHandler() {
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault'>('personal');
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
-  const [showEmptyFallback, setShowEmptyFallback] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -133,10 +132,6 @@ export default function SharedFileHandler() {
         localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
       } catch (e) {}
       window.history.replaceState({}, document.title, window.location.pathname);
-      
-      if (hasSharedParam === 'empty') {
-        setShowEmptyFallback(true);
-      }
     }
     setCheckpointLogs(currentLogs);
 
@@ -148,17 +143,31 @@ export default function SharedFileHandler() {
           const tx = db.transaction('sharedFiles', 'readonly');
           const store = tx.objectStore('sharedFiles');
           const getReq = store.get('latest_shared');
-          getReq.onsuccess = () => {
+          getReq.onsuccess = async () => {
             if (getReq.result) {
               processFoundFiles(getReq.result, 'INDEXED_DB');
             } else {
+              let handled = false;
               try {
                 const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
                 if (backup) {
+                  handled = true;
                   processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
                   localStorage.removeItem('smartshare_latest_shared_backup');
                 }
               } catch (err) {}
+
+              if (!handled && typeof caches !== 'undefined') {
+                try {
+                  const cache = await caches.open('smartshare-shared-cache');
+                  const match = await cache.match('/api/last-shared-files');
+                  if (match) {
+                    const data = await match.json();
+                    await cache.delete('/api/last-shared-files');
+                    processFoundFiles(data, 'SW_CACHE_STORAGE');
+                  }
+                } catch (cErr) {}
+              }
             }
           };
         } else {
@@ -171,14 +180,18 @@ export default function SharedFileHandler() {
           } catch (err) {}
         }
       };
-      request.onerror = () => {
-        try {
-          const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
-          if (backup) {
-            processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
-            localStorage.removeItem('smartshare_latest_shared_backup');
-          }
-        } catch (err) {}
+      request.onerror = async () => {
+        if (typeof caches !== 'undefined') {
+          try {
+            const cache = await caches.open('smartshare-shared-cache');
+            const match = await cache.match('/api/last-shared-files');
+            if (match) {
+              const data = await match.json();
+              await cache.delete('/api/last-shared-files');
+              processFoundFiles(data, 'SW_CACHE_STORAGE');
+            }
+          } catch (cErr) {}
+        }
       };
     };
 
@@ -606,74 +619,6 @@ export default function SharedFileHandler() {
           </div>
         </div>
       </div>
-      )}
-
-      {/* Fallback recovery modal if Chrome dropped the file payload */}
-      {showEmptyFallback && !isModalOpen && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 99999,
-          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: '20px', padding: '1.5rem',
-            width: '100%', maxWidth: '380px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📥</div>
-            <h3 style={{ margin: '0 0 0.5rem', color: '#1e293b', fontSize: '1.2rem' }}>נקלט שיתוף חדש!</h3>
-            <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '0 0 1.25rem', lineHeight: '1.5' }}>
-              הטלפון פתח את SmartShare לשיתוף, אך מטעמי אבטחה של Android נדרש אישור מהיר לבחירת הקובץ שרצית:
-            </p>
-
-            <input 
-              type="file" 
-              id="shared-fallback-input" 
-              multiple
-              accept="image/*,application/pdf"
-              style={{ display: 'none' }}
-              onChange={async (e) => {
-                const filesList = Array.from(e.target.files || []);
-                if (filesList.length === 0) return;
-                
-                const uris = await Promise.all(filesList.map(file => {
-                  return new Promise<string>((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.readAsDataURL(file);
-                  });
-                }));
-
-                setShowEmptyFallback(false);
-                processFoundFiles(uris, 'MANUAL_FALLBACK');
-              }}
-            />
-
-            <button
-              onClick={() => {
-                document.getElementById('shared-fallback-input')?.click();
-              }}
-              style={{
-                width: '100%', padding: '0.9rem', borderRadius: '14px', border: 'none',
-                background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
-                color: '#fff', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer',
-                boxShadow: '0 4px 15px rgba(79, 70, 229, 0.35)', marginBottom: '0.75rem'
-              }}
-            >
-              📂 בחר את הקובץ לניתוב מיידי
-            </button>
-
-            <button
-              onClick={() => setShowEmptyFallback(false)}
-              style={{
-                background: 'transparent', border: 'none', color: '#94a3b8',
-                cursor: 'pointer', fontSize: '0.85rem'
-              }}
-            >
-              ביטול
-            </button>
-          </div>
-        </div>
       )}
       
       {zoomedIndex !== null && (

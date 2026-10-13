@@ -1,12 +1,9 @@
 {
-  "id": "smartshare-app",
   "name": "SmartShare",
   "short_name": "SmartShare",
   "description": "Smart project and expense management for partners.",
   "start_url": "/",
-  "scope": "/",
   "display": "standalone",
-  "display_override": ["window-controls-overlay", "standalone", "browser"],
   "background_color": "#ffffff",
   "theme_color": "#4a5bf0",
   "orientation": "portrait",
@@ -49,7 +46,7 @@
       "url": "url",
       "files": [
         {
-          "name": "file",
+          "name": "shared_file",
           "accept": [
             "image/*",
             "application/pdf",
