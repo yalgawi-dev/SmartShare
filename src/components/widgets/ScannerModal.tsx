@@ -1236,9 +1236,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'cropping' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-            <button onClick={() => handleDeleteActive()} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem 1rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
-              <span style={{ fontSize: '1.1rem' }}>🗑️</span>
-              מחק
+            <button onClick={handleRetake} style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem 1rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 'bold', fontSize: '0.9rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>📷</span>
+              צלם שוב
             </button>
             <button onClick={handleSkipCrop} disabled={isProcessing} style={{ flex: 1, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.75rem 1rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
               <span>⚡</span> דלג על עריכה
@@ -1313,9 +1313,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
               {/* Row 1: secondary actions */}
               <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
-                <button onClick={() => handleDeleteActive()} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                  <span style={{ fontSize: '1rem' }}>🗑️</span>
-                  מחק עמוד
+                <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <span style={{ fontSize: '1rem' }}>📷</span>
+                  צלם שוב
                 </button>
                 <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <span style={{ fontSize: '1rem' }}>✂️</span>
