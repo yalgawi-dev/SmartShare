@@ -25,6 +25,7 @@ export default function SharedFileHandler() {
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault'>('personal');
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [showEmptyFallback, setShowEmptyFallback] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -91,6 +92,24 @@ export default function SharedFileHandler() {
 
   const [checkpointLogs, setCheckpointLogs] = useState<string[]>([]);
 
+  const processFoundFiles = React.useCallback((rawResult: any, source: string) => {
+    if (!rawResult) return;
+    const files = Array.isArray(rawResult) ? rawResult : [rawResult];
+    if (files.length === 0) return;
+    
+    try {
+      const stored = JSON.parse(localStorage.getItem('smartshare_share_checkpoints') || '[]');
+      const updated = Array.isArray(stored) ? stored : [];
+      updated.push('LOADED_FROM_' + source + ': ' + files.length + ' files');
+      localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(updated));
+      setCheckpointLogs(updated);
+    } catch(e) {}
+
+    setSharedFiles(files);
+    setRouteDestination(files.length > 1 ? 'personal' : 'direct');
+    setIsModalOpen(true);
+  }, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const searchParams = new URLSearchParams(window.location.search);
@@ -114,25 +133,12 @@ export default function SharedFileHandler() {
         localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
       } catch (e) {}
       window.history.replaceState({}, document.title, window.location.pathname);
+      
+      if (hasSharedParam === 'empty') {
+        setShowEmptyFallback(true);
+      }
     }
     setCheckpointLogs(currentLogs);
-    
-    const processFoundFiles = (rawResult: any, source: string) => {
-      if (!rawResult) return;
-      const files = Array.isArray(rawResult) ? rawResult : [rawResult];
-      if (files.length === 0) return;
-      
-      const updated = readLogs();
-      updated.push('LOADED_FROM_' + source + ': ' + files.length + ' files');
-      try {
-        localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(updated));
-      } catch(e) {}
-      setCheckpointLogs(updated);
-
-      setSharedFiles(files);
-      setRouteDestination(files.length > 1 ? 'personal' : 'direct');
-      setIsModalOpen(true);
-    };
 
     const checkPendingFiles = () => {
       const request = indexedDB.open('MySpaceDB', 1);
@@ -600,6 +606,70 @@ export default function SharedFileHandler() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Fallback recovery modal if Chrome dropped the file payload */}
+      {showEmptyFallback && !isModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 99999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '20px', padding: '1.5rem',
+            width: '100%', maxWidth: '380px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            textAlign: 'center'
+          }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📥</div>
+            <h3 style={{ margin: '0 0 0.5rem', color: '#1e293b', fontSize: '1.2rem' }}>נקלט שיתוף חדש!</h3>
+            <p style={{ fontSize: '0.88rem', color: '#64748b', margin: '0 0 1.25rem', lineHeight: '1.5' }}>
+              הטלפון פתח את SmartShare לשיתוף, אך מטעמי אבטחה של Android נדרש אישור מהיר לבחירת הקובץ שרצית:
+            </p>
+
+            <input 
+              type="file" 
+              id="shared-fallback-input" 
+              accept="image/*,application/pdf"
+              style={{ display: 'none' }}
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (!f) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                  if (reader.result) {
+                    setShowEmptyFallback(false);
+                    processFoundFiles([reader.result as string], 'MANUAL_FALLBACK');
+                  }
+                };
+                reader.readAsDataURL(f);
+              }}
+            />
+
+            <button
+              onClick={() => {
+                document.getElementById('shared-fallback-input')?.click();
+              }}
+              style={{
+                width: '100%', padding: '0.9rem', borderRadius: '14px', border: 'none',
+                background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
+                color: '#fff', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(79, 70, 229, 0.35)', marginBottom: '0.75rem'
+              }}
+            >
+              📂 בחר את הקובץ לניתוב מיידי
+            </button>
+
+            <button
+              onClick={() => setShowEmptyFallback(false)}
+              style={{
+                background: 'transparent', border: 'none', color: '#94a3b8',
+                cursor: 'pointer', fontSize: '0.85rem'
+              }}
+            >
+              ביטול
+            </button>
+          </div>
+        </div>
       )}
       
       {zoomedIndex !== null && (

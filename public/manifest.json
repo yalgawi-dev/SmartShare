@@ -49,15 +49,11 @@
       "url": "url",
       "files": [
         {
-          "name": "shared_file",
+          "name": "file",
           "accept": [
             "image/*",
             "application/pdf",
-            ".pdf",
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".webp"
+            "*/*"
           ]
         }
       ]
