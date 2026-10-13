@@ -1309,21 +1309,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               )}
 
               {/* Row 1: secondary actions */}
-              <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem' }}>
-                <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.3rem', marginTop: '0.2rem' }}>
+                <button onClick={() => handleDeleteActive()} style={{ flex: 1, background: 'transparent', color: '#ef4444', border: '1px solid #ef4444', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                  <span style={{ fontSize: '1rem' }}>🗑️</span>
+                  מחק
+                </button>
+                <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>📷</span>
                   צלם שוב
                 </button>
-                <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>✂️</span>
-                  עריכה/חיתוך
+                  עריכה
                 </button>
-                
-                <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <button onClick={handleShare} style={{ flex: 1, background: 'transparent', color: '#10b981', border: '1px solid #10b981', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>📤</span>
                   שיתוף
                 </button>
-                <button onClick={handleAddPage} style={{ flex: 1, background: 'transparent', color: '#FFD700', border: '1px solid #FFD700', padding: '0.4rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.75rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <button onClick={handleAddPage} style={{ flex: 1.1, background: 'transparent', color: '#FFD700', border: '1px solid #FFD700', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 'bold', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>📄</span>
                   הוסף עמוד
                 </button>
