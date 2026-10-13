@@ -8,12 +8,26 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Robust binary to base64 converter in worker context without memory/stack limits
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  const CHUNK_SIZE = 0x8000; // 32KB chunks safe for JavaScript engines
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, Math.min(i + CHUNK_SIZE, bytes.length));
+    binary += String.fromCharCode.apply(null, chunk);
+  }
+  return btoa(binary);
+}
+
 // Intercept incoming Web Share Target POST requests locally on device
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (event.request.method === 'POST' && url.pathname === '/api/share-target') {
     event.respondWith((async () => {
+      const redirectUrl = new URL('/?shared=true', event.request.url).href;
+
       try {
         const formData = await event.request.formData();
         
@@ -31,43 +45,18 @@ self.addEventListener('fetch', (event) => {
         }
 
         if (files.length === 0) {
-          return fetch(event.request);
+          console.warn('SW: No files found in share payload');
+          return Response.redirect(redirectUrl, 303);
         }
 
         const dataUris = await Promise.all(files.map(async (file) => {
           const buffer = await file.arrayBuffer();
-          let binary = '';
-          const bytes = new Uint8Array(buffer);
-          const len = bytes.byteLength;
-          for (let i = 0; i < len; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64 = btoa(binary);
+          const base64 = arrayBufferToBase64(buffer);
           const mimeType = file.type || 'image/jpeg';
           return 'data:' + mimeType + ';base64,' + base64;
         }));
 
-        // Store into IndexedDB directly from Service Worker
-        await new Promise((resolve, reject) => {
-          const request = indexedDB.open('MySpaceDB', 1);
-          request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains('sharedFiles')) {
-              db.createObjectStore('sharedFiles');
-            }
-          };
-          request.onsuccess = (e) => {
-            const db = e.target.result;
-            const tx = db.transaction('sharedFiles', 'readwrite');
-            const store = tx.objectStore('sharedFiles');
-            store.put(dataUris, 'latest_shared');
-            tx.oncomplete = () => resolve(true);
-            tx.onerror = () => reject(tx.error);
-          };
-          request.onerror = () => reject(request.error);
-        });
-
-        // Also save to Cache Storage
+        // 1. Save to Cache Storage first (instant & reliable in SW)
         try {
           const cache = await caches.open('smartshare-shared-cache');
           await cache.put('/api/last-shared-files', new Response(JSON.stringify(dataUris), {
@@ -77,11 +66,46 @@ self.addEventListener('fetch', (event) => {
           console.warn('Cache storage put failed:', cErr);
         }
 
-        return Response.redirect('/?shared=true', 303);
+        // 2. Also save to IndexedDB safely without blocking
+        try {
+          await new Promise((resolve) => {
+            const request = indexedDB.open('MySpaceDB');
+            request.onupgradeneeded = (e) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains('sharedFiles')) {
+                db.createObjectStore('sharedFiles');
+              }
+            };
+            request.onsuccess = (e) => {
+              try {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('sharedFiles')) {
+                  db.close();
+                  resolve(false);
+                  return;
+                }
+                const tx = db.transaction('sharedFiles', 'readwrite');
+                const store = tx.objectStore('sharedFiles');
+                store.put(dataUris, 'latest_shared');
+                tx.oncomplete = () => { db.close(); resolve(true); };
+                tx.onerror = () => { db.close(); resolve(false); };
+              } catch (txErr) {
+                resolve(false);
+              }
+            };
+            request.onerror = () => resolve(false);
+            request.onblocked = () => resolve(false);
+          });
+        } catch (idbErr) {
+          console.warn('IndexedDB write skipped/failed:', idbErr);
+        }
+
+        // Return HTTP 303 See Other with absolute URL
+        return Response.redirect(redirectUrl, 303);
 
       } catch (err) {
         console.error('Service Worker share handling failed:', err);
-        return fetch(event.request);
+        return Response.redirect(redirectUrl, 303);
       }
     })());
     return;
