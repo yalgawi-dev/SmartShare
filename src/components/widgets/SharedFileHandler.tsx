@@ -107,8 +107,9 @@ export default function SharedFileHandler() {
     };
     
     let currentLogs = readLogs();
+    const infoParam = searchParams.get('info');
     if (hasSharedParam) {
-      currentLogs.push('PARAM_SHARED: ' + hasSharedParam + ' at ' + new Date().toLocaleTimeString());
+      currentLogs.push('PARAM_SHARED: ' + hasSharedParam + (infoParam ? ' [' + decodeURIComponent(infoParam) + ']' : '') + ' at ' + new Date().toLocaleTimeString());
       try {
         localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
       } catch (e) {}

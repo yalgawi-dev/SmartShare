@@ -11,17 +11,25 @@ export async function POST(request: Request) {
   try {
     const formData = await request.formData();
     
-    // Extract any file or blob regardless of the field name used by the source app
+    const allKeys = Array.from(formData.keys());
     const files: File[] = [];
+    const debugEntries: string[] = [];
+
     for (const [key, val] of formData.entries()) {
       if (val && typeof val === 'object' && 'arrayBuffer' in val && (val as any).size > 0) {
         files.push(val as File);
+        debugEntries.push(`${key}:file(${(val as any).name || 'noname'},${(val as any).size}b,${(val as any).type})`);
+      } else if (typeof val === 'string') {
+        debugEntries.push(`${key}:str(${val.substring(0, 30)})`);
+      } else {
+        debugEntries.push(`${key}:unknown`);
       }
     }
     
     if (!files || files.length === 0) {
-      console.warn("Share target received no files. Keys received:", Array.from(formData.keys()));
-      return NextResponse.redirect(new URL('/?shared=empty', request.url), 303);
+      const info = encodeURIComponent(debugEntries.join('|') || 'NO_ENTRIES');
+      console.warn("Share target received no files. Keys:", allKeys, "Entries:", debugEntries);
+      return NextResponse.redirect(new URL(`/?shared=empty&info=${info}`, request.url), 303);
     }
 
     const dataUris = await Promise.all(files.map(async (file) => {
