@@ -245,7 +245,9 @@ export default function ChatEngineUI({
       }}>
         {isFrozen ? (
           <div style={{ width: '100%', textAlign: 'center', padding: '0.8rem', background: '#fee2e2', color: '#ef4444', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-            הצ'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.
+            {member?.isActive === false 
+              ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.' 
+              : 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'}
           </div>
         ) : (
           <>

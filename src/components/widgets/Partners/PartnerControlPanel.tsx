@@ -58,7 +58,7 @@ interface Props {
 
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, restoreMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange, declinePendingInvite } = useSpaces() as any;
+  const { approveExtension, removeMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange, declinePendingInvite } = useSpaces() as any;
   const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
@@ -169,34 +169,16 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     setConfirmModalConfig({
       isOpen: true,
       title: 'הסרת שותף מהמרחב',
-      message: `האם להסיר את "${memberName}" מהמרחב ולהעביר לארכיון? תוכל לשחזר אותו בכל עת מארכיון השותפים.`,
-      confirmText: 'העבר לארכיון',
+      message: `האם להסיר את "${memberName}" מהמרחב? במידה ויש לו היסטוריית הוצאות, שמו יישמר כלא פעיל לצורך היסטוריה בלבד.`,
+      confirmText: 'הסר שותף',
       cancelText: 'ביטול',
       variant: 'danger',
-      icon: '📁',
+      icon: '🗑️',
       onConfirm: () => {
         if (member?.isInvite) {
           if (typeof declinePendingInvite === 'function') declinePendingInvite(space.id, member.userId);
         } else {
           if (typeof removeMember === 'function') removeMember(space.id, member.userId, user?.realName || 'מנהל', false);
-        }
-        onClose();
-      }
-    });
-  };
-
-  const handleRestore = () => {
-    setConfirmModalConfig({
-      isOpen: true,
-      title: 'החזרת שותף לפעילות',
-      message: `האם להחזיר את "${memberName}" לפעילות מלאה במרחב?`,
-      confirmText: 'החזר שותף',
-      cancelText: 'ביטול',
-      variant: 'primary',
-      icon: '🔄',
-      onConfirm: () => {
-        if (typeof restoreMember === 'function') {
-          restoreMember(space.id, member.userId, user?.realName || 'מנהל');
         }
         onClose();
       }
@@ -434,26 +416,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   🔄 אפס סטטוס
                 </button>
               )}
-              {member?.isActive === false ? (
-                <button 
-                  onClick={handleRestore} 
-                  style={{ 
-                    background: '#ecfdf5', 
-                    color: '#059669', 
-                    border: '1px solid #a7f3d0', 
-                    padding: '0.45rem 0.75rem', 
-                    borderRadius: '20px', 
-                    fontWeight: '700', 
-                    cursor: 'pointer', 
-                    fontSize: '0.8rem', 
-                    whiteSpace: 'nowrap',
-                    transition: 'all 0.15s'
-                  }}
-                  title="החזרת שותף לפעילות במרחב"
-                >
-                  🔄 החזר שותף לפעילות
-                </button>
-              ) : (
+              {member?.isActive !== false && (
                 <button 
                   onClick={handleRemove} 
                   style={{ 
@@ -470,7 +433,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   }}
                   onMouseEnter={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.borderColor = '#fca5a5'; }}
                   onMouseLeave={e => { e.currentTarget.style.color = '#64748b'; e.currentTarget.style.borderColor = '#cbd5e1'; }}
-                  title="הסרת שותף והעברה לארכיון"
+                  title="הסרת שותף מהמרחב"
                 >
                   🗑️ הסר מהמרחב
                 </button>
@@ -482,7 +445,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         {/* Chat Messages Area */}
         {(space.features || []).includes('chat') ? (
           <ChatEngineUI
-            isFrozen={!(space.features || []).includes('partners')}
+            isFrozen={!(space.features || []).includes('partners') || member?.isActive === false}
             space={space}
             conversationId={conversationId}
             member={member}

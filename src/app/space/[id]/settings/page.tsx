@@ -12,7 +12,7 @@ import { getFeatureById } from '../../../data/features';
 export default function SpaceSettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
-  const { spaces, updateSpaceSettings, updateMemberPermissions, toggleFeature, removeMember, restoreMember } = useSpaces();
+  const { spaces, updateSpaceSettings, updateMemberPermissions, toggleFeature, removeMember } = useSpaces();
   const { user } = useAuth();
   
   const space = spaces.find(s => s.id === id);

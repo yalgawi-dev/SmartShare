@@ -795,7 +795,31 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '90%', height: '85%', gap: '1rem' }}>
             {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].type === 'pdf' || previewState.docs[previewState.index].url?.startsWith('data:application/pdf')) ? (
-              <iframe src={previewState.docs[previewState.index].url} style={{ width: '100%', height: '85%', border: 'none', background: 'white', borderRadius: '12px' }} />
+              <div style={{ width: '100%', height: '80%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#1e293b', borderRadius: '16px', padding: '1.5rem', gap: '1rem', border: '1px solid #334155' }}>
+                <div style={{ fontSize: '4.5rem' }}>📄</div>
+                <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
+                  {previewState.docs[previewState.index].title || 'מסמך PDF'}
+                </h3>
+                <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0, textAlign: 'center' }}>
+                  קובץ PDF מקורי מוכן לצפייה והורדה
+                </p>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} 
+                    style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.7rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}
+                  >
+                    <span>👁️ פתח במסך מלא</span>
+                  </button>
+                  <a 
+                    href={previewState.docs[previewState.index].url} 
+                    download={previewState.docs[previewState.index].title || 'document.pdf'}
+                    onClick={(e) => e.stopPropagation()} 
+                    style={{ background: '#475569', color: 'white', textDecoration: 'none', padding: '0.7rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <span>⬇️ הורדה</span>
+                  </a>
+                </div>
+              </div>
             ) : (
               <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '75%', objectFit: 'contain', transition: 'all 0.3s', borderRadius: '8px' }} alt="Preview" />
             )}
@@ -1088,13 +1112,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           )}
           
           {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].url?.startsWith('data:application/pdf') || previewState.docs[previewState.index].type === 'pdf') ? (
-            <div style={{ width: '90%', height: '80%', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center' }}>
-               <iframe src={previewState.docs[previewState.index].url} style={{ width: '100%', height: '100%', border: 'none', background: 'white', borderRadius: '12px' }} title="PDF Preview" />
-               <div style={{ display: 'flex', gap: '1rem', zIndex: 20002 }}>
-                 <button onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                   <span>הורדה / צפייה</span>
+            <div style={{ width: '90%', height: '80%', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center', background: '#1e293b', borderRadius: '16px', padding: '1.5rem', border: '1px solid #334155' }}>
+               <div style={{ fontSize: '4.5rem' }}>📄</div>
+               <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
+                 {previewState.docs[previewState.index].title || 'מסמך PDF'}
+               </h3>
+               <p style={{ color: '#94a3b8', fontSize: '0.9rem', margin: 0, textAlign: 'center' }}>
+                 קובץ PDF מקורי מוכן לצפייה והורדה
+               </p>
+               <div style={{ display: 'flex', gap: '0.75rem', zIndex: 20002, marginTop: '0.5rem' }}>
+                 <button onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
+                   <span>👁️ פתח במסך מלא</span>
                  </button>
-                 <button onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                 <button onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}>
                    <span>שתף 📤</span>
                  </button>
                </div>

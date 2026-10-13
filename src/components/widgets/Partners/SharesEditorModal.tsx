@@ -18,7 +18,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
 
   useEffect(() => { setMounted(true); }, []);
 
-  const validMembers = (space.members || []).filter((m: any) => m.status !== 'rejected');
+  const validMembers = (space.members || []).filter((m: any) => m.status !== 'rejected' && m.isActive !== false);
   const totalPartners = validMembers.length;
   const defaultShare = totalPartners > 0 ? Number((100 / (totalPartners + 1)).toFixed(1)) : 100;
 

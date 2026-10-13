@@ -11,7 +11,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
   const { user } = useAuth();
-  const { getRoleForSpace, removeMember, restoreMember, updateMemberStatus, refreshMemberInvite } = useSpaces();
+  const { getRoleForSpace, removeMember, updateMemberStatus, refreshMemberInvite } = useSpaces();
   const { openChat } = useChat();
 
   const myRole = getRoleForSpace(space.id);
@@ -31,7 +31,6 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   }));
 
   const activeSpaceMembers = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false);
-  const archivedMembers = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive === false);
 
   const allMembers = [
     {
@@ -189,62 +188,6 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           );
         })}
             </div>
-
-      {isCreatorMe && archivedMembers.length > 0 && (
-        <div style={{ marginTop: '0.75rem', borderTop: '1px dashed var(--border-light)', paddingTop: '0.75rem' }}>
-          <details style={{ cursor: 'pointer' }}>
-            <summary style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold', userSelect: 'none', padding: '0.25rem 0' }}>
-              📁 שותפים שהוסרו (ארכיון - {archivedMembers.length}) ▾
-            </summary>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {archivedMembers.map((arch: any) => (
-                <div 
-                  key={arch.userId}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    padding: '0.65rem 0.85rem', background: '#f8fafc', borderRadius: '12px',
-                    border: '1px solid #e2e8f0'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: '#e2e8f0', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '0.9rem' }}>
-                      {arch.name?.charAt(0) || 'ש'}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 'bold', fontSize: '0.88rem', color: '#334155' }}>{arch.name}</div>
-                      <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>הוסר מהמרחב</div>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setConfirmModalConfig({
-                        isOpen: true,
-                        title: 'החזרת שותף לפעילות',
-                        message: `האם להחזיר את "${arch.name}" לפעילות מלאה במרחב?`,
-                        confirmText: 'החזר שותף',
-                        cancelText: 'ביטול',
-                        variant: 'primary',
-                        icon: '🔄',
-                        onConfirm: () => {
-                          restoreMember(space.id, arch.userId, user?.realName || 'מנהל');
-                        }
-                      });
-                    }}
-                    style={{
-                      background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0',
-                      padding: '0.35rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem',
-                      fontWeight: 'bold', cursor: 'pointer'
-                    }}
-                  >
-                    🔄 החזר שותף
-                  </button>
-                </div>
-              ))}
-            </div>
-          </details>
-        </div>
-      )}
-
       <ConfirmModal
         isOpen={confirmModalConfig.isOpen}
         title={confirmModalConfig.title}

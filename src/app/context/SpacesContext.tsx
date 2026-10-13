@@ -277,7 +277,6 @@ interface SpacesContextType {
   
   refreshMemberInvite: (spaceId: string, userId: string) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string, forceHardDelete?: boolean) => void;
-  restoreMember: (spaceId: string, userId: string, performedBy: string) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
   devResetSpace: (spaceId: string, currentUserId: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
@@ -1299,17 +1298,25 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       const memberToRemove = space.members?.find(m => m.userId === userId);
       if (!memberToRemove) return space;
 
+      // Check if member has any historical transactions in this space
+      const hasHistory = (space.invoices || []).some(inv => 
+        inv.payerId === userId || 
+        (inv as any).targetId === userId || 
+        (inv.approvedBy || []).includes(userId) ||
+        (inv.excludedMembers || []).includes(userId)
+      );
+
       let newMembers;
       let actionType: 'MEMBER_REMOVED' | 'MEMBER_LEFT' = 'MEMBER_REMOVED';
       let details = '';
 
-      if (forceHardDelete) {
+      if (forceHardDelete || !hasHistory) {
         newMembers = space.members?.filter(m => m.userId !== userId) || [];
-        details = `השותף ${memberToRemove.name} נמחק לצמיתות.`;
+        details = `השותף ${memberToRemove.name} נמחק לצמיתות מהמרחב.`;
       } else {
-        // Keep previous sharePercentage so historical transactions continue to balance accurately
-        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false } : m) || [];
-        details = `השותף ${memberToRemove.name} הועבר לארכיון (לא פעיל).`;
+        // Keep in historical balance records but inactivate with 0% future share
+        newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: false, sharePercentage: 0 } : m) || [];
+        details = `השותף ${memberToRemove.name} סומן כלא פעיל (נשמר לצורך היסטוריית התחשבנות).`;
       }
       
       const newLog: AuditRecord = {
@@ -1326,30 +1333,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         auditLogs: [newLog, ...(space.auditLogs || [])]
       };
     });
-  };
 
-  const restoreMember = (spaceId: string, userId: string, performedBy: string) => {
-    saveSpaceUpdate(spaceId, space => {
-      const memberToRestore = space.members?.find(m => m.userId === userId);
-      if (!memberToRestore) return space;
-
-      const newMembers = space.members?.map(m => m.userId === userId ? { ...m, isActive: true } : m) || [];
-      
-      const newLog: AuditRecord = {
-        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
-        timestamp: new Date().toISOString(),
-        actionType: 'OTHER',
-        performedBy,
-        details: `׳³ג€׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ${memberToRestore.name} ׳³ג€׳³ג€¢׳³ג€”׳³ג€“׳³ֲ¨ ׳³ֲ׳³ג‚×׳³ֲ¢׳³ג„¢׳³ֲ׳³ג€¢׳³ֳ—.`
-      };
-
-      return {
-        ...space,
-        members: newMembers,
-        auditLogs: [newLog, ...(space.auditLogs || [])]
-      };
-    });
-    
     setTimeout(() => {
       autoBalanceShares(spaceId, performedBy);
     }, 100);
@@ -1722,7 +1706,6 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       deleteComment,
       refreshMemberInvite,
       removeMember,
-      restoreMember,
       autoBalanceShares,
       devResetSpace,
       addAuditLog,

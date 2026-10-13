@@ -95,6 +95,15 @@ export default function SharedFileHandler() {
     if (searchParams.get('shared') === 'true') {
       window.history.replaceState({}, document.title, window.location.pathname);
       
+      const processFoundFiles = (rawResult: any) => {
+        if (!rawResult) return;
+        const files = Array.isArray(rawResult) ? rawResult : [rawResult];
+        if (files.length === 0) return;
+        setSharedFiles(files);
+        setRouteDestination(files.length > 1 ? 'personal' : 'direct');
+        setIsModalOpen(true);
+      };
+
       const request = indexedDB.open('MySpaceDB', 1);
       request.onsuccess = (e: any) => {
         const db = e.target.result;
@@ -104,13 +113,35 @@ export default function SharedFileHandler() {
           const getReq = store.get('latest_shared');
           getReq.onsuccess = () => {
             if (getReq.result) {
-              const files = Array.isArray(getReq.result) ? getReq.result : [getReq.result];
-              setSharedFiles(files);
-              setRouteDestination(files.length > 1 ? 'personal' : 'direct');
-              setIsModalOpen(true);
+              processFoundFiles(getReq.result);
+            } else {
+              try {
+                const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
+                if (backup) {
+                  processFoundFiles(backup);
+                  localStorage.removeItem('smartshare_latest_shared_backup');
+                }
+              } catch (err) {}
             }
           };
+        } else {
+          try {
+            const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
+            if (backup) {
+              processFoundFiles(backup);
+              localStorage.removeItem('smartshare_latest_shared_backup');
+            }
+          } catch (err) {}
         }
+      };
+      request.onerror = () => {
+        try {
+          const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
+          if (backup) {
+            processFoundFiles(backup);
+            localStorage.removeItem('smartshare_latest_shared_backup');
+          }
+        } catch (err) {}
       };
     }
   }, []);
@@ -118,10 +149,18 @@ export default function SharedFileHandler() {
   useEffect(() => {
     if (isModalOpen && displayedSpaces && displayedSpaces.length > 0) {
       if (!selectedSpaceId || !displayedSpaces.find((s:any) => s.id === selectedSpaceId)) {
-        setSelectedSpaceId(displayedSpaces[0].id);
+        const initSpace = displayedSpaces[0];
+        setSelectedSpaceId(initSpace.id);
+        const feats = initSpace.features || [];
+        const hasFin = feats.includes('finance');
+        const hasVlt = feats.includes('vault') || feats.includes('documents');
+        if (sharedFiles.length === 1) {
+          if (!hasFin && hasVlt) setRouteDestination('vault');
+          else if (hasFin && !hasVlt) setRouteDestination('direct');
+        }
       }
     }
-  }, [isModalOpen, displayedSpaces, selectedSpaceId]);
+  }, [isModalOpen, displayedSpaces, selectedSpaceId, sharedFiles.length]);
 
   useEffect(() => {
     if (selectedSpaceId) {

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { createPortal } from 'react-dom';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import NotificationCenterWidget from '../components/widgets/NotificationCenterWidget';
@@ -28,6 +28,22 @@ export default function Dashboard() {
   const [editTitleValue, setEditTitleValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedSpaceId, setExpandedSpaceId] = useState<string | null>(null);
+
+  const handleToggleSpace = (spaceId: string) => {
+    if (expandedSpaceId === spaceId) {
+      setExpandedSpaceId(null);
+    } else {
+      setExpandedSpaceId(spaceId);
+      setTimeout(() => {
+        const el = document.getElementById(`space-${spaceId}`);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          const targetY = window.scrollY + rect.top - 20; // 20px padding from top
+          window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+        }
+      }, 50);
+    }
+  };
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
   const activeLogoSpaceIdRef = useRef<string | null>(null);
   const [showPersonalInbox, setShowPersonalInbox] = useState(false);
@@ -522,7 +538,7 @@ export default function Dashboard() {
             
             {/* Header / Accordion Toggle */}
             <div 
-              onClick={() => setExpandedSpaceId(isExpanded ? null : space.id)}
+              onClick={() => handleToggleSpace(space.id)}
               style={{ padding: '1rem', display: 'flex', alignItems: 'center', gap: '1rem', cursor: 'pointer', background: isExpanded ? 'rgba(99,102,241,0.05)' : 'transparent' }}
             >
               <div style={{ position: 'relative' }}>
@@ -691,7 +707,7 @@ export default function Dashboard() {
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
-        v5.1.0 - שלב 5: מנוע הזמנות חכם, זיהוי טלפוני (Phone Auth) ומאגר אנשי קשר
+        v6.7.92 - CamScanner Document Model, Clean Partner Lifecycle, Smart Share Target
       </div>
       
       {/* Global hidden inputs for Logo Upload */}

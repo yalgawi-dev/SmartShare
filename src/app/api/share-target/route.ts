@@ -46,6 +46,14 @@ export async function POST(request: Request) {
         <div class="loader"></div>
         <h2>מעביר ל-SmartShare...</h2>
         <script>
+          const filesData = ${arrayString};
+          try {
+            // Also store in localStorage as reliable immediate fallback
+            localStorage.setItem('smartshare_latest_shared_backup', JSON.stringify(filesData));
+          } catch (e) {
+            console.warn('localStorage backup failed', e);
+          }
+
           const request = indexedDB.open('MySpaceDB', 1);
           
           request.onupgradeneeded = (e) => {
@@ -60,19 +68,19 @@ export async function POST(request: Request) {
             const tx = db.transaction('sharedFiles', 'readwrite');
             const store = tx.objectStore('sharedFiles');
             
-            store.put(${arrayString}, 'latest_shared');
+            store.put(filesData, 'latest_shared');
             
             tx.oncomplete = () => {
               window.location.replace('/?shared=true');
             };
             
             tx.onerror = () => {
-              window.location.replace('/?shared=error');
+              window.location.replace('/?shared=true');
             };
           };
           
           request.onerror = () => {
-            window.location.replace('/?shared=error');
+            window.location.replace('/?shared=true');
           };
         </script>
       </body>
