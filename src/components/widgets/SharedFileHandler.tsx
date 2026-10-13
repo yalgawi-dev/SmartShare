@@ -205,12 +205,12 @@ export default function SharedFileHandler() {
             setUploadProgress({ current: i + 1, total: filesToProcess.length });
             const cleanUri = filesToProcess[i].replace(/^"|"$/g, '');
             const compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
-            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'guest') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'me') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
             await addToPersonalInbox({
               imageUrl: publicUrl,
               status: 'processing',
               suggestedPayerId: selectedPayerId || user?.id,
-              uploadedBy: user?.id || 'guest'
+              uploadedBy: user?.id || 'me'
             });
           }
           
@@ -250,7 +250,7 @@ export default function SharedFileHandler() {
                 createdAt: new Date().toISOString(),
                 status: 'processing' as any,
                 suggestedPayerId: selectedPayerId || user?.id,
-                uploadedBy: user?.id || 'guest'
+                uploadedBy: user?.id || 'me'
               });
             }
           await addInboxItems(selectedSpaceId, itemsToAdd);
@@ -307,7 +307,7 @@ export default function SharedFileHandler() {
             url: publicUrl,
             title: isPdf ? 'מסמך PDF ששותף' : 'מסמך ששותף',
             type: isPdf ? 'pdf' : 'document',
-            addedBy: user?.id || 'guest'
+            addedBy: user?.id || 'me'
           });
         }
 
