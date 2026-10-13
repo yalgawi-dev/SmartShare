@@ -30,19 +30,22 @@ export async function POST(request: Request) {
 
     if (formData) {
       for (const [key, val] of formData.entries()) {
-        if (val && typeof val === 'object' && 'arrayBuffer' in val && (val as any).size > 0) {
+        const isObj = val && typeof val === 'object';
+        const hasBuffer = isObj && typeof (val as any).arrayBuffer === 'function';
+        const size = isObj ? (val as any).size : (typeof val === 'string' ? val.length : 0);
+        const name = isObj ? ((val as any).name || 'noname') : '';
+        const type = isObj ? ((val as any).type || 'notype') : '';
+
+        debugEntries.push(`${key}:${isObj ? 'obj' : typeof val}(${name},sz:${size},tp:${type})`);
+
+        if (hasBuffer && size > 0) {
           files.push(val as File);
-          debugEntries.push(`${key}:file(${(val as any).name || 'noname'},${(val as any).size}b,${(val as any).type})`);
-        } else if (typeof val === 'string') {
-          debugEntries.push(`${key}:str(${val.substring(0, 30)})`);
-        } else {
-          debugEntries.push(`${key}:unknown`);
         }
       }
     }
     
     if (!files || files.length === 0) {
-      const info = encodeURIComponent(debugEntries.join('|') || 'NO_ENTRIES');
+      const info = encodeURIComponent(debugEntries.join(';'));
       console.warn("Share target received no files. Info:", debugEntries);
       return NextResponse.redirect(new URL(`/?shared=empty&info=${info}`, request.url), 303);
     }

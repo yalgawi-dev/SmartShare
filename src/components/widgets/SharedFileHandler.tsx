@@ -372,25 +372,25 @@ export default function SharedFileHandler() {
       {/* Floating Diagnostics Badge: ALWAYS accessible to see share checkpoints */}
       {checkpointLogs.length > 0 && !isModalOpen && (
         <div style={{
-          position: 'fixed', bottom: '80px', left: '16px', zIndex: 99998,
+          position: 'fixed', bottom: '80px', left: '16px', right: '16px', zIndex: 99998,
           background: '#0f172a', color: '#38bdf8', border: '1px solid #38bdf8',
-          borderRadius: '12px', padding: '0.6rem 0.85rem', maxWidth: '320px',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)', fontSize: '0.75rem', direction: 'ltr'
+          borderRadius: '12px', padding: '0.85rem', maxWidth: '480px', margin: '0 auto',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)', fontSize: '0.8rem', direction: 'ltr', wordBreak: 'break-all'
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
             <span style={{ fontWeight: 'bold', color: '#facc15' }}>🔍 Share Pipeline Status</span>
             <button 
               onClick={() => {
                 localStorage.removeItem('smartshare_share_checkpoints');
                 setCheckpointLogs([]);
               }}
-              style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.75rem' }}
+              style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
             >
               ✕ Clear
             </button>
           </div>
           {checkpointLogs.map((log, idx) => (
-            <div key={idx} style={{ opacity: 0.9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div key={idx} style={{ opacity: 0.95, margin: '4px 0', lineHeight: '1.4' }}>
               • {log}
             </div>
           ))}
