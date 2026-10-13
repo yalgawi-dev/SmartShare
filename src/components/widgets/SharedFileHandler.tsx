@@ -629,19 +629,23 @@ export default function SharedFileHandler() {
             <input 
               type="file" 
               id="shared-fallback-input" 
+              multiple
               accept="image/*,application/pdf"
               style={{ display: 'none' }}
               onChange={async (e) => {
-                const f = e.target.files?.[0];
-                if (!f) return;
-                const reader = new FileReader();
-                reader.onload = () => {
-                  if (reader.result) {
-                    setShowEmptyFallback(false);
-                    processFoundFiles([reader.result as string], 'MANUAL_FALLBACK');
-                  }
-                };
-                reader.readAsDataURL(f);
+                const filesList = Array.from(e.target.files || []);
+                if (filesList.length === 0) return;
+                
+                const uris = await Promise.all(filesList.map(file => {
+                  return new Promise<string>((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result as string);
+                    reader.readAsDataURL(file);
+                  });
+                }));
+
+                setShowEmptyFallback(false);
+                processFoundFiles(uris, 'MANUAL_FALLBACK');
               }}
             />
 
