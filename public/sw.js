@@ -100,6 +100,14 @@ self.addEventListener('fetch', (event) => {
           console.warn('IndexedDB write skipped/failed:', idbErr);
         }
 
+        // Notify all clients of new shared content
+        try {
+          const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+          for (const client of allClients) {
+            client.postMessage({ action: 'NEW_SHARE_RECEIVED' });
+          }
+        } catch (msgErr) {}
+
         // Return HTTP 303 See Other with absolute URL
         return Response.redirect(redirectUrl, 303);
 

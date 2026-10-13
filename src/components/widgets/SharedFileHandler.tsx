@@ -135,68 +135,88 @@ export default function SharedFileHandler() {
     }
     setCheckpointLogs(currentLogs);
 
-    const checkPendingFiles = () => {
-      const request = indexedDB.open('MySpaceDB', 1);
-      request.onsuccess = (e: any) => {
-        const db = e.target.result;
-        if (db.objectStoreNames.contains('sharedFiles')) {
-          const tx = db.transaction('sharedFiles', 'readonly');
-          const store = tx.objectStore('sharedFiles');
-          const getReq = store.get('latest_shared');
-          getReq.onsuccess = async () => {
-            if (getReq.result) {
-              processFoundFiles(getReq.result, 'INDEXED_DB');
-            } else {
-              let handled = false;
-              try {
-                const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
-                if (backup) {
-                  handled = true;
-                  processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
-                  localStorage.removeItem('smartshare_latest_shared_backup');
-                }
-              } catch (err) {}
-
-              if (!handled && typeof caches !== 'undefined') {
-                try {
-                  const cache = await caches.open('smartshare-shared-cache');
-                  const match = await cache.match('/api/last-shared-files');
-                  if (match) {
-                    const data = await match.json();
-                    await cache.delete('/api/last-shared-files');
-                    processFoundFiles(data, 'SW_CACHE_STORAGE');
-                  }
-                } catch (cErr) {}
-              }
-            }
-          };
-        } else {
-          try {
-            const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
-            if (backup) {
-              processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
-              localStorage.removeItem('smartshare_latest_shared_backup');
-            }
-          } catch (err) {}
-        }
-      };
-      request.onerror = async () => {
-        if (typeof caches !== 'undefined') {
-          try {
-            const cache = await caches.open('smartshare-shared-cache');
-            const match = await cache.match('/api/last-shared-files');
-            if (match) {
-              const data = await match.json();
+    const checkPendingFiles = async () => {
+      // 1. Check Cache Storage directly first
+      if (typeof caches !== 'undefined') {
+        try {
+          const cache = await caches.open('smartshare-shared-cache');
+          // Try both relative and absolute match
+          const match = (await cache.match('/api/last-shared-files')) || 
+                        (await cache.match(new URL('/api/last-shared-files', window.location.origin).href));
+          if (match) {
+            const data = await match.json();
+            if (data && (Array.isArray(data) ? data.length > 0 : true)) {
               await cache.delete('/api/last-shared-files');
               processFoundFiles(data, 'SW_CACHE_STORAGE');
+              return true;
             }
-          } catch (cErr) {}
+          }
+        } catch (cErr) {
+          console.warn('Cache check err:', cErr);
         }
-      };
+      }
+
+      // 2. Check LocalStorage fallback
+      try {
+        const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
+        if (backup && (Array.isArray(backup) ? backup.length > 0 : true)) {
+          processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
+          localStorage.removeItem('smartshare_latest_shared_backup');
+          return true;
+        }
+      } catch (err) {}
+
+      // 3. Check IndexedDB without specifying version to avoid lockups
+      try {
+        const req = indexedDB.open('MySpaceDB');
+        req.onsuccess = (e: any) => {
+          const db = e.target.result;
+          if (db.objectStoreNames.contains('sharedFiles')) {
+            const tx = db.transaction('sharedFiles', 'readonly');
+            const store = tx.objectStore('sharedFiles');
+            const getReq = store.get('latest_shared');
+            getReq.onsuccess = () => {
+              if (getReq.result) {
+                processFoundFiles(getReq.result, 'INDEXED_DB');
+              }
+            };
+          }
+        };
+      } catch (idbErr) {}
+
+      return false;
     };
 
+    // Immediate check
     checkPendingFiles();
-  }, []);
+
+    // Listen to messages from Service Worker
+    const handleSwMessage = (event: MessageEvent) => {
+      if (event.data && event.data.action === 'NEW_SHARE_RECEIVED') {
+        checkPendingFiles();
+      }
+    };
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleSwMessage);
+    }
+
+    // If shared param was present, do quick retry polling for 2 seconds to catch any slow disk write
+    let retries = 0;
+    const interval = setInterval(async () => {
+      retries++;
+      const found = await checkPendingFiles();
+      if (found || retries > 6) {
+        clearInterval(interval);
+      }
+    }, 350);
+
+    return () => {
+      clearInterval(interval);
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleSwMessage);
+      }
+    };
+  }, [processFoundFiles]);
 
   const currentSelectedSpace = React.useMemo(() => {
     return activeSpaces.find((s: any) => s.id === selectedSpaceId) || displayedSpaces[0] || null;
