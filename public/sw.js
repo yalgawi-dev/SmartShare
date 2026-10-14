@@ -27,26 +27,41 @@ self.addEventListener('fetch', (event) => {
   if (event.request.method === 'POST' && url.pathname === '/api/share-target') {
     event.respondWith((async () => {
       try {
-        const formData = await event.request.formData();
+        const reqHeaders = [];
+        for (const [k, v] of event.request.headers.entries()) {
+          reqHeaders.push(`${k}=${v.substring(0, 30)}`);
+        }
         
-        const rawShared = formData.getAll('shared_file');
-        let files = (rawShared && rawShared.length > 0)
-          ? rawShared.filter(f => f && typeof f === 'object' && typeof f.arrayBuffer === 'function' && f.size > 0)
-          : [];
+        let formData = null;
+        let formErr = null;
+        try {
+          formData = await event.request.formData();
+        } catch (e) {
+          formErr = e?.message || e?.toString();
+        }
 
-        if (files.length === 0) {
-          for (const [key, val] of formData.entries()) {
-            if (val && typeof val === 'object' && typeof val.arrayBuffer === 'function' && val.size > 0) {
-              files.push(val);
-            }
+        if (!formData) {
+          const diag = encodeURIComponent(`SW_NO_FORMDATA;err:${formErr};hdrs:${reqHeaders.join('|')}`);
+          return Response.redirect(new URL('/?shared=empty&info=' + diag, event.request.url).href, 303);
+        }
+
+        const entriesInfo = [];
+        const files = [];
+
+        for (const [key, val] of formData.entries()) {
+          const isFile = val && typeof val === 'object' && typeof val.arrayBuffer === 'function';
+          const size = isFile ? val.size : (typeof val === 'string' ? val.length : 0);
+          const name = isFile ? (val.name || 'noname') : '';
+          const type = isFile ? (val.type || 'notype') : '';
+          entriesInfo.push(`${key}:${isFile ? 'file' : typeof val}(${name},sz:${size},tp:${type})`);
+          if (isFile && size > 0) {
+            files.push(val);
           }
         }
 
         if (files.length === 0) {
-          const keys = [];
-          for (const key of formData.keys()) keys.push(key);
-          const diag = encodeURIComponent('SW_EMPTY_FILES;keys:' + keys.join(','));
-          console.warn('SW: No files found in share payload, keys:', keys);
+          const diag = encodeURIComponent(`SW_EMPTY;entries:${entriesInfo.join(';') || 'none'};hdrs:${reqHeaders.join('|')}`);
+          console.warn('SW: No files found in share payload:', entriesInfo);
           return Response.redirect(new URL('/?shared=empty&info=' + diag, event.request.url).href, 303);
         }
 

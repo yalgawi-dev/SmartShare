@@ -114,24 +114,30 @@ export default function SharedFileHandler() {
     const searchParams = new URLSearchParams(window.location.search);
     const hasSharedParam = searchParams.get('shared');
     
-    // Read any recorded checkpoints from localStorage
-    const readLogs = () => {
-      try {
-        const stored = JSON.parse(localStorage.getItem('smartshare_share_checkpoints') || '[]');
-        return Array.isArray(stored) ? stored : [];
-      } catch (e) {
-        return [];
-      }
-    };
-    
-    let currentLogs = readLogs();
     const infoParam = searchParams.get('info');
+    let currentLogs: string[] = [];
+
     if (hasSharedParam) {
-      currentLogs.push('PARAM_SHARED: ' + hasSharedParam + (infoParam ? ' [' + decodeURIComponent(infoParam) + ']' : '') + ' at ' + new Date().toLocaleTimeString());
+      // User just triggered a fresh share target action: Clear previous old checkpoints completely!
+      const timeStr = new Date().toLocaleTimeString();
+      const decodedInfo = infoParam ? decodeURIComponent(infoParam) : 'none';
+      currentLogs = [
+        `🕒 ${timeStr} - שיתוף חדש נקלט`,
+        `📍 סטטוס שיתוף: ${hasSharedParam}`,
+        `📊 פרטי אירוע: ${decodedInfo}`
+      ];
       try {
         localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
       } catch (e) {}
       window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+      // Normal render: read existing checkpoints if any
+      try {
+        const stored = JSON.parse(localStorage.getItem('smartshare_share_checkpoints') || '[]');
+        currentLogs = Array.isArray(stored) ? stored : [];
+      } catch (e) {
+        currentLogs = [];
+      }
     }
     setCheckpointLogs(currentLogs);
 
