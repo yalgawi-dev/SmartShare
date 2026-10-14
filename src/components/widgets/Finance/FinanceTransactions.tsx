@@ -348,7 +348,7 @@ export function FinanceTransactions({
     const creatorName = space.creatorName || (isCreatorMe ? (user?.realName || user?.nickname || 'יוצר המרחב') : space.createdBy || 'יוצר המרחב');
     const creatorObj = { userId: creatorId, name: creatorName };
 
-    const allValidMembers = (space.members || []).filter((m: any) => m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested');
+    const allValidMembers = (space.members || []).filter((m: any) => m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested'));
     const pendingInviteMembers = (space.pendingInvites || []).map((pi: any) => ({
       userId: pi.token,
       name: pi.name || 'שותף מוזמן'

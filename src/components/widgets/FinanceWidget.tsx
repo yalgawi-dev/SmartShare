@@ -358,7 +358,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
   });
 
 
-  const validMembers = space.members?.filter((m: any) => m.userId !== myEffectiveId && m.userId !== user?.id) || [];
+  const validMembers = space.members?.filter((m: any) => m.userId !== myEffectiveId && m.userId !== user?.id && m.isActive !== false && m.status !== 'removed') || [];
   if (isCashboxEnabled(space)) {
     validMembers.push(createVirtualTreasury());
   }

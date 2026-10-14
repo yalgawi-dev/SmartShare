@@ -30,7 +30,7 @@ export const calculateCurrentSharesSnapshot = (space: any): Record<string, numbe
   const snapshot: Record<string, number> = {};
   if (!space) return snapshot;
 
-  const validMembers = space.members?.filter((m: any) => m.userId && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
+  const validMembers = space.members?.filter((m: any) => m.userId && m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'disputed' || m.status === 'extension_requested')) || [];
   const creatorId = space.creatorId || space.createdBy || 'creator_unknown';
   
   const uniqueMembers = validMembers.filter((m: any) => m.userId !== creatorId);
