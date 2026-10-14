@@ -26,8 +26,6 @@ self.addEventListener('fetch', (event) => {
 
   if (event.request.method === 'POST' && url.pathname === '/api/share-target') {
     event.respondWith((async () => {
-      const redirectUrl = new URL('/?shared=true', event.request.url).href;
-
       try {
         const formData = await event.request.formData();
         

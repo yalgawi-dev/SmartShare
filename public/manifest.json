@@ -49,8 +49,16 @@
           "name": "shared_file",
           "accept": [
             "image/*",
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
             "application/pdf",
-            "*/*"
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".pdf"
           ]
         }
       ]
