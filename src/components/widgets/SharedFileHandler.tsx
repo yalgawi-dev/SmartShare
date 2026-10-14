@@ -25,6 +25,7 @@ export default function SharedFileHandler() {
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault'>('personal');
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [showChromeUpdateModal, setShowChromeUpdateModal] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -129,6 +130,12 @@ export default function SharedFileHandler() {
       try {
         localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
       } catch (e) {}
+
+      if (hasSharedParam === 'empty') {
+        // Automatically pop up Chrome assistance modal
+        setShowChromeUpdateModal(true);
+      }
+
       window.history.replaceState({}, document.title, window.location.pathname);
     } else {
       // Normal render: read existing checkpoints if any
@@ -414,6 +421,100 @@ export default function SharedFileHandler() {
 
   return (
     <>
+      {/* Chrome Version Assistance Modal when Android Chrome drops share payload */}
+      {showChromeUpdateModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 100001,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1.25rem',
+          backdropFilter: 'blur(4px)'
+        }}>
+          <div style={{
+            background: '#ffffff', borderRadius: '20px', padding: '1.75rem',
+            width: '100%', maxWidth: '420px', boxShadow: '0 20px 40px rgba(0,0,0,0.3)',
+            direction: 'rtl', textAlign: 'center', border: '1px solid #e2e8f0'
+          }}>
+            <div style={{
+              width: '56px', height: '56px', borderRadius: '50%', background: '#eff6ff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto',
+              fontSize: '1.8rem'
+            }}>
+              🚀
+            </div>
+
+            <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.25rem', fontWeight: '800' }}>
+              עדכון קל בדפדפן Chrome נדרש
+            </h3>
+
+            <p style={{ fontSize: '0.9rem', color: '#64748b', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
+              בגרסת ה-Chrome הנוכחית במכשיר שלך ישנה חסימת אבטחה של גוגל לשיתוף קבצים חיצוניים.
+              <br /><br />
+              <strong>גוגל כבר שחררה עדכון שפותר את זה!</strong> עדכן את כרום בלחיצה אחת, והשיתוף יעבוד מיד וחלק.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+              <a
+                href="market://details?id=com.android.chrome"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  padding: '0.85rem', borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  color: '#ffffff', fontWeight: 'bold', textDecoration: 'none',
+                  fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                }}
+              >
+                <span>🌐</span> עדכן את Google Chrome כעת
+              </a>
+
+              {/* Direct fallback to pick the shared file manually right now */}
+              <label
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  padding: '0.85rem', borderRadius: '12px', border: '1px solid #cbd5e1',
+                  background: '#f8fafc', color: '#334155', fontWeight: 'bold', cursor: 'pointer',
+                  fontSize: '0.9rem'
+                }}
+              >
+                <span>📂</span> בחר את הקובץ ידנית בינתיים
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*,application/pdf"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const fl = e.target.files;
+                    if (fl && fl.length > 0) {
+                      const filesArray = Array.from(fl);
+                      const base64List = await Promise.all(filesArray.map((file) => {
+                        return new Promise<string>((resolve) => {
+                          const reader = new FileReader();
+                          reader.onloadend = () => resolve(reader.result as string);
+                          reader.readAsDataURL(file);
+                        });
+                      }));
+                      setShowChromeUpdateModal(false);
+                      processFoundFiles(base64List, 'MANUAL_FALLBACK');
+                    }
+                  }}
+                />
+              </label>
+
+              <button
+                onClick={() => setShowChromeUpdateModal(false)}
+                style={{
+                  background: 'transparent', border: 'none', color: '#94a3b8',
+                  padding: '0.5rem', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.25rem'
+                }}
+              >
+                הבנתי, סגור
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Diagnostics Badge: ALWAYS accessible to see share checkpoints */}
       {checkpointLogs.length > 0 && !isModalOpen && (
         <div style={{
