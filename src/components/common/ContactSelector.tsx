@@ -24,6 +24,7 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
   const [newPhone, setNewPhone] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAll, setShowAll] = useState(false);
 
       const mySpaces = spaces.filter((s: any) => s.creatorId === user?.id || s.members?.some((m: any) => m.userId === user?.id));
   const allSpaceMembers = mySpaces.flatMap((s: any) => {
@@ -143,21 +144,51 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
                 onChange={e => setSearchTerm(e.target.value)}
                 style={{ width: '100%', padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '0.5rem', boxSizing: 'border-box' }}
               />
-              {contacts.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase())).map((c: any) => (
-                <button
-                  key={c.id}
-                  onClick={() => handleSelectExisting(c)}
-                  style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', background: '#white', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', transition: 'background 0.2s', boxSizing: 'border-box' }}
-                >
-                  <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
-                    {c.name.charAt(0)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{c.name}</div>
-                    <div style={{ fontSize: '0.85rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{c.phone || 'שותף במערכת'}</div>
-                  </div>
-                </button>
-              ))}
+              {(() => {
+                const filtered = contacts.filter((c: any) => c.name.toLowerCase().includes(searchTerm.toLowerCase()));
+                const visibleContacts = (showAll || searchTerm.trim()) ? filtered : filtered.slice(0, 5);
+                const hasMore = filtered.length > 5 && !showAll && !searchTerm.trim();
+
+                return (
+                  <>
+                    {visibleContacts.map((c: any) => (
+                      <button
+                        key={c.id}
+                        onClick={() => handleSelectExisting(c)}
+                        style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem 1rem', background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '12px', cursor: 'pointer', textAlign: 'right', transition: 'background 0.2s', boxSizing: 'border-box' }}
+                      >
+                        <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--primary)', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                          {c.name.charAt(0)}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: 'bold', color: '#0f172a' }}>{c.name}</div>
+                          <div style={{ fontSize: '0.85rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{c.phone || 'שותף במערכת'}</div>
+                        </div>
+                      </button>
+                    ))}
+
+                    {hasMore && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAll(true)}
+                        style={{ padding: '0.6rem 1rem', background: '#f8fafc', color: 'var(--primary)', border: '1px dashed var(--primary)', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', marginTop: '0.25rem' }}
+                      >
+                        הצג עוד ({filtered.length - 5} אנשי קשר נוספים)...
+                      </button>
+                    )}
+
+                    {showAll && filtered.length > 5 && !searchTerm.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAll(false)}
+                        style={{ padding: '0.5rem 1rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '10px', fontWeight: 'normal', cursor: 'pointer', fontSize: '0.8rem', marginTop: '0.25rem' }}
+                      >
+                        הצג פחות ▲
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>

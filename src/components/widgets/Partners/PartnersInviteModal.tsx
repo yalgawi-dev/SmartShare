@@ -490,25 +490,27 @@ export function PartnersInviteModal({
 
         </>)}
         {/* Submit / Share Button */}
-        <div style={{ borderTop: '2px solid #f1f5f9', paddingTop: '1.25rem', marginTop: '0.5rem' }}>
-          <div style={{ marginBottom: '1.5rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
-            <ContactSelector onSelect={handleContactSelect} title="בחר איש קשר להזמנה בווטסאפ:" />
-          </div>
-
-          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
-            <div style={{ fontSize: '0.85rem', color: '#64748b', textAlign: 'center' }}>או שתף קישור כללי:</div>
+        <div style={{ borderTop: '2px solid #f1f5f9', paddingTop: '1.25rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
+          
+          {/* Quick General Share & Copy Link First */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold' }}>שתף או העתק קישור להזמנה:</div>
             
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               { typeof navigator !== 'undefined' && 'share' in navigator && (
-                <button onClick={handleNativeShare} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--primary, #3b82f6)', color: 'white', padding: '1rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+                <button onClick={handleNativeShare} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--primary, #3b82f6)', color: 'white', padding: '0.9rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
                   שתף
                 </button>
               )}
-              <button onClick={handleCopy} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#f8fafc', color: '#0f172a', padding: '1rem', borderRadius: '12px', border: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
+              <button onClick={handleCopy} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#f8fafc', color: '#0f172a', padding: '0.9rem', borderRadius: '12px', border: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem' }}>
                 {copied ? '✓ הועתק!' : '🔗 העתק קישור'}
               </button>
             </div>
+          </div>
+
+          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem' }}>
+            <ContactSelector onSelect={handleContactSelect} title="או בחר איש קשר להזמנה בווטסאפ:" />
           </div>
         </div>
         </div>
