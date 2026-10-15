@@ -124,7 +124,7 @@ export default function SharedFileHandler() {
       const userStateStr = user?.id ? `LoggedIn (${user.id.slice(0, 6)}...)` : 'Guest / Not Loaded Yet';
       const spacesCountStr = `${spaces?.length || 0} spaces loaded, ${activeSpaces?.length || 0} active`;
       currentLogs = [
-        `🕒 ${timeStr} - שיתוף נקלט (v6.8.18)`,
+        `🕒 ${timeStr} - שיתוף נקלט (v6.8.19)`,
         `📍 סטטוס שיתוף: ${hasSharedParam}`,
         `📊 פרטי אירוע: ${decodedInfo}`,
         `👤 זיהוי משתמש: ${userStateStr}`,
@@ -581,7 +581,7 @@ export default function SharedFileHandler() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '1.25rem', animation: 'spin 4s linear infinite' }}>🔄</span>
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>v6.8.18</span></div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>v6.8.19</span></div>
                 <div style={{ fontSize: '0.72rem', opacity: 0.9 }}>מנותב ל: {routeDestination === 'personal' ? 'מחסן אישי פרטי' : (displayedSpaces.find((s:any) => s.id === selectedSpaceId)?.title || 'בחר פרויקט')}</div>
               </div>
             </div>

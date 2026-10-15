@@ -27,9 +27,7 @@ let latestSharedFilesPromise = null;
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  const isShareTarget = event.request.method === 'POST' && (url.pathname === '/' || url.pathname === '/api/share-target');
-  
-  if (isShareTarget) {
+  if (event.request.method === 'POST' && url.pathname === '/api/share-target') {
     // If request already came from SW fallback, let it pass directly to network to prevent loops
     if (event.request.headers.get('x-sw-fallback') === 'true') {
       return;
@@ -87,13 +85,8 @@ self.addEventListener('fetch', (event) => {
           const fallbackHeaders = new Headers(requestCloneForServer.headers);
           fallbackHeaders.set('x-sw-fallback', 'true');
           fallbackHeaders.set('x-sw-telemetry', encodeURIComponent(swTelemetrySummary));
-          // Ensure the server-side target route handles the request
-          const targetUrl = new URL('/api/share-target', event.request.url).href;
-          const serverResponse = await fetch(targetUrl, {
-            method: 'POST',
-            body: requestCloneForServer.body,
-            headers: fallbackHeaders,
-            duplex: 'half'
+          const serverResponse = await fetch(requestCloneForServer, {
+            headers: fallbackHeaders
           });
           return serverResponse;
         } catch (fetchErr) {
