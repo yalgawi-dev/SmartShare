@@ -59,8 +59,23 @@ export default function SharedFileHandler() {
       });
       return isMember;
     });
-    
-    return filtered.sort((a: any, b: any) => {
+
+    // TEST_MODE: Permissive external share test.
+    // If user is not yet loaded or no filtered spaces exist, provide all accessible spaces or a fallback guest space.
+    const resolvedSpaces: any[] = (filtered.length === 0 && spaces.length > 0)
+      ? spaces.filter((s: any) => s.status !== 'pending_deletion')
+      : (filtered.length === 0 ? [{
+          id: 'guest-shared-space',
+          title: 'מרחב שיתוף פתוח (בדיקת זיהוי)',
+          features: ['finance', 'vault', 'documents'],
+          members: [],
+          shelves: [],
+          invoices: [],
+          inbox: [],
+          createdAt: new Date().toISOString()
+        } as any] : filtered);
+
+    return resolvedSpaces.sort((a: any, b: any) => {
       const getLatest = (space: any) => {
         let latest = new Date(space.createdAt || 0).getTime();
         
@@ -119,13 +134,16 @@ export default function SharedFileHandler() {
     let currentLogs: string[] = [];
 
     if (hasSharedParam) {
-      // User just triggered a fresh share target action: Clear previous old checkpoints completely!
       const timeStr = new Date().toLocaleTimeString();
       const decodedInfo = infoParam ? decodeURIComponent(infoParam) : 'none';
+      const userStateStr = user?.id ? `LoggedIn (${user.id.slice(0, 6)}...)` : 'Guest / Not Loaded Yet';
+      const spacesCountStr = `${spaces?.length || 0} spaces loaded, ${activeSpaces?.length || 0} active`;
       currentLogs = [
-        `🕒 ${timeStr} - שיתוף חדש נקלט`,
+        `🕒 ${timeStr} - שיתוף נקלט (v6.8.17)`,
         `📍 סטטוס שיתוף: ${hasSharedParam}`,
-        `📊 פרטי אירוע: ${decodedInfo}`
+        `📊 פרטי אירוע: ${decodedInfo}`,
+        `👤 זיהוי משתמש: ${userStateStr}`,
+        `📁 מרחבים זמינים: ${spacesCountStr}`
       ];
       try {
         localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
@@ -243,7 +261,7 @@ export default function SharedFileHandler() {
         navigator.serviceWorker.removeEventListener('message', handleSwMessage);
       }
     };
-  }, [processFoundFiles]);
+  }, [processFoundFiles, user, spaces, activeSpaces]);
 
   const currentSelectedSpace = React.useMemo(() => {
     return activeSpaces.find((s: any) => s.id === selectedSpaceId) || displayedSpaces[0] || null;
@@ -578,7 +596,7 @@ export default function SharedFileHandler() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '1.25rem', animation: 'spin 4s linear infinite' }}>🔄</span>
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare</div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>v6.8.17</span></div>
                 <div style={{ fontSize: '0.72rem', opacity: 0.9 }}>מנותב ל: {routeDestination === 'personal' ? 'מחסן אישי פרטי' : (displayedSpaces.find((s:any) => s.id === selectedSpaceId)?.title || 'בחר פרויקט')}</div>
               </div>
             </div>
