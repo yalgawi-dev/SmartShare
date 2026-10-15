@@ -22,9 +22,11 @@ export async function POST(request: Request) {
     
     const allKeys = formData ? Array.from(formData.keys()) : [];
     const files: File[] = [];
+    const swTelemetry = request.headers.get('x-sw-telemetry') ? decodeURIComponent(request.headers.get('x-sw-telemetry')!) : '';
     const debugEntries: string[] = [
       `ct:${contentType.substring(0, 25)}`,
       `len:${contentLength}`,
+      ...(swTelemetry ? [`sw:[${swTelemetry}]`] : []),
       ...(parseError ? [`err:${parseError}`] : [])
     ];
 

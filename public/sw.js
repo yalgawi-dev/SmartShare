@@ -28,9 +28,21 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (event.request.method === 'POST' && url.pathname === '/api/share-target') {
-    // 1. Immediately kick off extraction so stream is not lost
+    // If request already came from SW fallback, let it pass directly to network to prevent loops
+    if (event.request.headers.get('x-sw-fallback') === 'true') {
+      return;
+    }
+
+    // 1. Immediately create a clone of the request BEFORE reading its body,
+    // so that the server fallback can reliably receive the pristine unconsumed stream.
+    const requestCloneForServer = event.request.clone();
+    
+    // Telemetry summary to capture field keys, types, sizes without personal data
+    let swTelemetrySummary = '';
+
     const formDataPromise = event.request.formData().catch((err) => {
       console.warn('SW: formData() parsing error:', err);
+      swTelemetrySummary = 'FORM_ERR:' + (err?.message || 'unknown');
       return null;
     });
 
@@ -39,32 +51,25 @@ self.addEventListener('fetch', (event) => {
       if (!formData) return [];
 
       const files = [];
+      const fieldStats = [];
 
-      // A. Check primary expected name from manifest: 'shared_file'
-      const sharedFileEntries = formData.getAll('shared_file');
-      for (const item of sharedFileEntries) {
-        if (item && typeof item === 'object' && typeof item.arrayBuffer === 'function' && item.size > 0) {
-          files.push(item);
+      // Inspect every entry in FormData for accurate diagnosis
+      for (const [key, val] of formData.entries()) {
+        const isObj = val && typeof val === 'object';
+        const hasBuffer = isObj && typeof val.arrayBuffer === 'function';
+        const size = isObj ? (val.size ?? 0) : (typeof val === 'string' ? val.length : 0);
+        const name = isObj ? (val.name || 'noname') : '';
+        const type = isObj ? (val.type || 'notype') : '';
+        const isBlobOrFile = isObj && (val instanceof Blob || hasBuffer);
+
+        fieldStats.push(`${key}:${isBlobOrFile ? 'file' : typeof val}(sz:${size},mime:${type})`);
+
+        if (isBlobOrFile && size > 0) {
+          files.push(val);
         }
       }
 
-      // B. Check standard fallback name: 'file' or 'files'
-      const fileEntries = [...formData.getAll('file'), ...formData.getAll('files')];
-      for (const item of fileEntries) {
-        if (item && typeof item === 'object' && typeof item.arrayBuffer === 'function' && item.size > 0) {
-          files.push(item);
-        }
-      }
-
-      // C. Universal scan: check ANY field containing a File/Blob
-      if (files.length === 0) {
-        for (const [key, val] of formData.entries()) {
-          if (val && typeof val === 'object' && typeof val.arrayBuffer === 'function' && val.size > 0) {
-            files.push(val);
-          }
-        }
-      }
-
+      swTelemetrySummary = fieldStats.length > 0 ? fieldStats.join(';') : 'NO_KEYS';
       return files;
     })();
 
@@ -73,12 +78,22 @@ self.addEventListener('fetch', (event) => {
       const files = await latestSharedFilesPromise;
 
       if (!files || files.length === 0) {
-        console.warn('SW: Share target received 0 valid file objects. Passing to server fallback...');
-        // Fallback: If Service Worker found no files, pass request through to server API route
+        console.warn('SW: No files in SW FormData. Telemetry:', swTelemetrySummary, '- forwarding unconsumed clone to server...');
+        // Fallback: Pass the PRISTINE unconsumed clone to the server API route
         try {
-          return await fetch(event.request);
+          // Add custom header to prevent infinite recursion
+          const fallbackHeaders = new Headers(requestCloneForServer.headers);
+          fallbackHeaders.set('x-sw-fallback', 'true');
+          fallbackHeaders.set('x-sw-telemetry', encodeURIComponent(swTelemetrySummary));
+
+          const serverResponse = await fetch(requestCloneForServer, {
+            headers: fallbackHeaders
+          });
+          return serverResponse;
         } catch (fetchErr) {
-          return Response.redirect(new URL('/?shared=empty&info=SW_AND_SERVER_EMPTY', event.request.url).href, 303);
+          console.error('SW: Server fallback fetch failed:', fetchErr);
+          const errInfo = encodeURIComponent(`SW_EMPTY[${swTelemetrySummary}];SERVER_FETCH_FAIL:${fetchErr?.message || 'err'}`);
+          return Response.redirect(new URL('/?shared=empty&info=' + errInfo, event.request.url).href, 303);
         }
       }
 
