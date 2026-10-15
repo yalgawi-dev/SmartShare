@@ -5,6 +5,43 @@ interface ExpenseAnalyticsChartsProps {
   invoices: any[];
 }
 
+// Universal date normalizer: converts any DD.MM.YYYY, DD/MM/YYYY, or ISO string to standard YYYY-MM-DD
+function normalizeToYMD(dateStr: any): string {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const trimmed = dateStr.trim();
+  
+  if (trimmed.includes('.')) {
+    const parts = trimmed.split('.');
+    if (parts.length === 3) {
+      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    if (parts.length === 3) {
+      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  if (trimmed.includes('-')) {
+    const parts = trimmed.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  return '';
+}
+
 export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps) {
   const activeInvoices = useMemo(() => {
     return invoices.filter(inv => inv.isActive !== false);
@@ -13,8 +50,9 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
   const availableYears = useMemo(() => {
     const yearsSet = new Set<number>();
     activeInvoices.forEach(inv => {
-      if (inv.date) {
-        const y = new Date(inv.date).getFullYear();
+      const ymd = normalizeToYMD(inv.date || inv.createdAt);
+      if (ymd) {
+        const y = new Date(ymd).getFullYear();
         if (!isNaN(y)) yearsSet.add(y);
       }
     });
@@ -38,8 +76,9 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
     const counts = Array(12).fill(0);
 
     activeInvoices.forEach(inv => {
-      if (!inv.date) return;
-      const d = new Date(inv.date);
+      const ymd = normalizeToYMD(inv.date || inv.createdAt);
+      if (!ymd) return;
+      const d = new Date(ymd);
       if (d.getFullYear() === selectedYear) {
         const m = d.getMonth();
         months[m] += Number(inv.amount) || 0;
@@ -63,8 +102,9 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
   const categoryData = useMemo(() => {
     const cats: Record<string, number> = {};
     activeInvoices.forEach(inv => {
-      if (!inv.date) return;
-      const d = new Date(inv.date);
+      const ymd = normalizeToYMD(inv.date || inv.createdAt);
+      if (!ymd) return;
+      const d = new Date(ymd);
       if (d.getFullYear() === selectedYear) {
         const cat = inv.category || 'כללי';
         cats[cat] = (cats[cat] || 0) + (Number(inv.amount) || 0);
@@ -85,8 +125,9 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
   const yearlyComparison = useMemo(() => {
     const yearsMap: Record<number, number> = {};
     activeInvoices.forEach(inv => {
-      if (!inv.date) return;
-      const y = new Date(inv.date).getFullYear();
+      const ymd = normalizeToYMD(inv.date || inv.createdAt);
+      if (!ymd) return;
+      const y = new Date(ymd).getFullYear();
       if (!isNaN(y)) {
         yearsMap[y] = (yearsMap[y] || 0) + (Number(inv.amount) || 0);
       }

@@ -7,15 +7,49 @@ interface ExpenseDateReportProps {
   onPreviewImage: (url: string) => void;
 }
 
+// Universal date normalizer: converts any DD.MM.YYYY, DD/MM/YYYY, or ISO string to standard YYYY-MM-DD
+function normalizeToYMD(dateStr: any): string {
+  if (!dateStr || typeof dateStr !== 'string') return '';
+  const trimmed = dateStr.trim();
+  
+  if (trimmed.includes('.')) {
+    const parts = trimmed.split('.');
+    if (parts.length === 3) {
+      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  if (trimmed.includes('/')) {
+    const parts = trimmed.split('/');
+    if (parts.length === 3) {
+      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  if (trimmed.includes('-')) {
+    const parts = trimmed.split('-');
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+      }
+      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+    }
+  }
+  
+  const parsed = new Date(trimmed);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  return '';
+}
+
 export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: ExpenseDateReportProps) {
-  const [preset, setPreset] = useState<string>('current_month');
+  // Default to 'all' so all existing invoices appear right away!
+  const [preset, setPreset] = useState<string>('all');
   
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = String(now.getMonth() + 1).padStart(2, '0');
-  
-  const [startDate, setStartDate] = useState<string>(`${currentYear}-${currentMonth}-01`);
-  const [endDate, setEndDate] = useState<string>(now.toISOString().split('T')[0]);
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isZipping, setIsZipping] = useState(false);
   const [showZipModal, setShowZipModal] = useState(false);
@@ -57,10 +91,10 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
   const filteredInvoices = useMemo(() => {
     return invoices.filter((inv) => {
       if (inv.isActive === false) return false;
-      const invDate = inv.date || '';
+      const invYMD = normalizeToYMD(inv.date || inv.createdAt);
 
-      if (startDate && invDate && invDate < startDate) return false;
-      if (endDate && invDate && invDate > endDate) return false;
+      if (startDate && (!invYMD || invYMD < startDate)) return false;
+      if (endDate && (!invYMD || invYMD > endDate)) return false;
 
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
@@ -73,7 +107,11 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
         }
       }
       return true;
-    }).sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
+    }).sort((a, b) => {
+      const dateA = normalizeToYMD(a.date || a.createdAt);
+      const dateB = normalizeToYMD(b.date || b.createdAt);
+      return dateB.localeCompare(dateA);
+    });
   }, [invoices, startDate, endDate, searchQuery]);
 
   const totalAmount = useMemo(() => {
@@ -199,16 +237,21 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
       <div className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', marginBottom: '1.25rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>📅</span> בחירת טווח תאריכים לדוח
-          </h3>
+          <div>
+            <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>📅</span> סינון לפי תאריכים
+            </h3>
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+              מוצגות {invoicesCount} מתוך {invoices.filter(i => i.isActive !== false).length} חשבוניות
+            </span>
+          </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {[
+              { id: 'all', label: 'הכל (כל הזמנים)' },
               { id: 'current_month', label: 'החודש' },
               { id: 'last_month', label: 'חודש קודם' },
               { id: 'last_3_months', label: '3 חודשים' },
               { id: 'year_to_date', label: 'מתחילת השנה' },
-              { id: 'all', label: 'הכל' },
               { id: 'custom', label: 'מותאם אישית' },
             ].map(p => (
               <button
@@ -418,7 +461,10 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                 </tr>
               </thead>
               <tbody>
-                {filteredInvoices.map((inv, idx) => (
+                {filteredInvoices.map((inv, idx) => {
+                  const ymd = normalizeToYMD(inv.date || inv.createdAt);
+                  const displayDate = ymd ? ymd.split('-').reverse().join('.') : (inv.date || '---');
+                  return (
                   <tr
                     key={inv.id || idx}
                     style={{
@@ -427,7 +473,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                     }}
                   >
                     <td style={{ padding: '0.85rem 1rem', whiteSpace: 'nowrap', fontWeight: '500' }}>
-                      {inv.date ? inv.date.split('-').reverse().join('.') : '---'}
+                      {displayDate}
                     </td>
                     <td style={{ padding: '0.85rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                       {inv.supplier || 'ספק כללי'}
@@ -476,7 +522,8 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
