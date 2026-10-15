@@ -20,51 +20,163 @@ function arrayBufferToBase64(buffer) {
   return btoa(binary);
 }
 
+// In-memory stash of active share promises indexed by share ID or newest
+let latestSharedFilesPromise = null;
+
 // Intercept incoming Web Share Target POST requests locally on device
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
   if (event.request.method === 'POST' && url.pathname === '/api/share-target') {
-    event.respondWith((async () => {
-      try {
-        const reqHeaders = [];
-        for (const [k, v] of event.request.headers.entries()) {
-          reqHeaders.push(`${k}=${v.substring(0, 30)}`);
-        }
-        
-        let formData = null;
-        let formErr = null;
-        try {
-          formData = await event.request.formData();
-        } catch (e) {
-          formErr = e?.message || e?.toString();
-        }
+    // 1. Immediately kick off extraction so stream is not lost
+    const formDataPromise = event.request.formData().catch((err) => {
+      console.warn('SW: formData() parsing error:', err);
+      return null;
+    });
 
-        if (!formData) {
-          const diag = encodeURIComponent(`SW_NO_FORMDATA;err:${formErr};hdrs:${reqHeaders.join('|')}`);
-          return Response.redirect(new URL('/?shared=empty&info=' + diag, event.request.url).href, 303);
+    latestSharedFilesPromise = (async () => {
+      const formData = await formDataPromise;
+      if (!formData) return [];
+
+      const files = [];
+
+      // A. Check primary expected name from manifest: 'shared_file'
+      const sharedFileEntries = formData.getAll('shared_file');
+      for (const item of sharedFileEntries) {
+        if (item && typeof item === 'object' && typeof item.arrayBuffer === 'function' && item.size > 0) {
+          files.push(item);
         }
+      }
 
-        const entriesInfo = [];
-        const files = [];
+      // B. Check standard fallback name: 'file' or 'files'
+      const fileEntries = [...formData.getAll('file'), ...formData.getAll('files')];
+      for (const item of fileEntries) {
+        if (item && typeof item === 'object' && typeof item.arrayBuffer === 'function' && item.size > 0) {
+          files.push(item);
+        }
+      }
 
+      // C. Universal scan: check ANY field containing a File/Blob
+      if (files.length === 0) {
         for (const [key, val] of formData.entries()) {
-          const isFile = val && typeof val === 'object' && typeof val.arrayBuffer === 'function';
-          const size = isFile ? val.size : (typeof val === 'string' ? val.length : 0);
-          const name = isFile ? (val.name || 'noname') : '';
-          const type = isFile ? (val.type || 'notype') : '';
-          entriesInfo.push(`${key}:${isFile ? 'file' : typeof val}(${name},sz:${size},tp:${type})`);
-          if (isFile && size > 0) {
+          if (val && typeof val === 'object' && typeof val.arrayBuffer === 'function' && val.size > 0) {
             files.push(val);
           }
         }
+      }
 
-        if (files.length === 0) {
-          const diag = encodeURIComponent(`SW_EMPTY;entries:${entriesInfo.join(';') || 'none'};hdrs:${reqHeaders.join('|')}`);
-          console.warn('SW: No files found in share payload:', entriesInfo);
-          return Response.redirect(new URL('/?shared=empty&info=' + diag, event.request.url).href, 303);
+      return files;
+    })();
+
+    // 2. Respond with redirect to app while keeping worker alive via waitUntil
+    event.respondWith((async () => {
+      const files = await latestSharedFilesPromise;
+
+      if (!files || files.length === 0) {
+        console.warn('SW: Share target received 0 valid file objects. Passing to server fallback...');
+        // Fallback: If Service Worker found no files, pass request through to server API route
+        try {
+          return await fetch(event.request);
+        } catch (fetchErr) {
+          return Response.redirect(new URL('/?shared=empty&info=SW_AND_SERVER_EMPTY', event.request.url).href, 303);
         }
+      }
 
+      // 3. Convert files to data URIs safely
+      const dataUris = await Promise.all(files.map(async (file) => {
+        const buffer = await file.arrayBuffer();
+        const base64 = arrayBufferToBase64(buffer);
+        const mimeType = file.type || 'image/jpeg';
+        return 'data:' + mimeType + ';base64,' + base64;
+      }));
+
+      // 4. Save to Cache Storage immediately (synchronous to redirect flow)
+      try {
+        const cache = await caches.open('smartshare-shared-cache');
+        await cache.put('/api/last-shared-files', new Response(JSON.stringify(dataUris), {
+          headers: { 'Content-Type': 'application/json' }
+        }));
+      } catch (cErr) {
+        console.warn('SW Cache storage put failed:', cErr);
+      }
+
+      // 5. Also save to IndexedDB safely
+      try {
+        await new Promise((resolve) => {
+          const request = indexedDB.open('MySpaceDB');
+          request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains('sharedFiles')) {
+              db.createObjectStore('sharedFiles');
+            }
+          };
+          request.onsuccess = (e) => {
+            try {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains('sharedFiles')) {
+                db.close();
+                resolve(false);
+                return;
+              }
+              const tx = db.transaction('sharedFiles', 'readwrite');
+              const store = tx.objectStore('sharedFiles');
+              store.put(dataUris, 'latest_shared');
+              tx.oncomplete = () => { db.close(); resolve(true); };
+              tx.onerror = () => { db.close(); resolve(false); };
+            } catch (txErr) {
+              resolve(false);
+            }
+          };
+          request.onerror = () => resolve(false);
+          request.onblocked = () => resolve(false);
+        });
+      } catch (idbErr) {
+        console.warn('SW IndexedDB write failed:', idbErr);
+      }
+
+      // Redirect browser to main app with success query
+      return Response.redirect(new URL('/?shared=true', event.request.url).href, 303);
+    })());
+
+    // 6. Direct handshake via message (Squoosh pattern): wait for window to become ready and push
+    event.waitUntil((async () => {
+      const files = await latestSharedFilesPromise;
+      if (!files || files.length === 0) return;
+
+      const dataUris = await Promise.all(files.map(async (file) => {
+        const buffer = await file.arrayBuffer();
+        const base64 = arrayBufferToBase64(buffer);
+        const mimeType = file.type || 'image/jpeg';
+        return 'data:' + mimeType + ';base64,' + base64;
+      }));
+
+      // Attempt to broadcast to existing windows right away
+      const notifyClients = async () => {
+        const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+        for (const client of allClients) {
+          client.postMessage({
+            action: 'SHARE_FILES_PAYLOAD',
+            files: dataUris
+          });
+        }
+      };
+
+      // Broadcast now and retry after 500ms and 1200ms when page loads
+      await notifyClients();
+      setTimeout(notifyClients, 500);
+      setTimeout(notifyClients, 1200);
+    })());
+
+    return;
+  }
+});
+
+// Allow client windows to explicitly pull latest shared files via postMessage
+self.addEventListener('message', async (event) => {
+  if (event.data && event.data.action === 'REQUEST_PENDING_SHARE') {
+    if (latestSharedFilesPromise) {
+      const files = await latestSharedFilesPromise;
+      if (files && files.length > 0) {
         const dataUris = await Promise.all(files.map(async (file) => {
           const buffer = await file.arrayBuffer();
           const base64 = arrayBufferToBase64(buffer);
@@ -72,67 +184,13 @@ self.addEventListener('fetch', (event) => {
           return 'data:' + mimeType + ';base64,' + base64;
         }));
 
-        // 1. Save to Cache Storage first (instant & reliable in SW)
-        try {
-          const cache = await caches.open('smartshare-shared-cache');
-          await cache.put('/api/last-shared-files', new Response(JSON.stringify(dataUris), {
-            headers: { 'Content-Type': 'application/json' }
-          }));
-        } catch (cErr) {
-          console.warn('Cache storage put failed:', cErr);
-        }
-
-        // 2. Also save to IndexedDB safely without blocking
-        try {
-          await new Promise((resolve) => {
-            const request = indexedDB.open('MySpaceDB');
-            request.onupgradeneeded = (e) => {
-              const db = e.target.result;
-              if (!db.objectStoreNames.contains('sharedFiles')) {
-                db.createObjectStore('sharedFiles');
-              }
-            };
-            request.onsuccess = (e) => {
-              try {
-                const db = e.target.result;
-                if (!db.objectStoreNames.contains('sharedFiles')) {
-                  db.close();
-                  resolve(false);
-                  return;
-                }
-                const tx = db.transaction('sharedFiles', 'readwrite');
-                const store = tx.objectStore('sharedFiles');
-                store.put(dataUris, 'latest_shared');
-                tx.oncomplete = () => { db.close(); resolve(true); };
-                tx.onerror = () => { db.close(); resolve(false); };
-              } catch (txErr) {
-                resolve(false);
-              }
-            };
-            request.onerror = () => resolve(false);
-            request.onblocked = () => resolve(false);
+        if (event.source && typeof event.source.postMessage === 'function') {
+          event.source.postMessage({
+            action: 'SHARE_FILES_PAYLOAD',
+            files: dataUris
           });
-        } catch (idbErr) {
-          console.warn('IndexedDB write skipped/failed:', idbErr);
         }
-
-        // Notify all clients of new shared content
-        try {
-          const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
-          for (const client of allClients) {
-            client.postMessage({ action: 'NEW_SHARE_RECEIVED' });
-          }
-        } catch (msgErr) {}
-
-        const successDiag = encodeURIComponent('SW_SUCCESS;count:' + dataUris.length);
-        return Response.redirect(new URL('/?shared=true&info=' + successDiag, event.request.url).href, 303);
-
-      } catch (err) {
-        console.error('Service Worker share handling failed:', err);
-        const errDiag = encodeURIComponent('SW_ERR:' + (err?.message || err?.toString() || 'unknown'));
-        return Response.redirect(new URL('/?shared=error&info=' + errDiag, event.request.url).href, 303);
       }
-    })());
-    return;
+    }
   }
 });

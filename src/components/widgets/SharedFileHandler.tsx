@@ -200,28 +200,42 @@ export default function SharedFileHandler() {
       return false;
     };
 
-    // Immediate check
+    // Immediate check across storage layers
     checkPendingFiles();
 
-    // Listen to messages from Service Worker
+    // Listen to messages from Service Worker (both Squoosh direct payload and event notifications)
     const handleSwMessage = (event: MessageEvent) => {
-      if (event.data && event.data.action === 'NEW_SHARE_RECEIVED') {
+      if (!event.data) return;
+      if (event.data.action === 'SHARE_FILES_PAYLOAD' && event.data.files && event.data.files.length > 0) {
+        processFoundFiles(event.data.files, 'SW_POST_MESSAGE');
+      } else if (event.data.action === 'NEW_SHARE_RECEIVED') {
         checkPendingFiles();
       }
     };
+
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleSwMessage);
+
+      // Handshake with Service Worker: announce window readiness and request any pending share
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({ action: 'REQUEST_PENDING_SHARE' });
+      }
+      navigator.serviceWorker.ready.then((reg) => {
+        if (reg.active) {
+          reg.active.postMessage({ action: 'REQUEST_PENDING_SHARE' });
+        }
+      });
     }
 
-    // Keep checking every 400ms for up to 4 seconds to guarantee capture
+    // Keep checking every 300ms for up to 3.5 seconds to guarantee capture in all lifecycle states
     let retries = 0;
     const interval = setInterval(async () => {
       retries++;
       const found = await checkPendingFiles();
-      if (found || retries > 10) {
+      if (found || retries > 12) {
         clearInterval(interval);
       }
-    }, 400);
+    }, 300);
 
     return () => {
       clearInterval(interval);
