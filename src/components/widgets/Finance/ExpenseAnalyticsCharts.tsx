@@ -5,7 +5,6 @@ interface ExpenseAnalyticsChartsProps {
   invoices: any[];
 }
 
-// Universal date normalizer: converts any DD.MM.YYYY, DD/MM/YYYY, or ISO string to standard YYYY-MM-DD
 function normalizeToYMD(dateStr: any): string {
   if (!dateStr || typeof dateStr !== 'string') return '';
   const trimmed = dateStr.trim();
@@ -37,7 +36,10 @@ function normalizeToYMD(dateStr: any): string {
   
   const parsed = new Date(trimmed);
   if (!isNaN(parsed.getTime())) {
-    return parsed.toISOString().split('T')[0];
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
   }
   return '';
 }
@@ -99,6 +101,10 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
     return monthlyData.reduce((acc, m) => acc + m.amount, 0);
   }, [monthlyData]);
 
+  const yearInvoiceCount = useMemo(() => {
+    return monthlyData.reduce((acc, m) => acc + m.count, 0);
+  }, [monthlyData]);
+
   const categoryData = useMemo(() => {
     const cats: Record<string, number> = {};
     activeInvoices.forEach(inv => {
@@ -147,109 +153,166 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
   }, [activeInvoices]);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-      <div className="card glass-panel" style={{ padding: '1.25rem 1.5rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-          {[
-            { id: 'monthly', label: '📊 הוצאות חודשיות' },
-            { id: 'categories', label: '🏷️ פילוח קטגוריות' },
-            { id: 'yearly_compare', label: '📈 השוואה רב-שנתית' }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setChartView(tab.id as any)}
-              style={{
-                padding: '0.45rem 1rem',
-                borderRadius: '12px',
-                border: chartView === tab.id ? '2px solid var(--primary)' : '1px solid var(--border-light)',
-                background: chartView === tab.id ? 'var(--primary)' : 'var(--bg-main)',
-                color: chartView === tab.id ? '#ffffff' : 'var(--text-primary)',
-                fontWeight: 'bold',
-                fontSize: '0.85rem',
-                cursor: 'pointer'
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+      
+      {/* 1. COMPACT TOP CONTROLS & KPI BAR */}
+      <div style={{
+        background: 'var(--bg-card)',
+        borderRadius: '18px',
+        border: '1px solid var(--border-light)',
+        padding: '0.85rem 1rem',
+        boxShadow: 'var(--shadow-sm)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '0.75rem'
+      }}>
+        {/* ROW A: VIEW SWITCHER + YEAR SELECTOR */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.5rem'
+        }}>
+          {/* HORIZONTAL PILLS SWITCHER */}
+          <div style={{
+            display: 'flex',
+            background: 'var(--bg-main, #f1f5f9)',
+            padding: '0.25rem',
+            borderRadius: '12px',
+            border: '1px solid var(--border-light)',
+            flex: '1 1 auto',
+            maxWidth: '360px'
+          }}>
+            {[
+              { id: 'monthly', label: '📊 חודשי' },
+              { id: 'categories', label: '🏷️ קטגוריות' },
+              { id: 'yearly_compare', label: '📈 רב-שנתי' }
+            ].map(tab => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setChartView(tab.id as any)}
+                style={{
+                  flex: 1,
+                  padding: '0.45rem 0.5rem',
+                  borderRadius: '9px',
+                  border: 'none',
+                  background: chartView === tab.id ? 'var(--primary)' : 'transparent',
+                  color: chartView === tab.id ? '#ffffff' : 'var(--text-secondary)',
+                  fontWeight: 'bold',
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* YEAR PICKER */}
+          {chartView !== 'yearly_compare' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <select
+                value={selectedYear}
+                onChange={e => setSelectedYear(Number(e.target.value))}
+                style={{
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: '10px',
+                  border: '1.5px solid var(--primary)',
+                  background: 'var(--bg-card)',
+                  color: 'var(--primary)',
+                  fontWeight: '800',
+                  fontSize: '0.9rem',
+                  cursor: 'pointer',
+                  outline: 'none'
+                }}
+              >
+                {availableYears.map(y => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
-        {chartView !== 'yearly_compare' && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>שנת ניתוח:</span>
-            <select
-              value={selectedYear}
-              onChange={e => setSelectedYear(Number(e.target.value))}
-              style={{
-                padding: '0.4rem 0.85rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-light)',
-                background: 'var(--bg-main)',
-                color: 'var(--text-primary)',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              {availableYears.map(y => (
-                <option key={y} value={y}>{y}</option>
-              ))}
-            </select>
+        {/* ROW B: STATS SUMMARY STRIP */}
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderTop: '1px solid var(--border-light)',
+          paddingTop: '0.6rem'
+        }}>
+          <div>
+            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+              {chartView === 'yearly_compare' ? 'השוואה רב-שנתית' : `סך הכל לשנת ${selectedYear}:`}
+            </span>
+            <div style={{ fontSize: '1.6rem', fontWeight: '900', color: 'var(--primary)', lineHeight: '1.2' }}>
+              {chartView === 'yearly_compare' 
+                ? `₪${yearlyComparison.reduce((a, b) => a + b.total, 0).toLocaleString()}`
+                : `₪${yearTotal.toLocaleString()}`
+              }
+            </div>
           </div>
-        )}
+
+          {chartView !== 'yearly_compare' && (
+            <div style={{ textAlign: 'left' }}>
+              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block' }}>הוצאות רשומות</span>
+              <span style={{ fontSize: '1.1rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                {yearInvoiceCount}
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* 2. THE MAIN CHART (HERO) */}
       {chartView === 'monthly' && (
-        <div className="card glass-panel" style={{ padding: '1.75rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)' }}>
-                גרף הוצאות חודשי לשנת {selectedYear}
-              </h3>
-              <p style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                עמודות ההוצאה לפי חודש בשנה
-              </p>
-            </div>
-            <div style={{ textAlign: 'left' }}>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>סך הכל בשנה:</span>
-              <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--primary)' }}>
-                ₪{yearTotal.toLocaleString()}
-              </div>
-            </div>
-          </div>
-
+        <div className="card glass-panel" style={{
+          padding: '1.25rem 1rem',
+          background: 'var(--bg-card)',
+          borderRadius: '18px',
+          border: '1px solid var(--border-light)',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
           <div style={{
             display: 'flex',
             alignItems: 'flex-end',
-            gap: '0.5rem',
+            gap: '0.35rem',
             height: '240px',
             paddingTop: '2rem',
             paddingBottom: '0.5rem',
             borderBottom: '2px solid var(--border-light)',
-            overflowX: 'auto'
+            overflowX: 'auto',
+            direction: 'rtl'
           }}>
             {monthlyData.map((m, idx) => (
               <div
                 key={idx}
                 style={{
                   flex: 1,
-                  minWidth: '45px',
+                  minWidth: '40px',
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'flex-end',
                   alignItems: 'center',
-                  gap: '0.4rem'
+                  gap: '0.35rem'
                 }}
               >
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
-                  {m.amount > 0 ? `₪${m.amount >= 1000 ? Math.round(m.amount / 1000) + 'k' : m.amount}` : ''}
+                <span style={{ fontSize: '0.68rem', color: m.amount > 0 ? 'var(--primary)' : 'transparent', fontWeight: '800', whiteSpace: 'nowrap' }}>
+                  {m.amount > 0 ? (m.amount >= 1000 ? `${Math.round(m.amount / 1000)}k` : `${m.amount}`) : '-'}
                 </span>
 
                 <div
                   style={{
                     width: '100%',
-                    maxWidth: '36px',
-                    height: `${Math.max(m.heightPercent, m.amount > 0 ? 6 : 2)}%`,
+                    maxWidth: '30px',
+                    height: `${Math.max(m.heightPercent, m.amount > 0 ? 8 : 3)}%`,
                     background: m.amount > 0 ? 'linear-gradient(180deg, #6366f1 0%, #4f46e5 100%)' : 'rgba(0,0,0,0.05)',
                     borderRadius: '6px 6px 0 0',
                     transition: 'height 0.4s ease',
@@ -258,7 +321,7 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
                   title={`${m.monthName}: ₪${m.amount.toLocaleString()} (${m.count} חשבוניות)`}
                 />
 
-                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
+                <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap', fontWeight: '600' }}>
                   {m.monthName.slice(0, 3)}
                 </span>
               </div>
@@ -268,28 +331,30 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
       )}
 
       {chartView === 'categories' && (
-        <div className="card glass-panel" style={{ padding: '1.75rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
-          <h3 style={{ margin: '0 0 1.25rem 0', fontSize: '1.15rem', color: 'var(--text-primary)' }}>
-            פילוח קטגוריות לשנת {selectedYear}
-          </h3>
-
+        <div className="card glass-panel" style={{
+          padding: '1.25rem',
+          background: 'var(--bg-card)',
+          borderRadius: '18px',
+          border: '1px solid var(--border-light)',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
           {categoryData.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
+            <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-secondary)' }}>
               אין הוצאות רשומות בשנת {selectedYear}.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.1rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               {categoryData.map(cat => (
                 <div key={cat.name}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', fontSize: '0.9rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem', fontSize: '0.88rem' }}>
                     <span style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>
                       {cat.name} ({cat.percent}%)
                     </span>
-                    <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>
+                    <span style={{ fontWeight: '800', color: 'var(--primary)' }}>
                       ₪{cat.total.toLocaleString()}
                     </span>
                   </div>
-                  <div style={{ width: '100%', height: '10px', background: 'var(--bg-main)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div style={{ width: '100%', height: '10px', background: 'var(--bg-main, #f1f5f9)', borderRadius: '10px', overflow: 'hidden' }}>
                     <div
                       style={{
                         width: `${cat.barWidthPercent}%`,
@@ -308,29 +373,29 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
       )}
 
       {chartView === 'yearly_compare' && (
-        <div className="card glass-panel" style={{ padding: '1.75rem', background: 'var(--bg-card)', borderRadius: '16px', border: '1px solid var(--border-light)' }}>
-          <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.15rem', color: 'var(--text-primary)' }}>
-            השוואת הוצאות רב-שנתית
-          </h3>
-          <p style={{ margin: '0 0 1.5rem 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-            מבט על של סך ההוצאות שנה מול שנה
-          </p>
-
+        <div className="card glass-panel" style={{
+          padding: '1.25rem',
+          background: 'var(--bg-card)',
+          borderRadius: '18px',
+          border: '1px solid var(--border-light)',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
           <div style={{
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
-            gap: '2.5rem',
-            height: '220px',
+            gap: '1.5rem',
+            height: '240px',
             paddingTop: '2rem',
             paddingBottom: '0.5rem',
-            borderBottom: '2px solid var(--border-light)'
+            borderBottom: '2px solid var(--border-light)',
+            direction: 'rtl'
           }}>
             {yearlyComparison.map(y => (
               <div
                 key={y.year}
                 style={{
-                  width: '80px',
+                  width: '65px',
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
@@ -339,14 +404,14 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
                   gap: '0.5rem'
                 }}
               >
-                <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)' }}>
                   ₪{y.total.toLocaleString()}
                 </span>
 
                 <div
                   style={{
                     width: '100%',
-                    height: `${Math.max(y.barHeightPercent, 8)}%`,
+                    height: `${Math.max(y.barHeightPercent, 10)}%`,
                     background: 'linear-gradient(180deg, #10b981 0%, #059669 100%)',
                     borderRadius: '8px 8px 0 0',
                     boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)',
@@ -355,7 +420,7 @@ export function ExpenseAnalyticsCharts({ invoices }: ExpenseAnalyticsChartsProps
                   title={`${y.year}: ₪${y.total.toLocaleString()}`}
                 />
 
-                <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
                   {y.year}
                 </span>
               </div>
