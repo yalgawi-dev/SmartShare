@@ -1,5 +1,5 @@
 // @ts-nocheck
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 
 export function FinanceTransferModal({
@@ -8,6 +8,7 @@ export function FinanceTransferModal({
   handleAddExpense,
   onClose,
   preselectedTargetId,
+  preselectedAmount,
   spaceId
 }: any) {
   const [tab, setTab] = useState<'transfer' | 'income'>('transfer');
@@ -20,38 +21,70 @@ export function FinanceTransferModal({
   const [payerId, setPayerId] = useState(myEffectiveId);
   const [targetId, setTargetId] = useState(preselectedTargetId || '');
   const [incomeHolderId, setIncomeHolderId] = useState(myEffectiveId);
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(preselectedAmount ? String(preselectedAmount) : '');
   const [note, setNote] = useState('');
+  const [proofImage, setProofImage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const onSubmit = (e: React.FormEvent) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setProofImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    const formElement = document.createElement('form');
-    
-    const amountInput = document.createElement('input');
-    amountInput.name = 'amount';
-    amountInput.value = amount;
-    formElement.appendChild(amountInput);
+    if (isSubmitting) return;
+    setIsSubmitting(true);
 
-    const targetInput = document.createElement('input');
-    targetInput.name = 'targetId';
-    targetInput.value = tab === 'income' ? incomeHolderId : targetId;
-    formElement.appendChild(targetInput);
+    try {
+      let attachmentUrl = null;
+      if (proofImage) {
+        try {
+          const { uploadImageToStorage } = await import('../../../lib/firebase');
+          const { downscaleBase64 } = await import('../../../utils/imageOptimizer');
+          const optimized = await downscaleBase64(proofImage, 1200, 0.8);
+          const filename = `transfers/${spaceId}/${Date.now()}_proof.jpg`;
+          attachmentUrl = await uploadImageToStorage(optimized, filename);
+        } catch (uploadErr) {
+          console.error("Proof upload failed:", uploadErr);
+        }
+      }
 
-    const noteInput = document.createElement('input');
-    noteInput.name = 'note';
-    noteInput.value = note;
-    formElement.appendChild(noteInput);
-    
-    const fakeEvent = {
-      preventDefault: () => {},
-      currentTarget: formElement,
-    } as unknown as React.FormEvent<HTMLFormElement>;
+      const formElement = document.createElement('form');
+      
+      const amountInput = document.createElement('input');
+      amountInput.name = 'amount';
+      amountInput.value = amount;
+      formElement.appendChild(amountInput);
 
-    if (tab === 'transfer') {
-      handleAddExpense(fakeEvent, { overrideCategory: 'העברה/קיזוז', customPayerId: payerId });
-    } else {
-      handleAddExpense(fakeEvent, { overrideCategory: 'הכנסת עסק', customPayerId: 'virtual_treasury_member' });
+      const targetInput = document.createElement('input');
+      targetInput.name = 'targetId';
+      targetInput.value = tab === 'income' ? incomeHolderId : targetId;
+      formElement.appendChild(targetInput);
+
+      const noteInput = document.createElement('input');
+      noteInput.name = 'note';
+      noteInput.value = note;
+      formElement.appendChild(noteInput);
+      
+      const fakeEvent = {
+        preventDefault: () => {},
+        currentTarget: formElement,
+      } as unknown as React.FormEvent<HTMLFormElement>;
+
+      if (tab === 'transfer') {
+        await handleAddExpense(fakeEvent, { overrideCategory: 'העברה/קיזוז', customPayerId: payerId, attachmentUrl });
+      } else {
+        await handleAddExpense(fakeEvent, { overrideCategory: 'הכנסת עסק', customPayerId: 'virtual_treasury_member', attachmentUrl });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -161,11 +194,54 @@ export function FinanceTransferModal({
             />
           </div>
 
+          {/* Proof Attachment */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(0,0,0,0.02)', padding: '0.875rem', borderRadius: '12px', border: '1px dashed var(--border-light)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
+                📎 הוכחת העברה / אסמכתא (אופציונלי)
+              </span>
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <span>📷</span>
+                <span>{proofImage ? 'החלף קובץ' : 'צרף צילום'}</span>
+              </button>
+            </div>
+            
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileChange}
+              accept="image/*,application/pdf"
+              style={{ display: 'none' }}
+            />
+
+            {proofImage && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <img src={proofImage} alt="אסמכתא" style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '6px' }} />
+                  <span style={{ fontSize: '0.8rem', color: '#10b981', fontWeight: 'bold' }}>✓ אסמכתא מצורפת</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setProofImage(null)}
+                  style={{ background: 'none', border: 'none', color: '#ef4444', fontSize: '1.1rem', cursor: 'pointer', padding: '0.2rem 0.5rem' }}
+                  title="הסר צילום"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
+
           <button 
             type="submit" 
-            style={{ marginTop: '0.5rem', background: tab==='transfer' ? 'var(--primary)' : '#10b981', color: 'white', border: 'none', borderRadius: '16px', padding: '1rem', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer', boxShadow: tab==='transfer' ? '0 4px 12px rgba(99,102,241,0.3)' : '0 4px 12px rgba(16,185,129,0.3)' }}
+            disabled={isSubmitting}
+            style={{ marginTop: '0.5rem', background: tab==='transfer' ? 'var(--primary)' : '#10b981', color: 'white', border: 'none', borderRadius: '16px', padding: '1rem', fontSize: '1.1rem', fontWeight: 'bold', cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, boxShadow: tab==='transfer' ? '0 4px 12px rgba(99,102,241,0.3)' : '0 4px 12px rgba(16,185,129,0.3)' }}
           >
-            אישור וביצוע
+            {isSubmitting ? 'מבצע ומעלה אסמכתא...' : 'אישור וביצוע'}
           </button>
         </form>
       </div>

@@ -284,7 +284,7 @@ export function FinanceSummary({
 
   let myBalance = unifiedBalances.get(myLookupId)?.balance || 0;
 
-  const settlements: { from: string, to: string, amount: number }[] = [];
+  const settlements: { from: string, to: string, fromId?: string, toId?: string, amount: number }[] = [];
   
   const debtors = balances.filter(b => b.balance <= -0.5 && b.userId !== TREASURY_MEMBER_ID).map(b => ({ ...b, amount: Math.abs(b.balance) }));
   const creditors = balances.filter(b => b.balance >= 0.5 && b.userId !== TREASURY_MEMBER_ID).map(b => ({ ...b, amount: b.balance }));
@@ -308,7 +308,7 @@ export function FinanceSummary({
     const amount = Math.min(d.amount, c.amount);
     
     if (amount >= 0.5) {
-      settlements.push({ from: d.name, to: c.name, amount });
+      settlements.push({ from: d.name, to: c.name, fromId: d.userId, toId: c.userId, amount });
     }
     
     d.amount -= amount;
@@ -343,80 +343,96 @@ export function FinanceSummary({
         </div>
 
         {/* Row 2: Pending and Balances */}
-        {hasPartners && (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-              <div 
-                onClick={() => { 
-                  setActiveTab('transactions');
-                  if (activePartnersCount === 0) {
-                    setFilter('all');
-                    return;
-                  }
-                  const hasPendingMe = activeInvoices.some((i: any) => {
-                    if (i.status !== 'pending') return false;
-                    if (i.type === 'transfer') {
-                      if (i.targetId === user?.id || i.targetId === myId) return true;
-                      if (isCreatorMe && i.payerId !== user?.id && i.payerId !== 'me' && i.payerId !== myId) return true;
-                      return false;
+        {(() => {
+          if (!hasPartners) return null;
+
+          const pendingCount = activeInvoices.filter((i: any) => { 
+            if (i.status !== 'pending') return false; 
+            if ((i.type === 'income' || i.category === 'הכנסת עסק') && !space?.features?.includes('income')) return false; 
+            if ((i.type === 'transfer' || i.category === 'העברה/קיזוז') && !space?.features?.includes('partners')) return false; 
+            
+            // If there are no active partners in the space, past or standalone invoices have nobody to wait for
+            if (activePartnersCount === 0 && i.type !== 'transfer') return false;
+
+            // Check if this invoice is auto-approved because all partners are excluded or exempt
+            const excluded = i.excludedMembers || [];
+            const activeMems = (space.members || []).filter((m: any) => m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested'));
+            const creatorObj = { userId: creatorId, name: creatorName };
+            const everyone = [creatorObj, ...activeMems];
+            const participating = everyone.filter((m: any) => !excluded.includes(m.userId) && m.userId !== 'treasury_virtual');
+            const approvedBy = i.approvedBy || [];
+            const waitingFor = participating.filter((m: any) => {
+              if (m.userId === i.payerId || m.userId === 'me') return false;
+              if (isCreatorMe && i.payerId === space.creatorId && m.userId === creatorId) return false;
+              if (approvedBy.includes(m.userId)) return false;
+              return true;
+            });
+            if (waitingFor.length === 0 && (excluded.length > 0 || participating.length <= 1)) return false;
+
+            return true; 
+          }).length;
+
+          const showPendingCard = activePartnersCount > 0 || pendingCount > 0;
+          const showBalanceCard = activePartnersCount > 0 || Math.abs(myBalance) >= 0.5 || settlements.length > 0;
+
+          if (!showPendingCard && !showBalanceCard) return null;
+
+          const gridStyle = (showPendingCard && showBalanceCard) 
+            ? { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }
+            : { display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' };
+
+          return (
+            <div style={gridStyle}>
+              {showPendingCard && (
+                <div 
+                  onClick={() => { 
+                    setActiveTab('transactions');
+                    if (activePartnersCount === 0) {
+                      setFilter('all');
+                      return;
                     }
-                    if (i.payerId === user?.id || i.payerId === myId || i.payerId === 'me') return false;
-                    if (isCreatorMe && (i.payerId === (space.creatorId || space.createdBy) || i.payerId === creatorId)) return false;
-                    if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myId)) return false;
-                    if ((i.excludedMembers || []).includes(user?.id) || (i.excludedMembers || []).includes(myId)) return false;
-                    return true;
-                  });
-                  setFilter(hasPendingMe ? 'pending_me' : 'pending_partners'); 
-                }}
-                style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
-              title="למעבר מהיר לעמוד ההוצאות"
-            >
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישור</p>
-              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>
-                {activeInvoices.filter((i: any) => { 
-                  if (i.status !== 'pending') return false; 
-                  if ((i.type === 'income' || i.category === 'הכנסת עסק') && !space?.features?.includes('income')) return false; 
-                  if ((i.type === 'transfer' || i.category === 'העברה/קיזוז') && !space?.features?.includes('partners')) return false; 
-                  
-                  // If there are no active partners in the space, past or standalone invoices have nobody to wait for
-                  if (activePartnersCount === 0 && i.type !== 'transfer') return false;
-
-                  // Check if this invoice is auto-approved because all partners are excluded or exempt
-                  const excluded = i.excludedMembers || [];
-                  const activeMems = (space.members || []).filter((m: any) => m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested'));
-                  const creatorObj = { userId: creatorId, name: creatorName };
-                  const everyone = [creatorObj, ...activeMems];
-                  const participating = everyone.filter((m: any) => !excluded.includes(m.userId) && m.userId !== 'treasury_virtual');
-                  const approvedBy = i.approvedBy || [];
-                  const waitingFor = participating.filter((m: any) => {
-                    if (m.userId === i.payerId || m.userId === 'me') return false;
-                    if (isCreatorMe && i.payerId === space.creatorId && m.userId === creatorId) return false;
-                    if (approvedBy.includes(m.userId)) return false;
-                    return true;
-                  });
-                  if (waitingFor.length === 0 && (excluded.length > 0 || participating.length <= 1)) return false;
-
-                  return true; 
-                }).length}
-              </h3>
-            </div>
-            
-            
-            <div 
-              onClick={() => setShowSettlementBreakdown(true)}
-              style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', position: 'relative' }}
-              title="פירוט של התחשבנות היתרות בין כל השותפים במרחב"
-            >
-              <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                {!unifiedBalances.has(myLookupId) ? 'התחשבנות כוללת' : (myBalance > 0.5 ? 'שותפים חייבים לי:' : (myBalance < -0.5 ? 'אני חייב/ת להעביר:' : 'החשבון שלי מאוזן'))}
-              </p>
-              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
-                {!unifiedBalances.has(myLookupId) ? <span style={{fontSize: '1.1rem', textDecoration:'underline'}}>פירוט חובות</span> : `${Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪`}
-              </h3>
+                    const hasPendingMe = activeInvoices.some((i: any) => {
+                      if (i.status !== 'pending') return false;
+                      if (i.type === 'transfer') {
+                        if (i.targetId === user?.id || i.targetId === myId) return true;
+                        if (isCreatorMe && i.payerId !== user?.id && i.payerId !== 'me' && i.payerId !== myId) return true;
+                        return false;
+                      }
+                      if (i.payerId === user?.id || i.payerId === myId || i.payerId === 'me') return false;
+                      if (isCreatorMe && (i.payerId === (space.creatorId || space.createdBy) || i.payerId === creatorId)) return false;
+                      if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myId)) return false;
+                      if ((i.excludedMembers || []).includes(user?.id) || (i.excludedMembers || []).includes(myId)) return false;
+                      return true;
+                    });
+                    setFilter(hasPendingMe ? 'pending_me' : 'pending_partners'); 
+                  }}
+                  style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
+                  title="למעבר מהיר לעמוד ההוצאות"
+                >
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישור</p>
+                  <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>
+                    {pendingCount}
+                  </h3>
+                </div>
+              )}
               
+              {showBalanceCard && (
+                <div 
+                  onClick={() => setShowSettlementBreakdown(true)}
+                  style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', position: 'relative' }}
+                  title="פירוט של התחשבנות היתרות בין כל השותפים במרחב"
+                >
+                  <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+                    {!unifiedBalances.has(myLookupId) ? 'התחשבנות כוללת' : (myBalance > 0.5 ? 'שותפים חייבים לי:' : (myBalance < -0.5 ? 'אני חייב/ת להעביר:' : 'החשבון שלי מאוזן'))}
+                  </p>
+                  <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: myBalance >= 0 ? '#10b981' : '#ef4444' }} dir="ltr">
+                    {!unifiedBalances.has(myLookupId) ? <span style={{fontSize: '1.1rem', textDecoration:'underline'}}>פירוט חובות</span> : `${Math.abs(myBalance).toLocaleString(undefined, {maximumFractionDigits: 0})} ₪`}
+                  </h3>
+                </div>
+              )}
             </div>
-
-          </div>
-        )}
+          );
+        })()}
 
         {/* Row 3: Cashbox */}
         {isCashboxEnabled(space) && (
@@ -691,18 +707,43 @@ export function FinanceSummary({
                   כולם מאוזנים! אין חובות במרחב הזה.
                 </div>
               ) : (
-                settlements.map((s: any, idx: number) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                      <span style={{ fontWeight: 'bold' }}>{s.from === myId ? myRealName : (unifiedBalances.get(s.from)?.name || s.from)}</span>
-                      <span style={{ color: 'var(--text-secondary)', margin: '0 0.5rem' }}>חייב/ת ל-</span>
-                      <span style={{ fontWeight: 'bold' }}>{s.to === myId ? myRealName : (unifiedBalances.get(s.to)?.name || s.to)}</span>
+                settlements.map((s: any, idx: number) => {
+                  const fromName = s.from === myId ? myRealName : (unifiedBalances.get(s.from)?.name || s.from);
+                  const toName = s.to === myId ? myRealName : (unifiedBalances.get(s.to)?.name || s.to);
+                  const isCurrentDebtor = s.fromId === myId || s.fromId === user?.id || (isCreatorMe && s.fromId === creatorId);
+                  const targetPartnerId = isCurrentDebtor ? s.toId : s.fromId;
+
+                  return (
+                    <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', padding: '1rem', background: 'var(--bg-main)', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 'bold' }}>{fromName}</span>
+                          <span style={{ color: 'var(--text-secondary)', margin: '0 0.25rem' }}>חייב/ת ל-</span>
+                          <span style={{ fontWeight: 'bold' }}>{toName}</span>
+                        </div>
+                        <div style={{ fontWeight: 'bold', color: '#10b981', fontSize: '1.1rem' }} dir="ltr">
+                          {s.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
+                        </div>
+                      </div>
+
+                      {onTriggerTransfer && targetPartnerId && (
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px dashed var(--border-light)', paddingTop: '0.5rem' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowSettlementBreakdown(false);
+                              onTriggerTransfer(targetPartnerId, s.amount);
+                            }}
+                            style={{ background: isCurrentDebtor ? 'var(--primary)' : '#10b981', color: 'white', border: 'none', padding: '0.45rem 0.9rem', borderRadius: '8px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                          >
+                            <span>💸</span>
+                            <span>{isCurrentDebtor ? 'בצע העברה וסגור חוב' : 'רשום קבלת החזר'}</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
-                    <div style={{ fontWeight: 'bold', color: '#10b981' }} dir="ltr">
-                      {s.amount.toLocaleString(undefined, {maximumFractionDigits: 0})} ₪
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             {onTriggerTransfer && (

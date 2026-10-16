@@ -117,9 +117,12 @@ const shareDocument = async (url: string, title: string) => {
     }, [searchParams]);
   const [selectedCategory, setSelectedCategory] = useState('כללי');
 
-  const onTriggerTransfer = (targetId?: string) => {
+  const [preselectedAmount, setPreselectedAmount] = useState<number | undefined>(undefined);
+
+  const onTriggerTransfer = (targetId?: string, amount?: number) => {
     setSelectedCategory('העברה/קיזוז');
     if (targetId) setSelectedPayerId(targetId);
+    if (amount) setPreselectedAmount(amount);
     if (setIsAddingExpense) setIsAddingExpense(true);
   };
   const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem } = useSpaces();
@@ -309,6 +312,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
   
   
   const handleCloseForm = () => {
+    setPreselectedAmount(undefined);
     if(setIsAddingExpense) setIsAddingExpense(false);
     setScannedImage(null);
     setSelectedCategory('כללי'); // Reset to default so next time 'הזנה' opens the correct modal
@@ -374,12 +378,12 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
   });
 
 
-  const validMembers = space.members?.filter((m: any) => m.userId !== myEffectiveId && m.userId !== user?.id && m.isActive !== false && m.status !== 'removed') || [];
+  const validMembers = space.members?.filter((m: any) => m.userId !== myEffectiveId && m.userId !== user?.id && m.status !== 'removed') || [];
   if (isCashboxEnabled(space)) {
     validMembers.push(createVirtualTreasury());
   }
 
-  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string }) => {
+  const handleAddExpense = async (e: React.FormEvent<HTMLFormElement>, options?: { overrideCategory?: string, customPayerId?: string, attachmentUrl?: string | null }) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     let amount = Number(formData.get('amount'));
@@ -428,7 +432,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     const invoiceNumber = (formData.get('invoiceNumber') as string) || '';
     const documentType = (formData.get('documentType') as string) || null;
       // If the user clicks Save BEFORE the background upload is done, we wait for it!
-    let finalAttachmentUrl = (scannedImage && scannedImage.startsWith('http')) ? scannedImage : null;
+    let finalAttachmentUrl = options?.attachmentUrl || ((scannedImage && scannedImage.startsWith('http')) ? scannedImage : null);
     if (uploadPromiseRef.current) {
       try {
         finalAttachmentUrl = await uploadPromiseRef.current;
@@ -470,10 +474,18 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
         finalStatus = 'approved';
         finalApprovedBy = user?.id ? [user.id] : (myEffectiveId ? [myEffectiveId] : []);
       } else {
-        // I am the payer. The receiver must approve.
-        finalApprovalsReceived = 0;
-        finalStatus = 'pending';
-        finalApprovedBy = [];
+        // I am the payer.
+        const targetMember = space.members?.find((m: any) => m.userId === targetId);
+        if (targetMember && targetMember.isActive === false) {
+          // If paying an inactive partner with proof, auto-approve to clear balance
+          finalApprovalsReceived = 1;
+          finalStatus = 'approved';
+          finalApprovedBy = user?.id ? [user.id] : [myEffectiveId];
+        } else {
+          finalApprovalsReceived = 0;
+          finalStatus = 'pending';
+          finalApprovedBy = [];
+        }
       }
     }
 
@@ -679,6 +691,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
           handleAddExpense={handleAddExpense}
           onClose={handleCloseForm}
           preselectedTargetId={selectedPayerId !== 'me' && selectedPayerId !== user?.id && selectedPayerId !== myEffectiveId ? selectedPayerId : ''}
+          preselectedAmount={preselectedAmount}
           spaceId={space.id}
         />,
         document.body
