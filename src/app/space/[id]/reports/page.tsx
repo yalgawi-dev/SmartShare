@@ -28,68 +28,101 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   const invoices = (space.invoices || []).filter(inv => inv.isActive !== false);
 
   return (
-    <div className={styles.container} style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '3rem' }}>
-      {/* Top Navigation Back Link */}
-      <div style={{ position: 'sticky', top: 0, background: 'var(--bg-main, #f8fafc)', zIndex: 100, padding: '1rem 0', margin: '-1rem -1rem 1.5rem -1rem', paddingLeft: '1rem', paddingRight: '1rem', borderBottom: '1px solid var(--border-light)' }}>
-        <Link href={`/space/${id}`} className={styles.backBtn} style={{ margin: 0 }}>
-          <span>&rarr;</span> חזרה לקיר הפרויקט
-        </Link>
-      </div>
-
-      {/* Main Header */}
-      <header className={styles.header} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1.25rem', marginBottom: '1.5rem' }}>
-        <div>
-          <h1 className={styles.title} style={{ margin: 0, fontSize: '1.65rem' }}>
-            📊 דוחות ומדדים פיננסיים: {space.title}
-          </h1>
-          <p className={styles.subtitle} style={{ margin: '0.35rem 0 0', opacity: 0.85 }}>
-            פילוח הוצאות לפי תאריכים, גרפי השוואה וייצוא נתונים
-          </p>
+    <div className={styles.container} style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', paddingBottom: '5rem' }}>
+      {/* Top Compact Navigation & Title Bar */}
+      <div style={{
+        position: 'sticky',
+        top: 0,
+        background: 'rgba(255, 255, 255, 0.95)',
+        backdropFilter: 'blur(10px)',
+        zIndex: 100,
+        padding: '0.75rem 0',
+        marginBottom: '1rem',
+        borderBottom: '1px solid var(--border-light)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: '0.5rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Link href={`/space/${id}`} style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: '36px',
+            height: '36px',
+            borderRadius: '50%',
+            background: 'var(--bg-main, #f1f5f9)',
+            color: 'var(--text-primary)',
+            textDecoration: 'none',
+            fontSize: '1.2rem',
+            fontWeight: 'bold',
+            flexShrink: 0
+          }}>
+            &rarr;
+          </Link>
+          <div>
+            <h1 style={{ margin: 0, fontSize: 'clamp(1.1rem, 3.5vw, 1.4rem)', color: 'var(--text-primary)', fontWeight: 800 }}>
+              דוחות: {space.title}
+            </h1>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              פילוח הוצאות וגרפים
+            </p>
+          </div>
         </div>
 
-        {/* Tab Switcher Pills */}
-        <div style={{ display: 'flex', background: 'var(--bg-card)', padding: '0.3rem', borderRadius: '14px', border: '1px solid var(--border-light)', boxShadow: 'var(--shadow-sm)' }}>
+        {/* Tab Switcher Pills (Compact) */}
+        <div style={{
+          display: 'flex',
+          background: 'var(--bg-main, #f1f5f9)',
+          padding: '0.2rem',
+          borderRadius: '12px',
+          border: '1px solid var(--border-light)',
+          flexShrink: 0
+        }}>
           <button
             onClick={() => setActiveTab('date_range')}
             style={{
-              padding: '0.6rem 1.25rem',
-              borderRadius: '10px',
+              padding: '0.4rem 0.75rem',
+              borderRadius: '9px',
               border: 'none',
               background: activeTab === 'date_range' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'date_range' ? '#ffffff' : 'var(--text-primary)',
+              color: activeTab === 'date_range' ? '#ffffff' : 'var(--text-secondary)',
               fontWeight: 'bold',
-              fontSize: '0.9rem',
+              fontSize: '0.8rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.2s ease'
+              gap: '0.25rem',
+              transition: 'all 0.15s ease'
             }}
           >
-            <span>📅</span> דוח תאריכים וייצוא
+            <span>📅</span>
+            <span>תאריכים</span>
           </button>
 
           <button
             onClick={() => setActiveTab('analytics')}
             style={{
-              padding: '0.6rem 1.25rem',
-              borderRadius: '10px',
+              padding: '0.4rem 0.75rem',
+              borderRadius: '9px',
               border: 'none',
               background: activeTab === 'analytics' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'analytics' ? '#ffffff' : 'var(--text-primary)',
+              color: activeTab === 'analytics' ? '#ffffff' : 'var(--text-secondary)',
               fontWeight: 'bold',
-              fontSize: '0.9rem',
+              fontSize: '0.8rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.2s ease'
+              gap: '0.25rem',
+              transition: 'all 0.15s ease'
             }}
           >
-            <span>📈</span> גרפים והשוואות
+            <span>📈</span>
+            <span>גרפים</span>
           </button>
         </div>
-      </header>
+      </div>
 
       {/* Active Tab Content */}
       {activeTab === 'date_range' && (
@@ -121,14 +154,15 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
             <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', height: '100%' }}>
               <TransformWrapper initialScale={1} minScale={1} maxScale={5} centerOnInit={true}>
                 <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
-                  <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', margin: 'auto' }} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '1rem', width: '100%' }}>
+                    <img src={previewImage} style={{ maxWidth: '100%', maxHeight: '80%', objectFit: 'contain', margin: 'auto' }} />
+                  </div>
                 </TransformComponent>
               </TransformWrapper>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }

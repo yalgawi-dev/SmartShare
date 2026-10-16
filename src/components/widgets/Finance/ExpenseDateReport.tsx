@@ -145,7 +145,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
   // Group invoices by Year-Month
   const monthlyGroups = useMemo(() => {
     const groups: {
-      key: string; // "YYYY-MM"
+      key: string;
       year: number;
       month: number;
       monthName: string;
@@ -336,61 +336,69 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
   const currentPresetLabel = useMemo(() => {
     switch (preset) {
       case 'all': return 'כל הזמנים';
-      case 'current_month': return 'החודש הנוכחי';
+      case 'current_month': return 'החודש';
       case 'last_month': return 'חודש קודם';
-      case 'last_3_months': return '3 חודשים אחרונים';
+      case 'last_3_months': return '3 חודשים';
       case 'year_to_date': return 'מתחילת השנה';
-      case 'custom': return startDate && endDate ? `${startDate} עד ${endDate}` : 'מותאם אישית';
+      case 'custom': return startDate && endDate ? `${startDate} - ${endDate}` : 'מותאם';
       default: return 'סינון';
     }
   }, [preset, startDate, endDate]);
 
+  const monthsCountText = useMemo(() => {
+    const c = monthlyGroups.length;
+    if (c === 0) return 'אין נתונים';
+    if (c === 1) return 'חודש אחד';
+    if (c === 2) return 'שני חודשים';
+    return `${c} חודשים`;
+  }, [monthlyGroups.length]);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', paddingBottom: '5.5rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '6rem' }}>
       
       {/* 1. TOP COMPACT KPI BANNER */}
       <div style={{
         background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(59, 130, 246, 0.05) 100%)',
         border: '1.5px solid var(--border-light)',
-        borderRadius: '20px',
-        padding: '1.25rem 1.5rem',
+        borderRadius: '18px',
+        padding: '1rem 1.25rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
-        gap: '1rem',
+        gap: '0.75rem',
         boxShadow: 'var(--shadow-sm)'
       }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
               סך ההוצאות בטווח ({currentPresetLabel})
             </span>
             {searchQuery && (
-              <span style={{ fontSize: '0.75rem', background: 'rgba(99,102,241,0.15)', color: 'var(--primary)', padding: '0.15rem 0.5rem', borderRadius: '10px', fontWeight: 'bold' }}>
-                סינון: "{searchQuery}"
+              <span style={{ fontSize: '0.75rem', background: 'rgba(99,102,241,0.15)', color: 'var(--primary)', padding: '0.1rem 0.45rem', borderRadius: '8px', fontWeight: 'bold' }}>
+                "{searchQuery}"
               </span>
             )}
           </div>
-          <div style={{ fontSize: '2.3rem', fontWeight: '900', color: 'var(--primary)', lineHeight: '1.2', marginTop: '0.25rem' }}>
+          <div style={{ fontSize: '2rem', fontWeight: '900', color: 'var(--primary)', lineHeight: '1.2', marginTop: '0.2rem' }}>
             ₪{totalAmount.toLocaleString()}
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block' }}>חשבוניות</span>
-            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)' }}>{invoicesCount}</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>חשבוניות</span>
+            <span style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>{invoicesCount}</span>
           </div>
-          <div style={{ width: '1px', height: '30px', background: 'var(--border-light)' }} />
+          <div style={{ width: '1px', height: '24px', background: 'var(--border-light)' }} />
           <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block' }}>ממוצע</span>
-            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: 'var(--text-primary)' }}>₪{avgAmount.toLocaleString()}</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>ממוצע</span>
+            <span style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>₪{avgAmount.toLocaleString()}</span>
           </div>
-          <div style={{ width: '1px', height: '30px', background: 'var(--border-light)' }} />
+          <div style={{ width: '1px', height: '24px', background: 'var(--border-light)' }} />
           <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'block' }}>קבצים</span>
-            <span style={{ fontSize: '1.3rem', fontWeight: '800', color: '#10b981' }}>{filesCount}</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>קבצים</span>
+            <span style={{ fontSize: '1.15rem', fontWeight: '800', color: '#10b981' }}>{filesCount}</span>
           </div>
         </div>
       </div>
@@ -398,7 +406,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
       {/* 2. TOOLBAR: EXPAND/COLLAPSE ALL & GROUP COUNT */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
         <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-          פירוט חודשי ({monthlyGroups.length} חודשים)
+          פירוט חודשי ({monthsCountText})
         </span>
         <button
           type="button"
@@ -421,13 +429,13 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
 
       {/* 3. MONTHLY ACCORDION CARDS */}
       {monthlyGroups.length === 0 ? (
-        <div style={{ padding: '3.5rem 1rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '20px', border: '1px solid var(--border-light)' }}>
-          <span style={{ fontSize: '3rem', display: 'block', marginBottom: '0.75rem' }}>📭</span>
-          <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>לא נמצאו חשבוניות</h3>
-          <p style={{ margin: '0.5rem 0 0', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>נסה לשנות את טווח התאריכים או להסיר את מילת החיפוש.</p>
+        <div style={{ padding: '3rem 1rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '18px', border: '1px solid var(--border-light)' }}>
+          <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📭</span>
+          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem' }}>לא נמצאו חשבוניות</h3>
+          <p style={{ margin: '0.4rem 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>נסה לשנות את טווח התאריכים או להסיר את מילת החיפוש.</p>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {monthlyGroups.map((group) => {
             const isExpanded = !!expandedMonths[group.key];
 
@@ -446,8 +454,9 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                 {/* MONTH HEADER ROW */}
                 <div 
                   onClick={() => toggleMonth(group.key)}
+                  dir="rtl"
                   style={{
-                    padding: '1rem 1.25rem',
+                    padding: '0.875rem 1.15rem',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
@@ -456,7 +465,8 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                     userSelect: 'none'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  {/* Right side: Icon + Title + Count */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textAlign: 'right' }}>
                     <div style={{
                       width: '38px',
                       height: '38px',
@@ -467,13 +477,12 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                       alignItems: 'center',
                       justifyContent: 'center',
                       fontSize: '1.1rem',
-                      fontWeight: 'bold',
-                      transition: 'all 0.2s'
+                      flexShrink: 0
                     }}>
                       📅
                     </div>
                     <div>
-                      <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)' }}>
+                      <h4 style={{ margin: 0, fontSize: '1.05rem', color: 'var(--text-primary)', fontWeight: 'bold' }}>
                         {group.monthName}
                       </h4>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
@@ -482,17 +491,18 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                     </div>
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)' }} dir="ltr">
-                      ₪{group.totalAmount.toLocaleString()}
-                    </span>
+                  {/* Left side: Amount + Chevron */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', direction: 'ltr' }}>
                     <span style={{
-                      fontSize: '0.9rem',
+                      fontSize: '0.85rem',
                       color: isExpanded ? 'var(--primary)' : 'var(--text-secondary)',
                       transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
                       transition: 'transform 0.2s ease'
                     }}>
                       ▼
+                    </span>
+                    <span style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--text-primary)' }}>
+                      ₪{group.totalAmount.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -586,43 +596,50 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
         </div>
       )}
 
-      {/* 4. FLOATING BOTTOM ACTION BAR */}
+      {/* 4. FLOATING BOTTOM ACTION BAR (RESPONSIVE & PADDED FOR MOBILE SAFE-AREA) */}
       <div style={{
         position: 'fixed',
-        bottom: '1.25rem',
+        bottom: 'max(1.25rem, env(safe-area-inset-bottom, 1.25rem))',
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 999,
-        background: 'rgba(255, 255, 255, 0.92)',
+        background: 'rgba(255, 255, 255, 0.94)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(0, 0, 0, 0.1)',
-        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.18)',
+        border: '1px solid rgba(0, 0, 0, 0.12)',
+        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.16)',
         borderRadius: '30px',
-        padding: '0.5rem 0.75rem',
+        padding: '0.45rem 0.6rem',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.5rem',
-        maxWidth: '92vw'
+        justifyContent: 'center',
+        gap: '0.4rem',
+        width: 'calc(100% - 2rem)',
+        maxWidth: '460px',
+        boxSizing: 'border-box'
       }}>
         {/* FILTER BUTTON */}
         <button
           type="button"
           onClick={() => setShowFilterModal(true)}
           style={{
+            flex: '1.2 1 0',
             background: 'var(--primary)',
             color: 'white',
             border: 'none',
-            padding: '0.65rem 1.1rem',
-            borderRadius: '24px',
+            padding: '0.65rem 0.75rem',
+            borderRadius: '20px',
             fontWeight: 'bold',
-            fontSize: '0.88rem',
+            fontSize: '0.85rem',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.45rem',
+            justifyContent: 'center',
+            gap: '0.35rem',
             boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis'
           }}
         >
           <span>🔍</span>
@@ -635,18 +652,20 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
           onClick={handleExportCSV}
           disabled={invoicesCount === 0}
           style={{
-            background: 'var(--bg-main)',
+            flex: '0.9 1 0',
+            background: 'var(--bg-main, #f8fafc)',
             color: 'var(--text-primary)',
             border: '1px solid var(--border-light)',
-            padding: '0.65rem 1rem',
-            borderRadius: '24px',
+            padding: '0.65rem 0.6rem',
+            borderRadius: '20px',
             fontWeight: 'bold',
-            fontSize: '0.88rem',
+            fontSize: '0.85rem',
             cursor: invoicesCount === 0 ? 'not-allowed' : 'pointer',
             opacity: invoicesCount === 0 ? 0.5 : 1,
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
+            justifyContent: 'center',
+            gap: '0.3rem',
             whiteSpace: 'nowrap'
           }}
           title="ייצא נתונים לקובץ אקסל CSV"
@@ -661,18 +680,20 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
           onClick={handleExportZIP}
           disabled={filesCount === 0 || isZipping}
           style={{
+            flex: '1 1 0',
             background: '#10b981',
             color: 'white',
             border: 'none',
-            padding: '0.65rem 1rem',
-            borderRadius: '24px',
+            padding: '0.65rem 0.6rem',
+            borderRadius: '20px',
             fontWeight: 'bold',
-            fontSize: '0.88rem',
+            fontSize: '0.85rem',
             cursor: filesCount === 0 || isZipping ? 'not-allowed' : 'pointer',
             opacity: filesCount === 0 || isZipping ? 0.5 : 1,
             display: 'flex',
             alignItems: 'center',
-            gap: '0.4rem',
+            justifyContent: 'center',
+            gap: '0.3rem',
             boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
             whiteSpace: 'nowrap'
           }}
