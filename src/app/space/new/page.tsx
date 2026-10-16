@@ -12,8 +12,20 @@ import { useSearchParams } from 'next/navigation';
 import { useEffect } from 'react';
 
 const TEMPLATES = [
-  { id: 'finance', title: 'ניהול הוצאות / התחשבנויות', desc: 'המרחב החכם לניהול תקציב, סריקת קבלות, והתחשבנויות שותפים.', icon: '💰', features: ['finance', 'scanner'] },
-  { id: 'medical', title: 'תיק רפואי משפחתי (בקרוב)', desc: 'סיכומי מחלה, מעקב תרופות והפניות. מרוכז במקום אחד.', icon: '🩺', features: [] },
+  { 
+    id: 'finance', 
+    title: 'ניהול הוצאות / התחשבנויות', 
+    desc: 'המרחב החכם לניהול תקציב, סריקת קבלות, מסמכים והתחשבנות שותפים.', 
+    icon: '💰', 
+    features: ['finance', 'scanner', 'partners', 'vault', 'chat'] 
+  },
+  { 
+    id: 'medical', 
+    title: 'תיק רפואי משפחתי', 
+    desc: 'סיכומי מחלה, מעקב תרופות, הפניות ומסמכים מרוכזים במקום אחד.', 
+    icon: '🩺', 
+    features: ['chat', 'partners', 'vault', 'scanner'] 
+  },
   { id: 'event', title: 'תכנון אירוע / חתונה (בקרוב)', desc: 'לארגון מסיבה, חתונה או אירוע חברה. ניהול מוזמנים (RSVP) והוצאות ספקים.', icon: '🎉', features: ['finance'] },
   { id: 'construction', title: 'פרויקט בנייה / שיפוץ (בקרוב)', desc: 'ניהול קבלנים, קופת מזומן, סריקת חשבוניות ותוכניות אדריכליות.', icon: '🏗️', features: ['finance'] },
   { id: 'custom', title: 'הרכב בעצמך (Custom)', desc: 'מרחב נקי. התחל מאפס והוסף כלי ניהול בהתאם לצורך שלך.', icon: '🧩', features: [] }
