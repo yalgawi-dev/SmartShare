@@ -1,5 +1,6 @@
 // @ts-nocheck
 import React, { useState, useRef } from 'react';
+import ScannerModal from '../ScannerModal';
 import { useSpaces } from '../../../app/context/SpacesContext';
 
 export function FinanceTransferModal({
@@ -25,6 +26,7 @@ export function FinanceTransferModal({
   const [note, setNote] = useState('');
   const [proofImage, setProofImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -196,18 +198,30 @@ export function FinanceTransferModal({
 
           {/* Proof Attachment */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(0,0,0,0.02)', padding: '0.875rem', borderRadius: '12px', border: '1px dashed var(--border-light)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)' }}>
                 📎 הוכחת העברה / אסמכתא (אופציונלי)
               </span>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-              >
-                <span>📷</span>
-                <span>{proofImage ? 'החלף קובץ' : 'צרף צילום'}</span>
-              </button>
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsScanning(true)}
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--primary)', color: 'var(--primary)', padding: '0.4rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  title="פתח סורק מסמכים"
+                >
+                  <span>📷</span>
+                  <span>סרוק מסמך</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-light)', padding: '0.4rem 0.75rem', borderRadius: '8px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                  title="בחר מגלריה / קבצים"
+                >
+                  <span>📁</span>
+                  <span>{proofImage ? 'החלף קובץ' : 'בחר קובץ'}</span>
+                </button>
+              </div>
             </div>
             
             <input
@@ -245,6 +259,18 @@ export function FinanceTransferModal({
           </button>
         </form>
       </div>
+
+      {isScanning && typeof document !== 'undefined' && (
+        <ScannerModal
+          hasFinance
+          maxBytes={3000000}
+          onClose={() => setIsScanning(false)}
+          onComplete={(imgDataUrl) => {
+            setProofImage(imgDataUrl);
+            setIsScanning(false);
+          }}
+        />
+      )}
     </div>
   );
 }
