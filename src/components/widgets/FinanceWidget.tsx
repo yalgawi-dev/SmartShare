@@ -352,7 +352,23 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     }
     if (filter === 'pending_partners') {
       // Invoices I submitted that await partner approval
-      return inv.status === 'pending' && (inv.payerId === myEffectiveId || inv.payerId === 'me');
+      if (inv.status !== 'pending' || (inv.payerId !== myEffectiveId && inv.payerId !== 'me')) return false;
+      if (activePartnersCount === 0 && inv.type !== 'transfer') return false;
+      const excluded = inv.excludedMembers || [];
+      const activeMems = (space.members || []).filter((m: any) => m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested'));
+      const creatorId = space.creatorId || (isCreatorMe ? myEffectiveId : (space.masterKey ? 'creator_master' : (space.createdBy || 'creator_unknown')));
+      const creatorObj = { userId: creatorId, name: space.createdBy || 'יוצר המרחב' };
+      const everyone = [creatorObj, ...activeMems];
+      const participating = everyone.filter((m: any) => !excluded.includes(m.userId) && m.userId !== 'treasury_virtual');
+      const approvedBy = inv.approvedBy || [];
+      const waitingFor = participating.filter((m: any) => {
+        if (m.userId === inv.payerId || m.userId === 'me') return false;
+        if (isCreatorMe && inv.payerId === space.creatorId && m.userId === creatorId) return false;
+        if (approvedBy.includes(m.userId)) return false;
+        return true;
+      });
+      if (waitingFor.length === 0 && (excluded.length > 0 || participating.length <= 1)) return false;
+      return true;
     }
     return inv.status === filter;
   });

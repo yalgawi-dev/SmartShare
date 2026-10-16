@@ -828,22 +828,28 @@ export function FinanceTransactions({
               <tbody>
                 {finallyFiltered.map((inv: any) => (
                   <React.Fragment key={inv.id}>
-                    <tr 
-                      onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
-                      style={{ borderBottom: '1px solid var(--border-light)', cursor: 'pointer', background: expandedInvoiceId === inv.id ? 'rgba(99,102,241,0.05)' : 'transparent', transition: 'background 0.2s' }}
-                    >
-                      <td style={{ padding: '0.8rem 0.4rem', fontWeight: 'bold', maxWidth: '110px' }} title={inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
-                          <div title={inv.status === 'approved' ? 'מאושר' : inv.status === 'pending' ? 'ממתין' : 'נדחה'} style={{ width: '8px', height: '8px', borderRadius: '50%', background: inv.status === 'approved' ? '#10b981' : inv.status === 'pending' ? '#f59e0b' : '#ef4444', flexShrink: 0 }} />
-                          <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}</span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '0.8rem 0.4rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</td>
-                      <td style={{ padding: '0.8rem 0.4rem', fontWeight: 'bold', color: inv.type === 'income' ? '#10b981' : 'inherit', whiteSpace: 'nowrap' }}>₪{Number(inv.amount || 0).toLocaleString()}</td>
-                      <td style={{ padding: '0.8rem 0.4rem', textAlign: 'center' }}>
-                        {inv.hasAttachment ? <span title="מצורפת חשבונית">📎</span> : <span style={{ color: '#ef4444' }} title="חסרה חשבונית">⚠️</span>}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const meta = getInvoiceApprovalMeta(inv);
+                      const isActuallyApproved = inv.status === 'approved' || meta.isAutoApprovedPast;
+                      return (
+                        <tr 
+                          onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
+                          style={{ borderBottom: '1px solid var(--border-light)', cursor: 'pointer', background: expandedInvoiceId === inv.id ? 'rgba(99,102,241,0.05)' : 'transparent', transition: 'background 0.2s' }}
+                        >
+                          <td style={{ padding: '0.8rem 0.4rem', fontWeight: 'bold', maxWidth: '110px' }} title={inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', overflow: 'hidden' }}>
+                              <div title={isActuallyApproved ? 'מאושר' : inv.status === 'pending' ? 'ממתין' : 'נדחה'} style={{ width: '8px', height: '8px', borderRadius: '50%', background: isActuallyApproved ? '#10b981' : inv.status === 'pending' ? '#f59e0b' : '#ef4444', flexShrink: 0 }} />
+                              <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{inv.supplier || (inv.type === 'income' ? inv.clientName : '') || '---'}</span>
+                            </div>
+                          </td>
+                          <td style={{ padding: '0.8rem 0.4rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatDisplayDate(inv.date)}</td>
+                          <td style={{ padding: '0.8rem 0.4rem', fontWeight: 'bold', color: inv.type === 'income' ? '#10b981' : 'inherit', whiteSpace: 'nowrap' }}>₪{Number(inv.amount || 0).toLocaleString()}</td>
+                          <td style={{ padding: '0.8rem 0.4rem', textAlign: 'center' }}>
+                            {inv.hasAttachment ? <span title="מצורפת חשבונית">📎</span> : <span style={{ color: '#ef4444' }} title="חסרה חשבונית">⚠️</span>}
+                          </td>
+                        </tr>
+                      );
+                    })()}
                     {expandedInvoiceId === inv.id && (
                       <tr>
                         <td colSpan={4} style={{ padding: 0 }}>
@@ -869,15 +875,21 @@ export function FinanceTransactions({
                 style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', cursor: 'pointer' }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, minWidth: 0 }}>
-                  <div style={{ 
-                    width: '40px', height: '40px', flexShrink: 0,
-                    borderRadius: '50%', 
-                    background: inv.status === 'approved' ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: '1.1rem'
-                  }}>
-                    {inv.status === 'approved' ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
-                  </div>
+                  {(() => {
+                    const meta = getInvoiceApprovalMeta(inv);
+                    const isActuallyApproved = inv.status === 'approved' || meta.isAutoApprovedPast;
+                    return (
+                      <div style={{ 
+                        width: '40px', height: '40px', flexShrink: 0,
+                        borderRadius: '50%', 
+                        background: isActuallyApproved ? '#d1fae5' : inv.status === 'pending' ? '#fef3c7' : '#fee2e2',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: '1.1rem'
+                      }}>
+                        {isActuallyApproved ? '✓' : inv.status === 'pending' ? '⏳' : '❌'}
+                      </div>
+                    );
+                  })()}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <h4 style={{ margin: '0 0 0.1rem 0', fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                         <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%', display: 'inline-block' }}>{inv.supplier}</span>

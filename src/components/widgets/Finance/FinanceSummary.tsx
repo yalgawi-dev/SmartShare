@@ -348,26 +348,56 @@ export function FinanceSummary({
               <div 
                 onClick={() => { 
                   setActiveTab('transactions');
+                  if (activePartnersCount === 0) {
+                    setFilter('all');
+                    return;
+                  }
                   const hasPendingMe = activeInvoices.some((i: any) => {
                     if (i.status !== 'pending') return false;
                     if (i.type === 'transfer') {
-                      if (i.targetId === user?.id || i.targetId === user?.id) return true;
-                      if (isCreatorMe && i.payerId !== user?.id && i.payerId !== 'me') return true;
+                      if (i.targetId === user?.id || i.targetId === myId) return true;
+                      if (isCreatorMe && i.payerId !== user?.id && i.payerId !== 'me' && i.payerId !== myId) return true;
                       return false;
                     }
-                    if (i.payerId === user?.id || i.payerId === user?.id || i.payerId === 'me') return false;
-                    if (i.payerId === user?.id || i.payerId === 'me' || (isCreatorMe && i.payerId === (space.creatorId || space.createdBy))) return false;
-                    if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(user?.id)) return false;
+                    if (i.payerId === user?.id || i.payerId === myId || i.payerId === 'me') return false;
+                    if (isCreatorMe && (i.payerId === (space.creatorId || space.createdBy) || i.payerId === creatorId)) return false;
+                    if ((i.approvedBy || []).includes(user?.id) || (i.approvedBy || []).includes(myId)) return false;
+                    if ((i.excludedMembers || []).includes(user?.id) || (i.excludedMembers || []).includes(myId)) return false;
                     return true;
                   });
-                  setActiveTab('transactions');
                   setFilter(hasPendingMe ? 'pending_me' : 'pending_partners'); 
                 }}
                 style={{ background: 'rgba(0,0,0,0.02)', padding: '1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s' }}
               title="למעבר מהיר לעמוד ההוצאות"
             >
               <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>ממתינות לאישור</p>
-              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>{activeInvoices.filter((i: any) => { if (i.status !== 'pending') return false; if ((i.type === 'income' || i.category === 'הכנסת עסק') && !space?.features?.includes('income')) return false; if ((i.type === 'transfer' || i.category === 'העברה/קיזוז') && !space?.features?.includes('partners')) return false; return true; }).length}</h3>
+              <h3 style={{ margin: '0.5rem 0 0 0', fontSize: '1.75rem', color: '#f59e0b' }}>
+                {activeInvoices.filter((i: any) => { 
+                  if (i.status !== 'pending') return false; 
+                  if ((i.type === 'income' || i.category === 'הכנסת עסק') && !space?.features?.includes('income')) return false; 
+                  if ((i.type === 'transfer' || i.category === 'העברה/קיזוז') && !space?.features?.includes('partners')) return false; 
+                  
+                  // If there are no active partners in the space, past or standalone invoices have nobody to wait for
+                  if (activePartnersCount === 0 && i.type !== 'transfer') return false;
+
+                  // Check if this invoice is auto-approved because all partners are excluded or exempt
+                  const excluded = i.excludedMembers || [];
+                  const activeMems = (space.members || []).filter((m: any) => m.isActive !== false && (m.status === 'active' || m.status === 'pending' || m.status === 'extension_requested'));
+                  const creatorObj = { userId: creatorId, name: creatorName };
+                  const everyone = [creatorObj, ...activeMems];
+                  const participating = everyone.filter((m: any) => !excluded.includes(m.userId) && m.userId !== 'treasury_virtual');
+                  const approvedBy = i.approvedBy || [];
+                  const waitingFor = participating.filter((m: any) => {
+                    if (m.userId === i.payerId || m.userId === 'me') return false;
+                    if (isCreatorMe && i.payerId === space.creatorId && m.userId === creatorId) return false;
+                    if (approvedBy.includes(m.userId)) return false;
+                    return true;
+                  });
+                  if (waitingFor.length === 0 && (excluded.length > 0 || participating.length <= 1)) return false;
+
+                  return true; 
+                }).length}
+              </h3>
             </div>
             
             
