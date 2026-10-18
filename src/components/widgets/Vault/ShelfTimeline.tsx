@@ -1112,7 +1112,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             const currentDoc = timelinePreview.docs[timelinePreview.index];
             const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
 
-            // If it's a multi-page image array (e.g. captured pages), display as continuous pinch-zoomable scroll:
+            // 1. If it's a multi-page array of pages:
             if (currentDoc.pages && currentDoc.pages.length > 1) {
               return (
                 <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
@@ -1148,42 +1148,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               );
             }
 
-            // If it's a PDF (scroll PDF or regular multi-page PDF):
+            // 2. If it's a PDF (scroll PDF or regular multi-page PDF):
             if (isPdf) {
-              // If it has a merged scroll thumbnail or pages, render inside TransformWrapper for full pinch-to-zoom!
-              if (currentDoc.thumbnailUrl) {
-                return (
-                  <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-                    <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                      <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                        <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                          <img 
-                            src={currentDoc.thumbnailUrl} 
-                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                            alt={currentDoc.title || 'Preview'} 
-                          />
-                        </TransformComponent>
-                      </TransformWrapper>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
-                      <button 
-                        onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
-                        style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                      >
-                        <span>⬇️ הורדה</span>
-                      </button>
-                      <button 
-                        onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
-                        style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                      >
-                        <span>📤 שתף</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-
-              // Fallback to inline PDF iframe viewer
               return (
                 <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '88%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                   <div style={{ width: '100%', flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>

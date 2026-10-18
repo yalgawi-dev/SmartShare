@@ -1004,7 +1004,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               const currentDoc = previewState.docs[previewState.index];
               const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
               
-              // If it's a multi-page image array (e.g. captured pages), display as continuous pinch-zoomable scroll:
+              // 1. If it's a multi-page array of pages (from scanner or camera):
               if (currentDoc.pages && currentDoc.pages.length > 1) {
                 return (
                   <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
@@ -1024,26 +1024,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 );
               }
 
-              // If it's a PDF (scroll PDF or regular multi-page PDF):
+              // 2. If it's a PDF:
               if (isPdf) {
-                // If it has a merged scroll thumbnail or pages, render inside TransformWrapper for full pinch-to-zoom!
-                if (currentDoc.thumbnailUrl) {
-                  return (
-                    <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                      <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                        <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                          <img 
-                            src={currentDoc.thumbnailUrl} 
-                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                            alt={currentDoc.title || 'Preview'} 
-                          />
-                        </TransformComponent>
-                      </TransformWrapper>
-                    </div>
-                  );
-                }
-
-                // Fallback to inline PDF iframe viewer
+                // If it's a custom scroll PDF, it was generated with all pages merged into one continuous scroll!
+                // To allow pinch-to-zoom and full scrolling without Google Docs Viewer cutting or downloading:
                 return (
                   <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
                     <iframe 
