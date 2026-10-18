@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Space, SpaceDocument, ShelfEvent } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { shareDocument, downloadDocument, getDocumentPreviewUrl } from '@/utils/documentUtils';
 
 interface ShelfTimelineProps {
   space: Space;
@@ -383,7 +384,13 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                                       {task.documentId ? (
                                         <button onClick={() => {
                                           const doc = shelfDocs.find(d => d.id === task.documentId);
-                                          if (doc) window.open(doc.url, '_blank');
+                                          if (doc) {
+                                            if (onPreviewDocs) {
+                                              onPreviewDocs([doc], 0);
+                                            } else {
+                                              setTimelinePreview({ docs: [doc], index: 0 });
+                                            }
+                                          }
                                         }} style={{ background: '#e0f2fe', color: '#0284c7', border: 'none', borderRadius: '12px', padding: '2px 8px', fontSize: '0.7rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
                                           📄 מצורף
                                         </button>
@@ -968,11 +975,11 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           {((timelinePreview.docs[timelinePreview.index].url && timelinePreview.docs[timelinePreview.index].url.includes('.pdf')) || timelinePreview.docs[timelinePreview.index].type === 'pdf') ? (
             <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '85%', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
               <iframe 
-                src={timelinePreview.docs[timelinePreview.index].url} 
+                src={getDocumentPreviewUrl(timelinePreview.docs[timelinePreview.index].url)} 
                 style={{ width: '100%', height: '100%', border: 'none' }} 
                 title={timelinePreview.docs[timelinePreview.index].title || 'PDF Document'} 
               />
-              <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
+              <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '0.5rem', zIndex: 10, flexWrap: 'wrap' }}>
                 <button 
                   onClick={() => window.open(timelinePreview.docs[timelinePreview.index].url, '_blank')} 
                   style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
@@ -980,23 +987,44 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 >
                   <span>👁️ פתח נפרד</span>
                 </button>
-                <a 
-                  href={timelinePreview.docs[timelinePreview.index].url} 
-                  download={timelinePreview.docs[timelinePreview.index].title || 'document.pdf'}
-                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', textDecoration: 'none', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', border: '1px solid rgba(255,255,255,0.2)' }}
+                <button 
+                  onClick={() => downloadDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
+                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                   title="הורדת המסמך"
                 >
                   <span>⬇️ הורדה</span>
-                </a>
+                </button>
+                <button 
+                  onClick={() => shareDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
+                  style={{ background: 'rgba(16, 185, 129, 0.9)', backdropFilter: 'blur(4px)', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}
+                  title="שיתוף המסמך"
+                >
+                  <span>📤 שתף</span>
+                </button>
               </div>
             </div>
           ) : (
-            <img 
-              onClick={(e) => e.stopPropagation()}
-              src={timelinePreview.docs[timelinePreview.index].url} 
-              style={{ maxWidth: '92%', maxHeight: '88%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
-              alt="Preview" 
-            />
+            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '92%', maxHeight: '88%', position: 'relative' }}>
+              <img 
+                src={timelinePreview.docs[timelinePreview.index].url} 
+                style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
+                alt="Preview" 
+              />
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+                <button 
+                  onClick={() => downloadDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
+                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <span>⬇️ הורדה</span>
+                </button>
+                <button 
+                  onClick={() => shareDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
+                  style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1.2rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                >
+                  <span>📤 שתף</span>
+                </button>
+              </div>
+            </div>
           )}
 
           {timelinePreview.index < timelinePreview.docs.length - 1 && (

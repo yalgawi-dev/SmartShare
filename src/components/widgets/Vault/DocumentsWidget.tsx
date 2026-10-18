@@ -8,6 +8,7 @@ import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 import ConfirmModal from '../../common/ConfirmModal';
+import { downloadDocument, getDocumentPreviewUrl } from '../../../utils/documentUtils';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => Promise<string | undefined>;
@@ -755,13 +756,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         
                         {!isMultiSelect && (
                           <div style={{ marginTop: 'auto', display: 'flex', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                            <div onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }}>
+                            <div onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
                               📤 שתף
                             </div>
-                            <div onClick={(e) => { e.stopPropagation(); handleMoveDocument(doc.id, activeShelf.id); }} style={{ flex: 1, padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#64748b', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }}>
+                            <div onClick={(e) => { e.stopPropagation(); downloadDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#0284c7', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="הורד מסמך">
+                              ⬇️ הורד
+                            </div>
+                            <div onClick={(e) => { e.stopPropagation(); handleMoveDocument(doc.id, activeShelf.id); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#64748b', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="העבר למדף אחר">
                               🔄 העבר
                             </div>
-                            <div onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.2rem', textAlign: 'center', fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }}>
+                            <div onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }} title="מחק מסמך">
                               🗑️ מחק
                             </div>
                           </div>
@@ -861,7 +865,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].type === 'pdf' || previewState.docs[previewState.index].url?.startsWith('data:application/pdf')) ? (
               <div style={{ width: '100%', height: '85%', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
                 <iframe 
-                  src={previewState.docs[previewState.index].url} 
+                  src={getDocumentPreviewUrl(previewState.docs[previewState.index].url)} 
                   style={{ width: '100%', height: '100%', border: 'none' }} 
                   title={previewState.docs[previewState.index].title || 'PDF Document'} 
                 />
@@ -874,27 +878,33 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   >
                     <span>👁️ פתח נפרד</span>
                   </button>
-                  <a 
-                    href={previewState.docs[previewState.index].url} 
-                    download={previewState.docs[previewState.index].title || 'document.pdf'}
-                    onClick={(e) => e.stopPropagation()} 
-                    style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', textDecoration: 'none', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', border: '1px solid rgba(255,255,255,0.2)' }}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
+                    style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
                     title="הורדת המסמך"
                   >
                     <span>⬇️ הורדה</span>
-                  </a>
+                  </button>
                 </div>
               </div>
             ) : (
               <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '75%', objectFit: 'contain', transition: 'all 0.3s', borderRadius: '8px' }} alt="Preview" />
             )}
 
-            <button 
-              onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
-              style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.8rem 1.8rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', zIndex: 20002, boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}
-            >
-              <span>שתף מסמך לעולם החיצון 📤</span>
-            </button>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 20002 }}>
+              <button 
+                onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
+                style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.8rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}
+              >
+                <span>⬇️ הורדה</span>
+              </button>
+              <button 
+                onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
+                style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.8rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}
+              >
+                <span>📤 שתף</span>
+              </button>
+            </div>
           </div>
           
           {previewState.index < previewState.docs.length - 1 && (
@@ -1148,86 +1158,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       )}
 
       
-      {previewState && (
-        <div 
-          onClick={(e) => {
-            // Close if background is clicked
-            if (e.target === e.currentTarget) setPreviewState(null);
-          }} 
-          onTouchStart={(e) => {
-              const touch = e.touches[0];
-              const startX = touch.clientX;
-              let hasSwiped = false;
-              
-              const handleTouchMove = (moveEvent) => {
-                if (hasSwiped) return;
-                const currentX = moveEvent.touches[0].clientX;
-                const diff = startX - currentX;
-                
-                if (Math.abs(diff) > 50) {
-                  hasSwiped = true;
-                  setPreviewState(prev => {
-                    if (!prev) return prev;
-                    if (diff > 0 && prev.index < prev.docs.length - 1) return { ...prev, index: prev.index + 1 };
-                    if (diff < 0 && prev.index > 0) return { ...prev, index: prev.index - 1 };
-                    return prev;
-                  });
-                }
-              };
-              
-              const handleTouchEnd = () => {
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
-              };
-              
-              document.addEventListener('touchmove', handleTouchMove, { passive: true });
-              document.addEventListener('touchend', handleTouchEnd);
-            }}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 20000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          {previewState.index > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
-          )}
-          
-          {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].url?.startsWith('data:application/pdf') || previewState.docs[previewState.index].type === 'pdf') ? (
-            <div style={{ width: '90%', height: '85%', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
-              <iframe 
-                src={previewState.docs[previewState.index].url} 
-                style={{ width: '100%', height: '100%', border: 'none' }} 
-                title={previewState.docs[previewState.index].title || 'PDF Document'} 
-              />
-              <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} 
-                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                  title="פתח בלשונית נפרדת"
-                >
-                  <span>👁️ פתח נפרד</span>
-                </button>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
-                  style={{ background: 'rgba(16, 185, 129, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                  title="שתף מסמך"
-                >
-                  <span>שתף 📤</span>
-                </button>
-              </div>
-            </div>
-          ) : (
-            <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', transition: 'all 0.3s' }} alt="Preview" />
-          )}
-          
-          {previewState.index < previewState.docs.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>›</button>
-          )}
-          
-          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>✕</button>
-          
-          <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 20001 }}>
-             {previewState.index + 1} / {previewState.docs.length}
-          </div>
-        </div>
-      )}
+
 
       {/* CUSTOM PROMPT MODAL (REPLACES BROWSER window.prompt) */}
       {customPrompt?.isOpen && (
