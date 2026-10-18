@@ -448,7 +448,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             shelfDocs={shelfDocs} 
             onAddEvent={(e) => addShelfEvent(space.id, e)} 
             onUpdateEvent={(id, u) => updateShelfEvent(space.id, id, u)} 
-            onRemoveEvent={(id) => removeShelfEvent(space.id, id)} 
+            onRemoveEvent={(id, deleteDocIds) => {
+              removeShelfEvent(space.id, id);
+              if (deleteDocIds && Array.isArray(deleteDocIds) && deleteDocIds.length > 0) {
+                deleteDocIds.forEach(docId => {
+                  try {
+                    removeDocument(space.id, docId);
+                  } catch (err) {
+                    console.error('Failed to remove doc', docId, err);
+                  }
+                });
+              }
+            }} 
             onAddComment={(id, text) => addShelfEventComment(space.id, id, text)} 
             onRemoveComment={(id, cid) => removeShelfEventComment(space.id, id, cid)} 
             onPreviewDocs={(docs, index) => setPreviewState({ docs, index })}
@@ -573,9 +584,25 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           )}
 
           {(() => {
-            const activeShelfEvents = space.shelfEvents?.filter(e => e.shelfId === activeShelfId) || [];
+            const allSpaceEvents = space.shelfEvents || [];
+            const activeShelfEvents = allSpaceEvents.filter(e => e.shelfId === activeShelfId);
+            
+            const isDocLinked = (docId: string) => {
+              return allSpaceEvents.some(e => 
+                e.documentIds?.includes(docId) || 
+                (e.tasks && e.tasks.some(t => t.documentId === docId))
+              );
+            };
+
+            const getDocLinkedEvent = (docId: string) => {
+              return allSpaceEvents.find(e => 
+                e.documentIds?.includes(docId) || 
+                (e.tasks && e.tasks.some(t => t.documentId === docId))
+              );
+            };
+
             const filteredDocs = shelfDocs.filter(doc => {
-              const isLinked = activeShelfEvents.some(e => e.documentIds?.includes(doc.id));
+              const isLinked = isDocLinked(doc.id);
               if (filterLinked === 'linked') return isLinked;
               if (filterLinked === 'unlinked') return !isLinked;
               return true;
@@ -585,7 +612,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             return (
               <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
                 {filteredDocs.map(doc => {
-                  const linkedEvent = activeShelfEvents.find(e => e.documentIds?.includes(doc.id));
+                  const linkedEvent = getDocLinkedEvent(doc.id);
                   const isChecked = selectedDocIds.includes(doc.id);
                   return (
                     <div 

@@ -9,7 +9,7 @@ interface ShelfTimelineProps {
   shelfDocs: SpaceDocument[];
   onAddEvent: (event: Omit<ShelfEvent, 'id' | 'createdAt' | 'createdBy' | 'comments'>) => void;
   onUpdateEvent: (eventId: string, updates: Partial<ShelfEvent>) => void;
-  onRemoveEvent: (eventId: string) => void;
+  onRemoveEvent: (eventId: string, deleteDocIds?: string[]) => void;
   onAddComment: (eventId: string, text: string) => void;
   onRemoveComment: (eventId: string, commentId: string) => void;
   onUploadAndLink?: (eventId: string, url: string) => Promise<void>;
@@ -20,7 +20,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [timelinePreview, setTimelinePreview] = useState<{ docs: SpaceDocument[], index: number } | null>(null);
-  const [eventToDelete, setEventToDelete] = useState<{ id: string, title: string } | null>(null);
+  const [eventToDelete, setEventToDelete] = useState<{ id: string, title: string, docCount: number, docIds: string[] } | null>(null);
+  const [deleteOption, setDeleteOption] = useState<'keep_docs' | 'delete_docs'>('keep_docs');
   const [editEventId, setEditEventId] = useState<string | null>(null);
   const [editEventTitle, setEditEventTitle] = useState('');
   const [editEventDesc, setEditEventDesc] = useState('');
@@ -244,6 +245,13 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                           setEditEventDesc(event.description || '');
                           setEditEventDate(event.eventDate);
                         }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title="ערוך תחנה">✏️</button>
+
+                        <button onClick={(e) => {
+                          e.stopPropagation();
+                          const evDocs = event.documentIds || [];
+                          setDeleteOption('keep_docs');
+                          setEventToDelete({ id: event.id, title: event.title, docCount: evDocs.length, docIds: evDocs });
+                        }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', color: '#ef4444' }} title="מחק תחנה">🗑️</button>
 
                         <div style={{ background: '#f1f5f9', color: '#475569', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                           {new Date(event.eventDate).toLocaleDateString('he-IL')}
@@ -555,7 +563,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button 
                   type="button"
-                  onClick={() => setEventToDelete({ id: editEventId, title: editEventTitle })}
+                  onClick={() => {
+                    const ev = events.find(e => e.id === editEventId);
+                    const evDocs = ev?.documentIds || [];
+                    setDeleteOption('keep_docs');
+                    setEventToDelete({ id: editEventId, title: editEventTitle, docCount: evDocs.length, docIds: evDocs });
+                  }}
                   style={{ flex: 1, background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', padding: '0.9rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}
                 >
                   <span>🗑️</span> מחק תחנה
@@ -573,22 +586,90 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         </div>
       )}
 
-      {/* CONFIRM DELETE STATION MODAL */}
-      <ConfirmModal 
-        isOpen={Boolean(eventToDelete)}
-        title="מחיקת תחנה"
-        message="האם אתה בטוח שברצונך למחוק תחנה זו מציר הזמן? פעולה זו תסיר את התחנה וכל המשימות המשויכות אליה."
-        itemTitle={eventToDelete?.title}
-        confirmText="מחק תחנה"
-        onConfirm={() => {
-          if (eventToDelete) {
-            onRemoveEvent(eventToDelete.id);
-            setEditEventId(null);
-            setEventToDelete(null);
-          }
-        }}
-        onClose={() => setEventToDelete(null)}
-      />
+      {/* COMPREHENSIVE DELETE STATION POPUP (WITH OPTION FOR ATTACHMENTS) */}
+      {eventToDelete && (
+        <div 
+          onClick={() => setEventToDelete(null)}
+          style={{ position: 'fixed', inset: 0, zIndex: 100007, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', direction: 'rtl' }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'white', width: '100%', maxWidth: '440px', borderRadius: '24px', padding: '1.75rem', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', border: '1px solid #e2e8f0' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: '#fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem' }}>
+                🗑️
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.2rem', fontWeight: 'bold' }}>מחיקת תחנה מציר הזמן</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b' }}>{eventToDelete.title}</p>
+              </div>
+            </div>
+
+            <p style={{ fontSize: '0.95rem', color: '#334155', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
+              האם אתה בטוח שברצונך למחוק תחנה זו? פעולה זו תסיר את התחנה וכל המשימות המשויכות אליה מציר הזמן.
+            </p>
+
+            {eventToDelete.docCount > 0 ? (
+              <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b' }}>
+                  לתחנה זו מקושרים {eventToDelete.docCount} מסמכים/נספחים. מה לעשות איתם?
+                </div>
+
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', cursor: 'pointer', background: deleteOption === 'keep_docs' ? '#eff6ff' : 'white', padding: '0.65rem 0.75rem', borderRadius: '10px', border: deleteOption === 'keep_docs' ? '1.5px solid #3b82f6' : '1px solid #cbd5e1' }}>
+                  <input 
+                    type="radio" 
+                    name="delOpt" 
+                    checked={deleteOption === 'keep_docs'} 
+                    onChange={() => setDeleteOption('keep_docs')}
+                    style={{ marginTop: '0.2rem', accentColor: '#3b82f6' }} 
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b' }}>מחק תחנה בלבד (שמור מסמכים במחסן)</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>התחנה תימחק, אך המסמכים יישארו זמינים במחסן המסמכים.</div>
+                  </div>
+                </label>
+
+                <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', cursor: 'pointer', background: deleteOption === 'delete_docs' ? '#fef2f2' : 'white', padding: '0.65rem 0.75rem', borderRadius: '10px', border: deleteOption === 'delete_docs' ? '1.5px solid #ef4444' : '1px solid #cbd5e1' }}>
+                  <input 
+                    type="radio" 
+                    name="delOpt" 
+                    checked={deleteOption === 'delete_docs'} 
+                    onChange={() => setDeleteOption('delete_docs')}
+                    style={{ marginTop: '0.2rem', accentColor: '#ef4444' }} 
+                  />
+                  <div>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#dc2626' }}>מחק הכל (כולל {eventToDelete.docCount} נספחים ומסמכים)</div>
+                    <div style={{ fontSize: '0.75rem', color: '#991b1b' }}>התחנה וכל המסמכים המקושרים אליה יימחקו לצמיתות גם מהמחסן.</div>
+                  </div>
+                </label>
+              </div>
+            ) : null}
+
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button 
+                type="button"
+                onClick={() => setEventToDelete(null)}
+                style={{ flex: 1, padding: '0.85rem', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#f8fafc', color: '#475569', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                ביטול
+              </button>
+              <button 
+                type="button"
+                onClick={() => {
+                  const toDeleteDocIds = deleteOption === 'delete_docs' ? eventToDelete.docIds : [];
+                  onRemoveEvent(eventToDelete.id, toDeleteDocIds);
+                  setEditEventId(null);
+                  setEventToDelete(null);
+                }}
+                style={{ flex: 1.3, padding: '0.85rem', borderRadius: '12px', border: 'none', background: '#ef4444', color: 'white', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)' }}
+              >
+                {deleteOption === 'delete_docs' ? 'מחק תחנה ונספחים' : 'מחק תחנה'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showAddModal && (
 
