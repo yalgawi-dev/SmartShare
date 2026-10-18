@@ -3,6 +3,7 @@ import { Space, SpaceDocument, ShelfEvent } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { shareDocument, downloadDocument, getDocumentPreviewUrl } from '@/utils/documentUtils';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 interface ShelfTimelineProps {
   space: Space;
@@ -979,38 +980,21 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 style={{ width: '100%', height: '100%', border: 'none' }} 
                 title={timelinePreview.docs[timelinePreview.index].title || 'PDF Document'} 
               />
-              <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '0.5rem', zIndex: 10, flexWrap: 'wrap' }}>
-                <button 
-                  onClick={() => window.open(timelinePreview.docs[timelinePreview.index].url, '_blank')} 
-                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                  title="פתח בלשונית נפרדת"
-                >
-                  <span>👁️ פתח נפרד</span>
-                </button>
-                <button 
-                  onClick={() => downloadDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
-                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                  title="הורדת המסמך"
-                >
-                  <span>⬇️ הורדה</span>
-                </button>
-                <button 
-                  onClick={() => shareDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
-                  style={{ background: 'rgba(16, 185, 129, 0.9)', backdropFilter: 'blur(4px)', color: 'white', border: 'none', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', boxShadow: '0 2px 8px rgba(16,185,129,0.3)' }}
-                  title="שיתוף המסמך"
-                >
-                  <span>📤 שתף</span>
-                </button>
-              </div>
             </div>
           ) : (
-            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', maxWidth: '92%', maxHeight: '88%', position: 'relative' }}>
-              <img 
-                src={timelinePreview.docs[timelinePreview.index].url} 
-                style={{ maxWidth: '100%', maxHeight: '78vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
-                alt="Preview" 
-              />
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
+              <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true}>
+                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img 
+                      src={timelinePreview.docs[timelinePreview.index].url} 
+                      style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
+                      alt="Preview" 
+                    />
+                  </TransformComponent>
+                </TransformWrapper>
+              </div>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 10 }}>
                 <button 
                   onClick={() => downloadDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
                   style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}

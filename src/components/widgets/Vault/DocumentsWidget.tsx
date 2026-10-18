@@ -8,7 +8,8 @@ import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 import ConfirmModal from '../../common/ConfirmModal';
-import { downloadDocument, getDocumentPreviewUrl } from '../../../utils/documentUtils';
+import { downloadDocument, shareDocument, getDocumentPreviewUrl } from '../../../utils/documentUtils';
+import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => Promise<string | undefined>;
@@ -869,26 +870,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   style={{ width: '100%', height: '100%', border: 'none' }} 
                   title={previewState.docs[previewState.index].title || 'PDF Document'} 
                 />
-                {/* Floating Action Buttons for PDF */}
-                <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); window.open(previewState.docs[previewState.index].url, '_blank'); }} 
-                    style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                    title="פתח בלשונית נפרדת"
-                  >
-                    <span>👁️ פתח נפרד</span>
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
-                    style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
-                    title="הורדת המסמך"
-                  >
-                    <span>⬇️ הורדה</span>
-                  </button>
-                </div>
               </div>
             ) : (
-              <img src={previewState.docs[previewState.index].url} style={{ maxWidth: '100%', maxHeight: '75%', objectFit: 'contain', transition: 'all 0.3s', borderRadius: '8px' }} alt="Preview" />
+              <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true}>
+                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <img 
+                      src={previewState.docs[previewState.index].url} 
+                      style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
+                      alt="Preview" 
+                    />
+                  </TransformComponent>
+                </TransformWrapper>
+              </div>
             )}
 
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 20002 }}>

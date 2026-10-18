@@ -377,7 +377,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [detectedType, setDetectedType] = useState<'text_bw' | 'text_color' | 'photo' | 'mixed' | null>(null);
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [fullScreenImage, setFullScreenImage] = useState<string | null>(null);
 
   useEffect(() => {
     if (rawSnapshot) {
@@ -1147,17 +1146,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
 
       
-      {fullScreenImage && (
-        <div 
-          onClick={() => setFullScreenImage(null)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 100005, display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}
-        >
-          <img src={fullScreenImage} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-          <button onClick={() => setFullScreenImage(null)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            ✕
-          </button>
-        </div>
-      )}
+
 
 
       {exportOptions && (
