@@ -1024,8 +1024,26 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 );
               }
 
-              // If it's a PDF (scroll PDF or regular multi-page PDF), display the PDF viewer so ALL pages are scrolled smoothly:
+              // If it's a PDF (scroll PDF or regular multi-page PDF):
               if (isPdf) {
+                // If it has a merged scroll thumbnail or pages, render inside TransformWrapper for full pinch-to-zoom!
+                if (currentDoc.thumbnailUrl) {
+                  return (
+                    <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
+                      <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+                        <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          <img 
+                            src={currentDoc.thumbnailUrl} 
+                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                            alt={currentDoc.title || 'Preview'} 
+                          />
+                        </TransformComponent>
+                      </TransformWrapper>
+                    </div>
+                  );
+                }
+
+                // Fallback to inline PDF iframe viewer
                 return (
                   <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
                     <iframe 
@@ -1076,9 +1094,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           
           <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200005, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>✕</button>
           
-          <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 200005 }}>
-             {previewState.index + 1} / {previewState.docs.length}
-          </div>
+          {previewState.docs.length > 1 && (
+            <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 200005 }}>
+               {previewState.index + 1} / {previewState.docs.length}
+            </div>
+          )}
         </div>
       )}
 
