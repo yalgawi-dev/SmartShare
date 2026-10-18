@@ -129,6 +129,7 @@ export interface SpaceDocument {
   addedBy: string;
   createdAt: string;
   thumbnailUrl?: string;
+  pages?: string[];
 }
 
 export interface SpaceSettings {

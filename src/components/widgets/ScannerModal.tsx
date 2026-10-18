@@ -123,7 +123,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('scroll_pdf');
   const [exportNumbers, setExportNumbers] = useState<boolean>(true);
 
   // Multi-page scanning

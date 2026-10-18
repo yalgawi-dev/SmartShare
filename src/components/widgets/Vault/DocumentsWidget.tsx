@@ -299,7 +299,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         }
 
         // Save to real database
-        const docId = addDocument(space.id, { shelfId, url: finalUrl, type, title, addedBy: user?.id || '', thumbnailUrl: finalThumbnailUrl });
+        const docId = addDocument(space.id, { 
+          shelfId, 
+          url: finalUrl, 
+          type, 
+          title, 
+          addedBy: user?.id || '', 
+          thumbnailUrl: finalThumbnailUrl,
+          pages: allPages && allPages.length > 0 ? allPages : undefined
+        });
         return docId;
       } catch (e) {
         console.error("Failed to upload document", e);
@@ -886,12 +894,23 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 return (
                   <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
                     <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <img 
-                          src={displayImageUrl} 
-                          style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                          alt={currentDoc.title || 'Preview'} 
-                        />
+                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                        {currentDoc.pages && currentDoc.pages.length > 1 ? (
+                          currentDoc.pages.map((pUrl: string, pIdx: number) => (
+                            <img 
+                              key={pIdx}
+                              src={pUrl} 
+                              style={{ width: '100%', maxWidth: '650px', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                              alt={`${currentDoc.title || 'Page'} ${pIdx + 1}`} 
+                            />
+                          ))
+                        ) : (
+                          <img 
+                            src={displayImageUrl} 
+                            style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                            alt={currentDoc.title || 'Preview'} 
+                          />
+                        )}
                       </TransformComponent>
                     </TransformWrapper>
                   </div>
