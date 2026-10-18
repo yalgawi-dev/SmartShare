@@ -862,39 +862,50 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 20001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
           )}
           
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '90%', height: '85%', gap: '1rem' }}>
-            {((previewState.docs[previewState.index].url && previewState.docs[previewState.index].url.includes('.pdf')) || previewState.docs[previewState.index].type === 'pdf' || previewState.docs[previewState.index].url?.startsWith('data:application/pdf')) ? (
-              <div style={{ width: '100%', height: '85%', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
-                <iframe 
-                  src={getDocumentPreviewUrl(previewState.docs[previewState.index].url)} 
-                  style={{ width: '100%', height: '100%', border: 'none' }} 
-                  title={previewState.docs[previewState.index].title || 'PDF Document'} 
-                />
-              </div>
-            ) : (
-              <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true}>
-                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img 
-                      src={previewState.docs[previewState.index].url} 
-                      style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
-                      alt="Preview" 
-                    />
-                  </TransformComponent>
-                </TransformWrapper>
-              </div>
-            )}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '90%', height: '88%', gap: '0.75rem' }}>
+            {(() => {
+              const currentDoc = previewState.docs[previewState.index];
+              const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
+              const displayImageUrl = currentDoc.thumbnailUrl || (!isPdf ? currentDoc.url : null);
+
+              if (displayImageUrl) {
+                return (
+                  <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
+                    <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img 
+                          src={displayImageUrl} 
+                          style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                          alt={currentDoc.title || 'Preview'} 
+                        />
+                      </TransformComponent>
+                    </TransformWrapper>
+                  </div>
+                );
+              }
+
+              // Pure PDF without thumbnail
+              return (
+                <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
+                  <iframe 
+                    src={getDocumentPreviewUrl(currentDoc.url)} 
+                    style={{ width: '100%', height: '100%', border: 'none' }} 
+                    title={currentDoc.title || 'PDF Document'} 
+                  />
+                </div>
+              );
+            })()}
 
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 20002 }}>
               <button 
                 onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
-                style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.8rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}
+                style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}
               >
                 <span>⬇️ הורדה</span>
               </button>
               <button 
                 onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
-                style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.8rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}
+                style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}
               >
                 <span>📤 שתף</span>
               </button>

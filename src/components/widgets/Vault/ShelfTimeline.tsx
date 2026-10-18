@@ -973,43 +973,70 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             </button>
           )}
 
-          {((timelinePreview.docs[timelinePreview.index].url && timelinePreview.docs[timelinePreview.index].url.includes('.pdf')) || timelinePreview.docs[timelinePreview.index].type === 'pdf') ? (
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '85%', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
-              <iframe 
-                src={getDocumentPreviewUrl(timelinePreview.docs[timelinePreview.index].url)} 
-                style={{ width: '100%', height: '100%', border: 'none' }} 
-                title={timelinePreview.docs[timelinePreview.index].title || 'PDF Document'} 
-              />
-            </div>
-          ) : (
-            <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-              <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true}>
-                  <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <img 
-                      src={timelinePreview.docs[timelinePreview.index].url} 
-                      style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
-                      alt="Preview" 
-                    />
-                  </TransformComponent>
-                </TransformWrapper>
+          {(() => {
+            const currentDoc = timelinePreview.docs[timelinePreview.index];
+            const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
+            const displayImageUrl = currentDoc.thumbnailUrl || (!isPdf ? currentDoc.url : null);
+
+            if (displayImageUrl) {
+              return (
+                <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
+                  <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
+                    <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <img 
+                          src={displayImageUrl} 
+                          style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                          alt={currentDoc.title || 'Preview'} 
+                        />
+                      </TransformComponent>
+                    </TransformWrapper>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 10 }}>
+                    <button 
+                      onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
+                      style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.2rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <span>⬇️ הורדה</span>
+                    </button>
+                    <button 
+                      onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
+                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.4rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                    >
+                      <span>📤 שתף</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            // Pure PDF without thumbnail
+            return (
+              <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '88%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ width: '100%', flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
+                  <iframe 
+                    src={getDocumentPreviewUrl(currentDoc.url)} 
+                    style={{ width: '100%', height: '100%', border: 'none' }} 
+                    title={currentDoc.title || 'PDF Document'} 
+                  />
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', zIndex: 10 }}>
+                  <button 
+                    onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
+                    style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.2rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                  >
+                    <span>⬇️ הורדה</span>
+                  </button>
+                  <button 
+                    onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
+                    style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.4rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                  >
+                    <span>📤 שתף</span>
+                  </button>
+                </div>
               </div>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 10 }}>
-                <button 
-                  onClick={() => downloadDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
-                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                >
-                  <span>⬇️ הורדה</span>
-                </button>
-                <button 
-                  onClick={() => shareDocument(timelinePreview.docs[timelinePreview.index].url, timelinePreview.docs[timelinePreview.index].title)} 
-                  style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.5rem 1.2rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                >
-                  <span>📤 שתף</span>
-                </button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {timelinePreview.index < timelinePreview.docs.length - 1 && (
             <button 
