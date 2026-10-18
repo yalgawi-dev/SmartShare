@@ -26,6 +26,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [editEventTitle, setEditEventTitle] = useState('');
   const [editEventDesc, setEditEventDesc] = useState('');
   const [editEventDate, setEditEventDate] = useState('');
+  const [editSelectedDocIds, setEditSelectedDocIds] = useState<string[]>([]);
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventDesc, setNewEventDesc] = useState('');
   const [newEventDate, setNewEventDate] = useState(new Date().toISOString().split('T')[0]);
@@ -115,11 +116,19 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         setSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
       }
     };
+    const handleDocSavedForEditStation = (e: any) => {
+      const { docId } = e.detail || {};
+      if (docId) {
+        setEditSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
+      }
+    };
     window.addEventListener('smartshare:add_station', handleAddStation);
     window.addEventListener('smartshare:doc_saved_for_new_station', handleDocSavedForNewStation);
+    window.addEventListener('smartshare:doc_saved_for_edit_station', handleDocSavedForEditStation);
     return () => {
       window.removeEventListener('smartshare:add_station', handleAddStation);
       window.removeEventListener('smartshare:doc_saved_for_new_station', handleDocSavedForNewStation);
+      window.removeEventListener('smartshare:doc_saved_for_edit_station', handleDocSavedForEditStation);
     };
   }, []);
 
@@ -133,9 +142,11 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     onUpdateEvent(editEventId, {
       title: editEventTitle.trim(),
       description: editEventDesc.trim(),
-      eventDate: editEventDate
+      eventDate: editEventDate,
+      documentIds: editSelectedDocIds
     });
     setEditEventId(null);
+    setEditSelectedDocIds([]);
   };
 
 
@@ -211,7 +222,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           <div style={{ position: 'absolute', top: 0, bottom: 0, right: '20px', width: '2px', background: '#e2e8f0', zIndex: 0 }}></div>
 
 {events.map((event, idx) => {
-            const eventDocs = shelfDocs.filter(d => event.documentIds?.includes(d.id));
+            const eventDocs = shelfDocs.filter(d => {
+              const cleanId = String(d.id || '').trim();
+              const cleanUrl = String(d.url || '').trim();
+              return (event.documentIds || []).some(id => {
+                const sId = String(id || '').trim();
+                return sId === cleanId || (cleanUrl && sId === cleanUrl);
+              });
+            });
             const year = event.eventDate.substring(0, 4);
             const prevYear = idx > 0 ? events[idx - 1].eventDate.substring(0, 4) : null;
             const showYearMarker = year !== prevYear;
@@ -244,6 +262,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                           setEditEventTitle(event.title);
                           setEditEventDesc(event.description || '');
                           setEditEventDate(event.eventDate);
+                          setEditSelectedDocIds(event.documentIds || []);
                         }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem' }} title="ערוך תחנה">✏️</button>
 
                         <button onClick={(e) => {
@@ -558,6 +577,69 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               <div>
                 <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט מה היה (אופציונלי)</label>
                 <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+              </div>
+
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>מסמכים משויכים ({editSelectedDocIds.length})</label>
+                  <div style={{ display: 'flex', gap: '0.4rem' }}>
+                    <button 
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, mode: 'camera' } }))} 
+                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <span>📸</span> צלם בסורק
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, mode: 'upload' } }))} 
+                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    >
+                      <span>📁</span> העלאת קבצים
+                    </button>
+                  </div>
+                </div>
+                {shelfDocs.length > 0 ? (
+                  <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                    {shelfDocs.map(doc => {
+                      const isSelected = editSelectedDocIds.includes(doc.id);
+                      return (
+                        <div 
+                          key={doc.id} 
+                          onClick={() => setEditSelectedDocIds(prev => isSelected ? prev.filter(id => id !== doc.id) : [...prev, doc.id])}
+                          style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.65, transition: 'all 0.2s ease' }}
+                          title={doc.title}
+                        >
+                          {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
+                          
+                          {/* Selection Badge */}
+                          {isSelected && <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#10b981', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', zIndex: 2 }}>✓</div>}
+
+                          {/* Quick Preview Eye Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onPreviewDocs) {
+                                onPreviewDocs(shelfDocs, shelfDocs.findIndex(d => d.id === doc.id));
+                              } else {
+                                setTimelinePreview({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) });
+                              }
+                            }}
+                            style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '6px', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', cursor: 'pointer', zIndex: 3 }}
+                            title="הגדל והצג מסמך"
+                          >
+                            🔍
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
+                    אין מסמכים במחסן.
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>

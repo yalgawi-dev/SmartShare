@@ -587,22 +587,40 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             const allSpaceEvents = space.shelfEvents || [];
             const activeShelfEvents = allSpaceEvents.filter(e => e.shelfId === activeShelfId);
             
-            const isDocLinked = (docId: string) => {
-              return allSpaceEvents.some(e => 
-                e.documentIds?.includes(docId) || 
-                (e.tasks && e.tasks.some(t => t.documentId === docId))
-              );
+            const isDocLinked = (docId: string, docUrl?: string) => {
+              const cleanId = String(docId || '').trim();
+              const cleanUrl = docUrl ? String(docUrl).trim() : '';
+              return allSpaceEvents.some(e => {
+                const matchesDocId = (e.documentIds || []).some(id => {
+                  const sId = String(id || '').trim();
+                  return sId === cleanId || (cleanUrl && sId === cleanUrl);
+                });
+                const matchesTaskId = (e.tasks || []).some(t => {
+                  const sTaskId = String(t.documentId || '').trim();
+                  return sTaskId === cleanId || (cleanUrl && sTaskId === cleanUrl);
+                });
+                return matchesDocId || matchesTaskId;
+              });
             };
 
-            const getDocLinkedEvent = (docId: string) => {
-              return allSpaceEvents.find(e => 
-                e.documentIds?.includes(docId) || 
-                (e.tasks && e.tasks.some(t => t.documentId === docId))
-              );
+            const getDocLinkedEvent = (docId: string, docUrl?: string) => {
+              const cleanId = String(docId || '').trim();
+              const cleanUrl = docUrl ? String(docUrl).trim() : '';
+              return allSpaceEvents.find(e => {
+                const matchesDocId = (e.documentIds || []).some(id => {
+                  const sId = String(id || '').trim();
+                  return sId === cleanId || (cleanUrl && sId === cleanUrl);
+                });
+                const matchesTaskId = (e.tasks || []).some(t => {
+                  const sTaskId = String(t.documentId || '').trim();
+                  return sTaskId === cleanId || (cleanUrl && sTaskId === cleanUrl);
+                });
+                return matchesDocId || matchesTaskId;
+              });
             };
 
             const filteredDocs = shelfDocs.filter(doc => {
-              const isLinked = isDocLinked(doc.id);
+              const isLinked = isDocLinked(doc.id, doc.url);
               if (filterLinked === 'linked') return isLinked;
               if (filterLinked === 'unlinked') return !isLinked;
               return true;
@@ -612,7 +630,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             return (
               <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem' }}>
                 {filteredDocs.map(doc => {
-                  const linkedEvent = getDocLinkedEvent(doc.id);
+                  const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
                   const isChecked = selectedDocIds.includes(doc.id);
                   return (
                     <div 
@@ -756,7 +774,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>{pendingImport?.docId ? 'לאיזה מדף להעביר את המסמך?' : 'לאיזה מדף לשמור את הקובץ?'}</h3>
             <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>{pendingImport?.docId ? 'בחר את המדף שאליו תרצה להעביר את המסמך' : 'בחר את המדף שאליו יתווסף המסמך החדש'}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
-              {shelves.map(shelf => {
+              {(() => {
+                const availableShelves = shelves.filter(s => pendingImport?.docId ? s.id !== activeShelfId : true);
+                if (availableShelves.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '0.9rem' }}>
+                      <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>📂</div>
+                      אין מדפים נוספים במרחב זה להעברה.<br />(המסמך כבר נמצא במדף הנוכחי).
+                    </div>
+                  );
+                }
+                return availableShelves.map(shelf => {
                  return (
                   <button key={shelf.id} onClick={() => {
                       if (pendingImport.docId) {
@@ -772,7 +800,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     {shelf.name}
                   </button>
                  );
-              })}
+                });
+              })()}
             </div>
             <button onClick={() => setPendingImport(null)} style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>ביטול פעולה</button>
           </div>
@@ -1073,7 +1102,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             <h3 style={{ marginTop: 0, textAlign: 'center', color: '#1e293b', fontSize: '1.25rem' }}>{pendingImport?.docId ? 'לאיזה מדף להעביר את המסמך?' : 'לאיזה מדף לשמור את הקובץ?'}</h3>
             <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>{pendingImport?.docId ? 'בחר את המדף שאליו תרצה להעביר את המסמך' : 'בחר את המדף שאליו יתווסף המסמך החדש'}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
-              {shelves.map(shelf => {
+              {(() => {
+                const currentDoc = pendingImport?.docId ? documents.find(d => d.id === pendingImport.docId) : null;
+                const filterOutShelfId = activeShelfId || currentDoc?.shelfId;
+                const availableShelves = shelves.filter(s => pendingImport?.docId ? s.id !== filterOutShelfId : true);
+                if (availableShelves.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '0.9rem' }}>
+                      <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem' }}>📂</div>
+                      אין מדפים נוספים במרחב זה להעברה.<br />(המסמך כבר נמצא במדף זה).
+                    </div>
+                  );
+                }
+                return availableShelves.map(shelf => {
                  return (
                   <button key={shelf.id} onClick={() => {
                       if (pendingImport.docId) {
@@ -1089,7 +1130,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     {shelf.name}
                   </button>
                  );
-              })}
+                });
+              })()}
             </div>
             <button onClick={() => setPendingImport(null)} style={{ marginTop: '1.5rem', width: '100%', padding: '1rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem' }}>ביטול פעולה</button>
           </div>

@@ -837,6 +837,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                       const ev = space.shelfEvents?.find(e => e.id === targetEventId);
                       if (ev) {
                         updateShelfEvent(space.id, targetEventId, { documentIds: [...(ev.documentIds || []), docId] });
+                        window.dispatchEvent(new CustomEvent('smartshare:doc_saved_for_edit_station', { detail: { docId } }));
                       }
                     });
                 }
