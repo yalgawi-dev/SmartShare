@@ -40,6 +40,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
   const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
+  const [docSearchTerm, setDocSearchTerm] = useState('');
   const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
@@ -534,71 +535,205 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
 
       
       {/* DOC SELECTOR MODAL */}
-      {showDocSelector && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '24px', padding: '1.5rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>בחר מסמך לשיוך</h2>
-              <button onClick={() => setShowDocSelector(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
-            </div>
-            
-            
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginBottom: '1rem' }}>
-               <button 
+      {showDocSelector && (() => {
+        const currentEvent = events.find(e => e.id === showDocSelector.eventId);
+        const filteredDocs = shelfDocs.filter(d => {
+          if (!docSearchTerm.trim()) return true;
+          return (d.title || '').toLowerCase().includes(docSearchTerm.toLowerCase());
+        });
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.7)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '520px', borderRadius: '24px', padding: '1.25rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+              
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div>
+                  <h2 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>
+                    {showDocSelector.taskId ? 'שיוך מסמך למשימה' : `שיוך מסמך לתחנה: ${currentEvent?.title || ''}`}
+                  </h2>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                    בחר מסמך מהמחסן (לחיצה נוספת תבטל שיוך)
+                  </div>
+                </div>
+                <button onClick={() => { setShowDocSelector(null); setDocSearchTerm(''); }} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8', padding: '0.2rem' }}>✕</button>
+              </div>
+
+              {/* Fast Action Buttons: Camera / Upload */}
+              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <button 
                   onClick={() => {
                     const eventId = showDocSelector.eventId;
                     setShowDocSelector(null);
+                    setDocSearchTerm('');
                     window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, mode: 'camera' } }));
                   }} 
-                  style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '0.65rem 0.75rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
+                  style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
                   <span style={{ fontSize: '1.1rem' }}>📸</span> סרוק במצלמה
-               </button>
-               <button 
+                </button>
+                <button 
                   onClick={() => {
                     const eventId = showDocSelector.eventId;
                     setShowDocSelector(null);
+                    setDocSearchTerm('');
                     window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, mode: 'upload' } }));
                   }} 
-                  style={{ flex: 1, background: '#f1f5f9', color: '#1e293b', border: '1px solid #cbd5e1', padding: '0.65rem 0.75rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                  style={{ flex: 1, background: '#f1f5f9', color: '#1e293b', border: '1px solid #cbd5e1', padding: '0.55rem 0.75rem', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                   <span style={{ fontSize: '1.1rem' }}>📤</span> ייבא קובץ לעריכה
-               </button>
-            </div>
-            <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', paddingBottom: '1rem' }}>
-              {shelfDocs.length > 0 ? shelfDocs.map(doc => {
-                  const event = events.find(e => e.id === showDocSelector?.eventId);
-                  const isSelected = event ? event.documentIds?.includes(doc.id) : false;
-                  return (
+                </button>
+              </div>
 
-                <div 
-                  key={doc.id}
-                  onClick={() => {
-                    if (showDocSelector.taskId) {
-                      // Attach to task
-                      handleToggleTask(showDocSelector.eventId, showDocSelector.taskId, undefined, doc.id);
-                    } else {
-                      // Attach to event
-                      const event = events.find(e => e.id === showDocSelector.eventId);
-                      if (event && !event.documentIds?.includes(doc.id)) {
-                        onUpdateEvent(event.id, { documentIds: [...(event.documentIds || []), doc.id] });
-                      }
-                    }
-                    setShowDocSelector(null);
-                  }}
-                  style={{ width: '100%', aspectRatio: '1/1.4', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
-                  title={doc.title}
+              {/* Search Bar */}
+              <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
+                <input 
+                  type="text" 
+                  value={docSearchTerm}
+                  onChange={(e) => setDocSearchTerm(e.target.value)}
+                  placeholder="🔍 חפש מסמך לפי שם במחסן..."
+                  style={{ width: '100%', padding: '0.6rem 0.8rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box' }}
+                />
+                {docSearchTerm && (
+                  <button onClick={() => setDocSearchTerm('')} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '1rem' }}>✕</button>
+                )}
+              </div>
+
+              {/* Documents List / Grid */}
+              <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', padding: '0.25rem 0.25rem 1rem 0.25rem' }}>
+                {filteredDocs.length > 0 ? filteredDocs.map((doc, docIdx) => {
+                  const isSelected = showDocSelector.taskId 
+                    ? (currentEvent?.tasks?.find(t => t.id === showDocSelector.taskId)?.documentId === doc.id)
+                    : (currentEvent?.documentIds || []).includes(doc.id);
+
+                  return (
+                    <div 
+                      key={doc.id}
+                      onClick={() => {
+                        if (showDocSelector.taskId) {
+                          handleToggleTask(showDocSelector.eventId, showDocSelector.taskId, undefined, isSelected ? '' : doc.id);
+                        } else {
+                          if (currentEvent) {
+                            const newIds = isSelected 
+                              ? (currentEvent.documentIds || []).filter(id => id !== doc.id)
+                              : [...(currentEvent.documentIds || []), doc.id];
+                            onUpdateEvent(currentEvent.id, { documentIds: newIds });
+                          }
+                        }
+                      }}
+                      style={{ 
+                        borderRadius: '12px', 
+                        overflow: 'hidden', 
+                        border: isSelected ? '2.5px solid #10b981' : '1px solid #cbd5e1', 
+                        background: '#f8fafc',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        position: 'relative',
+                        boxShadow: isSelected ? '0 4px 12px rgba(16,185,129,0.25)' : '0 2px 4px rgba(0,0,0,0.04)',
+                        transition: 'all 0.2s'
+                      }}
+                      title={isSelected ? 'לחץ לביטול שיוך' : 'לחץ לשיוך לתחנה זו'}
+                    >
+                      {/* Selection Checkmark Badge */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '6px',
+                        left: '6px',
+                        zIndex: 10,
+                        background: isSelected ? '#10b981' : 'rgba(255,255,255,0.85)',
+                        color: 'white',
+                        borderRadius: '50%',
+                        width: '24px',
+                        height: '24px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                        border: isSelected ? 'none' : '1px solid #cbd5e1',
+                        fontSize: '0.85rem',
+                        fontWeight: 'bold'
+                      }}>
+                        {isSelected ? '✓' : ''}
+                      </div>
+
+                      {/* Quick Preview Eye Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (onPreviewDocs) {
+                            onPreviewDocs(filteredDocs, docIdx);
+                          } else {
+                            setTimelinePreview({ docs: filteredDocs, index: docIdx });
+                          }
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          zIndex: 10,
+                          background: 'rgba(0,0,0,0.6)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          fontSize: '0.75rem'
+                        }}
+                        title="הגדל תצוגה מקדימה"
+                      >
+                        🔍
+                      </button>
+
+                      {/* Thumbnail container */}
+                      <div style={{ 
+                        width: '100%', 
+                        height: '110px', 
+                        background: '#e2e8f0', 
+                        backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', 
+                        backgroundSize: 'cover', 
+                        backgroundPosition: 'center',
+                        position: 'relative'
+                      }}>
+                        {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && (
+                          <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '2rem' }}>📄</span>
+                        )}
+                      </div>
+
+                      {/* Doc Title & Status */}
+                      <div style={{ padding: '0.4rem 0.5rem', display: 'flex', flexDirection: 'column', gap: '2px', background: isSelected ? '#ecfdf5' : '#ffffff' }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {doc.title || 'מסמך'}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: isSelected ? '#059669' : '#64748b', fontWeight: isSelected ? 'bold' : 'normal' }}>
+                          {isSelected ? '✓ משויך לתחנה' : 'לחץ לשיוך'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+                    {docSearchTerm ? 'לא נמצאו מסמכים התואמים את החיפוש.' : 'המחסן ריק ממסמכים.'}
+                  </div>
+                )}
+              </div>
+
+              {/* Modal Footer */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem', display: 'flex', justifyContent: 'flex-end' }}>
+                <button 
+                  onClick={() => { setShowDocSelector(null); setDocSearchTerm(''); }}
+                  style={{ background: '#2563eb', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', boxShadow: '0 4px 10px rgba(37,99,235,0.2)' }}
                 >
-                  {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
-                </div>
-              );
-              }) : (
-                <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
-                  המחסן ריק. לחץ על הכפתור למעלה כדי להעלות מסמכים.
-                </div>
-              )}
+                  סיום ✓
+                </button>
+              </div>
+
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       
       {/* EDIT EVENT MODAL */}
@@ -996,7 +1131,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                         ) : (
                           <img 
                             src={displayImageUrl} 
-                            style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
                             alt={currentDoc.title || 'Preview'} 
                           />
                         )}

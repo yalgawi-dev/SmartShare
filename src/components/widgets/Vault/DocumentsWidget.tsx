@@ -38,6 +38,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
+  const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
@@ -779,6 +780,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         
                         {!isMultiSelect && (
                           <div style={{ marginTop: 'auto', display: 'flex', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
+                            <div onClick={(e) => { e.stopPropagation(); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }} style={{ flex: 1.1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0', background: linkedEvent ? '#eff6ff' : 'transparent' }} title={linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה'}>
+                              🔗 {linkedEvent ? 'תחנה' : 'קשר'}
+                            </div>
                             <div onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
                               📤 שתף
                             </div>
@@ -842,6 +846,117 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           </div>
         </div>
       )}
+
+      {/* LINK TO STATION MODAL */}
+      {linkStationDoc && (() => {
+        const activeShelfEvents = (space.shelfEvents || []).filter(e => e.shelfId === activeShelfId);
+        const currentLinkedEvent = activeShelfEvents.find(e => {
+          const cleanId = String(linkStationDoc.docId || '').trim();
+          const cleanUrl = String(linkStationDoc.url || '').trim();
+          return (e.documentIds || []).some(id => {
+            const sId = String(id || '').trim();
+            return sId === cleanId || (cleanUrl && sId === cleanUrl);
+          });
+        });
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '1.5rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.3)' }}>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>שיוך מסמך לתחנה בציר הזמן</h3>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '320px' }}>
+                    {linkStationDoc.title}
+                  </div>
+                </div>
+                <button onClick={() => setLinkStationDoc(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
+
+              {currentLinkedEvent && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#166534' }}>
+                    <strong>משויך כרגע לתחנה:</strong><br />
+                    {currentLinkedEvent.title}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      const newIds = (currentLinkedEvent.documentIds || []).filter(id => id !== linkStationDoc.docId && id !== linkStationDoc.url);
+                      updateShelfEvent(space.id, currentLinkedEvent.id, { documentIds: newIds });
+                      setLinkStationDoc(null);
+                    }}
+                    style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    בטל שיוך
+                  </button>
+                </div>
+              )}
+
+              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.5rem' }}>
+                בחר תחנה לשיוך:
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
+                {activeShelfEvents.length > 0 ? activeShelfEvents.map(event => {
+                  const isCurrent = event.id === currentLinkedEvent?.id;
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        // If previously linked to another event, unlink it
+                        if (currentLinkedEvent && currentLinkedEvent.id !== event.id) {
+                          const oldIds = (currentLinkedEvent.documentIds || []).filter(id => id !== linkStationDoc.docId && id !== linkStationDoc.url);
+                          updateShelfEvent(space.id, currentLinkedEvent.id, { documentIds: oldIds });
+                        }
+                        // Link to new event
+                        const newIds = (event.documentIds || []).includes(linkStationDoc.docId)
+                          ? event.documentIds
+                          : [...(event.documentIds || []), linkStationDoc.docId];
+                        updateShelfEvent(space.id, event.id, { documentIds: newIds });
+                        setLinkStationDoc(null);
+                      }}
+                      style={{
+                        padding: '0.85rem 1rem',
+                        background: isCurrent ? '#eff6ff' : '#f8fafc',
+                        border: isCurrent ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                        borderRadius: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        textAlign: 'right',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#1d4ed8' : '#1e293b' }}>
+                          {event.title}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          📅 {new Date(event.eventDate).toLocaleDateString('he-IL')} • {(event.documentIds || []).length} קבצים
+                        </span>
+                      </div>
+                      {isCurrent && <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem' }}>✓</span>}
+                    </button>
+                  );
+                }) : (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>
+                    עדיין אין תחנות בציר הזמן של מדף זה.<br />
+                    עבור ללשונית "ציר זמן" והוסף תחנה חדשה.
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setLinkStationDoc(null)} 
+                style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                סגור
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* FULLSCREEN PREVIEW CAROUSEL WITH SHARE BUTTON FOR ALL TYPES */}
       {previewState && (
@@ -907,7 +1022,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         ) : (
                           <img 
                             src={displayImageUrl} 
-                            style={{ maxWidth: '100%', maxHeight: '76vh', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
                             alt={currentDoc.title || 'Preview'} 
                           />
                         )}
