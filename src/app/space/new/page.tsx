@@ -15,20 +15,43 @@ const TEMPLATES = [
   { 
     id: 'finance', 
     title: 'ניהול הוצאות / התחשבנויות', 
-    desc: 'המרחב החכם לניהול תקציב, סריקת קבלות, מסמכים והתחשבנות שותפים.', 
+    desc: 'ניהול תקציב, סריקת קבלות וחלוקת הוצאות בין שותפים.', 
+    examples: ['הוצאות שותפים', 'קבלות וחשבוניות', 'תקציב פרויקט'],
     icon: '💰', 
     features: ['finance', 'scanner', 'partners', 'vault', 'chat'] 
   },
   { 
     id: 'medical', 
-    title: 'תיק רפואי משפחתי', 
-    desc: 'סיכומי מחלה, מעקב תרופות, הפניות ומסמכים מרוכזים במקום אחד.', 
-    icon: '🩺', 
+    title: 'תיעוד מסמכים ותהליכים בזמן', 
+    desc: 'ציר זמן חכם לסריקת מסמכים, סיכומי פגישות ושיתוף בעלי עניין.', 
+    examples: ['תיק רפואי משפחתי', 'הצעות מחיר', 'חוזים והסכמים', 'אישורים ורשויות'],
+    icon: '🗂️', 
     features: ['chat', 'partners', 'vault', 'scanner'] 
   },
-  { id: 'event', title: 'תכנון אירוע / חתונה (בקרוב)', desc: 'לארגון מסיבה, חתונה או אירוע חברה. ניהול מוזמנים (RSVP) והוצאות ספקים.', icon: '🎉', features: ['finance'] },
-  { id: 'construction', title: 'פרויקט בנייה / שיפוץ (בקרוב)', desc: 'ניהול קבלנים, קופת מזומן, סריקת חשבוניות ותוכניות אדריכליות.', icon: '🏗️', features: ['finance'] },
-  { id: 'custom', title: 'הרכב בעצמך (Custom)', desc: 'מרחב נקי. התחל מאפס והוסף כלי ניהול בהתאם לצורך שלך.', icon: '🧩', features: [] }
+  { 
+    id: 'event', 
+    title: 'תכנון אירוע / חתונה (בקרוב)', 
+    desc: 'ניהול מוזמנים (RSVP), הוצאות ספקים ותיאום משותף.', 
+    examples: ['חתונה / בר מצווה', 'אירוע חברה'],
+    icon: '🎉', 
+    features: ['finance'] 
+  },
+  { 
+    id: 'construction', 
+    title: 'פרויקט בנייה / שיפוץ (בקרוב)', 
+    desc: 'ניהול קבלנים, סריקת חשבוניות ותוכניות אדריכליות.', 
+    examples: ['שיפוץ דירה', 'קבלנים ואנשי מקצוע'],
+    icon: '🏗️', 
+    features: ['finance'] 
+  },
+  { 
+    id: 'custom', 
+    title: 'הרכב בעצמך (Custom)', 
+    desc: 'מרחב נקי לגמרי. התחל מאפס והוסף כלים ממחסן הכלים.', 
+    examples: ['התאמה אישית מלאה'],
+    icon: '🧩', 
+    features: [] 
+  }
 ];
 
 import { Suspense } from 'react';
@@ -185,7 +208,7 @@ function CreateSpaceContent() {
         <p style={{ color: '#aaa', marginTop: '0.5rem' }}>הקיר המרכזי יבנה אוטומטית בהתאם לתבנית שתבחר</p>
       </header>
 
-      <div className={styles.featuresGrid} style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+      <div className={styles.featuresGrid} style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(290px, 1fr))', gap: '1rem' }}>
         {TEMPLATES.map(template => {
           const isHighlighted = highlightedId === template.id;
           const isDimmed = highlightedId && !isHighlighted;
@@ -196,33 +219,60 @@ function CreateSpaceContent() {
               className={`card ${styles.featureCard}`}
               onClick={() => handleSelectTemplate(template.id)}
               style={{ 
-                padding: '1.5rem', 
+                padding: '1.25rem', 
                 display: 'flex', 
                 flexDirection: 'column', 
-                gap: '0.5rem',
+                justifyContent: 'space-between',
+                minHeight: '260px',
                 opacity: isDimmed ? 0.5 : 1,
                 transform: isHighlighted ? 'scale(1.02)' : 'scale(1)',
                 boxShadow: isHighlighted ? '0 0 0 3px var(--primary), 0 20px 40px rgba(99, 102, 241, 0.3)' : 'var(--shadow-sm)',
-                transition: 'all 0.3s ease',
-                position: 'relative'
+                transition: 'all 0.25s ease',
+                position: 'relative',
+                borderRadius: '16px',
+                border: '1px solid var(--border-light)'
               }}
             >
               {isHighlighted && (
-                <div style={{ position: 'absolute', top: '-12px', right: '1rem', background: 'var(--primary)', color: 'white', padding: '0.2rem 0.8rem', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', animation: 'bounce 2s infinite' }}>
+                <div style={{ position: 'absolute', top: '-10px', right: '1rem', background: 'var(--primary)', color: 'white', padding: '0.15rem 0.6rem', borderRadius: '10px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                   מומלץ עבורך! 👇
                 </div>
               )}
-              <div className={styles.featureHeader} style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>
-                <span className={styles.featureIcon} style={{ fontSize: '1.8rem' }}>{template.icon}</span>
-                <span className={styles.featureName}>{template.title}</span>
-              </div>
-              <p className={styles.featureDesc} style={{ flex: 1 }}>{template.desc}</p>
               
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginTop: '1rem' }}>
-                {template.features.map(fId => {
-                  const f = AVAILABLE_FEATURES.find(feat => feat.id === fId);
-                  return f ? <span key={fId} style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{f.name}</span> : null;
-                })}
+              <div>
+                <div className={styles.featureHeader} style={{ fontSize: '1.1rem', marginBottom: '0.4rem', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span className={styles.featureIcon} style={{ fontSize: '1.6rem', lineHeight: 1 }}>{template.icon}</span>
+                  <span className={styles.featureName} style={{ fontWeight: 'bold', fontSize: '1.05rem', lineHeight: 1.3 }}>{template.title}</span>
+                </div>
+                <p className={styles.featureDesc} style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4', margin: '0.4rem 0 0.8rem 0' }}>
+                  {template.desc}
+                </p>
+                
+                {template.examples && template.examples.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem', marginBottom: '0.5rem' }}>
+                    {template.examples.map((ex, i) => (
+                      <span key={i} style={{ fontSize: '0.72rem', background: 'rgba(99, 102, 241, 0.08)', color: 'var(--primary)', padding: '2px 7px', borderRadius: '6px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                        • {ex}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '0.6rem', marginTop: 'auto' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', marginBottom: '0.3rem', fontWeight: 600 }}>כלים מובנים:</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.3rem' }}>
+                  {template.features.length > 0 ? template.features.map(fId => {
+                    const f = AVAILABLE_FEATURES.find(feat => feat.id === fId);
+                    return f ? (
+                      <span key={fId} style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-light)', whiteSpace: 'nowrap' }}>
+                        {f.icon} {f.name}
+                      </span>
+                    ) : null;
+                  }) : (
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', fontStyle: 'italic' }}>נבחרים עצמאית</span>
+                  )}
+                </div>
               </div>
             </div>
           );
