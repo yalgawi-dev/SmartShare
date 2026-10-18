@@ -82,6 +82,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }, [activeShelfId, activeTab]);
 
   React.useEffect(() => {
+    if (previewState) {
+      window.dispatchEvent(new CustomEvent('smartshare:preview_open'));
+    } else {
+      window.dispatchEvent(new CustomEvent('smartshare:preview_closed'));
+    }
+  }, [previewState]);
+
+  React.useEffect(() => {
     const handler = () => {
       setPromptInput('');
       setCustomPrompt({

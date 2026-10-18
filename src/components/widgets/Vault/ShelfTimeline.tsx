@@ -132,6 +132,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     };
   }, []);
 
+  useEffect(() => {
+    if (timelinePreview) {
+      window.dispatchEvent(new CustomEvent('smartshare:preview_open'));
+    } else {
+      window.dispatchEvent(new CustomEvent('smartshare:preview_closed'));
+    }
+  }, [timelinePreview]);
+
   const events = (space.shelfEvents || [])
     .filter(e => e.shelfId === activeShelfId)
     .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());

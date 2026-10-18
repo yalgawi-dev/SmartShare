@@ -46,6 +46,7 @@ export function FloatingActionBar({
   const [isInShelf, setIsInShelf] = useState(false);
   const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('timeline');
   const [isVaultTab, setIsVaultTab] = useState(false);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   useEffect(() => {
     const handleOpen = (e?: any) => {
       setIsInShelf(true);
@@ -61,12 +62,17 @@ export function FloatingActionBar({
     const handleVaultOn = () => setIsVaultTab(true);
     const handleVaultOff = () => setIsVaultTab(false);
     const handleTriggerUpload = () => fileInputRef.current?.click();
+    const handlePreviewOpen = () => setIsPreviewOpen(true);
+    const handlePreviewClose = () => setIsPreviewOpen(false);
+
     window.addEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     window.addEventListener("smartshare:shelf_opened", handleOpen);
     window.addEventListener("smartshare:shelf_closed", handleClose);
     window.addEventListener("smartshare:shelf_subtab_changed", handleSubTab);
     window.addEventListener("smartshare:vault_tab_active", handleVaultOn);
     window.addEventListener("smartshare:vault_tab_inactive", handleVaultOff);
+    window.addEventListener("smartshare:preview_open", handlePreviewOpen);
+    window.addEventListener("smartshare:preview_closed", handlePreviewClose);
     return () => {
       window.removeEventListener("smartshare:shelf_opened", handleOpen);
       window.removeEventListener("smartshare:shelf_closed", handleClose);
@@ -74,10 +80,12 @@ export function FloatingActionBar({
       window.removeEventListener("smartshare:vault_tab_active", handleVaultOn);
       window.removeEventListener("smartshare:vault_tab_inactive", handleVaultOff);
       window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
+      window.removeEventListener("smartshare:preview_open", handlePreviewOpen);
+      window.removeEventListener("smartshare:preview_closed", handlePreviewClose);
     };
   }, []);
 
-  if (isAddingExpense || isScannerOpen || !mounted) return null;
+  if (isAddingExpense || isScannerOpen || isPreviewOpen || !mounted) return null;
 
   return createPortal(
     <div style={{
