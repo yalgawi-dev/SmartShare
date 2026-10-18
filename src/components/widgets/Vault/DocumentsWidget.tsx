@@ -38,7 +38,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
-  const [forcePdfView, setForcePdfView] = useState(false);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
@@ -881,7 +880,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             {(() => {
               const currentDoc = previewState.docs[previewState.index];
               const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-              const displayImageUrl = (!forcePdfView && currentDoc.thumbnailUrl) ? currentDoc.thumbnailUrl : (!isPdf ? currentDoc.url : null);
+              const displayImageUrl = currentDoc.thumbnailUrl ? currentDoc.thumbnailUrl : (!isPdf ? currentDoc.url : null);
 
               if (displayImageUrl) {
                 return (
@@ -912,21 +911,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             })()}
 
             <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 20002, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {(() => {
-                const currentDoc = previewState.docs[previewState.index];
-                const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-                if (isPdf && currentDoc.thumbnailUrl) {
-                  return (
-                    <button 
-                      onClick={() => setForcePdfView(!forcePdfView)} 
-                      style={{ background: 'rgba(59, 130, 246, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.1rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-                    >
-                      <span>{forcePdfView ? '🔍 זום אצבעות' : '📄 תצוגת PDF'}</span>
-                    </button>
-                  );
-                }
-                return null;
-              })()}
               <button 
                 onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
                 style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}
