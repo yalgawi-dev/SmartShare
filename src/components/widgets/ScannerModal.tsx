@@ -740,7 +740,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       } else if (type === 'save') {
          const result = await processMultiPage(urls, exportFormat, exportNumbers);
          let finalRouting = exportOptions.routingType || defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
-         onComplete(result.dataUrl, undefined, urls, finalRouting);
+         if (!isClosingRef.current) {
+            isClosingRef.current = true;
+            window.history.back();
+          }
+          setTimeout(() => {
+            onComplete(result.dataUrl, undefined, urls, finalRouting);
+            setIsProcessing(false);
+          }, 50);
       }
     } catch (e) {
        console.error('Export failed', e);

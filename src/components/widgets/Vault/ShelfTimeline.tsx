@@ -19,14 +19,75 @@ interface ShelfTimelineProps {
 export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEvent, onUpdateEvent, onRemoveEvent, onAddComment, onRemoveComment, onUploadAndLink, onPreviewDocs }: ShelfTimelineProps) {
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
+  const [timelinePreview, setTimelinePreview] = useState<{ docs: SpaceDocument[], index: number } | null>(null);
   const [eventToDelete, setEventToDelete] = useState<{ id: string, title: string } | null>(null);
   const [editEventId, setEditEventId] = useState<string | null>(null);
   const [editEventTitle, setEditEventTitle] = useState('');
   const [editEventDesc, setEditEventDesc] = useState('');
   const [editEventDate, setEditEventDate] = useState('');
   const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventDesc, setNewEventDesc] = useState('');
+  const [newEventDate, setNewEventDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [newTasks, setNewTasks] = useState<{id: string, text: string, isCompleted: boolean}[]>([]);
+  const [newTaskInput, setNewTaskInput] = useState('');
+  const [taskInputs, setTaskInputs] = useState<Record<string, string>>({});
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
+  const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
+  const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
+  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingLocal, setIsUploadingLocal] = useState(false);
+
+  // Draft key per space and shelf
+  const draftStorageKey = `smartshare_timeline_draft_${space.id}_${activeShelfId}`;
+
+  // Auto-restore draft on mount or shelf change
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const saved = localStorage.getItem(draftStorageKey);
+      if (saved) {
+        const d = JSON.parse(saved);
+        if (d.title || d.desc || (d.docIds && d.docIds.length > 0) || (d.tasks && d.tasks.length > 0)) {
+          if (d.title) setNewEventTitle(d.title);
+          if (d.desc) setNewEventDesc(d.desc);
+          if (d.date) setNewEventDate(d.date);
+          if (Array.isArray(d.docIds)) setSelectedDocIds(d.docIds);
+          if (Array.isArray(d.tasks)) setNewTasks(d.tasks);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to load timeline draft', e);
+    }
+  }, [draftStorageKey]);
+
+  // Auto-save draft on changes when modal has content
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (newEventTitle || newEventDesc || selectedDocIds.length > 0 || newTasks.length > 0) {
+        localStorage.setItem(draftStorageKey, JSON.stringify({
+          title: newEventTitle,
+          desc: newEventDesc,
+          date: newEventDate,
+          docIds: selectedDocIds,
+          tasks: newTasks
+        }));
+      }
+    } catch (e) {}
+  }, [newEventTitle, newEventDesc, newEventDate, selectedDocIds, newTasks, draftStorageKey]);
+
+  const clearDraft = () => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(draftStorageKey);
+      } catch (e) {}
+    }
+  };
 
   const handleLocalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -44,19 +105,6 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       reader.readAsDataURL(file);
     }
   };
-  const [newEventDesc, setNewEventDesc] = useState('');
-  const [newEventDate, setNewEventDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
-  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
-  const [newTasks, setNewTasks] = useState<{id: string, text: string, isCompleted: boolean}[]>([]);
-  const [newTaskInput, setNewTaskInput] = useState('');
-  const [taskInputs, setTaskInputs] = useState<Record<string, string>>({});
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
-  const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
-  const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
-  const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);
-  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
-  const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const handleAddStation = () => setShowAddModal(true);
@@ -100,6 +148,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       documentIds: selectedDocIds,
       tasks: newTasks
     });
+    clearDraft();
     setShowAddModal(false);
     setNewEventTitle('');
     setNewEventDesc('');
@@ -546,7 +595,31 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>תחנה חדשה בציר הזמן</h2>
+              <div>
+                <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>תחנה חדשה בציר הזמן</h2>
+                {(newEventTitle || newEventDesc || selectedDocIds.length > 0) && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span> טיוטה נשמרת אוטומטית
+                    </span>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        if (confirm('האם לאפס את הטיוטה?')) {
+                          clearDraft();
+                          setNewEventTitle('');
+                          setNewEventDesc('');
+                          setSelectedDocIds([]);
+                          setNewTasks([]);
+                        }
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.7rem', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
+                      אפס טיוטה
+                    </button>
+                  </div>
+                )}
+              </div>
               <button onClick={() => setShowAddModal(false)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
             </div>
             
@@ -631,11 +704,30 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                         <div 
                           key={doc.id} 
                           onClick={() => setSelectedDocIds(prev => isSelected ? prev.filter(id => id !== doc.id) : [...prev, doc.id])}
-                          style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.6 }}
+                          style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.65, transition: 'all 0.2s ease' }}
                           title={doc.title}
                         >
-                          {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
-                          {isSelected && <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#10b981', color: 'white', borderRadius: '50%', width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', fontWeight: 'bold' }}>✓</div>}
+                          {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
+                          
+                          {/* Selection Badge */}
+                          {isSelected && <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#10b981', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', zIndex: 2 }}>✓</div>}
+
+                          {/* Quick Preview Eye Button */}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (onPreviewDocs) {
+                                onPreviewDocs(shelfDocs, shelfDocs.findIndex(d => d.id === doc.id));
+                              } else {
+                                setTimelinePreview({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) });
+                              }
+                            }}
+                            style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '6px', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', cursor: 'pointer', zIndex: 3 }}
+                            title="הגדל והצג מסמך"
+                          >
+                            🔍
+                          </button>
                         </div>
                       );
                     })}
@@ -656,6 +748,62 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         </div>
       )}
 
+      {/* Timeline Internal Document Preview Modal */}
+      {timelinePreview && (
+        <div 
+          onClick={() => setTimelinePreview(null)}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 100005, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          {timelinePreview.index > 0 && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index - 1 })); }} 
+              style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 100006 }}
+            >
+              ‹
+            </button>
+          )}
+
+          {((timelinePreview.docs[timelinePreview.index].url && timelinePreview.docs[timelinePreview.index].url.includes('.pdf')) || timelinePreview.docs[timelinePreview.index].type === 'pdf') ? (
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '80%', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center', background: '#1e293b', borderRadius: '16px', padding: '1.5rem', border: '1px solid #334155' }}>
+              <div style={{ fontSize: '4.5rem' }}>📄</div>
+              <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
+                {timelinePreview.docs[timelinePreview.index].title || 'מסמך PDF'}
+              </h3>
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button 
+                  onClick={() => window.open(timelinePreview.docs[timelinePreview.index].url, '_blank')} 
+                  style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer' }}
+                >
+                  👁️ פתח במסך מלא
+                </button>
+              </div>
+            </div>
+          ) : (
+            <img 
+              onClick={(e) => e.stopPropagation()}
+              src={timelinePreview.docs[timelinePreview.index].url} 
+              style={{ maxWidth: '92%', maxHeight: '88%', objectFit: 'contain', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }} 
+              alt="Preview" 
+            />
+          )}
+
+          {timelinePreview.index < timelinePreview.docs.length - 1 && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index + 1 })); }} 
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 100006 }}
+            >
+              ›
+            </button>
+          )}
+
+          <button 
+            onClick={() => setTimelinePreview(null)} 
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100006 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
     </>
   );
