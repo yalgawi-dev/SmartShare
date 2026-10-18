@@ -1097,12 +1097,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       {timelinePreview && (
         <div 
           onClick={() => setTimelinePreview(null)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 100005, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           {timelinePreview.index > 0 && (
             <button 
               onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index - 1 })); }} 
-              style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 100006 }}
+              style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200005 }}
             >
               ‹
             </button>
@@ -1111,34 +1111,26 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           {(() => {
             const currentDoc = timelinePreview.docs[timelinePreview.index];
             const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-            const displayImageUrl = currentDoc.thumbnailUrl || (!isPdf ? currentDoc.url : null);
 
-            if (displayImageUrl) {
+            // If it's a multi-page image array (e.g. captured pages), display as continuous pinch-zoomable scroll:
+            if (currentDoc.pages && currentDoc.pages.length > 1) {
               return (
                 <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
                   <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
                     <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
                       <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        {currentDoc.pages && currentDoc.pages.length > 1 ? (
-                          currentDoc.pages.map((pUrl, pIdx) => (
-                            <img 
-                              key={pIdx}
-                              src={pUrl} 
-                              style={{ width: '100%', maxWidth: '650px', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                              alt={`${currentDoc.title || 'Page'} ${pIdx + 1}`} 
-                            />
-                          ))
-                        ) : (
+                        {currentDoc.pages.map((pUrl, pIdx) => (
                           <img 
-                            src={displayImageUrl} 
-                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                            alt={currentDoc.title || 'Preview'} 
+                            key={pIdx}
+                            src={pUrl} 
+                            style={{ width: '100%', maxWidth: '650px', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                            alt={`${currentDoc.title || 'Page'} ${pIdx + 1}`} 
                           />
-                        )}
+                        ))}
                       </TransformComponent>
                     </TransformWrapper>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 10 }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
                     <button 
                       onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
                       style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -1156,17 +1148,51 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               );
             }
 
-            // PDF Fallback if no image thumbnail exists
-            return (
-              <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '88%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-                <div style={{ width: '100%', flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
-                  <iframe 
-                    src={getDocumentPreviewUrl(currentDoc.url)} 
-                    style={{ width: '100%', height: '100%', border: 'none' }} 
-                    title={currentDoc.title || 'PDF Document'} 
-                  />
+            // If it's a PDF (scroll PDF or regular multi-page PDF), display the PDF viewer so ALL pages are scrolled smoothly:
+            if (isPdf) {
+              return (
+                <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '88%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ width: '100%', flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
+                    <iframe 
+                      src={getDocumentPreviewUrl(currentDoc.url)} 
+                      style={{ width: '100%', height: '100%', border: 'none' }} 
+                      title={currentDoc.title || 'PDF Document'} 
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.75rem', zIndex: 200005 }}>
+                    <button 
+                      onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
+                      style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <span>⬇️ הורדה</span>
+                    </button>
+                    <button 
+                      onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
+                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
+                    >
+                      <span>📤 שתף</span>
+                    </button>
+                  </div>
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', zIndex: 10 }}>
+              );
+            }
+
+            // Standard Image View with Pinch-to-Zoom:
+            const displayImageUrl = currentDoc.thumbnailUrl || currentDoc.url;
+            return (
+              <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
+                <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
+                  <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                      <img 
+                        src={displayImageUrl} 
+                        style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                        alt={currentDoc.title || 'Preview'} 
+                      />
+                    </TransformComponent>
+                  </TransformWrapper>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
                   <button 
                     onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
                     style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -1187,7 +1213,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           {timelinePreview.index < timelinePreview.docs.length - 1 && (
             <button 
               onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index + 1 })); }} 
-              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 100006 }}
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200005 }}
             >
               ›
             </button>
@@ -1195,7 +1221,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
 
           <button 
             onClick={() => setTimelinePreview(null)} 
-            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100006 }}
+            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200005 }}
           >
             ✕
           </button>
