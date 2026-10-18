@@ -10,6 +10,7 @@ import { uploadImageToStorage } from '@/lib/firebase';
 import ConfirmModal from '../../common/ConfirmModal';
 import { downloadDocument, shareDocument, getDocumentPreviewUrl } from '../../../utils/documentUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => Promise<string | undefined>;
@@ -37,6 +38,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
+  const [forcePdfView, setForcePdfView] = useState(false);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('feed');
@@ -273,6 +275,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       try {
         let finalUrl = url;
         let finalThumbnailUrl = previewUrl;
+
+        // If multi-page, create a merged scroll image for full-document instant pinch preview
+        if (allPages && allPages.length > 1) {
+          try {
+            const mergedScroll = await mergeImagesCleanly(allPages);
+            if (mergedScroll) {
+              previewUrl = mergedScroll;
+            }
+          } catch (err) {
+            console.error("Failed to merge pages for preview thumbnail", err);
+          }
+        }
+
         if (url.startsWith('data:image') || url.startsWith('data:application/pdf')) {
           const ext = url.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
@@ -866,7 +881,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             {(() => {
               const currentDoc = previewState.docs[previewState.index];
               const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-              const displayImageUrl = currentDoc.thumbnailUrl || (!isPdf ? currentDoc.url : null);
+              const displayImageUrl = (!forcePdfView && currentDoc.thumbnailUrl) ? currentDoc.thumbnailUrl : (!isPdf ? currentDoc.url : null);
 
               if (displayImageUrl) {
                 return (
@@ -884,7 +899,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 );
               }
 
-              // Pure PDF without thumbnail
+              // PDF View
               return (
                 <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
                   <iframe 
@@ -896,7 +911,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               );
             })()}
 
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 20002 }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 20002, flexWrap: 'wrap', justifyContent: 'center' }}>
+              {(() => {
+                const currentDoc = previewState.docs[previewState.index];
+                const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
+                if (isPdf && currentDoc.thumbnailUrl) {
+                  return (
+                    <button 
+                      onClick={() => setForcePdfView(!forcePdfView)} 
+                      style={{ background: 'rgba(59, 130, 246, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.1rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                    >
+                      <span>{forcePdfView ? '🔍 זום אצבעות' : '📄 תצוגת PDF'}</span>
+                    </button>
+                  );
+                }
+                return null;
+              })()}
               <button 
                 onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
                 style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}

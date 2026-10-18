@@ -22,6 +22,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [timelinePreview, setTimelinePreview] = useState<{ docs: SpaceDocument[], index: number } | null>(null);
+  const [forcePdfView, setForcePdfView] = useState(false);
   const [eventToDelete, setEventToDelete] = useState<{ id: string, title: string, docCount: number, docIds: string[] } | null>(null);
   const [deleteOption, setDeleteOption] = useState<'keep_docs' | 'delete_docs'>('keep_docs');
   const [editEventId, setEditEventId] = useState<string | null>(null);
@@ -976,7 +977,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           {(() => {
             const currentDoc = timelinePreview.docs[timelinePreview.index];
             const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-            const displayImageUrl = currentDoc.thumbnailUrl || (!isPdf ? currentDoc.url : null);
+            const displayImageUrl = (!forcePdfView && currentDoc.thumbnailUrl) ? currentDoc.thumbnailUrl : (!isPdf ? currentDoc.url : null);
 
             if (displayImageUrl) {
               return (
@@ -992,7 +993,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                       </TransformComponent>
                     </TransformWrapper>
                   </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 10 }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                    {isPdf && (
+                      <button 
+                        onClick={() => setForcePdfView(true)} 
+                        style={{ background: 'rgba(59, 130, 246, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.1rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                        title="צפה כ-PDF המקורי"
+                      >
+                        <span>📄 תצוגת PDF</span>
+                      </button>
+                    )}
                     <button 
                       onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
                       style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.2rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -1010,7 +1020,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               );
             }
 
-            // Pure PDF without thumbnail
+            // PDF View
             return (
               <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '88%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
                 <div style={{ width: '100%', flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
@@ -1020,7 +1030,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     title={currentDoc.title || 'PDF Document'} 
                   />
                 </div>
-                <div style={{ display: 'flex', gap: '0.75rem', zIndex: 10 }}>
+                <div style={{ display: 'flex', gap: '0.75rem', zIndex: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+                  {currentDoc.thumbnailUrl && (
+                    <button 
+                      onClick={() => setForcePdfView(false)} 
+                      style={{ background: 'rgba(59, 130, 246, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.1rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      title="חזור לתצוגת מגילה עם זום אצבעות"
+                    >
+                      <span>🔍 זום אצבעות</span>
+                    </button>
+                  )}
                   <button 
                     onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
                     style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.2rem', borderRadius: '20px', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
