@@ -280,24 +280,55 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     </div>
                     
                     {!isExpanded && (
-                       <div style={{ display: 'flex', gap: '1rem', marginTop: '0.75rem', alignItems: 'center' }}>
-                         {totalTasks > 0 && (
-                           <button onClick={(e) => { e.stopPropagation(); setExpandedEvents(prev => ({ ...prev, [event.id]: true })); setExpandedTasks(prev => ({ ...prev, [event.id]: true })); }} style={{ background: 'transparent', border: 'none', color: '#b45309', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', padding: 0 }}>
-                             📋 {openTasks > 0 ? `(${openTasks} פתוחות)` : '(כולן הושלמו)'}
-                           </button>
-                         )}
-                         {(event.comments || []).length > 0 && (
-                           <button onClick={(e) => { e.stopPropagation(); setActiveChatEventId(event.id); }} style={{ background: 'transparent', border: 'none', color: '#3b82f6', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', padding: 0 }}>
-                             💬 {(event.comments || []).length}
-                           </button>
-                         )}
-                         {eventDocs.length > 0 && (
-                           <div style={{ color: '#64748b', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                             📄 {eventDocs.length}
-                           </div>
-                         )}
-                         <button onClick={(e) => { e.stopPropagation(); setShowDocSelector({ eventId: event.id }); }} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '1.1rem', cursor: 'pointer', padding: 0, marginLeft: 'auto' }} title="הוסף מסמך">
-                           📎
+                       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', alignItems: 'center', flexWrap: 'wrap', paddingTop: '0.5rem', borderTop: '1px dashed #f1f5f9' }}>
+                         {/* Tasks Indicator */}
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setExpandedEvents(prev => ({ ...prev, [event.id]: true })); setExpandedTasks(prev => ({ ...prev, [event.id]: true })); }} 
+                           style={{ background: totalTasks > 0 ? (openTasks === 0 ? '#ecfdf5' : '#fffbeb') : '#f8fafc', border: `1px solid ${totalTasks > 0 ? (openTasks === 0 ? '#a7f3d0' : '#fde68a') : '#e2e8f0'}`, borderRadius: '10px', padding: '3px 8px', color: totalTasks > 0 ? (openTasks === 0 ? '#059669' : '#b45309') : '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontWeight: 'bold' }}
+                           title="משימות בתחנה זו"
+                         >
+                           <span>📋</span>
+                           <span>{totalTasks > 0 ? `${totalTasks} משימות ${openTasks > 0 ? `(${openTasks} פתוחות)` : '✓'}` : '0 משימות'}</span>
+                         </button>
+
+                         {/* Attached Documents Indicator & Quick Preview Carousel */}
+                         <div 
+                           onClick={(e) => {
+                             if (eventDocs.length > 0) {
+                               e.stopPropagation();
+                               if (onPreviewDocs) {
+                                 onPreviewDocs(eventDocs, 0);
+                               } else {
+                                 setTimelinePreview({ docs: eventDocs, index: 0 });
+                               }
+                             }
+                           }}
+                           style={{ background: eventDocs.length > 0 ? '#eff6ff' : '#f8fafc', border: `1px solid ${eventDocs.length > 0 ? '#bfdbfe' : '#e2e8f0'}`, borderRadius: '10px', padding: '3px 8px', color: eventDocs.length > 0 ? '#2563eb' : '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: eventDocs.length > 0 ? 'pointer' : 'default', fontWeight: 'bold' }}
+                           title={eventDocs.length > 0 ? 'לחץ לצפייה מהירה בקבצים המצורפים' : 'אין קבצים מצורפים'}
+                         >
+                           <span>📎</span>
+                           <span>{eventDocs.length > 0 ? `${eventDocs.length} קבצים 🔍` : '0 קבצים'}</span>
+                         </div>
+
+                         {/* Talkbacks Indicator with V indicator */}
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setActiveChatEventId(event.id); }} 
+                           style={{ background: (event.comments || []).length > 0 ? '#f0fdf4' : '#f8fafc', border: `1px solid ${(event.comments || []).length > 0 ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: '10px', padding: '3px 8px', color: (event.comments || []).length > 0 ? '#16a34a' : '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontWeight: 'bold' }}
+                           title="טוקבקים / דיון בתחנה"
+                         >
+                           <span>💬</span>
+                           <span>
+                             {(event.comments || []).length > 0 ? `${(event.comments || []).length} טוקבקים ✓` : 'טוקבקים'}
+                           </span>
+                         </button>
+
+                         {/* Quick Attach Doc Plus Button */}
+                         <button 
+                           onClick={(e) => { e.stopPropagation(); setShowDocSelector({ eventId: event.id }); }} 
+                           style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '10px', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontSize: '1rem', cursor: 'pointer', marginRight: 'auto', padding: 0 }} 
+                           title="צרף מסמך לתחנה זו"
+                         >
+                           +
                          </button>
                        </div>
                     )}
@@ -394,7 +425,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                                 if (onPreviewDocs) {
                                   onPreviewDocs(eventDocs, docIdx);
                                 } else {
-                                  window.open(doc.url, '_blank');
+                                  setTimelinePreview({ docs: eventDocs, index: docIdx });
                                 }
                               }}
                               style={{ flexShrink: 0, width: '60px', height: '80px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1' }}
@@ -927,18 +958,28 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           )}
 
           {((timelinePreview.docs[timelinePreview.index].url && timelinePreview.docs[timelinePreview.index].url.includes('.pdf')) || timelinePreview.docs[timelinePreview.index].type === 'pdf') ? (
-            <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '80%', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', justifyContent: 'center', background: '#1e293b', borderRadius: '16px', padding: '1.5rem', border: '1px solid #334155' }}>
-              <div style={{ fontSize: '4.5rem' }}>📄</div>
-              <h3 style={{ color: 'white', margin: 0, fontSize: '1.2rem', textAlign: 'center' }}>
-                {timelinePreview.docs[timelinePreview.index].title || 'מסמך PDF'}
-              </h3>
-              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '85%', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
+              <iframe 
+                src={timelinePreview.docs[timelinePreview.index].url} 
+                style={{ width: '100%', height: '100%', border: 'none' }} 
+                title={timelinePreview.docs[timelinePreview.index].title || 'PDF Document'} 
+              />
+              <div style={{ position: 'absolute', top: '12px', left: '12px', display: 'flex', gap: '0.5rem', zIndex: 10 }}>
                 <button 
                   onClick={() => window.open(timelinePreview.docs[timelinePreview.index].url, '_blank')} 
-                  style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: '24px', fontWeight: 'bold', cursor: 'pointer' }}
+                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem' }}
+                  title="פתח בלשונית נפרדת"
                 >
-                  👁️ פתח במסך מלא
+                  <span>👁️ פתח נפרד</span>
                 </button>
+                <a 
+                  href={timelinePreview.docs[timelinePreview.index].url} 
+                  download={timelinePreview.docs[timelinePreview.index].title || 'document.pdf'}
+                  style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', textDecoration: 'none', padding: '0.4rem 0.8rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', border: '1px solid rgba(255,255,255,0.2)' }}
+                  title="הורדת המסמך"
+                >
+                  <span>⬇️ הורדה</span>
+                </a>
               </div>
             </div>
           ) : (
