@@ -123,8 +123,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
-  const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('scroll_pdf');
-  const [exportNumbers, setExportNumbers] = useState<boolean>(true);
+  const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
+  const [exportNumbers, setExportNumbers] = useState<boolean>(false);
+
 
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
@@ -753,11 +754,20 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     if (allPageUrls.length === 0) return;
     
-    if (allPageUrls.length > 0) {
+    if (allPageUrls.length === 1) {
+      // Single page is ALWAYS a standard clean document (never a scroll)
+      setExportFormat('pdf');
+      setExportOptions({ type: 'share', urls: allPageUrls });
+      return;
+    }
+
+    if (allPageUrls.length > 1) {
+      setExportFormat('pdf'); // default to regular multi-page PDF, user can toggle scroll if desired
       setExportOptions({ type: 'share', urls: allPageUrls });
       return;
     }
   };
+
 
   const handleCategorySelect = (cat: 'receipt' | 'document' | 'image') => {
     setSelectedCategory(cat);
@@ -904,8 +914,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.60</span>
+            <span>סורק מסמכים v19.61</span>
           </h2>
+
         </div>
         
         <div style={{ width: '80px', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -1052,22 +1063,27 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           <div style={{ background: '#1e293b', padding: '1.5rem', borderRadius: '16px', width: '85%', maxWidth: '340px', color: 'white', display: 'flex', flexDirection: 'column', gap: '1rem', border: '1px solid #334155', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
             <h3 style={{ margin: 0, textAlign: 'center', color: '#f8fafc', fontSize: '1.3rem', fontWeight: 'bold' }}>{exportOptions.type === 'share' ? 'הגדרות שיתוף' : 'הגדרות שמירה'}</h3>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-               <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold' }}>פורמט יצוא</span>
-               <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
-                 <input type="radio" name="exportFmt" checked={exportFormat === 'pdf'} onChange={() => setExportFormat('pdf')} style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} />
-                 <span style={{ fontSize: '1rem' }}>מסמך רגיל (דפים נפרדים)</span>
-               </label>
-               <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
-                 <input type="radio" name="exportFmt" checked={exportFormat === 'scroll_pdf'} onChange={() => setExportFormat('scroll_pdf')} style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} />
-                 <span style={{ fontSize: '1rem' }}>מגילה (רצף אחד ארוך)</span>
-               </label>
-             </div>
+            {exportOptions.urls.length > 1 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                 <span style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 'bold' }}>פורמט יצוא</span>
+                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
+                   <input type="radio" name="exportFmt" checked={exportFormat === 'pdf'} onChange={() => setExportFormat('pdf')} style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} />
+                   <span style={{ fontSize: '1rem' }}>מסמך רגיל (דפים נפרדים - מומלץ)</span>
+                 </label>
+                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer' }}>
+                   <input type="radio" name="exportFmt" checked={exportFormat === 'scroll_pdf'} onChange={() => setExportFormat('scroll_pdf')} style={{ width: '20px', height: '20px', accentColor: '#3b82f6' }} />
+                   <span style={{ fontSize: '1rem' }}>מגילה (רצף אחד ארוך)</span>
+                 </label>
+               </div>
+            )}
 
-             <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
-              <input type="checkbox" checked={exportNumbers} onChange={e => setExportNumbers(e.target.checked)} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
-              <span style={{ fontSize: '1rem' }}>מספור עמודים</span>
-            </label>
+            {exportOptions.urls.length > 1 && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <input type="checkbox" checked={exportNumbers} onChange={e => setExportNumbers(e.target.checked)} style={{ width: '22px', height: '22px', accentColor: '#10b981' }} />
+                <span style={{ fontSize: '1rem' }}>מספור עמודים</span>
+              </label>
+            )}
+
 
             
 

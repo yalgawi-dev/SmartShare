@@ -31,9 +31,10 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
       await shareDocument(doc.url, doc.title, {
         asPdf,
         pages: doc.pages,
-        pdfOptions: { format: 'scroll' }
+        pdfOptions: { format: 'pages' }
       });
       onClose();
+
     } catch (err) {
       console.error('Share failed', err);
     } finally {

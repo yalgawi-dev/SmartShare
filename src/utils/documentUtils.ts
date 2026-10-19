@@ -15,13 +15,18 @@ export interface ExportPdfOptions {
  */
 export async function convertImagesToPdfBlob(
   imageUrls: string[],
-  options: ExportPdfOptions = { format: 'scroll', includeNumbers: false }
+  options: ExportPdfOptions = { format: 'pages', includeNumbers: false }
 ): Promise<Blob> {
   if (!imageUrls || imageUrls.length === 0) {
     throw new Error('No images provided for PDF conversion');
   }
 
-  const { format = 'scroll', includeNumbers = false } = options;
+  // Force 'pages' if there is only 1 image (a single page can never be a scroll)
+  const isSinglePage = imageUrls.length === 1;
+  const requestedFormat = options.format || 'pages';
+  const format = isSinglePage ? 'pages' : requestedFormat;
+  const includeNumbers = options.includeNumbers || false;
+
 
   // Load all images
   const loadedImages = await Promise.all(
@@ -41,13 +46,16 @@ export async function convertImagesToPdfBlob(
     for (let i = 0; i < loadedImages.length; i++) {
       const img = loadedImages[i];
       const orientation = img.width > img.height ? 'l' : 'p';
+      const pageFormat: [number, number] = [img.width, img.height];
+
       if (!pdf) {
-        pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
+        pdf = new jsPDF({ orientation, unit: 'px', format: pageFormat });
       } else {
-        pdf.addPage([img.width, img.height], orientation);
+        pdf.addPage(pageFormat, orientation);
       }
 
       pdf.addImage(imageUrls[i], 'JPEG', 0, 0, img.width, img.height);
+
 
       if (includeNumbers) {
         const textCanvas = document.createElement('canvas');
