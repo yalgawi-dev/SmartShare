@@ -1,20 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { convertPdfToOptimizedImage } from '@/utils/imageOptimizer';
+import { extractPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 
 interface DynamicPdfScrollPreviewProps {
   url: string;
   title?: string;
-  initialThumbnail?: string;
+  onPagesLoaded?: (pages: string[]) => void;
 }
 
 /**
- * DynamicPdfScrollPreview - Single Source of Truth for on-the-fly PDF Megilah rendering
- * Renders all pages of a PDF into a single continuous scroll image in client memory (0 bytes cloud storage).
+ * DynamicPdfScrollPreview - Single Source of Truth for on-the-fly PDF Page rendering
+ * Extracts each page into memory, displaying exactly ONE page at a time with pinch-to-zoom
+ * and clean navigation (‹ עמוד 1 מתוך 2 ›) across pages.
  */
-export default function DynamicPdfScrollPreview({ url, title }: DynamicPdfScrollPreviewProps) {
-  const [scrollImg, setScrollImg] = useState<string | null>(null);
+export default function DynamicPdfScrollPreview({ url, title, onPagesLoaded }: DynamicPdfScrollPreviewProps) {
+  const [pages, setPages] = useState<string[]>([]);
+  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
 
@@ -22,18 +24,22 @@ export default function DynamicPdfScrollPreview({ url, title }: DynamicPdfScroll
     let isMounted = true;
     setIsLoading(true);
     setError(false);
+    setCurrentPageIndex(0);
 
-    convertPdfToOptimizedImage(url, 1200, 0.82)
-      .then((imgData) => {
+    extractPdfPages(url, 1500, 0.85)
+      .then((extracted) => {
         if (!isMounted) return;
-        if (imgData && imgData !== url && !imgData.includes('.pdf')) {
-          setScrollImg(imgData);
+        if (extracted && extracted.length > 0) {
+          setPages(extracted);
+          if (onPagesLoaded) {
+            onPagesLoaded(extracted);
+          }
         } else {
           setError(true);
         }
       })
       .catch((err) => {
-        console.error('Error rendering dynamic PDF scroll', err);
+        console.error('Error extracting PDF pages:', err);
         if (isMounted) setError(true);
       })
       .finally(() => {
@@ -49,24 +55,56 @@ export default function DynamicPdfScrollPreview({ url, title }: DynamicPdfScroll
     return (
       <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: '#38bdf8' }}>
         <div style={{ width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>טוען ומעבד את דפי המגילה...</span>
-        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>פענוח בזיכרון המכשיר ללא תוספת שטח אחסון</span>
+        <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>מזהה ומעבד את דפי המסמך...</span>
+        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>טעינת דפים בזיכרון המכשיר</span>
       </div>
     );
   }
 
-  if (scrollImg) {
+  if (pages.length > 0) {
+    const currentImg = pages[currentPageIndex];
     return (
-      <div style={{ width: '100%', height: '78vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={false} wheel={{ step: 0.2 }}>
-          <TransformComponent wrapperStyle={{ width: '100%', minHeight: '100%', display: 'flex', justifyContent: 'center' }} contentStyle={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <img 
-              src={scrollImg} 
-              style={{ width: '100%', maxWidth: '650px', height: 'auto', display: 'block', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-              alt={title || 'Preview'} 
-            />
-          </TransformComponent>
-        </TransformWrapper>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', height: '100%', position: 'relative' }}>
+        {/* Navigation arrows for pages */}
+        {currentPageIndex > 0 && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); setCurrentPageIndex(p => p - 1); }}
+            style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(15,23,42,0.75)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '44px', height: '44px', fontSize: '1.6rem', cursor: 'pointer', zIndex: 200010, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+            title="עמוד קודם"
+          >
+            ‹
+          </button>
+        )}
+
+        {currentPageIndex < pages.length - 1 && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); setCurrentPageIndex(p => p + 1); }}
+            style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(15,23,42,0.75)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '50%', width: '44px', height: '44px', fontSize: '1.6rem', cursor: 'pointer', zIndex: 200010, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}
+            title="עמוד הבא"
+          >
+            ›
+          </button>
+        )}
+
+        {/* Single Page View with Pinch-to-Zoom */}
+        <div style={{ width: '100%', height: '74vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
+          <TransformWrapper key={currentPageIndex} initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+            <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img 
+                src={currentImg} 
+                style={{ maxWidth: '100%', maxHeight: '74vh', width: 'auto', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 30px rgba(0,0,0,0.6)', userSelect: 'none' }} 
+                alt={title || 'Page'}
+              />
+            </TransformComponent>
+          </TransformWrapper>
+        </div>
+
+        {/* Page indicator pill */}
+        {pages.length > 1 && (
+          <div style={{ marginTop: '0.4rem', color: '#f8fafc', background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', padding: '4px 14px', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.15)', zIndex: 200010 }}>
+            עמוד {currentPageIndex + 1} מתוך {pages.length}
+          </div>
+        )}
       </div>
     );
   }

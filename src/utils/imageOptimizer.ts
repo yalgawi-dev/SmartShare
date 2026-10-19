@@ -190,6 +190,75 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
   }
 }
 
+/**
+ * Extracts each page of a PDF into an individual JPEG data URL.
+ * Allows pure single-page view with pinch-to-zoom and clean navigation between pages.
+ */
+export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality = 0.85): Promise<string[]> {
+  if (typeof window === 'undefined') return [];
+  try {
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        script.onload = () => {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            resolve(null);
+          } else {
+            reject(new Error('pdfjsLib not found on window'));
+          }
+        };
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    let bytes: Uint8Array;
+    if (pdfSource.startsWith('data:')) {
+      const base64Data = pdfSource.includes('base64,') ? pdfSource.split('base64,')[1] : pdfSource;
+      const binaryString = window.atob(base64Data);
+      bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+    } else {
+      const res = await fetch(pdfSource);
+      const arrayBuffer = await res.arrayBuffer();
+      bytes = new Uint8Array(arrayBuffer);
+    }
+
+    const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
+    const pdf = await loadingTask.promise;
+    const numPages = pdf.numPages || 1;
+    const pageUrls: string[] = [];
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+      const scale = Math.min(2.0, maxDim / currentMax);
+      const viewport = page.getViewport({ scale: Math.max(1.0, scale) });
+
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = viewport.width;
+      pageCanvas.height = viewport.height;
+      const pageCtx = pageCanvas.getContext('2d');
+      if (pageCtx) {
+        pageCtx.fillStyle = '#ffffff';
+        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        await page.render({ canvasContext: pageCtx, viewport }).promise;
+        pageUrls.push(pageCanvas.toDataURL('image/jpeg', quality));
+      }
+    }
+
+    return pageUrls;
+  } catch (err) {
+    console.error('Failed to extract PDF pages:', err);
+    return [];
+  }
+}
+
 export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0.7): Promise<string> {
   if (base64.startsWith('data:application/pdf') || base64.includes('application/pdf')) {
     return convertPdfToOptimizedImage(base64, maxDim, quality);
