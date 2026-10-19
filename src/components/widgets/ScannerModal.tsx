@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { compressCanvas, mergeImagesCleanly, compressToBudget } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
-import { jsPDF } from "jspdf";
+import { convertImagesToPdfBlob } from '@/utils/documentUtils';
 import SortableTray from './SortableTray';
 import type { TrayItem } from './SortableTray';
 
@@ -595,124 +595,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setClassifyOverride(false);
   };
 
-  const processMultiPage = async (urls: string[], format: 'pdf'|'scroll_pdf', includeNumbers: boolean): Promise<{ dataUrl: string, blob: Blob, format: 'pdf' }> => {
-    if (format === 'pdf') {
-      let pdf = null as any;
-      
-      for (let i = 0; i < urls.length; i++) {
-        await new Promise<void>((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => {
-            const orientation = img.width > img.height ? 'l' : 'p';
-            if (!pdf) {
-               pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
-            } else {
-               pdf.addPage([img.width, img.height], orientation);
-            }
-            
-            
-            pdf.addImage(urls[i], 'JPEG', 0, 0, img.width, img.height);
-            if (includeNumbers) {
-               const textCanvas = document.createElement('canvas');
-               textCanvas.width = 300;
-               textCanvas.height = 100;
-               const ctx = textCanvas.getContext('2d');
-               if (ctx) {
-                 ctx.fillStyle = 'rgba(0,0,0,0.7)';
-                 ctx.fillRect(0, 0, 300, 100);
-                 ctx.fillStyle = '#FFD700';
-                 ctx.font = 'bold 72px Arial';
-                 ctx.fillText('עמוד ' + (i+1), 40, 72);
-                 const numImgUrl = textCanvas.toDataURL('image/png');
-                 pdf.addImage(numImgUrl, 'PNG', 20, 20, 300, 100);
-               }
-            }
-
-            resolve();
-          };
-          img.onerror = reject;
-          img.src = urls[i];
-        });
-      }
-      
-      if (!pdf) throw new Error("Failed to generate PDF");
-      const blob = pdf.output('blob');
-      let dataUrl = pdf.output('datauristring');
-      // Fix jsPDF's non-standard data URI format which breaks Firebase uploadString
-      dataUrl = dataUrl.replace(/;filename=[^;]+/, '');
-      return { dataUrl, blob, format: 'pdf' };
-    } else {
-      // Scroll (PDF with custom single page height)
-      try {
-        const loadedImages = await Promise.all(urls.map(url => {
-          return new Promise<HTMLImageElement>((resolve, reject) => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
-            img.src = url;
-          });
-        }));
-        
-        // Add a tiny 4px dark separator between pages
-        const GAP = 0;
-        const maxWidth = Math.max(...loadedImages.map(img => img.width));
-        
-        // Compute scaled heights so all images perfectly fit maxWidth
-        const scaledHeights = loadedImages.map(img => (maxWidth / img.width) * img.height);
-        const totalHeight = scaledHeights.reduce((sum, h) => sum + h, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
-        
-        
-        let finalFormatHeight = totalHeight;
-        let finalFormatWidth = maxWidth;
-        let scaleDown = 1.0;
-        if (totalHeight > 14000) {
-            scaleDown = 14000 / totalHeight;
-            finalFormatHeight = 14000;
-            finalFormatWidth = maxWidth * scaleDown;
-        }
-        
-        const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [finalFormatWidth, finalFormatHeight] });
-        
-        // Fill background with dark gray for the separators
-        
-        
-        let currentY = 0;
-        for (let i = 0; i < loadedImages.length; i++) {
-          const img = loadedImages[i];
-          const scaledH = scaledHeights[i];
-          
-          
-          pdf.addImage(urls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
-          if (includeNumbers) {
-            const textCanvas = document.createElement('canvas');
-            textCanvas.width = 300;
-            textCanvas.height = 100;
-            const ctx = textCanvas.getContext('2d');
-            if (ctx) {
-              ctx.fillStyle = 'rgba(0,0,0,0.7)';
-              ctx.fillRect(0, 0, 300, 100);
-              ctx.fillStyle = '#FFD700';
-              ctx.font = 'bold 72px Arial';
-              ctx.fillText('עמוד ' + (i+1), 40, 72);
-              const numImgUrl = textCanvas.toDataURL('image/png');
-              pdf.addImage(numImgUrl, 'PNG', 20, 20 + (currentY * scaleDown), 300, 100);
-            }
-          }
-
-          currentY += scaledH + GAP;
-        }
-
-        
-        const blob = pdf.output('blob');
-        let dataUrl = pdf.output('datauristring');
-      // Fix jsPDF's non-standard data URI format which breaks Firebase uploadString
-      dataUrl = dataUrl.replace(/;filename=[^;]+/, '');
-        return { dataUrl, blob, format: 'pdf' };
-      } catch (e) {
-        console.error('Scroll PDF error:', e);
-        throw e;
-      }
-    }
+  const processMultiPage = async (urls: string[], format: 'pdf'|'scroll_pdf', includeNumbers: boolean): Promise<{ blob: Blob, format: 'pdf' }> => {
+    const pdfBlob = await convertImagesToPdfBlob(urls, {
+      format: format === 'pdf' ? 'pages' : 'scroll',
+      includeNumbers
+    });
+    return { blob: pdfBlob, format: 'pdf' };
   };
 
   const executeExport = async () => {
@@ -737,14 +625,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            URL.revokeObjectURL(url);
          }
       } else if (type === 'save') {
-         const result = await processMultiPage(urls, exportFormat, exportNumbers);
+         // Multi-page documents are saved as clean, crisp merged JPEG scrolls for instant client-side pinch-to-zoom!
+         // Conversion to PDF is done on-the-fly when sharing/exporting via documentUtils.
+         let savedUrl = urls[0];
+         if (urls.length > 1) {
+           try {
+             savedUrl = await mergeImagesCleanly(urls);
+           } catch (mergeErr) {
+             console.error('Failed to merge images for save', mergeErr);
+             savedUrl = urls[0];
+           }
+         }
          let finalRouting = exportOptions.routingType || defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
          if (!isClosingRef.current) {
             isClosingRef.current = true;
             window.history.back();
           }
           setTimeout(() => {
-            onComplete(result.dataUrl, undefined, urls, finalRouting);
+            onComplete(savedUrl, undefined, urls, finalRouting);
             setIsProcessing(false);
           }, 50);
       }
@@ -1006,7 +904,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.50</span>
+            <span>סורק מסמכים v19.60</span>
           </h2>
         </div>
         

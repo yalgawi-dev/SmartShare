@@ -138,30 +138,6 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }));
 
   
-const shareDocument = async (url: string, title: string) => {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
-    const ext = isPdf ? 'pdf' : 'jpg';
-    const mime = isPdf ? 'application/pdf' : 'image/jpeg';
-    const cleanTitle = (title || 'document').replace(/[/\\?%*:|"<>]/g, '-');
-    const file = new File([blob], `${cleanTitle}.${ext}`, { type: mime });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: title || 'מסמך' });
-    } else {
-      const a = document.createElement('a');
-      const objUrl = URL.createObjectURL(blob);
-      a.href = objUrl;
-      a.download = `${cleanTitle}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(objUrl);
-    }
-  } catch (e) {
-    console.error('Error sharing', e);
-  }
-};
-
 const shareMultipleDocuments = async (docIds: string[]) => {
   const docsToShare = documents.filter(d => docIds.includes(d.id));
   if (docsToShare.length === 0) return;
@@ -445,7 +421,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginLeft: '0.2rem' }}>v2.8</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', color: '#3b82f6', marginLeft: '0.2rem' }}>v2.9</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -1026,8 +1002,23 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
               // 2. If it's a PDF:
               if (isPdf) {
-                // If it's a custom scroll PDF, it was generated with all pages merged into one continuous scroll!
-                // To allow pinch-to-zoom and full scrolling without Google Docs Viewer cutting or downloading:
+                // If the PDF has a scroll thumbnail image generated, show it directly with instant pinch-zoom!
+                if (currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.includes('.pdf')) {
+                  return (
+                    <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
+                      <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+                        <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                          <img 
+                            src={currentDoc.thumbnailUrl} 
+                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+                            alt={currentDoc.title || 'Preview'} 
+                          />
+                        </TransformComponent>
+                      </TransformWrapper>
+                    </div>
+                  );
+                }
+                // Legacy PDF fallback without thumbnail:
                 return (
                   <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
                     <iframe 
