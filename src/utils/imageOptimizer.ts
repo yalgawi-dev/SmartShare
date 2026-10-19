@@ -62,8 +62,8 @@ export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.82, type =
   return canvas.toDataURL(type, quality);
 }
 
-export async function convertPdfToOptimizedImage(pdfDataUri: string, maxDim = 1500, quality = 0.82): Promise<string> {
-  if (typeof window === 'undefined') return pdfDataUri;
+export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 1200, quality = 0.82): Promise<string> {
+  if (typeof window === 'undefined') return pdfSource;
   try {
     if (!window.pdfjsLib) {
       await new Promise((resolve, reject) => {
@@ -82,38 +82,92 @@ export async function convertPdfToOptimizedImage(pdfDataUri: string, maxDim = 15
       });
     }
 
-    const base64Data = pdfDataUri.includes('base64,') ? pdfDataUri.split('base64,')[1] : pdfDataUri;
-    const binaryString = window.atob(base64Data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+    let bytes: Uint8Array;
+    if (pdfSource.startsWith('data:')) {
+      const base64Data = pdfSource.includes('base64,') ? pdfSource.split('base64,')[1] : pdfSource;
+      const binaryString = window.atob(base64Data);
+      bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+    } else {
+      // Remote URL (e.g. Firebase Storage)
+      const res = await fetch(pdfSource);
+      const arrayBuffer = await res.arrayBuffer();
+      bytes = new Uint8Array(arrayBuffer);
     }
 
     const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
     const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1);
-    
-    // Calculate viewport scale based on maxDim to keep memory and CPU low
-    const unscaledViewport = page.getViewport({ scale: 1.0 });
-    const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-    const scale = Math.min(2.0, maxDim / currentMax);
-    const viewport = page.getViewport({ scale: Math.max(1.0, scale) });
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('No 2d context for PDF rendering');
+    const numPages = pdf.numPages || 1;
 
-    // Fill white background for transparent PDF pages
-    context.fillStyle = '#ffffff';
-    context.fillRect(0, 0, canvas.width, canvas.height);
+    // Render each page into its own offscreen canvas
+    const renderedCanvases: HTMLCanvasElement[] = [];
+    let maxWidth = 0;
 
-    await page.render({ canvasContext: context, viewport }).promise;
-    return canvas.toDataURL('image/jpeg', quality);
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+      const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+      const scale = Math.min(1.8, maxDim / currentMax);
+      const viewport = page.getViewport({ scale: Math.max(1.0, scale) });
+
+      const pageCanvas = document.createElement('canvas');
+      pageCanvas.width = viewport.width;
+      pageCanvas.height = viewport.height;
+      const pageCtx = pageCanvas.getContext('2d');
+      if (pageCtx) {
+        pageCtx.fillStyle = '#ffffff';
+        pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
+        await page.render({ canvasContext: pageCtx, viewport }).promise;
+        renderedCanvases.push(pageCanvas);
+        if (pageCanvas.width > maxWidth) {
+          maxWidth = pageCanvas.width;
+        }
+      }
+    }
+
+    if (renderedCanvases.length === 0) {
+      return pdfSource;
+    }
+
+    if (renderedCanvases.length === 1) {
+      return renderedCanvases[0].toDataURL('image/jpeg', quality);
+    }
+
+    // Stitch all pages vertically into a continuous scroll ("Megilah")
+    const gap = 16;
+    const totalHeight = renderedCanvases.reduce((sum, c) => sum + (maxWidth / c.width) * c.height, 0) + (renderedCanvases.length - 1) * gap;
+
+    const scrollCanvas = document.createElement('canvas');
+    scrollCanvas.width = maxWidth;
+    scrollCanvas.height = totalHeight;
+    const scrollCtx = scrollCanvas.getContext('2d');
+    if (!scrollCtx) return renderedCanvases[0].toDataURL('image/jpeg', quality);
+
+    scrollCtx.fillStyle = '#f1f5f9';
+    scrollCtx.fillRect(0, 0, scrollCanvas.width, scrollCanvas.height);
+
+    let currentY = 0;
+    for (let i = 0; i < renderedCanvases.length; i++) {
+      const c = renderedCanvases[i];
+      const scaledH = (maxWidth / c.width) * c.height;
+      scrollCtx.drawImage(c, 0, currentY, maxWidth, scaledH);
+
+      // Page badge indicator
+      scrollCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
+      scrollCtx.fillRect(16, currentY + 16, 120, 36);
+      scrollCtx.fillStyle = '#38bdf8';
+      scrollCtx.font = 'bold 20px sans-serif';
+      scrollCtx.fillText(`עמוד ${i + 1}`, 32, currentY + 41);
+
+      currentY += scaledH + gap;
+    }
+
+    return scrollCanvas.toDataURL('image/jpeg', quality);
   } catch (err) {
-    console.error('Failed to convert PDF to image:', err);
-    return pdfDataUri;
+    console.error('Failed to convert multi-page PDF to scroll image:', err);
+    return pdfSource;
   }
 }
 

@@ -5,6 +5,7 @@ import ConfirmModal from '@/components/common/ConfirmModal';
 import { shareDocument, downloadDocument, getDocumentPreviewUrl } from '@/utils/documentUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
+import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 
 interface ShelfTimelineProps {
   space: Space;
@@ -221,7 +222,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v6.8.45</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v6.8.46</span>
       </div>
 
       {events.length === 0 ? (
@@ -1102,7 +1103,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(37,99,235,0.85)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', zIndex: 200005, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            v6.8.45
+            v6.8.46
           </div>
           {timelinePreview.index > 0 && (
             <button 
@@ -1119,49 +1120,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
 
             // 1. If it's a PDF:
             if (isPdf) {
-              // If the PDF has a scroll thumbnail image generated, show it directly with instant pinch-zoom!
-              if (currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.includes('.pdf')) {
-                return (
-                  <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-                    <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                      <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                        <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                          <img 
-                            src={currentDoc.thumbnailUrl} 
-                            style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                            alt={currentDoc.title || 'Preview'} 
-                          />
-                        </TransformComponent>
-                      </TransformWrapper>
-                    </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
-                      <button 
-                        onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
-                        style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                      >
-                        <span>⬇️ הורדה</span>
-                      </button>
-                      <button 
-                        onClick={() => setSharingDoc(currentDoc)} 
-                        style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                      >
-                        <span>📤 שתף</span>
-                      </button>
-                    </div>
-                  </div>
-                );
-              }
-              // Legacy fallback without image thumbnail:
               return (
-                <div onClick={(e) => e.stopPropagation()} style={{ width: '90%', height: '88%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-                  <div style={{ width: '100%', flex: 1, position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
-                    <iframe 
-                      src={getDocumentPreviewUrl(currentDoc.url)} 
-                      style={{ width: '100%', height: '100%', border: 'none' }} 
-                      title={currentDoc.title || 'PDF Document'} 
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', zIndex: 200005 }}>
+                <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
+                  <DynamicPdfScrollPreview 
+                    url={currentDoc.url} 
+                    title={currentDoc.title} 
+                    initialThumbnail={currentDoc.thumbnailUrl} 
+                  />
+                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
                     <button 
                       onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
                       style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
