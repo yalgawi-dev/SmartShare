@@ -1099,6 +1099,9 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           onClick={() => setTimelinePreview(null)}
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
+          <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(37,99,235,0.85)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', zIndex: 200005, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}>
+            v6.8.44
+          </div>
           {timelinePreview.index > 0 && (
             <button 
               onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index - 1 })); }} 
