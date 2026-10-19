@@ -624,7 +624,15 @@ export function FinanceSummary({
                           />
                         )}
                         {!isCreatorMe && expandedPartnerId === b.userId && (() => {
-                          const targetMember = space.members?.find((m: any) => m.userId === (b.isCreator ? user?.id : b.userId));
+                          const creatorMember = {
+                            userId: space.creatorId || space.createdBy,
+                            name: space.createdBy || 'מנהל המרחב',
+                            role: 'creator' as const,
+                            status: 'active' as const
+                          };
+                          const targetMember = b.isCreator
+                            ? creatorMember
+                            : space.members?.find((m: any) => m.userId === b.userId);
                           if (!targetMember) return null;
                           return (
                             <PartnerControlPanel

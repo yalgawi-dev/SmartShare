@@ -244,6 +244,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                         : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
                       }
                     </h3>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.1</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
@@ -258,16 +259,31 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
                 
-              {member.role !== 'creator' && member.role !== 'admin' && (
-                <button onClick={handleMakeAdmin} style={{ background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                  👑 הגדר כמנהל
-                </button>
-              )}
-              {member.role === 'admin' && (
-                <button onClick={handleRemoveAdmin} style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
-                  👤 בטל ניהול
-                </button>
-              )}
+              {(() => {
+                const isCurrentCreator = user?.id === space.creatorId || viewMode === 'creator';
+                const currentMember = (space.members || []).find((m: any) => m.userId === user?.id);
+                const isCurrentAdmin = currentMember?.role === 'admin';
+                const canManageAdmins = isCurrentCreator || isCurrentAdmin;
+                const isTargetCreator = member.role === 'creator' || member.userId === space.creatorId || member.userId === space.createdBy;
+                const isTargetSelf = member.userId === user?.id;
+
+                if (!canManageAdmins || isTargetCreator || isTargetSelf) return null;
+
+                return (
+                  <>
+                    {member.role !== 'admin' && (
+                      <button onClick={handleMakeAdmin} style={{ background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        👑 הגדר כמנהל
+                      </button>
+                    )}
+                    {member.role === 'admin' && (
+                      <button onClick={handleRemoveAdmin} style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                        👤 בטל ניהול
+                      </button>
+                    )}
+                  </>
+                );
+              })()}
               {memberStatus !== 'active' && (
 
                   <span style={{ 
