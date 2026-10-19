@@ -139,9 +139,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   
   // Derived state for sorting tray
   const derivedTrayItems = React.useMemo(() => {
+    const isAlreadyPresent = scannedPages.some(p => p.id === activeDocId) || pendingImports.some(p => p.id === activeDocId);
+    const activeUrl = imageCache[mode] || rawSnapshot || activeOriginalUrl;
+    
     const items: TrayItem[] = [
       ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
-      ...(step !== 'scanning' && (rawSnapshot || imageCache[mode] || activeOriginalUrl) ? [{ id: activeDocId, type: 'active' as const, url: (imageCache[mode] || rawSnapshot || activeOriginalUrl) as string, isEdited: step === 'review' }] : []),
+      ...(step !== 'scanning' && activeUrl && !isAlreadyPresent ? [{ id: activeDocId, type: 'active' as const, url: activeUrl as string, isEdited: step === 'review' }] : []),
       ...pendingImports.map((p) => ({ id: p.id, type: 'pending' as const, url: p.url }))
     ];
     return items;
@@ -626,10 +629,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            URL.revokeObjectURL(url);
          }
       } else if (type === 'save') {
-         // Multi-page documents are saved as clean, crisp merged JPEG scrolls for instant client-side pinch-to-zoom!
-         // Conversion to PDF is done on-the-fly when sharing/exporting via documentUtils.
+         // Documents are saved as clean individual pages (urls).
+         // Merging into a single scroll image is ONLY done if user explicitly selected 'scroll_pdf'.
          let savedUrl = urls[0];
-         if (urls.length > 1) {
+         if (urls.length > 1 && exportFormat === 'scroll_pdf') {
            try {
              savedUrl = await mergeImagesCleanly(urls);
            } catch (mergeErr) {
@@ -914,7 +917,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.62</span>
+            <span>סורק מסמכים v19.63</span>
           </h2>
 
 

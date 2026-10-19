@@ -256,18 +256,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         let finalUrl = url;
         let finalThumbnailUrl = previewUrl;
 
-        // If multi-page, create a merged scroll image for full-document instant pinch preview
-        if (allPages && allPages.length > 1) {
-          try {
-            const mergedScroll = await mergeImagesCleanly(allPages);
-            if (mergedScroll) {
-              previewUrl = mergedScroll;
-            }
-          } catch (err) {
-            console.error("Failed to merge pages for preview thumbnail", err);
-          }
-        }
-
         if (url.startsWith('data:image') || url.startsWith('data:application/pdf')) {
           const ext = url.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
