@@ -63,12 +63,17 @@ export const triggerPushNotification = async (userIds: string[], title: string, 
   }
 };
 
+import { playNotificationChime } from './soundEffects';
+
 export const setupForegroundFCM = async () => {
   try {
     if (!('Notification' in window)) return;
     const msg = await messaging();
     if (!msg) return;
     onMessage(msg, (payload) => {
+      // Play system-wide notification chime for all push alerts
+      playNotificationChime();
+
       if (Notification.permission === 'granted' && payload.notification) {
         const tag = payload.data?.tag;
         // renotify is only valid together with tag (otherwise the browser throws a TypeError)
@@ -84,3 +89,4 @@ export const setupForegroundFCM = async () => {
     console.error('Foreground FCM setup failed', err);
   }
 };
+

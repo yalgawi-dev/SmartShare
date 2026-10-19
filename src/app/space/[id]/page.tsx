@@ -21,7 +21,9 @@ import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
 
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
+import GroupPendingLockScreen from '../../../components/widgets/Partners/GroupPendingLockScreen';
 import CreatorDisputesBanner from '../../../components/widgets/Partners/CreatorDisputesBanner';
+
 import PendingInvoicesBanner from '../../../components/widgets/Finance/PendingInvoicesBanner';
 import { PartnersDirectoryWidget } from '../../../components/widgets/Partners/PartnersDirectoryWidget';
 import { PartnersInviteModal } from '../../../components/widgets/Partners/PartnersInviteModal';
@@ -69,10 +71,11 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
+
 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -237,7 +240,30 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   }, []);
 
-  
+  // Handle Group Invite URL param (?groupInvite=true)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !space || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('groupInvite') === 'true') {
+      const inviter = params.get('inviter') || space.createdBy || 'מנהל המרחב';
+      const inviterId = params.get('inviterId') || space.creatorId;
+      
+      const isCreator = space.creatorId === user.id || space.createdBy === user.realName;
+      const isAlreadyMember = (space.members || []).some((m: any) => m.userId === user.id && m.isActive !== false && m.status === 'active');
+      const isAlreadyPending = (space.pendingGroupMembers || []).some((p: any) => p.id === user.id);
+
+      if (!isCreator && !isAlreadyMember && !isAlreadyPending && requestGroupJoin) {
+        requestGroupJoin(space.id, {
+          id: user.id,
+          name: user.realName || user.nickname || user.email || 'משתתף חדש',
+          phone: (user as any).phone || undefined,
+          avatarUrl: user.avatarUrl || undefined,
+          inviterName: inviter,
+          inviterId: inviterId
+        });
+      }
+    }
+  }, [space, user, requestGroupJoin]);
   useEffect(() => {
     if (typeof window !== 'undefined') {
       let hasSeenTools = false;
@@ -436,6 +462,17 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const isPendingInvite = ((space as any).pendingInvites || []).some((i: any) => i.token === myPartnerToken);
   const isRemovedPartner = myRole === 'partner' && !myMember && !isPendingInvite;
 
+  // Check if current user is waiting for Group Join approval
+  const isCreatorOfSpace = space.creatorId === user?.id || space.createdBy === user?.realName;
+  const isGroupInviteParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('groupInvite') === 'true';
+  const groupPendingEntry = (space.pendingGroupMembers || []).find((p: any) => p.id === user?.id);
+  const isGroupPending = !isCreatorOfSpace && !myMember && (Boolean(groupPendingEntry) || isGroupInviteParam);
+
+  if (isGroupPending) {
+    const inviterName = groupPendingEntry?.inviterName || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('inviter') : '') || space.createdBy || 'מנהל המרחב';
+    return <GroupPendingLockScreen space={space} inviterName={inviterName} />;
+  }
+
   if (isRemovedPartner) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: '2rem' }}>
@@ -452,6 +489,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       </div>
     );
   }
+
 
   return (
     <div className={styles.container} style={{ maxWidth: '1200px' }}>

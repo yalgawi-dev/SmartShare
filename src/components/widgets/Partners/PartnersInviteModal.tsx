@@ -195,6 +195,53 @@ export function PartnersInviteModal({
     }
   };
 
+  const [inviteType, setInviteType] = useState<'single' | 'group'>('single');
+
+  const handleGenerateGroupLink = () => {
+    const url = new URL('/space/' + space.id, window.location.origin);
+    url.searchParams.set('groupInvite', 'true');
+    url.searchParams.set('inviter', creatorName);
+    if (space.creatorId) {
+      url.searchParams.set('inviterId', space.creatorId);
+    }
+    const link = url.toString();
+    const shareTitle = `הזמנה להצטרפות למרחב ${space.title}`;
+    const shareText = `היי לכולם! 📢\n${creatorName} מזמין/ה אתכם להצטרף למרחב "${space.title}".\nלהצטרפות ורישום למרחב לחצו כאן:\n${link}\n\n*לתשומת לבכם: הגישה למרחב תתקבל ברגע ש-${creatorName} יאשר את הצטרפותכם.*`;
+    return { link, shareTitle, shareText };
+  };
+
+  const handleGroupNativeShare = async () => {
+    const data = handleGenerateGroupLink();
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: data.shareTitle,
+          text: data.shareText,
+          url: data.link,
+        });
+      } catch (err) {
+        console.error('Error sharing group link:', err);
+      }
+    } else {
+      handleGroupCopy();
+    }
+    onClose();
+  };
+
+  const handleGroupCopy = () => {
+    const data = handleGenerateGroupLink();
+    navigator.clipboard.writeText(data.shareText);
+    setCopied(true);
+    setTimeout(() => { setCopied(false); onClose(); }, 1500);
+  };
+
+  const handleGroupWhatsApp = () => {
+    const data = handleGenerateGroupLink();
+    const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(data.shareText)}`;
+    window.open(whatsappUrl, '_blank');
+    onClose();
+  };
+
   const handleNativeShare = async () => {
     const data = await handleGenerateLink();
     if (!data) return;
@@ -221,6 +268,7 @@ export function PartnersInviteModal({
     setCopied(true);
     setTimeout(() => { setCopied(false); onClose(); }, 1500);
   };
+
 
   return createPortal(
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 999999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
@@ -264,16 +312,155 @@ export function PartnersInviteModal({
           {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
           <div>
-            <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
-              {isFinancial ? 'הזמנת שותף פיננסי' : 'הזמנת משתף פעולה'}
-            </h3>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
+                {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי (יחיד)' : 'הזמנת משתף פעולה (יחיד)')}
+              </h3>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.51</span>
+            </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-              {isFinancial ? 'הגדרת שותפות ואחוזים מראש' : 'שיתוף גישה למרחב'}
+              {inviteType === 'group' 
+                ? 'שליחת קישור אחד לכולם בווטסאפ עם נעילה ואישור מנהל' 
+                : (isFinancial ? 'הזמנה ישירה ללא צורך באישור מנהל' : 'גישה ישירה למרחב ללא אישור')}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
+        {/* Invite Type Switcher Tabs */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem', borderRadius: '14px', marginTop: '0.75rem', marginBottom: '0.75rem' }}>
+          <button
+            type="button"
+            onClick={() => setInviteType('single')}
+            style={{
+              padding: '0.65rem 0.5rem',
+              borderRadius: '10px',
+              border: 'none',
+              background: inviteType === 'single' ? 'white' : 'transparent',
+              color: inviteType === 'single' ? '#1e293b' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: inviteType === 'single' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>👤</span>
+            <span>הזמנת יחיד</span>
+            <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 'bold' }}>(מיידי)</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setInviteType('group')}
+            style={{
+              padding: '0.65rem 0.5rem',
+              borderRadius: '10px',
+              border: 'none',
+              background: inviteType === 'group' ? 'white' : 'transparent',
+              color: inviteType === 'group' ? '#4f46e5' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.9rem',
+              cursor: 'pointer',
+              boxShadow: inviteType === 'group' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span>👥</span>
+            <span>הזמנת קבוצה</span>
+            <span style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 'bold' }}>(דורש אישור)</span>
+          </button>
+        </div>
+
+        {inviteType === 'group' ? (
+          /* Group Invite Layout */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
+            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                <span style={{ fontSize: '1.3rem' }}>📢</span>
+                <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '1rem' }}>שליחה מרוכזת לקבוצת ווטסאפ</span>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
+                מתאים לקבוצות של 10, 20 או 30 משתתפים (כגון ועד בית או צוות). שולחים קישור יחיד לכולם.
+                כל מי שנרשם דרך הקישור <strong>יהיה נעול</strong> ויראה הודעה: <em>&quot;הגישה תתקבל ברגע ש-{creatorName} יאשר את הצטרפותכם&quot;</em>.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button
+                onClick={handleGroupWhatsApp}
+                style={{
+                  width: '100%',
+                  padding: '1rem',
+                  background: '#25D366',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '14px',
+                  fontWeight: 800,
+                  fontSize: '1.05rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.6rem',
+                  boxShadow: '0 8px 16px -4px rgba(37, 211, 102, 0.4)'
+                }}
+              >
+                <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                <span>שלח קישור ישירות לקבוצת ווטסאפ</span>
+              </button>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                  <button
+                    onClick={handleGroupNativeShare}
+                    style={{
+                      flex: 1,
+                      padding: '0.85rem',
+                      background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '12px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>📤</span>
+                    <span>שתף ביישומים נוספים</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleGroupCopy}
+                  style={{
+                    flex: 1,
+                    padding: '0.85rem',
+                    background: '#f8fafc',
+                    color: '#0f172a',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '12px',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {copied ? '✓ הועתק!' : '📋 העתק הודעה וקישור'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <>
         {isFinancial && (<>
 
         {space.features?.includes("finance") && (<>
@@ -513,6 +700,8 @@ export function PartnersInviteModal({
             <ContactSelector onSelect={handleContactSelect} title="או בחר איש קשר להזמנה בווטסאפ:" />
           </div>
         </div>
+        </>
+        )}
         </div>
         )}
       </div>
@@ -520,3 +709,4 @@ export function PartnersInviteModal({
     document.body
   );
 }
+

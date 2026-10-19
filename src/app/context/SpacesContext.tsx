@@ -176,9 +176,12 @@ export interface SpaceMember {
   isActive?: boolean;
   welcomed?: boolean;
   joinedAt?: string;
+  role?: 'creator' | 'admin' | 'partner';
   shareChangeRequest?: { proposedShare: number; creatorShare: number; timestamp: string; };
+
   extensionMessage?: string;
 }
+
 
 export interface AuditRecord {
   id: string;
@@ -189,11 +192,23 @@ export interface AuditRecord {
   invoiceId?: string;
 }
 
+export interface PendingGroupMember {
+  id: string; // userId or guest token
+  name: string;
+  phone?: string;
+  avatarUrl?: string;
+  requestedAt: string;
+  inviterName?: string;
+  inviterId?: string;
+  status: 'pending' | 'approved' | 'rejected';
+}
+
 export interface Space {
   creatorId?: string;
   createdBy?: string;
   createdAt?: string;
   pendingInvites?: any[];
+  pendingGroupMembers?: PendingGroupMember[];
   conversations?: SpaceConversation[];
   inboxItems?: any[];
   inbox?: any[];
@@ -221,7 +236,12 @@ export interface Space {
 }
 
 interface SpacesContextType {
+  requestGroupJoin: (spaceId: string, member: { id: string; name: string; phone?: string; avatarUrl?: string; inviterName?: string; inviterId?: string }) => Promise<void>;
+  approveGroupMember: (spaceId: string, memberId: string) => Promise<void>;
+  rejectGroupMember: (spaceId: string, memberId: string) => Promise<void>;
+  approveAllGroupMembers: (spaceId: string) => Promise<void>;
   migrateGuestToRealUser: (spaceId: string, userId: string, realUid: string, realName: string) => void;
+
   setExtensionMessage?: any;
   sendConversationMessage?: any;
   markConversationRead?: any;
@@ -952,7 +972,142 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
   };
 
   
+  const requestGroupJoin = async (spaceId: string, member: { id: string; name: string; phone?: string; avatarUrl?: string; inviterName?: string; inviterId?: string }) => {
+    saveSpaceUpdate(spaceId, space => {
+      const existingPending = space.pendingGroupMembers || [];
+      if (existingPending.some(p => p.id === member.id)) {
+        return space;
+      }
+      const newPending: PendingGroupMember = {
+        id: member.id,
+        name: member.name,
+        phone: member.phone,
+        avatarUrl: member.avatarUrl,
+        requestedAt: new Date().toISOString(),
+        inviterName: member.inviterName,
+        inviterId: member.inviterId,
+        status: 'pending'
+      };
+
+      // Notify space creator / admin via push notification
+      const adminId = space.creatorId || space.createdBy;
+      if (adminId) {
+        triggerPushNotification(
+          [adminId],
+          `בקשת הצטרפות למרחב "${space.title}"`,
+          `${member.name} מבקש/ת להצטרף למרחב דרך קישור קבוצתי. אשר את כניסתו/ה.`
+        );
+      }
+
+      return {
+        ...space,
+        pendingGroupMembers: [...existingPending, newPending]
+      };
+    });
+  };
+
+  const approveGroupMember = async (spaceId: string, memberId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const pendingList = space.pendingGroupMembers || [];
+      const pendingMember = pendingList.find(p => p.id === memberId);
+      if (!pendingMember) return space;
+
+      const remainingPending = pendingList.filter(p => p.id !== memberId);
+      const existingMembers = space.members || [];
+      const alreadyMember = existingMembers.find(m => m.userId === memberId);
+
+      let finalMembersList: SpaceMember[];
+      if (alreadyMember) {
+        finalMembersList = existingMembers.map(m => m.userId === memberId ? { ...m, isActive: true, status: 'active' as const, welcomed: true } : m);
+      } else {
+        const newMember: SpaceMember = {
+          userId: memberId,
+          name: pendingMember.name,
+          role: 'partner',
+          joinedAt: new Date().toISOString(),
+          isActive: true,
+          canUpload: true,
+          canEdit: false,
+          canDelete: false,
+          status: 'active' as const,
+          welcomed: true,
+          sharePercentage: 0,
+          localAvatarUrl: pendingMember.avatarUrl
+        };
+        finalMembersList = [...existingMembers, newMember];
+      }
+
+      // Notify approved member and all active space members
+      const allRecipientIds = [memberId, ...existingMembers.map(m => m.userId), space.creatorId || ''].filter(Boolean);
+      triggerPushNotification(
+        allRecipientIds,
+        `הצטרפות אושרה במרחב "${space.title}"`,
+        `${pendingMember.name} אושר/ה והצטרף/ה בהצלחה למרחב!`
+      );
+
+      return {
+        ...space,
+        pendingGroupMembers: remainingPending,
+        members: finalMembersList
+      };
+    });
+  };
+
+  const rejectGroupMember = async (spaceId: string, memberId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const pendingList = space.pendingGroupMembers || [];
+      return {
+        ...space,
+        pendingGroupMembers: pendingList.filter(p => p.id !== memberId)
+      };
+    });
+  };
+
+  const approveAllGroupMembers = async (spaceId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      const pendingList = space.pendingGroupMembers || [];
+      if (pendingList.length === 0) return space;
+
+      const existingMembers = [...(space.members || [])];
+      pendingList.forEach(pending => {
+        const idx = existingMembers.findIndex(m => m.userId === pending.id);
+        if (idx >= 0) {
+          existingMembers[idx] = { ...existingMembers[idx], isActive: true, status: 'active' as const, welcomed: true };
+        } else {
+          existingMembers.push({
+            userId: pending.id,
+            name: pending.name,
+            role: 'partner',
+            joinedAt: new Date().toISOString(),
+            isActive: true,
+            canUpload: true,
+            canEdit: false,
+            canDelete: false,
+            status: 'active' as const,
+            welcomed: true,
+            sharePercentage: 0,
+            localAvatarUrl: pending.avatarUrl
+          });
+        }
+      });
+
+      const allRecipientIds = [...existingMembers.map(m => m.userId), space.creatorId || ''].filter(Boolean);
+      triggerPushNotification(
+        allRecipientIds,
+        `חברים חדשים אושרו במרחב "${space.title}"`,
+        `${pendingList.length} משתתפים חדשים אושרו והצטרפו למרחב!`
+      );
+
+      return {
+        ...space,
+        pendingGroupMembers: [],
+        members: existingMembers
+      };
+    });
+  };
+
   const updateMemberRole = (spaceId: string, userId: string, role: 'admin' | 'partner') => {
+
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       members: (space.members || []).map(m => m.userId === userId ? { ...m, role } : m)
@@ -1705,6 +1860,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   return (
     <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+      requestGroupJoin,
+      approveGroupMember,
+      rejectGroupMember,
+      approveAllGroupMembers,
       updateMemberPermissions,
       sendConversationMessage,
         markConversationRead,

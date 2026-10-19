@@ -11,12 +11,14 @@ import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
   const { user } = useAuth();
-  const { getRoleForSpace, removeMember, updateMemberStatus, refreshMemberInvite } = useSpaces();
+  const { getRoleForSpace, removeMember, updateMemberStatus, refreshMemberInvite, approveGroupMember, rejectGroupMember, approveAllGroupMembers } = useSpaces() as any;
   const { openChat } = useChat();
 
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === "creator";
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
+
+  const pendingGroupList: any[] = space.pendingGroupMembers || [];
   
   // Combine creator, members, and pending invites for full directory
   const pendingMembers = (space.pendingInvites || []).map((inv: any) => ({
@@ -45,6 +47,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -84,20 +87,158 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
-        <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.51</span>
+        </div>
         {isCreatorMe && (
           <button 
             onClick={() => setShowInviteModal(true)} 
-            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 10px rgba(99,102,241,0.2)' }}
+            style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 10px rgba(99,102,241,0.25)' }}
           >
-            <span>➕</span> הוסף שותף
+            <span>➕</span> הוסף / הזמן שותפים
           </button>
         )}
       </div>
 
       {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
 
+      {/* Pending Group Requests Section for Space Admin */}
+      {isCreatorMe && pendingGroupList.length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '1.5px solid #fde68a',
+          borderRadius: '16px',
+          padding: '1.1rem',
+          boxShadow: '0 4px 12px rgba(245, 158, 11, 0.1)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>🔔</span>
+              <div>
+                <div style={{ fontWeight: 800, color: '#92400e', fontSize: '1rem' }}>
+                  ממתינים לאישור הצטרפות לקבוצה ({pendingGroupList.length})
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#b45309' }}>
+                  משתמשים שהצטרפו דרך הקישור הקבוצתי וממתינים לאישורך
+                </div>
+              </div>
+            </div>
+
+            {pendingGroupList.length > 1 && (
+              <button
+                onClick={async () => {
+                  if (approveAllGroupMembers) {
+                    await approveAllGroupMembers(space.id);
+                  }
+                }}
+                style={{
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.4rem 0.8rem',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                  fontSize: '0.8rem',
+                  cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(16, 185, 129, 0.3)'
+                }}
+              >
+                ✓ אשר את כולם ({pendingGroupList.length})
+              </button>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            {pendingGroupList.map((pending: any) => (
+              <div
+                key={pending.id}
+                style={{
+                  background: 'white',
+                  borderRadius: '12px',
+                  padding: '0.75rem 1rem',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  border: '1px solid #fcd34d'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '50%',
+                    background: '#fef3c7',
+                    color: '#92400e',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 800,
+                    fontSize: '1rem'
+                  }}>
+                    {pending.name?.charAt(0) || 'ש'}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '0.95rem', color: '#1e293b' }}>{pending.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {pending.phone ? `טלפון: ${pending.phone} • ` : ''}
+                      ממתין/ה מ-{new Date(pending.requestedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <button
+                    onClick={async () => {
+                      setProcessingId(pending.id);
+                      if (approveGroupMember) {
+                        await approveGroupMember(space.id, pending.id);
+                      }
+                      setProcessingId(null);
+                    }}
+                    disabled={processingId === pending.id}
+                    style={{
+                      background: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.45rem 0.85rem',
+                      borderRadius: '8px',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✓ אשר
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      if (rejectGroupMember) {
+                        await rejectGroupMember(space.id, pending.id);
+                      }
+                    }}
+                    style={{
+                      background: '#f1f5f9',
+                      color: '#ef4444',
+                      border: '1px solid #e2e8f0',
+                      padding: '0.45rem 0.7rem',
+                      borderRadius: '8px',
+                      fontWeight: 700,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    דחה
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+
         {allMembers.map((m: any) => {
           const isMe = m.userId === user?.id;
           const isPending = m.status === "pending" || m.status === "extension_requested";

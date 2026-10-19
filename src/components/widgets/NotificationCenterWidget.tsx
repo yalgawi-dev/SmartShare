@@ -171,9 +171,25 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                 actionable: false
               });
             });
+
+            // 4. Pending Group Approval Requests
+            (space.pendingGroupMembers || []).forEach((pending: any) => {
+              notifs.push({
+                id: 'grp-pend-' + pending.id,
+                type: 'system',
+                priority: 'high',
+                title: 'בקשת הצטרפות לקבוצה',
+                text: `${pending.name} ממתין/ה לאישורך להצטרף למרחב.`,
+                spaceId: space.id,
+                spaceName: space.title || 'מרחב',
+                createdAt: pending.requestedAt || new Date().toISOString(),
+                actionable: true
+              });
+            });
           }
         }
       });
+
 
     // Remove dismissed alerts
     return notifs.filter(n => !dismissedAlerts.includes(n.id));
