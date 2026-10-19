@@ -2,18 +2,20 @@ import { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { getDoc, doc } from 'firebase/firestore';
 
-export function usePresence(uids: string[]) {
+export function usePresence(uids: string[] = []) {
   const [presence, setPresence] = useState<Record<string, string>>({});
+  const safeUidsKey = Array.isArray(uids) ? [...new Set(uids.filter(Boolean))].sort().join(',') : '';
 
   useEffect(() => {
-    if (!uids || uids.length === 0) return;
+    if (!safeUidsKey) return;
     
     let isMounted = true;
+    const uidList = safeUidsKey.split(',').filter(Boolean);
     
     const fetchPresence = async () => {
       const newPresence: Record<string, string> = {};
       
-      await Promise.all([...new Set(uids)].map(async (uid: string) => {
+      await Promise.all(uidList.map(async (uid: string) => {
         if (!uid || uid === 'group' || uid === 'me') return;
         try {
           const docSnap = await getDoc(doc(db, 'users', uid));
@@ -35,7 +37,7 @@ export function usePresence(uids: string[]) {
        isMounted = false;
        clearInterval(interval);
     };
-  }, [uids.join(',')]);
+  }, [safeUidsKey]);
 
   const getPresenceColor = (uid: string, currentUserId?: string) => {
     if (uid === currentUserId) return '#10b981'; // Green

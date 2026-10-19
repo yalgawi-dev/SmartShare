@@ -496,6 +496,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (!currentSpace) return false;
       
       const updatedSpace = mutator(currentSpace);
+      if (updatedSpace === currentSpace) return false;
       
       // 2. Optimistically update REF and UI immediately
       const nextSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? updatedSpace : space);
@@ -1285,49 +1286,69 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
   };
 
   const markConversationRead = (spaceId: string, conversationId: string, readerId: string, alternateReaderId?: string) => {
+    if (!spaceId || !conversationId || !readerId) return;
     saveSpaceUpdate(spaceId, space => {
       const convos = space.conversations || [];
       const readers = [readerId, alternateReaderId].filter(Boolean) as string[];
       if (readers.length === 0) return space;
+
+      let convosChanged = false;
       const updatedConvos = convos.map(c => {
         if (c.id !== conversationId) return c;
-        return {
-          ...c,
-          messages: (c.messages || []).map(msg => {
-            const missing = readers.filter(r => !msg.readBy || !msg.readBy.includes(r));
-            if (missing.length > 0) {
-              return { ...msg, readBy: [...(msg.readBy || []), ...missing] };
-            }
-            return msg;
-          })
-        };
+        let messagesChanged = false;
+        const newMessages = (c.messages || []).map(msg => {
+          const missing = readers.filter(r => !msg.readBy || !msg.readBy.includes(r));
+          if (missing.length > 0) {
+            messagesChanged = true;
+            return { ...msg, readBy: [...(msg.readBy || []), ...missing] };
+          }
+          return msg;
+        });
+        if (messagesChanged) {
+          convosChanged = true;
+          return { ...c, messages: newMessages };
+        }
+        return c;
       });
       
       let updatedMembers = space.members;
-      if (conversationId !== 'group') {
-        const isCreator = readerId === space.creatorId;
+      let membersChanged = false;
+      if (conversationId !== 'group' && space.members) {
+        const isCreator = Boolean(space.creatorId && readerId === space.creatorId);
         const otherUserId = conversationId.split('_').find(id => id !== readerId && id !== alternateReaderId);
-        updatedMembers = (space.members || []).map(m => {
-           const targetMemberId = isCreator ? otherUserId : readerId;
-           if (m.userId !== targetMemberId && m.userId !== alternateReaderId) return m;
-           
-           if (!m.messages) return m;
-           let changed = false;
-           const newMsgs = Object.values(m.messages).map((msg: any) => {
-              if (msg.readAt) return msg;
-              if (isCreator && msg.from === 'partner') { changed = true; return { ...msg, readAt: new Date().toISOString() }; }
-              if (!isCreator && msg.from === 'creator') { changed = true; return { ...msg, readAt: new Date().toISOString() }; }
-              return msg;
-           });
-           
-           // If m.messages was originally an object/record (legacy), map it back to object
-           const returnMsgs = Array.isArray(m.messages) ? newMsgs : newMsgs.reduce((acc, msg) => ({ ...acc, [msg.id]: msg }), {});
-           
-           return changed ? { ...m, messages: returnMsgs } : m;
-        });
+        if (otherUserId) {
+          updatedMembers = space.members.map(m => {
+            const targetMemberId = isCreator ? otherUserId : readerId;
+            if (m.userId !== targetMemberId && m.userId !== alternateReaderId) return m;
+            
+            if (!m.messages) return m;
+            let changed = false;
+            const newMsgs = Object.values(m.messages).map((msg: any) => {
+               if (msg.readAt) return msg;
+               if (isCreator && msg.from === 'partner') { changed = true; return { ...msg, readAt: new Date().toISOString() }; }
+               if (!isCreator && msg.from === 'creator') { changed = true; return { ...msg, readAt: new Date().toISOString() }; }
+               return msg;
+            });
+            
+            if (changed) {
+              membersChanged = true;
+              const returnMsgs = Array.isArray(m.messages) ? newMsgs : newMsgs.reduce((acc, msg) => ({ ...acc, [msg.id]: msg }), {});
+              return { ...m, messages: returnMsgs };
+            }
+            return m;
+          });
+        }
       }
 
-      return { ...space, conversations: updatedConvos, members: updatedMembers };
+      if (!convosChanged && !membersChanged) {
+        return space;
+      }
+
+      return {
+        ...space,
+        conversations: convosChanged ? updatedConvos : space.conversations,
+        members: membersChanged ? updatedMembers : space.members
+      };
     });
   };
 

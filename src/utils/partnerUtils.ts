@@ -61,7 +61,8 @@ export const resolveUserSpaceIdentity = (space: any, user: any): { myId: string;
     } catch (e) {}
   }
 
-  const isCreator = space.creatorId === user?.id || 
+  // Strictly check that user?.id exists AND matches space.creatorId. Never allow undefined === undefined!
+  const isCreator = Boolean(user?.id && space.creatorId && user.id === space.creatorId) || 
                     user?.spaceKeys?.[space.id]?.role === 'creator' || 
                     localKey?.role === 'creator';
 

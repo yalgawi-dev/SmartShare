@@ -80,28 +80,28 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     onConfirm: () => {}
   });
 
-  const presenceUids = useMemo(() => {
+  const presenceUids = useMemo((): string[] => {
     if (!space) return [];
-    const uids = (space.members || []).map((m: any) => m.userId);
+    const uids = (space.members || []).map((m: any) => m.userId).filter(Boolean);
     if (space.creatorId) uids.push(space.creatorId);
-    return uids;
-  }, [space]);
+    return Array.from(new Set(uids));
+  }, [space?.members, space?.creatorId]);
 
-  const { getPresenceColor } = usePresence(showParticipants || member?.userId !== 'group' ? presenceUids : []);
+  const { getPresenceColor } = usePresence(presenceUids);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const isGroup = member?.userId === 'group';
-  const { myId: resolvedMyId } = useMemo(() => {
+  const { myId: resolvedMyId, isCreator: resolvedIsCreator } = useMemo(() => {
     return resolveUserSpaceIdentity(space, user);
   }, [space, user]);
 
   const targetPartnerId = useMemo(() => {
     if (isGroup) return 'group';
     if (!member || !space) return 'creator';
-    if (viewMode === 'partner' || member.role === 'creator' || member.userId === space.creatorId || member.userId === space.createdBy) {
+    if (viewMode === 'partner' || member.role === 'creator' || (space.creatorId && member.userId === space.creatorId) || (space.createdBy && member.userId === space.createdBy)) {
       return space.creatorId || space.createdBy || 'creator';
     }
     return member.userId;
@@ -254,7 +254,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                         : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.3</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.4</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
@@ -270,12 +270,17 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
                 
               {(() => {
-                const isCurrentCreator = user?.id === space.creatorId || viewMode === 'creator';
-                const currentMember = (space.members || []).find((m: any) => m.userId === user?.id);
+                const isCurrentCreator = resolvedIsCreator || viewMode === 'creator';
+                const currentMember = user?.id ? (space.members || []).find((m: any) => m.userId === user?.id) : null;
                 const isCurrentAdmin = currentMember?.role === 'admin';
                 const canManageAdmins = isCurrentCreator || isCurrentAdmin;
-                const isTargetCreator = member.role === 'creator' || member.userId === space.creatorId || member.userId === space.createdBy;
-                const isTargetSelf = member.userId === user?.id;
+                
+                const isTargetCreator = member.role === 'creator' || 
+                                        Boolean(space.creatorId && member.userId === space.creatorId) || 
+                                        Boolean(space.createdBy && member.userId === space.createdBy) ||
+                                        member.userId === 'creator' ||
+                                        viewMode === 'partner';
+                const isTargetSelf = Boolean(user?.id && member.userId === user?.id) || member.userId === resolvedMyId;
 
                 if (!canManageAdmins || isTargetCreator || isTargetSelf) return null;
 

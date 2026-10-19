@@ -625,14 +625,14 @@ export function FinanceSummary({
                         )}
                         {!isCreatorMe && expandedPartnerId === b.userId && (() => {
                           const creatorMember = {
-                            userId: space.creatorId || space.createdBy,
+                            userId: space.creatorId || space.createdBy || creatorId || 'creator',
                             name: space.createdBy || 'מנהל המרחב',
                             role: 'creator' as const,
                             status: 'active' as const
                           };
                           const targetMember = b.isCreator
                             ? creatorMember
-                            : space.members?.find((m: any) => m.userId === b.userId);
+                            : (space.members?.find((m: any) => m.userId === b.userId) || { userId: b.userId, name: b.name, status: 'active', role: 'partner' });
                           if (!targetMember) return null;
                           return (
                             <PartnerControlPanel

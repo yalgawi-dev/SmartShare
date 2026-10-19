@@ -52,19 +52,14 @@ export default function ChatEngineUI({
 
   const [messageText, setMessageText] = useState('');
   const [mounted, setMounted] = useState(false);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 1000);
-    return () => clearInterval(interval);
-  }, []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // ── Presence (online dots) ──────────────────────────────────────────────────
-  const presenceUids = useMemo(() => {
-    const uids = (space.members || []).map((m: any) => m.userId);
-    if (space.creatorId) uids.push(space.creatorId);
-    return uids;
-  }, [space]);
+  const presenceUids = useMemo((): string[] => {
+    const uids = (space?.members || []).map((m: any) => m.userId).filter(Boolean);
+    if (space?.creatorId) uids.push(space.creatorId);
+    return Array.from(new Set(uids));
+  }, [space?.members, space?.creatorId]);
   const { getPresenceColor } = usePresence(presenceUids);
 
   useEffect(() => { setMounted(true); }, []);
@@ -138,10 +133,12 @@ export default function ChatEngineUI({
           const showDateBadge = idx === 0 || currentDateStr !== prevDateStr;
 
           // Is this MY message? (RTL: mine = right side = flex-end in row direction)
-          const isMyMsg = m.senderId === user?.id || 
-                          m.senderId === resolvedMyId || 
-                          (isCurrentCreator && (m.senderId === space.creatorId || m.senderId === space.createdBy || m.senderId === 'me' || m.from === 'creator')) ||
-                          (!isCurrentCreator && m.from === 'partner' && viewMode === 'partner');
+          const isMyMsg = Boolean(
+            (user?.id && m.senderId === user.id) || 
+            (resolvedMyId && m.senderId === resolvedMyId) || 
+            (isCurrentCreator && (m.senderId === space.creatorId || m.senderId === space.createdBy || m.senderId === 'me' || m.from === 'creator')) ||
+            (!isCurrentCreator && m.from === 'partner' && viewMode === 'partner')
+          );
           if (isMyMsg && m.text?.startsWith('[הודעת מערכת]:')) return null;
 
           const timeStr = formatTimeSafe(m.createdAt);
@@ -150,15 +147,11 @@ export default function ChatEngineUI({
             if (m.readAt) return true; // legacy field
             if (!m.readBy || !Array.isArray(m.readBy) || m.readBy.length === 0) return false;
             // Collect all aliases for the message author
-            const authorSenderId = m.senderId;
-            return m.readBy.some((readerId: string) => {
-              if (!readerId) return false;
-              if (readerId === authorSenderId) return false;
-              if (isMyMsg && (readerId === user?.id || readerId === resolvedMyId || (isCurrentCreator && (readerId === space.creatorId || readerId === space.createdBy)))) {
-                return false;
-              }
-              return true;
-            });
+            const authorAliases = new Set<string>([
+              m.senderId,
+              ...(isMyMsg ? [user?.id, resolvedMyId, space?.creatorId, space?.createdBy, 'me'].filter(Boolean) : [])
+            ]);
+            return m.readBy.some((readerId: string) => readerId && !authorAliases.has(readerId));
           })();
 
           // Sender name for group chat
