@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { convertPdfToOptimizedImage } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
@@ -13,19 +13,13 @@ interface DynamicPdfScrollPreviewProps {
  * DynamicPdfScrollPreview - Single Source of Truth for on-the-fly PDF Megilah rendering
  * Renders all pages of a PDF into a single continuous scroll image in client memory (0 bytes cloud storage).
  */
-export default function DynamicPdfScrollPreview({ url, title, initialThumbnail }: DynamicPdfScrollPreviewProps) {
-  const [scrollImg, setScrollImg] = useState<string | null>(initialThumbnail || null);
-  const [isLoading, setIsLoading] = useState<boolean>(!initialThumbnail);
+export default function DynamicPdfScrollPreview({ url, title }: DynamicPdfScrollPreviewProps) {
+  const [scrollImg, setScrollImg] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
 
   useEffect(() => {
     let isMounted = true;
-    if (initialThumbnail && !initialThumbnail.includes('.pdf')) {
-      setScrollImg(initialThumbnail);
-      setIsLoading(false);
-      return;
-    }
-
     setIsLoading(true);
     setError(false);
 
@@ -49,7 +43,7 @@ export default function DynamicPdfScrollPreview({ url, title, initialThumbnail }
     return () => {
       isMounted = false;
     };
-  }, [url, initialThumbnail]);
+  }, [url]);
 
   if (isLoading) {
     return (

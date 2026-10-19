@@ -153,14 +153,6 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
       const c = renderedCanvases[i];
       const scaledH = (maxWidth / c.width) * c.height;
       scrollCtx.drawImage(c, 0, currentY, maxWidth, scaledH);
-
-      // Page badge indicator
-      scrollCtx.fillStyle = 'rgba(15, 23, 42, 0.75)';
-      scrollCtx.fillRect(16, currentY + 16, 120, 36);
-      scrollCtx.fillStyle = '#38bdf8';
-      scrollCtx.font = 'bold 20px sans-serif';
-      scrollCtx.fillText(`עמוד ${i + 1}`, 32, currentY + 41);
-
       currentY += scaledH + gap;
     }
 
@@ -223,13 +215,6 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
   let currentY = 0;
   loadedImages.forEach((img, i) => {
     ctx.drawImage(img, 0, currentY, targetWidth, scaledHeights[i]);
-
-    ctx.fillStyle = 'rgba(31, 41, 55, 0.9)';
-    ctx.fillRect(0, currentY, 160, 50);
-    ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 28px sans-serif';
-    ctx.fillText('עמוד ' + (i + 1), 20, currentY + 36);
-
     currentY += scaledHeights[i] + gap;
   });
 
