@@ -148,10 +148,17 @@ export default function ChatEngineUI({
           // ✓✓ blue = at least one OTHER user has read the message
           const isReadByOther = (() => {
             if (m.readAt) return true; // legacy field
-            if (!m.readBy || m.readBy.length === 0) return false;
-            // Filter out the sender themselves — blue only if another person read it
-            const senderId = m.senderId || resolvedMyId || user?.id;
-            return m.readBy.some((rid: string) => rid !== senderId && rid !== user?.id && rid !== resolvedMyId);
+            if (!m.readBy || !Array.isArray(m.readBy) || m.readBy.length === 0) return false;
+            // Collect all aliases for the message author
+            const authorSenderId = m.senderId;
+            return m.readBy.some((readerId: string) => {
+              if (!readerId) return false;
+              if (readerId === authorSenderId) return false;
+              if (isMyMsg && (readerId === user?.id || readerId === resolvedMyId || (isCurrentCreator && (readerId === space.creatorId || readerId === space.createdBy)))) {
+                return false;
+              }
+              return true;
+            });
           })();
 
           // Sender name for group chat
@@ -230,7 +237,7 @@ export default function ChatEngineUI({
                         lineHeight: 1,
                         fontWeight: '700',
                       }}>
-                        {(!isReadByOther && (now - new Date(m.createdAt).getTime() < 1500)) ? '✓' : '✓✓'}
+                        {isReadByOther ? '✓✓' : '✓'}
                       </span>
                     )}
                   </div>

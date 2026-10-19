@@ -93,16 +93,14 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     setMounted(true);
   }, []);
 
-  if (!mounted || typeof document === 'undefined') return null;
-  if (!member || !space) return null;
-
-  const isGroup = member.userId === 'group';
+  const isGroup = member?.userId === 'group';
   const { myId: resolvedMyId } = useMemo(() => {
     return resolveUserSpaceIdentity(space, user);
   }, [space, user]);
 
   const targetPartnerId = useMemo(() => {
     if (isGroup) return 'group';
+    if (!member || !space) return 'creator';
     if (viewMode === 'partner' || member.role === 'creator' || member.userId === space.creatorId || member.userId === space.createdBy) {
       return space.creatorId || space.createdBy || 'creator';
     }
@@ -111,6 +109,9 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   // For p2p conversations, always use sorted IDs to ensure both sides read from same document
   const conversationId = isGroup ? 'group' : [resolvedMyId, targetPartnerId].filter(Boolean).sort().join('_');
+
+  if (!mounted || typeof document === 'undefined') return null;
+  if (!member || !space) return null;
 
   const memberName = viewMode === 'partner' ? (space?.createdBy || 'מנהל המרחב') : (member?.name || 'שותף');
   const memberStatus = member?.status || 'active';
@@ -253,7 +254,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                         : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.2</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.3</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
