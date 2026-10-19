@@ -57,12 +57,12 @@ export default function DynamicPdfScrollPreview({ url, title }: DynamicPdfScroll
 
   if (scrollImg) {
     return (
-      <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-        <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-          <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+      <div style={{ width: '100%', height: '78vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={false} wheel={{ step: 0.2 }}>
+          <TransformComponent wrapperStyle={{ width: '100%', minHeight: '100%', display: 'flex', justifyContent: 'center' }} contentStyle={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <img 
               src={scrollImg} 
-              style={{ width: '100%', maxWidth: '650px', height: 'auto', maxHeight: 'none', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
+              style={{ width: '100%', maxWidth: '650px', height: 'auto', display: 'block', borderRadius: '8px', boxShadow: '0 10px 30px rgba(0,0,0,0.5)', userSelect: 'none' }} 
               alt={title || 'Preview'} 
             />
           </TransformComponent>
