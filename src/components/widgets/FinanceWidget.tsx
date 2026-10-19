@@ -17,6 +17,7 @@ import { FinanceAddExpenseForm } from './Finance/FinanceAddExpenseForm';
 import { FinanceTransferModal } from './Finance/FinanceTransferModal';
 import { isCashboxEnabled, createVirtualTreasury } from './Cashbox/CashboxEngine';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import { shareDocument } from '@/utils/documentUtils';
 
 const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions'|'inbox', setActiveTab: (tab: 'summary'|'transactions'|'inbox') => void, onOpenPartnersModal?: () => void }, ref) => {
   const { user } = useAuth();
@@ -83,30 +84,6 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [batchQueue, setBatchQueue] = useState<string[]>([]);
-
-const shareDocument = async (url: string, title: string) => {
-  try {
-    const res = await fetch(url);
-    const blob = await res.blob();
-    const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
-    const ext = isPdf ? 'pdf' : 'jpg';
-    const mime = isPdf ? 'application/pdf' : 'image/jpeg';
-    const file = new File([blob], `${title || 'document'}.${ext}`, { type: mime });
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: title || 'מסמך' });
-    } else {
-      const a = document.createElement('a');
-      const objUrl = URL.createObjectURL(blob);
-      a.href = objUrl;
-      a.download = `${title || 'document'}.${ext}`;
-      a.click();
-      URL.revokeObjectURL(objUrl);
-    }
-  } catch (e) {
-    console.error('Error sharing', e);
-    alert('שגיאה בשיתוף מסמך');
-  }
-};
 
   const searchParams = useSearchParams();
     const [selectedPayerId, setSelectedPayerId] = useState<string>('me');
