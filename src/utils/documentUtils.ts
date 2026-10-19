@@ -46,16 +46,19 @@ export async function convertImagesToPdfBlob(
     for (let i = 0; i < loadedImages.length; i++) {
       const img = loadedImages[i];
       const orientation = img.width > img.height ? 'l' : 'p';
-      const pageFormat: [number, number] = [img.width, img.height];
+      // In PDF geometry: 1 inch = 72 pt, Web image: 1 inch = 96 px. Conversion factor = 72/96 = 0.75.
+      const ptWidth = Number((img.width * 0.75).toFixed(2));
+      const ptHeight = Number((img.height * 0.75).toFixed(2));
+      const pageFormat: [number, number] = [ptWidth, ptHeight];
 
       if (!pdf) {
-        pdf = new jsPDF({ orientation, unit: 'px', format: pageFormat });
+        pdf = new jsPDF({ orientation, unit: 'pt', format: pageFormat });
       } else {
         pdf.addPage(pageFormat, orientation);
       }
 
-      pdf.addImage(imageUrls[i], 'JPEG', 0, 0, img.width, img.height);
-
+      // Add image to cover 100% of the page with 0 margins
+      pdf.addImage(imageUrls[i], 'JPEG', 0, 0, ptWidth, ptHeight, undefined, 'FAST');
 
       if (includeNumbers) {
         const textCanvas = document.createElement('canvas');
@@ -69,12 +72,13 @@ export async function convertImagesToPdfBlob(
           ctx.font = 'bold 72px Arial';
           ctx.fillText('עמוד ' + (i + 1), 40, 72);
           const numImgUrl = textCanvas.toDataURL('image/png');
-          pdf.addImage(numImgUrl, 'PNG', 20, 20, 300, 100);
+          pdf.addImage(numImgUrl, 'PNG', 15, 15, 150, 50);
         }
       }
     }
     return pdf.output('blob');
   }
+
 
   // Scroll mode (one long continuous page)
   const GAP = 0;
