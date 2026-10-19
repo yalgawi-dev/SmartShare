@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { usePresence } from '../../../hooks/usePresence';
+import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
 
 interface ChatEngineUIProps {
   space: any;
@@ -86,15 +87,20 @@ export default function ChatEngineUI({
     (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
   );
 
+  // ── Unified User Identity Resolution ─────────────────────────────────────────
+  const { myId: resolvedMyId, isCreator: isCurrentCreator } = useMemo(() => {
+    return resolveUserSpaceIdentity(space, user);
+  }, [space, user]);
+
   // ── Mark read ───────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (!mounted || !user?.id) return;
+    if (!mounted) return;
     if (typeof markConversationRead === 'function') {
       const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
       const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
-      markConversationRead(space.id, conversationId, user.id, partnerToken);
+      markConversationRead(space.id, conversationId, user?.id || resolvedMyId, partnerToken || resolvedMyId);
     }
-  }, [mounted, messagesArray.length, user?.id, space.id, conversationId, markConversationRead]);
+  }, [mounted, messagesArray.length, user?.id, resolvedMyId, space.id, conversationId, markConversationRead]);
 
   // ── Auto-scroll ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -104,7 +110,7 @@ export default function ChatEngineUI({
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
     if (typeof sendConversationMessage === 'function') {
-      sendConversationMessage(space.id, conversationId, user?.id || 'me', messageText.trim());
+      sendConversationMessage(space.id, conversationId, resolvedMyId, messageText.trim());
     }
     setMessageText('');
   };
@@ -132,7 +138,10 @@ export default function ChatEngineUI({
           const showDateBadge = idx === 0 || currentDateStr !== prevDateStr;
 
           // Is this MY message? (RTL: mine = right side = flex-end in row direction)
-          const isMyMsg = m.senderId === user?.id || (m.from && m.from === viewMode);
+          const isMyMsg = m.senderId === user?.id || 
+                          m.senderId === resolvedMyId || 
+                          (isCurrentCreator && (m.senderId === space.creatorId || m.senderId === space.createdBy || m.senderId === 'me' || m.from === 'creator')) ||
+                          (!isCurrentCreator && m.from === 'partner' && viewMode === 'partner');
           if (isMyMsg && m.text?.startsWith('[הודעת מערכת]:')) return null;
 
           const timeStr = formatTimeSafe(m.createdAt);
@@ -141,8 +150,8 @@ export default function ChatEngineUI({
             if (m.readAt) return true; // legacy field
             if (!m.readBy || m.readBy.length === 0) return false;
             // Filter out the sender themselves — blue only if another person read it
-            const senderId = m.senderId || user?.id;
-            return m.readBy.some((rid: string) => rid !== senderId);
+            const senderId = m.senderId || resolvedMyId || user?.id;
+            return m.readBy.some((rid: string) => rid !== senderId && rid !== user?.id && rid !== resolvedMyId);
           })();
 
           // Sender name for group chat

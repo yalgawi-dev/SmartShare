@@ -5,6 +5,7 @@ import { usePresence } from '../../../hooks/usePresence';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
+import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, error: any }> {
@@ -96,12 +97,20 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   if (!member || !space) return null;
 
   const isGroup = member.userId === 'group';
+  const { myId: resolvedMyId } = useMemo(() => {
+    return resolveUserSpaceIdentity(space, user);
+  }, [space, user]);
+
+  const targetPartnerId = useMemo(() => {
+    if (isGroup) return 'group';
+    if (viewMode === 'partner' || member.role === 'creator' || member.userId === space.creatorId || member.userId === space.createdBy) {
+      return space.creatorId || space.createdBy || 'creator';
+    }
+    return member.userId;
+  }, [isGroup, viewMode, member, space]);
+
   // For p2p conversations, always use sorted IDs to ensure both sides read from same document
-  const conversationId = isGroup ? 'group' : (
-    viewMode === 'peer' || viewMode === 'creator'
-      ? [user?.id, member.userId].filter(Boolean).sort().join('_')
-      : [user?.id, space.creatorId || space.createdBy].filter(Boolean).sort().join('_')
-  );
+  const conversationId = isGroup ? 'group' : [resolvedMyId, targetPartnerId].filter(Boolean).sort().join('_');
 
   const memberName = viewMode === 'partner' ? (space?.createdBy || 'מנהל המרחב') : (member?.name || 'שותף');
   const memberStatus = member?.status || 'active';
@@ -244,7 +253,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                         : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.1</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.2</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);

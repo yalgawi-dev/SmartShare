@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useChat } from '../../../app/context/ChatContext';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { usePresence } from '../../../hooks/usePresence';
+import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
 import ChatEngineUI from './ChatEngineUI';
 
 interface ChatDrawerProps {
@@ -27,16 +28,32 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
 
   useEffect(() => { setMounted(true); }, []);
 
+  const { myId: resolvedMyId } = useMemo(() => {
+    return resolveUserSpaceIdentity(space, user);
+  }, [space, user]);
+
+  const targetUserId = useMemo(() => {
+    if (!activeTarget || activeTarget === 'group') return 'group';
+    if (activeTarget === space?.creatorId || activeTarget === space?.createdBy || activeTarget === 'creator') {
+      return space?.creatorId || space?.createdBy || 'creator';
+    }
+    return activeTarget;
+  }, [activeTarget, space]);
+
+  const conversationId = useMemo(() => {
+    if (targetUserId === 'group') return 'group';
+    return [resolvedMyId, targetUserId].filter(Boolean).sort().join('_');
+  }, [targetUserId, resolvedMyId]);
+
   useEffect(() => {
     if (isOpen) {
       setIsVisible(true);
       if (typeof document !== 'undefined') document.body.style.overflow = 'hidden';
 
-      if (activeTarget && user?.id && typeof markConversationRead === 'function') {
-        const convId = activeTarget === 'group' ? 'group' : [user.id, activeTarget].filter(Boolean).sort().join('_');
+      if (activeTarget && typeof markConversationRead === 'function') {
         const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[spaceId]) : null;
         const partnerToken = user?.spaceKeys?.[spaceId]?.token || mySpaceKey?.token;
-        markConversationRead(spaceId, convId, user.id, partnerToken);
+        markConversationRead(spaceId, conversationId, user?.id || resolvedMyId, partnerToken || resolvedMyId);
       }
     } else {
       setIsVisible(false);
@@ -45,7 +62,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
     return () => {
       if (typeof document !== 'undefined') document.body.style.overflow = '';
     };
-  }, [isOpen, activeTarget, spaceId, user?.id, markConversationRead]);
+  }, [isOpen, activeTarget, spaceId, conversationId, user?.id, resolvedMyId, markConversationRead]);
 
   if (!mounted || !isOpen || !activeTarget || typeof document === 'undefined') return null;
   if (!space) return null;
@@ -153,11 +170,11 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <ChatEngineUI
             space={space}
-            conversationId={activeTarget === 'group' ? 'group' : [user?.id, activeTarget].filter(Boolean).sort().join('_')}
+            conversationId={conversationId}
             isGroup={isGroup}
             isFrozen={!(space.features || []).includes('partners')}
-            viewMode={activeTarget === space.creatorId ? 'partner' : 'creator'}
-            member={members.find((m: any) => m.userId === activeTarget)}
+            viewMode={targetUserId === space.creatorId || targetUserId === space.createdBy ? 'partner' : 'creator'}
+            member={members.find((m: any) => m.userId === targetUserId)}
           />
         </div>
       </div>

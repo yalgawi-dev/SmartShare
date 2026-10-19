@@ -49,3 +49,39 @@ export const calculateCurrentSharesSnapshot = (space: any): Record<string, numbe
   
   return snapshot;
 };
+
+export const resolveUserSpaceIdentity = (space: any, user: any): { myId: string; isCreator: boolean } => {
+  if (!space) return { myId: user?.id || 'me', isCreator: false };
+
+  let localKey: any = null;
+  if (typeof window !== 'undefined') {
+    try {
+      const keys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+      localKey = keys[space.id] || null;
+    } catch (e) {}
+  }
+
+  const isCreator = space.creatorId === user?.id || 
+                    user?.spaceKeys?.[space.id]?.role === 'creator' || 
+                    localKey?.role === 'creator';
+
+  if (isCreator) {
+    const creatorId = space.creatorId || space.createdBy || user?.id || 'creator';
+    return { myId: creatorId, isCreator: true };
+  }
+
+  // Partner or member:
+  const partnerToken = user?.spaceKeys?.[space.id]?.token || localKey?.token;
+  if (partnerToken) {
+    return { myId: partnerToken, isCreator: false };
+  }
+
+  if (user?.id) {
+    const matchedMember = (space.members || []).find((m: any) => m.userId === user.id);
+    if (matchedMember) {
+      return { myId: user.id, isCreator: false };
+    }
+  }
+
+  return { myId: user?.id || 'me', isCreator: false };
+};
