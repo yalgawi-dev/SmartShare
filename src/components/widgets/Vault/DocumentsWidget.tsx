@@ -11,6 +11,7 @@ import ConfirmModal from '../../common/ConfirmModal';
 import { downloadDocument, shareDocument, getDocumentPreviewUrl } from '../../../utils/documentUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
+import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => Promise<string | undefined>;
@@ -38,6 +39,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
+  const [sharingDoc, setSharingDoc] = useState<ShareChoiceDoc | null>(null);
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
@@ -421,7 +423,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v6.8.44</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v6.8.45</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -759,7 +761,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                             <div onClick={(e) => { e.stopPropagation(); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }} style={{ flex: 1.1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0', background: linkedEvent ? '#eff6ff' : 'transparent' }} title={linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה'}>
                               🔗 {linkedEvent ? 'תחנה' : 'קשר'}
                             </div>
-                            <div onClick={(e) => { e.stopPropagation(); shareDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
+                            <div onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
                               📤 שתף
                             </div>
                             <div onClick={(e) => { e.stopPropagation(); downloadDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#0284c7', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="הורד מסמך">
@@ -972,7 +974,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(37,99,235,0.85)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', zIndex: 200005, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            v6.8.44
+            v6.8.45
           </div>
           {previewState.index > 0 && (
             <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
@@ -983,27 +985,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               const currentDoc = previewState.docs[previewState.index];
               const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
               
-              // 1. If it's a multi-page array of pages (from scanner or camera):
-              if (currentDoc.pages && currentDoc.pages.length > 1) {
-                return (
-                  <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                    <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        {currentDoc.pages.map((pUrl: string, pIdx: number) => (
-                          <img 
-                            key={pIdx}
-                            src={pUrl} 
-                            style={{ width: '100%', maxWidth: '650px', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                            alt={`${currentDoc.title || 'Page'} ${pIdx + 1}`} 
-                          />
-                        ))}
-                      </TransformComponent>
-                    </TransformWrapper>
-                  </div>
-                );
-              }
-
-              // 2. If it's a PDF:
+              // 1. If it's a PDF:
               if (isPdf) {
                 // If the PDF has a scroll thumbnail image generated, show it directly with instant pinch-zoom!
                 if (currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.includes('.pdf')) {
@@ -1033,8 +1015,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 );
               }
 
-              // Standard Image View with Pinch-to-Zoom:
-              const displayImageUrl = currentDoc.thumbnailUrl || currentDoc.url;
+              // 2. Image View (Continuous scroll / Single Image) with Pinch-to-Zoom:
+              const displayImageUrl = currentDoc.url || currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]);
               return (
                 <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
                   <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
@@ -1058,7 +1040,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 <span>⬇️ הורדה</span>
               </button>
               <button 
-                onClick={(e) => { e.stopPropagation(); shareDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
+                onClick={(e) => { e.stopPropagation(); setSharingDoc(previewState.docs[previewState.index]); }} 
                 style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}
               >
                 <span>📤 שתף</span>
@@ -1079,6 +1061,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           )}
         </div>
       )}
+
+      {/* Share Choice Modal (Single Source of Truth) */}
+      <ShareChoiceModal 
+        isOpen={Boolean(sharingDoc)} 
+        doc={sharingDoc} 
+        onClose={() => setSharingDoc(null)} 
+      />
 
       {/* CONFIRM DELETE SINGLE DOCUMENT MODAL */}
       <ConfirmModal

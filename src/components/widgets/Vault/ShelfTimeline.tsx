@@ -4,6 +4,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import ConfirmModal from '@/components/common/ConfirmModal';
 import { shareDocument, downloadDocument, getDocumentPreviewUrl } from '@/utils/documentUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
+import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 
 interface ShelfTimelineProps {
   space: Space;
@@ -22,6 +23,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const { user } = useAuth();
   const [showAddModal, setShowAddModal] = useState(false);
   const [timelinePreview, setTimelinePreview] = useState<{ docs: SpaceDocument[], index: number } | null>(null);
+  const [sharingDoc, setSharingDoc] = useState<ShareChoiceDoc | null>(null);
   const [eventToDelete, setEventToDelete] = useState<{ id: string, title: string, docCount: number, docIds: string[] } | null>(null);
   const [deleteOption, setDeleteOption] = useState<'keep_docs' | 'delete_docs'>('keep_docs');
   const [editEventId, setEditEventId] = useState<string | null>(null);
@@ -219,7 +221,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v6.8.44</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v6.8.45</span>
       </div>
 
       {events.length === 0 ? (
@@ -1100,7 +1102,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(37,99,235,0.85)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', zIndex: 200005, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            v6.8.44
+            v6.8.45
           </div>
           {timelinePreview.index > 0 && (
             <button 
@@ -1115,43 +1117,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             const currentDoc = timelinePreview.docs[timelinePreview.index];
             const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
 
-            // 1. If it's a multi-page array of pages:
-            if (currentDoc.pages && currentDoc.pages.length > 1) {
-              return (
-                <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-                  <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                    <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                      <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                        {currentDoc.pages.map((pUrl, pIdx) => (
-                          <img 
-                            key={pIdx}
-                            src={pUrl} 
-                            style={{ width: '100%', maxWidth: '650px', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)', userSelect: 'none' }} 
-                            alt={`${currentDoc.title || 'Page'} ${pIdx + 1}`} 
-                          />
-                        ))}
-                      </TransformComponent>
-                    </TransformWrapper>
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
-                    <button 
-                      onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
-                      style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      <span>⬇️ הורדה</span>
-                    </button>
-                    <button 
-                      onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
-                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                    >
-                      <span>📤 שתף</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            // 2. If it's a PDF:
+            // 1. If it's a PDF:
             if (isPdf) {
               // If the PDF has a scroll thumbnail image generated, show it directly with instant pinch-zoom!
               if (currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.includes('.pdf')) {
@@ -1176,7 +1142,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                         <span>⬇️ הורדה</span>
                       </button>
                       <button 
-                        onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
+                        onClick={() => setSharingDoc(currentDoc)} 
                         style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
                       >
                         <span>📤 שתף</span>
@@ -1203,7 +1169,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                       <span>⬇️ הורדה</span>
                     </button>
                     <button 
-                      onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
+                      onClick={() => setSharingDoc(currentDoc)} 
                       style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
                     >
                       <span>📤 שתף</span>
@@ -1213,8 +1179,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               );
             }
 
-            // Standard Image View with Pinch-to-Zoom:
-            const displayImageUrl = currentDoc.thumbnailUrl || currentDoc.url;
+            // 2. Image View (Continuous scroll / Single Image) with Pinch-to-Zoom:
+            const displayImageUrl = currentDoc.url || currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]);
             return (
               <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
                 <div style={{ width: '100%', height: '78vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
@@ -1236,7 +1202,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     <span>⬇️ הורדה</span>
                   </button>
                   <button 
-                    onClick={() => shareDocument(currentDoc.url, currentDoc.title)} 
+                    onClick={() => setSharingDoc(currentDoc)} 
                     style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
                   >
                     <span>📤 שתף</span>
@@ -1269,6 +1235,13 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           )}
         </div>
       )}
+
+      {/* Share Choice Modal (Single Source of Truth) */}
+      <ShareChoiceModal 
+        isOpen={Boolean(sharingDoc)} 
+        doc={sharingDoc} 
+        onClose={() => setSharingDoc(null)} 
+      />
     </div>
     </>
   );
