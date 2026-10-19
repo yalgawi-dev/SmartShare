@@ -135,24 +135,51 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
       return renderedCanvases[0].toDataURL('image/jpeg', quality);
     }
 
-    // Stitch all pages vertically into a continuous scroll ("Megilah")
-    const gap = 16;
-    const totalHeight = renderedCanvases.reduce((sum, c) => sum + (maxWidth / c.width) * c.height, 0) + (renderedCanvases.length - 1) * gap;
+    // Stitch all pages vertically into a continuous scroll ("Megilah") like CamScanner
+    const gap = 24;
+    const paddingX = 20;
+    const paddingY = 20;
+    const canvasWidth = maxWidth + paddingX * 2;
+    const totalHeight = paddingY * 2 + renderedCanvases.reduce((sum, c) => sum + (maxWidth / c.width) * c.height, 0) + (renderedCanvases.length - 1) * gap;
 
     const scrollCanvas = document.createElement('canvas');
-    scrollCanvas.width = maxWidth;
+    scrollCanvas.width = canvasWidth;
     scrollCanvas.height = totalHeight;
     const scrollCtx = scrollCanvas.getContext('2d');
     if (!scrollCtx) return renderedCanvases[0].toDataURL('image/jpeg', quality);
 
-    scrollCtx.fillStyle = '#f1f5f9';
+    // Dark sleek backdrop like CamScanner viewer
+    scrollCtx.fillStyle = '#0f172a';
     scrollCtx.fillRect(0, 0, scrollCanvas.width, scrollCanvas.height);
 
-    let currentY = 0;
+    let currentY = paddingY;
     for (let i = 0; i < renderedCanvases.length; i++) {
       const c = renderedCanvases[i];
       const scaledH = (maxWidth / c.width) * c.height;
-      scrollCtx.drawImage(c, 0, currentY, maxWidth, scaledH);
+
+      // Draw white page card with subtle shadow
+      scrollCtx.save();
+      scrollCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      scrollCtx.shadowBlur = 12;
+      scrollCtx.shadowOffsetY = 4;
+      scrollCtx.fillStyle = '#ffffff';
+      scrollCtx.fillRect(paddingX, currentY, maxWidth, scaledH);
+      scrollCtx.restore();
+
+      // Draw the actual page content
+      scrollCtx.drawImage(c, paddingX, currentY, maxWidth, scaledH);
+
+      // CamScanner subtle page number label in the gap
+      if (i < renderedCanvases.length - 1) {
+        const gapMiddleY = currentY + scaledH + gap / 2;
+        scrollCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        scrollCtx.lineWidth = 1;
+        scrollCtx.beginPath();
+        scrollCtx.moveTo(paddingX + 40, gapMiddleY);
+        scrollCtx.lineTo(canvasWidth - paddingX - 40, gapMiddleY);
+        scrollCtx.stroke();
+      }
+
       currentY += scaledH + gap;
     }
 
@@ -203,18 +230,40 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
   }));
 
   const targetWidth = Math.max(...loadedImages.map(img => img.width));
-  const gap = 30;
-
+  const gap = 24;
+  const paddingX = 20;
+  const paddingY = 20;
+  const canvasWidth = targetWidth + paddingX * 2;
   const scaledHeights = loadedImages.map(img => (targetWidth / img.width) * img.height);
-  canvas.width = targetWidth;
-  canvas.height = scaledHeights.reduce((sum, h) => sum + h, 0) + gap * (loadedImages.length - 1);
+  canvas.width = canvasWidth;
+  canvas.height = paddingY * 2 + scaledHeights.reduce((sum, h) => sum + h, 0) + gap * (loadedImages.length - 1);
 
-  ctx.fillStyle = '#f3f4f6';
+  ctx.fillStyle = '#0f172a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  let currentY = 0;
+  let currentY = paddingY;
   loadedImages.forEach((img, i) => {
-    ctx.drawImage(img, 0, currentY, targetWidth, scaledHeights[i]);
+    // Draw white card backdrop with shadow
+    ctx.save();
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetY = 4;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(paddingX, currentY, targetWidth, scaledHeights[i]);
+    ctx.restore();
+
+    ctx.drawImage(img, paddingX, currentY, targetWidth, scaledHeights[i]);
+
+    if (i < loadedImages.length - 1) {
+      const gapMiddleY = currentY + scaledHeights[i] + gap / 2;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(paddingX + 40, gapMiddleY);
+      ctx.lineTo(canvasWidth - paddingX - 40, gapMiddleY);
+      ctx.stroke();
+    }
+
     currentY += scaledHeights[i] + gap;
   });
 
