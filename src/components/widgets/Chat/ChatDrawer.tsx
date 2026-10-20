@@ -136,10 +136,11 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
           <button onClick={handleClose} style={{ background: 'transparent', border: 'none', color: 'white', fontSize: '1.4rem', cursor: 'pointer', padding: '0.25rem' }}>
             →
           </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {title}
             </h2>
+            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: 'white', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.6</span>
             {isGroup && (
               /* Clickable participants count */
               <button
