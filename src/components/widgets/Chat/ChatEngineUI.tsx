@@ -5,6 +5,7 @@ import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { usePresence } from '../../../hooks/usePresence';
 import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
+import { playNotificationChime } from '../../../utils/soundEffects';
 
 interface ChatEngineUIProps {
   space: any;
@@ -104,6 +105,24 @@ export default function ChatEngineUI({
       markConversationRead(space.id, conversationId, currentReaderId);
     }
   }, [mounted, messagesArray.length, user?.id, resolvedMyId, isCurrentCreator, space.id, conversationId, markConversationRead]);
+
+  // ── Sound notification on incoming message in open chat ─────────────────────
+  const prevMsgCountRef = useRef(messagesArray.length);
+  useEffect(() => {
+    if (!mounted) return;
+    if (messagesArray.length > prevMsgCountRef.current) {
+      const latestMsg = messagesArray[messagesArray.length - 1];
+      if (latestMsg) {
+        const isFromMe = (user?.id && latestMsg.senderId === user.id) ||
+                         (resolvedMyId && latestMsg.senderId === resolvedMyId) ||
+                         (isCurrentCreator && (latestMsg.senderId === space.creatorId || latestMsg.senderId === space.createdBy || latestMsg.senderId === 'me' || latestMsg.from === 'creator'));
+        if (!isFromMe) {
+          playNotificationChime();
+        }
+      }
+    }
+    prevMsgCountRef.current = messagesArray.length;
+  }, [messagesArray.length, mounted, user?.id, resolvedMyId, isCurrentCreator, space.creatorId, space.createdBy]);
 
   // ── Auto-scroll ─────────────────────────────────────────────────────────────
   useEffect(() => {

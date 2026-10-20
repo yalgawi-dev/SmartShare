@@ -105,30 +105,22 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   const unreadChatCount = useMemo(() => {
     if (!user || !space || !space.features?.includes('chat')) return 0;
-    let count = 0;
     const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
     const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
     const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
     const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
 
-    (space.conversations || []).forEach((c: any) => {
-      if (c.id === 'group') {
-        const unread = c.messages?.filter((msg: any) => {
-          if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
-          const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
-          return !isRead;
-        }) || [];
-        count += unread.length;
-      } else if (c.participants?.includes(myActualId) || (user.id && c.participants?.includes(user.id))) {
-        const unread = c.messages?.filter((msg: any) => {
-          if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
-          const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
-          return !isRead;
-        }) || [];
-        count += unread.length;
-      }
+    // Group chat button badge must ONLY count unread messages from the GROUP conversation!
+    const groupConvo = (space.conversations || []).find((c: any) => c.id === 'group');
+    if (!groupConvo) return 0;
+
+    const unread = (groupConvo.messages || []).filter((msg: any) => {
+      if (msg.senderId === user.id || (myActualId && msg.senderId === myActualId)) return false;
+      const isRead = (user.id && msg.readBy?.includes(user.id)) || (myActualId && msg.readBy?.includes(myActualId));
+      return !isRead;
     });
-    return count;
+
+    return unread.length;
   }, [space, user]);
   
   useEffect(() => {
@@ -656,7 +648,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.4.8</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.4.9</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>

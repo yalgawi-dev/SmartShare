@@ -70,16 +70,24 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const getUnreadCount = (memberId: string, isMemberCreator: boolean) => {
     if (!space.features?.includes('chat')) return 0;
     
+    const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
+    const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
+    const myId = isCreatorMe ? (space.creatorId || space.createdBy || user?.id) : (partnerToken || user?.id);
+
     // If I am looking at myself, unread count is 0
-    if (memberId === user?.id) return 0;
+    if (memberId === user?.id || (myId && memberId === myId)) return 0;
 
     const targetId = isMemberCreator ? (space.creatorId || space.createdBy) : memberId;
-    const myId = user?.spaceKeys?.[space.id]?.token || user?.id;
     const p2pConvoId = [myId, targetId].filter(Boolean).sort().join('_');
     const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
     
     if (convo) {
-      return convo.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myId && !msg.readBy?.includes(user?.id))?.length || 0;
+      return convo.messages?.filter((msg: any) => 
+        msg.senderId !== user?.id && 
+        msg.senderId !== myId && 
+        !msg.readBy?.includes(user?.id) && 
+        !msg.readBy?.includes(myId)
+      )?.length || 0;
     }
     return 0;
   };
