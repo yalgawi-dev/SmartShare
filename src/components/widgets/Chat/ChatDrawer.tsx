@@ -80,6 +80,20 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   }
 
   const members: any[] = space.members || [];
+  const targetMember = members.find((m: any) => m.userId === targetUserId);
+  const hasActivePartners = members.some((m: any) => m.isActive !== false && m.status === 'active' && m.userId !== space.creatorId);
+
+  const isFrozen = !((space.features || []).includes('partners')) || 
+    (isGroup && !hasActivePartners) || 
+    (!isGroup && targetMember?.isActive === false);
+
+  const frozenReason = !(space.features || []).includes('partners')
+    ? 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'
+    : (isGroup && !hasActivePartners)
+      ? 'אין שותפים פעילים במרחב זה. לא ניתן לשלוח הודעות קבוצתיות.'
+      : (!isGroup && targetMember?.isActive === false)
+        ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.'
+        : undefined;
 
   const handleClose = () => {
     setIsVisible(false);
@@ -172,9 +186,10 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
             space={space}
             conversationId={conversationId}
             isGroup={isGroup}
-            isFrozen={!(space.features || []).includes('partners')}
+            isFrozen={isFrozen}
+            frozenReason={frozenReason}
             viewMode={targetUserId === space.creatorId || targetUserId === space.createdBy ? 'partner' : 'creator'}
-            member={members.find((m: any) => m.userId === targetUserId)}
+            member={targetMember}
           />
         </div>
       </div>

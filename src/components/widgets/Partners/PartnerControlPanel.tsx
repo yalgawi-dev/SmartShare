@@ -101,11 +101,13 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   const targetPartnerId = useMemo(() => {
     if (isGroup) return 'group';
     if (!member || !space) return 'creator';
-    if (viewMode === 'partner' || member.role === 'creator' || (space.creatorId && member.userId === space.creatorId) || (space.createdBy && member.userId === space.createdBy)) {
+    // If specifically viewing the creator card or member is explicitly the creator:
+    if (member.role === 'creator' || (space.creatorId && member.userId === space.creatorId) || (space.createdBy && member.userId === space.createdBy)) {
       return space.creatorId || space.createdBy || 'creator';
     }
+    // Otherwise, target is the member
     return member.userId;
-  }, [isGroup, viewMode, member, space]);
+  }, [isGroup, member, space]);
 
   // For p2p conversations, always use sorted IDs to ensure both sides read from same document
   const conversationId = isGroup ? 'group' : [resolvedMyId, targetPartnerId].filter(Boolean).sort().join('_');
@@ -254,7 +256,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                         : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.4</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.5</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
@@ -477,6 +479,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         {(space.features || []).includes('chat') ? (
           <ChatEngineUI
             isFrozen={!(space.features || []).includes('partners') || member?.isActive === false}
+            frozenReason={!(space.features || []).includes('partners') 
+              ? 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'
+              : member?.isActive === false 
+                ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.' 
+                : undefined}
             space={space}
             conversationId={conversationId}
             member={member}

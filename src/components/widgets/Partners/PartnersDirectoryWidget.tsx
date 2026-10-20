@@ -320,7 +320,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                   <PartnerControlPanel 
                     member={m} 
                     space={space} 
-                    viewMode={isCreatorMe ? 'creator' : 'partner'} 
+                    viewMode={isCreatorMe ? 'creator' : (m.role === 'creator' || m.userId === space.creatorId || m.userId === space.createdBy ? 'partner' : 'peer')} 
                     onClose={() => setExpandedMember(null)} 
                   />
                 </div>

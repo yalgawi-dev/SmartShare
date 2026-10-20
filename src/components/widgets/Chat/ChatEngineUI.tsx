@@ -13,6 +13,7 @@ interface ChatEngineUIProps {
   viewMode?: 'creator' | 'partner' | 'peer';
   isGroup?: boolean;
   isFrozen?: boolean;
+  frozenReason?: string;
   headerContent?: React.ReactNode;
 }
 
@@ -45,6 +46,7 @@ export default function ChatEngineUI({
   viewMode = 'creator',
   isGroup = false,
   isFrozen = false,
+  frozenReason,
   headerContent,
 }: ChatEngineUIProps) {
   const { sendConversationMessage, markConversationRead } = useSpaces() as any;
@@ -254,9 +256,11 @@ export default function ChatEngineUI({
       }}>
         {isFrozen ? (
           <div style={{ width: '100%', textAlign: 'center', padding: '0.8rem', background: '#fee2e2', color: '#ef4444', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 'bold' }}>
-            {member?.isActive === false 
-              ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.' 
-              : 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'}
+            {frozenReason 
+              ? frozenReason
+              : member?.isActive === false 
+                ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.' 
+                : 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'}
           </div>
         ) : (
           <>
