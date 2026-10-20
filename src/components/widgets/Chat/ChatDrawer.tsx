@@ -53,7 +53,8 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
       if (activeTarget && typeof markConversationRead === 'function') {
         const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[spaceId]) : null;
         const partnerToken = user?.spaceKeys?.[spaceId]?.token || mySpaceKey?.token;
-        markConversationRead(spaceId, conversationId, user?.id || resolvedMyId, partnerToken || resolvedMyId);
+        const targetConvoId = activeTarget === 'group' ? 'group' : conversationId;
+        markConversationRead(spaceId, targetConvoId, user?.id || resolvedMyId, partnerToken || resolvedMyId);
       }
     } else {
       setIsVisible(false);
