@@ -52,9 +52,11 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
 
       if (activeTarget && typeof markConversationRead === 'function') {
         const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[spaceId]) : null;
+        const isCreator = Boolean(user?.id && space?.creatorId && user.id === space.creatorId) || user?.spaceKeys?.[spaceId]?.role === 'creator' || mySpaceKey?.role === 'creator';
         const partnerToken = user?.spaceKeys?.[spaceId]?.token || mySpaceKey?.token;
         const targetConvoId = activeTarget === 'group' ? 'group' : conversationId;
-        markConversationRead(spaceId, targetConvoId, user?.id || resolvedMyId, partnerToken || resolvedMyId);
+        const currentReaderId = isCreator ? (user?.id || space?.creatorId || space?.createdBy || resolvedMyId) : (partnerToken || resolvedMyId || user?.id);
+        markConversationRead(spaceId, targetConvoId, currentReaderId);
       }
     } else {
       setIsVisible(false);
@@ -141,7 +143,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
             <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {title}
             </h2>
-            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: 'white', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.7</span>
+            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: 'white', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.8</span>
             {isGroup && (
               /* Clickable participants count */
               <button

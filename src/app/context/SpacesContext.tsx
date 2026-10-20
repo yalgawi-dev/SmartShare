@@ -1297,6 +1297,13 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
         if (c.id !== conversationId) return c;
         let messagesChanged = false;
         const newMessages = (c.messages || []).map(msg => {
+          // Rule: Never mark author's own sent message with their own reader ID as "read by recipient"
+          const anyMsg = msg as any;
+          const isMsgFromCurrentReader = readers.includes(msg.senderId) || 
+            (readerId === space.creatorId && (msg.senderId === space.createdBy || msg.senderId === 'me' || anyMsg.from === 'creator'));
+          if (isMsgFromCurrentReader) {
+            return msg;
+          }
           const missing = readers.filter(r => !msg.readBy || !msg.readBy.includes(r));
           if (missing.length > 0) {
             messagesChanged = true;

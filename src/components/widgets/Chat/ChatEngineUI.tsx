@@ -100,9 +100,10 @@ export default function ChatEngineUI({
     if (typeof markConversationRead === 'function') {
       const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
       const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
-      markConversationRead(space.id, conversationId, user?.id || resolvedMyId, partnerToken || resolvedMyId);
+      const currentReaderId = isCurrentCreator ? (user?.id || space.creatorId || space.createdBy || resolvedMyId) : (partnerToken || resolvedMyId || user?.id);
+      markConversationRead(space.id, conversationId, currentReaderId);
     }
-  }, [mounted, messagesArray.length, user?.id, resolvedMyId, space.id, conversationId, markConversationRead]);
+  }, [mounted, messagesArray.length, user?.id, resolvedMyId, isCurrentCreator, space.id, conversationId, markConversationRead]);
 
   // ── Auto-scroll ─────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -149,15 +150,31 @@ export default function ChatEngineUI({
           if (isMyMsg && m.text?.startsWith('[הודעת מערכת]:')) return null;
 
           const timeStr = formatTimeSafe(m.createdAt);
-          // ✓✓ blue = at least one OTHER user has read the message
+          // ✓✓ blue = at least one verified OTHER user (recipient) has read the message
           const isReadByOther = (() => {
             if (m.readAt) return true; // legacy field
             if (!m.readBy || !Array.isArray(m.readBy) || m.readBy.length === 0) return false;
-            // Collect all aliases for the message author
+            
+            // All known aliases for the sender of this message
             const authorAliases = new Set<string>([
               m.senderId,
-              ...(isMyMsg ? [user?.id, resolvedMyId, space?.creatorId, space?.createdBy, 'me'].filter(Boolean) : [])
+              ...(isMyMsg ? [user?.id, resolvedMyId, space?.creatorId, space?.createdBy, 'me', 'creator'].filter(Boolean) : [])
             ]);
+
+            if (!isGroup) {
+              // In P2P (direct conversation with a partner):
+              // Blue checkmark ONLY if the specific conversation partner read it!
+              const targetUserId = conversationId.split('_').find(id => id && !authorAliases.has(id));
+              if (targetUserId) {
+                return m.readBy.includes(targetUserId);
+              }
+              if (member?.userId && !authorAliases.has(member.userId)) {
+                return m.readBy.includes(member.userId);
+              }
+            }
+
+            // In Group chat:
+            // Blue checkmark if any confirmed space member other than author read it
             return m.readBy.some((readerId: string) => readerId && !authorAliases.has(readerId));
           })();
 
