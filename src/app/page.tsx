@@ -84,7 +84,12 @@ export default function Dashboard() {
               const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
               return !isRead;
             });
-            if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group-' + space.id)) count++;
+            if (unreadGroup.length > 0) {
+              const latestMsg = unreadGroup[unreadGroup.length - 1];
+              if (!dismissedAlerts.includes('chat-group-' + space.id + '-' + latestMsg.id)) {
+                count += unreadGroup.length;
+              }
+            }
           } else {
             const participants = convo.participants || (convo.id ? convo.id.split('_') : []);
             const isParticipant = participants.includes(myActualId) || (user?.id && participants.includes(user.id));
@@ -98,7 +103,10 @@ export default function Dashboard() {
 
             if (unreadChatMessages.length > 0) {
               const otherId = participants.find((p: string) => p !== myActualId && p !== user?.id) || participants[0];
-              if (!dismissedAlerts.includes('chat-' + space.id + '-' + otherId)) count++;
+              const latestMsg = unreadChatMessages[unreadChatMessages.length - 1];
+              if (!dismissedAlerts.includes('chat-' + space.id + '-' + otherId + '-' + latestMsg.id)) {
+                count += unreadChatMessages.length;
+              }
             }
           }
         });
@@ -293,7 +301,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.5.0</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.5.1</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>

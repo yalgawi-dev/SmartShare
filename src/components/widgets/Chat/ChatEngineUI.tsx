@@ -61,6 +61,7 @@ export default function ChatEngineUI({
     return () => clearInterval(interval);
   }, []);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Presence (online dots) ──────────────────────────────────────────────────
   const presenceUids = useMemo((): string[] => {
@@ -124,10 +125,29 @@ export default function ChatEngineUI({
     prevMsgCountRef.current = messagesArray.length;
   }, [messagesArray.length, mounted, user?.id, resolvedMyId, isCurrentCreator, space.creatorId, space.createdBy]);
 
-  // ── Auto-scroll ─────────────────────────────────────────────────────────────
+  // ── Auto-scroll to bottom of messages list ─────────────────────────────────
+  const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior
+      });
+    } else if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior });
+    }
+  };
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messagesArray.length]);
+    // Jump immediately
+    scrollToBottom('auto');
+    // Follow-up after drawer CSS transform slide animation finishes (300ms)
+    const t1 = setTimeout(() => scrollToBottom('auto'), 80);
+    const t2 = setTimeout(() => scrollToBottom('smooth'), 320);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [messagesArray.length, conversationId]);
 
   const handleSendMessage = () => {
     if (!messageText.trim()) return;
@@ -142,7 +162,7 @@ export default function ChatEngineUI({
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Messages list */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+      <div ref={messagesContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '0.75rem 1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
         {headerContent}
 
         {messagesArray.length === 0 && (

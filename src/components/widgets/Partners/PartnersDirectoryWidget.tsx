@@ -79,15 +79,24 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
     const targetId = isMemberCreator ? (space.creatorId || space.createdBy) : memberId;
     const p2pConvoId = [myId, targetId].filter(Boolean).sort().join('_');
-    const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
+    
+    // Find conversation by exact ID OR by participant membership (robust across token / uid variations)
+    const convo = (space.conversations || []).find((c: any) => {
+      if (c.id === 'group') return false;
+      if (c.id === p2pConvoId) return true;
+      const parts = c.participants || (c.id ? c.id.split('_') : []);
+      const hasTarget = parts.includes(targetId) || parts.includes(memberId);
+      const hasMe = parts.includes(myId) || (user?.id && parts.includes(user.id));
+      return hasTarget && hasMe;
+    });
     
     if (convo) {
-      return convo.messages?.filter((msg: any) => 
-        msg.senderId !== user?.id && 
-        msg.senderId !== myId && 
-        !msg.readBy?.includes(user?.id) && 
-        !msg.readBy?.includes(myId)
-      )?.length || 0;
+      return (convo.messages || []).filter((msg: any) => {
+        const isFromMe = msg.senderId === user?.id || (myId && msg.senderId === myId);
+        if (isFromMe) return false;
+        const isReadByMe = (user?.id && msg.readBy?.includes(user.id)) || (myId && msg.readBy?.includes(myId));
+        return !isReadByMe;
+      })?.length || 0;
     }
     return 0;
   };
@@ -97,7 +106,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.51</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.52</span>
         </div>
         {isCreatorMe && (
           <button 
