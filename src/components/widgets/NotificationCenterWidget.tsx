@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { universalSearch } from '../../utils/searchEngine';
+import { resolveUserSpaceIdentity } from '../../utils/partnerUtils';
 import { useRouter } from 'next/navigation';
 
 export default function NotificationCenterWidget({ onClose }: { onClose: () => void }) {
@@ -28,10 +29,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
     let notifs: any[] = [];
     
     spaces.forEach(space => {
-        const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
-        const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
-        const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
-        const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
+        const { myId: myActualId, isCreator } = resolveUserSpaceIdentity(space, user);
         const hasPartners = space.features?.includes('partners');
         
         // 1. Invoices
@@ -98,64 +96,106 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
               });
             }
 
-            // P2P Chat Unread Summary
+            // Chat Notifications (P2P + Group)
+            if (space.features?.includes('chat') && Array.isArray(space.conversations)) {
+              space.conversations.forEach((convo: any) => {
+                if (convo.id === 'group') {
+                  const unreadGroup = (convo.messages || []).filter((msg: any) => {
+                    if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
+                    const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
+                    return !isRead;
+                  });
+
+                  if (unreadGroup.length > 0) {
+                    notifs.push({
+                      id: 'chat-group-' + space.id,
+                      type: 'chat',
+                      chatType: 'group',
+                      targetId: 'group',
+                      priority: 'low',
+                      title: 'שיחה קבוצתית',
+                      text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בקבוצת המרחב.',
+                      spaceId: space.id,
+                      spaceName: space.title || 'מרחב',
+                      createdAt: unreadGroup[unreadGroup.length - 1].createdAt || new Date().toISOString(),
+                      actionable: true
+                    });
+                  }
+                } else {
+                  // P2P conversation
+                  const participants = convo.participants || (convo.id ? convo.id.split('_') : []);
+                  const isParticipant = participants.includes(myActualId) || (user?.id && participants.includes(user.id));
+                  if (!isParticipant) return;
+
+                  const unreadChatMessages = (convo.messages || []).filter((msg: any) => {
+                    if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
+                    const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
+                    return !isRead;
+                  });
+
+                  if (unreadChatMessages.length > 0) {
+                    const otherId = participants.find((p: string) => p !== myActualId && p !== user?.id) || participants[0];
+                    const isOtherCreator = otherId === space.creatorId || otherId === space.createdBy || otherId === 'creator';
+                    let otherName = 'שותף במרחב';
+                    if (isOtherCreator) {
+                      otherName = (space as any).creatorName || (space.members?.find((m: any) => m.userId === space.creatorId)?.name) || space.createdBy || 'מנהל המרחב';
+                    } else {
+                      const partnerMember = (space.members || []).find((m: any) => m.userId === otherId);
+                      if (partnerMember) {
+                        otherName = partnerMember.name;
+                      } else {
+                        const invite = (space.pendingInvites || []).find((inv: any) => inv.token === otherId);
+                        if (invite) otherName = invite.name || 'שותף מוזמן';
+                      }
+                    }
+
+                    notifs.push({
+                      id: 'chat-' + space.id + '-' + otherId,
+                      type: 'chat',
+                      chatType: 'p2p',
+                      targetId: otherId,
+                      priority: 'low',
+                      title: 'הודעה חדשה בפרטי מאת ' + otherName,
+                      text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + otherName + '.',
+                      spaceId: space.id,
+                      spaceName: space.title || 'מרחב',
+                      createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
+                      actionable: true
+                    });
+                  }
+                }
+              });
+            }
+
+            // Legacy fallback for old member messages
             if (space.features?.includes('chat')) {
-              if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
-              const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-              const p2pConvoId = [myActualId, targetId].filter(Boolean).sort().join('_');
-              const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-              let unreadChatMessages = convo?.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myActualId && !msg.readBy?.includes(user?.id) && !msg.readBy?.includes(myActualId)) || [];
-            
-              // Legacy fallback
-              if (unreadChatMessages.length === 0) {
-                unreadChatMessages = (member.messages || []).filter((msg: any) => {
+              (space.members || []).forEach(member => {
+                const legacyUnread = (member.messages || []).filter((msg: any) => {
                   if (msg.readAt) return false;
                   if (isCreator && msg.from === 'partner') return true;
-                  if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
+                  if (!isCreator && member.userId === user?.id && msg.from === 'creator') return true;
                   return false;
                 });
-              }
-
-              if (unreadChatMessages.length > 0) {
-                notifs.push({
-                  id: 'chat-' + (isCreator ? member.userId : targetId),
-                  type: 'chat',
-                  priority: 'low',
-                  title: "הודעה חדשה בפרטי",
-                  text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + (isCreator ? member.name : (space.members?.find((m: any) => m.userId === space.creatorId)?.name || space.createdBy || 'מנהל המרחב')) + '.',
-                  spaceId: space.id,
-                  spaceName: space.title || 'מרחב',
-                  createdAt: unreadChatMessages[unreadChatMessages.length - 1].createdAt || new Date().toISOString(),
-                  actionable: true
-                });
-              }
+                const notifId = 'chat-' + space.id + '-' + member.userId;
+                if (legacyUnread.length > 0 && !notifs.some(n => n.id === notifId)) {
+                  notifs.push({
+                    id: notifId,
+                    type: 'chat',
+                    chatType: 'p2p',
+                    targetId: member.userId,
+                    priority: 'low',
+                    title: 'הודעה חדשה בפרטי',
+                    text: 'יש לך ' + legacyUnread.length + ' הודעות חדשות מאת ' + member.name + '.',
+                    spaceId: space.id,
+                    spaceName: space.title || 'מרחב',
+                    createdAt: legacyUnread[legacyUnread.length - 1].date || new Date().toISOString(),
+                    actionable: true
+                  });
+                }
+              });
             }
           });
           
-          // Group Chat Summary
-          if (space.features?.includes('chat')) {
-            const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
-            if (groupConvo) {
-              const unreadGroup = groupConvo.messages?.filter((msg: any) => {
-                if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-                const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-                return !isRead;
-              }) || [];
-              if (unreadGroup.length > 0) {
-                notifs.push({
-                  id: 'chat-group',
-                  type: 'chat',
-                  priority: 'low',
-                  title: "שיחה קבוצתית",
-                  text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בקבוצת המרחב.',
-                  spaceId: space.id,
-                  spaceName: space.title || 'מרחב',
-                  createdAt: unreadGroup[unreadGroup.length - 1].createdAt || new Date().toISOString(),
-                  actionable: true
-                });
-              }
-            }
-          }
           // 3. Pending Invites
           if (isCreator) {
             (space.pendingInvites || []).forEach((invite: any) => {
@@ -266,7 +306,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
               <path d="M4 7.00005L10.2 11.65C11.2667 12.45 12.7333 12.45 13.8 11.65L20 7" />
               <rect x="3" y="5" width="18" height="14" rx="2" />
             </svg>
-            מרכז התראות (חמ"ל)
+            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.5.0</span>
           </h2>
           <button onClick={onClose} style={{ background: 'var(--bg-card)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '1.2rem' }}>✕</button>
         </div>
@@ -314,8 +354,11 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                   let query = '?tab=partners';
                   if (n.type === 'invoice') query = '?tab=inbox#invoice-' + n.id.replace('inv-', '');
                   if (n.type === 'chat') {
-                     if (n.id === 'chat-group') query = '#chat-group-btn';
-                     else query = '#partner-row-' + n.id.replace('chat-', '');
+                    if (n.chatType === 'group' || n.targetId === 'group') {
+                      query = '?openChat=group';
+                    } else if (n.targetId) {
+                      query = '?openChat=' + n.targetId + '&tab=partners';
+                    }
                   }
                   router.push('/space/' + n.spaceId + query);
                 }}

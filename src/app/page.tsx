@@ -6,6 +6,7 @@ import NotificationCenterWidget from '../components/widgets/NotificationCenterWi
 import styles from './page.module.css';
 import Link from 'next/link';
 import { useSpaces } from './context/SpacesContext';
+import { resolveUserSpaceIdentity } from '../utils/partnerUtils';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 import AuthModal from '../components/auth/AuthModal';
@@ -51,10 +52,7 @@ export default function Dashboard() {
     const dismissedAlerts = user.dismissedAlerts || [];
     let count = 0;
     spaces.forEach(space => {
-      const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
-      const isCreator = space.creatorId === user.id || user?.spaceKeys?.[space.id]?.role === 'creator' || mySpaceKey?.role === 'creator';
-      const partnerToken = user?.spaceKeys?.[space.id]?.token || mySpaceKey?.token;
-      const myActualId = isCreator ? (space.creatorId || space.createdBy || user.id) : (partnerToken || user.id);
+      const { myId: myActualId, isCreator } = resolveUserSpaceIdentity(space, user);
       const hasPartners = space.features?.includes('partners');
       
       (space.invoices || []).forEach(inv => {
@@ -68,55 +66,47 @@ export default function Dashboard() {
           if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('disp-' + member.userId)) count++;
           if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
           if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
-          
-          
-          // P2P chat notifications — only if chat plugin is active
-          if (space.features?.includes('chat')) {
-            if (!isCreator && member.userId !== myActualId && member.userId !== user?.id) return;
-            const targetId = isCreator ? member.userId : (space.creatorId || space.createdBy);
-            const p2pConvoId = [user?.id, targetId].filter(Boolean).sort().join('_');
-            const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-            let unreadChatMessages = convo?.messages?.filter((msg: any) => {
-              if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-              const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-              return !isRead;
-            }) || [];
-
-            // Legacy fallback
-            if (unreadChatMessages.length === 0) {
-              unreadChatMessages = (member.messages || []).filter((msg: any) => {
-                if (msg.readAt) return false;
-                if (isCreator && msg.from === 'partner') return true;
-                if (!isCreator && member.userId === user.id && msg.from === 'creator') return true;
-                return false;
-              });
-            }
-            if (unreadChatMessages.length > 0 && !dismissedAlerts.includes('chat-' + member.userId)) count++;
-          }
         });
 
-        // Group Chat Summary — only if chat plugin is active
-        if (space.features?.includes('chat')) {
-          const groupConvo = space.conversations?.find((c: any) => c.id === 'group');
-          if (groupConvo) {
-            const unreadGroup = groupConvo.messages?.filter((msg: any) => {
-              if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-              const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-              return !isRead;
-            }) || [];
-            if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group')) count++;
-          }
-        }
-        
         if (isCreator) {
           (space.pendingInvites || []).forEach((invite: any) => {
             if (!dismissedAlerts.includes('invt-' + invite.token)) count++;
           });
         }
       }
+
+      // Chat Messages (Group + P2P) from space.conversations
+      if (space.features?.includes('chat') && Array.isArray(space.conversations)) {
+        space.conversations.forEach((convo: any) => {
+          if (convo.id === 'group') {
+            const unreadGroup = (convo.messages || []).filter((msg: any) => {
+              if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
+              const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
+              return !isRead;
+            });
+            if (unreadGroup.length > 0 && !dismissedAlerts.includes('chat-group-' + space.id)) count++;
+          } else {
+            const participants = convo.participants || (convo.id ? convo.id.split('_') : []);
+            const isParticipant = participants.includes(myActualId) || (user?.id && participants.includes(user.id));
+            if (!isParticipant) return;
+
+            const unreadChatMessages = (convo.messages || []).filter((msg: any) => {
+              if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
+              const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
+              return !isRead;
+            });
+
+            if (unreadChatMessages.length > 0) {
+              const otherId = participants.find((p: string) => p !== myActualId && p !== user?.id) || participants[0];
+              if (!dismissedAlerts.includes('chat-' + space.id + '-' + otherId)) count++;
+            }
+          }
+        });
+      }
     });
     return count;
   }, [spaces, user]);
+
   const [showShareModal, setShowShareModal] = useState(false);
   const [clientKeys, setClientKeys] = useState<Record<string, { role: string; token?: string }>>(() => {
     if (typeof window !== 'undefined') {
@@ -303,7 +293,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.4.9</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.5.0</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>

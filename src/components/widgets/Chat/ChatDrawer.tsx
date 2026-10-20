@@ -143,7 +143,7 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
             <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 'bold', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {title}
             </h2>
-            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: 'white', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.4.9</span>
+            <span style={{ fontSize: '0.65rem', background: 'rgba(255,255,255,0.25)', color: 'white', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.5.0</span>
             {isGroup && (
               /* Clickable participants count */
               <button
