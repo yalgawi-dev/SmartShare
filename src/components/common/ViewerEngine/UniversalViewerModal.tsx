@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument } from '@/utils/documentUtils';
@@ -30,11 +30,13 @@ export interface UniversalViewerModalProps {
 
 /**
  * UniversalViewerModal - Single Source of Truth for document & image viewing across SmartShare.
- * Built with CamScanner-grade UX:
- * - Multi-page documents render as a continuous vertical scroll ("מגילה רציפה") with page badges.
+ * v2.5.3 Updates:
+ * - Perfect vertical & horizontal centering for images and documents.
+ * - Smooth touch swipe left/right (גרירה עם האצבע) between documents when zoomed out.
+ * - Embedded inline PDF preview using responsive iframe.
+ * - Multi-page documents render as a continuous vertical scroll ("מגילה רציפה") with CamScanner-grade badges.
  * - Single-page documents open instantly with smooth Pinch-to-Zoom.
- * - Legacy PDFs open cleanly without CPU-choking Canvas rasterization.
- * - Decoupled from any specific plugin (Vault, Finance, Chat).
+ * - Clean decoupling: zero dependency on Vault or Finance plugins.
  */
 export default function UniversalViewerModal({
   docs,
@@ -45,6 +47,12 @@ export default function UniversalViewerModal({
 }: UniversalViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
   const [mounted, setMounted] = useState(false);
+  const [currentScale, setCurrentScale] = useState<number>(1);
+
+  // Touch swipe handling
+  const touchStartXRef = useRef<number | null>(null);
+  const touchStartYRef = useRef<number | null>(null);
+  const touchDeltaXRef = useRef<number>(0);
 
   useEffect(() => {
     setMounted(true);
@@ -63,19 +71,25 @@ export default function UniversalViewerModal({
 
   const isMultiPage = Array.isArray(currentDoc.pages) && currentDoc.pages.length > 1;
   const isPdf = Boolean(
-    (currentDoc.url && currentDoc.url.includes('.pdf')) ||
+    (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf')) ||
     currentDoc.type === 'pdf' ||
     currentDoc.url?.startsWith('data:application/pdf')
   );
 
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (currentIndex > 0) setCurrentIndex(prev => prev - 1);
+  const handlePrev = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (currentIndex > 0) {
+      setCurrentIndex(prev => prev - 1);
+      setCurrentScale(1);
+    }
   };
 
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (currentIndex < docs.length - 1) setCurrentIndex(prev => prev + 1);
+  const handleNext = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (currentIndex < docs.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+      setCurrentScale(1);
+    }
   };
 
   const handleDownload = (e: React.MouseEvent) => {
@@ -99,9 +113,57 @@ export default function UniversalViewerModal({
     }
   };
 
+  // Touch Swipe Handlers (Active when scale <= 1.05 so it doesn't break pan/zoom)
+  const onTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && currentScale <= 1.05) {
+      touchStartXRef.current = e.touches[0].clientX;
+      touchStartYRef.current = e.touches[0].clientY;
+      touchDeltaXRef.current = 0;
+    } else {
+      touchStartXRef.current = null;
+      touchStartYRef.current = null;
+    }
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    if (touchStartXRef.current !== null && e.touches.length === 1 && currentScale <= 1.05) {
+      const currentX = e.touches[0].clientX;
+      const currentY = e.touches[0].clientY;
+      const deltaX = currentX - touchStartXRef.current;
+      const deltaY = currentY - (touchStartYRef.current || 0);
+
+      if (Math.abs(deltaX) > Math.abs(deltaY)) {
+        touchDeltaXRef.current = deltaX;
+      }
+    }
+  };
+
+  const onTouchEnd = () => {
+    if (touchStartXRef.current !== null && currentScale <= 1.05) {
+      const deltaX = touchDeltaXRef.current;
+      const swipeThreshold = 50; // px
+
+      if (deltaX > swipeThreshold) {
+        if (currentIndex > 0) {
+          handlePrev();
+        }
+      } else if (deltaX < -swipeThreshold) {
+        if (currentIndex < docs.length - 1) {
+          handleNext();
+        }
+      }
+    }
+    touchStartXRef.current = null;
+    touchStartYRef.current = null;
+    touchDeltaXRef.current = 0;
+  };
+
   return createPortal(
     <div
       onClick={onClose}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
       style={{
         position: 'fixed',
         top: 0,
@@ -114,7 +176,8 @@ export default function UniversalViewerModal({
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        touchAction: 'none'
+        userSelect: 'none',
+        overflow: 'hidden'
       }}
     >
       {/* Top Header Controls */}
@@ -122,7 +185,7 @@ export default function UniversalViewerModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
-          top: '16px',
+          top: '12px',
           left: 0,
           right: 0,
           display: 'flex',
@@ -146,14 +209,14 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.5.2
+            v2.5.3
           </span>
           <span
             style={{
               color: '#f8fafc',
               fontWeight: 700,
               fontSize: '0.95rem',
-              maxWidth: '220px',
+              maxWidth: '200px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
@@ -217,7 +280,7 @@ export default function UniversalViewerModal({
             justifyContent: 'center',
             boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
           }}
-          title="מסמך קודם"
+          title="מסמך קודם (או החלק ימינה)"
         >
           ‹
         </button>
@@ -247,7 +310,7 @@ export default function UniversalViewerModal({
             justifyContent: 'center',
             boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
           }}
-          title="מסמך הבא"
+          title="מסמך הבא (או החלק שמאלה)"
         >
           ›
         </button>
@@ -258,20 +321,21 @@ export default function UniversalViewerModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          height: '76vh',
+          height: '78vh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          overflow: 'hidden'
+          position: 'relative'
         }}
       >
         {(() => {
-          // ── Case 1: Legacy Raw PDF without pre-extracted images ────────────
-          if (isPdf && !isMultiPage && !currentDoc.thumbnailUrl) {
+          // ── Case 1: Legacy Raw PDF without multi-page images ───────────────
+          if (isPdf && !isMultiPage) {
+            const pdfSrc = currentDoc.url;
             return (
               <div
                 style={{
-                  width: '92%',
+                  width: '94%',
                   height: '100%',
                   display: 'flex',
                   flexDirection: 'column',
@@ -280,37 +344,20 @@ export default function UniversalViewerModal({
                   background: '#1e293b',
                   borderRadius: '16px',
                   border: '1px solid rgba(255,255,255,0.1)',
-                  padding: '2rem',
-                  gap: '1.25rem',
-                  textAlign: 'center'
+                  overflow: 'hidden',
+                  position: 'relative'
                 }}
               >
-                <span style={{ fontSize: '3.5rem' }}>📄</span>
-                <div style={{ color: 'white', fontWeight: 'bold', fontSize: '1.1rem' }}>
-                  {currentDoc.title || 'מסמך PDF'}
-                </div>
-                <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '320px', margin: 0 }}>
-                  קובץ PDF נשמר במקור כקובץ מסמך. ניתן לפתוח אותו ישירות או להוריד אותו בלחיצה.
-                </p>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-                  <a
-                    href={currentDoc.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      background: '#4f46e5',
-                      color: 'white',
-                      textDecoration: 'none',
-                      padding: '0.65rem 1.4rem',
-                      borderRadius: '24px',
-                      fontWeight: 'bold',
-                      fontSize: '0.95rem',
-                      boxShadow: '0 4px 12px rgba(79, 70, 229, 0.4)'
-                    }}
-                  >
-                    פתח PDF בחלון חדש ↗
-                  </a>
-                </div>
+                <iframe
+                  src={pdfSrc}
+                  title={currentDoc.title || 'PDF Preview'}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    border: 'none',
+                    backgroundColor: '#ffffff'
+                  }}
+                />
               </div>
             );
           }
@@ -335,6 +382,7 @@ export default function UniversalViewerModal({
                   centerOnInit={true}
                   doubleClick={{ mode: 'reset' }}
                   wheel={{ step: 0.2 }}
+                  onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
                 >
                   <TransformComponent
                     wrapperStyle={{ width: '100%', height: '100%', overflowY: 'auto' }}
@@ -425,20 +473,34 @@ export default function UniversalViewerModal({
                 centerOnInit={true}
                 doubleClick={{ mode: 'reset' }}
                 wheel={{ step: 0.2 }}
+                onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
               >
                 <TransformComponent
-                  wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  wrapperStyle={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  contentStyle={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
                 >
                   <img
                     src={displayUrl}
                     alt={currentDoc.title || 'מסמך'}
                     loading="eager"
                     style={{
-                      maxWidth: '100%',
-                      maxHeight: '74vh',
+                      maxWidth: '92vw',
+                      maxHeight: '76vh',
                       width: 'auto',
                       height: 'auto',
+                      objectFit: 'contain',
                       borderRadius: '10px',
                       boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                       userSelect: 'none',
