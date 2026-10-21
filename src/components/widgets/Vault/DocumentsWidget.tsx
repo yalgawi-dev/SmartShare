@@ -1,5 +1,5 @@
 'use client';
-
+import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import React, { useState, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
@@ -413,7 +413,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v6.8.51</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.5.2</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -926,117 +926,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
-      {/* FULLSCREEN PREVIEW CAROUSEL WITH SHARE BUTTON FOR ALL TYPES */}
+      {/* UNIVERSAL VIEWER ENGINE MODAL (CAMSCANNER STYLE) */}
       {previewState && (
-        <div 
-          onClick={(e) => {
-            if (e.target === e.currentTarget) setPreviewState(null);
-          }} 
-          onTouchStart={(e) => {
-              const touch = e.touches[0];
-              const startX = touch.clientX;
-              let hasSwiped = false;
-              
-              const handleTouchMove = (moveEvent) => {
-                if (hasSwiped) return;
-                const currentX = moveEvent.touches[0].clientX;
-                const diff = startX - currentX;
-                
-                if (Math.abs(diff) > 50) {
-                  hasSwiped = true;
-                  setPreviewState(prev => {
-                    if (!prev) return prev;
-                    if (diff > 0 && prev.index < prev.docs.length - 1) return { ...prev, index: prev.index + 1 };
-                    if (diff < 0 && prev.index > 0) return { ...prev, index: prev.index - 1 };
-                    return prev;
-                  });
-                }
-              };
-              
-              const handleTouchEnd = () => {
-                document.removeEventListener('touchmove', handleTouchMove);
-                document.removeEventListener('touchend', handleTouchEnd);
-              };
-              
-              document.addEventListener('touchmove', handleTouchMove, { passive: true });
-              document.addEventListener('touchend', handleTouchEnd);
-            }}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.95)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(37,99,235,0.85)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', zIndex: 200005, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            v6.8.51
-          </div>
-          {previewState.index > 0 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index - 1 })); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200001, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>‹</button>
-          )}
-          
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '90%', height: '88%', gap: '0.75rem' }}>
-            {(() => {
-              const currentDoc = previewState.docs[previewState.index];
-              const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-              
-              // 1. If it's a PDF:
-              if (isPdf) {
-                return (
-                  <DynamicPdfScrollPreview 
-                    url={currentDoc.url} 
-                    title={currentDoc.title} 
-                  />
-                );
-              }
-
-              // 2. Multi-page array of pages (display one clean page at a time with navigation):
-              if (currentDoc.pages && currentDoc.pages.length > 1) {
-                return (
-                  <MultiPageViewer pages={currentDoc.pages} title={currentDoc.title} />
-                );
-              }
-
-              // 3. Single Image View with Pinch-to-Zoom:
-              const displayImageUrl = currentDoc.url || currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]);
-              return (
-                <div style={{ width: '100%', height: '74vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                  <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img 
-                        src={displayImageUrl} 
-                        style={{ maxWidth: '100%', maxHeight: '74vh', width: 'auto', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 30px rgba(0,0,0,0.6)', userSelect: 'none' }} 
-                        alt={currentDoc.title || 'Preview'} 
-                      />
-                    </TransformComponent>
-                  </TransformWrapper>
-                </div>
-              );
-            })()}
-
-            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', zIndex: 200005, flexWrap: 'wrap', justifyContent: 'center' }}>
-              <button 
-                onClick={(e) => { e.stopPropagation(); downloadDocument(previewState.docs[previewState.index].url, previewState.docs[previewState.index].title); }} 
-                style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}
-              >
-                <span>⬇️ הורדה</span>
-              </button>
-              <button 
-                onClick={(e) => { e.stopPropagation(); setSharingDoc(previewState.docs[previewState.index]); }} 
-                style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 15px rgba(16,185,129,0.4)' }}
-              >
-                <span>📤 שתף</span>
-              </button>
-            </div>
-          </div>
-          
-          {previewState.index < previewState.docs.length - 1 && (
-            <button onClick={(e) => { e.stopPropagation(); setPreviewState(prev => ({ ...prev!, index: prev!.index + 1 })); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200005, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>›</button>
-          )}
-          
-          <button onClick={() => setPreviewState(null)} style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200005, boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>✕</button>
-          
-          {previewState.docs.length > 1 && (
-            <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 200005 }}>
-               {previewState.index + 1} / {previewState.docs.length}
-            </div>
-          )}
-        </div>
+        <UniversalViewerModal
+          docs={previewState.docs}
+          initialIndex={previewState.index}
+          onClose={() => setPreviewState(null)}
+          onShare={(doc) => setSharingDoc(doc)}
+          onDownload={(url, title) => downloadDocument(url, title)}
+        />
       )}
 
       {/* Share Choice Modal (Single Source of Truth) */}

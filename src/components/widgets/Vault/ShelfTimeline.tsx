@@ -1,3 +1,5 @@
+'use client';
+import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import React, { useState, useEffect } from 'react';
 import { Space, SpaceDocument, ShelfEvent } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
@@ -223,7 +225,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v6.8.51</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.5.2</span>
       </div>
 
       {events.length === 0 ? (
@@ -1097,132 +1099,15 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         </div>
       )}
 
-      {/* Timeline Internal Document Preview Modal */}
+      {/* UNIVERSAL VIEWER ENGINE MODAL (CAMSCANNER STYLE) */}
       {timelinePreview && (
-        <div 
-          onClick={() => setTimelinePreview(null)}
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.92)', zIndex: 200000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <div style={{ position: 'absolute', top: '20px', left: '20px', background: 'rgba(37,99,235,0.85)', color: 'white', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 'bold', zIndex: 200005, backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.2)' }}>
-            v6.8.51
-          </div>
-          {timelinePreview.index > 0 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index - 1 })); }} 
-              style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200005 }}
-            >
-              ‹
-            </button>
-          )}
-
-          {(() => {
-            const currentDoc = timelinePreview.docs[timelinePreview.index];
-            const isPdf = (currentDoc.url && currentDoc.url.includes('.pdf')) || currentDoc.type === 'pdf' || currentDoc.url?.startsWith('data:application/pdf');
-
-            // 1. If it's a PDF:
-            if (isPdf) {
-              return (
-                <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-                  <DynamicPdfScrollPreview 
-                    url={currentDoc.url} 
-                    title={currentDoc.title} 
-                  />
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
-                    <button 
-                      onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
-                      style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      <span>⬇️ הורדה</span>
-                    </button>
-                    <button 
-                      onClick={() => setSharingDoc(currentDoc)} 
-                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                    >
-                      <span>📤 שתף</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            // 2. Multi-page array of pages (display one clean page at a time with navigation):
-            if (currentDoc.pages && currentDoc.pages.length > 1) {
-              return (
-                <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-                  <MultiPageViewer pages={currentDoc.pages} title={currentDoc.title} />
-                  <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
-                    <button 
-                      onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
-                      style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      <span>⬇️ הורדה</span>
-                    </button>
-                    <button 
-                      onClick={() => setSharingDoc(currentDoc)} 
-                      style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                    >
-                      <span>📤 שתף</span>
-                    </button>
-                  </div>
-                </div>
-              );
-            }
-
-            // 3. Single Image View with Pinch-to-Zoom:
-            const displayImageUrl = currentDoc.url || currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]);
-            return (
-              <div onClick={(e) => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '92%', height: '88%', position: 'relative' }}>
-                <div style={{ width: '100%', height: '74vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-                  <TransformWrapper initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
-                    <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <img 
-                        src={displayImageUrl} 
-                        style={{ maxWidth: '100%', maxHeight: '74vh', width: 'auto', height: 'auto', borderRadius: '8px', boxShadow: '0 8px 30px rgba(0,0,0,0.6)', userSelect: 'none' }} 
-                        alt={currentDoc.title || 'Preview'} 
-                      />
-                    </TransformComponent>
-                  </TransformWrapper>
-                </div>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', zIndex: 200005 }}>
-                  <button 
-                    onClick={() => downloadDocument(currentDoc.url, currentDoc.title)} 
-                    style={{ background: 'rgba(30, 41, 59, 0.85)', backdropFilter: 'blur(4px)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', padding: '0.6rem 1.4rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                  >
-                    <span>⬇️ הורדה</span>
-                  </button>
-                  <button 
-                    onClick={() => setSharingDoc(currentDoc)} 
-                    style={{ background: '#10b981', color: 'white', border: 'none', padding: '0.6rem 1.6rem', borderRadius: '24px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(16,185,129,0.3)' }}
-                  >
-                    <span>📤 שתף</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
-
-          {timelinePreview.index < timelinePreview.docs.length - 1 && (
-            <button 
-              onClick={(e) => { e.stopPropagation(); setTimelinePreview(prev => ({ ...prev!, index: prev!.index + 1 })); }} 
-              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '50px', height: '50px', fontSize: '2rem', cursor: 'pointer', zIndex: 200005 }}
-            >
-              ›
-            </button>
-          )}
-
-          <button 
-            onClick={() => setTimelinePreview(null)} 
-            style={{ position: 'absolute', top: '20px', right: '20px', background: 'rgba(0,0,0,0.6)', color: 'white', border: '1px solid rgba(255,255,255,0.3)', borderRadius: '50%', width: '40px', height: '40px', fontSize: '1.5rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 200005 }}
-          >
-            ✕
-          </button>
-
-          {timelinePreview.docs.length > 1 && (
-            <div style={{ position: 'absolute', bottom: '20px', left: '50%', transform: 'translateX(-50%)', color: 'white', background: 'rgba(0,0,0,0.5)', padding: '5px 15px', borderRadius: '20px', fontSize: '0.9rem', zIndex: 200005 }}>
-               {timelinePreview.index + 1} / {timelinePreview.docs.length}
-            </div>
-          )}
-        </div>
+        <UniversalViewerModal
+          docs={timelinePreview.docs}
+          initialIndex={timelinePreview.index}
+          onClose={() => setTimelinePreview(null)}
+          onShare={(doc) => setSharingDoc(doc)}
+          onDownload={(url, title) => downloadDocument(url, title)}
+        />
       )}
 
       {/* Share Choice Modal (Single Source of Truth) */}
