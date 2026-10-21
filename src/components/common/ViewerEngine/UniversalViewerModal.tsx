@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument } from '@/utils/documentUtils';
+import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 
 export interface ViewerDocument {
   id?: string;
@@ -331,7 +332,6 @@ export default function UniversalViewerModal({
         {(() => {
           // ── Case 1: Legacy Raw PDF without multi-page images ───────────────
           if (isPdf && !isMultiPage) {
-            const pdfSrc = currentDoc.url;
             return (
               <div
                 style={{
@@ -341,22 +341,12 @@ export default function UniversalViewerModal({
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  background: '#1e293b',
-                  borderRadius: '16px',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  overflow: 'hidden',
                   position: 'relative'
                 }}
               >
-                <iframe
-                  src={pdfSrc}
-                  title={currentDoc.title || 'PDF Preview'}
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    border: 'none',
-                    backgroundColor: '#ffffff'
-                  }}
+                <DynamicPdfScrollPreview
+                  url={currentDoc.url}
+                  title={currentDoc.title}
                 />
               </div>
             );
