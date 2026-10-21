@@ -123,6 +123,7 @@ export interface ShareOptions {
   asPdf?: boolean;
   pages?: string[];
   pdfOptions?: ExportPdfOptions;
+  onReady?: () => void;
 }
 
 /**
@@ -156,6 +157,11 @@ export async function shareDocument(url: string, title?: string, options: ShareO
         clearTimeout(timeoutId);
         console.warn('Direct file fetch failed, falling back to link share/download', fetchErr);
       }
+    }
+
+    // Close any loading dialog/modal immediately before opening the OS native share sheet
+    if (options.onReady) {
+      options.onReady();
     }
 
     if (fileToShare && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {

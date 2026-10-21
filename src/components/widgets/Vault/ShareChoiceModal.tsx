@@ -27,12 +27,15 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
 
   const handleShare = async (asPdf: boolean) => {
     setIsSharing(true);
-    // Auto-close modal after brief delay or completion so UI never gets stuck
     try {
       await shareDocument(doc.url, doc.title, {
         asPdf,
         pages: doc.pages,
-        pdfOptions: { format: 'pages' }
+        pdfOptions: { format: 'pages' },
+        onReady: () => {
+          setIsSharing(false);
+          onClose();
+        }
       });
     } catch (err) {
       console.error('Share failed', err);
