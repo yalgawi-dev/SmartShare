@@ -225,7 +225,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.5.6</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.5.7</span>
       </div>
 
       {events.length === 0 ? (
@@ -606,9 +606,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               {/* Documents List / Grid */}
               <div style={{ flex: 1, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '0.75rem', padding: '0.25rem 0.25rem 1rem 0.25rem' }}>
                 {filteredDocs.length > 0 ? filteredDocs.map((doc, docIdx) => {
+                  const cleanDocId = String(doc.id || '').trim();
+                  const cleanDocUrl = String(doc.url || '').trim();
                   const isSelected = showDocSelector.taskId 
                     ? (currentEvent?.tasks?.find(t => t.id === showDocSelector.taskId)?.documentId === doc.id)
-                    : (currentEvent?.documentIds || []).includes(doc.id);
+                    : (currentEvent?.documentIds || []).some(id => {
+                        const sId = String(id || '').trim();
+                        return sId === cleanDocId || (cleanDocUrl && sId === cleanDocUrl);
+                      });
 
                   return (
                     <div 
@@ -619,7 +624,10 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                         } else {
                           if (currentEvent) {
                             const newIds = isSelected 
-                              ? (currentEvent.documentIds || []).filter(id => id !== doc.id)
+                              ? (currentEvent.documentIds || []).filter(id => {
+                                  const sId = String(id || '').trim();
+                                  return sId !== cleanDocId && sId !== cleanDocUrl;
+                                })
                               : [...(currentEvent.documentIds || []), doc.id];
                             onUpdateEvent(currentEvent.id, { documentIds: newIds });
                           }

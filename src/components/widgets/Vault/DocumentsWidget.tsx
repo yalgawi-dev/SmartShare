@@ -16,7 +16,7 @@ import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 import MultiPageViewer from './MultiPageViewer';
 
 export interface DocumentsWidgetRef {
-  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => Promise<string | undefined>;
+  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string) => Promise<string | undefined>;
   uploadAndLinkDocument?: (shelfId: string, eventId: string, url: string, type: 'document' | 'image' | 'pdf') => Promise<void>;
 }
 
@@ -29,7 +29,7 @@ type ViewMode = 'feed' | 'grid' | 'circles';
 
 export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetProps>(({ space, activePartnersCount }, ref) => {
   const { user } = useAuth();
-  const { addShelf, updateShelf, addDocument, updateDocument, removeDocument, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment } = useSpaces();
+  const { addShelf, updateShelf, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment } = useSpaces();
   
   const shelves = space.shelves || [];
   const documents = space.documents || [];
@@ -121,7 +121,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
-    addDocument: async (url, type, allPages) => {
+    addDocument: async (url, type, allPages, targetEventId) => {
       let targetShelfId = activeShelfId;
       
       if (!targetShelfId) {
@@ -137,7 +137,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
       
-      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages);
+      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId);
     }
   }));
 
@@ -244,7 +244,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       setDragOverDocId(null);
     };
 
-    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[]) => {
+    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string) => {
       // Optimistic UI update
       const tempId = 'temp-' + Date.now();
       const title = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
@@ -267,8 +267,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           finalThumbnailUrl = await uploadImageToStorage(previewUrl, thumbPath);
         }
 
-        // Save to real database
-        const docId = addDocument(space.id, { 
+        const docPayload = {
           shelfId, 
           url: finalUrl, 
           type, 
@@ -276,7 +275,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           addedBy: user?.id || '', 
           thumbnailUrl: finalThumbnailUrl,
           pages: allPages && allPages.length > 0 ? allPages : undefined
-        });
+        };
+
+        // Save to real database - atomically link if targetEventId is present
+        let docId: string;
+        if (targetEventId && targetEventId !== '__new_station__') {
+          docId = addDocumentAndLinkToEvent(space.id, docPayload, targetEventId);
+        } else {
+          docId = addDocument(space.id, docPayload);
+        }
+
         return docId;
       } catch (e) {
         console.error("Failed to upload document", e);
@@ -413,7 +421,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.5.6</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.5.7</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -465,13 +473,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             onRemoveComment={(id, cid) => removeShelfEventComment(space.id, id, cid)} 
             onPreviewDocs={(docs, index) => setPreviewState({ docs, index })}
             onUploadAndLink={async (eventId, url) => {
-               const docId = await handleSaveDocument(activeShelfId, url, 'document');
-               if (docId) {
-                  const ev = space.shelfEvents?.find(e => e.id === eventId);
-                  if (ev) {
-                     updateShelfEvent(space.id, eventId, { documentIds: [...(ev.documentIds || []), docId] });
-                  }
-               }
+               await handleSaveDocument(activeShelfId, url, 'document', undefined, eventId);
             }}
           />
         ) : (
