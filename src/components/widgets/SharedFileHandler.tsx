@@ -571,43 +571,47 @@ export default function SharedFileHandler() {
       {isModalOpen && (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 99999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 99999,
+        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+        backdropFilter: 'blur(6px)'
       }}>
         <div style={{
-          background: '#fff', borderRadius: '16px', padding: '1.5rem',
-          width: '100%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)',
-          maxHeight: '90vh', overflowY: 'auto'
+          background: '#ffffff', borderRadius: '24px', padding: '1.5rem',
+          width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)',
+          maxHeight: '92vh', overflowY: 'auto', border: '1px solid #f1f5f9', direction: 'rtl'
         }}>
-          {/* Industry Banner for External Share */}
+          {/* Header Banner */}
           <div style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)',
-            color: '#fff', padding: '0.6rem 0.85rem', borderRadius: '10px',
-            marginBottom: '1rem', boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)'
+            color: '#fff', padding: '0.65rem 0.95rem', borderRadius: '14px',
+            marginBottom: '1.25rem', boxShadow: '0 4px 14px rgba(79, 70, 229, 0.28)'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.25rem', animation: 'spin 4s linear infinite' }}>🔄</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>📥</span>
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>v6.8.20</span></div>
-                <div style={{ fontSize: '0.72rem', opacity: 0.9 }}>מנותב ל: {routeDestination === 'personal' ? 'מחסן אישי פרטי' : (displayedSpaces.find((s:any) => s.id === selectedSpaceId)?.title || 'בחר פרויקט')}</div>
+                <div style={{ fontSize: '0.9rem', fontWeight: '800', letterSpacing: '-0.01em' }}>
+                  קליטת שיתוף <span style={{ fontSize: '0.72rem', opacity: 0.85, fontWeight: 'normal' }}>v6.8.21</span>
+                </div>
+                <div style={{ fontSize: '0.74rem', opacity: 0.92 }}>
+                  {routeDestination === 'personal' 
+                    ? 'מחסן אישי פרטי (ללא OCR)' 
+                    : (displayedSpaces.find((s:any) => s.id === selectedSpaceId)?.title || 'בחר פרויקט')}
+                </div>
               </div>
             </div>
-            <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.25)', padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold' }}>
+            <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.22)', padding: '0.25rem 0.55rem', borderRadius: '20px', fontWeight: '800' }}>
               {sharedAllPages && sharedAllPages.length > 1 ? `${sharedAllPages.length} עמודים` : `${sharedFiles.length} ${sharedFiles.length > 1 ? 'קבצים' : 'קובץ'}`}
             </span>
           </div>
 
-          <h2 style={{ marginTop: 0, marginBottom: '0.5rem', color: '#1e293b', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>📄</span> בחר לאן לנתב {sharedFiles.length > 1 ? 'את המסמכים' : 'את המסמך'}
-          </h2>
-          
-          <p style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.25rem' }}>
-            הקובץ התקבל בהצלחה. בחר את היעד והמערכת תעביר אותו לשם מיד:
-          </p>
-
+          {/* Document Preview Thumbnails */}
           {sharedFiles.length > 0 && (
-            <div style={{ marginBottom: '1.5rem', borderRadius: '8px', overflow: 'hidden', height: '120px', backgroundColor: '#f1f5f9', display: 'flex', alignItems: 'center', justifyItems: 'center', gap: '0.5rem', padding: '0.5rem', overflowX: 'auto' }}>
+            <div style={{ 
+              marginBottom: '1.25rem', borderRadius: '12px', height: '90px', 
+              backgroundColor: '#f8fafc', border: '1px solid #e2e8f0',
+              display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', overflowX: 'auto' 
+            }}>
               {sharedFiles.slice(0, 3).map((uri, idx) => {
                 const isPdf = uri.includes('.pdf') || uri.startsWith('data:application/pdf');
                 return isPdf ? (
@@ -615,131 +619,252 @@ export default function SharedFileHandler() {
                     key={idx}
                     base64Uri={uri}
                     onClick={() => setZoomedIndex(idx)}
-                    style={{ height: '100%', width: '80px', flexShrink: 0, objectFit: 'cover', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                    style={{ height: '100%', width: '70px', flexShrink: 0, objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   />
                 ) : (
                   <img 
                     key={idx} 
                     src={uri} 
                     alt="Preview" 
-                    style={{ height: '100%', width: '80px', flexShrink: 0, objectFit: 'cover', cursor: 'zoom-in', borderRadius: '4px', border: '1px solid #cbd5e1' }} 
+                    style={{ height: '100%', width: '70px', flexShrink: 0, objectFit: 'cover', cursor: 'zoom-in', borderRadius: '8px', border: '1px solid #cbd5e1' }} 
                     onClick={() => setZoomedIndex(idx)}
                   />
                 );
               })}
               {sharedFiles.length > 3 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '80px', backgroundColor: '#e2e8f0', borderRadius: '8px', fontWeight: 'bold' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', minWidth: '65px', backgroundColor: '#e2e8f0', borderRadius: '8px', fontWeight: '800', fontSize: '0.85rem', color: '#475569' }}>
                   +{sharedFiles.length - 3}
                 </div>
               )}
+              {sharedAllPages && sharedAllPages.length > 1 && (
+                <div style={{ fontSize: '0.72rem', color: '#4f46e5', fontWeight: '700', padding: '0 0.4rem', whiteSpace: 'nowrap' }}>
+                  מסמך מרובה עמודים ({sharedAllPages.length})
+                </div>
+              )}
             </div>
           )}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-            <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>בחר יעד ניתוב:</label>
-            
-            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'personal' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'personal' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-              <input type="radio" name="routeDest" checked={routeDestination === 'personal'} onChange={() => setRouteDestination('personal')} style={{ marginTop: '0.25rem' }} />
-              <div>
-                <div style={{ fontWeight: 'bold', color: '#1e293b' }}>📥 למחסן מיון אישי (פרטי)</div>
-                <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>רק אתה רואה את זה. שומר מיד במחסן שלך ומאפשר למיין לפרויקטים אחר כך.</div>
-              </div>
+          {/* STEP 1: Top-Level Destination Switcher */}
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#475569', marginBottom: '0.45rem', display: 'block' }}>
+              לאן לשמור את הקובץ?
             </label>
-
-            {spaceHasFinance && (
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'direct' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#f8fafc', borderRadius: '8px', opacity: sharedFiles.length > 1 ? 0.5 : 1 }}>
-                <input type="radio" name="routeDest" checked={routeDestination === 'direct'} disabled={sharedFiles.length > 1} onChange={() => setRouteDestination('direct')} style={{ marginTop: '0.25rem' }} />
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#1e293b' }}>🧾 להוצאות הפרויקט + סריקת AI מיידית {sharedFiles.length > 1 ? '(קובץ בודד)' : ''}</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>פותח ישירות את טופס ההוצאה ומפעיל סריקת AI מהירה תוך 2-3 שניות.</div>
-                </div>
-              </label>
-            )}
-
-            {spaceHasFinance && (
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-                <input type="radio" name="routeDest" checked={routeDestination === 'inbox'} onChange={() => setRouteDestination('inbox')} style={{ marginTop: '0.25rem' }} />
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#1e293b' }}>📥 למחסן ההמתנה של הפרויקט</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>נכנס למחסן המשותף של הפרויקט כדי שכל השותפים יוכלו לראות ולטפל.</div>
-                </div>
-              </label>
-            )}
-
-            {spaceHasVault && (
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer', padding: '0.75rem', border: routeDestination === 'vault' ? '2px solid #4f46e5' : '2px solid transparent', backgroundColor: routeDestination === 'vault' ? '#eef2ff' : '#f8fafc', borderRadius: '8px' }}>
-                <input type="radio" name="routeDest" checked={routeDestination === 'vault'} onChange={() => setRouteDestination('vault')} style={{ marginTop: '0.25rem' }} />
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#1e293b' }}>🗂️ למחסן מסמכים (מדף בפרויקט)</div>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem' }}>שומר מסמך/חוזה ישירות לתוך מדף במחסן המסמכים ללא פתיחת הוצאה.</div>
-                </div>
-              </label>
-            )}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '12px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  if (routeDestination === 'personal') {
+                    if (spaceHasVault) setRouteDestination('vault');
+                    else if (spaceHasFinance) setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
+                  }
+                }}
+                style={{
+                  padding: '0.65rem 0.5rem', borderRadius: '10px', border: 'none',
+                  background: routeDestination !== 'personal' ? '#ffffff' : 'transparent',
+                  color: routeDestination !== 'personal' ? '#1e293b' : '#64748b',
+                  fontWeight: routeDestination !== 'personal' ? '800' : '600',
+                  fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem',
+                  boxShadow: routeDestination !== 'personal' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🏠</span> לפרויקט
+              </button>
+              <button
+                type="button"
+                onClick={() => setRouteDestination('personal')}
+                style={{
+                  padding: '0.65rem 0.5rem', borderRadius: '10px', border: 'none',
+                  background: routeDestination === 'personal' ? '#ffffff' : 'transparent',
+                  color: routeDestination === 'personal' ? '#1e293b' : '#64748b',
+                  fontWeight: routeDestination === 'personal' ? '800' : '600',
+                  fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem',
+                  boxShadow: routeDestination === 'personal' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>📥</span> למחסן אישי
+              </button>
+            </div>
           </div>
 
-          {routeDestination !== 'personal' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מרחב עבודה (פרויקט):</label>
-              
-              {activeSpaces.length > 5 && (
-                <input 
-                  type="text" 
-                  placeholder="חיפוש מרחב..." 
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.95rem', marginBottom: '0.25rem' }}
-                />
-              )}
-
-              <select 
-                value={selectedSpaceId} 
-                onChange={e => setSelectedSpaceId(e.target.value)}
-                style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
-              >
-                {displayedSpaces.length === 0 && <option value="">לא נמצאו מרחבים תואמים</option>}
-                {displayedSpaces.map((s: any) => (
-                  <option key={s.id} value={s.id}>{s.title}</option>
-                ))}
-              </select>
+          {/* IF PERSONAL INBOX: Simple, Zero Clutter Info */}
+          {routeDestination === 'personal' && (
+            <div style={{ 
+              background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', 
+              padding: '1rem', marginBottom: '1.25rem', textAlign: 'right' 
+            }}>
+              <div style={{ fontWeight: '800', color: '#1e293b', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
+                🔒 מחסן מיון אישי פרטי
+              </div>
+              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', lineHeight: '1.45' }}>
+                הקובץ יישמר במחסן האישי שלך בענן <strong>ללא סריקת OCR</strong>. רק אתה רואה אותו ותוכל למיין אותו בהמשך לכל פרויקט שתרצה.
+              </p>
             </div>
           )}
 
-
-            {routeDestination === 'vault' && selectedSpaceId && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1.5rem' }}>
-                <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>בחר מדף יעד במחסן המסמכים:</label>
+          {/* IF PROJECT ROUTE: Space Selector + Clean Action Flow */}
+          {routeDestination !== 'personal' && (
+            <>
+              {/* Space Picker */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#475569', marginBottom: '0.45rem', display: 'block' }}>
+                  בחר פרויקט (מרחב עבודה):
+                </label>
+                {activeSpaces.length > 5 && (
+                  <input 
+                    type="text" 
+                    placeholder="חיפוש מהיר..." 
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.5rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.85rem', marginBottom: '0.4rem' }}
+                  />
+                )}
                 <select 
-                  value={selectedShelfId} 
-                  onChange={e => setSelectedShelfId(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
+                  value={selectedSpaceId} 
+                  onChange={e => setSelectedSpaceId(e.target.value)}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.85rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.95rem', fontWeight: '700', backgroundColor: '#f8fafc', color: '#1e293b' }}
                 >
-                  {(activeSpaces.find((s: any) => s.id === selectedSpaceId)?.shelves || []).map((sh: any) => (
-                    <option key={sh.id} value={sh.id}>{sh.icon || '📁'} {sh.name}</option>
-                  ))}
-                  <option value="__new__">+ צור מדף חדש בשם &quot;כללי&quot;</option>
-                </select>
-              </div>
-            )}
-
-            {routeDestination !== 'personal' && routeDestination !== 'vault' && selectedSpaceId && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2rem' }}>
-                <label style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>מי שילם בפועל? (רשות):</label>
-                <select 
-                  value={selectedPayerId} 
-                  onChange={e => setSelectedPayerId(e.target.value)}
-                  style={{ padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '1rem', backgroundColor: '#f8fafc' }}
-                >
-                  <option value="">אני ({user?.realName || 'ברירת מחדל'})</option>
-                  {(displayedSpaces.find((s: any) => s.id === selectedSpaceId)?.members || []).map((m: any) => (
-                    <option key={m.userId} value={m.userId}>{m.name || 'שותף'}</option>
+                  {displayedSpaces.length === 0 && <option value="">לא נמצאו מרחבים תואמים</option>}
+                  {displayedSpaces.map((s: any) => (
+                    <option key={s.id} value={s.id}>{s.title}</option>
                   ))}
                 </select>
               </div>
-            )}
 
+              {/* STEP 2: Intent Selection within Space */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#475569', marginBottom: '0.45rem', display: 'block' }}>
+                  מה סוג הפעולה בפרויקט?
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  
+                  {/* Option 1: Documents Vault (NO OCR) */}
+                  {spaceHasVault && (
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
+                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
+                      border: routeDestination === 'vault' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                      backgroundColor: routeDestination === 'vault' ? '#eef2ff' : '#ffffff'
+                    }}>
+                      <input 
+                        type="radio" 
+                        name="spaceAction" 
+                        checked={routeDestination === 'vault'} 
+                        onChange={() => setRouteDestination('vault')}
+                        style={{ marginTop: '0.2rem' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
+                          🗂️ מסמך כללי למדף (חוזה, תוכנית, קובץ)
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                          שומר ישירות לתיקייה בפרויקט <strong>ללא OCR</strong>.
+                        </div>
+                      </div>
+                    </label>
+                  )}
 
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: routeDestination === 'personal' ? '1rem' : 0 }}>
+                  {/* Option 2: Project Inbox / Waiting room (NO Immediate OCR) */}
+                  {spaceHasFinance && (
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
+                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
+                      border: routeDestination === 'inbox' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                      backgroundColor: routeDestination === 'inbox' ? '#eef2ff' : '#ffffff'
+                    }}>
+                      <input 
+                        type="radio" 
+                        name="spaceAction" 
+                        checked={routeDestination === 'inbox'} 
+                        onChange={() => setRouteDestination('inbox')}
+                        style={{ marginTop: '0.2rem' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
+                          📥 מחסן ההמתנה של הפרויקט
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                          שומר במחסן המשותף לטיפול מאוחר יותר של כל השותפים.
+                        </div>
+                      </div>
+                    </label>
+                  )}
+
+                  {/* Option 3: Direct Expense with OCR */}
+                  {spaceHasFinance && (
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
+                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
+                      border: routeDestination === 'direct' ? '2px solid #4f46e5' : '1px solid #e2e8f0',
+                      backgroundColor: routeDestination === 'direct' ? '#eef2ff' : '#ffffff',
+                      opacity: sharedFiles.length > 1 ? 0.6 : 1
+                    }}>
+                      <input 
+                        type="radio" 
+                        name="spaceAction" 
+                        checked={routeDestination === 'direct'} 
+                        disabled={sharedFiles.length > 1}
+                        onChange={() => setRouteDestination('direct')}
+                        style={{ marginTop: '0.2rem' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#1e293b' }}>
+                          🧾 הוצאה כספית ישירה + סריקת AI
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.15rem' }}>
+                          פותח טופס הוצאה ומפעיל חילוץ כספי (ספק, סכום ומע&quot;מ).
+                        </div>
+                      </div>
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {/* Sub-step A: Shelf Picker if Vault Selected */}
+              {routeDestination === 'vault' && selectedSpaceId && (
+                <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
+                    בחר מדף יעד במסמכים:
+                  </label>
+                  <select 
+                    value={selectedShelfId} 
+                    onChange={e => setSelectedShelfId(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+                  >
+                    {(activeSpaces.find((s: any) => s.id === selectedSpaceId)?.shelves || []).map((sh: any) => (
+                      <option key={sh.id} value={sh.id}>{sh.icon || '📁'} {sh.name}</option>
+                    ))}
+                    <option value="__new__">+ צור מדף חדש בשם &quot;כללי&quot;</option>
+                  </select>
+                </div>
+              )}
+
+              {/* Sub-step B: Payer Selection ONLY if Direct Expense Selected */}
+              {routeDestination === 'direct' && selectedSpaceId && (
+                <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
+                    מי שילם בפועל?
+                  </label>
+                  <select 
+                    value={selectedPayerId} 
+                    onChange={e => setSelectedPayerId(e.target.value)}
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+                  >
+                    <option value="">אני ({user?.realName || 'ברירת מחדל'})</option>
+                    {(displayedSpaces.find((s: any) => s.id === selectedSpaceId)?.members || []).map((m: any) => (
+                      <option key={m.userId} value={m.userId}>{m.name || 'שותף'}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Action Buttons */}
+          <div style={{ display: 'flex', gap: '0.65rem', marginTop: '1.25rem' }}>
             <button 
+              type="button"
               onClick={() => { 
                 isCancelledRef.current = true;
                 setIsModalOpen(false); 
@@ -747,24 +872,32 @@ export default function SharedFileHandler() {
                 setSharedAllPages(null);
                 clearAllShareStores();
               }}
-              style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
+              style={{ flex: 1, padding: '0.8rem', borderRadius: '12px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: '800', fontSize: '0.9rem', cursor: 'pointer' }}
             >
               ביטול
             </button>
             <button 
+              type="button"
               onClick={handleProcess}
               disabled={(routeDestination !== 'personal' && !selectedSpaceId) || isProcessing}
-              style={{ flex: 2, padding: '0.75rem', borderRadius: '8px', border: 'none', background: '#4f46e5', color: '#fff', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1 }}
+              style={{ 
+                flex: 2, padding: '0.8rem', borderRadius: '12px', border: 'none', 
+                background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)', 
+                color: '#fff', fontWeight: '800', fontSize: '0.9rem', 
+                cursor: isProcessing ? 'not-allowed' : 'pointer', 
+                opacity: (routeDestination !== 'personal' && !selectedSpaceId) || isProcessing ? 0.6 : 1,
+                boxShadow: '0 4px 12px rgba(79, 70, 229, 0.35)'
+              }}
             >
               {isProcessing 
                 ? 'מעביר נתונים...' 
                 : routeDestination === 'personal'
                   ? '📥 שמור במחסן האישי'
-                  : routeDestination === 'direct'
-                    ? '🧾 פתח הוצאה והפעל סריקה ⚡'
-                    : routeDestination === 'vault'
-                      ? '🗂️ שמור במחסן מסמכים'
-                      : '📥 העבר למחסן הפרויקט'}
+                  : routeDestination === 'vault'
+                    ? '🗂️ שמור במדף המסמכים'
+                    : routeDestination === 'inbox'
+                      ? '📥 העבר למחסן ההמתנה'
+                      : '🧾 פתח והפעל סריקה ⚡'}
             </button>
           </div>
         </div>
