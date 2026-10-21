@@ -30,7 +30,7 @@ export interface UniversalViewerModalProps {
 
 /**
  * UniversalViewerModal - Single Source of Truth for document & image viewing across SmartShare.
- * v2.5.3 Updates:
+ * v2.5.4 Updates:
  * - Perfect vertical & horizontal centering for images and documents.
  * - Smooth touch swipe left/right (גרירה עם האצבע) between documents when zoomed out.
  * - Embedded inline PDF preview using responsive iframe.
@@ -209,7 +209,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.5.3
+            v2.5.4
           </span>
           <span
             style={{
@@ -454,7 +454,8 @@ export default function UniversalViewerModal({
           }
 
           // ── Case 3: Single Page Document (JPEG / Image) ────────────────────
-          const displayUrl = currentDoc.url || currentDoc.thumbnailUrl || (currentDoc.pages && currentDoc.pages[0]);
+          const fullUrl = currentDoc.url || (currentDoc.pages && currentDoc.pages[0]);
+          const thumbUrl = currentDoc.thumbnailUrl;
           return (
             <div
               style={{
@@ -462,7 +463,8 @@ export default function UniversalViewerModal({
                 height: '100%',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                position: 'relative'
               }}
             >
               <TransformWrapper
@@ -488,25 +490,53 @@ export default function UniversalViewerModal({
                     height: '100%',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    position: 'relative'
                   }}
                 >
-                  <img
-                    src={displayUrl}
-                    alt={currentDoc.title || 'מסמך'}
-                    loading="eager"
-                    style={{
-                      maxWidth: '92vw',
-                      maxHeight: '76vh',
-                      width: 'auto',
-                      height: 'auto',
-                      objectFit: 'contain',
-                      borderRadius: '10px',
-                      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
-                      userSelect: 'none',
-                      border: '1px solid rgba(255, 255, 255, 0.08)'
-                    }}
-                  />
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {thumbUrl && thumbUrl !== fullUrl && (
+                      <img
+                        src={thumbUrl}
+                        alt=""
+                        aria-hidden="true"
+                        style={{
+                          maxWidth: '92vw',
+                          maxHeight: '76vh',
+                          width: 'auto',
+                          height: 'auto',
+                          objectFit: 'contain',
+                          borderRadius: '10px',
+                          filter: 'blur(8px)',
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          margin: 'auto',
+                          opacity: 0.8
+                        }}
+                      />
+                    )}
+                    <img
+                      src={fullUrl || thumbUrl}
+                      alt={currentDoc.title || 'מסמך'}
+                      loading="eager"
+                      style={{
+                        maxWidth: '92vw',
+                        maxHeight: '76vh',
+                        width: 'auto',
+                        height: 'auto',
+                        objectFit: 'contain',
+                        borderRadius: '10px',
+                        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
+                        userSelect: 'none',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        position: 'relative',
+                        zIndex: 2
+                      }}
+                    />
+                  </div>
                 </TransformComponent>
               </TransformWrapper>
             </div>

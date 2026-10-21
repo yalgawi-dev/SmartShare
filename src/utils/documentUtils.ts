@@ -133,7 +133,7 @@ export interface ShareOptions {
 export async function shareDocument(url: string, title?: string, options: ShareOptions = {}): Promise<void> {
   try {
     const cleanTitle = (title || 'document').replace(/[/\\?%*:|"<>]/g, '-');
-    let fileToShare: File;
+    let fileToShare: File | null = null;
 
     if (options.asPdf && !url.includes('.pdf') && !url.startsWith('data:application/pdf')) {
       // Convert on-the-fly to PDF
@@ -141,22 +141,35 @@ export async function shareDocument(url: string, title?: string, options: ShareO
       const pdfBlob = await convertImagesToPdfBlob(imagesToConvert, options.pdfOptions);
       fileToShare = new File([pdfBlob], `${cleanTitle}.pdf`, { type: 'application/pdf' });
     } else {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
-      const ext = isPdf ? 'pdf' : 'jpg';
-      const mime = isPdf ? 'application/pdf' : 'image/jpeg';
-      fileToShare = new File([blob], `${cleanTitle}.${ext}`, { type: mime });
+      // Fetch with 8s timeout to prevent infinite UI freeze
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
+      try {
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        const blob = await res.blob();
+        const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
+        const ext = isPdf ? 'pdf' : 'jpg';
+        const mime = isPdf ? 'application/pdf' : 'image/jpeg';
+        fileToShare = new File([blob], `${cleanTitle}.${ext}`, { type: mime });
+      } catch (fetchErr) {
+        clearTimeout(timeoutId);
+        console.warn('Direct file fetch failed, falling back to link share/download', fetchErr);
+      }
     }
 
-    if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
+    if (fileToShare && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
       await navigator.share({ files: [fileToShare], title: title || 'מסמך' });
+    } else if (typeof navigator !== 'undefined' && navigator.share && url) {
+      await navigator.share({ title: title || 'מסמך', url: url });
     } else {
       await downloadDocument(url, title, options);
     }
-  } catch (e) {
-    console.error('Error sharing document', e);
-    await downloadDocument(url, title, options);
+  } catch (e: any) {
+    if (e?.name !== 'AbortError') {
+      console.error('Error sharing document', e);
+      await downloadDocument(url, title, options);
+    }
   }
 }
 
