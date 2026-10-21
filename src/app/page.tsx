@@ -7,6 +7,7 @@ import styles from './page.module.css';
 import Link from 'next/link';
 import { useSpaces } from './context/SpacesContext';
 import { resolveUserSpaceIdentity } from '../utils/partnerUtils';
+import { getUnreadAlertsCount } from '../utils/spaceAlerts';
 import { useAuth } from './context/AuthContext';
 import { getFeatureById } from './data/features';
 import AuthModal from '../components/auth/AuthModal';
@@ -48,71 +49,7 @@ export default function Dashboard() {
   const [showPersonalInbox, setShowPersonalInbox] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadMessagesCount = useMemo(() => {
-    if (!user) return 0;
-    const dismissedAlerts = user.dismissedAlerts || [];
-    let count = 0;
-    spaces.forEach(space => {
-      const { myId: myActualId, isCreator } = resolveUserSpaceIdentity(space, user);
-      const hasPartners = space.features?.includes('partners');
-      
-      (space.invoices || []).forEach(inv => {
-        if (!dismissedAlerts.includes('inv-' + inv.id)) {
-          if ((inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') && (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id)) count++;
-        }
-      });
-      
-      if (hasPartners) {
-        (space.members || []).forEach(member => {
-          if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('disp-' + member.userId)) count++;
-          if (member.extensionMessage && isCreator && !dismissedAlerts.includes('ext-' + member.userId)) count++;
-          if (member.shareChangeRequest && (isCreator || member.userId === user.id) && !dismissedAlerts.includes('share-' + member.userId)) count++;
-        });
-
-        if (isCreator) {
-          (space.pendingInvites || []).forEach((invite: any) => {
-            if (!dismissedAlerts.includes('invt-' + invite.token)) count++;
-          });
-        }
-      }
-
-      // Chat Messages (Group + P2P) from space.conversations
-      if (space.features?.includes('chat') && Array.isArray(space.conversations)) {
-        space.conversations.forEach((convo: any) => {
-          if (convo.id === 'group') {
-            const unreadGroup = (convo.messages || []).filter((msg: any) => {
-              if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-              const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-              return !isRead;
-            });
-            if (unreadGroup.length > 0) {
-              const latestMsg = unreadGroup[unreadGroup.length - 1];
-              if (!dismissedAlerts.includes('chat-group-' + space.id + '-' + latestMsg.id)) {
-                count += unreadGroup.length;
-              }
-            }
-          } else {
-            const participants = convo.participants || (convo.id ? convo.id.split('_') : []);
-            const isParticipant = participants.includes(myActualId) || (user?.id && participants.includes(user.id));
-            if (!isParticipant) return;
-
-            const unreadChatMessages = (convo.messages || []).filter((msg: any) => {
-              if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-              const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-              return !isRead;
-            });
-
-            if (unreadChatMessages.length > 0) {
-              const otherId = participants.find((p: string) => p !== myActualId && p !== user?.id) || participants[0];
-              const latestMsg = unreadChatMessages[unreadChatMessages.length - 1];
-              if (!dismissedAlerts.includes('chat-' + space.id + '-' + otherId + '-' + latestMsg.id)) {
-                count += unreadChatMessages.length;
-              }
-            }
-          }
-        });
-      }
-    });
-    return count;
+    return getUnreadAlertsCount(spaces, user);
   }, [spaces, user]);
 
   const [showShareModal, setShowShareModal] = useState(false);
@@ -301,7 +238,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.5.8</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.5.9</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>

@@ -926,7 +926,12 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         finalCreatorShare = calculatedCreatorShare;
       }
       
-      const newPendingInvites = (space.pendingInvites || []).filter(i => i.token !== userId && i.token !== inviteToken);
+      const newPendingInvites = (space.pendingInvites || []).filter(i => 
+        i.token !== userId && 
+        i.token !== inviteToken && 
+        (!i.targetUserId || i.targetUserId !== userId) &&
+        (!i.name || !newMember.name || i.name.trim() !== newMember.name.trim())
+      );
 
       return {
         ...space,
@@ -966,9 +971,16 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
           targetUserId: inviteData.targetUserId
       };
 
+      // Avoid duplicate pending invites for the same targetUserId or identical name
+      const existingInvites = (space.pendingInvites || []).filter((inv: any) => {
+        if (inviteData.targetUserId && inv.targetUserId === inviteData.targetUserId) return false;
+        if (inviteData.name && inviteData.name.trim() && inv.name && inv.name.trim() === inviteData.name.trim()) return false;
+        return true;
+      });
+
       return {
         ...space,
-        pendingInvites: [...(space.pendingInvites || []), newInvite]
+        pendingInvites: [...existingInvites, newInvite]
       };
     });
   };

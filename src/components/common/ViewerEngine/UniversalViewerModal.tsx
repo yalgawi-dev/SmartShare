@@ -31,7 +31,7 @@ export interface UniversalViewerModalProps {
 
 /**
  * UniversalViewerModal - Single Source of Truth for document & image viewing across SmartShare.
- * v2.5.8 Updates:
+ * v2.5.9 Updates:
  * - Perfect vertical & horizontal centering for images and documents.
  * - Smooth touch swipe left/right (גרירה עם האצבע) between documents when zoomed out.
  * - Embedded inline PDF preview using responsive iframe.
@@ -210,7 +210,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.5.8
+            v2.5.9
           </span>
           <span
             style={{

@@ -2,11 +2,11 @@ import React, { useState, useMemo } from 'react';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { universalSearch } from '../../utils/searchEngine';
-import { resolveUserSpaceIdentity } from '../../utils/partnerUtils';
+import { calculateSpaceNotifications, AppNotification } from '../../utils/spaceAlerts';
 import { useRouter } from 'next/navigation';
 
 export default function NotificationCenterWidget({ onClose }: { onClose: () => void }) {
-  const { spaces } = useSpaces();
+  const { spaces, declinePendingInvite } = useSpaces();
   const { user, updateProfile } = useAuth();
   const router = useRouter();
   
@@ -16,227 +16,20 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
 
   const dismissedAlerts = user?.dismissedAlerts || [];
 
-  const handleDismiss = (id: string, e: React.MouseEvent) => {
+  const handleDismiss = (id: string, e: React.MouseEvent, n?: AppNotification) => {
     e.stopPropagation();
     if (user && updateProfile) {
       updateProfile({ dismissedAlerts: [...dismissedAlerts, id] });
     }
+    if (n?.inviteToken && n?.spaceId && typeof declinePendingInvite === 'function') {
+      declinePendingInvite(n.spaceId, n.inviteToken);
+    }
   };
 
-  // Collect all SYSTEM alerts
+  // Collect all SYSTEM alerts from Single Source of Truth with strict deduplication
   const allNotifications = useMemo(() => {
-    if (!user) return [];
-    let notifs: any[] = [];
-    
-    spaces.forEach(space => {
-        const { myId: myActualId, isCreator } = resolveUserSpaceIdentity(space, user);
-        const hasPartners = space.features?.includes('partners');
-        
-        // 1. Invoices
-        (space.invoices || []).forEach(inv => {
-          if (inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') {
-            if (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id) {
-              notifs.push({
-                id: 'inv-' + inv.id,
-                type: 'invoice',
-                priority: inv.status === 'dispute' ? 'high' : 'medium',
-                title: inv.status === 'dispute' ? 'התראת מחלוקת חשבון' : 'התראת חשבונית ממתינה לטיפול',
-                text: 'חשבונית ע"ס ' + (inv.supplier || 'ספק לא ידוע') + ' בסך ₪' + (inv.amount || 0),
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: inv.date || new Date().toISOString(),
-                actionable: true
-              });
-            }
-          }
-        });
-  
-        if (hasPartners) {
-          // 2. Member Alerts
-          (space.members || []).forEach(member => {
-            if (member.status === "disputed" && member.disputeMessage && (isCreator || member.userId === user.id)) {
-              notifs.push({
-                id: 'disp-' + member.userId,
-                type: 'dispute',
-                priority: 'high',
-                title: isCreator ? 'התראת שותף: ' + member.name : 'התראת שותפות במרחב',
-                text: member.disputeMessage,
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: new Date().toISOString(),
-                actionable: true
-              });
-            }
-            
-            if (member.extensionMessage && isCreator) {
-              notifs.push({
-                id: 'ext-' + member.userId,
-                type: 'extension',
-                priority: 'medium',
-                title: 'בקשת הערכה: ' + member.name,
-                text: member.extensionMessage,
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: new Date().toISOString(),
-                actionable: true
-              });
-            }
-            
-            if (member.shareChangeRequest && (isCreator || member.userId === user.id)) {
-              notifs.push({
-                id: 'share-' + member.userId,
-                type: 'share',
-                priority: 'high',
-                title: 'שינוי אחוזים דורש אישור',
-                text: isCreator ? 'בקשה ממתינה לשינוי של ' + member.name : 'ממתין לאישור מנהל על שינוי אחוזים',
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: new Date().toISOString(),
-                actionable: isCreator
-              });
-            }
-          });
-
-          // 3. Pending Invites
-          if (isCreator) {
-            (space.pendingInvites || []).forEach((invite: any) => {
-               notifs.push({
-                id: 'invt-' + invite.token,
-                type: 'system',
-                priority: 'low',
-                title: 'הזמנה ממתינה',
-                text: 'שותף הוזמן ועדיין לא הצטרף',
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: new Date().toISOString(),
-                actionable: false
-              });
-            });
-
-            // 4. Pending Group Approval Requests
-            (space.pendingGroupMembers || []).forEach((pending: any) => {
-              notifs.push({
-                id: 'grp-pend-' + pending.id,
-                type: 'system',
-                priority: 'high',
-                title: 'בקשת הצטרפות לקבוצה',
-                text: `${pending.name} ממתין/ה לאישורך להצטרף למרחב.`,
-                spaceId: space.id,
-                spaceName: space.title || 'מרחב',
-                createdAt: pending.requestedAt || new Date().toISOString(),
-                actionable: true
-              });
-            });
-          }
-        }
-
-        // Chat Notifications (P2P + Group) - ONCE per space!
-        if (space.features?.includes('chat') && Array.isArray(space.conversations)) {
-          space.conversations.forEach((convo: any) => {
-            if (convo.id === 'group') {
-              const unreadGroup = (convo.messages || []).filter((msg: any) => {
-                if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-                const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-                return !isRead;
-              });
-
-              if (unreadGroup.length > 0) {
-                const latestMsg = unreadGroup[unreadGroup.length - 1];
-                notifs.push({
-                  id: 'chat-group-' + space.id + '-' + latestMsg.id,
-                  type: 'chat',
-                  chatType: 'group',
-                  targetId: 'group',
-                  priority: 'low',
-                  title: 'שיחה קבוצתית',
-                  text: 'יש לך ' + unreadGroup.length + ' הודעות חדשות בקבוצת המרחב.',
-                  spaceId: space.id,
-                  spaceName: space.title || 'מרחב',
-                  createdAt: latestMsg.createdAt || new Date().toISOString(),
-                  actionable: true
-                });
-              }
-            } else {
-              // P2P conversation
-              const participants = convo.participants || (convo.id ? convo.id.split('_') : []);
-              const isParticipant = participants.includes(myActualId) || (user?.id && participants.includes(user.id));
-              if (!isParticipant) return;
-
-              const unreadChatMessages = (convo.messages || []).filter((msg: any) => {
-                if (msg.senderId === user?.id || (myActualId && msg.senderId === myActualId)) return false;
-                const isRead = (user?.id && msg.readBy?.includes(user?.id)) || (myActualId && msg.readBy?.includes(myActualId));
-                return !isRead;
-              });
-
-              if (unreadChatMessages.length > 0) {
-                const otherId = participants.find((p: string) => p !== myActualId && p !== user?.id) || participants[0];
-                const isOtherCreator = otherId === space.creatorId || otherId === space.createdBy || otherId === 'creator';
-                let otherName = 'שותף במרחב';
-                if (isOtherCreator) {
-                  otherName = (space as any).creatorName || (space.members?.find((m: any) => m.userId === space.creatorId)?.name) || space.createdBy || 'מנהל המרחב';
-                } else {
-                  const partnerMember = (space.members || []).find((m: any) => m.userId === otherId);
-                  if (partnerMember) {
-                    otherName = partnerMember.name;
-                  } else {
-                    const invite = (space.pendingInvites || []).find((inv: any) => inv.token === otherId);
-                    if (invite) otherName = invite.name || 'שותף מוזמן';
-                  }
-                }
-
-                const latestMsg = unreadChatMessages[unreadChatMessages.length - 1];
-                notifs.push({
-                  id: 'chat-' + space.id + '-' + otherId + '-' + latestMsg.id,
-                  type: 'chat',
-                  chatType: 'p2p',
-                  targetId: otherId,
-                  priority: 'low',
-                  title: 'הודעה חדשה בפרטי מאת ' + otherName,
-                  text: 'יש לך ' + unreadChatMessages.length + ' הודעות חדשות מאת ' + otherName + '.',
-                  spaceId: space.id,
-                  spaceName: space.title || 'מרחב',
-                  createdAt: latestMsg.createdAt || new Date().toISOString(),
-                  actionable: true
-                });
-              }
-            }
-          });
-        }
-
-        // Legacy fallback for old member messages - ONCE per space
-        if (space.features?.includes('chat')) {
-          (space.members || []).forEach(member => {
-            const legacyUnread = (member.messages || []).filter((msg: any) => {
-              if (msg.readAt) return false;
-              if (isCreator && msg.from === 'partner') return true;
-              if (!isCreator && member.userId === user?.id && msg.from === 'creator') return true;
-              return false;
-            });
-            if (legacyUnread.length > 0) {
-              const latest = legacyUnread[legacyUnread.length - 1];
-              const notifId = 'chat-' + space.id + '-' + member.userId + '-' + (latest.id || latest.date || 'legacy');
-              if (!notifs.some(n => n.id === notifId)) {
-                notifs.push({
-                  id: notifId,
-                  type: 'chat',
-                  chatType: 'p2p',
-                  targetId: member.userId,
-                  priority: 'low',
-                  title: 'הודעה חדשה בפרטי',
-                  text: 'יש לך ' + legacyUnread.length + ' הודעות חדשות מאת ' + member.name + '.',
-                  spaceId: space.id,
-                  spaceName: space.title || 'מרחב',
-                  createdAt: latest.date || new Date().toISOString(),
-                  actionable: true
-                });
-              }
-            }
-          });
-        }
-      });
-    // Remove dismissed alerts
-    return notifs.filter(n => !dismissedAlerts.includes(n.id));
-  }, [spaces, user, dismissedAlerts]);
+    return calculateSpaceNotifications(spaces, user);
+  }, [spaces, user]);
 
   const processedNotifications = useMemo(() => {
     let result = [...allNotifications];
@@ -309,7 +102,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
               <path d="M4 7.00005L10.2 11.65C11.2667 12.45 12.7333 12.45 13.8 11.65L20 7" />
               <rect x="3" y="5" width="18" height="14" rx="2" />
             </svg>
-            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.5.8</span>
+            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.5.9</span>
           </h2>
           <button onClick={onClose} style={{ background: 'var(--bg-card)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '1.2rem' }}>✕</button>
         </div>
@@ -400,7 +193,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                   </div>
                   
                   <button 
-                    onClick={(e) => handleDismiss(n.id, e)}
+                    onClick={(e) => handleDismiss(n.id, e, n)}
                     style={{ background: 'white', border: '1px solid #d1d5db', borderRadius: '16px', padding: '0.3rem 0.6rem', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', color: '#4b5563', fontWeight: 'bold', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                     onMouseEnter={e => { e.currentTarget.style.background = '#f3f4f6'; e.currentTarget.style.borderColor = '#9ca3af'; }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'white'; e.currentTarget.style.borderColor = '#d1d5db'; }}
@@ -409,7 +202,10 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                     טופל ומחק
                   </button>
                 </div>
-                <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.4' }}>{n.text}</p>\n                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>\n                  {n.createdAt && !isNaN(new Date(n.createdAt).getTime()) ? new Date(n.createdAt).toLocaleDateString('he-IL', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' -') : ''}\n                </div>
+                <p style={{ margin: '0.5rem 0 0 0', color: 'var(--text-primary)', fontSize: '0.9rem', lineHeight: '1.4' }}>{n.text}</p>
+                <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                  {n.createdAt && !isNaN(new Date(n.createdAt).getTime()) ? new Date(n.createdAt).toLocaleDateString('he-IL', { year: '2-digit', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).replace(',', ' -') : ''}
+                </div>
               </div>
             ))
           )}
