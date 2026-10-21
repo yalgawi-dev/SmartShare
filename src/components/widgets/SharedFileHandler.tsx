@@ -1,12 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import PdfThumbnail from '../shared/PdfThumbnail';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
-import { downscaleBase64 } from '../../utils/imageOptimizer';
+import { downscaleBase64, extractPdfPages } from '../../utils/imageOptimizer';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf } = useSpaces();
@@ -15,6 +15,7 @@ export default function SharedFileHandler() {
   const [clientKeys, setClientKeys] = useState<any>({});
   const [guestTokens, setGuestTokens] = useState<string[]>([]);
   const [sharedFiles, setSharedFiles] = useState<string[]>([]);
+  const [sharedAllPages, setSharedAllPages] = useState<string[] | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedShelfId, setSelectedShelfId] = useState<string>('');
@@ -26,7 +27,35 @@ export default function SharedFileHandler() {
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [showChromeUpdateModal, setShowChromeUpdateModal] = useState(false);
+  const isCancelledRef = useRef(false);
   const router = useRouter();
+
+  // Thorough cleanup of all share caches across browser storage
+  const clearAllShareStores = () => {
+    try {
+      localStorage.removeItem('smartshare_latest_shared_backup');
+      localStorage.removeItem('smartshare_share_checkpoints');
+    } catch(e) {}
+
+    if (typeof caches !== 'undefined') {
+      try {
+        caches.open('smartshare-shared-cache').then(cache => {
+          cache.delete('/api/last-shared-files');
+        }).catch(() => {});
+      } catch(e) {}
+    }
+
+    try {
+      const dbReq = indexedDB.open('MySpaceDB');
+      dbReq.onsuccess = (e: any) => {
+        const db = e.target.result;
+        if (db.objectStoreNames.contains('sharedFiles')) {
+          const tx = db.transaction('sharedFiles', 'readwrite');
+          tx.objectStore('sharedFiles').delete('latest_shared');
+        }
+      };
+    } catch(e) {}
+  };
 
   useEffect(() => {
     try {
@@ -90,20 +119,37 @@ export default function SharedFileHandler() {
     return activeSpaces.filter((s: any) => s.title?.toLowerCase().includes(lowerQuery));
   }, [activeSpaces, searchQuery]);
 
-  const [checkpointLogs, setCheckpointLogs] = useState<string[]>([]);
-
-  const processFoundFiles = React.useCallback((rawResult: any, source: string) => {
-    if (!rawResult) return;
+  const processFoundFiles = React.useCallback(async (rawResult: any, source: string) => {
+    if (!rawResult || isCancelledRef.current) return;
     const files = Array.isArray(rawResult) ? rawResult : [rawResult];
     if (files.length === 0) return;
-    
-    try {
-      const stored = JSON.parse(localStorage.getItem('smartshare_share_checkpoints') || '[]');
-      const updated = Array.isArray(stored) ? stored : [];
-      updated.push('LOADED_FROM_' + source + ': ' + files.length + ' files');
-      localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(updated));
-      setCheckpointLogs(updated);
-    } catch(e) {}
+
+    // Immediately remove from persistent stores so interval checks never re-trigger
+    clearAllShareStores();
+
+    // Check if the single file is a PDF with multiple pages
+    if (files.length === 1) {
+      const firstUri = files[0];
+      const isPdf = typeof firstUri === 'string' && (firstUri.startsWith('data:application/pdf') || firstUri.includes('application/pdf'));
+      if (isPdf) {
+        try {
+          const extractedPages = await extractPdfPages(firstUri, 1500, 0.85);
+          if (extractedPages && extractedPages.length > 1) {
+            // Multi-page document: save pages for page-by-page review without forcing megilah
+            setSharedAllPages(extractedPages);
+          } else {
+            setSharedAllPages(null);
+          }
+        } catch (pdfErr) {
+          console.warn('extractPdfPages error:', pdfErr);
+          setSharedAllPages(null);
+        }
+      } else {
+        setSharedAllPages(null);
+      }
+    } else {
+      setSharedAllPages(files);
+    }
 
     setSharedFiles(files);
     setRouteDestination(files.length > 1 ? 'personal' : 'direct');
@@ -114,49 +160,21 @@ export default function SharedFileHandler() {
     if (typeof window === 'undefined') return;
     const searchParams = new URLSearchParams(window.location.search);
     const hasSharedParam = searchParams.get('shared');
-    
-    const infoParam = searchParams.get('info');
-    let currentLogs: string[] = [];
 
     if (hasSharedParam) {
-      const timeStr = new Date().toLocaleTimeString();
-      const decodedInfo = infoParam ? decodeURIComponent(infoParam) : 'none';
-      const userStateStr = user?.id ? `LoggedIn (${user.id.slice(0, 6)}...)` : 'Guest / Not Loaded Yet';
-      const spacesCountStr = `${spaces?.length || 0} spaces loaded, ${activeSpaces?.length || 0} active`;
-      currentLogs = [
-        `🕒 ${timeStr} - שיתוף נקלט (v6.8.19)`,
-        `📍 סטטוס שיתוף: ${hasSharedParam}`,
-        `📊 פרטי אירוע: ${decodedInfo}`,
-        `👤 זיהוי משתמש: ${userStateStr}`,
-        `📁 מרחבים זמינים: ${spacesCountStr}`
-      ];
-      try {
-        localStorage.setItem('smartshare_share_checkpoints', JSON.stringify(currentLogs));
-      } catch (e) {}
-
       if (hasSharedParam === 'empty') {
-        // Automatically pop up Chrome assistance modal
         setShowChromeUpdateModal(true);
       }
-
       window.history.replaceState({}, document.title, window.location.pathname);
-    } else {
-      // Normal render: read existing checkpoints if any
-      try {
-        const stored = JSON.parse(localStorage.getItem('smartshare_share_checkpoints') || '[]');
-        currentLogs = Array.isArray(stored) ? stored : [];
-      } catch (e) {
-        currentLogs = [];
-      }
     }
-    setCheckpointLogs(currentLogs);
 
     const checkPendingFiles = async () => {
+      if (isCancelledRef.current) return false;
+
       // 1. Check Cache Storage directly first
       if (typeof caches !== 'undefined') {
         try {
           const cache = await caches.open('smartshare-shared-cache');
-          // Try both relative and absolute match
           const match = (await cache.match('/api/last-shared-files')) || 
                         (await cache.match(new URL('/api/last-shared-files', window.location.origin).href));
           if (match) {
@@ -176,8 +194,8 @@ export default function SharedFileHandler() {
       try {
         const backup = JSON.parse(localStorage.getItem('smartshare_latest_shared_backup') || 'null');
         if (backup && (Array.isArray(backup) ? backup.length > 0 : true)) {
-          processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
           localStorage.removeItem('smartshare_latest_shared_backup');
+          processFoundFiles(backup, 'LOCAL_STORAGE_BACKUP');
           return true;
         }
       } catch (err) {}
@@ -192,7 +210,7 @@ export default function SharedFileHandler() {
             const store = tx.objectStore('sharedFiles');
             const getReq = store.get('latest_shared');
             getReq.onsuccess = () => {
-              if (getReq.result) {
+              if (getReq.result && !isCancelledRef.current) {
                 processFoundFiles(getReq.result, 'INDEXED_DB');
               }
             };
@@ -206,9 +224,9 @@ export default function SharedFileHandler() {
     // Immediate check across storage layers
     checkPendingFiles();
 
-    // Listen to messages from Service Worker (both Squoosh direct payload and event notifications)
+    // Listen to messages from Service Worker
     const handleSwMessage = (event: MessageEvent) => {
-      if (!event.data) return;
+      if (!event.data || isCancelledRef.current) return;
       if (event.data.action === 'SHARE_FILES_PAYLOAD' && event.data.files && event.data.files.length > 0) {
         processFoundFiles(event.data.files, 'SW_POST_MESSAGE');
       } else if (event.data.action === 'NEW_SHARE_RECEIVED') {
@@ -219,7 +237,6 @@ export default function SharedFileHandler() {
     if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
       navigator.serviceWorker.addEventListener('message', handleSwMessage);
 
-      // Handshake with Service Worker: announce window readiness and request any pending share
       if (navigator.serviceWorker.controller) {
         navigator.serviceWorker.controller.postMessage({ action: 'REQUEST_PENDING_SHARE' });
       }
@@ -233,6 +250,10 @@ export default function SharedFileHandler() {
     // Keep checking every 300ms for up to 3.5 seconds to guarantee capture in all lifecycle states
     let retries = 0;
     const interval = setInterval(async () => {
+      if (isCancelledRef.current) {
+        clearInterval(interval);
+        return;
+      }
       retries++;
       const found = await checkPendingFiles();
       if (found || retries > 12) {
@@ -425,6 +446,21 @@ export default function SharedFileHandler() {
         setSharedFiles([]);
         router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId);
       } else {
+        // Direct route: save primary and allPages to IndexedDB for page-by-page review
+        try {
+          const dbReq = indexedDB.open('MySpaceDB', 1);
+          dbReq.onsuccess = (e: any) => {
+            const db = e.target.result;
+            if (db.objectStoreNames.contains('sharedFiles')) {
+              const tx = db.transaction('sharedFiles', 'readwrite');
+              const store = tx.objectStore('sharedFiles');
+              const primary = sharedFiles[0];
+              const pagesPayload = sharedAllPages && sharedAllPages.length > 0 ? sharedAllPages : sharedFiles;
+              store.put({ primary, allPages: pagesPayload, files: sharedFiles }, 'latest_shared');
+            }
+          };
+        } catch(e) {}
+
         setIsModalOpen(false);
         setIsProcessing(false);
         router.push('/space/' + selectedSpaceId + '?addExpense=true&triggerOcr=true&payerId=' + (selectedPayerId || user?.id || 'me'));
@@ -532,34 +568,6 @@ export default function SharedFileHandler() {
         </div>
       )}
 
-      {/* Floating Diagnostics Badge: ALWAYS accessible to see share checkpoints */}
-      {checkpointLogs.length > 0 && !isModalOpen && (
-        <div style={{
-          position: 'fixed', bottom: '80px', left: '16px', right: '16px', zIndex: 99998,
-          background: '#0f172a', color: '#38bdf8', border: '1px solid #38bdf8',
-          borderRadius: '12px', padding: '0.85rem', maxWidth: '480px', margin: '0 auto',
-          boxShadow: '0 8px 24px rgba(0,0,0,0.4)', fontSize: '0.8rem', direction: 'ltr', wordBreak: 'break-all'
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontWeight: 'bold', color: '#facc15' }}>🔍 Share Pipeline Status</span>
-            <button 
-              onClick={() => {
-                localStorage.removeItem('smartshare_share_checkpoints');
-                setCheckpointLogs([]);
-              }}
-              style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 'bold' }}
-            >
-              ✕ Clear
-            </button>
-          </div>
-          {checkpointLogs.map((log, idx) => (
-            <div key={idx} style={{ opacity: 0.95, margin: '4px 0', lineHeight: '1.4' }}>
-              • {log}
-            </div>
-          ))}
-        </div>
-      )}
-
       {isModalOpen && (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -581,12 +589,12 @@ export default function SharedFileHandler() {
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span style={{ fontSize: '1.25rem', animation: 'spin 4s linear infinite' }}>🔄</span>
               <div>
-                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>v6.8.19</span></div>
+                <div style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>משתף עם SmartShare <span style={{ fontSize: '0.75rem', opacity: 0.8 }}>v6.8.20</span></div>
                 <div style={{ fontSize: '0.72rem', opacity: 0.9 }}>מנותב ל: {routeDestination === 'personal' ? 'מחסן אישי פרטי' : (displayedSpaces.find((s:any) => s.id === selectedSpaceId)?.title || 'בחר פרויקט')}</div>
               </div>
             </div>
             <span style={{ fontSize: '0.7rem', background: 'rgba(255,255,255,0.25)', padding: '0.2rem 0.5rem', borderRadius: '12px', fontWeight: 'bold' }}>
-              {sharedFiles.length} {sharedFiles.length > 1 ? 'קבצים' : 'קובץ'}
+              {sharedAllPages && sharedAllPages.length > 1 ? `${sharedAllPages.length} עמודים` : `${sharedFiles.length} ${sharedFiles.length > 1 ? 'קבצים' : 'קובץ'}`}
             </span>
           </div>
 
@@ -733,13 +741,11 @@ export default function SharedFileHandler() {
           <div style={{ display: 'flex', gap: '0.75rem', marginTop: routeDestination === 'personal' ? '1rem' : 0 }}>
             <button 
               onClick={() => { 
+                isCancelledRef.current = true;
                 setIsModalOpen(false); 
-                const request = indexedDB.open('MySpaceDB', 1);
-                request.onsuccess = (e: any) => {
-                  const db = e.target.result;
-                  const tx = db.transaction('sharedFiles', 'readwrite');
-                  tx.objectStore('sharedFiles').delete('latest_shared');
-                };
+                setSharedFiles([]);
+                setSharedAllPages(null);
+                clearAllShareStores();
               }}
               style={{ flex: 1, padding: '0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', color: '#475569', fontWeight: 'bold', cursor: 'pointer' }}
             >

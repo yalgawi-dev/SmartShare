@@ -23,22 +23,27 @@ export async function POST(request: Request) {
     userDocs.forEach(userDoc => {
       if (userDoc.exists) {
         const userData = userDoc.data();
-        const fcmTokens = userData?.fcmTokens || [];
-        fcmTokens.forEach((token: string) => {
-          tokenMap.set(token, { userId: userDoc.id, token });
-          allMessages.push({
-            token,
-            notification: { title, body },
-            data: data || {},
-            webpush: {
-              fcmOptions: {
-                link: (data && data.url) ? data.url : '/'
-              },
-              // renotify:true is REQUIRED with tag: without it the browser replaces the
-              // existing notification of the same conversation SILENTLY (no banner/sound).
-              ...(data?.tag ? { notification: { title, body, tag: data.tag, renotify: true, icon: '/icon-192x192.png' } } : {})
-            }
-          });
+        const rawTokens: string[] = userData?.fcmTokens || [];
+        // Strict deduplication to ensure no token is sent twice
+        const uniqueTokens = Array.from(new Set(rawTokens.filter(t => typeof t === 'string' && t.trim().length > 0)));
+
+        uniqueTokens.forEach((token: string) => {
+          if (!tokenMap.has(token)) {
+            tokenMap.set(token, { userId: userDoc.id, token });
+            allMessages.push({
+              token,
+              notification: { title, body },
+              data: data || {},
+              webpush: {
+                fcmOptions: {
+                  link: (data && data.url) ? data.url : '/'
+                },
+                // renotify:true is REQUIRED with tag: without it the browser replaces the
+                // existing notification of the same conversation SILENTLY (no banner/sound).
+                ...(data?.tag ? { notification: { title, body, tag: data.tag, renotify: true, icon: '/icon-192x192.png' } } : {})
+              }
+            });
+          }
         });
       }
     });

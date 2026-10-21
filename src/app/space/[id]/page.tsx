@@ -200,15 +200,27 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             const store = tx.objectStore('sharedFiles');
             const getReq = store.get('latest_shared');
             getReq.onsuccess = () => {
-              const filesArray = Array.isArray(getReq.result) ? getReq.result : (getReq.result?.files || []);
-              if (filesArray.length > 0) {
-                const targetFile = filesArray[0];
+              const res = getReq.result;
+              let targetFile: string | null = null;
+              let allPages: string[] | undefined = undefined;
+
+              if (res) {
+                if (typeof res === 'object' && !Array.isArray(res)) {
+                  targetFile = res.primary || (res.files && res.files[0]) || null;
+                  allPages = Array.isArray(res.allPages) && res.allPages.length > 0 ? res.allPages : (Array.isArray(res.files) ? res.files : undefined);
+                } else if (Array.isArray(res)) {
+                  targetFile = res[0] || null;
+                  allPages = res.length > 1 ? res : undefined;
+                }
+              }
+
+              if (targetFile) {
                 let attempts = 0;
                 const checkAndTrigger = setInterval(() => {
                   attempts++;
                   if (financeRef.current && typeof financeRef.current.processScan === 'function') {
                     clearInterval(checkAndTrigger);
-                    financeRef.current.processScan(targetFile);
+                    financeRef.current.processScan(targetFile!, allPages);
                     try {
                       const delDbReq = indexedDB.open('MySpaceDB', 1);
                       delDbReq.onsuccess = (ev: any) => {

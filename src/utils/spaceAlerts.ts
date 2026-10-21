@@ -16,6 +16,41 @@ export interface AppNotification {
   inviteToken?: string;
 }
 
+/**
+ * Robust sanitizer that detects corrupted character encoding (Latin1/UTF-8 mojibake, URI encoded leftovers, replacement characters)
+ * and cleanses or converts them into readable Hebrew/English.
+ */
+export function sanitizeAlertText(text: any, fallback = 'הודעת מערכת'): string {
+  if (!text || typeof text !== 'string') return fallback;
+  let str = text.trim();
+
+  // Try decoding URI encoding if present (e.g. %D7%A9%D7%9C%D7%95%D7%9D)
+  if (str.includes('%')) {
+    try {
+      str = decodeURIComponent(str);
+    } catch (e) {}
+  }
+
+  // Detect common UTF-8 mojibake patterns (e.g. ×©×œ×•×ם)
+  if (/[\u00C0-\u00FF][\u0080-\u00BF]/.test(str)) {
+    try {
+      const decoded = decodeURIComponent(escape(str));
+      if (decoded && decoded !== str) {
+        str = decoded;
+      }
+    } catch (e) {}
+  }
+
+  // Detect unreadable replacement chars or excessive control/junk characters
+  if (str.includes('\uFFFD') || str.includes('ï¿½') || /^[^\p{L}\p{N}\s]{4,}$/u.test(str)) {
+    // Return cleansed version or fallback
+    str = str.replace(/[\uFFFD|ï¿½]/g, '').trim();
+    if (str.length < 2) return fallback;
+  }
+
+  return str || fallback;
+}
+
 export function calculateSpaceNotifications(spaces: Space[], user: any): AppNotification[] {
   if (!user || !Array.isArray(spaces)) return [];
   const dismissedAlerts: string[] = user.dismissedAlerts || [];
@@ -273,11 +308,16 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
     }
   });
 
-  // STRUCTURAL DEDUPLICATION GUARANTEE:
+  // STRUCTURAL DEDUPLICATION & SANITIZATION GUARANTEE:
   const seenIds = new Set<string>();
   const seenSignatures = new Set<string>();
 
-  return notifs.filter(n => {
+  return notifs.map(n => ({
+    ...n,
+    title: sanitizeAlertText(n.title, 'התראת מערכת'),
+    text: sanitizeAlertText(n.text, 'עדכון במרחב'),
+    spaceName: sanitizeAlertText(n.spaceName, 'מרחב')
+  })).filter(n => {
     if (dismissedAlerts.includes(n.id)) return false;
     if (n.type === 'system' && dismissedAlerts.includes('invt-space-' + n.spaceId)) return false;
 
