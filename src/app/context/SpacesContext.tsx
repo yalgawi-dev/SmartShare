@@ -1634,9 +1634,17 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   const addDocumentAndLinkToEvent = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>, eventId: string) => {
     const docId = `doc-${Date.now()}`;
-    const newDoc: SpaceDocument = { ...doc, id: docId, createdAt: new Date().toISOString() };
+    const cleanEventId = String(eventId || '').trim();
     saveSpaceUpdate(spaceId, space => {
-      const cleanEventId = String(eventId || '').trim();
+      const targetEvent = (space.shelfEvents || []).find(ev => ev.id === cleanEventId);
+      const alignedShelfId = targetEvent?.shelfId || doc.shelfId;
+      const newDoc: SpaceDocument = { 
+        ...doc, 
+        shelfId: alignedShelfId,
+        id: docId, 
+        createdAt: new Date().toISOString() 
+      };
+
       const updatedEvents = (space.shelfEvents || []).map(ev => {
         if (ev.id === cleanEventId) {
           const currentDocIds = ev.documentIds || [];

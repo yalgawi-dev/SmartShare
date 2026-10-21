@@ -225,7 +225,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.5.7</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.5.8</span>
       </div>
 
       {events.length === 0 ? (
@@ -572,7 +572,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     const eventId = showDocSelector.eventId;
                     setShowDocSelector(null);
                     setDocSearchTerm('');
-                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, mode: 'camera' } }));
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, shelfId: activeShelfId, mode: 'camera' } }));
                   }} 
                   style={{ flex: 1, background: '#2563eb', color: 'white', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(37,99,235,0.25)' }}>
                   <span style={{ fontSize: '1.1rem' }}>📸</span> סרוק במצלמה
@@ -582,7 +582,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     const eventId = showDocSelector.eventId;
                     setShowDocSelector(null);
                     setDocSearchTerm('');
-                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, mode: 'upload' } }));
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId, shelfId: activeShelfId, mode: 'upload' } }));
                   }} 
                   style={{ flex: 1, background: '#f1f5f9', color: '#1e293b', border: '1px solid #cbd5e1', padding: '0.55rem 0.75rem', borderRadius: '14px', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                   <span style={{ fontSize: '1.1rem' }}>📤</span> ייבא קובץ לעריכה
@@ -781,14 +781,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button 
                       type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, mode: 'camera' } }))} 
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, shelfId: activeShelfId, mode: 'camera' } }))} 
                       style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
                       <span>📸</span> צלם בסורק
                     </button>
                     <button 
                       type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, mode: 'upload' } }))} 
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, shelfId: activeShelfId, mode: 'upload' } }))} 
                       style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
                       <span>📁</span> העלאת קבצים
@@ -1041,14 +1041,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                   <div style={{ display: 'flex', gap: '0.4rem' }}>
                     <button 
                       type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', mode: 'camera' } }))} 
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', shelfId: activeShelfId, mode: 'camera' } }))} 
                       style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
                       <span>📸</span> צלם בסורק
                     </button>
                     <button 
                       type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', mode: 'upload' } }))} 
+                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', shelfId: activeShelfId, mode: 'upload' } }))} 
                       style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
                     >
                       <span>📁</span> העלאת קבצים

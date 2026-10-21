@@ -16,7 +16,7 @@ import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 import MultiPageViewer from './MultiPageViewer';
 
 export interface DocumentsWidgetRef {
-  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string) => Promise<string | undefined>;
+  addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
   uploadAndLinkDocument?: (shelfId: string, eventId: string, url: string, type: 'document' | 'image' | 'pdf') => Promise<void>;
 }
 
@@ -121,8 +121,19 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
-    addDocument: async (url, type, allPages, targetEventId) => {
-      let targetShelfId = activeShelfId;
+    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string) => {
+      let targetShelfId: string | null = explicitShelfId || null;
+      
+      if (!targetShelfId && targetEventId && targetEventId !== '__new_station__') {
+        const foundEvent = (space.shelfEvents || []).find(e => e.id === targetEventId);
+        if (foundEvent?.shelfId) {
+          targetShelfId = foundEvent.shelfId;
+        }
+      }
+      
+      if (!targetShelfId) {
+        targetShelfId = activeShelfId;
+      }
       
       if (!targetShelfId) {
         if (shelves.length === 1) {
@@ -139,7 +150,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       
       return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId);
     }
-  }));
+  }), [activeShelfId, shelves, space.shelfEvents, space.id, activePartnersCount, user?.id, addShelf]);
 
   
 const shareMultipleDocuments = async (docIds: string[]) => {
@@ -267,6 +278,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           finalThumbnailUrl = await uploadImageToStorage(previewUrl, thumbPath);
         }
 
+        // Upload multi-page files to Storage so Firestore never overflows 1MB document limit
+        let finalPages: string[] | undefined = undefined;
+        if (allPages && allPages.length > 1) {
+          finalPages = await Promise.all(
+            allPages.map(async (pageUrl, idx) => {
+              if (pageUrl.startsWith('data:')) {
+                const pageExt = pageUrl.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
+                const pagePath = `documents/${space.id}/page_${Date.now()}_${idx}_${Math.random().toString(36).substring(7)}.${pageExt}`;
+                return await uploadImageToStorage(pageUrl, pagePath);
+              }
+              return pageUrl;
+            })
+          );
+        }
+
         const docPayload = {
           shelfId, 
           url: finalUrl, 
@@ -274,7 +300,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           title, 
           addedBy: user?.id || '', 
           thumbnailUrl: finalThumbnailUrl,
-          pages: allPages && allPages.length > 0 ? allPages : undefined
+          pages: finalPages
         };
 
         // Save to real database - atomically link if targetEventId is present
@@ -421,7 +447,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.5.7</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.5.8</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>

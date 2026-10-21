@@ -309,7 +309,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
               <path d="M4 7.00005L10.2 11.65C11.2667 12.45 12.7333 12.45 13.8 11.65L20 7" />
               <rect x="3" y="5" width="18" height="14" rx="2" />
             </svg>
-            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.5.7</span>
+            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.5.8</span>
           </h2>
           <button onClick={onClose} style={{ background: 'var(--bg-card)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '1.2rem' }}>✕</button>
         </div>
