@@ -109,7 +109,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.54</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.56</span>
         </div>
         {isCreatorMe && (
           <button 
@@ -327,6 +327,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     </button>
                   )}
 
+                  {/* If invite is NOT expired: Copy Link */}
                   {m.isInvite && !isExpired && (
                     <button 
                       onClick={(e) => {
@@ -339,6 +340,38 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                       title="העתק קישור להזמנה שוב"
                     >
                       🔗
+                    </button>
+                  )}
+
+                  {/* Renew / Refresh Button for Expired Invites & Members */}
+                  {isExpired && isCreatorMe && (
+                    <button 
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (typeof refreshMemberInvite === 'function') {
+                          refreshMemberInvite(space.id, m.userId);
+                        }
+                        const link = `${window.location.origin}/space/${space.id}?invite=${m.userId}`;
+                        if (navigator.clipboard) {
+                          navigator.clipboard.writeText(link);
+                        }
+                        if (m.isInvite && navigator.share) {
+                          try {
+                            await navigator.share({
+                              title: `הזמנה מחודשת למרחב ${space.title}`,
+                              text: `היי! חידשתי עבורך את ההזמנה להצטרף למרחב "${space.title}". לחץ/י כאן כדי להיכנס:
+${link}`,
+                              url: link
+                            });
+                          } catch (err) {}
+                        } else {
+                          alert(`ההזמנה עבור "${m.name}" חודשה בהצלחה ל-24 שעות נוספות! הקישור הועתק ללוח.`);
+                        }
+                      }}
+                      style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1.05rem", boxShadow: '0 2px 5px rgba(37,99,235,0.15)', transition: 'transform 0.2s' }}
+                      title="חדש הזמנה זו (הארכת תוקף ב-24 שעות נוספות והעתקת קישור)"
+                    >
+                      🔄
                     </button>
                   )}
 

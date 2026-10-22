@@ -1523,13 +1523,30 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   const refreshMemberInvite = (spaceId: string, userId: string) => {
     saveSpaceUpdate(spaceId, space => {
+      // 1. Update in members (for registered pending members)
       const updatedMembers = (space.members || []).map(m => {
         if (m.userId === userId && (m.status === 'pending' || m.status === 'extension_requested')) {
           return { ...m, status: 'pending', joinedAt: new Date().toISOString() };
         }
         return m;
       });
-      return { ...space, members: updatedMembers };
+
+      // 2. Update in pendingInvites (for invite tokens)
+      const updatedPendingInvites = (space.pendingInvites || []).map((inv: any) => {
+        if (inv.token === userId || inv.targetUserId === userId) {
+          return {
+            ...inv,
+            createdAt: new Date().toISOString()
+          };
+        }
+        return inv;
+      });
+
+      return {
+        ...space,
+        members: updatedMembers,
+        pendingInvites: updatedPendingInvites
+      };
     });
   };
 
