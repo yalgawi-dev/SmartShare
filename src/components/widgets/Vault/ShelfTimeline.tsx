@@ -153,6 +153,35 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     .filter(e => e.shelfId === activeShelfId)
     .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
 
+  // Collect doc IDs already linked to any station in this shelf
+  const linkedDocIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    events.forEach(e => {
+      (e.documentIds || []).forEach(id => {
+        if (id) ids.add(String(id).trim());
+      });
+      (e.tasks || []).forEach(t => {
+        if (t.documentId) ids.add(String(t.documentId).trim());
+      });
+    });
+    return ids;
+  }, [events]);
+
+  // For editing a station: doc IDs linked to OTHER stations
+  const otherEventsLinkedDocIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    events.forEach(e => {
+      if (e.id === editEventId) return;
+      (e.documentIds || []).forEach(id => {
+        if (id) ids.add(String(id).trim());
+      });
+      (e.tasks || []).forEach(t => {
+        if (t.documentId) ids.add(String(t.documentId).trim());
+      });
+    });
+    return ids;
+  }, [events, editEventId]);
+
   
   const handleSaveEdit = () => {
     if (!editEventId || !editEventTitle.trim()) return alert('יש להזין כותרת');
@@ -775,68 +804,103 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
               </div>
 
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>מסמכים משויכים ({editSelectedDocIds.length})</label>
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button 
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, shelfId: activeShelfId, mode: 'camera' } }))} 
-                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      <span>📸</span> צלם בסורק
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, shelfId: activeShelfId, mode: 'upload' } }))} 
-                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      <span>📁</span> העלאת קבצים
-                    </button>
-                  </div>
-                </div>
-                {shelfDocs.length > 0 ? (
-                  <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                    {shelfDocs.map(doc => {
-                      const isSelected = editSelectedDocIds.includes(doc.id);
-                      return (
-                        <div 
-                          key={doc.id} 
-                          onClick={() => setEditSelectedDocIds(prev => isSelected ? prev.filter(id => id !== doc.id) : [...prev, doc.id])}
-                          style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.65, transition: 'all 0.2s ease' }}
-                          title={doc.title}
-                        >
-                          {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
-                          
-                          {/* Selection Badge */}
-                          {isSelected && <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#10b981', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', zIndex: 2 }}>✓</div>}
+              {(() => {
+                const attachedDocs = shelfDocs.filter(d => editSelectedDocIds.includes(d.id));
+                const availableUnlinkedDocs = shelfDocs.filter(d => !otherEventsLinkedDocIds.has(String(d.id).trim()) && !editSelectedDocIds.includes(d.id));
 
-                          {/* Quick Preview Eye Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (onPreviewDocs) {
-                                onPreviewDocs(shelfDocs, shelfDocs.findIndex(d => d.id === doc.id));
-                              } else {
-                                setTimelinePreview({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) });
-                              }
-                            }}
-                            style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '6px', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', cursor: 'pointer', zIndex: 3 }}
-                            title="הגדל והצג מסמך"
-                          >
-                            🔍
-                          </button>
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b' }}>
+                        מסמכים משויכים לתחנה זו ({editSelectedDocIds.length})
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button 
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, shelfId: activeShelfId, mode: 'camera' } }))} 
+                          style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <span>📸</span> צלם בסורק
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: editEventId, shelfId: activeShelfId, mode: 'upload' } }))} 
+                          style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <span>📁</span> העלאת קבצים
+                        </button>
+                      </div>
+                    </div>
+
+                    {attachedDocs.length > 0 ? (
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                          {attachedDocs.map(doc => (
+                            <div 
+                              key={doc.id} 
+                              style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '10px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', border: '2.5px solid #10b981', boxShadow: '0 2px 6px rgba(16,185,129,0.2)' }}
+                              title={doc.title}
+                            >
+                              {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
+                              
+                              <button
+                                type="button"
+                                onClick={() => setEditSelectedDocIds(prev => prev.filter(id => id !== doc.id))}
+                                style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', border: '2px solid white', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', zIndex: 3 }}
+                                title="הסר מסמך מתחנה זו"
+                              >
+                                ✕
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onPreviewDocs) {
+                                    onPreviewDocs(shelfDocs, shelfDocs.findIndex(d => d.id === doc.id));
+                                  } else {
+                                    setTimelinePreview({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) });
+                                  }
+                                }}
+                                style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '6px', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', cursor: 'pointer', zIndex: 3 }}
+                                title="הגדל והצג מסמך"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                          ))}
                         </div>
-                      );
-                    })}
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.82rem', color: '#64748b', textAlign: 'center', padding: '0.85rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', marginBottom: '0.75rem' }}>
+                        📄 לא משויכים מסמכים לתחנה זו.
+                      </div>
+                    )}
+
+                    {availableUnlinkedDocs.length > 0 && (
+                      <div style={{ background: '#f1f5f9', padding: '0.65rem 0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                          📎 מסמכים פנויים במדף (שטרם שויכו לשום תחנה) - לחץ כדי לצרף:
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                          {availableUnlinkedDocs.map(doc => (
+                            <div 
+                              key={doc.id}
+                              onClick={() => setEditSelectedDocIds(prev => [...prev, doc.id])}
+                              style={{ flexShrink: 0, width: '70px', height: '100px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1', transition: 'all 0.2s' }}
+                              title={`לחץ לצירוף: ${doc.title}`}
+                            >
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ background: '#3b82f6', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>+</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-                    אין מסמכים במחסן.
-                  </div>
-                )}
-              </div>
+                );
+              })()}
 
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button 
@@ -1035,68 +1099,116 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 </div>
               </div>
 
-              <div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.4rem' }}>
-                  <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>שיוך מסמכים</label>
-                  <div style={{ display: 'flex', gap: '0.4rem' }}>
-                    <button 
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', shelfId: activeShelfId, mode: 'camera' } }))} 
-                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      <span>📸</span> צלם בסורק
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', shelfId: activeShelfId, mode: 'upload' } }))} 
-                      style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
-                    >
-                      <span>📁</span> העלאת קבצים
-                    </button>
-                  </div>
-                </div>
-                {shelfDocs.length > 0 ? (
-                  <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
-                    {shelfDocs.map(doc => {
-                      const isSelected = selectedDocIds.includes(doc.id);
-                      return (
-                        <div 
-                          key={doc.id} 
-                          onClick={() => setSelectedDocIds(prev => isSelected ? prev.filter(id => id !== doc.id) : [...prev, doc.id])}
-                          style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: isSelected ? '3px solid #10b981' : '1px solid #cbd5e1', opacity: isSelected ? 1 : 0.65, transition: 'all 0.2s ease' }}
-                          title={doc.title}
-                        >
-                          {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
-                          
-                          {/* Selection Badge */}
-                          {isSelected && <div style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#10b981', color: 'white', borderRadius: '50%', width: '20px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 'bold', boxShadow: '0 2px 5px rgba(0,0,0,0.3)', zIndex: 2 }}>✓</div>}
+              {(() => {
+                const attachedDocs = shelfDocs.filter(d => selectedDocIds.includes(d.id));
+                const availableUnlinkedDocs = shelfDocs.filter(d => !linkedDocIds.has(String(d.id).trim()) && !selectedDocIds.includes(d.id));
 
-                          {/* Quick Preview Eye Button */}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (onPreviewDocs) {
-                                onPreviewDocs(shelfDocs, shelfDocs.findIndex(d => d.id === doc.id));
-                              } else {
-                                setTimelinePreview({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) });
-                              }
-                            }}
-                            style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '6px', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', cursor: 'pointer', zIndex: 3 }}
-                            title="הגדל והצג מסמך"
-                          >
-                            🔍
-                          </button>
+                return (
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.4rem' }}>
+                      <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b' }}>
+                        שיוך מסמכים לתחנה זו
+                        {selectedDocIds.length > 0 && (
+                          <span style={{ marginRight: '0.4rem', fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: '10px', fontWeight: '800' }}>
+                            {selectedDocIds.length} צורפו
+                          </span>
+                        )}
+                      </label>
+                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                        <button 
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', shelfId: activeShelfId, mode: 'camera' } }))} 
+                          style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '4px 10px', borderRadius: '14px', color: '#2563eb', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <span>📸</span> צלם בסורק
+                        </button>
+                        <button 
+                          type="button"
+                          onClick={() => window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', { detail: { eventId: '__new_station__', shelfId: activeShelfId, mode: 'upload' } }))} 
+                          style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '4px 10px', borderRadius: '14px', color: '#475569', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                        >
+                          <span>📁</span> העלאת קבצים
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Attached Documents to THIS station only */}
+                    {attachedDocs.length > 0 ? (
+                      <div style={{ marginBottom: '0.75rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                          ✓ מסמכים שצורפו לתחנה זו ({attachedDocs.length}):
                         </div>
-                      );
-                    })}
+                        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
+                          {attachedDocs.map(doc => (
+                            <div 
+                              key={doc.id} 
+                              style={{ flexShrink: 0, width: '85px', height: '120px', background: '#e2e8f0', borderRadius: '10px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative', border: '2.5px solid #10b981', boxShadow: '0 2px 6px rgba(16,185,129,0.2)' }}
+                              title={doc.title}
+                            >
+                              {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '45%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.5rem' }}>📄</span>}
+                              
+                              {/* Remove attachment button */}
+                              <button
+                                type="button"
+                                onClick={() => setSelectedDocIds(prev => prev.filter(id => id !== doc.id))}
+                                style={{ position: 'absolute', top: '-6px', right: '-6px', background: '#ef4444', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.8rem', fontWeight: 'bold', border: '2px solid white', cursor: 'pointer', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', zIndex: 3 }}
+                                title="הסר מסמך מתחנה זו"
+                              >
+                                ✕
+                              </button>
+
+                              {/* Quick Preview Eye Button */}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (onPreviewDocs) {
+                                    onPreviewDocs(shelfDocs, shelfDocs.findIndex(d => d.id === doc.id));
+                                  } else {
+                                    setTimelinePreview({ docs: shelfDocs, index: shelfDocs.findIndex(d => d.id === doc.id) });
+                                  }
+                                }}
+                                style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.65)', color: 'white', border: 'none', borderRadius: '6px', width: '26px', height: '26px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.85rem', cursor: 'pointer', zIndex: 3 }}
+                                title="הגדל והצג מסמך"
+                              >
+                                🔍
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.82rem', color: '#64748b', textAlign: 'center', padding: '0.85rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', marginBottom: '0.75rem' }}>
+                        📄 לא צורפו מסמכים לתחנה זו.<br />
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>באפשרותך לצלם בסורק 📸, להעלות קבצים 📁{availableUnlinkedDocs.length > 0 ? ', או לצרף ממסמכי המדף הפנויים מטה' : ''}.</span>
+                      </div>
+                    )}
+
+                    {/* Available unlinked shelf documents (NOT linked to any other station) */}
+                    {availableUnlinkedDocs.length > 0 && (
+                      <div style={{ background: '#f1f5f9', padding: '0.65rem 0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                          📎 מסמכים פנויים במדף (שטרם שויכו לשום תחנה) - לחץ כדי לצרף:
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
+                          {availableUnlinkedDocs.map(doc => (
+                            <div 
+                              key={doc.id}
+                              onClick={() => setSelectedDocIds(prev => [...prev, doc.id])}
+                              style={{ flexShrink: 0, width: '70px', height: '100px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1', transition: 'all 0.2s' }}
+                              title={`לחץ לצירוף: ${doc.title}`}
+                            >
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.18)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <span style={{ background: '#3b82f6', color: 'white', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>+</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', padding: '1rem', background: '#f8fafc', borderRadius: '8px' }}>
-                    אין מסמכים במחסן. לחץ על כפתור הסורק למעלה.
-                  </div>
-                )}
-              </div>
+                );
+              })()}
 
               <button onClick={handleAddEvent} style={{ width: '100%', background: '#3b82f6', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
                 הוסף תחנה

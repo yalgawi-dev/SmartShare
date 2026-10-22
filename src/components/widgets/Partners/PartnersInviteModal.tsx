@@ -256,7 +256,9 @@ export function PartnersInviteModal({
         console.error('Error sharing:', err);
       }
     } else {
-      handleCopy();
+      // Avoid calling handleCopy() which would generate a second duplicate invite token!
+      navigator.clipboard.writeText(data.link);
+      setCopied(true);
     }
     onClose();
   };
@@ -316,7 +318,7 @@ export function PartnersInviteModal({
               <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
                 {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי (יחיד)' : 'הזמנת משתף פעולה (יחיד)')}
               </h3>
-              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.52</span>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.55</span>
             </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               {inviteType === 'group' 
