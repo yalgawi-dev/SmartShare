@@ -14,10 +14,14 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
   const [sortBy, setSortBy] = useState<'date' | 'priority' | 'space'>('priority');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const dismissedAlerts = user?.dismissedAlerts || [];
+  const [localDismissed, setLocalDismissed] = useState<string[]>([]);
+  const dismissedAlerts = useMemo(() => {
+    return Array.from(new Set([...(user?.dismissedAlerts || []), ...localDismissed]));
+  }, [user?.dismissedAlerts, localDismissed]);
 
   const handleDismiss = (id: string, e: React.MouseEvent, n?: AppNotification) => {
     e.stopPropagation();
+    setLocalDismissed(prev => [...prev, id]);
     if (user && updateProfile) {
       updateProfile({ dismissedAlerts: [...dismissedAlerts, id] });
     }
@@ -28,11 +32,12 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
 
   // Collect all SYSTEM alerts from Single Source of Truth with strict deduplication
   const allNotifications = useMemo(() => {
-    return calculateSpaceNotifications(spaces, user);
-  }, [spaces, user]);
+    const effectiveUser = user ? { ...user, dismissedAlerts } : null;
+    return calculateSpaceNotifications(spaces, effectiveUser);
+  }, [spaces, user, dismissedAlerts]);
 
   const processedNotifications = useMemo(() => {
-    let result = [...allNotifications];
+    let result = allNotifications.filter(n => !dismissedAlerts.includes(n.id));
     
     if (filterType === 'actionable') {
       result = result.filter(n => n.actionable);

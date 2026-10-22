@@ -24,14 +24,14 @@ export function sanitizeAlertText(text: any, fallback = 'הודעת מערכת')
   if (!text || typeof text !== 'string') return fallback;
   let str = text.trim();
 
-  // Try decoding URI encoding if present (e.g. %D7%A9%D7%9C%D7%95%D7%9D)
+  // 1. Decode URI encoding if present (e.g. %D7%A9%D7%9C%D7%95%D7%9D)
   if (str.includes('%')) {
     try {
       str = decodeURIComponent(str);
     } catch (e) {}
   }
 
-  // Detect common UTF-8 mojibake patterns (e.g. ×©×œ×•×ם)
+  // 2. Detect and fix UTF-8 mojibake (e.g. ×©×œ×•×ם)
   if (/[\u00C0-\u00FF][\u0080-\u00BF]/.test(str)) {
     try {
       const decoded = decodeURIComponent(escape(str));
@@ -41,14 +41,27 @@ export function sanitizeAlertText(text: any, fallback = 'הודעת מערכת')
     } catch (e) {}
   }
 
-  // Detect unreadable replacement chars or excessive control/junk characters
-  if (str.includes('\uFFFD') || str.includes('ï¿½') || /^[^\p{L}\p{N}\s]{4,}$/u.test(str)) {
-    // Return cleansed version or fallback
-    str = str.replace(/[\uFFFD|ï¿½]/g, '').trim();
-    if (str.length < 2) return fallback;
+  // 3. Remove replacement characters or unprintable control sequences
+  str = str.replace(/[\uFFFD|ï¿½|\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim();
+
+  // 4. Detect pure gibberish: excessive special characters, high density of accented Latin letters without Hebrew
+  // e.g., "Ã—Â©Ã—ÂœÃ—Â•Ã—Â" or non-letter symbols dominating the string
+  const hebrewCount = (str.match(/[\u0590-\u05FF]/g) || []).length;
+  const latinCount = (str.match(/[a-zA-Z]/g) || []).length;
+  const numCount = (str.match(/[0-9]/g) || []).length;
+  const totalReadable = hebrewCount + latinCount + numCount;
+
+  // If there are barely any readable Hebrew/Latin/digits and lots of garbage characters
+  if (str.length >= 3 && totalReadable < str.length * 0.4) {
+    return fallback;
   }
 
-  return str || fallback;
+  // If string contains accented Latin characters typical of double-encoded UTF-8 that failed decode (e.g. "Ã—Â")
+  if (/[\u00C2-\u00DF][\u0080-\u00BF]/.test(str)) {
+    return fallback;
+  }
+
+  return str.length >= 2 ? str : fallback;
 }
 
 export function calculateSpaceNotifications(spaces: Space[], user: any): AppNotification[] {
