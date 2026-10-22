@@ -18,7 +18,7 @@ export function PartnersInviteModal({
   const [successData, setSuccessData] = useState<{name: string, phone: string, text: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
-  const partnerName = '';
+  const [partnerName, setPartnerName] = useState('');
   const [isRetroactive, setIsRetroactive] = useState(false);
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
   const [customShare, setCustomShare] = useState('10');
@@ -243,7 +243,7 @@ export function PartnersInviteModal({
   };
 
   const handleNativeShare = async () => {
-    const data = await handleGenerateLink();
+    const data = await handleGenerateLink(partnerName.trim() || undefined);
     if (!data) return;
     if (navigator.share) {
       try {
@@ -262,7 +262,7 @@ export function PartnersInviteModal({
   };
 
   const handleCopy = async () => {
-    const data = await handleGenerateLink();
+    const data = await handleGenerateLink(partnerName.trim() || undefined);
     if (!data) return;
     navigator.clipboard.writeText(data.link);
     setCopied(true);
@@ -316,7 +316,7 @@ export function PartnersInviteModal({
               <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
                 {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי (יחיד)' : 'הזמנת משתף פעולה (יחיד)')}
               </h3>
-              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.51</span>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.52</span>
             </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               {inviteType === 'group' 
@@ -680,7 +680,28 @@ export function PartnersInviteModal({
         <div style={{ borderTop: '2px solid #f1f5f9', paddingTop: '1.25rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
           
           {/* Quick General Share & Copy Link First */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+              <label style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 'bold' }}>
+                👤 שם או כינוי של המוזמן (מומלץ):
+              </label>
+              <input
+                type="text"
+                placeholder="לדוגמה: תומר 40, לינוי, דני"
+                value={partnerName}
+                onChange={e => setPartnerName(e.target.value)}
+                style={{
+                  padding: '0.7rem 0.85rem',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  fontSize: '0.95rem',
+                  outline: 'none',
+                  background: '#f8fafc',
+                  color: '#0f172a'
+                }}
+              />
+            </div>
+
             <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold' }}>שתף או העתק קישור להזמנה:</div>
             
             <div style={{ display: 'flex', gap: '0.5rem' }}>

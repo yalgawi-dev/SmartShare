@@ -256,6 +256,42 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   }, []);
 
+  // Handle tab URL param (?tab=partners, ?tab=inbox) and smartshare:open_tab events
+  useEffect(() => {
+    const handleCheckTabs = () => {
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'partners') {
+        setShowPartnersModal(true);
+      } else if (tabParam === 'inbox' || tabParam === 'transactions' || tabParam === 'documents') {
+        setFinanceTab(tabParam as any);
+      }
+    };
+
+    handleCheckTabs();
+
+    const handleCustomOpenTab = (e: any) => {
+      const detail = e.detail;
+      if (!detail) return;
+      if (!detail.spaceId || detail.spaceId === id) {
+        if (detail.tab === 'partners') {
+          setShowPartnersModal(true);
+        } else if (detail.tab === 'inbox' || detail.tab === 'transactions' || detail.tab === 'documents') {
+          setFinanceTab(detail.tab);
+        }
+      }
+    };
+
+    window.addEventListener('smartshare:open_tab', handleCustomOpenTab);
+    window.addEventListener('popstate', handleCheckTabs);
+
+    return () => {
+      window.removeEventListener('smartshare:open_tab', handleCustomOpenTab);
+      window.removeEventListener('popstate', handleCheckTabs);
+    };
+  }, [id]);
+
   // Handle Group Invite URL param (?groupInvite=true)
   useEffect(() => {
     if (typeof window === 'undefined' || !space || !user) return;

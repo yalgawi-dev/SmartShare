@@ -107,7 +107,7 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
               <path d="M4 7.00005L10.2 11.65C11.2667 12.45 12.7333 12.45 13.8 11.65L20 7" />
               <rect x="3" y="5" width="18" height="14" rx="2" />
             </svg>
-            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.6.0</span>
+            מרכז התראות (חמ"ל) <span style={{ fontSize: "0.65rem", background: "#e0e7ff", color: "#4338ca", padding: "2px 8px", borderRadius: "10px", fontWeight: "bold", marginRight: "0.5rem" }}>v2.6.1</span>
           </h2>
           <button onClick={onClose} style={{ background: 'var(--bg-card)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-primary)', fontSize: '1.2rem' }}>✕</button>
         </div>
@@ -152,14 +152,29 @@ export default function NotificationCenterWidget({ onClose }: { onClose: () => v
                 key={n.id} 
                 onClick={() => {
                   onClose();
+                  let targetTab = 'partners';
                   let query = '?tab=partners';
-                  if (n.type === 'invoice') query = '?tab=inbox#invoice-' + n.id.replace('inv-', '');
+                  if (n.type === 'invoice') {
+                    targetTab = 'inbox';
+                    const cleanInvId = n.invoiceId || n.id.replace(/^inv-(?:[^-]+-)?/, '');
+                    query = '?tab=inbox#invoice-' + cleanInvId;
+                  }
                   if (n.type === 'chat') {
                     if (n.chatType === 'group' || n.targetId === 'group') {
                       query = '?openChat=group';
                     } else if (n.targetId) {
                       query = '?openChat=' + n.targetId + '&tab=partners';
                     }
+                  }
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('smartshare:open_tab', {
+                      detail: {
+                        spaceId: n.spaceId,
+                        tab: targetTab,
+                        inviteToken: n.inviteToken,
+                        targetId: n.targetId
+                      }
+                    }));
                   }
                   router.push('/space/' + n.spaceId + query);
                 }}

@@ -14,6 +14,15 @@ export interface AppNotification {
   chatType?: 'group' | 'p2p';
   targetId?: string;
   inviteToken?: string;
+  invoiceId?: string;
+}
+
+export function isAuthenticName(name: any): boolean {
+  if (!name || typeof name !== 'string') return false;
+  const str = name.trim();
+  if (!str || str === 'שותף מוזמן' || str === 'שותף' || str === 'משתמש' || str === 'מוזמן') return false;
+  if (str.includes('׳³') || str.includes('Ã—') || str.includes('%D7') || str.includes('ï¿½')) return false;
+  return true;
 }
 
 /**
@@ -81,7 +90,8 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
       if (inv.status === 'pending' || inv.status === 'missing' || inv.status === 'dispute') {
         if (isCreator || inv.payerId === user.id || (inv as any).uploaderId === user.id) {
           notifs.push({
-            id: 'inv-' + inv.id,
+            id: 'inv-' + space.id + '-' + inv.id,
+            invoiceId: inv.id,
             type: 'invoice',
             priority: inv.status === 'dispute' ? 'high' : 'medium',
             title: inv.status === 'dispute' ? 'התראת מחלוקת חשבון' : 'התראת חשבונית ממתינה לטיפול',
@@ -100,7 +110,7 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
       (space.members || []).forEach(member => {
         if (member.status === 'disputed' && member.disputeMessage && (isCreator || member.userId === user.id)) {
           notifs.push({
-            id: 'disp-' + member.userId,
+            id: 'disp-' + space.id + '-' + member.userId,
             type: 'dispute',
             priority: 'high',
             title: isCreator ? 'התראת שותף: ' + member.name : 'התראת שותפות במרחב',
@@ -114,7 +124,7 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
 
         if (member.extensionMessage && isCreator) {
           notifs.push({
-            id: 'ext-' + member.userId,
+            id: 'ext-' + space.id + '-' + member.userId,
             type: 'extension',
             priority: 'medium',
             title: 'בקשת הערכה: ' + member.name,
@@ -128,7 +138,7 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
 
         if (member.shareChangeRequest && (isCreator || member.userId === user.id)) {
           notifs.push({
-            id: 'share-' + member.userId,
+            id: 'share-' + space.id + '-' + member.userId,
             type: 'share',
             priority: 'high',
             title: 'שינוי אחוזים דורש אישור',
@@ -148,7 +158,7 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
           if (!inv || !inv.token) return false;
           const alreadyJoined = (space.members || []).some((m: any) => 
             (inv.targetUserId && m.userId === inv.targetUserId) || 
-            (inv.name && inv.name !== 'שותף מוזמן' && m.name === inv.name)
+            (isAuthenticName(inv.name) && m.name === inv.name.trim())
           );
           return !alreadyJoined;
         });
@@ -157,9 +167,9 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
         const genericInvites: any[] = [];
 
         activeInvites.forEach((inv: any) => {
-          const cleanName = inv.name?.trim();
-          if (cleanName && cleanName !== 'שותף מוזמן') {
-            if (!namedInvites.some(n => n.name.trim() === cleanName)) {
+          const rawName = inv.name?.trim();
+          if (isAuthenticName(rawName)) {
+            if (!namedInvites.some(n => n.name?.trim() === rawName)) {
               namedInvites.push(inv);
             }
           } else {
@@ -167,14 +177,15 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
           }
         });
 
-        // Add named invites (distinct per person)
+        // Add named invites (distinct per person, strictly scoped to this space!)
         namedInvites.forEach(inv => {
+          const notifKey = inv.token || inv.targetUserId || inv.name.trim();
           notifs.push({
-            id: 'invt-' + (inv.targetUserId || inv.token),
+            id: 'invt-' + space.id + '-' + notifKey,
             type: 'system',
             priority: 'low',
             title: 'הזמנה ממתינה',
-            text: 'הזמנה ממתינה עבור ' + inv.name + ' - עדיין לא הצטרף/ה',
+            text: 'הזמנה ממתינה עבור ' + inv.name.trim() + ' - עדיין לא הצטרף/ה',
             spaceId: space.id,
             spaceName: space.title || 'מרחב',
             createdAt: inv.createdAt || space.createdAt || new Date().toISOString(),
@@ -205,7 +216,7 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
       // 4. Pending Group Approval Requests
       (space.pendingGroupMembers || []).forEach((pending: any) => {
         notifs.push({
-          id: 'grp-pend-' + pending.id,
+          id: 'grp-pend-' + space.id + '-' + pending.id,
           type: 'system',
           priority: 'high',
           title: 'בקשת הצטרפות לקבוצה',

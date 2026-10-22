@@ -433,7 +433,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       setIsLoaded(true);
     }, (error) => {
        console.error("Firestore error:", error);
-         alert("׳³ֲ©׳³ג€™׳³ג„¢׳³ֲ׳³ֳ— ׳³ג€׳³ֳ—׳³ג€”׳³ג€˜׳³ֲ¨׳³ג€¢׳³ֳ— ׳³ֲ׳³ֲ׳³ֲ¡׳³ג€ ׳³ג€׳³ֲ ׳³ֳ—׳³ג€¢׳³ֲ ׳³ג„¢׳³ֲ: " + (error.message || ""));
+         alert("שגיאת התחברות למסד הנתונים: " + (error.message || ""));
        try {
          const savedSpaces = localStorage.getItem('smartshare_spaces');
          if (savedSpaces) {
@@ -457,7 +457,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
   // Auto-sync authentic user name to spaces
   useEffect(() => {
-    if (!user?.id || !user?.realName || user.realName === '׳³ֲ׳³ג€¢׳³ֲ¨׳³ג€”' || user.realName === '׳³ֲ׳³ג€¢׳³ֲ¨׳³ג€” ׳³ֲ׳³ֲ ׳³ג€¢׳³ֲ ׳³ג„¢׳³ֲ׳³ג„¢' || spacesBase.length === 0) return;
+    if (!user?.id || !user?.realName || user.realName === 'אורח' || user.realName === 'אורח אנונימי' || spacesBase.length === 0) return;
     
     // Find spaces where we are a member but our name doesn't match our authenticated realName
     spacesBase.forEach(space => {
@@ -541,7 +541,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (isCreatorByRole) {
         if (!space.creatorId) {
           updates.creatorId = user.id;
-          updates.createdBy = user.realName || user.nickname || '׳³ג„¢׳³ג€¢׳³ֲ¦׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜';
+          updates.createdBy = user.realName || user.nickname || 'יוצר המרחב';
           needsUpdate = true;
         }
         if (space.members?.some((m: any) => m.userId === user.id)) {
@@ -628,7 +628,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       members: [],
       /* masterKey: masterKey, */
       creatorId: user?.id || undefined,
-      createdBy: user?.realName || user?.nickname || '׳³ג„¢׳³ג€¢׳³ֲ¦׳³ֲ¨ ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜'
+      createdBy: user?.realName || user?.nickname || 'יוצר המרחב'
     };
     
     // 1. Save to LocalStorage keyring (for guests / robust fallback)
@@ -670,7 +670,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         } : s));
       } catch (e: any) {
         console.error("Soft delete failed", e);
-        alert("׳³ֲ©׳³ג€™׳³ג„¢׳³ֲ׳³ג€ ׳³ג€˜׳³ֲ׳³ג€”׳³ג„¢׳³ֲ§׳³ֳ— ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜ (׳³ג„¢׳³ג„¢׳³ֳ—׳³ג€÷׳³ֲ ׳³ֲ©׳³ֲ׳³ג„¢׳³ֲ ׳³ֲ׳³ֲ ׳³ג€׳³ֲ¨׳³ֲ©׳³ֲ׳³ג€¢׳³ֳ— ׳³ֲ׳³ג€”׳³ג„¢׳³ֲ§׳³ג€): " + (e.message || ""));
+        alert("שגיאה במחיקת המרחב (ייתכן שאין לך הרשאות מחיקה): " + (e.message || ""));
       }
     };
 
@@ -710,11 +710,11 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
       if (performedBy) {
         const featureNameMap: Record<string, string> = {
-          'finance': '׳³ג€׳³ֳ—׳³ג€”׳³ֲ©׳³ג€˜׳³ֲ ׳³ג€¢׳³ֳ—',
-          'scanner': '׳³ֲ¡׳³ג€¢׳³ֲ¨׳³ֲ§ ׳³ג€”׳³ג€÷׳³ֲ',
-          'partners': '׳³ֲ©׳³ג€¢׳³ֳ—׳³ג‚×׳³ג„¢׳³ֲ',
-          'guestbook': '׳³ֲ¡׳³ג‚×׳³ֲ¨ ׳³ֲ׳³ג€¢׳³ֲ¨׳³ג€”׳³ג„¢׳³ֲ',
-          'gallery': '׳³ג€™׳³ֲ׳³ֲ¨׳³ג„¢׳³ג€'
+          'finance': 'התחשבנות',
+          'scanner': 'סורק חכם',
+          'partners': 'שותפים',
+          'guestbook': 'ספר אורחים',
+          'gallery': 'גלריה'
         };
         const fName = featureNameMap[featureId] || featureId;
         const newLog: AuditRecord = {
@@ -722,7 +722,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           timestamp: new Date().toISOString(),
           actionType: isRemoving ? 'SYSTEM_ALERT' : 'SYSTEM_ALERT',
           performedBy,
-          details: isRemoving ? `׳³ג€׳³ֲ¡׳³ג„¢׳³ֲ¨/׳³ג€ ׳³ֲ׳³ֳ— ׳³ֳ—׳³ג€¢׳³ֲ¡׳³ֲ£ "${fName}" ׳³ֲ׳³ג€׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜` : `׳³ג€׳³ג€¢׳³ֲ¡׳³ג„¢׳³ֲ£/׳³ג€ ׳³ֲ׳³ֳ— ׳³ֳ—׳³ג€¢׳³ֲ¡׳³ֲ£ "${fName}" ׳³ֲ׳³ֲ׳³ֲ¨׳³ג€”׳³ג€˜`
+          details: isRemoving ? `הסיר/ה את תוסף "${fName}" מהמרחב` : `הוסיף/ה את תוסף "${fName}" למרחב`
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
       }
@@ -773,18 +773,18 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (performedBy && actionDetail && oldInvoice) {
         const isDelete = updates.isActive === false;
         const isRestore = updates.isActive === true;
-        let actionLabel = isDelete ? "׳³ֲ׳³ג€”׳³ֲ§/׳³ג€ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€" : isRestore ? "׳³ֲ©׳³ג€”׳³ג€“׳³ֲ¨/׳³ג€ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€ ׳³ֲ׳³ג€”׳³ג€¢׳³ֲ§׳³ג€" : "׳³ֲ¢׳³ֲ¨׳³ֲ/׳³ג€ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€";
-        const amt = oldInvoice.amount ? ` ׳³ֲ¢"׳³ֲ¡ ׳’ג€ֳ—${oldInvoice.amount}` : "";
-        const supplier = oldInvoice.supplier || "׳³ֲ¡׳³ג‚×׳³ֲ§ ׳³ג€÷׳³ֲ׳³ֲ׳³ג„¢";
+        let actionLabel = isDelete ? "מחק/ה הוצאה" : isRestore ? "שחזר/ה הוצאה מחוקה" : "ערך/ה הוצאה";
+        const amt = oldInvoice.amount ? ` ע"ס ₪${oldInvoice.amount}` : "";
+        const supplier = oldInvoice.supplier || "ספק כללי";
         
-        const performer = performedBy === "me" || !performedBy ? "׳³ֲ׳³ֲ©׳³ֳ—׳³ֲ׳³ֲ©" : performedBy;
+        const performer = performedBy === "me" || !performedBy ? "משתמש" : performedBy;
         
         const newLog = {
           id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           timestamp: new Date().toISOString(),
           actionType: (isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE") as any,
           performedBy,
-          details: `${performer} ${actionLabel}${amt} ׳³ֲ׳³ֲ׳³ֳ— "${supplier}". ׳³ג‚×׳³ג„¢׳³ֲ¨׳³ג€¢׳³ֻ: ${actionDetail}`,
+          details: `${performer} ${actionLabel}${amt} מאת "${supplier}". פירוט: ${actionDetail}`,
           invoiceId
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
@@ -880,7 +880,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
       
       const newMember = {
         userId: userId,
-        name: name.trim() || pendingInvite?.name || existingMember?.name || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ׳³ֲ׳³ג€¢׳³ג€“׳³ֲ׳³ֲ',
+        name: name.trim() || pendingInvite?.name || existingMember?.name || 'שותף מוזמן',
         role: 'partner' as const,
         joinedAt: existingMember?.joinedAt || new Date().toISOString(),
         isActive: true,
@@ -962,7 +962,7 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     saveSpaceUpdate(spaceId, space => {
       const newInvite = {
         token: inviteData.token,
-        name: inviteData.name?.trim() || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£ ׳³ֲ׳³ג€¢׳³ג€“׳³ֲ׳³ֲ',
+        name: inviteData.name?.trim() || 'שותף מוזמן',
         guestShare: inviteData.guestShare,
         creatorShare: inviteData.creatorShare,
         partnerShares: inviteData.partnerShares || null,
@@ -1268,7 +1268,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
     }));
   };
 
-  // ׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬ Operational Messages (2-way private creator׳’ג€ ג€partner) ׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬׳’ג€ג‚¬
+  // Operational Messages (2-way private creator - partner)
     const sendConversationMessage = (spaceId: string, conversationId: string, senderId: string, text: string) => {
     saveSpaceUpdate(spaceId, space => {
       const convos = space.conversations || [];
@@ -1374,7 +1374,7 @@ const updateMemberPermissions = (spaceId: string, userId: string, permissions: P
 
   const approveExtension = (spaceId: string, memberId: string) => {
     saveSpaceUpdate(spaceId, space => {
-      triggerPushNotification([memberId], space.title, '׳³ֲ׳³ֲ ׳³ג€׳³ֲ ׳³ג€׳³ֲ§׳³ג€˜׳³ג€¢׳³ֲ¦׳³ג€ ׳³ֲ׳³ג„¢׳³ֲ©׳³ֲ¨ ׳³ֲ׳³ֳ— ׳³ג€˜׳³ֲ§׳³ֲ©׳³ֳ— ׳³ג€׳³ג€׳³ֲ¦׳³ֻ׳³ֲ¨׳³ג‚×׳³ג€¢׳³ֳ— ׳³ֲ©׳³ֲ׳³ֲ! ׳³ג„¢׳³ֲ© ׳³ֲ׳³ֲ ׳³ג€÷׳³ֲ¢׳³ֳ— 24 ׳³ֲ©׳³ֲ¢׳³ג€¢׳³ֳ— ׳³ֲ׳³ג€׳³ג„¢׳³ג€÷׳³ֲ ׳³ֲ¡.', { url: `/space/${spaceId}` });
+      triggerPushNotification([memberId], space.title, 'מנהל הקבוצה אישר את בקשת ההצטרפות שלך! יש לך כעת 24 שעות להיכנס.', { url: `/space/${spaceId}` });
       return {
         ...space,
         members: (space.members || []).map(m => {
@@ -1477,7 +1477,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         timestamp: new Date().toISOString(),
         actionType: 'AUTO_BALANCE',
         performedBy,
-        details: `׳³ג€׳³ֲ׳³ֲ¢׳³ֲ¨׳³ג€÷׳³ֳ— ׳³ג€”׳³ג„¢׳³ֲ׳³ֲ§׳³ג€ ׳³ֲ׳³ֳ— ׳³ג€׳³ֲ׳³ג€”׳³ג€¢׳³ג€“׳³ג„¢׳³ֲ ׳³ג€׳³ֲ ׳³ג€¢׳³ֳ—׳³ֲ¨׳³ג„¢׳³ֲ ׳³ֲ©׳³ג€¢׳³ג€¢׳³ג€ ׳³ג€˜׳³ֲ©׳³ג€¢׳³ג€¢׳³ג€ (${defaultShare.toFixed(1)}% ׳³ֲ׳³ג€÷׳³ֲ ׳³ג€”׳³ֲ׳³ֲ§).`
+        details: `המערכת חילקה את האחוזים הנותרים שווה בשווה (${defaultShare.toFixed(1)}% לכל חלק).`
       };
 
       return {
@@ -1588,9 +1588,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
     const space = spacesBase.find(s => s.id === spaceId);
     if (space && space.members) {
-      const senderName = user?.nickname || user?.realName || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£';
+      const senderName = user?.nickname || user?.realName || 'שותף';
       const title = space.title;
-      const body = `${senderName} ׳³ג€׳³ג€¢׳³ֲ¡׳³ג„¢׳³ֲ£ ׳³ג€׳³ג€¢׳³ֲ¦׳³ֲ׳³ג€ ׳³ג€”׳³ג€׳³ֲ©׳³ג€: ${invoiceData.amount} ׳’ג€ֳ— (${invoiceData.category || '׳³ג€÷׳³ֲ׳³ֲ׳³ג„¢'})`;
+      const body = `${senderName} הוסיף הוצאה חדשה: ${invoiceData.amount} ₪ (${invoiceData.category || 'כללי'})`;
       const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
       triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
     }
@@ -1823,9 +1823,9 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       if (item.type === 'message' || item.type === 'photo') {
         const space = spacesBase.find(s => s.id === spaceId);
         if (space && space.members) {
-          const senderName = user?.nickname || user?.realName || '׳³ֲ©׳³ג€¢׳³ֳ—׳³ֲ£';
+          const senderName = user?.nickname || user?.realName || 'שותף';
           const title = space.title;
-          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} ׳³ֲ©׳³ג„¢׳³ֳ—׳³ֲ£ ׳³ֳ—׳³ֲ׳³ג€¢׳³ֲ ׳³ג€ ׳³ג€”׳³ג€׳³ֲ©׳³ג€`; // url holds the message text for type='message'
+          const body = item.type === 'message' ? `${senderName}: ${item.url}` : `${senderName} שיתף תמונה חדשה`; // url holds the message text for type='message'
           const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
           triggerPushNotification(otherUserIds, title, body, { url: `/space/${spaceId}` });
         }
