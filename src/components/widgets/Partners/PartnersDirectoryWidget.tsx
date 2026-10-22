@@ -51,6 +51,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [renewedToken, setRenewedToken] = useState<string | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -109,7 +110,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.56</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.57</span>
         </div>
         {isCreatorMe && (
           <button 
@@ -301,6 +302,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
                       {m.status === "active" ? null : 
+                       renewedToken === m.userId ? <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 'bold' }}>✓ תוקף הוארך! (הלינק הקיים פעיל שוב)</span> :
                        isExpired ? <span style={{ fontSize: '0.8rem', color: '#ef4444' }}>פג תוקף</span> :
                        m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
                        m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>🔄 מבקש הארכה</span> : 
@@ -343,33 +345,19 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     </button>
                   )}
 
-                  {/* Renew / Refresh Button for Expired Invites & Members */}
+                  {/* Renew / Refresh Button for Expired Invites & Members (Silent 24h extension) */}
                   {isExpired && isCreatorMe && (
                     <button 
-                      onClick={async (e) => {
+                      onClick={(e) => {
                         e.stopPropagation();
                         if (typeof refreshMemberInvite === 'function') {
                           refreshMemberInvite(space.id, m.userId);
                         }
-                        const link = `${window.location.origin}/space/${space.id}?invite=${m.userId}`;
-                        if (navigator.clipboard) {
-                          navigator.clipboard.writeText(link);
-                        }
-                        if (m.isInvite && navigator.share) {
-                          try {
-                            await navigator.share({
-                              title: `הזמנה מחודשת למרחב ${space.title}`,
-                              text: `היי! חידשתי עבורך את ההזמנה להצטרף למרחב "${space.title}". לחץ/י כאן כדי להיכנס:
-${link}`,
-                              url: link
-                            });
-                          } catch (err) {}
-                        } else {
-                          alert(`ההזמנה עבור "${m.name}" חודשה בהצלחה ל-24 שעות נוספות! הקישור הועתק ללוח.`);
-                        }
+                        setRenewedToken(m.userId);
+                        setTimeout(() => setRenewedToken(null), 5000);
                       }}
                       style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1.05rem", boxShadow: '0 2px 5px rgba(37,99,235,0.15)', transition: 'transform 0.2s' }}
-                      title="חדש הזמנה זו (הארכת תוקף ב-24 שעות נוספות והעתקת קישור)"
+                      title="חדש תוקף ל-24 שעות נוספות (הלינק המקורי שכבר נשלח יפעל מחדש מיד)"
                     >
                       🔄
                     </button>
