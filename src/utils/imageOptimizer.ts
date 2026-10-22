@@ -80,92 +80,7 @@ export async function compressImageWebP(file: File, maxWidth = 1200, maxHeight =
 }
 
 // ============================================================================
-// 2. LEGACY JPEG ENGINE (DISCONNECTED FROM PIPES - PRESERVED FOR FALLBACK)
-// Tracked in ENGINE_TRANSITION_TASKS.md pending user sign-off to delete.
-// ============================================================================
-
-export function legacyCompressCanvasJPEG(canvas: HTMLCanvasElement, quality = 0.82): string {
-  return canvas.toDataURL('image/jpeg', quality);
-}
-
-export async function legacyCompressImageJPEG(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.82): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      
-      img.onload = () => {
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > maxWidth) {
-            height = Math.round(height * (maxWidth / width));
-            width = maxWidth;
-          }
-        } else {
-          if (height > maxHeight) {
-            width = Math.round(width * (maxHeight / height));
-            height = maxHeight;
-          }
-        }
-
-        const canvas = document.createElement('canvas');
-        canvas.width = width;
-        canvas.height = height;
-
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'));
-          return;
-        }
-
-        ctx.drawImage(img, 0, 0, width, height);
-        resolve(legacyCompressCanvasJPEG(canvas, quality));
-      };
-      
-      img.onerror = (err) => reject(err);
-    };
-    
-    reader.onerror = (err) => reject(err);
-  });
-}
-
-export async function legacyCompressToBudgetJPEG(src: string, maxBytes = DOCUMENT_MAX_BYTES): Promise<string> {
-  if (src.startsWith('data:image/jpeg') && dataUrlBytes(src) <= maxBytes) return src;
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const i = new Image();
-    i.onload = () => resolve(i);
-    i.onerror = reject;
-    i.src = src;
-  });
-  let scale = Math.min(1, 2000 / Math.max(img.width, img.height));
-  let best = src;
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const canvas = document.createElement('canvas');
-    canvas.width = Math.max(1, Math.round(img.width * scale));
-    canvas.height = Math.max(1, Math.round(img.height * scale));
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return best;
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'high';
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    for (const q of [0.85, 0.75, 0.65, 0.55]) {
-      best = canvas.toDataURL('image/jpeg', q);
-      if (dataUrlBytes(best) <= maxBytes) return best;
-    }
-    scale *= 0.85;
-  }
-  return best;
-}
-
-// ============================================================================
-// 3. UNIFIED GLOBAL PIPELINES (NOW WIRED TO WEBP ENGINE)
+// 2. UNIFIED GLOBAL PIPELINES (WEBP ENGINE - SINGLE SOURCE OF TRUTH)
 // ============================================================================
 
 /**
@@ -180,7 +95,7 @@ export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.80, type?:
   if (isWebPSupported()) {
     return compressCanvasWebP(canvas, quality);
   }
-  return legacyCompressCanvasJPEG(canvas, quality);
+  return canvas.toDataURL('image/jpeg', quality);
 }
 
 /**
@@ -223,10 +138,7 @@ export async function compressImage(file: File, maxWidth = 1200, maxHeight = 120
     });
   }
 
-  if (isWebPSupported()) {
-    return compressImageWebP(file, maxWidth, maxHeight, quality);
-  }
-  return legacyCompressImageJPEG(file, maxWidth, maxHeight, quality);
+  return compressImageWebP(file, maxWidth, maxHeight, quality);
 }
 
 export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 1200, quality = 0.80): Promise<string> {
@@ -510,10 +422,6 @@ export async function compressToBudget(src: string, maxBytes = DOCUMENT_MAX_BYTE
     return src;
   }
 
-  if (!isWebPSupported()) {
-    return legacyCompressToBudgetJPEG(src, maxBytes);
-  }
-
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
@@ -537,7 +445,7 @@ export async function compressToBudget(src: string, maxBytes = DOCUMENT_MAX_BYTE
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
     for (const q of [0.85, 0.75, 0.65, 0.55]) {
-      best = compressCanvasWebP(canvas, q);
+      best = compressCanvas(canvas, q);
       if (dataUrlBytes(best) <= maxBytes) return best;
     }
     scale *= 0.85;

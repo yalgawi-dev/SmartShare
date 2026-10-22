@@ -237,7 +237,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.6.0
+            v2.6.1
           </span>
           <span
             style={{
