@@ -52,11 +52,46 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const [isUploadingLocal, setIsUploadingLocal] = useState(false);
+  const [uploadingStationDoc, setUploadingStationDoc] = useState<{ eventId: string; previewUrl?: string } | null>(null);
+  const [recentlyAddedDocs, setRecentlyAddedDocs] = useState<Record<string, SpaceDocument>>({});
+
+  const events = (space.shelfEvents || [])
+    .filter(e => e.shelfId === activeShelfId)
+    .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+
+  // Collect doc IDs already linked to any station in this shelf
+  const linkedDocIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    events.forEach(e => {
+      (e.documentIds || []).forEach(id => {
+        if (id) ids.add(String(id).trim());
+      });
+      (e.tasks || []).forEach(t => {
+        if (t.documentId) ids.add(String(t.documentId).trim());
+      });
+    });
+    return ids;
+  }, [events]);
+
+  // For editing a station: doc IDs linked to OTHER stations
+  const otherEventsLinkedDocIds = React.useMemo(() => {
+    const ids = new Set<string>();
+    events.forEach(e => {
+      if (e.id === editEventId) return;
+      (e.documentIds || []).forEach(id => {
+        if (id) ids.add(String(id).trim());
+      });
+      (e.tasks || []).forEach(t => {
+        if (t.documentId) ids.add(String(t.documentId).trim());
+      });
+    });
+    return ids;
+  }, [events, editEventId]);
 
   // Draft key per space and shelf
   const draftStorageKey = `smartshare_timeline_draft_${space.id}_${activeShelfId}`;
 
-  // Auto-restore draft on mount or shelf change
+  // Auto-restore draft on mount or shelf change (with strict unlinked filtering)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     try {
@@ -67,14 +102,18 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           if (d.title) setNewEventTitle(d.title);
           if (d.desc) setNewEventDesc(d.desc);
           if (d.date) setNewEventDate(d.date);
-          if (Array.isArray(d.docIds)) setSelectedDocIds(d.docIds);
+          if (Array.isArray(d.docIds)) {
+            // Filter out any documents that are already linked to other stations!
+            const unlinked = d.docIds.filter((id: string) => !linkedDocIds.has(String(id).trim()));
+            setSelectedDocIds(unlinked);
+          }
           if (Array.isArray(d.tasks)) setNewTasks(d.tasks);
         }
       }
     } catch (e) {
       console.error('Failed to load timeline draft', e);
     }
-  }, [draftStorageKey]);
+  }, [draftStorageKey, linkedDocIds]);
 
   // Auto-save draft on changes when modal has content
   useEffect(() => {
@@ -118,28 +157,95 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   };
 
   useEffect(() => {
-    const handleAddStation = () => setShowAddModal(true);
+    const handleAddStation = () => {
+      setSelectedDocIds(prev => prev.filter(id => !linkedDocIds.has(String(id).trim())));
+      setShowAddModal(true);
+    };
+
+    const handleDocUploadStarted = (e: any) => {
+      const { eventId, previewUrl } = e.detail || {};
+      if (eventId) {
+        setUploadingStationDoc({ eventId, previewUrl });
+      }
+    };
+
+    const handleDocUploadFinished = () => {
+      setUploadingStationDoc(null);
+    };
+
     const handleDocSavedForNewStation = (e: any) => {
-      const { docId } = e.detail || {};
+      const { docId, previewUrl } = e.detail || {};
+      setUploadingStationDoc(null);
       if (docId) {
         setSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
+        if (previewUrl) {
+          setRecentlyAddedDocs(prev => ({
+            ...prev,
+            [docId]: {
+              id: docId,
+              shelfId: activeShelfId,
+              url: previewUrl,
+              title: 'מסמך סרוק',
+              type: previewUrl.includes('.pdf') ? 'pdf' : 'image',
+              addedBy: user?.id || '',
+              createdAt: new Date().toISOString(),
+              thumbnailUrl: previewUrl
+            }
+          }));
+        }
+
+        // Fail-safe Auto-Link: If modal was closed or station was already submitted,
+        // find the most recent station in this shelf created within the last 60 seconds and link the document!
+        const currentEvents = (space.shelfEvents || []).filter(ev => ev.shelfId === activeShelfId);
+        const recentEvent = currentEvents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        if (recentEvent) {
+          const diffMs = Date.now() - new Date(recentEvent.createdAt).getTime();
+          if (diffMs < 60000 && !(recentEvent.documentIds || []).includes(docId)) {
+            onUpdateEvent(recentEvent.id, {
+              documentIds: [...(recentEvent.documentIds || []), docId]
+            });
+          }
+        }
       }
     };
+
     const handleDocSavedForEditStation = (e: any) => {
-      const { docId } = e.detail || {};
+      const { docId, previewUrl } = e.detail || {};
+      setUploadingStationDoc(null);
       if (docId) {
         setEditSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
+        if (previewUrl) {
+          setRecentlyAddedDocs(prev => ({
+            ...prev,
+            [docId]: {
+              id: docId,
+              shelfId: activeShelfId,
+              url: previewUrl,
+              title: 'מסמך סרוק',
+              type: previewUrl.includes('.pdf') ? 'pdf' : 'image',
+              addedBy: user?.id || '',
+              createdAt: new Date().toISOString(),
+              thumbnailUrl: previewUrl
+            }
+          }));
+        }
       }
     };
+
     window.addEventListener('smartshare:add_station', handleAddStation);
+    window.addEventListener('smartshare:doc_upload_started', handleDocUploadStarted);
+    window.addEventListener('smartshare:doc_upload_finished', handleDocUploadFinished);
     window.addEventListener('smartshare:doc_saved_for_new_station', handleDocSavedForNewStation);
     window.addEventListener('smartshare:doc_saved_for_edit_station', handleDocSavedForEditStation);
+
     return () => {
       window.removeEventListener('smartshare:add_station', handleAddStation);
+      window.removeEventListener('smartshare:doc_upload_started', handleDocUploadStarted);
+      window.removeEventListener('smartshare:doc_upload_finished', handleDocUploadFinished);
       window.removeEventListener('smartshare:doc_saved_for_new_station', handleDocSavedForNewStation);
       window.removeEventListener('smartshare:doc_saved_for_edit_station', handleDocSavedForEditStation);
     };
-  }, []);
+  }, [activeShelfId, linkedDocIds, onUpdateEvent, space.shelfEvents, user?.id]);
 
   useEffect(() => {
     if (timelinePreview) {
@@ -149,41 +255,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     }
   }, [timelinePreview]);
 
-  const events = (space.shelfEvents || [])
-    .filter(e => e.shelfId === activeShelfId)
-    .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
-
-  // Collect doc IDs already linked to any station in this shelf
-  const linkedDocIds = React.useMemo(() => {
-    const ids = new Set<string>();
-    events.forEach(e => {
-      (e.documentIds || []).forEach(id => {
-        if (id) ids.add(String(id).trim());
-      });
-      (e.tasks || []).forEach(t => {
-        if (t.documentId) ids.add(String(t.documentId).trim());
-      });
-    });
-    return ids;
-  }, [events]);
-
-  // For editing a station: doc IDs linked to OTHER stations
-  const otherEventsLinkedDocIds = React.useMemo(() => {
-    const ids = new Set<string>();
-    events.forEach(e => {
-      if (e.id === editEventId) return;
-      (e.documentIds || []).forEach(id => {
-        if (id) ids.add(String(id).trim());
-      });
-      (e.tasks || []).forEach(t => {
-        if (t.documentId) ids.add(String(t.documentId).trim());
-      });
-    });
-    return ids;
-  }, [events, editEventId]);
-
-  
   const handleSaveEdit = () => {
+    if (uploadingStationDoc?.eventId === editEventId) return;
     if (!editEventId || !editEventTitle.trim()) return alert('יש להזין כותרת');
     onUpdateEvent(editEventId, {
       title: editEventTitle.trim(),
@@ -193,10 +266,11 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     });
     setEditEventId(null);
     setEditSelectedDocIds([]);
+    setUploadingStationDoc(null);
   };
 
-
   const handleAddEvent = () => {
+    if (uploadingStationDoc?.eventId === '__new_station__') return;
     if (!newEventTitle.trim()) return alert('יש להזין כותרת לאירוע');
     onAddEvent({
       shelfId: activeShelfId,
@@ -212,6 +286,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     setNewEventDesc('');
     setSelectedDocIds([]);
     setNewTasks([]);
+    setUploadingStationDoc(null);
   };
 
   const handlePostComment = (eventId: string) => {
@@ -247,6 +322,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
 
   return (
     <>
+      <style>{`
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
       <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} ref={fileInputRef} onChange={handleLocalUpload} />
       <div style={{padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
       
@@ -254,7 +335,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.5.9</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.6.0</span>
       </div>
 
       {events.length === 0 ? (
@@ -805,14 +886,17 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               </div>
 
               {(() => {
-                const attachedDocs = shelfDocs.filter(d => editSelectedDocIds.includes(d.id));
+                const attachedDocs = editSelectedDocIds.map(id => {
+                  return shelfDocs.find(d => d.id === id) || recentlyAddedDocs[id];
+                }).filter(Boolean) as SpaceDocument[];
+                const isUploadingThisEdit = uploadingStationDoc?.eventId === editEventId;
                 const availableUnlinkedDocs = shelfDocs.filter(d => !otherEventsLinkedDocIds.has(String(d.id).trim()) && !editSelectedDocIds.includes(d.id));
 
                 return (
                   <div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.4rem' }}>
                       <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b' }}>
-                        מסמכים משויכים לתחנה זו ({editSelectedDocIds.length})
+                        מסמכים משויכים לתחנה זו ({editSelectedDocIds.length + (isUploadingThisEdit ? 1 : 0)})
                       </label>
                       <div style={{ display: 'flex', gap: '0.4rem' }}>
                         <button 
@@ -832,7 +916,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                       </div>
                     </div>
 
-                    {attachedDocs.length > 0 ? (
+                    {(attachedDocs.length > 0 || isUploadingThisEdit) ? (
                       <div style={{ marginBottom: '0.75rem' }}>
                         <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                           {attachedDocs.map(doc => (
@@ -869,6 +953,30 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                               </button>
                             </div>
                           ))}
+
+                          {isUploadingThisEdit && (
+                            <div 
+                              style={{ 
+                                flexShrink: 0, 
+                                width: '85px', 
+                                height: '120px', 
+                                background: '#f8fafc', 
+                                borderRadius: '10px', 
+                                backgroundImage: uploadingStationDoc?.previewUrl ? `url(${uploadingStationDoc.previewUrl})` : 'none', 
+                                backgroundSize: 'cover', 
+                                backgroundPosition: 'center', 
+                                position: 'relative', 
+                                border: '2.5px dashed #3b82f6', 
+                                boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', textAlign: 'center', gap: '6px' }}>
+                                <div style={{ width: '22px', height: '22px', border: '2.5px solid #ffffff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                <span style={{ fontSize: '0.7rem', color: '#ffffff', fontWeight: 'bold' }}>מעלה מסמך...</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -918,9 +1026,32 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 <button 
                   type="button"
                   onClick={handleSaveEdit} 
-                  style={{ flex: 1.5, background: '#10b981', color: 'white', border: 'none', padding: '0.9rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '0.95rem', cursor: 'pointer' }}
+                  disabled={uploadingStationDoc?.eventId === editEventId}
+                  style={{ 
+                    flex: 1.5, 
+                    background: uploadingStationDoc?.eventId === editEventId ? '#94a3b8' : '#10b981', 
+                    color: 'white', 
+                    border: 'none', 
+                    padding: '0.9rem', 
+                    borderRadius: '12px', 
+                    fontWeight: 'bold', 
+                    fontSize: '0.95rem', 
+                    cursor: uploadingStationDoc?.eventId === editEventId ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    opacity: uploadingStationDoc?.eventId === editEventId ? 0.8 : 1
+                  }}
                 >
-                  שמור שינויים
+                  {uploadingStationDoc?.eventId === editEventId ? (
+                    <>
+                      <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                      <span>מעלה ומאבטח מסמך... (אנא המתן)</span>
+                    </>
+                  ) : (
+                    'שמור שינויים'
+                  )}
                 </button>
               </div>
             </div>
@@ -1100,7 +1231,10 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               </div>
 
               {(() => {
-                const attachedDocs = shelfDocs.filter(d => selectedDocIds.includes(d.id));
+                const attachedDocs = selectedDocIds.map(id => {
+                  return shelfDocs.find(d => d.id === id) || recentlyAddedDocs[id];
+                }).filter(Boolean) as SpaceDocument[];
+                const isUploadingThisStation = uploadingStationDoc?.eventId === '__new_station__';
                 const availableUnlinkedDocs = shelfDocs.filter(d => !linkedDocIds.has(String(d.id).trim()) && !selectedDocIds.includes(d.id));
 
                 return (
@@ -1108,9 +1242,9 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.4rem' }}>
                       <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#1e293b' }}>
                         שיוך מסמכים לתחנה זו
-                        {selectedDocIds.length > 0 && (
+                        {(selectedDocIds.length > 0 || isUploadingThisStation) && (
                           <span style={{ marginRight: '0.4rem', fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '1px 8px', borderRadius: '10px', fontWeight: '800' }}>
-                            {selectedDocIds.length} צורפו
+                            {selectedDocIds.length + (isUploadingThisStation ? 1 : 0)} צורפו
                           </span>
                         )}
                       </label>
@@ -1133,10 +1267,10 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     </div>
 
                     {/* Attached Documents to THIS station only */}
-                    {attachedDocs.length > 0 ? (
+                    {(attachedDocs.length > 0 || isUploadingThisStation) ? (
                       <div style={{ marginBottom: '0.75rem' }}>
                         <div style={{ fontSize: '0.75rem', color: '#15803d', fontWeight: 'bold', marginBottom: '0.4rem' }}>
-                          ✓ מסמכים שצורפו לתחנה זו ({attachedDocs.length}):
+                          ✓ מסמכים שצורפו לתחנה זו ({attachedDocs.length + (isUploadingThisStation ? 1 : 0)}):
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                           {attachedDocs.map(doc => (
@@ -1175,6 +1309,30 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                               </button>
                             </div>
                           ))}
+
+                          {isUploadingThisStation && (
+                            <div 
+                              style={{ 
+                                flexShrink: 0, 
+                                width: '85px', 
+                                height: '120px', 
+                                background: '#f8fafc', 
+                                borderRadius: '10px', 
+                                backgroundImage: uploadingStationDoc?.previewUrl ? `url(${uploadingStationDoc.previewUrl})` : 'none', 
+                                backgroundSize: 'cover', 
+                                backgroundPosition: 'center', 
+                                position: 'relative', 
+                                border: '2.5px dashed #3b82f6', 
+                                boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+                                overflow: 'hidden'
+                              }}
+                            >
+                              <div style={{ position: 'absolute', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(2px)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px', textAlign: 'center', gap: '6px' }}>
+                                <div style={{ width: '22px', height: '22px', border: '2.5px solid #ffffff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></div>
+                                <span style={{ fontSize: '0.7rem', color: '#ffffff', fontWeight: 'bold' }}>מעלה ומאבטח מסמך...</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (
@@ -1193,7 +1351,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                         <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.25rem' }}>
                           {availableUnlinkedDocs.map(doc => (
                             <div 
-                              key={doc.id}
+                              key={doc.id} 
                               onClick={() => setSelectedDocIds(prev => [...prev, doc.id])}
                               style={{ flexShrink: 0, width: '70px', height: '100px', background: '#e2e8f0', borderRadius: '8px', backgroundImage: (doc.thumbnailUrl || !doc.url.includes('.pdf')) ? `url(${doc.thumbnailUrl || doc.url})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'pointer', position: 'relative', border: '1px solid #cbd5e1', transition: 'all 0.2s' }}
                               title={`לחץ לצירוף: ${doc.title}`}
@@ -1210,8 +1368,36 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 );
               })()}
 
-              <button onClick={handleAddEvent} style={{ width: '100%', background: '#3b82f6', color: 'white', border: 'none', padding: '1rem', borderRadius: '12px', fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer', marginTop: '0.5rem', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>
-                הוסף תחנה
+              <button 
+                onClick={handleAddEvent} 
+                disabled={uploadingStationDoc?.eventId === '__new_station__'}
+                style={{ 
+                  width: '100%', 
+                  background: uploadingStationDoc?.eventId === '__new_station__' ? '#94a3b8' : '#3b82f6', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '1rem', 
+                  borderRadius: '12px', 
+                  fontWeight: 'bold', 
+                  fontSize: '1rem', 
+                  cursor: uploadingStationDoc?.eventId === '__new_station__' ? 'not-allowed' : 'pointer', 
+                  marginTop: '0.5rem', 
+                  boxShadow: uploadingStationDoc?.eventId === '__new_station__' ? 'none' : '0 4px 12px rgba(59,130,246,0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  opacity: uploadingStationDoc?.eventId === '__new_station__' ? 0.8 : 1
+                }}
+              >
+                {uploadingStationDoc?.eventId === '__new_station__' ? (
+                  <>
+                    <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid white', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }}></span>
+                    <span>מעלה ומאבטח מסמך לתחנה... (אנא המתן)</span>
+                  </>
+                ) : (
+                  'הוסף תחנה'
+                )}
               </button>
 
             </div>

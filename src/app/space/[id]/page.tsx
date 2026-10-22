@@ -920,14 +920,43 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                     financeRef.current?.processScan(url, allPages); 
                 } else if (routingType === 'document' || routingType === 'image') {
                     setFinanceTab('documents');
+                    const previewDocUrl = (allPages && allPages.length > 0) ? allPages[0] : url;
+                    if (targetEventId) {
+                      window.dispatchEvent(new CustomEvent('smartshare:doc_upload_started', { 
+                        detail: { 
+                          eventId: targetEventId, 
+                          shelfId: targetShelfId, 
+                          previewUrl: previewDocUrl 
+                        } 
+                      }));
+                    }
                     documentsRef.current?.addDocument(url, routingType, allPages, targetEventId || undefined, targetShelfId).then(docId => {
-                      if (!targetEventId || !docId) return;
-                      if (targetEventId === '__new_station__') {
-                        // Station not created yet: hand the doc to the open "add station" form
-                        window.dispatchEvent(new CustomEvent('smartshare:doc_saved_for_new_station', { detail: { docId } }));
+                      if (!targetEventId || !docId) {
+                        window.dispatchEvent(new CustomEvent('smartshare:doc_upload_finished'));
                         return;
                       }
-                      window.dispatchEvent(new CustomEvent('smartshare:doc_saved_for_edit_station', { detail: { docId } }));
+                      if (targetEventId === '__new_station__') {
+                        // Station not created yet: hand the doc to the open "add station" form
+                        window.dispatchEvent(new CustomEvent('smartshare:doc_saved_for_new_station', { 
+                          detail: { 
+                            docId, 
+                            shelfId: targetShelfId, 
+                            previewUrl: previewDocUrl 
+                          } 
+                        }));
+                        return;
+                      }
+                      window.dispatchEvent(new CustomEvent('smartshare:doc_saved_for_edit_station', { 
+                        detail: { 
+                          docId, 
+                          eventId: targetEventId, 
+                          shelfId: targetShelfId, 
+                          previewUrl: previewDocUrl 
+                        } 
+                      }));
+                    }).catch(err => {
+                      console.error('Failed to add document to shelf/station', err);
+                      window.dispatchEvent(new CustomEvent('smartshare:doc_upload_finished'));
                     });
                 }
             }}
