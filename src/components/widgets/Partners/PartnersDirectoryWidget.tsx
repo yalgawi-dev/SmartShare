@@ -109,7 +109,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.53</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.54</span>
         </div>
         {isCreatorMe && (
           <button 
@@ -265,7 +265,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           const isExpired = m.status === "pending" && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
           const unreadCount = getUnreadCount(m.userId, m.role === 'creator');
           const isExpanded = expandedMember === m.userId;
-          const canClick = isCreatorMe ? !isMe : !isMe && m.role !== 'creator';
+          const canClick = !m.isInvite && (isCreatorMe ? !isMe : !isMe && m.role !== 'creator');
 
           return (
             <React.Fragment key={m.userId || m.name}>
@@ -324,6 +324,21 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                       title="צ'אט אישי"
                     >
                       💬
+                    </button>
+                  )}
+
+                  {m.isInvite && !isExpired && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const link = `${window.location.origin}/space/${space.id}?invite=${m.userId}`;
+                        navigator.clipboard.writeText(link);
+                        alert('קישור ההזמנה הועתק ללוח!');
+                      }}
+                      style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.95rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
+                      title="העתק קישור להזמנה שוב"
+                    >
+                      🔗
                     </button>
                   )}
 

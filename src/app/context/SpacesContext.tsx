@@ -1001,10 +1001,11 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
           targetUserId: inviteData.targetUserId
       };
 
-      // Avoid duplicate pending invites for the same targetUserId or identical name
+      // Avoid duplicate pending invites for the same targetUserId, identical name, or duplicate anonymous/default invites
       const existingInvites = (space.pendingInvites || []).filter((inv: any) => {
         if (inviteData.targetUserId && inv.targetUserId === inviteData.targetUserId) return false;
-        if (inviteData.name && inviteData.name.trim() && inv.name && inv.name.trim() === inviteData.name.trim()) return false;
+        if (inviteData.name && inviteData.name.trim() && inv.name && inv.name.trim().toLowerCase() === inviteData.name.trim().toLowerCase()) return false;
+        if (!inviteData.name?.trim() && (!inv.name || inv.name.trim() === 'שותף מוזמן')) return false;
         return true;
       });
 

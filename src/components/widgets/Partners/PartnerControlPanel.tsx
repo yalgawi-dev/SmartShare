@@ -115,6 +115,43 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   if (!mounted || typeof document === 'undefined') return null;
   if (!member || !space) return null;
 
+  // Defensive: If this is a guest invite that hasn't joined, disallow chat / member panel
+  if (member.isInvite || member.userId?.startsWith('guest_')) {
+    return createPortal(
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ background: 'white', borderRadius: '20px', maxWidth: '420px', width: '100%', padding: '1.75rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✉️</div>
+          <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b' }}>הזמנה ממתינה / פג תוקף</h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
+            השותף <strong>{member.name || 'מוזמן'}</strong> טרם הצטרף למרחב. לא ניתן לנהל צ'אט או לשלוח הודעות להזמנה שטרם אושרה.
+          </p>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
+            {viewMode === 'creator' && (
+              <button
+                onClick={() => {
+                  if (typeof declinePendingInvite === 'function') {
+                    declinePendingInvite(space.id, member.userId);
+                  }
+                  onClose();
+                }}
+                style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecdd3', padding: '0.6rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                🗑️ מחק הזמנה
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              סגור
+            </button>
+          </div>
+        </div>
+      </div>,
+      document.body
+    );
+  }
+
   const memberName = viewMode === 'partner' ? (space?.createdBy || 'מנהל המרחב') : (member?.name || 'שותף');
   const memberStatus = member?.status || 'active';
   const joinedDateText = formatDateSafe(member?.joinedAt);
