@@ -88,15 +88,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>(defaultCategory);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
+  const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>(defaultMode);
+
   useEffect(() => {
     if (defaultMode === 'upload') {
       setTimeout(() => {
         galleryInputRef.current?.click();
-      }, 100);
+      }, 150);
     }
   }, []); // Only run once on mount!
   
   const [pendingImports, setPendingImports] = useState<{id: string, url: string}[]>([]);
+
+  const isCameraActive = scannerMode === 'camera' && step === 'scanning' && pendingImports.length === 0;
 
   const {
     stream,
@@ -107,7 +111,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     cycleCamera,
     toggleTorch,
     stopCamera
-  } = useCamera(videoRef, step === 'scanning' && pendingImports.length === 0);
+  } = useCamera(videoRef, isCameraActive);
   
   const [rawSnapshot, setRawSnapshot] = useState<string | null>(null);
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
@@ -589,7 +593,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleRetake = () => {
     setActiveDocId(generateDocId());
-        setStep('scanning');
+    setStep('scanning');
     setRawSnapshot(null);
     setImageCache({});
     setTimingCache({});
@@ -597,6 +601,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setDetectedType(null);
     setClassifyResult(null);
     setClassifyOverride(false);
+    if (scannerMode === 'upload') {
+      setTimeout(() => {
+        galleryInputRef.current?.click();
+      }, 100);
+    }
   };
 
   const processMultiPage = async (urls: string[], format: 'pdf'|'scroll_pdf', includeNumbers: boolean): Promise<{ blob: Blob, format: 'pdf' }> => {
@@ -912,12 +921,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   return (
     <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#000', zIndex: 100000, display: 'flex', flexDirection: 'column', color: 'white' }}>
+      {/* Hidden File Picker mounted unconditionally for fast trigger */}
+      <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
+
       {/* Header */}
       <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>סורק מסמכים v19.64</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v19.65' : 'סורק מסמכים v19.65'}</span>
           </h2>
 
 
@@ -929,7 +941,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               🔦
             </button>
           )}
-          {!cvLoaded && step === 'scanning' && <span style={{fontSize: '0.8rem', color: '#ccc'}}>טוען מנוע...</span>}
+          {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.8rem', color: '#ccc'}}>טוען מנוע...</span>}
         </div>
       </div>
 
@@ -953,6 +965,125 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                     ישנם <b>{pendingImports.length}</b> מסמכים ממתינים בתור.<br/><br/>
                     בחר מסמך במגש ה"לא ערוכים" למטה כדי לחתוך אותו, או לחץ על הכפתור "אשר הכל" ⏩.
                   </p>
+               </div>
+            ) : scannerMode === 'upload' ? (
+               <div style={{ 
+                 width: '100%', 
+                 height: '100%', 
+                 display: 'flex', 
+                 flexDirection: 'column', 
+                 alignItems: 'center', 
+                 justifyContent: 'center', 
+                 background: 'radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)',
+                 padding: '1.5rem',
+                 position: 'relative'
+               }}>
+                 {/* Decorative background glow */}
+                 <div style={{
+                   position: 'absolute',
+                   width: '300px',
+                   height: '300px',
+                   borderRadius: '50%',
+                   background: 'radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, transparent 70%)',
+                   pointerEvents: 'none'
+                 }} />
+
+                 <div style={{
+                   background: 'rgba(255, 255, 255, 0.04)',
+                   border: '1px solid rgba(255, 255, 255, 0.1)',
+                   borderRadius: '24px',
+                   padding: '2.5rem 1.5rem',
+                   maxWidth: '380px',
+                   width: '100%',
+                   display: 'flex',
+                   flexDirection: 'column',
+                   alignItems: 'center',
+                   textAlign: 'center',
+                   boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+                   backdropFilter: 'blur(12px)',
+                   zIndex: 1
+                 }}>
+                   <div style={{
+                     width: '76px',
+                     height: '76px',
+                     borderRadius: '22px',
+                     background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     fontSize: '2.4rem',
+                     marginBottom: '1.25rem',
+                     boxShadow: '0 8px 24px rgba(59, 130, 246, 0.35)'
+                   }}>
+                     📄
+                   </div>
+
+                   <h3 style={{ margin: '0 0 0.5rem 0', color: 'white', fontSize: '1.35rem', fontWeight: '800' }}>
+                     {selectedCategory === 'receipt' ? 'ייבוא קבלה' : 'ייבוא מסמך'}
+                   </h3>
+
+                   <p style={{ margin: '0 0 1.5rem 0', color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5', maxWidth: '300px' }}>
+                     בחר קובץ PDF או תמונה מהמכשיר לעיבוד, שיפור וחיתוך חכם
+                   </p>
+
+                   <button
+                     onClick={() => galleryInputRef.current?.click()}
+                     style={{
+                       width: '100%',
+                       padding: '0.95rem 1.25rem',
+                       borderRadius: '16px',
+                       background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                       color: 'white',
+                       border: 'none',
+                       fontWeight: '700',
+                       fontSize: '1rem',
+                       cursor: 'pointer',
+                       display: 'flex',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       gap: '0.6rem',
+                       boxShadow: '0 4px 16px rgba(37, 99, 235, 0.4)'
+                     }}
+                   >
+                     <span>📁</span>
+                     <span>בחירת קבצים מהמכשיר</span>
+                   </button>
+
+                   <div style={{ 
+                     margin: '1.25rem 0', 
+                     display: 'flex', 
+                     alignItems: 'center', 
+                     width: '100%', 
+                     color: '#64748b', 
+                     fontSize: '0.8rem' 
+                   }}>
+                     <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                     <span style={{ padding: '0 0.75rem' }}>או</span>
+                     <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
+                   </div>
+
+                   <button
+                     onClick={() => setScannerMode('camera')}
+                     style={{
+                       width: '100%',
+                       padding: '0.75rem 1rem',
+                       borderRadius: '14px',
+                       background: 'rgba(255, 255, 255, 0.06)',
+                       color: '#e2e8f0',
+                       border: '1px solid rgba(255, 255, 255, 0.15)',
+                       fontWeight: '600',
+                       fontSize: '0.9rem',
+                       cursor: 'pointer',
+                       display: 'flex',
+                       alignItems: 'center',
+                       justifyContent: 'center',
+                       gap: '0.5rem'
+                     }}
+                   >
+                     <span>📷</span>
+                     <span>מעבר לצילום במצלמה</span>
+                   </button>
+                 </div>
                </div>
             ) : (
               <>
@@ -1102,7 +1233,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       {/* Footer Controls */}
       <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.8)', display: 'flex', flexDirection: 'column', gap: '0.5rem', zIndex: 100000 }}>
         
-        {step === 'scanning' && (
+        {step === 'scanning' && scannerMode === 'camera' && (
            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
              
              {/* Zoom Buttons */}
@@ -1121,15 +1252,41 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
                <div style={{ width: '60px' }} />
                <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
-               <label style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', color: 'white', width: '60px' }}>
-                 <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
+               <div 
+                 onClick={() => galleryInputRef.current?.click()}
+                 style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', color: 'white', width: '60px' }}
+               >
                  <span style={{ background: 'rgba(255,255,255,0.2)', width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '50%' }}>
                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                  </span>
                  <span style={{ fontSize: '0.65rem', marginTop: '0.3rem', fontWeight: 'bold', whiteSpace: 'nowrap' }}>ייבוא לסורק</span>
-               </label>
+               </div>
              </div>
 
+           </div>
+        )}
+
+        {step === 'scanning' && scannerMode === 'upload' && (
+           <div style={{ display: 'flex', width: '100%', justifyContent: 'center', alignItems: 'center', padding: '0.25rem 0' }}>
+             <button
+               onClick={() => galleryInputRef.current?.click()}
+               style={{
+                 background: 'rgba(59, 130, 246, 0.2)',
+                 color: '#60a5fa',
+                 border: '1px solid rgba(59, 130, 246, 0.4)',
+                 padding: '0.6rem 1.25rem',
+                 borderRadius: '12px',
+                 fontSize: '0.85rem',
+                 fontWeight: 'bold',
+                 display: 'flex',
+                 alignItems: 'center',
+                 gap: '0.5rem',
+                 cursor: 'pointer'
+               }}
+             >
+               <span>📁</span>
+               <span>עיון בקבצים נוספים</span>
+             </button>
            </div>
         )}
 
@@ -1139,8 +1296,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               onClick={handleRetake} 
               style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
             >
-              <span>📷</span>
-              <span>צלם שוב</span>
+              <span>{scannerMode === 'upload' ? '📁' : '📷'}</span>
+              <span>{scannerMode === 'upload' ? 'בחר קובץ אחר' : 'צלם שוב'}</span>
             </button>
             <button 
               onClick={handleSkipCrop} 
@@ -1229,8 +1386,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   מחק
                 </button>
                 <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontSize: '1rem' }}>📷</span>
-                  צלם שוב
+                  <span style={{ fontSize: '1rem' }}>{scannerMode === 'upload' ? '📁' : '📷'}</span>
+                  {scannerMode === 'upload' ? 'החלף קובץ' : 'צלם שוב'}
                 </button>
                 <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>✂️</span>
