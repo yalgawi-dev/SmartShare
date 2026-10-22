@@ -36,9 +36,26 @@ export const uploadImageToStorage = async (dataUrl: string, path: string): Promi
     return dataUrl;
   }
   
-  const storageRef = ref(storage, path);
+  // If the dataUrl is webp but path ended with .jpg, adjust path to .webp for consistency
+  let resolvedPath = path;
+  if (dataUrl.startsWith('data:image/webp') && resolvedPath.endsWith('.jpg')) {
+    resolvedPath = resolvedPath.replace(/\.jpg$/, '.webp');
+  }
+
+  const storageRef = ref(storage, resolvedPath);
   try {
-    const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
+    const isPdf = dataUrl.startsWith('data:application/pdf');
+    const isWebp = dataUrl.startsWith('data:image/webp');
+    const isPng = dataUrl.startsWith('data:image/png');
+    const contentType = isPdf ? 'application/pdf' : (isWebp ? 'image/webp' : (isPng ? 'image/png' : 'image/jpeg'));
+
+    // High performance cloud caching: immutable for 1 year (0ms subsequent loads)
+    const metadata = {
+      contentType,
+      cacheControl: 'public, max-age=31536000, immutable'
+    };
+
+    const snapshot = await uploadString(storageRef, dataUrl, 'data_url', metadata);
     const downloadURL = await getDownloadURL(snapshot.ref);
     return downloadURL;
   } catch (error) {

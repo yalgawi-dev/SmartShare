@@ -97,6 +97,41 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   }, [previewState]);
 
+  // Silent background preloader for active shelf documents (0ms perceived load time)
+  React.useEffect(() => {
+    if (!activeShelfId || typeof window === 'undefined') return;
+    const activeShelfDocs = documents.filter(d => d.shelfId === activeShelfId);
+    if (activeShelfDocs.length === 0) return;
+
+    const urlsToPreload: string[] = [];
+    activeShelfDocs.forEach(d => {
+      if (d.url && !d.url.toLowerCase().includes('.pdf')) urlsToPreload.push(d.url);
+      if (Array.isArray(d.pages)) {
+        d.pages.forEach(p => {
+          if (p && !p.toLowerCase().includes('.pdf')) urlsToPreload.push(p);
+        });
+      }
+    });
+
+    if (urlsToPreload.length === 0) return;
+
+    const preload = () => {
+      urlsToPreload.forEach(src => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      const handle = (window as any).requestIdleCallback(preload, { timeout: 1500 });
+      return () => (window as any).cancelIdleCallback(handle);
+    } else {
+      const t = setTimeout(preload, 120);
+      return () => clearTimeout(t);
+    }
+  }, [activeShelfId, documents]);
+
   React.useEffect(() => {
     const handler = () => {
       setPromptInput('');
@@ -268,13 +303,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         let finalThumbnailUrl = previewUrl;
 
         if (url.startsWith('data:image') || url.startsWith('data:application/pdf')) {
-          const ext = url.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
+          const ext = url.startsWith('data:application/pdf') ? 'pdf' : (url.startsWith('data:image/webp') ? 'webp' : 'jpg');
           const path = `documents/${space.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`;
           finalUrl = await uploadImageToStorage(url, path);
         }
 
         if (previewUrl && previewUrl.startsWith('data:image')) {
-          const thumbPath = `documents/${space.id}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.jpg`;
+          const thumbExt = previewUrl.startsWith('data:image/webp') ? 'webp' : 'jpg';
+          const thumbPath = `documents/${space.id}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.${thumbExt}`;
           finalThumbnailUrl = await uploadImageToStorage(previewUrl, thumbPath);
         }
 
@@ -284,7 +320,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           finalPages = await Promise.all(
             allPages.map(async (pageUrl, idx) => {
               if (pageUrl.startsWith('data:')) {
-                const pageExt = pageUrl.startsWith('data:application/pdf') ? 'pdf' : 'jpg';
+                const pageExt = pageUrl.startsWith('data:application/pdf') ? 'pdf' : (pageUrl.startsWith('data:image/webp') ? 'webp' : 'jpg');
                 const pagePath = `documents/${space.id}/page_${Date.now()}_${idx}_${Math.random().toString(36).substring(7)}.${pageExt}`;
                 return await uploadImageToStorage(pageUrl, pagePath);
               }
@@ -447,7 +483,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.6.1</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.6.2</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -718,8 +754,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                           <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
                         </div>
                       ) : (
-                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + doc.url + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
-                          <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>JPG</div>
+                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + (doc.thumbnailUrl || doc.url) + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                          <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>
+                            {(doc.url && (doc.url.includes('.webp') || doc.url.startsWith('data:image/webp'))) ? 'WEBP' : 'IMG'}
+                          </div>
                         </div>
                       )}
                       

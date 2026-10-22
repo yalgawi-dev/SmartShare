@@ -47,7 +47,7 @@ export default function UniversalViewerModal({
   onDownload
 }: UniversalViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
-  const [mounted, setMounted] = useState(false);
+  const [mounted, setMounted] = useState(() => typeof window !== 'undefined');
   const [currentScale, setCurrentScale] = useState<number>(1);
 
   // Touch swipe handling
@@ -64,6 +64,33 @@ export default function UniversalViewerModal({
       document.body.style.overflow = prevOverflow;
     };
   }, []);
+
+  // Adjacent Slide Pre-fetching (prev & next slides for instantaneous swiping at 60fps)
+  useEffect(() => {
+    if (!docs || docs.length === 0 || typeof window === 'undefined') return;
+
+    const urlsToPreload: string[] = [];
+    if (currentIndex + 1 < docs.length) {
+      const next = docs[currentIndex + 1];
+      if (next?.url && !next.url.toLowerCase().includes('.pdf')) urlsToPreload.push(next.url);
+      if (Array.isArray(next?.pages)) {
+        next.pages.forEach(p => { if (p && !p.toLowerCase().includes('.pdf')) urlsToPreload.push(p); });
+      }
+    }
+    if (currentIndex - 1 >= 0) {
+      const prev = docs[currentIndex - 1];
+      if (prev?.url && !prev.url.toLowerCase().includes('.pdf')) urlsToPreload.push(prev.url);
+      if (Array.isArray(prev?.pages)) {
+        prev.pages.forEach(p => { if (p && !p.toLowerCase().includes('.pdf')) urlsToPreload.push(p); });
+      }
+    }
+
+    urlsToPreload.forEach(src => {
+      const img = new Image();
+      img.decoding = 'async';
+      img.src = src;
+    });
+  }, [currentIndex, docs]);
 
   if (!mounted || !docs || docs.length === 0) return null;
 
@@ -210,7 +237,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.5.9
+            v2.6.0
           </span>
           <span
             style={{
@@ -512,6 +539,7 @@ export default function UniversalViewerModal({
                       src={fullUrl || thumbUrl}
                       alt={currentDoc.title || 'מסמך'}
                       loading="eager"
+                      decoding="sync"
                       style={{
                         maxWidth: '92vw',
                         maxHeight: '76vh',

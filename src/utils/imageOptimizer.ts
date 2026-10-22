@@ -2,7 +2,37 @@
 // Maintains aspect ratio while reducing file size to save storage.
 // This is the SINGLE SOURCE OF TRUTH (Engine) for all image compression in the app.
 
-export async function compressImage(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.82, type = "image/jpeg"): Promise<string> {
+let _webpSupported: boolean | null = null;
+
+/**
+ * Checks whether the client browser supports WebP canvas export.
+ */
+export function isWebPSupported(): boolean {
+  if (_webpSupported !== null) return _webpSupported;
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return true; // Default assumption in modern environments
+  }
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1;
+    canvas.height = 1;
+    const dataUrl = canvas.toDataURL('image/webp');
+    _webpSupported = dataUrl.startsWith('data:image/webp');
+  } catch (e) {
+    _webpSupported = false;
+  }
+  return _webpSupported;
+}
+
+// ============================================================================
+// 1. MODERN WEBP ENGINE (ACTIVE PIPELINE - v2.6.9)
+// ============================================================================
+
+export function compressCanvasWebP(canvas: HTMLCanvasElement, quality = 0.80): string {
+  return canvas.toDataURL('image/webp', quality);
+}
+
+export async function compressImageWebP(file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.80): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -39,9 +69,7 @@ export async function compressImage(file: File, maxWidth = 1000, maxHeight = 100
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        
-        // Use the unified canvas compressor
-        resolve(compressCanvas(canvas, quality, type));
+        resolve(compressCanvasWebP(canvas, quality));
       };
       
       img.onerror = (err) => reject(err);
@@ -51,18 +79,157 @@ export async function compressImage(file: File, maxWidth = 1000, maxHeight = 100
   });
 }
 
-/**
- * Single Source of Truth for Canvas compression.
- * Used by ScannerModal and other components that manipulate images in-memory.
- */
-export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.82, type = 'image/jpeg'): string {
-  // We use 0.82 quality and JPEG format across the app for sharp text while keeping sizes small. Single Source of Truth.
-  // This is crucial for keeping our cloud storage under 5GB.
-  // PNG is supported for signatures which require transparency.
-  return canvas.toDataURL(type, quality);
+// ============================================================================
+// 2. LEGACY JPEG ENGINE (DISCONNECTED FROM PIPES - PRESERVED FOR FALLBACK)
+// Tracked in ENGINE_TRANSITION_TASKS.md pending user sign-off to delete.
+// ============================================================================
+
+export function legacyCompressCanvasJPEG(canvas: HTMLCanvasElement, quality = 0.82): string {
+  return canvas.toDataURL('image/jpeg', quality);
 }
 
-export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 1200, quality = 0.82): Promise<string> {
+export async function legacyCompressImageJPEG(file: File, maxWidth = 1000, maxHeight = 1000, quality = 0.82): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round(height * (maxWidth / width));
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round(width * (maxHeight / height));
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'));
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(legacyCompressCanvasJPEG(canvas, quality));
+      };
+      
+      img.onerror = (err) => reject(err);
+    };
+    
+    reader.onerror = (err) => reject(err);
+  });
+}
+
+export async function legacyCompressToBudgetJPEG(src: string, maxBytes = DOCUMENT_MAX_BYTES): Promise<string> {
+  if (src.startsWith('data:image/jpeg') && dataUrlBytes(src) <= maxBytes) return src;
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.onload = () => resolve(i);
+    i.onerror = reject;
+    i.src = src;
+  });
+  let scale = Math.min(1, 2000 / Math.max(img.width, img.height));
+  let best = src;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return best;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    for (const q of [0.85, 0.75, 0.65, 0.55]) {
+      best = canvas.toDataURL('image/jpeg', q);
+      if (dataUrlBytes(best) <= maxBytes) return best;
+    }
+    scale *= 0.85;
+  }
+  return best;
+}
+
+// ============================================================================
+// 3. UNIFIED GLOBAL PIPELINES (NOW WIRED TO WEBP ENGINE)
+// ============================================================================
+
+/**
+ * Single Source of Truth for Canvas compression across the application.
+ * Connected directly to WebP for 30%-50% smaller sizes and crystal clear rendering.
+ */
+export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.80, type?: string): string {
+  // Support explicit PNG for signatures / transparency
+  if (type && type !== 'image/jpeg' && type !== 'image/webp') {
+    return canvas.toDataURL(type, quality);
+  }
+  if (isWebPSupported()) {
+    return compressCanvasWebP(canvas, quality);
+  }
+  return legacyCompressCanvasJPEG(canvas, quality);
+}
+
+/**
+ * Single Source of Truth for File compression across the application.
+ * Connected directly to WebP.
+ */
+export async function compressImage(file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.80, type?: string): Promise<string> {
+  if (type && type !== 'image/jpeg' && type !== 'image/webp') {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) {
+              height = Math.round(height * (maxWidth / width));
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width = Math.round(width * (maxHeight / height));
+              height = maxHeight;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) return reject(new Error('Failed to get canvas context'));
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL(type, quality));
+        };
+        img.onerror = reject;
+      };
+      reader.onerror = reject;
+    });
+  }
+
+  if (isWebPSupported()) {
+    return compressImageWebP(file, maxWidth, maxHeight, quality);
+  }
+  return legacyCompressImageJPEG(file, maxWidth, maxHeight, quality);
+}
+
+export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 1200, quality = 0.80): Promise<string> {
   if (typeof window === 'undefined') return pdfSource;
   try {
     if (!window.pdfjsLib) {
@@ -91,7 +258,6 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
         bytes[i] = binaryString.charCodeAt(i);
       }
     } else {
-      // Remote URL (e.g. Firebase Storage)
       const res = await fetch(pdfSource);
       const arrayBuffer = await res.arrayBuffer();
       bytes = new Uint8Array(arrayBuffer);
@@ -101,7 +267,6 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
     const pdf = await loadingTask.promise;
     const numPages = pdf.numPages || 1;
 
-    // Render each page into its own offscreen canvas
     const renderedCanvases: HTMLCanvasElement[] = [];
     let maxWidth = 0;
 
@@ -132,10 +297,10 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
     }
 
     if (renderedCanvases.length === 1) {
-      return renderedCanvases[0].toDataURL('image/jpeg', quality);
+      return compressCanvas(renderedCanvases[0], quality);
     }
 
-    // Stitch all pages vertically into a continuous scroll ("Megilah") like CamScanner
+    // Stitch all pages vertically into a continuous scroll ("Megilah")
     const gap = 24;
     const paddingX = 20;
     const paddingY = 20;
@@ -146,9 +311,8 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
     scrollCanvas.width = canvasWidth;
     scrollCanvas.height = totalHeight;
     const scrollCtx = scrollCanvas.getContext('2d');
-    if (!scrollCtx) return renderedCanvases[0].toDataURL('image/jpeg', quality);
+    if (!scrollCtx) return compressCanvas(renderedCanvases[0], quality);
 
-    // Dark sleek backdrop like CamScanner viewer
     scrollCtx.fillStyle = '#0f172a';
     scrollCtx.fillRect(0, 0, scrollCanvas.width, scrollCanvas.height);
 
@@ -157,7 +321,6 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
       const c = renderedCanvases[i];
       const scaledH = (maxWidth / c.width) * c.height;
 
-      // Draw white page card with subtle shadow
       scrollCtx.save();
       scrollCtx.shadowColor = 'rgba(0, 0, 0, 0.4)';
       scrollCtx.shadowBlur = 12;
@@ -166,10 +329,8 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
       scrollCtx.fillRect(paddingX, currentY, maxWidth, scaledH);
       scrollCtx.restore();
 
-      // Draw the actual page content
       scrollCtx.drawImage(c, paddingX, currentY, maxWidth, scaledH);
 
-      // CamScanner subtle page number label in the gap
       if (i < renderedCanvases.length - 1) {
         const gapMiddleY = currentY + scaledH + gap / 2;
         scrollCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
@@ -183,17 +344,13 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
       currentY += scaledH + gap;
     }
 
-    return scrollCanvas.toDataURL('image/jpeg', quality);
+    return compressCanvas(scrollCanvas, quality);
   } catch (err) {
     console.error('Failed to convert multi-page PDF to scroll image:', err);
     return pdfSource;
   }
 }
 
-/**
- * Extracts each page of a PDF into an individual JPEG data URL.
- * Allows pure single-page view with pinch-to-zoom and clean navigation between pages.
- */
 export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality = 0.85): Promise<string[]> {
   if (typeof window === 'undefined') return [];
   try {
@@ -248,7 +405,7 @@ export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality 
         pageCtx.fillStyle = '#ffffff';
         pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
         await page.render({ canvasContext: pageCtx, viewport }).promise;
-        pageUrls.push(pageCanvas.toDataURL('image/jpeg', quality));
+        pageUrls.push(compressCanvas(pageCanvas, quality));
       }
     }
 
@@ -259,7 +416,7 @@ export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality 
   }
 }
 
-export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0.7): Promise<string> {
+export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0.75): Promise<string> {
   if (base64.startsWith('data:application/pdf') || base64.includes('application/pdf')) {
     return convertPdfToOptimizedImage(base64, maxDim, quality);
   }
@@ -279,11 +436,12 @@ export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0
       canvas.height = height;
       const ctx = canvas.getContext('2d');
       if (ctx) ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/jpeg', quality));
+      resolve(compressCanvas(canvas, quality));
     };
     img.onerror = (err) => reject(err);
   });
 }
+
 export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
@@ -312,7 +470,6 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
 
   let currentY = paddingY;
   loadedImages.forEach((img, i) => {
-    // Draw white card backdrop with shadow
     ctx.save();
     ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
     ctx.shadowBlur = 12;
@@ -336,29 +493,37 @@ export async function mergeImagesCleanly(imageUrls: string[]): Promise<string> {
     currentY += scaledHeights[i] + gap;
   });
 
-  return compressCanvas(canvas, 0.82);
+  return compressCanvas(canvas, 0.80);
 }
 
-/** Every stored document must fit this budget. Documents are never rejected - they are shrunk. */
 export const DOCUMENT_MAX_BYTES = 300 * 1024;
 
-const dataUrlBytes = (u: string) => Math.round((u.length - u.indexOf(',') - 1) * 0.75);
+export const dataUrlBytes = (u: string) => Math.round((u.length - u.indexOf(',') - 1) * 0.75);
 
 /**
- * Shrinks an image to fit maxBytes. Always re-encodes from the ORIGINAL source (never from an
- * intermediate result) so there is at most one extra generation of loss. A JPEG already within
- * budget is returned untouched. Never throws on size - returns the best effort.
+ * Shrinks an image to fit maxBytes.
+ * Connected directly to WebP engine with seamless fallback to legacy JPEG engine.
  */
 export async function compressToBudget(src: string, maxBytes = DOCUMENT_MAX_BYTES): Promise<string> {
-  if (src.startsWith('data:image/jpeg') && dataUrlBytes(src) <= maxBytes) return src;
+  // If already within budget in WebP or JPEG, keep as-is
+  if ((src.startsWith('data:image/webp') || src.startsWith('data:image/jpeg')) && dataUrlBytes(src) <= maxBytes) {
+    return src;
+  }
+
+  if (!isWebPSupported()) {
+    return legacyCompressToBudgetJPEG(src, maxBytes);
+  }
+
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const i = new Image();
     i.onload = () => resolve(i);
     i.onerror = reject;
     i.src = src;
   });
+
   let scale = Math.min(1, 2000 / Math.max(img.width, img.height));
   let best = src;
+
   for (let attempt = 0; attempt < 8; attempt++) {
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(img.width * scale));
@@ -370,8 +535,9 @@ export async function compressToBudget(src: string, maxBytes = DOCUMENT_MAX_BYTE
     ctx.fillStyle = '#fff';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
     for (const q of [0.85, 0.75, 0.65, 0.55]) {
-      best = canvas.toDataURL('image/jpeg', q);
+      best = compressCanvasWebP(canvas, q);
       if (dataUrlBytes(best) <= maxBytes) return best;
     }
     scale *= 0.85;

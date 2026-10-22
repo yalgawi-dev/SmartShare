@@ -91,6 +91,39 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   // Draft key per space and shelf
   const draftStorageKey = `smartshare_timeline_draft_${space.id}_${activeShelfId}`;
 
+  // Silent background preloader for timeline documents (0ms perceived load time)
+  useEffect(() => {
+    if (!shelfDocs || shelfDocs.length === 0 || typeof window === 'undefined') return;
+
+    const urlsToPreload: string[] = [];
+    shelfDocs.forEach(d => {
+      if (d.url && !d.url.toLowerCase().includes('.pdf')) urlsToPreload.push(d.url);
+      if (Array.isArray(d.pages)) {
+        d.pages.forEach(p => {
+          if (p && !p.toLowerCase().includes('.pdf')) urlsToPreload.push(p);
+        });
+      }
+    });
+
+    if (urlsToPreload.length === 0) return;
+
+    const preload = () => {
+      urlsToPreload.forEach(src => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.src = src;
+      });
+    };
+
+    if ('requestIdleCallback' in window) {
+      const handle = (window as any).requestIdleCallback(preload, { timeout: 1500 });
+      return () => (window as any).cancelIdleCallback(handle);
+    } else {
+      const t = setTimeout(preload, 120);
+      return () => clearTimeout(t);
+    }
+  }, [shelfDocs]);
+
   // Auto-restore draft on mount or shelf change (with strict unlinked filtering)
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -335,7 +368,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.6.0</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.6.5</span>
       </div>
 
       {events.length === 0 ? (
