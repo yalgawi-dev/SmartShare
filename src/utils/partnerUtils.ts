@@ -86,3 +86,28 @@ export const resolveUserSpaceIdentity = (space: any, user: any): { myId: string;
 
   return { myId: user?.id || 'me', isCreator: false };
 };
+
+export const isAuthenticPartnerName = (name: any): boolean => {
+  if (!name || typeof name !== 'string') return false;
+  const str = name.trim();
+  if (!str || str === 'שותף מוזמן' || str === 'שותף' || str === 'משתמש' || str === 'מוזמן') return false;
+  // Detect double-encoded UTF-8 mojibake, URI encoded leftovers, or corrupted characters
+  if (str.includes('׳³') || str.includes('Ã—') || str.includes('%D7') || str.includes('ï¿½') || str.includes('\uFFFD')) {
+    return false;
+  }
+  // Check if string contains excessive non-text symbols or unreadable characters
+  const hebrewCount = (str.match(/[\u0590-\u05FF]/g) || []).length;
+  const latinCount = (str.match(/[a-zA-Z]/g) || []).length;
+  const numCount = (str.match(/[0-9]/g) || []).length;
+  if (str.length >= 3 && (hebrewCount + latinCount + numCount) < str.length * 0.4) {
+    return false;
+  }
+  return true;
+};
+
+export const sanitizePartnerDisplayName = (name: any, fallback = 'שותף מוזמן'): string => {
+  if (isAuthenticPartnerName(name)) {
+    return (name as string).trim();
+  }
+  return fallback;
+};

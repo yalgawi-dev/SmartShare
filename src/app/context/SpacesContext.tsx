@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
-import { isPartnerExpired } from '../../utils/partnerUtils';
+import { isPartnerExpired, isAuthenticPartnerName } from '../../utils/partnerUtils';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/utils/notifications';
@@ -410,7 +410,37 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         const data = doc.data();
         // ensure mediaItems are not pulled from root doc anymore if they exist there legacy
         delete data.mediaItems; 
-        return { id: doc.id, ...data } as Omit<Space, 'mediaItems'>;
+
+        let needsDbHealing = false;
+        const healedPendingInvites = (data.pendingInvites || []).map((inv: any) => {
+          if (inv && inv.name && !isAuthenticPartnerName(inv.name)) {
+            needsDbHealing = true;
+            return { ...inv, name: 'שותף מוזמן' };
+          }
+          return inv;
+        });
+
+        const healedMembers = (data.members || []).map((m: any) => {
+          if (m && m.name && !isAuthenticPartnerName(m.name)) {
+            needsDbHealing = true;
+            return { ...m, name: m.role === 'creator' ? (data.createdBy || 'מנהל') : 'שותף מוזמן' };
+          }
+          return m;
+        });
+
+        if (needsDbHealing) {
+          updateDoc(doc.ref, {
+            pendingInvites: healedPendingInvites,
+            members: healedMembers
+          }).catch(console.error);
+        }
+
+        return { 
+          id: doc.id, 
+          ...data,
+          pendingInvites: healedPendingInvites,
+          members: healedMembers
+        } as Omit<Space, 'mediaItems'>;
       });
 
       setSpacesBase(dbSpaces);

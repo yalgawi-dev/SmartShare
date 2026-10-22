@@ -6,12 +6,12 @@ import { useChat } from '../../../app/context/ChatContext';
 import { usePresence } from '../../../hooks/usePresence';
 import { PartnersInviteModal } from './PartnersInviteModal';
 import PartnerControlPanel from './PartnerControlPanel';
-import { getRemainingTimeText } from '../../../utils/partnerUtils';
+import { getRemainingTimeText, sanitizePartnerDisplayName } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
   const { user } = useAuth();
-  const { getRoleForSpace, removeMember, updateMemberStatus, refreshMemberInvite, approveGroupMember, rejectGroupMember, approveAllGroupMembers } = useSpaces() as any;
+  const { getRoleForSpace, removeMember, updateMemberStatus, refreshMemberInvite, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite } = useSpaces() as any;
   const { openChat } = useChat();
 
   const myRole = getRoleForSpace(space.id);
@@ -23,7 +23,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   // Combine creator, members, and pending invites for full directory
   const pendingMembers = (space.pendingInvites || []).map((inv: any) => ({
     userId: inv.token,
-    name: inv.name || 'שותף מוזמן',
+    name: sanitizePartnerDisplayName(inv.name, 'שותף מוזמן'),
     role: 'partner',
     status: 'pending',
     welcomed: false,
@@ -32,7 +32,10 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
     isInvite: true
   }));
 
-  const activeSpaceMembers = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false);
+  const activeSpaceMembers = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false).map((m: any) => ({
+    ...m,
+    name: sanitizePartnerDisplayName(m.name, m.role === 'creator' ? 'מנהל' : 'שותף מוזמן')
+  }));
 
   const allMembers = [
     {
@@ -106,7 +109,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.52</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.53</span>
         </div>
         {isCreatorMe && (
           <button 
@@ -314,13 +317,39 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     </span>
                   )}
                   
-                  {space.features?.includes('chat') && !isMe && (
+                  {space.features?.includes('chat') && !isMe && !m.isInvite && (
                     <button 
                       onClick={(e) => { e.stopPropagation(); openChat(m.userId); }}
                       style={{ background: "white", color: "#4338ca", border: "1px solid #e0e7ff", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
                       title="צ'אט אישי"
                     >
                       💬
+                    </button>
+                  )}
+
+                  {m.isInvite && isCreatorMe && (
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setConfirmModalConfig({
+                          isOpen: true,
+                          title: 'ביטול ומחיקת הזמנה',
+                          message: `האם למחוק לצמיתות את ההזמנה עבור "${m.name}"?`,
+                          confirmText: 'מחק הזמנה',
+                          cancelText: 'ביטול',
+                          variant: 'danger',
+                          icon: '🗑️',
+                          onConfirm: () => {
+                            if (typeof declinePendingInvite === 'function') {
+                              declinePendingInvite(space.id, m.userId);
+                            }
+                          }
+                        });
+                      }}
+                      style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fee2e2", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.95rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
+                      title="מחק הזמנה זו"
+                    >
+                      🗑️
                     </button>
                   )}
                   
