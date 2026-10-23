@@ -179,7 +179,9 @@ export async function convertImagesToPdfBlob(
   let pagesToRender: Array<{ dataUrl: string; width: number; height: number }> = [];
   if (requestedFormat === 'pages') {
     for (const item of rawLoadedImages) {
-      if (item.height / item.width > 1.6) {
+      // True mega scrolls (ratio > 3.0) are sliced into sequential A4 pages
+      // Standard documents, parking tickets, and regular receipts (ratio <= 3.0) fit completely onto a single A4 page
+      if (item.height / item.width > 3.0) {
         const slices = await sliceTallImageIntoA4Slices(item);
         pagesToRender.push(...slices);
       } else {

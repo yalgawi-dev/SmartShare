@@ -378,7 +378,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 'bold' }}>ציר זמן v2.7.6</span>
+        <span style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 'bold' }}>ציר זמן v2.7.7</span>
       </div>
 
       {events.length === 0 ? (

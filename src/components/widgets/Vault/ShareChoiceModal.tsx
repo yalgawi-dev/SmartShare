@@ -117,7 +117,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v2.7.6
+            v2.7.7
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
