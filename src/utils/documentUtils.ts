@@ -100,8 +100,64 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
   return { dataUrl: jpegDataUrl, width: w, height: h };
 }
 
+const A4_PT_WIDTH = 595.28;
+const A4_PT_HEIGHT = 841.89;
+
 /**
- * Single Source of Truth for converting images (single page, multi-page, or scroll) to a PDF Blob.
+ * Helper to slice an ultra-tall scroll image (receipt) into sequential A4 aspect-ratio slices.
+ * This is the exact algorithm used by CamScanner / Adobe Scan to make tall receipts readable, printable,
+ * and ensure Page 1 produces a crisp thumbnail in WhatsApp.
+ */
+async function sliceTallImageIntoA4Slices(imgData: { dataUrl: string; width: number; height: number }): Promise<Array<{ dataUrl: string; width: number; height: number }>> {
+  const W = imgData.width;
+  const H = imgData.height;
+  const a4Ratio = A4_PT_HEIGHT / A4_PT_WIDTH; // ~1.4143
+  const targetSliceH = Math.round(W * a4Ratio);
+
+  // If not significantly taller than A4, keep as 1 slice
+  if (H <= targetSliceH * 1.25) {
+    return [imgData];
+  }
+
+  const numSlices = Math.ceil(H / targetSliceH);
+  const slices: Array<{ dataUrl: string; width: number; height: number }> = [];
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const el = new Image();
+    el.onload = () => resolve(el);
+    el.onerror = reject;
+    el.src = imgData.dataUrl;
+  });
+
+  for (let i = 0; i < numSlices; i++) {
+    const currentY = i * targetSliceH;
+    const currentSliceH = Math.min(targetSliceH, H - currentY);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = W;
+    canvas.height = targetSliceH;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) continue;
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, W, targetSliceH);
+    ctx.drawImage(img, 0, currentY, W, currentSliceH, 0, 0, W, currentSliceH);
+
+    slices.push({
+      dataUrl: canvas.toDataURL('image/jpeg', 0.95),
+      width: W,
+      height: targetSliceH
+    });
+  }
+
+  return slices.length > 0 ? slices : [imgData];
+}
+
+/**
+ * Single Source of Truth for converting images to a standard ISO 32000 A4 PDF Blob.
+ * Conforms to Rule 2 & 4 (DRY) and Rule 5 (Root Cause Analysis - True PDF Standard).
+ * Formats every page onto Standard A4 (595.28 x 841.89 pt) so mobile OSs and WhatsApp
+ * can reliably rasterize page 0 into a crisp thumbnail without memory exhaustion.
  */
 export async function convertImagesToPdfBlob(
   imageUrls: string[],
@@ -111,88 +167,56 @@ export async function convertImagesToPdfBlob(
     throw new Error('No images provided for PDF conversion');
   }
 
-  // Force 'pages' if there is only 1 image (a single page can never be a scroll)
-  const isSinglePage = imageUrls.length === 1;
   const requestedFormat = options.format || 'pages';
-  const format = isSinglePage ? 'pages' : requestedFormat;
   const includeNumbers = options.includeNumbers || false;
 
-  // Load and convert all images to guaranteed JPEG DataURLs (supports WebP, PNG, etc.)
-  const loadedImages = await Promise.all(
+  // 1. Load and convert all images to guaranteed high-res JPEG DataURLs
+  const rawLoadedImages = await Promise.all(
     imageUrls.map(url => loadAndConvertImageToJpeg(url))
   );
 
-  if (format === 'pages') {
-    let pdf: any = null;
-    for (let i = 0; i < loadedImages.length; i++) {
-      const item = loadedImages[i];
-      let itemWidth = item.width;
-      let itemHeight = item.height;
-      // Clamp to ISO 32000 PDF limits (max 14,000px) to prevent crashes on ultra-tall scrolls
-      if (itemHeight > 14000) {
-        const s = 14000 / itemHeight;
-        itemHeight = 14000;
-        itemWidth = Math.round(itemWidth * s);
-      }
-      if (itemWidth > 14000) {
-        const s = 14000 / itemWidth;
-        itemWidth = 14000;
-        itemHeight = Math.round(itemHeight * s);
-      }
-
-      const orientation = itemWidth > itemHeight ? 'l' : 'p';
-      if (!pdf) {
-        pdf = new jsPDF({ orientation, unit: 'px', format: [itemWidth, itemHeight] });
+  // 2. Prepare pages: For 'pages' mode, slice any ultra-tall scrolls into A4 slices
+  let pagesToRender: Array<{ dataUrl: string; width: number; height: number }> = [];
+  if (requestedFormat === 'pages') {
+    for (const item of rawLoadedImages) {
+      if (item.height / item.width > 1.6) {
+        const slices = await sliceTallImageIntoA4Slices(item);
+        pagesToRender.push(...slices);
       } else {
-        pdf.addPage([itemWidth, itemHeight], orientation);
-      }
-
-      // Add guaranteed JPEG image to cover 100% of the page with 0 margins
-      pdf.addImage(item.dataUrl, 'JPEG', 0, 0, itemWidth, itemHeight);
-
-      if (includeNumbers) {
-        const textCanvas = document.createElement('canvas');
-        textCanvas.width = 300;
-        textCanvas.height = 100;
-        const ctx = textCanvas.getContext('2d');
-        if (ctx) {
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillRect(0, 0, 300, 100);
-          ctx.fillStyle = '#FFD700';
-          ctx.font = 'bold 72px Arial';
-          ctx.fillText('עמוד ' + (i + 1), 40, 72);
-          const numImgUrl = textCanvas.toDataURL('image/png');
-          pdf.addImage(numImgUrl, 'PNG', 15, 15, 150, 50);
-        }
+        pagesToRender.push(item);
       }
     }
-    return pdf.output('blob');
+  } else {
+    // For 'scroll' (fit on single A4), take each image as a page
+    pagesToRender = rawLoadedImages;
   }
 
-  // Scroll mode (one long continuous page)
-  const GAP = 0;
-  const maxWidth = Math.max(...loadedImages.map(img => img.width));
-  const scaledHeights = loadedImages.map(img => (maxWidth / img.width) * img.height);
-  const totalHeight = scaledHeights.reduce((sum, h) => sum + h, 0) + (loadedImages.length > 1 ? (loadedImages.length - 1) * GAP : 0);
+  // 3. Build standard A4 PDF document
+  let pdf: any = null;
 
-  let finalFormatHeight = totalHeight;
-  let finalFormatWidth = maxWidth;
-  let scaleDown = 1.0;
-  // jsPDF canvas limits
-  if (totalHeight > 14000) {
-    scaleDown = 14000 / totalHeight;
-    finalFormatHeight = 14000;
-    finalFormatWidth = maxWidth * scaleDown;
-  }
+  for (let i = 0; i < pagesToRender.length; i++) {
+    const item = pagesToRender[i];
+    const isLandscape = item.width > item.height;
+    const pageW = isLandscape ? A4_PT_HEIGHT : A4_PT_WIDTH;
+    const pageH = isLandscape ? A4_PT_WIDTH : A4_PT_HEIGHT;
+    const orientation = isLandscape ? 'l' : 'p';
 
-  const pdf = new jsPDF({ orientation: 'p', unit: 'px', format: [finalFormatWidth, finalFormatHeight] });
+    if (!pdf) {
+      pdf = new jsPDF({ orientation, unit: 'pt', format: 'a4' });
+    } else {
+      pdf.addPage('a4', orientation);
+    }
 
-  let currentY = 0;
-  for (let i = 0; i < loadedImages.length; i++) {
-    const scaledH = scaledHeights[i];
-    pdf.addImage(loadedImages[i].dataUrl, 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
+    // Proportional fit onto standard A4 page (with white background)
+    const scale = Math.min(pageW / item.width, pageH / item.height);
+    const renderW = Math.round(item.width * scale);
+    const renderH = Math.round(item.height * scale);
+    const posX = Math.round((pageW - renderW) / 2);
+    const posY = Math.round((pageH - renderH) / 2);
 
-    if (includeNumbers) {
+    pdf.addImage(item.dataUrl, 'JPEG', posX, posY, renderW, renderH);
+
+    if (includeNumbers && pagesToRender.length > 1) {
       const textCanvas = document.createElement('canvas');
       textCanvas.width = 300;
       textCanvas.height = 100;
@@ -204,10 +228,9 @@ export async function convertImagesToPdfBlob(
         ctx.font = 'bold 72px Arial';
         ctx.fillText('עמוד ' + (i + 1), 40, 72);
         const numImgUrl = textCanvas.toDataURL('image/png');
-        pdf.addImage(numImgUrl, 'PNG', 20, 20 + currentY * scaleDown, 300, 100);
+        pdf.addImage(numImgUrl, 'PNG', 15, 15, 75, 25);
       }
     }
-    currentY += scaledH + GAP;
   }
 
   return pdf.output('blob');
@@ -315,11 +338,11 @@ export async function shareDocument(url: string, title?: string, options: ShareO
     const pages = options.pages && options.pages.length > 0 ? options.pages : [url];
     let filesToShare: File[] = [];
 
-    // Determine target mode (supporting backwards-compatible asPdf boolean)
+    // Default mode: Standard ISO 32000 A4 PDF (with first-page preview)
     let mode: ShareMode = options.mode || (
-      options.asPdf 
-        ? (options.pdfOptions?.format === 'scroll' ? 'pdf_scroll' : 'pdf_pages') 
-        : 'open_image'
+      options.asPdf === false 
+        ? 'open_image'
+        : (options.pdfOptions?.format === 'scroll' ? 'pdf_scroll' : 'pdf_pages')
     );
 
     if (mode === 'open_scroll') {

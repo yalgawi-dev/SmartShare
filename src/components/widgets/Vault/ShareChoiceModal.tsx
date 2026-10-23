@@ -108,20 +108,20 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             {doc.title ? doc.title : 'שיתוף מסמך'}
           </h3>
           <span style={{ 
-            background: '#10b981', 
+            background: '#2563eb', 
             color: 'white', 
             padding: '2px 8px', 
             borderRadius: '8px', 
             fontSize: '0.75rem', 
             fontWeight: 800,
-            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)',
+            boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v2.7.5
+            v2.7.6
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
-          בחר כיצד תרצה שהמסמך יוצג אצל הנמען:
+          קובץ PDF תקני (ISO 32000) עם תצוגה מקדימה בוואטסאפ:
         </p>
 
         {/* Visual Preview Card of Page 1 */}
@@ -176,83 +176,22 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             )}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#10b981', fontWeight: 'bold' }}>
-            <span>✓</span> תצוגה מקדימה פתוחה (דף ראשון)
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#2563eb', fontWeight: 'bold' }}>
+            <span>✓</span> תצוגה מקדימה: עמוד A4 תקני (דף ראשון)
           </div>
         </div>
 
         {isSharing ? (
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '36px', height: '36px', border: '3.5px solid #e2e8f0', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <span style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: 'bold' }}>מכין תצוגה פתוחה לוואטסאפ...</span>
+            <div style={{ width: '36px', height: '36px', border: '3.5px solid #e2e8f0', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 'bold' }}>מפיק קובץ PDF תקני לשיתוף...</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             
             {hasMultiplePages ? (
               <>
-                {/* OPTION 1: WhatsApp Continuous Open Scroll */}
-                <button
-                  type="button"
-                  onClick={() => handleShare('open_scroll')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.85rem 1rem',
-                    borderRadius: '16px',
-                    border: '2px solid #22c55e',
-                    background: '#f0fdf4',
-                    cursor: 'pointer',
-                    textAlign: 'right',
-                    position: 'relative',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)'
-                  }}
-                >
-                  <div style={{ fontSize: '2rem' }}>🟢</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#15803d' }}>
-                        מגילה רציפה פתוחה לוואטסאפ
-                      </span>
-                      <span style={{ fontSize: '0.65rem', background: '#22c55e', color: 'white', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
-                        מומלץ
-                      </span>
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#166534', marginTop: '2px' }}>
-                      כל {doc.pages!.length} העמודים מחוברים לתמונה פתוחה אחת בצ'אט (ללא קבצים לסגירה)
-                    </div>
-                  </div>
-                </button>
-
-                {/* OPTION 2: WhatsApp Open Photo Album */}
-                <button
-                  type="button"
-                  onClick={() => handleShare('open_album')}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    padding: '0.85rem 1rem',
-                    borderRadius: '16px',
-                    border: '1.5px solid #bfdbfe',
-                    background: '#eff6ff',
-                    cursor: 'pointer',
-                    textAlign: 'right'
-                  }}
-                >
-                  <div style={{ fontSize: '1.8rem' }}>🖼️</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1d4ed8' }}>
-                      אלבום תמונות פתוח ({doc.pages!.length} עמודים)
-                    </div>
-                    <div style={{ fontSize: '0.75rem', color: '#2563eb' }}>
-                      כל עמוד נשלח כתמונה פתוחה נפרדת המוצגת ישירות בצ'אט
-                    </div>
-                  </div>
-                </button>
-
-                {/* OPTION 3: Official PDF Separate Pages */}
+                {/* OPTION 1: ISO 32000 A4 Pages PDF (CamScanner Standard) */}
                 <button
                   type="button"
                   onClick={() => handleShare('pdf_pages')}
@@ -262,24 +201,31 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                     gap: '0.75rem',
                     padding: '0.85rem 1rem',
                     borderRadius: '16px',
-                    border: '1.5px solid #e2e8f0',
-                    background: '#f8fafc',
+                    border: '2px solid #3b82f6',
+                    background: '#eff6ff',
                     cursor: 'pointer',
-                    textAlign: 'right'
+                    textAlign: 'right',
+                    position: 'relative',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)'
                   }}
                 >
-                  <div style={{ fontSize: '1.8rem' }}>📑</div>
+                  <div style={{ fontSize: '2rem' }}>📄</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
-                      קובץ PDF רשמי (עמודים מופרדים)
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1d4ed8' }}>
+                        מסמך PDF תקני (עמודי A4)
+                      </span>
+                      <span style={{ fontSize: '0.65rem', background: '#2563eb', color: 'white', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
+                        תקן מומלץ
+                      </span>
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      נשלח כקובץ מסמך להדפסה (יוצג כקובץ להורדה)
+                    <div style={{ fontSize: '0.75rem', color: '#1e40af', marginTop: '2px' }}>
+                      קובץ PDF אמיתי בחלוקה לעמודי A4 תקניים (תקן CamScanner) עם תצוגה מקדימה בוואטסאפ
                     </div>
                   </div>
                 </button>
 
-                {/* OPTION 4: Official PDF Scroll */}
+                {/* OPTION 2: Single-Page Fitted A4 PDF */}
                 <button
                   type="button"
                   onClick={() => handleShare('pdf_scroll')}
@@ -289,60 +235,53 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                     gap: '0.75rem',
                     padding: '0.85rem 1rem',
                     borderRadius: '16px',
-                    border: '1.5px solid #e2e8f0',
+                    border: '1.5px solid #cbd5e1',
                     background: '#f8fafc',
                     cursor: 'pointer',
                     textAlign: 'right'
                   }}
                 >
-                  <div style={{ fontSize: '1.8rem' }}>📄</div>
+                  <div style={{ fontSize: '1.8rem' }}>📜</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
-                      קובץ PDF רשמי (מגילת PDF רציפה)
+                      קובץ PDF רציף (מותאם לדף A4 יחיד)
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      נשלח כקובץ מסמך PDF רציף להורדה והדפסה
+                      התאמה מלאה של כל המסמך לעמוד PDF תקני אחד
                     </div>
                   </div>
                 </button>
-              </>
-            ) : (
-              <>
-                {/* SINGLE PAGE OPTION 1: Open Photo for WhatsApp */}
+
+                {/* OPTION 3: Continuous Image fallback */}
                 <button
                   type="button"
-                  onClick={() => handleShare('open_image')}
+                  onClick={() => handleShare('open_scroll')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.75rem',
                     padding: '0.85rem 1rem',
                     borderRadius: '16px',
-                    border: '2px solid #22c55e',
-                    background: '#f0fdf4',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#ffffff',
                     cursor: 'pointer',
-                    textAlign: 'right',
-                    position: 'relative',
-                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)'
+                    textAlign: 'right'
                   }}
                 >
-                  <div style={{ fontSize: '2rem' }}>🟢</div>
+                  <div style={{ fontSize: '1.8rem' }}>🖼️</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
-                      <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#15803d' }}>
-                        תמונה פתוחה לוואטסאפ
-                      </span>
-                      <span style={{ fontSize: '0.65rem', background: '#22c55e', color: 'white', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
-                        מומלץ
-                      </span>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#475569' }}>
+                      תמונת מגילה מקורית (JPEG רציף)
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#166534', marginTop: '2px' }}>
-                      מוצג ישירות כדף פתוח בצ'אט (רואים מיד את המסמך מבלי לפתוח קובץ)
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      שמירה או שיתוף של כל העמודים כתמונה רציפה אחת
                     </div>
                   </div>
                 </button>
-
-                {/* SINGLE PAGE OPTION 2: Official PDF Document */}
+              </>
+            ) : (
+              <>
+                {/* SINGLE PAGE OPTION 1: ISO 32000 A4 PDF */}
                 <button
                   type="button"
                   onClick={() => handleShare('pdf_pages')}
@@ -352,19 +291,53 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                     gap: '0.75rem',
                     padding: '0.85rem 1rem',
                     borderRadius: '16px',
+                    border: '2px solid #3b82f6',
+                    background: '#eff6ff',
+                    cursor: 'pointer',
+                    textAlign: 'right',
+                    position: 'relative',
+                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.15)'
+                  }}
+                >
+                  <div style={{ fontSize: '2rem' }}>📄</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#1d4ed8' }}>
+                        מסמך PDF תקני (עמוד A4)
+                      </span>
+                      <span style={{ fontSize: '0.65rem', background: '#2563eb', color: 'white', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
+                        תקן מומלץ
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#1e40af', marginTop: '2px' }}>
+                      קובץ PDF אמיתי בתקן ISO עם תצוגה מקדימה בוואטסאפ ובכל קוראי ה-PDF
+                    </div>
+                  </div>
+                </button>
+
+                {/* SINGLE PAGE OPTION 2: Image fallback */}
+                <button
+                  type="button"
+                  onClick={() => handleShare('open_image')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '16px',
                     border: '1.5px solid #e2e8f0',
-                    background: '#f8fafc',
+                    background: '#ffffff',
                     cursor: 'pointer',
                     textAlign: 'right'
                   }}
                 >
-                  <div style={{ fontSize: '1.8rem' }}>📄</div>
+                  <div style={{ fontSize: '1.8rem' }}>🖼️</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
-                      קובץ PDF רשמי
+                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#475569' }}>
+                      תמונה מקורית (JPEG)
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      נשלח כקובץ מסמך להורדה ולהדפסה (יוצג כקובץ להורדה)
+                      שמירה או שיתוף כקובץ תמונה ישיר
                     </div>
                   </div>
                 </button>
