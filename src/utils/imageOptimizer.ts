@@ -263,8 +263,77 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
   }
 }
 
+// ── High-Performance Client Caching for PDF Page Extraction ────────────────
+const pdfPagesMemoryCache = new Map<string, string[]>();
+const PDF_CACHE_DB = 'SmartShareDocCache';
+const PDF_CACHE_STORE = 'pdf_pages';
+
+async function getCachedPdfPages(url: string): Promise<string[] | null> {
+  if (typeof window === 'undefined') return null;
+  if (pdfPagesMemoryCache.has(url)) {
+    return pdfPagesMemoryCache.get(url)!;
+  }
+  try {
+    return await new Promise<string[] | null>((resolve) => {
+      const req = indexedDB.open(PDF_CACHE_DB, 1);
+      req.onupgradeneeded = () => {
+        req.result.createObjectStore(PDF_CACHE_STORE);
+      };
+      req.onsuccess = () => {
+        const db = req.result;
+        try {
+          const tx = db.transaction(PDF_CACHE_STORE, 'readonly');
+          const store = tx.objectStore(PDF_CACHE_STORE);
+          const getReq = store.get(url);
+          getReq.onsuccess = () => {
+            const res = getReq.result;
+            if (res && Array.isArray(res) && res.length > 0) {
+              pdfPagesMemoryCache.set(url, res);
+              resolve(res);
+            } else {
+              resolve(null);
+            }
+          };
+          getReq.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      };
+      req.onerror = () => resolve(null);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function setCachedPdfPages(url: string, pages: string[]): Promise<void> {
+  if (typeof window === 'undefined' || !pages || pages.length === 0) return;
+  pdfPagesMemoryCache.set(url, pages);
+  try {
+    const req = indexedDB.open(PDF_CACHE_DB, 1);
+    req.onupgradeneeded = () => {
+      req.result.createObjectStore(PDF_CACHE_STORE);
+    };
+    req.onsuccess = () => {
+      const db = req.result;
+      try {
+        const tx = db.transaction(PDF_CACHE_STORE, 'readwrite');
+        const store = tx.objectStore(PDF_CACHE_STORE);
+        store.put(pages, url);
+      } catch {}
+    };
+  } catch {}
+}
+
 export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality = 0.85): Promise<string[]> {
   if (typeof window === 'undefined') return [];
+
+  // 1. Check in-memory & IndexedDB cache for instant 0ms reload
+  const cached = await getCachedPdfPages(pdfSource);
+  if (cached && cached.length > 0) {
+    return cached;
+  }
+
   try {
     if (!window.pdfjsLib) {
       await new Promise((resolve, reject) => {
@@ -319,6 +388,11 @@ export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality 
         await page.render({ canvasContext: pageCtx, viewport }).promise;
         pageUrls.push(compressCanvas(pageCanvas, quality));
       }
+    }
+
+    // 2. Save extracted pages to cache for instant future loads
+    if (pageUrls.length > 0) {
+      setCachedPdfPages(pdfSource, pageUrls);
     }
 
     return pageUrls;

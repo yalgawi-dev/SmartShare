@@ -27,6 +27,8 @@ export interface UniversalViewerModalProps {
   onShare?: (doc: ViewerDocument) => void;
   /** Optional custom download handler */
   onDownload?: (url: string, title?: string) => void;
+  /** Optional handler to normalize legacy document to pages array in storage */
+  onNormalizeDoc?: (docId: string, pages: string[]) => void;
 }
 
 /**
@@ -44,7 +46,8 @@ export default function UniversalViewerModal({
   initialIndex = 0,
   onClose,
   onShare,
-  onDownload
+  onDownload,
+  onNormalizeDoc
 }: UniversalViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
   const [mounted, setMounted] = useState(() => typeof window !== 'undefined');
@@ -237,7 +240,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.7.7
+            v2.7.8
           </span>
           <span
             style={{
@@ -374,6 +377,12 @@ export default function UniversalViewerModal({
                 <DynamicPdfScrollPreview
                   url={currentDoc.url}
                   title={currentDoc.title}
+                  onPagesLoaded={(loadedPages) => {
+                    currentDoc.pages = loadedPages;
+                    if (onNormalizeDoc && currentDoc.id) {
+                      onNormalizeDoc(currentDoc.id, loadedPages);
+                    }
+                  }}
                 />
               </div>
             );
