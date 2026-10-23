@@ -213,7 +213,88 @@ export async function convertImagesToPdfBlob(
   return pdf.output('blob');
 }
 
+/**
+ * Loads an image from any source (WebP, PNG, remote URL, DataURL) and returns a guaranteed JPEG Blob.
+ * In WhatsApp mobile, image/jpeg files are recognized as photos and displayed completely OPEN in the chat!
+ */
+export async function convertImageToJpegBlob(url: string): Promise<Blob> {
+  const converted = await loadAndConvertImageToJpeg(url);
+  const res = await fetch(converted.dataUrl);
+  return await res.blob();
+}
+
+/**
+ * Stitches multiple page images into a single continuous vertical JPEG image.
+ * When shared to WhatsApp, it appears as an open, readable scroll directly inside the chat!
+ */
+export async function convertImagesToScrollJpegBlob(imageUrls: string[]): Promise<Blob> {
+  if (!imageUrls || imageUrls.length === 0) {
+    throw new Error('No images provided for scroll creation');
+  }
+
+  // Load and convert all images to guaranteed JPEG DataURLs
+  const loadedImages = await Promise.all(
+    imageUrls.map(url => loadAndConvertImageToJpeg(url))
+  );
+
+  const maxWidth = Math.max(...loadedImages.map(img => img.width));
+  const scaledHeights = loadedImages.map(img => (maxWidth / img.width) * img.height);
+  const totalHeight = scaledHeights.reduce((sum, h) => sum + h, 0);
+
+  // Guard against browser canvas max texture limits (typically 16,384px)
+  let finalWidth = maxWidth;
+  let finalHeight = totalHeight;
+  let scaleDown = 1.0;
+  if (totalHeight > 16000) {
+    scaleDown = 16000 / totalHeight;
+    finalHeight = 16000;
+    finalWidth = Math.round(maxWidth * scaleDown);
+  }
+
+  const canvas = document.createElement('canvas');
+  canvas.width = finalWidth;
+  canvas.height = finalHeight;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Canvas 2D context not available for scroll export');
+  }
+
+  // White background
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, finalWidth, finalHeight);
+
+  let currentY = 0;
+  for (let i = 0; i < loadedImages.length; i++) {
+    const imgData = loadedImages[i];
+    const scaledH = scaledHeights[i] * scaleDown;
+
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = imgData.dataUrl;
+    });
+
+    ctx.drawImage(img, 0, currentY, finalWidth, scaledH);
+    currentY += scaledH;
+  }
+
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error('Failed to create scroll JPEG blob'));
+      },
+      'image/jpeg',
+      0.92
+    );
+  });
+}
+
+export type ShareMode = 'open_image' | 'open_scroll' | 'open_album' | 'pdf_pages' | 'pdf_scroll';
+
 export interface ShareOptions {
+  mode?: ShareMode;
   asPdf?: boolean;
   pages?: string[];
   pdfOptions?: ExportPdfOptions;
@@ -222,35 +303,55 @@ export interface ShareOptions {
 
 /**
  * Universal Share Document - Single Source of Truth
- * - If asPdf is true and file is an image, it converts to PDF on-the-fly and shares as .pdf
- * - If asPdf is false or item is a photo, it shares directly as .jpg
+ * - 'open_image': Guaranteed JPEG (.jpg) photo. Appears completely OPEN in WhatsApp chat!
+ * - 'open_scroll': Stitched continuous JPEG (.jpg) photo. Appears completely OPEN in WhatsApp chat!
+ * - 'open_album': Multiple JPEG (.jpg) photos. Appears as an open photo album in WhatsApp!
+ * - 'pdf_pages' / 'pdf_scroll': Official PDF document attachment for printing and downloads.
  */
 export async function shareDocument(url: string, title?: string, options: ShareOptions = {}): Promise<void> {
   try {
     const cleanTitle = (title || 'document').replace(/[/\\?%*:|"<>]/g, '-');
-    let fileToShare: File | null = null;
+    const isPdf = url.includes('.pdf') || url.startsWith('data:application/pdf');
+    const pages = options.pages && options.pages.length > 0 ? options.pages : [url];
+    let filesToShare: File[] = [];
 
-    if (options.asPdf && !url.includes('.pdf') && !url.startsWith('data:application/pdf')) {
-      // Convert on-the-fly to PDF
-      const imagesToConvert = options.pages && options.pages.length > 0 ? options.pages : [url];
-      const pdfBlob = await convertImagesToPdfBlob(imagesToConvert, options.pdfOptions);
-      fileToShare = new File([pdfBlob], `${cleanTitle}.pdf`, { type: 'application/pdf' });
-    } else {
-      // Fetch with 8s timeout to prevent infinite UI freeze
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000);
-      try {
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
+    // Determine target mode (supporting backwards-compatible asPdf boolean)
+    let mode: ShareMode = options.mode || (
+      options.asPdf 
+        ? (options.pdfOptions?.format === 'scroll' ? 'pdf_scroll' : 'pdf_pages') 
+        : 'open_image'
+    );
+
+    if (mode === 'open_scroll') {
+      // Stitched continuous vertical JPEG image for WhatsApp open preview
+      const scrollBlob = await convertImagesToScrollJpegBlob(pages);
+      filesToShare = [new File([scrollBlob], `${cleanTitle}-מגילה.jpg`, { type: 'image/jpeg' })];
+    } else if (mode === 'open_album') {
+      // Multiple open photo images for WhatsApp photo album
+      const blobs = await Promise.all(pages.map(pUrl => convertImageToJpegBlob(pUrl)));
+      filesToShare = blobs.map((b, idx) => new File([b], `${cleanTitle}-עמוד-${idx + 1}.jpg`, { type: 'image/jpeg' }));
+    } else if (mode === 'open_image') {
+      // Single open photo for WhatsApp (first page or single document)
+      const targetUrl = pages[0] || url;
+      if (!isPdf) {
+        // Guaranteed standard JPEG for native WhatsApp photo bubble
+        const jpegBlob = await convertImageToJpegBlob(targetUrl);
+        filesToShare = [new File([jpegBlob], `${cleanTitle}.jpg`, { type: 'image/jpeg' })];
+      } else {
+        // If already a PDF, share as document
+        const res = await fetch(url);
         const blob = await res.blob();
-        const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
-        const isWebp = blob.type === 'image/webp' || url.includes('.webp');
-        const ext = isPdf ? 'pdf' : (isWebp ? 'webp' : 'jpg');
-        const mime = isPdf ? 'application/pdf' : (isWebp ? 'image/webp' : 'image/jpeg');
-        fileToShare = new File([blob], `${cleanTitle}.${ext}`, { type: mime });
-      } catch (fetchErr) {
-        clearTimeout(timeoutId);
-        console.warn('Direct file fetch failed, falling back to link share/download', fetchErr);
+        filesToShare = [new File([blob], `${cleanTitle}.pdf`, { type: 'application/pdf' })];
+      }
+    } else if (mode === 'pdf_pages' || mode === 'pdf_scroll') {
+      // Official PDF document file (for printing/filing)
+      if (!isPdf) {
+        const pdfBlob = await convertImagesToPdfBlob(pages, { format: mode === 'pdf_scroll' ? 'scroll' : 'pages' });
+        filesToShare = [new File([pdfBlob], `${cleanTitle}.pdf`, { type: 'application/pdf' })];
+      } else {
+        const res = await fetch(url);
+        const blob = await res.blob();
+        filesToShare = [new File([blob], `${cleanTitle}.pdf`, { type: 'application/pdf' })];
       }
     }
 
@@ -259,12 +360,20 @@ export async function shareDocument(url: string, title?: string, options: ShareO
       options.onReady();
     }
 
-    if (fileToShare && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
-      await navigator.share({ files: [fileToShare], title: title || 'מסמך' });
+    if (filesToShare.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: filesToShare })) {
+      await navigator.share({ files: filesToShare, title: title || 'מסמך' });
     } else if (typeof navigator !== 'undefined' && navigator.share && url) {
       await navigator.share({ title: title || 'מסמך', url: url });
-    } else {
-      await downloadDocument(url, title, options);
+    } else if (filesToShare.length > 0) {
+      // Fallback: download first file
+      const objUrl = URL.createObjectURL(filesToShare[0]);
+      const a = document.createElement('a');
+      a.href = objUrl;
+      a.download = filesToShare[0].name;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(objUrl);
     }
   } catch (e: any) {
     if (e?.name !== 'AbortError') {

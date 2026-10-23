@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { shareDocument, ExportPdfOptions } from '@/utils/documentUtils';
+import { shareDocument, ExportPdfOptions, ShareMode } from '@/utils/documentUtils';
 
 export interface ShareChoiceDoc {
   url: string;
@@ -49,13 +49,12 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
   const hasMultiplePages = Array.isArray(doc.pages) && doc.pages.length > 1;
   const previewUrl = doc.thumbnailUrl || (Array.isArray(doc.pages) && doc.pages.length > 0 ? doc.pages[0] : doc.url);
 
-  const handleShare = async (asPdf: boolean, pdfFormat: 'pages' | 'scroll' = 'pages') => {
+  const handleShare = async (mode: ShareMode) => {
     setIsSharing(true);
     try {
       await shareDocument(doc.url, doc.title, {
-        asPdf,
+        mode,
         pages: doc.pages,
-        pdfOptions: { format: pdfFormat },
         onReady: () => {
           setIsSharing(false);
           onClose();
@@ -94,7 +93,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
           background: 'white',
           borderRadius: '24px',
           padding: '1.5rem',
-          maxWidth: '390px',
+          maxWidth: '400px',
           width: '100%',
           maxHeight: '90vh',
           overflowY: 'auto',
@@ -109,20 +108,20 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             {doc.title ? doc.title : 'שיתוף מסמך'}
           </h3>
           <span style={{ 
-            background: '#4f46e5', 
+            background: '#10b981', 
             color: 'white', 
             padding: '2px 8px', 
             borderRadius: '8px', 
             fontSize: '0.75rem', 
             fontWeight: 800,
-            boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)',
+            boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v2.7.4
+            v2.7.5
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
-          בחר את תבנית השיתוף המועדפת:
+          בחר כיצד תרצה שהמסמך יוצג אצל הנמען:
         </p>
 
         {/* Visual Preview Card of Page 1 */}
@@ -178,23 +177,85 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
           </div>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#10b981', fontWeight: 'bold' }}>
-            <span>✓</span> תצוגה מקדימה: דף ראשון
+            <span>✓</span> תצוגה מקדימה פתוחה (דף ראשון)
           </div>
         </div>
 
         {isSharing ? (
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-            <div style={{ width: '36px', height: '36px', border: '3.5px solid #e2e8f0', borderTopColor: '#3b82f6', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-            <span style={{ fontSize: '0.9rem', color: '#3b82f6', fontWeight: 'bold' }}>מכין וממיר קובץ לשיתוף...</span>
+            <div style={{ width: '36px', height: '36px', border: '3.5px solid #e2e8f0', borderTopColor: '#10b981', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+            <span style={{ fontSize: '0.9rem', color: '#10b981', fontWeight: 'bold' }}>מכין תצוגה פתוחה לוואטסאפ...</span>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             
             {hasMultiplePages ? (
               <>
+                {/* OPTION 1: WhatsApp Continuous Open Scroll */}
                 <button
                   type="button"
-                  onClick={() => handleShare(true, 'pages')}
+                  onClick={() => handleShare('open_scroll')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '16px',
+                    border: '2px solid #22c55e',
+                    background: '#f0fdf4',
+                    cursor: 'pointer',
+                    textAlign: 'right',
+                    position: 'relative',
+                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)'
+                  }}
+                >
+                  <div style={{ fontSize: '2rem' }}>🟢</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#15803d' }}>
+                        מגילה רציפה פתוחה לוואטסאפ
+                      </span>
+                      <span style={{ fontSize: '0.65rem', background: '#22c55e', color: 'white', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
+                        מומלץ
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#166534', marginTop: '2px' }}>
+                      כל {doc.pages!.length} העמודים מחוברים לתמונה פתוחה אחת בצ'אט (ללא קבצים לסגירה)
+                    </div>
+                  </div>
+                </button>
+
+                {/* OPTION 2: WhatsApp Open Photo Album */}
+                <button
+                  type="button"
+                  onClick={() => handleShare('open_album')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '16px',
+                    border: '1.5px solid #bfdbfe',
+                    background: '#eff6ff',
+                    cursor: 'pointer',
+                    textAlign: 'right'
+                  }}
+                >
+                  <div style={{ fontSize: '1.8rem' }}>🖼️</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1d4ed8' }}>
+                      אלבום תמונות פתוח ({doc.pages!.length} עמודים)
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#2563eb' }}>
+                      כל עמוד נשלח כתמונה פתוחה נפרדת המוצגת ישירות בצ'אט
+                    </div>
+                  </div>
+                </button>
+
+                {/* OPTION 3: Official PDF Separate Pages */}
+                <button
+                  type="button"
+                  onClick={() => handleShare('pdf_pages')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
@@ -210,93 +271,105 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                   <div style={{ fontSize: '1.8rem' }}>📑</div>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
-                      מסמך PDF (עמודים מופרדים)
+                      קובץ PDF רשמי (עמודים מופרדים)
                     </div>
                     <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      חלוקה לעמודים רשמיים נפרדים (דף 1, דף 2...)
+                      נשלח כקובץ מסמך להדפסה (יוצג כקובץ להורדה)
                     </div>
                   </div>
                 </button>
 
+                {/* OPTION 4: Official PDF Scroll */}
                 <button
                   type="button"
-                  onClick={() => handleShare(true, 'scroll')}
+                  onClick={() => handleShare('pdf_scroll')}
                   style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.75rem',
                     padding: '0.85rem 1rem',
                     borderRadius: '16px',
-                    border: '1.5px solid #bfdbfe',
-                    background: '#eff6ff',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
                     cursor: 'pointer',
                     textAlign: 'right'
                   }}
                 >
-                  <div style={{ fontSize: '1.8rem' }}>📜</div>
+                  <div style={{ fontSize: '1.8rem' }}>📄</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1d4ed8' }}>
-                      מסמך PDF (מגילה רציפה)
+                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
+                      קובץ PDF רשמי (מגילת PDF רציפה)
                     </div>
-                    <div style={{ fontSize: '0.75rem', color: '#3b82f6' }}>
-                      חיבור כל {doc.pages!.length} העמודים למגילת PDF רציפה אחת
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      נשלח כקובץ מסמך PDF רציף להורדה והדפסה
                     </div>
                   </div>
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                onClick={() => handleShare(true, 'pages')}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.75rem',
-                  padding: '0.85rem 1rem',
-                  borderRadius: '16px',
-                  border: '1.5px solid #e2e8f0',
-                  background: '#f8fafc',
-                  cursor: 'pointer',
-                  textAlign: 'right'
-                }}
-              >
-                <div style={{ fontSize: '1.8rem' }}>📄</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
-                    מסמך PDF תקני
+              <>
+                {/* SINGLE PAGE OPTION 1: Open Photo for WhatsApp */}
+                <button
+                  type="button"
+                  onClick={() => handleShare('open_image')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '16px',
+                    border: '2px solid #22c55e',
+                    background: '#f0fdf4',
+                    cursor: 'pointer',
+                    textAlign: 'right',
+                    position: 'relative',
+                    boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)'
+                  }}
+                >
+                  <div style={{ fontSize: '2rem' }}>🟢</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: '800', fontSize: '0.95rem', color: '#15803d' }}>
+                        תמונה פתוחה לוואטסאפ
+                      </span>
+                      <span style={{ fontSize: '0.65rem', background: '#22c55e', color: 'white', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
+                        מומלץ
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#166534', marginTop: '2px' }}>
+                      מוצג ישירות כדף פתוח בצ'אט (רואים מיד את המסמך מבלי לפתוח קובץ)
+                    </div>
                   </div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                    {isPdf ? 'שיתוף הקובץ כ-PDF מקורי' : 'המרה אוטומטית למסמך PDF רשמי'}
-                  </div>
-                </div>
-              </button>
-            )}
+                </button>
 
-            <button
-              type="button"
-              onClick={() => handleShare(false)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                padding: '0.85rem 1rem',
-                borderRadius: '16px',
-                border: '1.5px solid #e2e8f0',
-                background: '#f8fafc',
-                cursor: 'pointer',
-                textAlign: 'right'
-              }}
-            >
-              <div style={{ fontSize: '1.8rem' }}>🖼️</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
-                  תמונה מקורית
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                  שיתוף כתמונת מגילה / תצלום ישיר
-                </div>
-              </div>
-            </button>
+                {/* SINGLE PAGE OPTION 2: Official PDF Document */}
+                <button
+                  type="button"
+                  onClick={() => handleShare('pdf_pages')}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.85rem 1rem',
+                    borderRadius: '16px',
+                    border: '1.5px solid #e2e8f0',
+                    background: '#f8fafc',
+                    cursor: 'pointer',
+                    textAlign: 'right'
+                  }}
+                >
+                  <div style={{ fontSize: '1.8rem' }}>📄</div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '0.95rem', color: '#1e293b' }}>
+                      קובץ PDF רשמי
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      נשלח כקובץ מסמך להורדה ולהדפסה (יוצג כקובץ להורדה)
+                    </div>
+                  </div>
+                </button>
+              </>
+            )}
 
             <button
               type="button"
