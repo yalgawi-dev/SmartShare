@@ -54,6 +54,8 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
     }
   };
 
+  const [imgError, setImgError] = useState(false);
+
   return (
     <div 
       onClick={onClose}
@@ -87,32 +89,59 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
           direction: 'rtl'
         }}
       >
+        {/* Header with Title and Prominent Visual Version Badge (Rule 15) */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+          <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b', fontWeight: 'bold' }}>
+            {doc.title ? doc.title : 'שיתוף מסמך'}
+          </h3>
+          <span style={{ 
+            background: '#4f46e5', 
+            color: 'white', 
+            padding: '2px 8px', 
+            borderRadius: '8px', 
+            fontSize: '0.75rem', 
+            fontWeight: 800,
+            boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)',
+            letterSpacing: '0.5px'
+          }}>
+            v2.7.3
+          </span>
+        </div>
+        <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
+          בחר את תבנית השיתוף המועדפת:
+        </p>
+
         {/* Visual Preview Card of Page 1 */}
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div style={{
             position: 'relative',
-            width: '120px',
-            height: '160px',
+            width: '130px',
+            height: '170px',
             borderRadius: '16px',
             overflow: 'hidden',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.14)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
             border: '2px solid #e2e8f0',
-            background: '#f8fafc',
+            background: '#ffffff',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: '0.5rem'
           }}>
-            {previewUrl && (previewUrl.startsWith('data:') || !previewUrl.toLowerCase().includes('.pdf')) ? (
+            {!isPdf && previewUrl && !imgError && !previewUrl.toLowerCase().includes('.pdf') && !previewUrl.startsWith('data:application/pdf') ? (
               <img 
                 src={previewUrl} 
                 alt="תצוגה מקדימה של דף 1"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                loading="eager"
+                crossOrigin="anonymous"
+                style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#ffffff' }}
+                onError={() => setImgError(true)}
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem', color: '#ef4444' }}>
                 <span style={{ fontSize: '3rem' }}>📄</span>
-                <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>קובץ PDF</span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>
+                  {isPdf ? 'קובץ PDF' : 'מסמך'}
+                </span>
               </div>
             )}
             
@@ -134,17 +163,10 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             )}
           </div>
           
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', color: '#10b981', fontWeight: 'bold' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#10b981', fontWeight: 'bold' }}>
             <span>✓</span> תצוגה מקדימה: דף ראשון
           </div>
         </div>
-
-        <h3 style={{ margin: '0 0 0.35rem 0', fontSize: '1.2rem', color: '#1e293b', fontWeight: 'bold' }}>
-          {doc.title ? doc.title : 'שיתוף מסמך'}
-        </h3>
-        <p style={{ margin: '0 0 1.25rem 0', fontSize: '0.85rem', color: '#64748b' }}>
-          בחר את תבנית השיתוף המועדפת:
-        </p>
 
         {isSharing ? (
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
