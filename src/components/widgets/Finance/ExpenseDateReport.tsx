@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useMemo } from 'react';
+import { convertImagesToPdfBlob } from '@/utils/documentUtils';
 
 interface ExpenseDateReportProps {
   invoices: any[];
@@ -291,25 +292,21 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
           let extension = 'jpg';
           if (blob.type === 'application/pdf' || inv.attachmentUrl?.includes('.pdf')) {
             extension = 'pdf';
-          } else if (convertToPdf && (blob.type.includes('image') || inv.attachmentUrl?.match(/\.(jpg|jpeg|png)$/i))) {
+          } else if (convertToPdf && (blob.type.includes('image') || inv.attachmentUrl?.match(/\.(jpg|jpeg|png|webp)$/i))) {
              try {
-                 const { jsPDF } = (await import('jspdf')).default ? await import('jspdf') : { jsPDF: (await import('jspdf')).jsPDF };
-                 const Doc = jsPDF || (await import('jspdf')).default;
-                 const img = new Image();
-                 img.src = URL.createObjectURL(blob);
-                 await new Promise((resolve, reject) => { img.onload = resolve; img.onerror = reject; });
-                 
-                 const orientation = img.width > img.height ? 'l' : 'p';
-                 const pdf = new Doc({ orientation, unit: 'px', format: [img.width, img.height] });
-                 pdf.addImage(img, 'JPEG', 0, 0, img.width, img.height);
-                 blob = pdf.output('blob');
+                 const tempUrl = URL.createObjectURL(blob);
+                 blob = await convertImagesToPdfBlob([tempUrl]);
+                 URL.revokeObjectURL(tempUrl);
                  extension = 'pdf';
              } catch (err) {
                  console.error('Failed to convert image to PDF', err);
                  if (blob.type === 'image/png' || inv.attachmentUrl?.includes('.png')) extension = 'png';
+                 else if (blob.type === 'image/webp' || inv.attachmentUrl?.includes('.webp')) extension = 'webp';
              }
           } else if (blob.type === 'image/png' || inv.attachmentUrl?.includes('.png')) {
             extension = 'png';
+          } else if (blob.type === 'image/webp' || inv.attachmentUrl?.includes('.webp')) {
+            extension = 'webp';
           }
           
           const cleanSupplier = (inv.supplier || 'general').replace(/[/\\?%*:|"<>]/g, '-');

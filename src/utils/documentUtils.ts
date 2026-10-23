@@ -16,7 +16,7 @@ export interface ExportPdfOptions {
  * This solves the jsPDF WebP incompatibility where WebP URLs produce blank pages.
  */
 async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string; width: number; height: number }> {
-  // If already a JPEG Data URL, parse dimensions and return
+  // If already a valid JPEG Data URL, parse dimensions and return directly
   if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) {
     const img = await new Promise<HTMLImageElement>((resolve, reject) => {
       const i = new Image();
@@ -27,21 +27,48 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
     return { dataUrl: url, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height };
   }
 
-  // Fetch as Blob and convert to DataURL to eliminate cross-origin canvas tainting
-  let safeSrc = url;
-  if (!url.startsWith('data:')) {
+  // Fetch as Blob to prevent any cross-origin canvas tainting issues
+  let blob: Blob | null = null;
+  try {
+    const res = await fetch(url);
+    blob = await res.blob();
+  } catch (err) {
+    console.warn('Fetch blob for PDF image conversion failed, trying direct URL', err);
+  }
+
+  // 1. Hardware-accelerated decoding using Chromium/Blink native createImageBitmap if available
+  if (blob && typeof createImageBitmap === 'function') {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      safeSrc = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (err) {
-      console.warn('Direct fetch for PDF image conversion failed, falling back to direct URL', err);
+      const bitmap = await createImageBitmap(blob);
+      const w = bitmap.width;
+      const h = bitmap.height;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close(); // Release GPU texture memory
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        return { dataUrl: jpegDataUrl, width: w, height: h };
+      }
+    } catch (bitmapErr) {
+      console.warn('createImageBitmap failed, falling back to Image element', bitmapErr);
     }
+  }
+
+  // 2. Fallback via Image element and DataURL
+  let safeSrc = url;
+  if (blob) {
+    safeSrc = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
   }
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {

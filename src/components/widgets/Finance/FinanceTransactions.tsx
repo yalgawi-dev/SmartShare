@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import ScannerModal from '../ScannerModal';
 import { isDuplicateInvoice } from '../../../utils/duplicateCheck';
 import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
+import { convertImagesToPdfBlob } from '../../../utils/documentUtils';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -303,16 +304,8 @@ export function FinanceTransactions({
       if (blob.type === 'application/pdf' || inv.attachmentUrl.includes('.pdf')) {
         fileToShare = new File([blob], `invoice_${inv.supplier || 'general'}.pdf`, { type: 'application/pdf' });
       } else {
-        // Convert to PDF on the fly!
-        const { jsPDF } = (await import('jspdf')).default ? await import('jspdf') : { jsPDF: (await import('jspdf')).jsPDF };
-        const Doc = jsPDF || (await import('jspdf')).default;
-        const img = new Image();
-        img.src = URL.createObjectURL(blob);
-        await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
-        const orientation = img.width > img.height ? 'l' : 'p';
-        const pdf = new Doc({ orientation, unit: 'px', format: [img.width, img.height] });
-        pdf.addImage(img, 'JPEG', 0, 0, img.width, img.height);
-        const pdfBlob = pdf.output('blob');
+        // Convert to PDF on the fly via global single source of truth engine!
+        const pdfBlob = await convertImagesToPdfBlob([inv.attachmentUrl]);
         fileToShare = new File([pdfBlob], `invoice_${inv.supplier || 'general'}.pdf`, { type: 'application/pdf' });
       }
 
