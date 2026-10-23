@@ -55,9 +55,13 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [uploadingStationDoc, setUploadingStationDoc] = useState<{ eventId: string; previewUrl?: string } | null>(null);
   const [recentlyAddedDocs, setRecentlyAddedDocs] = useState<Record<string, SpaceDocument>>({});
 
-  const events = (space.shelfEvents || [])
-    .filter(e => e.shelfId === activeShelfId)
-    .sort((a, b) => sortOrder === 'desc' ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+  const events = React.useMemo(() => {
+    return (space.shelfEvents || [])
+      .filter(e => e.shelfId === activeShelfId)
+      .sort((a, b) => sortOrder === 'desc' 
+        ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() 
+        : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
+  }, [space.shelfEvents, activeShelfId, sortOrder]);
 
   // Collect doc IDs already linked to any station in this shelf
   const linkedDocIds = React.useMemo(() => {
@@ -124,9 +128,13 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     }
   }, [shelfDocs]);
 
+  // Track if draft was already restored for the active shelf to prevent overwriting live keystrokes
+  const lastRestoredKeyRef = React.useRef<string | null>(null);
+
   // Auto-restore draft on mount or shelf change (with strict unlinked filtering)
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (lastRestoredKeyRef.current === draftStorageKey) return;
     try {
       const saved = localStorage.getItem(draftStorageKey);
       if (saved) {
@@ -143,6 +151,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           if (Array.isArray(d.tasks)) setNewTasks(d.tasks);
         }
       }
+      lastRestoredKeyRef.current = draftStorageKey;
     } catch (e) {
       console.error('Failed to load timeline draft', e);
     }
@@ -170,6 +179,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         localStorage.removeItem(draftStorageKey);
       } catch (e) {}
     }
+    lastRestoredKeyRef.current = draftStorageKey;
   };
 
   const handleLocalUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -368,7 +378,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
           <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
         </button>
-        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.6.6</span>
+        <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 'bold' }}>ציר זמן v2.7.1</span>
       </div>
 
       {events.length === 0 ? (
@@ -898,24 +908,24 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
           <div style={{ background: 'white', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '1.5rem', maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>עריכת אירוע</h2>
+              <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.25rem' }}>עריכת תחנה בציר הזמן</h2>
               <button onClick={() => setEditEventId(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>כותרת האירוע / התחנה</label>
-                <input type="text" value={editEventTitle} onChange={(e) => setEditEventTitle(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>כותרת התחנה / נושא / אירוע</label>
+                <input type="text" value={editEventTitle} onChange={(e) => setEditEventTitle(e.target.value)} placeholder="לדוגמה: בדיקות מעבדה / חוזה שכירות / פגישת ייעוץ" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
               </div>
               
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>תאריך האירוע</label>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>תאריך התחנה</label>
                 <input type="date" value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט מה היה (אופציונלי)</label>
-                <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט או סיכום התחנה (אופציונלי)</label>
+                <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} placeholder="מה סוכם? דגשים, הערות, החלטות או סיכום..." rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
               </div>
 
               {(() => {
@@ -1212,8 +1222,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>כותרת האירוע / פגישה</label>
-                <input type="text" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} placeholder="לדוגמא: פגישת ייעוץ אצל ד״ר כהן" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>כותרת התחנה / נושא / אירוע</label>
+                <input type="text" value={newEventTitle} onChange={(e) => setNewEventTitle(e.target.value)} placeholder="לדוגמה: בדיקות מעבדה / חוזה שכירות / פגישת ייעוץ" style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box' }} />
               </div>
               
               <div>
@@ -1222,13 +1232,13 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>סיכום הפגישה (אופציונלי)</label>
-                <textarea value={newEventDesc} onChange={(e) => setNewEventDesc(e.target.value)} placeholder="מה הוחלט? על מה דיברתם?" rows={3} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט או סיכום התחנה (אופציונלי)</label>
+                <textarea value={newEventDesc} onChange={(e) => setNewEventDesc(e.target.value)} placeholder="מה סוכם? דגשים, הערות, החלטות או סיכום..." rows={3} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
               </div>
 
               {/* TASKS IN ADD EVENT */}
               <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>יומן משימות לפגישה זו (אופציונלי)</label>
+                <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>משימות ומעקב לתחנה זו (אופציונלי)</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
                   {newTasks.map(task => (
                     <div key={task.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'white', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
