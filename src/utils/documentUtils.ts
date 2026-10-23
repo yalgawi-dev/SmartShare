@@ -11,6 +11,69 @@ export interface ExportPdfOptions {
 }
 
 /**
+ * Loads an image from any source (WebP, PNG, remote Firebase URL, or DataURL)
+ * and converts it to a standard, clean, 100% valid JPEG DataURL.
+ * This solves the jsPDF WebP incompatibility where WebP URLs produce blank pages.
+ */
+async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string; width: number; height: number }> {
+  // If already a JPEG Data URL, parse dimensions and return
+  if (url.startsWith('data:image/jpeg') || url.startsWith('data:image/jpg')) {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const i = new Image();
+      i.onload = () => resolve(i);
+      i.onerror = reject;
+      i.src = url;
+    });
+    return { dataUrl: url, width: img.naturalWidth || img.width, height: img.naturalHeight || img.height };
+  }
+
+  // Fetch as Blob and convert to DataURL to eliminate cross-origin canvas tainting
+  let safeSrc = url;
+  if (!url.startsWith('data:')) {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      safeSrc = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (err) {
+      console.warn('Direct fetch for PDF image conversion failed, falling back to direct URL', err);
+    }
+  }
+
+  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const i = new Image();
+    i.crossOrigin = 'anonymous';
+    i.onload = () => resolve(i);
+    i.onerror = () => reject(new Error('Failed to load image for PDF conversion'));
+    i.src = safeSrc;
+  });
+
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    throw new Error('Canvas 2D context not available for PDF export');
+  }
+
+  // Solid white background to prevent black or transparent regions in PDF
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fillRect(0, 0, w, h);
+  ctx.drawImage(img, 0, 0, w, h);
+
+  // High quality JPEG DataURL (0.95 quality)
+  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  return { dataUrl: jpegDataUrl, width: w, height: h };
+}
+
+/**
  * Single Source of Truth for converting images (single page, multi-page, or scroll) to a PDF Blob.
  */
 export async function convertImagesToPdfBlob(
@@ -27,33 +90,24 @@ export async function convertImagesToPdfBlob(
   const format = isSinglePage ? 'pages' : requestedFormat;
   const includeNumbers = options.includeNumbers || false;
 
-
-  // Load all images
+  // Load and convert all images to guaranteed JPEG DataURLs (supports WebP, PNG, etc.)
   const loadedImages = await Promise.all(
-    imageUrls.map(url => {
-      return new Promise<HTMLImageElement>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => resolve(img);
-        img.onerror = () => reject(new Error('Failed to load image for PDF'));
-        img.src = url;
-      });
-    })
+    imageUrls.map(url => loadAndConvertImageToJpeg(url))
   );
 
   if (format === 'pages') {
     let pdf: any = null;
     for (let i = 0; i < loadedImages.length; i++) {
-      const img = loadedImages[i];
-      const orientation = img.width > img.height ? 'l' : 'p';
+      const item = loadedImages[i];
+      const orientation = item.width > item.height ? 'l' : 'p';
       if (!pdf) {
-        pdf = new jsPDF({ orientation, unit: 'px', format: [img.width, img.height] });
+        pdf = new jsPDF({ orientation, unit: 'px', format: [item.width, item.height] });
       } else {
-        pdf.addPage([img.width, img.height], orientation);
+        pdf.addPage([item.width, item.height], orientation);
       }
 
-      // Add image to cover 100% of the page with 0 margins
-      pdf.addImage(imageUrls[i], 'JPEG', 0, 0, img.width, img.height);
+      // Add guaranteed JPEG image to cover 100% of the page with 0 margins
+      pdf.addImage(item.dataUrl, 'JPEG', 0, 0, item.width, item.height);
 
       if (includeNumbers) {
         const textCanvas = document.createElement('canvas');
@@ -73,7 +127,6 @@ export async function convertImagesToPdfBlob(
     }
     return pdf.output('blob');
   }
-
 
   // Scroll mode (one long continuous page)
   const GAP = 0;
@@ -96,7 +149,7 @@ export async function convertImagesToPdfBlob(
   let currentY = 0;
   for (let i = 0; i < loadedImages.length; i++) {
     const scaledH = scaledHeights[i];
-    pdf.addImage(imageUrls[i], 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
+    pdf.addImage(loadedImages[i].dataUrl, 'JPEG', 0, currentY * scaleDown, finalFormatWidth, scaledH * scaleDown);
 
     if (includeNumbers) {
       const textCanvas = document.createElement('canvas');
@@ -150,8 +203,9 @@ export async function shareDocument(url: string, title?: string, options: ShareO
         clearTimeout(timeoutId);
         const blob = await res.blob();
         const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
-        const ext = isPdf ? 'pdf' : 'jpg';
-        const mime = isPdf ? 'application/pdf' : 'image/jpeg';
+        const isWebp = blob.type === 'image/webp' || url.includes('.webp');
+        const ext = isPdf ? 'pdf' : (isWebp ? 'webp' : 'jpg');
+        const mime = isPdf ? 'application/pdf' : (isWebp ? 'image/webp' : 'image/jpeg');
         fileToShare = new File([blob], `${cleanTitle}.${ext}`, { type: mime });
       } catch (fetchErr) {
         clearTimeout(timeoutId);
@@ -196,7 +250,8 @@ export async function downloadDocument(url: string, title?: string, options: Sha
       const res = await fetch(url);
       blob = await res.blob();
       const isPdf = url.includes('.pdf') || blob.type === 'application/pdf';
-      ext = isPdf ? 'pdf' : 'jpg';
+      const isWebp = blob.type === 'image/webp' || url.includes('.webp');
+      ext = isPdf ? 'pdf' : (isWebp ? 'webp' : 'jpg');
     }
 
     const objUrl = URL.createObjectURL(blob);
