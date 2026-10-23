@@ -90,12 +90,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>(defaultMode);
 
+  const hasContentRef = useRef(false);
+
   useEffect(() => {
+    const input = galleryInputRef.current;
+    // Native picker cancelled with nothing loaded → close (no empty screen left behind)
+    const handleCancel = () => { if (!hasContentRef.current) handleManualClose(); };
+    input?.addEventListener('cancel', handleCancel);
     if (defaultMode === 'upload') {
       setTimeout(() => {
-        galleryInputRef.current?.click();
+        input?.click();
       }, 150);
     }
+    return () => input?.removeEventListener('cancel', handleCancel);
   }, []); // Only run once on mount!
   
   const [pendingImports, setPendingImports] = useState<{id: string, url: string}[]>([]);
@@ -121,8 +128,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
   const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow'>('smart_plus');
-  const [defaultBatchEngine, setDefaultBatchEngine] = useState<'smart_plus'|'experimental'>('smart_plus');
-  const [showEngineModal, setShowEngineModal] = useState(false);
+  const defaultBatchEngine = 'smart_plus' as const;
 
   const [imageCache, setImageCache] = useState<Record<string, string>>({});
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
@@ -164,6 +170,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       return idxA - idxB;
     });
   }, [derivedTrayItems, trayOrder]);
+  hasContentRef.current = derivedTrayItems.length > 0 || step !== 'scanning';
 
   React.useEffect(() => {
     setTrayOrder(prev => {
@@ -273,31 +280,74 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         const snapshotUrl = compressCanvas(canvas, 1.0);
         setRawSnapshot(snapshotUrl);
         if (!preserveId) setActiveDocId(generateDocId());
-        setStep('cropping');
+        // Imported files are usually already clean: skip forced crop (same as "דלג חיתוך").
+        // The ✂️ "עריכה" button in review remains available for manual editing.
+        setImageCache({ original: snapshotUrl });
+        setMode('original');
+        setStep('review');
       }
     };
     img.src = url;
   };
 
-  const handleGalleryImport = (e: React.ChangeEvent<HTMLInputElement>) => handleGalleryImportWithEngine('smart_plus')(e);
-  const handleGalleryImportWithEngine = (engine: 'smart_plus'|'experimental') => (e: React.ChangeEvent<HTMLInputElement>) => {
-    setDefaultBatchEngine(engine);
-    setShowEngineModal(false);
+  /** Commits imported items to the tray as-is (no crop/filters). Single source for "אשר הכל" and gallery import. */
+  const commitImportsRaw = async (items: { id: string, url: string }[], startPageNum: number) => {
+    const newPages: ScannedPage[] = [];
+    for (let idx = 0; idx < items.length; idx++) {
+      const img = new Image();
+      img.src = items[idx].url;
+      await new Promise((res) => { img.onload = res; img.onerror = res; });
+      let w = img.width; let h = img.height;
+      if (!w || !h) continue;
+      if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, 0, 0, w, h);
+        newPages.push({
+          id: items[idx].id,
+          imageUrl: compressCanvas(canvas, 0.82),
+          rawImageUrl: compressCanvas(canvas, 1.0),
+          pageNum: startPageNum + idx
+        });
+      }
+    }
+    setScannedPages(prev => [...prev, ...newPages]);
+  };
+
+  const handleGalleryImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    
-    // Instead of using FileReader concurrently (which crashes mobile browsers with high-res photos due to RAM limits),
-    // we use URL.createObjectURL which is instantaneous and consumes virtually no RAM.
-    const urls = Array.from(files).map(file => URL.createObjectURL(file));
-    if (urls.length > 0) {
-      const first = urls[0];
-      const rest = urls.slice(1).map(url => ({ id: generateDocId(), url }));
-      setPendingImports(prev => [...prev, ...rest]);
-      setActiveDocId(generateDocId());
-      processImportUrl(first);
-    }
-    
+    const fileList = Array.from(files);
     e.target.value = '';
+
+    // URL.createObjectURL is instantaneous and RAM-friendly; PDFs are expanded to page images.
+    const urls: string[] = [];
+    for (const file of fileList) {
+      const objUrl = URL.createObjectURL(file);
+      if (file.type === 'application/pdf') {
+        try {
+          const { extractPdfPages } = await import('../../utils/imageOptimizer');
+          urls.push(...await extractPdfPages(objUrl, 1500, 0.85));
+        } catch (err) {
+          console.error('PDF import failed', err);
+        }
+      } else {
+        urls.push(objUrl);
+      }
+    }
+    if (urls.length === 0) return;
+
+    const startNum = scannedPages.length + 2;
+    const ids = urls.map(() => generateDocId());
+    setTrayOrder(prev => [...prev, ...ids]); // keep tray order identical to file order
+    setActiveDocId(ids[0]);
+    processImportUrl(urls[0], ids[0]);
+    if (urls.length > 1) {
+      await commitImportsRaw(urls.slice(1).map((url, i) => ({ id: ids[i + 1], url })), startNum);
+    }
   };
 
 
@@ -929,7 +979,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v19.65' : 'סורק מסמכים v19.65'}</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.7.9' : 'סורק מסמכים v2.7.9'}</span>
           </h2>
 
 
@@ -966,126 +1016,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                     בחר מסמך במגש ה"לא ערוכים" למטה כדי לחתוך אותו, או לחץ על הכפתור "אשר הכל" ⏩.
                   </p>
                </div>
-            ) : scannerMode === 'upload' ? (
-               <div style={{ 
-                 width: '100%', 
-                 height: '100%', 
-                 display: 'flex', 
-                 flexDirection: 'column', 
-                 alignItems: 'center', 
-                 justifyContent: 'center', 
-                 background: 'radial-gradient(circle at center, #1e293b 0%, #0f172a 100%)',
-                 padding: '1.5rem',
-                 position: 'relative'
-               }}>
-                 {/* Decorative background glow */}
-                 <div style={{
-                   position: 'absolute',
-                   width: '300px',
-                   height: '300px',
-                   borderRadius: '50%',
-                   background: 'radial-gradient(circle, rgba(37, 99, 235, 0.15) 0%, transparent 70%)',
-                   pointerEvents: 'none'
-                 }} />
-
-                 <div style={{
-                   background: 'rgba(255, 255, 255, 0.04)',
-                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                   borderRadius: '24px',
-                   padding: '2.5rem 1.5rem',
-                   maxWidth: '380px',
-                   width: '100%',
-                   display: 'flex',
-                   flexDirection: 'column',
-                   alignItems: 'center',
-                   textAlign: 'center',
-                   boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                   backdropFilter: 'blur(12px)',
-                   zIndex: 1
-                 }}>
-                   <div style={{
-                     width: '76px',
-                     height: '76px',
-                     borderRadius: '22px',
-                     background: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-                     display: 'flex',
-                     alignItems: 'center',
-                     justifyContent: 'center',
-                     fontSize: '2.4rem',
-                     marginBottom: '1.25rem',
-                     boxShadow: '0 8px 24px rgba(59, 130, 246, 0.35)'
-                   }}>
-                     📄
-                   </div>
-
-                   <h3 style={{ margin: '0 0 0.5rem 0', color: 'white', fontSize: '1.35rem', fontWeight: '800' }}>
-                     {selectedCategory === 'receipt' ? 'ייבוא קבלה' : 'ייבוא מסמך'}
-                   </h3>
-
-                   <p style={{ margin: '0 0 1.5rem 0', color: '#94a3b8', fontSize: '0.9rem', lineHeight: '1.5', maxWidth: '300px' }}>
-                     בחר קובץ PDF או תמונה מהמכשיר לעיבוד, שיפור וחיתוך חכם
-                   </p>
-
-                   <button
-                     onClick={() => galleryInputRef.current?.click()}
-                     style={{
-                       width: '100%',
-                       padding: '0.95rem 1.25rem',
-                       borderRadius: '16px',
-                       background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
-                       color: 'white',
-                       border: 'none',
-                       fontWeight: '700',
-                       fontSize: '1rem',
-                       cursor: 'pointer',
-                       display: 'flex',
-                       alignItems: 'center',
-                       justifyContent: 'center',
-                       gap: '0.6rem',
-                       boxShadow: '0 4px 16px rgba(37, 99, 235, 0.4)'
-                     }}
-                   >
-                     <span>📁</span>
-                     <span>בחירת קבצים מהמכשיר</span>
-                   </button>
-
-                   <div style={{ 
-                     margin: '1.25rem 0', 
-                     display: 'flex', 
-                     alignItems: 'center', 
-                     width: '100%', 
-                     color: '#64748b', 
-                     fontSize: '0.8rem' 
-                   }}>
-                     <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-                     <span style={{ padding: '0 0.75rem' }}>או</span>
-                     <div style={{ flex: 1, height: '1px', background: 'rgba(255,255,255,0.1)' }} />
-                   </div>
-
-                   <button
-                     onClick={() => setScannerMode('camera')}
-                     style={{
-                       width: '100%',
-                       padding: '0.75rem 1rem',
-                       borderRadius: '14px',
-                       background: 'rgba(255, 255, 255, 0.06)',
-                       color: '#e2e8f0',
-                       border: '1px solid rgba(255, 255, 255, 0.15)',
-                       fontWeight: '600',
-                       fontSize: '0.9rem',
-                       cursor: 'pointer',
-                       display: 'flex',
-                       alignItems: 'center',
-                       justifyContent: 'center',
-                       gap: '0.5rem'
-                     }}
-                   >
-                     <span>📷</span>
-                     <span>מעבר לצילום במצלמה</span>
-                   </button>
-                 </div>
-               </div>
-            ) : (
+            ) : scannerMode === 'upload' ? null : (
               <>
                 <video 
                   ref={videoRef} 
@@ -1451,30 +1382,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                    {pendingImports.length > 0 && (
                      <button onClick={async () => {
                          setIsProcessing(true);
-                         const newPages = [];
-                         for (let idx = 0; idx < pendingImports.length; idx++) {
-                           const pItem = pendingImports[idx];
-                            const url = pItem.url;
-                            const img = new Image();
-                            img.src = url;
-                           await new Promise((res) => { img.onload = res; });
-                           let w = img.width; let h = img.height;
-                           if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
-                           const canvas = document.createElement('canvas');
-                           canvas.width = w; canvas.height = h;
-                           const ctx = canvas.getContext('2d');
-                           if (ctx) {
-                             ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-                             ctx.drawImage(img, 0, 0, w, h);
-                             newPages.push({
-                               id: pItem.id,
-                               imageUrl: compressCanvas(canvas, 0.82),
-                               rawImageUrl: compressCanvas(canvas, 1.0),
-                               pageNum: scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + idx + 1
-                             });
-                           }
-                         }
-                         setScannedPages(prev => [...prev, ...newPages]);
+                         await commitImportsRaw(pendingImports, scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + 1);
                          setPendingImports([]);
                          setIsProcessing(false);
                      }} style={{ flex: '1', background: 'rgba(16,185,129,0.2)', color: '#10b981', border: '1px solid #10b981', padding: '0.5rem', borderRadius: '12px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 'bold' }}>
