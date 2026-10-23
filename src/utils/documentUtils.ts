@@ -126,15 +126,29 @@ export async function convertImagesToPdfBlob(
     let pdf: any = null;
     for (let i = 0; i < loadedImages.length; i++) {
       const item = loadedImages[i];
-      const orientation = item.width > item.height ? 'l' : 'p';
+      let itemWidth = item.width;
+      let itemHeight = item.height;
+      // Clamp to ISO 32000 PDF limits (max 14,000px) to prevent crashes on ultra-tall scrolls
+      if (itemHeight > 14000) {
+        const s = 14000 / itemHeight;
+        itemHeight = 14000;
+        itemWidth = Math.round(itemWidth * s);
+      }
+      if (itemWidth > 14000) {
+        const s = 14000 / itemWidth;
+        itemWidth = 14000;
+        itemHeight = Math.round(itemHeight * s);
+      }
+
+      const orientation = itemWidth > itemHeight ? 'l' : 'p';
       if (!pdf) {
-        pdf = new jsPDF({ orientation, unit: 'px', format: [item.width, item.height] });
+        pdf = new jsPDF({ orientation, unit: 'px', format: [itemWidth, itemHeight] });
       } else {
-        pdf.addPage([item.width, item.height], orientation);
+        pdf.addPage([itemWidth, itemHeight], orientation);
       }
 
       // Add guaranteed JPEG image to cover 100% of the page with 0 margins
-      pdf.addImage(item.dataUrl, 'JPEG', 0, 0, item.width, item.height);
+      pdf.addImage(item.dataUrl, 'JPEG', 0, 0, itemWidth, itemHeight);
 
       if (includeNumbers) {
         const textCanvas = document.createElement('canvas');
