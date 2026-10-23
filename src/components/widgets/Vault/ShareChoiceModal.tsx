@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { shareDocument, ExportPdfOptions } from '@/utils/documentUtils';
 
 export interface ShareChoiceDoc {
@@ -21,9 +22,23 @@ interface ShareChoiceModalProps {
  * Includes a live visual preview of the first page and supports both standard pages and scrolls.
  */
 export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceModalProps) {
+  // All React Hooks MUST be called unconditionally at the top of the component (Rules of Hooks)
   const [isSharing, setIsSharing] = useState(false);
+  const [imgError, setImgError] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  if (!isOpen || !doc) return null;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (isOpen) {
+      setImgError(false);
+      setIsSharing(false);
+    }
+  }, [isOpen, doc?.url]);
+
+  if (!isOpen || !doc || !mounted) return null;
 
   const isPdf = Boolean(
     (doc.url && doc.url.toLowerCase().includes('.pdf')) || 
@@ -54,9 +69,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
     }
   };
 
-  const [imgError, setImgError] = useState(false);
-
-  return (
+  return createPortal(
     <div 
       onClick={onClose}
       style={{
@@ -65,13 +78,14 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
         left: 0,
         right: 0,
         bottom: 0,
-        background: 'rgba(15,23,42,0.7)',
-        backdropFilter: 'blur(5px)',
+        background: 'rgba(15,23,42,0.75)',
+        backdropFilter: 'blur(6px)',
         zIndex: 300000,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1rem'
+        padding: '1rem',
+        userSelect: 'none'
       }}
     >
       <div 
@@ -104,7 +118,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v2.7.3
+            v2.7.4
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
@@ -303,6 +317,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
