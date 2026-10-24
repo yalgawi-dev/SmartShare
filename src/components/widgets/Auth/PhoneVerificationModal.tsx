@@ -94,6 +94,11 @@ export default function PhoneVerificationModal() {
       setIsSubmitting(true);
       setErrorMsg('');
       const appVerifier = (window as any).recaptchaVerifier;
+      if (!appVerifier) {
+        setIsSubmitting(false);
+        setErrorMsg('אימות האבטחה (reCAPTCHA) אינו מוכן. אנא סמן את התיבה או רענן.');
+        return;
+      }
       const formattedPhone = `+972${cleanPhone.replace(/^0/, '')}`;
       const confirmation = await linkWithPhoneNumber(auth.currentUser!, formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
@@ -106,7 +111,9 @@ export default function PhoneVerificationModal() {
       
       // Handle specific Firebase errors gracefully
       const errCode = error.code || '';
-      if (errCode === 'auth/credential-already-in-use') {
+      if (errCode === 'auth/argument-error') {
+        setErrorMsg('אימות האבטחה אינו בתוקף. אנא חזור וסמן שוב את בדיקת האבטחה. (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/credential-already-in-use') {
         setErrorMsg('מספר טלפון זה כבר משויך לחשבון אחר במערכת.');
       } else if (errCode === 'auth/invalid-phone-number') {
         setErrorMsg('מספר הטלפון אינו תקין. אנא ודא שהקשת נכון.');
@@ -118,7 +125,7 @@ export default function PhoneVerificationModal() {
         if (errCode === 'auth/error-code:-39' || error.message.includes('-39')) {
           setErrorMsg('שגיאה 39- (חסימת ספאם): גוגל חסמה זמנית שליחת SMS למספרים אמיתיים עקב יותר מדי ניסיונות. אנא השתמש במספר טסטר (0500000000) או נסה שוב בעוד כמה שעות.');
         } else {
-          setErrorMsg('אירוע שגיאה בשליחת הקוד: ' + error.message);
+          setErrorMsg('אירוע שגיאה בשליחת הקוד: ' + error.message + (errCode ? ` [${errCode}]` : ''));
         }
       }
     }
@@ -399,7 +406,15 @@ export default function PhoneVerificationModal() {
               </div>
               
               <div style={{ marginTop: '0.5rem', marginBottom: '0.5rem' }}>
-                <button onClick={handleSendCode} disabled={isSubmitting} style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}>
+                <button 
+                  onClick={() => {
+                    setStep(1);
+                    setOtp(['', '', '', '', '', '']);
+                    setErrorMsg('אנא סמן את אימות האבטחה (reCAPTCHA) לשליחת קוד חדש');
+                  }} 
+                  disabled={isSubmitting} 
+                  style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}
+                >
                   לא קיבלת קוד? שלח שוב
                 </button>
               </div>

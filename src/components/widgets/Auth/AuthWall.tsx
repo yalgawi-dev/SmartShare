@@ -97,7 +97,18 @@ export default function AuthWall() {
     try {
       setIsSubmitting(true);
       setErrorMsg('');
-      const appVerifier = (window as any).recaptchaVerifier;
+      let appVerifier = (window as any).recaptchaVerifier;
+      if (!appVerifier) {
+        initRecaptcha();
+        appVerifier = (window as any).recaptchaVerifier;
+      }
+
+      if (!appVerifier) {
+        setIsSubmitting(false);
+        setErrorMsg('אימות האבטחה (reCAPTCHA) אינו מוכן. אנא רענן את הדף ונסה שוב.');
+        return;
+      }
+
       const formattedPhone = `${countryCode}${cleanPhone.replace(/^0/, '')}`;
       
       const confirmation = await loginWithPhone(formattedPhone, appVerifier);
@@ -114,7 +125,9 @@ export default function AuthWall() {
       // Re-initialize reCAPTCHA after any failure so the user doesn't get stuck with a consumed widget
       initRecaptcha();
       
-      if (errCode === 'auth/invalid-phone-number') {
+      if (errCode === 'auth/argument-error') {
+        setErrorMsg('אימות האבטחה אינו בתוקף. אנא חזור לשלב הקודם וסמן מחדש את אימות האבטחה. (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/invalid-phone-number') {
         setErrorMsg('מספר הטלפון אינו תקין. ודא שהמספר הוזן ללא קידומת בינלאומית כפולה. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/too-many-requests') {
         setErrorMsg('יותר מדי ניסיונות בזמן קצר. גוגל חסמה זמנית את השליחה למספר זה. אנא המתן מספר דקות. (קוד: ' + errCode + ')');
@@ -389,7 +402,15 @@ export default function AuthWall() {
             )}
 
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-              <button onClick={handleSendCode} disabled={isSubmitting} style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}>
+              <button 
+                onClick={() => {
+                  setStep(1);
+                  setOtp(['', '', '', '', '', '']);
+                  setErrorMsg('אנא סמן את אימות האבטחה (reCAPTCHA) ולחץ המשך לשליחת קוד חדש');
+                }} 
+                disabled={isSubmitting} 
+                style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}
+              >
                 לא קיבלת קוד? שלח שוב
               </button>
             </div>

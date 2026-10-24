@@ -53,6 +53,11 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
     setErrorMsg('');
     try {
       const appVerifier = (window as any).recaptchaVerifierPhoneLogin;
+      if (!appVerifier) {
+        setIsSubmitting(false);
+        setErrorMsg('אימות האבטחה (reCAPTCHA) אינו מוכן. אנא המתן או רענן את הדף.');
+        return;
+      }
       const formattedPhone = `+972${cleanPhone.replace(/^0/, '')}`;
       const confirmation = await loginWithPhone(formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
@@ -64,7 +69,8 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
       setIsSubmitting(false);
       const errCode = error.code || '';
       const errMsg = error.message || '';
-      if (errCode === 'auth/invalid-phone-number') setErrorMsg('מספר הטלפון שהוזן אינו חוקי. (קוד: ' + errCode + ')');
+      if (errCode === 'auth/argument-error') setErrorMsg('אימות האבטחה אינו בתוקף. אנא סמן מחדש את אימות האבטחה. (קוד: ' + errCode + ')');
+      else if (errCode === 'auth/invalid-phone-number') setErrorMsg('מספר הטלפון שהוזן אינו חוקי. (קוד: ' + errCode + ')');
       else if (errCode === 'auth/too-many-requests') setErrorMsg('יותר מדי ניסיונות בזמן קצר. אנא נסה שוב בעוד מספר דקות. (קוד: ' + errCode + ')');
       else if (errCode === 'auth/quota-exceeded') setErrorMsg('מכסת SMS הסתיימה. (קוד: ' + errCode + ')');
       else if (errCode === 'auth/captcha-check-failed') setErrorMsg('אימות הרובוט נכשל. סמן שוב את התיבה. (קוד: ' + errCode + ')');
@@ -200,7 +206,15 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
           </div>
 
           <div style={{ textAlign: 'center', marginTop: '-0.5rem' }}>
-            <button onClick={handleSendCode} disabled={isSubmitting} style={{ background: 'none', border: 'none', color: '#25D366', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}>
+            <button 
+              onClick={() => {
+                setStep(1);
+                setOtp(['', '', '', '', '', '']);
+                setErrorMsg('אנא סמן את אימות האבטחה (reCAPTCHA) לשליחת קוד חדש');
+              }} 
+              disabled={isSubmitting} 
+              style={{ background: 'none', border: 'none', color: '#25D366', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+            >
               לא קיבלת קוד? שלח שוב
             </button>
           </div>
