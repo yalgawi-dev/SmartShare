@@ -42,6 +42,39 @@ export function PartnersInviteModal({
   });
   const [manualCreatorShare, setManualCreatorShare] = useState<number>(() => currentCreatorShare);
   const [manualGuestShare, setManualGuestShare] = useState<number>(10);
+  const [confirmAsNewPartner, setConfirmAsNewPartner] = useState<boolean>(false);
+
+  // Smart similarity detection against existing members and pending invites
+  const matchCandidate = useMemo(() => {
+    const query = partnerName.trim().toLowerCase();
+    if (query.length < 2) return null;
+
+    const allExisting: { name: string; type: 'member' | 'pending'; token?: string; userId?: string }[] = [];
+    (space.members || []).forEach((m: any) => {
+      if (m.name && m.userId !== space.creatorId && m.name !== 'שותף מוזמן') {
+        allExisting.push({ name: m.name, type: 'member', userId: m.userId });
+      }
+    });
+    (space.pendingInvites || []).forEach((inv: any) => {
+      if (inv.name && inv.name !== 'שותף מוזמן') {
+        allExisting.push({ name: inv.name, type: 'pending', token: inv.token, userId: inv.targetUserId });
+      }
+    });
+
+    for (const item of allExisting) {
+      const candidate = item.name.trim().toLowerCase();
+      const isExact = candidate === query;
+      const isSub = (candidate.length >= 3 && query.length >= 3) && (candidate.includes(query) || query.includes(candidate));
+      if (isExact || isSub) {
+        return {
+          ...item,
+          isExact,
+          displayName: item.name
+        };
+      }
+    }
+    return null;
+  }, [partnerName, space.members, space.pendingInvites, space.creatorId]);
 
   // Calculate planned shares based on mode
   const { plannedGuestShare, plannedCreatorShare, plannedPartnerShares } = useMemo(() => {
@@ -137,7 +170,10 @@ export function PartnersInviteModal({
     url.searchParams.set('invite', token);
     const link = url.toString();
 
-    const resolvedName = (contactName || partnerName || '').trim();
+    let resolvedName = (contactName || partnerName || '').trim();
+    if (confirmAsNewPartner && matchCandidate && resolvedName.toLowerCase() === matchCandidate.displayName.toLowerCase()) {
+      resolvedName = `${resolvedName} (חדש)`;
+    }
 
     await createPendingInvite(space.id, {
       token,
@@ -328,7 +364,7 @@ export function PartnersInviteModal({
               <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
                 {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי (יחיד)' : 'הזמנת משתף פעולה (יחיד)')}
               </h3>
-              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.57</span>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.58</span>
             </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               {inviteType === 'group' 
@@ -701,17 +737,82 @@ export function PartnersInviteModal({
                 type="text"
                 placeholder="לדוגמה: תומר 40, לינוי, דני"
                 value={partnerName}
-                onChange={e => setPartnerName(e.target.value)}
+                onChange={e => {
+                  setPartnerName(e.target.value);
+                  setConfirmAsNewPartner(false);
+                }}
                 style={{
                   padding: '0.7rem 0.85rem',
                   borderRadius: '10px',
-                  border: '1px solid #cbd5e1',
+                  border: matchCandidate && !confirmAsNewPartner ? '1px solid #f59e0b' : '1px solid #cbd5e1',
                   fontSize: '0.95rem',
                   outline: 'none',
                   background: '#f8fafc',
                   color: '#0f172a'
                 }}
               />
+
+              {matchCandidate && (
+                <div style={{
+                  marginTop: '0.4rem',
+                  padding: '0.65rem 0.85rem',
+                  background: confirmAsNewPartner ? '#f0fdf4' : '#fffbeb',
+                  borderRadius: '10px',
+                  border: confirmAsNewPartner ? '1px solid #bbf7d0' : '1px solid #fef3c7',
+                  fontSize: '0.8rem',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.45rem'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: confirmAsNewPartner ? '#166534' : '#92400e', fontWeight: 600 }}>
+                      <span>{confirmAsNewPartner ? '✓' : '💡'}</span>
+                      <span>
+                        {matchCandidate.isExact 
+                          ? `כבר קיים ${matchCandidate.type === 'member' ? 'שותף פעיל' : 'מוזמן ממתין'} בשם "${matchCandidate.displayName}"`
+                          : `שים לב: קיים ${matchCandidate.type === 'member' ? 'שותף' : 'מוזמן'} עם שם דומה: "${matchCandidate.displayName}"`}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.1rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmAsNewPartner(false)}
+                      style={{
+                        flex: 1,
+                        padding: '0.35rem 0.6rem',
+                        borderRadius: '6px',
+                        border: !confirmAsNewPartner ? '1px solid #d97706' : '1px solid #e2e8f0',
+                        background: !confirmAsNewPartner ? '#fef3c7' : '#ffffff',
+                        color: !confirmAsNewPartner ? '#92400e' : '#64748b',
+                        fontWeight: !confirmAsNewPartner ? 700 : 500,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      🔄 תזכורת / עדכון לאותו שותף
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmAsNewPartner(true)}
+                      style={{
+                        flex: 1,
+                        padding: '0.35rem 0.6rem',
+                        borderRadius: '6px',
+                        border: confirmAsNewPartner ? '1px solid #16a34a' : '1px solid #e2e8f0',
+                        background: confirmAsNewPartner ? '#dcfce7' : '#ffffff',
+                        color: confirmAsNewPartner ? '#15803d' : '#64748b',
+                        fontWeight: confirmAsNewPartner ? 700 : 500,
+                        fontSize: '0.75rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ➕ זה שותף חדש אחר
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold' }}>שתף או העתק הזמנה:</div>

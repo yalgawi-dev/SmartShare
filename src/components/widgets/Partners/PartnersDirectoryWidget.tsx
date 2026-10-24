@@ -110,7 +110,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.57</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.58</span>
         </div>
         {isCreatorMe && (
           <button 
