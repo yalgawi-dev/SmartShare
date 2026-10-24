@@ -88,10 +88,14 @@ export async function compressImageWebP(file: File, maxWidth = 1200, maxHeight =
  * Connected directly to WebP for 30%-50% smaller sizes and crystal clear rendering.
  */
 export function compressCanvas(canvas: HTMLCanvasElement, quality = 0.80, type?: string): string {
-  // Support explicit PNG for signatures / transparency
-  if (type && type !== 'image/jpeg' && type !== 'image/webp') {
+  // If an explicit mime type is requested (e.g. image/jpeg for hardware acceleration or image/png for transparency), respect it:
+  if (type) {
+    if (type === 'image/webp') {
+      return isWebPSupported() ? compressCanvasWebP(canvas, quality) : canvas.toDataURL('image/jpeg', quality);
+    }
     return canvas.toDataURL(type, quality);
   }
+  // Default fallback: WebP if supported, otherwise JPEG
   if (isWebPSupported()) {
     return compressCanvasWebP(canvas, quality);
   }
