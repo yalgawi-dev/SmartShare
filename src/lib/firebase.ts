@@ -22,6 +22,10 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 export const auth = getAuth(app);
+// Set default language for SMS verification codes to Hebrew so Israeli cellular networks deliver them cleanly
+if (typeof window !== 'undefined') {
+  auth.languageCode = 'iw';
+}
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
