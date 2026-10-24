@@ -586,6 +586,7 @@ export function FinanceSummary({
                       <React.Fragment key={b.userId || b.name}>
                         <tr id={`partner-row-${b.userId}`}
                           onClick={() => {
+                              if (isPendingInvite) return; // Pending invites do not have a financial control panel yet
                               if (isCreatorMe) {
                                 // Creator: can click on partner rows, NOT own row
                                 if (b.isMember && !b.isCreator && b.userId !== user?.id) {
@@ -596,9 +597,9 @@ export function FinanceSummary({
                                 if (b.isMember && b.userId !== user?.id) { setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); }
                               }
                             }}
-                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isCreatorMe 
+                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isPendingInvite ? 'default' : (isCreatorMe 
                           ? (b.isMember && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
-                          : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default'), transition: 'background 0.15s' }}>
+                          : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
@@ -662,22 +663,22 @@ export function FinanceSummary({
                               {(b as any).status === 'pending' && (() => {
                                 const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
                                 return (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
                                     {isExpired ? (
-                                      <span style={{ fontSize: '0.75rem', color: '#b91c1c', background: '#fee2e2', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid #fca5a5' }}>
+                                      <span style={{ fontSize: '0.7rem', color: '#b91c1c', fontWeight: 600 }}>
                                         ⚠️ פג תוקף
                                       </span>
                                     ) : renewedToken === b.userId ? (
-                                      <span style={{ fontSize: '0.75rem', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid #86efac' }}>
-                                        ✓ תוקף הוארך!
+                                      <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 600 }}>
+                                        ✓ הוארך
                                       </span>
                                     ) : (
-                                      <span style={{ fontSize: '0.75rem', color: '#6d28d9', background: '#ede9fe', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, border: '1px solid #ddd6fe' }}>
-                                        ✉️ נשלחה הזמנה (ממתין)
+                                      <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 500 }}>
+                                        ✉️ ממתין
                                       </span>
                                     )}
 
-                                    {/* Action buttons for pending invite: Vivid & Crisp */}
+                                    {/* Action buttons for pending invite: Compact, round & proportional */}
                                     {(b as any).isInvite && !isExpired && (
                                       <button
                                         type="button"
@@ -691,21 +692,21 @@ export function FinanceSummary({
                                           background: '#10b981',
                                           color: '#ffffff',
                                           border: 'none',
-                                          borderRadius: '8px',
-                                          padding: '3px 9px',
+                                          borderRadius: '50%',
+                                          width: '24px',
+                                          height: '24px',
                                           fontSize: '0.75rem',
                                           cursor: 'pointer',
                                           display: 'inline-flex',
                                           alignItems: 'center',
-                                          gap: '4px',
-                                          fontWeight: 700,
+                                          justifyContent: 'center',
                                           boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
-                                          transition: 'transform 0.1s'
+                                          padding: 0,
+                                          flexShrink: 0
                                         }}
                                         title="העתק קישור להזמנה שוב"
                                       >
-                                        <span>🔗</span>
-                                        <span>העתק קישור</span>
+                                        🔗
                                       </button>
                                     )}
 
@@ -724,20 +725,21 @@ export function FinanceSummary({
                                           background: '#3b82f6',
                                           color: '#ffffff',
                                           border: 'none',
-                                          borderRadius: '8px',
-                                          padding: '3px 9px',
+                                          borderRadius: '50%',
+                                          width: '24px',
+                                          height: '24px',
                                           fontSize: '0.75rem',
                                           cursor: 'pointer',
                                           display: 'inline-flex',
                                           alignItems: 'center',
-                                          gap: '4px',
-                                          fontWeight: 700,
-                                          boxShadow: '0 1px 3px rgba(59, 130, 246, 0.3)'
+                                          justifyContent: 'center',
+                                          boxShadow: '0 1px 3px rgba(59, 130, 246, 0.3)',
+                                          padding: 0,
+                                          flexShrink: 0
                                         }}
                                         title="חדש תוקף ל-24 שעות"
                                       >
-                                        <span>🔄</span>
-                                        <span>חדש תוקף</span>
+                                        🔄
                                       </button>
                                     )}
 
@@ -766,20 +768,21 @@ export function FinanceSummary({
                                           background: '#ef4444',
                                           color: '#ffffff',
                                           border: 'none',
-                                          borderRadius: '8px',
-                                          padding: '3px 9px',
-                                          fontSize: '0.75rem',
+                                          borderRadius: '50%',
+                                          width: '24px',
+                                          height: '24px',
+                                          fontSize: '0.7rem',
                                           cursor: 'pointer',
                                           display: 'inline-flex',
                                           alignItems: 'center',
-                                          gap: '4px',
-                                          fontWeight: 700,
-                                          boxShadow: '0 1px 3px rgba(239, 68, 68, 0.3)'
+                                          justifyContent: 'center',
+                                          boxShadow: '0 1px 3px rgba(239, 68, 68, 0.3)',
+                                          padding: 0,
+                                          flexShrink: 0
                                         }}
                                         title="מחק ובטל הזמנה"
                                       >
-                                        <span>🗑️</span>
-                                        <span>בטל</span>
+                                        🗑️
                                       </button>
                                     )}
                                   </div>
