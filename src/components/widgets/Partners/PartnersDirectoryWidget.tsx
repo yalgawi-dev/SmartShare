@@ -6,12 +6,12 @@ import { useChat } from '../../../app/context/ChatContext';
 import { usePresence } from '../../../hooks/usePresence';
 import { PartnersInviteModal } from './PartnersInviteModal';
 import PartnerControlPanel from './PartnerControlPanel';
-import { getRemainingTimeText, sanitizePartnerDisplayName } from '../../../utils/partnerUtils';
+import { sanitizePartnerDisplayName } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
   const { user } = useAuth();
-  const { getRoleForSpace, removeMember, updateMemberStatus, refreshMemberInvite, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite } = useSpaces() as any;
+  const { getRoleForSpace, removeMember, updateMemberStatus, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite } = useSpaces() as any;
   const { openChat } = useChat();
 
   const myRole = getRoleForSpace(space.id);
@@ -51,7 +51,6 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [renewedToken, setRenewedToken] = useState<string | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -263,7 +262,6 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
         {allMembers.map((m: any) => {
           const isMe = m.userId === user?.id;
           const isPending = m.status === "pending" || m.status === "extension_requested";
-          const isExpired = m.status === "pending" && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
           const unreadCount = getUnreadCount(m.userId, m.role === 'creator');
           const isExpanded = expandedMember === m.userId;
           const canClick = !m.isInvite && (isCreatorMe ? !isMe : !isMe && m.role !== 'creator');
@@ -282,7 +280,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                   display: "flex", alignItems: "center", justifyContent: "space-between", 
                   padding: "1rem", background: isExpanded ? "rgba(99,102,241,0.08)" : isMe ? "rgba(79, 70, 229, 0.05)" : "#f8fafc", 
                   borderRadius: "16px", border: "1px solid var(--border-light)", cursor: canClick ? "pointer" : "default",
-                  transition: "background 0.2s", opacity: isExpired ? 0.6 : 1
+                  transition: "background 0.2s"
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
@@ -302,8 +300,6 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
                       {m.status === "active" ? null : 
-                       renewedToken === m.userId ? <span style={{ fontSize: '0.8rem', color: '#16a34a', fontWeight: 'bold' }}>✓ תוקף הוארך! (הלינק הקיים פעיל שוב)</span> :
-                       isExpired ? <span style={{ fontSize: '0.8rem', color: '#ef4444' }}>פג תוקף</span> :
                        m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
                        m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>🔄 מבקש הארכה</span> : 
                        m.status === "disputed" ? <span style={{ fontSize: '0.8rem', color: '#dc2626' }}>⚠️ סכסוך</span> : <span style={{ fontSize: '0.8rem' }}>{m.status}</span>}
@@ -329,8 +325,8 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     </button>
                   )}
 
-                  {/* If invite is NOT expired: Copy Link */}
-                  {m.isInvite && !isExpired && (
+                  {/* Copy Link for pending invite */}
+                  {m.isInvite && (
                     <button 
                       onClick={(e) => {
                         e.stopPropagation();
@@ -342,24 +338,6 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                       title="העתק קישור להזמנה שוב"
                     >
                       🔗
-                    </button>
-                  )}
-
-                  {/* Renew / Refresh Button for Expired Invites & Members (Silent 24h extension) */}
-                  {isExpired && isCreatorMe && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (typeof refreshMemberInvite === 'function') {
-                          refreshMemberInvite(space.id, m.userId);
-                        }
-                        setRenewedToken(m.userId);
-                        setTimeout(() => setRenewedToken(null), 5000);
-                      }}
-                      style={{ background: "#eff6ff", color: "#2563eb", border: "1px solid #bfdbfe", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1.05rem", boxShadow: '0 2px 5px rgba(37,99,235,0.15)', transition: 'transform 0.2s' }}
-                      title="חדש תוקף ל-24 שעות נוספות (הלינק המקורי שכבר נשלח יפעל מחדש מיד)"
-                    >
-                      🔄
                     </button>
                   )}
 

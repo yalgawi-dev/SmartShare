@@ -8,10 +8,9 @@ interface SharesEditorModalProps { [key: string]: any;
   updateSpaceSettings?: (spaceId: string, settings: any) => void;
   user: any;
   removeMember?: (spaceId: string, userId: string, performedBy: string, isReject?: boolean) => void;
-  refreshMemberInvite?: (spaceId: string, memberId: string) => void;
 }
 
-export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpaceSettings, user, removeMember, refreshMemberInvite }: SharesEditorModalProps) {
+export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpaceSettings, user, removeMember }: SharesEditorModalProps) {
   const [mounted, setMounted] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -30,8 +29,6 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
     });
     return initial;
   });
-
-  const [expHours, setExpHours] = useState<string | number>(space.settings?.pendingExpirationHours ?? 48);
 
   useEffect(() => {
     const newPartnerShares: Record<string, string | number> = {};
@@ -59,13 +56,6 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
       const pSharesNum: Record<string, number> = {};
       Object.keys(partnerShares).forEach(k => pSharesNum[k] = Number(partnerShares[k]));
       updateSharesBulk(space.id, Number(myShare), pSharesNum);
-      
-      if (updateSpaceSettings) {
-        const parsedHours = parseFloat(expHours.toString());
-        if (!isNaN(parsedHours) && parsedHours > 0) {
-          updateSpaceSettings(space.id, { pendingExpirationHours: parsedHours });
-        }
-      }
       setSaved(true);
       setTimeout(() => { setSaved(false); onClose(); }, 1500);
     }
@@ -86,16 +76,6 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
     });
     setMyShare(equalShare);
     setPartnerShares(newPartnerShares);
-  };
-
-  const getRemainingTimeText = (joinedAtStr: string, limitHours: number) => {
-    const joinedAt = new Date(joinedAtStr).getTime();
-    const now = new Date().getTime();
-    const diffHours = (now - joinedAt) / 3600000;
-    const remainHours = limitHours - diffHours;
-    if (remainHours <= 0) return 'פג תוקף';
-    if (remainHours < 1) return 'פחות משעה';
-    return `נותרו ${Math.floor(remainHours)} שעות`;
   };
 
   if (!mounted) return null;
@@ -161,7 +141,6 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
           
           {validMembers.map((m: any) => {
             const isPending = m.status === 'pending';
-            const isExpired = isPending && m.joinedAt && (new Date().getTime() - new Date(m.joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
             
             return (
             <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem 1rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', marginBottom: '1rem' }}>
@@ -172,20 +151,9 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
                 </div>
                 {isPending && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: isExpired ? '#ef4444' : '#f59e0b', fontWeight: isExpired ? 'bold' : 'normal' }}>
-                      {isExpired ? '⏳ פג תוקף' : '⏳ ממתין'}
+                    <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>
+                      ⏳ ממתין
                     </span>
-                    {!isExpired && m.joinedAt && (
-                      <span style={{ fontSize: '0.7rem', color: '#f59e0b', background: 'rgba(245, 158, 11, 0.1)', padding: '0.1rem 0.3rem', borderRadius: '4px' }}>
-                        {getRemainingTimeText(m.joinedAt, space.settings?.pendingExpirationHours || 24)}
-                      </span>
-                    )}
-                    {isExpired && removeMember && refreshMemberInvite && (
-                      <div style={{ display: 'flex', gap: '0.25rem' }}>
-                        
-                        <button type="button" onClick={() => refreshMemberInvite(space.id, m.userId)} style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid #3b82f6', borderRadius: '4px', color: '#3b82f6', cursor: 'pointer', fontSize: '0.7rem', padding: '0.1rem 0.3rem' }}>חדש</button>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -216,23 +184,6 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
             <strong>שים לב:</strong> סך כל האחוזים חייב להיות בדיוק 100% כדי להישמר. יש לתקן את האחוזים.
           </div>
         )}
-
-        {/* Expiration Hours Setting */}
-        <div style={{ padding: '0 1.5rem 1rem 1.5rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-main)', padding: '1rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontWeight: 'bold', fontSize: '0.95rem' }}>זמן פקיעת הזמנה</span>
-              <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>הזמן שניתן לשותף לאשר את תנאי ההצטרפות (שעות)</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input type="number" step="0.5" min="0.5" value={expHours} onChange={e => {
-                setExpHours(e.target.value);
-              }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
-                style={{ width: '70px', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center', fontWeight: 'bold' }}
-              />
-            </div>
-          </div>
-        </div>
         </div>
 
         <div style={{ display: showHistory ? 'none' : 'flex', justifyContent: 'center', padding: '0 1.5rem 1.5rem 1.5rem' }}>

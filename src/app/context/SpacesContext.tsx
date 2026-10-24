@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
-import { isPartnerExpired, isAuthenticPartnerName } from '../../utils/partnerUtils';
+import { isAuthenticPartnerName } from '../../utils/partnerUtils';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/utils/notifications';
@@ -135,7 +135,6 @@ export interface SpaceDocument {
 export interface SpaceSettings {
   isCustomShare?: boolean;
   customCategories?: string[];
-  pendingExpirationHours?: number;
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
   mySharePercentage?: number;
@@ -296,8 +295,6 @@ interface SpacesContextType {
   updateMemberPermissions: (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => void;
   updateMemberStatus: (spaceId: string, userId: string, status: 'active' | 'pending' | 'disputed', message?: string) => void;
   updateMemberRole: (spaceId: string, userId: string, role: 'admin' | 'partner') => void;
-  
-  refreshMemberInvite: (spaceId: string, userId: string) => void;
   removeMember: (spaceId: string, userId: string, performedBy: string, forceHardDelete?: boolean) => void;
   autoBalanceShares: (spaceId: string, performedBy: string) => void;
   devResetSpace: (spaceId: string, currentUserId: string) => void;
@@ -331,7 +328,6 @@ interface SpacesContextType {
 }
 
 const defaultSettings: SpaceSettings = {
-  pendingExpirationHours: 24,
   defaultVatRate: 18, 
   allowPartnersToEditWall: false,
 };
@@ -1541,34 +1537,6 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
 
-  const refreshMemberInvite = (spaceId: string, userId: string) => {
-    saveSpaceUpdate(spaceId, space => {
-      // 1. Update in members (for registered pending members)
-      const updatedMembers = (space.members || []).map(m => {
-        if (m.userId === userId && (m.status === 'pending' || m.status === 'extension_requested')) {
-          return { ...m, status: 'pending', joinedAt: new Date().toISOString() };
-        }
-        return m;
-      });
-
-      // 2. Update in pendingInvites (for invite tokens)
-      const updatedPendingInvites = (space.pendingInvites || []).map((inv: any) => {
-        if (inv.token === userId || inv.targetUserId === userId) {
-          return {
-            ...inv,
-            createdAt: new Date().toISOString()
-          };
-        }
-        return inv;
-      });
-
-      return {
-        ...space,
-        members: updatedMembers,
-        pendingInvites: updatedPendingInvites
-      };
-    });
-  };
 
   const removeMember = (spaceId: string, userId: string, performedBy: string, forceHardDelete: boolean = false) => {
     saveSpaceUpdate(spaceId, space => {
@@ -2018,7 +1986,6 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         
       addComment,
       deleteComment,
-      refreshMemberInvite,
       removeMember,
       autoBalanceShares,
       devResetSpace,

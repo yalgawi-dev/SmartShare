@@ -514,11 +514,36 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const isPendingInvite = ((space as any).pendingInvites || []).some((i: any) => i.token === myPartnerToken);
   const isRemovedPartner = myRole === 'partner' && !myMember && !isPendingInvite;
 
-  // Check if current user is waiting for Group Join approval
+  // Check if someone arrived via an invite link that is no longer active / was deleted
+  const urlInviteToken = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('invite') : null;
   const isCreatorOfSpace = space.creatorId === user?.id || space.createdBy === user?.realName;
+  const isInvalidInvite = Boolean(urlInviteToken && !isPendingInvite && !myMember && !isCreatorOfSpace);
+
+  // Check if current user is waiting for Group Join approval
   const isGroupInviteParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('groupInvite') === 'true';
   const groupPendingEntry = (space.pendingGroupMembers || []).find((p: any) => p.id === user?.id);
   const isGroupPending = !isCreatorOfSpace && !myMember && (Boolean(groupPendingEntry) || isGroupInviteParam);
+
+  if (isInvalidInvite) {
+    const inviterName = space.createdBy || 'מנהל המרחב';
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-main)', padding: '2rem' }}>
+        <div style={{ background: 'var(--bg-card)', padding: '2.5rem 2rem', borderRadius: '24px', textAlign: 'center', maxWidth: '420px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', border: '1px solid var(--border-light)' }}>
+          <div style={{ fontSize: '3.5rem', marginBottom: '1rem' }}>🔒</div>
+          <h2 style={{ margin: '0 0 1rem 0', color: '#1e293b', fontSize: '1.5rem', fontWeight: 800 }}>קישור ההזמנה אינו פעיל</h2>
+          <p style={{ color: 'var(--text-secondary)', lineHeight: '1.6', marginBottom: '1rem', fontSize: '1rem' }}>
+            הקישור להצטרפות למרחב <strong>"{space.title}"</strong> בוטל או שאינו תקף יותר.
+          </p>
+          <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px solid #e2e8f0', marginBottom: '1.75rem', color: '#475569', fontSize: '0.95rem' }}>
+            💬 אנא פנה ל<strong>{inviterName}</strong> כדי לקבל קישור הזמנה חדש ומעודכן.
+          </div>
+          <Link href="/" style={{ display: 'inline-block', background: 'var(--primary)', color: 'white', textDecoration: 'none', padding: '0.85rem 1.8rem', borderRadius: '12px', fontWeight: 'bold', width: '100%', boxSizing: 'border-box', boxShadow: '0 4px 12px rgba(74,91,240,0.25)' }}>
+            חזרה לדשבורד
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (isGroupPending) {
     const inviterName = groupPendingEntry?.inviterName || (typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('inviter') : '') || space.createdBy || 'מנהל המרחב';

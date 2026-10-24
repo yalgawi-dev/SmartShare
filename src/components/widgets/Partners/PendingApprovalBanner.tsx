@@ -3,20 +3,16 @@
 import { useState, useEffect } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
-import { getRemainingTimeText } from '../../../utils/partnerUtils';
 import AuthModal from '../../auth/AuthModal';
 
 export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceId: string, inviteToken?: string | null }) {
-  const { spaces, updateMemberStatus, migrateGuestToRealUser, setExtensionMessage } = useSpaces() as any;
-  const { user, loginWithGoogle, loginWithFacebook, loginWithApple } = useAuth();
+  const { spaces, updateMemberStatus } = useSpaces() as any;
+  const { user } = useAuth();
   
   const [isExpanded, setIsExpanded] = useState(true);
   const [isDisputing, setIsDisputing] = useState(false);
   const [disputeText, setDisputeText] = useState('');
-  const [extensionText, setExtensionText] = useState('');
-  const [showExtensionForm, setShowExtensionForm] = useState(false);
   const [showRegisterPrompt, setShowRegisterPrompt] = useState(false);
-  const [remainingText, setRemainingText] = useState('');
 
   const space = spaces.find((s: any) => s.id === spaceId);
 
@@ -47,15 +43,6 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   const currentMember = space?.members?.find((m: any) => m.userId === myPartnerToken);
 
   useEffect(() => {
-    if (!currentMember || currentMember.status === 'active') return;
-    const interval = setInterval(() => {
-      setRemainingText(getRemainingTimeText(currentMember.joinedAt));
-    }, 1000);
-    setRemainingText(getRemainingTimeText(currentMember.joinedAt));
-    return () => clearInterval(interval);
-  }, [currentMember]);
-
-  useEffect(() => {
     if (user?.email && typeof window !== 'undefined') {
       const pendingSpace = sessionStorage.getItem('pending_approval_space');
       if (pendingSpace === spaceId && currentMember?.status === 'pending') {
@@ -74,8 +61,6 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
   if (isCreatorMe) return null;
 
   if (!currentMember || currentMember.status === 'active') return null;
-
-  const isExpired = remainingText === 'פג תוקף';
 
   const finalizeApproval = () => {
     updateMemberStatus(spaceId, currentMember.userId, 'active');
@@ -97,13 +82,6 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
     }
   };
 
-  const handleRequestExtension = () => {
-    if (currentMember) {
-      updateMemberStatus(spaceId, currentMember.userId, 'extension_requested');
-      alert('בקשה להארכת זמן נשלחה ליוצר המרחב.');
-    }
-  };
-
   if (!isExpanded) {
     return (
       <div 
@@ -112,8 +90,8 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between',
-          background: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '#fef3c7' : 'linear-gradient(90deg, #eff6ff 0%, #e0e7ff 100%)', 
-          border: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '1px solid #f59e0b' : '1px solid #c7d2fe', 
+          background: currentMember.status === 'disputed' ? '#fef3c7' : 'linear-gradient(90deg, #eff6ff 0%, #e0e7ff 100%)', 
+          border: currentMember.status === 'disputed' ? '1px solid #f59e0b' : '1px solid #c7d2fe', 
           padding: '1rem', 
           borderRadius: '12px', 
           marginBottom: '1.5rem', 
@@ -125,15 +103,12 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '1.3rem' }}>
-            {currentMember.status === 'disputed' ? '⚠️' : currentMember.status === 'extension_requested' ? '⏳' : '🤝'}
+            {currentMember.status === 'disputed' ? '⚠️' : '🤝'}
           </span>
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span style={{ fontWeight: 'bold', color: currentMember.status === 'disputed' || currentMember.status === 'extension_requested' ? '#92400e' : '#1e3a8a', fontSize: '1rem' }}>
-              {currentMember.status === 'disputed' ? 'מחלוקת על ההשתתפות' : currentMember.status === 'extension_requested' ? 'בקשת הארכה ממתינה' : 'אישור הצטרפות ממתין לך...'}
+            <span style={{ fontWeight: 'bold', color: currentMember.status === 'disputed' ? '#92400e' : '#1e3a8a', fontSize: '1rem' }}>
+              {currentMember.status === 'disputed' ? 'מחלוקת על ההשתתפות' : 'אישור הצטרפות ממתין לך...'}
             </span>
-            {!isExpired && currentMember.status !== 'extension_requested' && currentMember.status !== 'disputed' && (
-              <span style={{ fontSize: '0.8rem', color: '#4338ca' }}>זמן נותר: {remainingText}</span>
-            )}
           </div>
         </div>
         <button style={{ background: 'white', border: '1px solid #cbd5e1', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#64748b', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
@@ -154,43 +129,24 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         ▴
       </button>
 
-      {currentMember.status === 'disputed' ? (
+      {currentMember.status === 'disputed' && (
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#fef3c7', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#92400e', border: '1px solid #fcd34d' }}>
           <span style={{ fontSize: '1.1rem' }}>⚠️</span>
           <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>מוקפא - בהמתנה להחלטת המנהל</span>
-        </div>
-      ) : currentMember.status === 'extension_requested' ? (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#fef3c7', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#92400e', border: '1px solid #fcd34d' }}>
-          <span style={{ fontSize: '1.1rem' }}>⏳</span>
-          <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>פג תוקף - ממתין לאישור מחדש...</span>
-        </div>
-      ) : isExpired ? (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#fee2e2', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#991b1b', border: '1px solid #fca5a5' }}>
-          <span style={{ fontSize: '1.1rem' }}>⏰</span>
-          <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>זמן פקע: פג תוקף!</span>
-        </div>
-      ) : (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', background: '#e0e7ff', padding: '0.4rem 0.75rem', borderRadius: '8px', color: '#3730a3', border: '1px solid #c7d2fe' }}>
-          <span style={{ fontSize: '1.1rem' }}>⏱️</span>
-          <span style={{ fontWeight: 'bold', fontSize: '0.85rem' }}>זמן נותר לאישור: {remainingText}</span>
         </div>
       )}
       
       <h3 style={{ margin: '0 0 0.5rem 0', color: currentMember.status === 'disputed' ? '#b45309' : '#1e40af', fontSize: '1.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 'bold' }}>
         {currentMember.status === 'disputed' 
-          ? '⚠️ סטטוס מוקפא: פנייה בבירור מול המנהל (v4.9)' 
+          ? '⚠️ סטטוס מוקפא: פנייה בבירור מול המנהל' 
           : currentMember.disputeResolved 
             ? '🤝 המנהל איפס את הסטטוס - אנא אשר שוב'
-            : '🤝 אישור הצטרפות כשותף (v4.9)'}
+            : '🤝 אישור הצטרפות כשותף'}
       </h3>
       
       {currentMember.status === 'disputed' ? (
         <p style={{ margin: 0, color: '#92400e', fontSize: '0.95rem', lineHeight: 1.5 }}>
           דיווחת על מחלוקת ({currentMember.disputeMessage}) וזה נשלח למנהל המרחב. כרגע החשבון מוקפא עד לבירור. ברגע שהמנהל יענה לבקשתך, תוכל להמשיך להשתמש באפליקציה כרגיל.
-        </p>
-      ) : currentMember.status === 'extension_requested' ? (
-        <p style={{ margin: 0, color: '#92400e', fontSize: '0.95rem', lineHeight: 1.5 }}>
-          ביקשת הארכת זמן מכיוון שהזמן שלך פקע. מנהל המרחב יבדוק את בקשתך ויחליט האם לאשר מחדש.
         </p>
       ) : (
         <p style={{ margin: 0, color: '#1e3a8a', fontSize: '0.95rem', lineHeight: 1.5, paddingRight: '40px' }}>
@@ -200,73 +156,46 @@ export default function PendingApprovalBanner({ spaceId, inviteToken }: { spaceI
         </p>
       )}
 
-      {currentMember.status !== 'extension_requested' && (
-        isExpired ? (
-          <>
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-              <button
-                onClick={() => setShowExtensionForm(v => !v)}
-                style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(245,158,11,0.2)' }}
-              >
-                {showExtensionForm ? 'ביטול הבקשה' : 'בקש הארכת זמן'}
-              </button>
-            </div>
-            {showExtensionForm && (
-              <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <textarea
-                  value={extensionText}
-                  onChange={e => setExtensionText(e.target.value)}
-                  placeholder="הסבר קצר מדוע אתה מבקש הארכה (לא חובה)"
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '8px', border: '1px solid #fcd34d', resize: 'none', minHeight: '60px', boxSizing: 'border-box', fontSize: '0.9rem' }}
-                />
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button onClick={handleRequestExtension} style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}>שלח בקשה</button>
-                  <button onClick={() => setShowExtensionForm(false)} style={{ background: 'transparent', border: '1px solid #fcd34d', padding: '0.5rem', borderRadius: '8px', cursor: 'pointer', color: '#92400e' }}>ביטול</button>
-                </div>
-              </div>
-            )}
-          </>
-        ) : !isDisputing ? (
-          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+      {!isDisputing ? (
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+          <button 
+            onClick={handleApproveClick}
+            style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1.5, boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
+          >
+            {currentMember.status === 'disputed' ? 'התחרטתי, אני מאשר' : 'מסכים, אישור שותפות'}
+          </button>
+          {currentMember.status !== 'disputed' && (
             <button 
-              onClick={handleApproveClick}
-              style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1.5, boxShadow: '0 4px 12px rgba(74,91,240,0.2)' }}
+              onClick={() => setIsDisputing(true)}
+              style={{ background: 'white', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.6rem 1rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
             >
-              {currentMember.status === 'disputed' ? 'התחרטתי, אני מאשר' : 'מסכים, אישור שותפות'}
+              יש לי מחלוקת
             </button>
-            {currentMember.status !== 'disputed' && (
-              <button 
-                onClick={() => setIsDisputing(true)}
-                style={{ background: 'white', color: '#64748b', border: '1px solid #cbd5e1', padding: '0.6rem 1rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1, boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
-              >
-                יש לי מחלוקת
-              </button>
-            )}
+          )}
+        </div>
+      ) : (
+        <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <textarea 
+            value={disputeText}
+            onChange={e => setDisputeText(e.target.value)}
+            placeholder="מה הבעיה? פרט כאן (לדוגמה: סיכמנו על 30% / לא מבין משהו)"
+            style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', resize: 'none', minHeight: '80px', boxSizing: 'border-box' }}
+          />
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button 
+              onClick={handleDispute}
+              style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}
+            >
+              דווח למנהל
+            </button>
+            <button 
+              onClick={() => setIsDisputing(false)}
+              style={{ background: 'transparent', color: '#64748b', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              ביטול
+            </button>
           </div>
-        ) : (
-          <div style={{ marginTop: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <textarea 
-              value={disputeText}
-              onChange={e => setDisputeText(e.target.value)}
-              placeholder="מה הבעיה? פרט כאן (לדוגמה: סיכמנו על 30% / לא מבין משהו)"
-              style={{ width: '100%', padding: '0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', resize: 'none', minHeight: '80px', boxSizing: 'border-box' }}
-            />
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button 
-                onClick={handleDispute}
-                style={{ background: '#f59e0b', color: 'white', border: 'none', padding: '0.6rem 1.5rem', borderRadius: '10px', fontWeight: 'bold', cursor: 'pointer', flex: 1 }}
-              >
-                דווח למנהל
-              </button>
-              <button 
-                onClick={() => setIsDisputing(false)}
-                style={{ background: 'transparent', color: '#64748b', border: 'none', padding: '0.6rem 1rem', cursor: 'pointer', fontWeight: 'bold' }}
-              >
-                ביטול
-              </button>
-            </div>
-          </div>
-        )
+        </div>
       )}
 
       {showRegisterPrompt && (

@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { usePresence } from '../../../hooks/usePresence';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
-import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUtils';
 import { createPortal } from 'react-dom';
 import { isCashboxEnabled, TREASURY_MEMBER_ID, createVirtualTreasury } from '../Cashbox/CashboxEngine';
 import { CashboxWidget } from '../Cashbox/CashboxWidget';
@@ -46,7 +45,6 @@ export function FinanceSummary({
   const [transactionAction, setTransactionAction] = useState('deposit');
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
-  const [renewedToken, setRenewedToken] = useState<string | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -114,7 +112,7 @@ export function FinanceSummary({
   
   // Prevent random anonymous viewers from being added to the math engine
     // READ ROLES DIRECTLY FROM THE PARTNERS ENGINE (SINGLE SOURCE OF TRUTH)
-  const { getRoleForSpace, getTokenForSpace, addInvoice, declinePendingInvite, refreshMemberInvite } = useSpaces();
+  const { getRoleForSpace, getTokenForSpace, addInvoice, declinePendingInvite } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   const myId = user?.id || 'me';
@@ -602,7 +600,7 @@ export function FinanceSummary({
                           : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'inherit' }}>
                                 {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   if (!space.features?.includes('chat')) return null;
@@ -660,88 +658,43 @@ export function FinanceSummary({
                                   🛡️ ללא הוצאות עבר
                                 </span>
                               )}
-                              {(b as any).status === 'pending' && (() => {
-                                const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
-                                return (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
-                                    {isExpired ? (
-                                      <span style={{ fontSize: '0.7rem', color: '#b91c1c', fontWeight: 600 }}>
-                                        ⚠️ פג תוקף
-                                      </span>
-                                    ) : renewedToken === b.userId ? (
-                                      <span style={{ fontSize: '0.7rem', color: '#15803d', fontWeight: 600 }}>
-                                        ✓ הוארך
-                                      </span>
-                                    ) : (
-                                      <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 500 }}>
-                                        ✉️ ממתין
-                                      </span>
-                                    )}
+                              {(b as any).status === 'pending' && (
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
+                                  <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 500 }}>
+                                    ✉️ ממתין
+                                  </span>
 
-                                    {/* Action buttons for pending invite: Compact, round & proportional */}
-                                    {(b as any).isInvite && !isExpired && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          const link = `${window.location.origin}/space/${space.id}?invite=${b.userId}`;
-                                          navigator.clipboard.writeText(link);
-                                          alert('קישור ההזמנה הועתק ללוח!');
-                                        }}
-                                        style={{
-                                          background: '#10b981',
-                                          color: '#ffffff',
-                                          border: 'none',
-                                          borderRadius: '50%',
-                                          width: '24px',
-                                          height: '24px',
-                                          fontSize: '0.75rem',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
-                                          padding: 0,
-                                          flexShrink: 0
-                                        }}
-                                        title="העתק קישור להזמנה שוב"
-                                      >
-                                        🔗
-                                      </button>
-                                    )}
-
-                                    {(b as any).isInvite && isExpired && isCreatorMe && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          if (typeof refreshMemberInvite === 'function') {
-                                            refreshMemberInvite(space.id, b.userId);
-                                          }
-                                          setRenewedToken(b.userId);
-                                          setTimeout(() => setRenewedToken(null), 5000);
-                                        }}
-                                        style={{
-                                          background: '#3b82f6',
-                                          color: '#ffffff',
-                                          border: 'none',
-                                          borderRadius: '50%',
-                                          width: '24px',
-                                          height: '24px',
-                                          fontSize: '0.75rem',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          boxShadow: '0 1px 3px rgba(59, 130, 246, 0.3)',
-                                          padding: 0,
-                                          flexShrink: 0
-                                        }}
-                                        title="חדש תוקף ל-24 שעות"
-                                      >
-                                        🔄
-                                      </button>
-                                    )}
+                                  {/* Action buttons for pending invite: Compact, round & proportional */}
+                                  {(b as any).isInvite && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const link = `${window.location.origin}/space/${space.id}?invite=${b.userId}`;
+                                        navigator.clipboard.writeText(link);
+                                        alert('קישור ההזמנה הועתק ללוח!');
+                                      }}
+                                      style={{
+                                        background: '#10b981',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '50%',
+                                        width: '24px',
+                                        height: '24px',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
+                                        padding: 0,
+                                        flexShrink: 0
+                                      }}
+                                      title="העתק קישור להזמנה שוב"
+                                    >
+                                      🔗
+                                    </button>
+                                  )}
 
                                     {(b as any).isInvite && isCreatorMe && (
                                       <button
@@ -780,17 +733,15 @@ export function FinanceSummary({
                                           padding: 0,
                                           flexShrink: 0
                                         }}
-                                        title="מחק ובטל הזמנה"
                                       >
                                         🗑️
                                       </button>
                                     )}
                                   </div>
-                                );
-                              })()}
-                              {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
-                              {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
-                            </div>
+                                )}
+                                {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
+                                {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
+                              </div>
                           </td>
                           <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
                           <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
