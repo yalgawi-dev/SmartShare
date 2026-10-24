@@ -151,9 +151,11 @@ export function PartnersInviteModal({
 
     const shareTitle = 'הזמנה להצטרפות למרחב ' + space.title;
     const greeting = resolvedName ? `היי ${resolvedName}! 👋` : 'היי! 👋';
+    const cleanCreator = creatorName ? `${creatorName}` : 'מנהל המרחב';
+    
     const shareText = isFinancial 
-      ? `${greeting}\n${creatorName} הזמין/ה אותך להצטרף כשותף/ה למרחב "${space.title}" (הוגדר עבורך חלק של ${plannedGuestShare}% בפרויקט).\n\nלהצטרפות וכניסה למרחב:\n${link}` 
-      : `${greeting}\n${creatorName} הזמין/ה אותך לשתף פעולה במרחב "${space.title}".\n\nלהצטרפות וכניסה למרחב:\n${link}`;
+      ? `${greeting}\n\n${cleanCreator} הזמין אותך להצטרף כשותף למרחב:\n🌟 "${space.title}"\n\n🤝 הוגדר עבורך חלק של ${plannedGuestShare}% בפרויקט.\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}` 
+      : `${greeting}\n\n${cleanCreator} הזמין אותך לשתף פעולה במרחב:\n🌟 "${space.title}"\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`;
 
     return { link, shareTitle, shareText };
   };
@@ -206,7 +208,8 @@ export function PartnersInviteModal({
     }
     const link = url.toString();
     const shareTitle = `הזמנה להצטרפות למרחב ${space.title}`;
-    const shareText = `היי לכולם! 📢\n${creatorName} מזמין/ה אתכם להצטרף למרחב "${space.title}".\n\nלהצטרפות ורישום למרחב לחצו כאן:\n${link}\n\n*לתשומת לבכם: הגישה למרחב תתקבל ברגע ש-${creatorName} יאשר את הצטרפותכם.*`;
+    const cleanCreator = creatorName ? `${creatorName}` : 'מנהל המרחב';
+    const shareText = `היי לכולם! 📢\n\n${cleanCreator} מזמין אתכם להצטרף למרחב:\n🌟 "${space.title}"\n\nלהצטרפות ורישום למרחב לחצו כאן:\n👇\n${link}\n\n*לתשומת לבכם: הגישה למרחב תתקבל ברגע ש-${cleanCreator} יאשר את הצטרפותכם.*`;
     return { link, shareTitle, shareText };
   };
 
@@ -325,7 +328,7 @@ export function PartnersInviteModal({
               <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
                 {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי (יחיד)' : 'הזמנת משתף פעולה (יחיד)')}
               </h3>
-              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.56</span>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.57</span>
             </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               {inviteType === 'group' 
