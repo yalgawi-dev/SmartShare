@@ -7,8 +7,7 @@ import { getRemainingTimeText, isPartnerExpired } from '../../../utils/partnerUt
 import { createPortal } from 'react-dom';
 import { isCashboxEnabled, TREASURY_MEMBER_ID, createVirtualTreasury } from '../Cashbox/CashboxEngine';
 import { CashboxWidget } from '../Cashbox/CashboxWidget';
-
-
+import ConfirmModal from '../../common/ConfirmModal';
 interface FinanceSummaryProps { [key: string]: any;
   onTriggerTransfer?: any;
   space: any;
@@ -47,6 +46,22 @@ export function FinanceSummary({
   const [transactionAction, setTransactionAction] = useState('deposit');
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
+  const [renewedToken, setRenewedToken] = useState<string | null>(null);
+  const [confirmModalConfig, setConfirmModalConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmText?: string;
+    cancelText?: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'primary';
+    icon?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
 
   const presenceUids = useMemo(() => {
     const uids = space?.members?.map((m: any) => m.userId) || [];
@@ -99,7 +114,7 @@ export function FinanceSummary({
   
   // Prevent random anonymous viewers from being added to the math engine
     // READ ROLES DIRECTLY FROM THE PARTNERS ENGINE (SINGLE SOURCE OF TRUTH)
-  const { getRoleForSpace, getTokenForSpace, addInvoice } = useSpaces();
+  const { getRoleForSpace, getTokenForSpace, addInvoice, declinePendingInvite, refreshMemberInvite } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   const myId = user?.id || 'me';
@@ -118,6 +133,32 @@ export function FinanceSummary({
     
     if (!unifiedBalances.has(m.userId)) {
       unifiedBalances.set(m.userId, { name: m.name || (m.userId === user?.id ? myRealName : 'משתמש'), paid: 0, expected: 0, balance: 0, userId: m.userId, isMember: true, transfersSent: 0, transfersReceived: 0, incomeExpected: 0, incomeHeld: 0, p: 0, rawP: 0, isCreator: false, status: m.status, joinedAt: m.joinedAt });
+    }
+  });
+
+  // Include pending invited partners (e.g., invited via WhatsApp link)
+  const pendingInvitesList = space.pendingInvites || [];
+  pendingInvitesList.forEach((inv: any) => {
+    if (!unifiedBalances.has(inv.token)) {
+      unifiedBalances.set(inv.token, {
+        name: inv.name?.trim() || 'שותף מוזמן',
+        paid: 0,
+        expected: 0,
+        balance: 0,
+        userId: inv.token,
+        isMember: true,
+        transfersSent: 0,
+        transfersReceived: 0,
+        incomeExpected: 0,
+        incomeHeld: 0,
+        p: Number(inv.guestShare) || 0,
+        rawP: Number(inv.guestShare) || 0,
+        isCreator: false,
+        status: 'pending',
+        joinedAt: inv.createdAt,
+        isInvite: true,
+        guestShare: inv.guestShare
+      });
     }
   });
 
@@ -199,13 +240,19 @@ export function FinanceSummary({
     if (b.userId === TREASURY_MEMBER_ID) {
       b.p = 0;
     } else if (!b.isCreator && b.isMember) {
-      const m = validMembers.find((vm: any) => vm.userId === b.userId);
-      if (m && m.isActive === false) {
-        b.p = 0;
+      if ((b as any).isInvite) {
+        const inviteP = typeof (b as any).guestShare === 'number' ? (b as any).guestShare : defaultShare;
+        b.p = inviteP;
+        totalPartnerShares += inviteP;
       } else {
-        const partnerP = (m && typeof m.sharePercentage === 'number' && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
-        b.p = partnerP;
-        totalPartnerShares += partnerP;
+        const m = validMembers.find((vm: any) => vm.userId === b.userId);
+        if (m && m.isActive === false) {
+          b.p = 0;
+        } else {
+          const partnerP = (m && typeof m.sharePercentage === 'number' && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
+          b.p = partnerP;
+          totalPartnerShares += partnerP;
+        }
       }
     }
   });
@@ -587,14 +634,115 @@ export function FinanceSummary({
                               )}
                               {(b as any).status === 'pending' && (() => {
                                 const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
-                                if (isExpired) return <span style={{fontSize: '0.7rem', color: '#ef4444'}}>פג תוקף</span>;
-                                if (b.userId === user?.id) {
-                                    return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לאישורך</span>;
-                                  }
-                                  if (!(b as any).welcomed) {
-                                    return <span style={{fontSize: '0.7rem', color: '#8b5cf6'}}>✉️ הזמנה נשלחה (טרם הצטרף)</span>;
-                                  }
-                                  return <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>⏳ ממתין לסיום הגדרה</span>;
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                                    {isExpired ? (
+                                      <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold' }}>פג תוקף</span>
+                                    ) : renewedToken === b.userId ? (
+                                      <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 'bold' }}>✓ תוקף הוארך!</span>
+                                    ) : (
+                                      <span style={{ fontSize: '0.75rem', color: '#8b5cf6', fontWeight: 600 }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>
+                                    )}
+
+                                    {/* Action buttons for pending invite: Copy & Delete */}
+                                    {(b as any).isInvite && !isExpired && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          const link = `${window.location.origin}/space/${space.id}?invite=${b.userId}`;
+                                          navigator.clipboard.writeText(link);
+                                          alert('קישור ההזמנה הועתק ללוח!');
+                                        }}
+                                        style={{
+                                          background: '#f0fdf4',
+                                          color: '#16a34a',
+                                          border: '1px solid #bbf7d0',
+                                          borderRadius: '8px',
+                                          padding: '2px 7px',
+                                          fontSize: '0.75rem',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px',
+                                          fontWeight: 'bold'
+                                        }}
+                                        title="העתק קישור להזמנה שוב"
+                                      >
+                                        🔗 העתק קישור
+                                      </button>
+                                    )}
+
+                                    {(b as any).isInvite && isExpired && isCreatorMe && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          if (typeof refreshMemberInvite === 'function') {
+                                            refreshMemberInvite(space.id, b.userId);
+                                          }
+                                          setRenewedToken(b.userId);
+                                          setTimeout(() => setRenewedToken(null), 5000);
+                                        }}
+                                        style={{
+                                          background: '#eff6ff',
+                                          color: '#2563eb',
+                                          border: '1px solid #bfdbfe',
+                                          borderRadius: '8px',
+                                          padding: '2px 7px',
+                                          fontSize: '0.75rem',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px',
+                                          fontWeight: 'bold'
+                                        }}
+                                        title="חדש תוקף ל-24 שעות"
+                                      >
+                                        🔄 חדש תוקף
+                                      </button>
+                                    )}
+
+                                    {(b as any).isInvite && isCreatorMe && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setConfirmModalConfig({
+                                            isOpen: true,
+                                            title: 'ביטול ומחיקת הזמנה',
+                                            message: `האם למחוק לצמיתות את ההזמנה עבור "${b.name}"?`,
+                                            confirmText: 'מחק הזמנה',
+                                            cancelText: 'ביטול',
+                                            variant: 'danger',
+                                            icon: '🗑️',
+                                            onConfirm: () => {
+                                              if (typeof declinePendingInvite === 'function') {
+                                                declinePendingInvite(space.id, b.userId);
+                                              }
+                                              setConfirmModalConfig(prev => ({ ...prev, isOpen: false }));
+                                            }
+                                          });
+                                        }}
+                                        style={{
+                                          background: '#fef2f2',
+                                          color: '#ef4444',
+                                          border: '1px solid #fecaca',
+                                          borderRadius: '8px',
+                                          padding: '2px 7px',
+                                          fontSize: '0.75rem',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}
+                                        title="מחק ובטל הזמנה"
+                                      >
+                                        🗑️ בטל
+                                      </button>
+                                    )}
+                                  </div>
+                                );
                               })()}
                               {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
                               {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
@@ -956,6 +1104,19 @@ export function FinanceSummary({
           onClose={() => setExpandedPartnerId(null)}
         />
       )}
+
+      {/* Confirmation Modal for actions like deleting pending invites */}
+      <ConfirmModal
+        isOpen={confirmModalConfig.isOpen}
+        title={confirmModalConfig.title}
+        message={confirmModalConfig.message}
+        confirmText={confirmModalConfig.confirmText}
+        cancelText={confirmModalConfig.cancelText}
+        onConfirm={confirmModalConfig.onConfirm}
+        onClose={() => setConfirmModalConfig(prev => ({ ...prev, isOpen: false }))}
+        variant={confirmModalConfig.variant || 'primary'}
+        icon={confirmModalConfig.icon}
+      />
     </div>
   );
 }
