@@ -558,7 +558,8 @@ export function FinanceSummary({
               <tbody>
                 {balances.filter(b => b.userId !== TREASURY_MEMBER_ID).map((b) => {
                   const memberObj = space.members?.find((m: any) => m.userId === b.userId);
-                  const isInactive = (memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId);
+                  const isPendingInvite = (b as any).isInvite || (b as any).status === 'pending';
+                  const isInactive = !isPendingInvite && ((memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId));
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
                   const unreadCount = (() => {
   if (!space.features?.includes('chat')) return 0;
@@ -601,7 +602,7 @@ export function FinanceSummary({
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: (b as any).status === 'pending' && (b as any).joinedAt && getRemainingTimeText((b as any).joinedAt, space.settings?.pendingExpirationHours || 24) === 'פג תוקף' ? '#ef4444' : 'inherit' }}>
-                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
                                 {(() => {
                                   if (!space.features?.includes('chat')) return null;
                                   let myUnreadCount = 0;
@@ -661,16 +662,22 @@ export function FinanceSummary({
                               {(b as any).status === 'pending' && (() => {
                                 const isExpired = (b as any).joinedAt && (new Date().getTime() - new Date((b as any).joinedAt).getTime()) / 3600000 > (space.settings?.pendingExpirationHours || 24);
                                 return (
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.25rem', flexWrap: 'wrap' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.35rem', flexWrap: 'wrap' }}>
                                     {isExpired ? (
-                                      <span style={{ fontSize: '0.75rem', color: '#ef4444', fontWeight: 'bold' }}>פג תוקף</span>
+                                      <span style={{ fontSize: '0.75rem', color: '#b91c1c', background: '#fee2e2', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid #fca5a5' }}>
+                                        ⚠️ פג תוקף
+                                      </span>
                                     ) : renewedToken === b.userId ? (
-                                      <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 'bold' }}>✓ תוקף הוארך!</span>
+                                      <span style={{ fontSize: '0.75rem', color: '#15803d', background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, border: '1px solid #86efac' }}>
+                                        ✓ תוקף הוארך!
+                                      </span>
                                     ) : (
-                                      <span style={{ fontSize: '0.75rem', color: '#8b5cf6', fontWeight: 600 }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>
+                                      <span style={{ fontSize: '0.75rem', color: '#6d28d9', background: '#ede9fe', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, border: '1px solid #ddd6fe' }}>
+                                        ✉️ נשלחה הזמנה (ממתין)
+                                      </span>
                                     )}
 
-                                    {/* Action buttons for pending invite: Copy & Delete */}
+                                    {/* Action buttons for pending invite: Vivid & Crisp */}
                                     {(b as any).isInvite && !isExpired && (
                                       <button
                                         type="button"
@@ -681,21 +688,24 @@ export function FinanceSummary({
                                           alert('קישור ההזמנה הועתק ללוח!');
                                         }}
                                         style={{
-                                          background: '#f0fdf4',
-                                          color: '#16a34a',
-                                          border: '1px solid #bbf7d0',
+                                          background: '#10b981',
+                                          color: '#ffffff',
+                                          border: 'none',
                                           borderRadius: '8px',
-                                          padding: '2px 7px',
+                                          padding: '3px 9px',
                                           fontSize: '0.75rem',
                                           cursor: 'pointer',
                                           display: 'inline-flex',
                                           alignItems: 'center',
-                                          gap: '3px',
-                                          fontWeight: 'bold'
+                                          gap: '4px',
+                                          fontWeight: 700,
+                                          boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
+                                          transition: 'transform 0.1s'
                                         }}
                                         title="העתק קישור להזמנה שוב"
                                       >
-                                        🔗 העתק קישור
+                                        <span>🔗</span>
+                                        <span>העתק קישור</span>
                                       </button>
                                     )}
 
@@ -711,21 +721,23 @@ export function FinanceSummary({
                                           setTimeout(() => setRenewedToken(null), 5000);
                                         }}
                                         style={{
-                                          background: '#eff6ff',
-                                          color: '#2563eb',
-                                          border: '1px solid #bfdbfe',
+                                          background: '#3b82f6',
+                                          color: '#ffffff',
+                                          border: 'none',
                                           borderRadius: '8px',
-                                          padding: '2px 7px',
+                                          padding: '3px 9px',
                                           fontSize: '0.75rem',
                                           cursor: 'pointer',
                                           display: 'inline-flex',
                                           alignItems: 'center',
-                                          gap: '3px',
-                                          fontWeight: 'bold'
+                                          gap: '4px',
+                                          fontWeight: 700,
+                                          boxShadow: '0 1px 3px rgba(59, 130, 246, 0.3)'
                                         }}
                                         title="חדש תוקף ל-24 שעות"
                                       >
-                                        🔄 חדש תוקף
+                                        <span>🔄</span>
+                                        <span>חדש תוקף</span>
                                       </button>
                                     )}
 
@@ -751,20 +763,23 @@ export function FinanceSummary({
                                           });
                                         }}
                                         style={{
-                                          background: '#fef2f2',
-                                          color: '#ef4444',
-                                          border: '1px solid #fecaca',
+                                          background: '#ef4444',
+                                          color: '#ffffff',
+                                          border: 'none',
                                           borderRadius: '8px',
-                                          padding: '2px 7px',
+                                          padding: '3px 9px',
                                           fontSize: '0.75rem',
                                           cursor: 'pointer',
                                           display: 'inline-flex',
                                           alignItems: 'center',
-                                          gap: '3px'
+                                          gap: '4px',
+                                          fontWeight: 700,
+                                          boxShadow: '0 1px 3px rgba(239, 68, 68, 0.3)'
                                         }}
                                         title="מחק ובטל הזמנה"
                                       >
-                                        🗑️ בטל
+                                        <span>🗑️</span>
+                                        <span>בטל</span>
                                       </button>
                                     )}
                                   </div>
