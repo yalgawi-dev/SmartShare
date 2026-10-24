@@ -272,30 +272,38 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       }
     };
 
+    // Precompute Canny edges ONCE for ink truncation evaluation instead of recomputing per candidate
+    let globalEdges = new cv.Mat();
+    cv.Canny(gray, globalEdges, 40, 120);
+
+    // Precompute edge counts per row to make boundary checking O(1) per row
+    const rowEdgeCounts = new Int32Array(globalEdges.rows);
+    for (let y = 0; y < globalEdges.rows; y++) {
+      let rowCount = 0;
+      for (let x = 0; x < globalEdges.cols; x++) {
+        if (globalEdges.ucharPtr(y, x)[0] > 0) rowCount++;
+      }
+      rowEdgeCounts[y] = rowCount;
+    }
+
     // Helper: Check Header/Footer Ink Truncation
     const getHeaderFooterTruncationPenalty = (quad: Point[]): number => {
       try {
-        let edges = new cv.Mat();
-        cv.Canny(gray, edges, 40, 120);
-
         let qMinY = Math.min(...quad.map(p => p.y * tempScale));
         let qMaxY = Math.max(...quad.map(p => p.y * tempScale));
 
         let topOutsideCount = 0;
         let bottomOutsideCount = 0;
 
-        for (let y = 0; y < edges.rows; y++) {
-          if (y < qMinY - 5) {
-            for (let x = 0; x < edges.cols; x++) {
-              if (edges.ucharPtr(y, x)[0] > 0) topOutsideCount++;
-            }
-          } else if (y > qMaxY + 5) {
-            for (let x = 0; x < edges.cols; x++) {
-              if (edges.ucharPtr(y, x)[0] > 0) bottomOutsideCount++;
-            }
-          }
+        const minYLimit = Math.max(0, Math.floor(qMinY - 5));
+        for (let y = 0; y < minYLimit; y++) {
+          topOutsideCount += rowEdgeCounts[y];
         }
-        edges.delete();
+
+        const maxYLimit = Math.min(globalEdges.rows, Math.ceil(qMaxY + 5));
+        for (let y = maxYLimit; y < globalEdges.rows; y++) {
+          bottomOutsideCount += rowEdgeCounts[y];
+        }
 
         // If inner quad cuts off top header logo/text (like HB logo in Image 2) or bottom text:
         if (topOutsideCount > 40 || bottomOutsideCount > 40) {
@@ -471,7 +479,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       scoredCandidates.push({ pts: quad, score });
     }
 
-    gray.delete(); src.delete();
+    globalEdges.delete(); gray.delete(); src.delete();
     // Removed dangerous cleanupMats block that crashed OpenCV.js when .isDeleted() was undefined
     // Memory leaks are prevented by explicitly deleting Mats in their respective blocks.
 
