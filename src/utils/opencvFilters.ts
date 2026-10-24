@@ -240,9 +240,11 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 
         mask.delete(); ptsVector.delete(); matPts.delete(); meanStd.delete(); stdDevMat.delete();
 
-        // High luminance (light paper) & moderate variance = uniform paper background
-        if (meanLum >= 160 && stdDev <= 55) return 2.0;
-        if (meanLum < 130) return 0.2; // Penalty for dark furniture
+        // Paper luminance & uniformity:
+        // Even in indoor lighting (where paper is ~110-150), paper is lighter and more uniform than background textures
+        if (meanLum >= 130 && stdDev <= 60) return 2.2;
+        if (meanLum >= 95 && stdDev <= 65) return 1.5;
+        if (meanLum < 70) return 0.3; // Only penalize extremely dark surfaces (black chairs/shadows)
         return 1.0;
       } catch (e) {
         return 1.0;
@@ -370,6 +372,27 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     }
 
     otsuContours.delete(); otsuHierarchy.delete(); otsuClosed.delete(); M2.delete(); otsuMat.delete(); blurredGray.delete();
+
+    // --- PASS 2B: Local Adaptive Thresholding (Crucial for Low-Contrast Gray Backgrounds & Shadowed Indoor Lighting) ---
+    let adaptBlurred = new cv.Mat();
+    cv.GaussianBlur(gray, adaptBlurred, new cv.Size(7, 7), 0, 0);
+
+    let adaptMat = new cv.Mat();
+    cv.adaptiveThreshold(adaptBlurred, adaptMat, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY, 21, 5);
+
+    let adaptClosed = new cv.Mat();
+    let M2b = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(7, 7));
+    cv.morphologyEx(adaptMat, adaptClosed, cv.MORPH_CLOSE, M2b);
+
+    let adaptContours = new cv.MatVector();
+    let adaptHierarchy = new cv.Mat();
+    cv.findContours(adaptClosed, adaptContours, adaptHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+    for (let i = 0; i < adaptContours.size(); i++) {
+      collectContourCandidate(adaptContours.get(i), 1.4);
+    }
+
+    adaptContours.delete(); adaptHierarchy.delete(); adaptClosed.delete(); M2b.delete(); adaptMat.delete(); adaptBlurred.delete();
 
     // --- PASS 3: HSV Saturation Paper Boundary Pass ---
     let hsv = new cv.Mat();
