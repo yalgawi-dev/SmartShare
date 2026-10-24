@@ -172,7 +172,7 @@ export default function GlobalPWAPrompt() {
           <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🧭</div>
           <h3 style={titleStyle}>פתח ב-Safari</h3>
           <p style={subStyle}>
-            כדי להתקין את SmartShare, לחץ על הכפתור — הוא יפתח Safari אוטומטית!
+            כדי להתקין את MySpace, לחץ על הכפתור — הוא יפתח Safari אוטומטית!
           </p>
         </div>
         <button onClick={openInSafari} className="pulse-btn-v1" style={primaryBtnStyle}>
@@ -230,11 +230,11 @@ export default function GlobalPWAPrompt() {
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
         <img
           src="/icons/icon-192x192.png"
-          alt="SmartShare"
+          alt="MySpace"
           style={{ width: '58px', height: '58px', borderRadius: '14px', boxShadow: '0 4px 14px rgba(0,0,0,0.14)', flexShrink: 0 }}
         />
         <div>
-          <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#0f172a' }}>SmartShare</div>
+          <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#0f172a' }}>MySpace</div>
           <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '3px', lineHeight: 1.3 }}>
             {canOneTap ? 'לחיצה אחת והאפליקציה בטלפון!' : 'הוסף למסך הבית'}
           </div>

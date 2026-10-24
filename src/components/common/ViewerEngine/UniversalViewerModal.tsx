@@ -138,7 +138,7 @@ export default function UniversalViewerModal({
       onShare(currentDoc);
     } else if (navigator.share) {
       navigator.share({
-        title: currentDoc.title || 'מסמך מ-SmartShare',
+        title: currentDoc.title || 'מסמך מ-MySpace',
         url: currentDoc.url
       }).catch(() => {});
     }
@@ -240,7 +240,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.7.9
+            v2.8.0
           </span>
           <span
             style={{

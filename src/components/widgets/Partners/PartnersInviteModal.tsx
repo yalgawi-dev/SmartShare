@@ -132,18 +132,9 @@ export function PartnersInviteModal({
 
     const token = 'guest_' + Math.random().toString(36).substr(2, 9);
     
-    // Build clean invite link
+    // Build clean, short invite link (no sensitive plan JSON in URL)
     const url = new URL('/space/' + space.id, window.location.origin);
     url.searchParams.set('invite', token);
-    url.searchParams.set('retro', isRetroactive ? 'true' : 'false');
-    url.searchParams.set('share', plannedGuestShare.toString());
-    if (contactName) {
-      url.searchParams.set('name', contactName.trim());
-    }
-    url.searchParams.set('plan', JSON.stringify({
-      creator: plannedCreatorShare,
-      partners: plannedPartnerShares
-    }));
     const link = url.toString();
 
     await createPendingInvite(space.id, {
@@ -152,10 +143,16 @@ export function PartnersInviteModal({
       isRetroactive,
       guestShare: plannedGuestShare,
       creatorShare: plannedCreatorShare,
-      partnerShares: plannedPartnerShares, targetUserId
+      partnerShares: plannedPartnerShares, 
+      targetUserId
     });
 
-    return { link, shareTitle: 'הזמנה לפרויקט ' + space.title, shareText: isFinancial ? `היי! הוזמנת על ידי ${creatorName} להצטרף לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` : `היי! הוזמנת על ידי ${creatorName} לשתף פעולה במרחב "${space.title}". לחץ כאן כדי להיכנס:\n${link}` };
+    const shareTitle = 'הזמנה לפרויקט ' + space.title;
+    const shareText = isFinancial 
+      ? `היי! הוזמנת על ידי ${creatorName} להצטרף לפרויקט "${space.title}" עם חלק של ${plannedGuestShare}%. לחץ כאן כדי להיכנס:\n${link}` 
+      : `היי! הוזמנת על ידי ${creatorName} לשתף פעולה במרחב "${space.title}". לחץ כאן כדי להיכנס:\n${link}`;
+
+    return { link, shareTitle, shareText };
   };
 
   const handleContactSelect = async (contact: SelectedContact) => {
@@ -217,7 +214,6 @@ export function PartnersInviteModal({
         await navigator.share({
           title: data.shareTitle,
           text: data.shareText,
-          url: data.link,
         });
       } catch (err) {
         console.error('Error sharing group link:', err);
@@ -250,7 +246,6 @@ export function PartnersInviteModal({
         await navigator.share({
           title: data.shareTitle,
           text: data.shareText,
-          url: data.link,
         });
       } catch (err) {
         console.error('Error sharing:', err);

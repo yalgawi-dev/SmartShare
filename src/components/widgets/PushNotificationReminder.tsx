@@ -80,7 +80,7 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
           </h4>
           <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4' }}>
             {Notification.permission === 'denied' 
-              ? 'ההתראות חסומות. כדי לא לפספס הודעות, פתח את הגדרות הטלפון -> אפליקציות -> SmartShare והפעל התראות.'
+              ? 'ההתראות חסומות. כדי לא לפספס הודעות, פתח את הגדרות הטלפון -> אפליקציות -> MySpace והפעל התראות.'
               : 'כדי לא לפספס הודעות ופעולות חשובות בקבוצה, מומלץ להפעיל התראות כעת.'}
           </p>
         </div>

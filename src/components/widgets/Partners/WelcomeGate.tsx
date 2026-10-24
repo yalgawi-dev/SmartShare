@@ -71,19 +71,26 @@ export default function WelcomeGate({
   if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || !resolvedToken) return null;
 
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
-  const isRetroactive = urlParams.get('retro') === 'true';
-  const displayShare = currentMember?.sharePercentage ?? (urlParams.get('share') ? Number(urlParams.get('share')) : undefined);
+  const pendingInvite = resolvedToken ? (space?.pendingInvites || []).find((i: any) => i.token === resolvedToken) : undefined;
+  
+  const isRetroactive = pendingInvite ? pendingInvite.isRetroactive : (urlParams.get('retro') === 'true');
+  const displayShare = currentMember?.sharePercentage ?? (pendingInvite?.guestShare ?? (urlParams.get('share') ? Number(urlParams.get('share')) : undefined));
 
   const handleStart = () => {
     try {
-      const finalName = user?.realName || currentMember?.name || 'שותף חדש';
+      const finalName = user?.realName || currentMember?.name || pendingInvite?.name || 'שותף חדש';
       
-      const isRetroParam = urlParams.get('retro') === 'true';
-      const shareParam = urlParams.get('share');
+      const isRetroParam = isRetroactive;
+      const shareParam = displayShare;
       const planParam = urlParams.get('plan');
 
       let sharesPlan: { creator: number; partners?: Record<string, number> } | undefined;
-      if (planParam) {
+      if (pendingInvite && pendingInvite.creatorShare !== undefined) {
+        sharesPlan = {
+          creator: pendingInvite.creatorShare,
+          partners: pendingInvite.partnerShares || undefined
+        };
+      } else if (planParam) {
         try {
           sharesPlan = JSON.parse(decodeURIComponent(planParam));
         } catch (e) {
@@ -102,7 +109,7 @@ export default function WelcomeGate({
           isRetroParam, 
           user.id, 
           resolvedToken, 
-          currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : (shareParam ? Number(shareParam) : undefined),
+          currentMember?.sharePercentage !== undefined ? currentMember.sharePercentage : shareParam,
           sharesPlan
         );
       }

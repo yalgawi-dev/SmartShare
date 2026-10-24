@@ -1,6 +1,6 @@
 {
-  "name": "SmartShare",
-  "short_name": "SmartShare",
+  "name": "MySpace",
+  "short_name": "MySpace",
   "description": "Smart project and expense management for partners.",
   "start_url": "/",
   "display": "standalone",

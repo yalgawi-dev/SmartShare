@@ -206,7 +206,7 @@ export default function AuthWall() {
             <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
           </svg>
         </div>
-        <h2 className="auth-title">SmartShare</h2>
+        <h2 className="auth-title">MySpace</h2>
         <p className="auth-subtitle">התחברות מאובטחת למרחב האישי שלך</p>
       </div>
 
