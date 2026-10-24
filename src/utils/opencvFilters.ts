@@ -64,25 +64,42 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       return reordered;
     };
 
-    // Universal 4-Corner Parallelogram Snapping & Folded Corner Reconstruction:
-    // If a corner is folded or rounded, reconstruct the virtual intersection of the adjacent edges.
+    // Helper: Compute intersection point of two 2D lines defined by (p1, p2) and (p3, p4)
+    const lineIntersection = (p1: Point, p2: Point, p3: Point, p4: Point): Point | null => {
+      const denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+      if (Math.abs(denom) < 1e-4) return null; // parallel lines
+      const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denom;
+      return {
+        x: p1.x + t * (p2.x - p1.x),
+        y: p1.y + t * (p2.y - p1.y)
+      };
+    };
+
+    // CamScanner-style Virtual Edge Intersection:
+    // If a corner is folded, torn, rounded, or merged with a background boundary,
+    // reconstruct the true corner using the perspective intersection of the two adjacent edges!
     const snapAnyOutlierCorner = (pts: Point[]): Point[] => {
       if (pts.length !== 4) return pts;
-      const expPoints = [
-        { x: pts[1].x + (pts[3].x - pts[2].x), y: pts[1].y + (pts[3].y - pts[2].y) }, // TL exp
-        { x: pts[0].x + (pts[2].x - pts[3].x), y: pts[0].y + (pts[2].y - pts[3].y) }, // TR exp
-        { x: pts[1].x + (pts[3].x - pts[0].x), y: pts[1].y + (pts[3].y - pts[0].y) }, // BR exp
-        { x: pts[0].x + (pts[2].x - pts[1].x), y: pts[0].y + (pts[2].y - pts[1].y) }  // BL exp
-      ];
 
+      const p0 = pts[0], p1 = pts[1], p2 = pts[2], p3 = pts[3];
       const avgSide = (
-        Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) +
-        Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y) +
-        Math.hypot(pts[3].x - pts[2].x, pts[3].y - pts[2].y) +
-        Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y)
+        Math.hypot(p1.x - p0.x, p1.y - p0.y) +
+        Math.hypot(p2.x - p1.x, p2.y - p1.y) +
+        Math.hypot(p3.x - p2.x, p3.y - p2.y) +
+        Math.hypot(p0.x - p3.x, p0.y - p3.y)
       ) / 4;
 
       if (avgSide <= 0) return pts;
+
+      // Virtual intersections of the opposite edges:
+      // TL (0): intersection of top edge direction (towards TR) and left edge direction (towards BL)
+      // We calculate the projective expected corners from the 3 valid corners:
+      const expPoints = [
+        lineIntersection(p1, { x: p1.x + (p2.x - p3.x), y: p1.y + (p2.y - p3.y) }, p3, { x: p3.x + (p2.x - p1.x), y: p3.y + (p2.y - p1.y) }) || { x: p1.x + (p3.x - p2.x), y: p1.y + (p3.y - p2.y) },
+        lineIntersection(p0, { x: p0.x + (p3.x - p2.x), y: p0.y + (p3.y - p2.y) }, p2, { x: p2.x + (p3.x - p0.x), y: p2.y + (p3.y - p0.y) }) || { x: p0.x + (p2.x - p3.x), y: p0.y + (p2.y - p3.y) },
+        lineIntersection(p1, { x: p1.x + (p0.x - p3.x), y: p1.y + (p0.y - p3.y) }, p3, { x: p3.x + (p0.x - p1.x), y: p3.y + (p0.y - p1.y) }) || { x: p1.x + (p3.x - p0.x), y: p1.y + (p3.y - p0.y) },
+        lineIntersection(p0, { x: p0.x + (p1.x - p2.x), y: p0.y + (p1.y - p2.y) }, p2, { x: p2.x + (p1.x - p0.x), y: p2.y + (p1.y - p0.y) }) || { x: p0.x + (p2.x - p1.x), y: p0.y + (p2.y - p1.y) }
+      ];
 
       let maxDevRatio = 0;
       let outlierIdx = -1;
@@ -96,9 +113,8 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         }
       }
 
-      // If a corner deviates by more than 8% of the average side (e.g. folded/cut corner),
-      // snap it 100% to the virtual intersection point of the adjacent document edges!
-      if (outlierIdx >= 0 && maxDevRatio > 0.08) {
+      // If any corner is displaced by folded paper, shadows, or background cardboard (> 5% deviation):
+      if (outlierIdx >= 0 && maxDevRatio > 0.05) {
         const newPts = [...pts];
         newPts[outlierIdx] = {
           x: expPoints[outlierIdx].x,
@@ -462,11 +478,11 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       // 4. Header/Footer Ink Truncation Penalty
       const truncationPenalty = getHeaderFooterTruncationPenalty(quad);
 
-      // 5. Inner Quad Priority
+      // 5. Inner Document vs Outer Background Surface Priority
       let innerBonus = 1.0;
       for (let other of rawCandidates) {
-        if (other.area > candidate.area * 2.0 && isInsideOtherQuad(quad, other.pts)) {
-          innerBonus = 3.0;
+        if (other.area > candidate.area * 1.10 && isInsideOtherQuad(quad, other.pts)) {
+          innerBonus = 3.5;
           break;
         }
       }
