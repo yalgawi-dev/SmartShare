@@ -62,9 +62,13 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
     } catch (error: any) {
       console.error(error);
       setIsSubmitting(false);
-      if (error.code === 'auth/invalid-phone-number') setErrorMsg('מספר הטלפון שהוזן אינו חוקי.');
-      else if (error.code === 'auth/too-many-requests') setErrorMsg('יותר מדי ניסיונות. אנא נסה שוב מאוחר יותר.');
-      else setErrorMsg('שגיאה בשליחת קוד. ודא שהמספר תקין ונסה שוב.');
+      const errCode = error.code || '';
+      const errMsg = error.message || '';
+      if (errCode === 'auth/invalid-phone-number') setErrorMsg('מספר הטלפון שהוזן אינו חוקי. (קוד: ' + errCode + ')');
+      else if (errCode === 'auth/too-many-requests') setErrorMsg('יותר מדי ניסיונות בזמן קצר. אנא נסה שוב בעוד מספר דקות. (קוד: ' + errCode + ')');
+      else if (errCode === 'auth/quota-exceeded') setErrorMsg('מכסת SMS הסתיימה. (קוד: ' + errCode + ')');
+      else if (errCode === 'auth/captcha-check-failed') setErrorMsg('אימות הרובוט נכשל. סמן שוב את התיבה. (קוד: ' + errCode + ')');
+      else setErrorMsg(`שגיאה בשליחת קוד: ${errMsg || 'נסה שוב'} [${errCode}]`);
     }
   };
 

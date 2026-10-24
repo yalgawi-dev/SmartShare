@@ -25,20 +25,46 @@ export default function AuthWall() {
   }, [user]);
 
 
-  useEffect(() => {
-    if (typeof window !== 'undefined' && step === 1) {
-      if (!(window as any).recaptchaVerifier) {
+  const initRecaptcha = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      if ((window as any).recaptchaVerifier) {
         try {
-          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'normal',
-            callback: () => { /* reCAPTCHA solved */ },
-            'expired-callback': () => { /* expired */ }
-          });
-        } catch (e) {
-          console.error('reCAPTCHA init error', e);
-        }
+          (window as any).recaptchaVerifier.clear();
+        } catch (e) {}
+        (window as any).recaptchaVerifier = null;
       }
+      const container = document.getElementById('recaptcha-container');
+      if (container) container.innerHTML = '';
+
+      (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'normal',
+        callback: () => { /* reCAPTCHA solved */ },
+        'expired-callback': () => {
+          // Auto reset on expiration
+          initRecaptcha();
+        }
+      });
+      (window as any).recaptchaVerifier.render();
+    } catch (e) {
+      console.error('reCAPTCHA init error', e);
     }
+  };
+
+  useEffect(() => {
+    if (step === 1) {
+      initRecaptcha();
+    }
+    return () => {
+      if (typeof window !== 'undefined' && (window as any).recaptchaVerifier) {
+        try {
+          (window as any).recaptchaVerifier.clear();
+          (window as any).recaptchaVerifier = null;
+        } catch (e) {}
+      }
+      const container = document.getElementById('recaptcha-container');
+      if (container) container.innerHTML = '';
+    };
   }, [step]);
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,16 +105,34 @@ export default function AuthWall() {
       setIsSubmitting(false);
       setStep(2);
     } catch (error: any) {
-      console.error(error);
+      console.error('Phone login error:', error);
       setIsSubmitting(false);
       
       const errCode = error.code || '';
+      const errMsg = error.message || '';
+
+      // Re-initialize reCAPTCHA after any failure so the user doesn't get stuck with a consumed widget
+      initRecaptcha();
+      
       if (errCode === 'auth/invalid-phone-number') {
-        setErrorMsg('מספר הטלפון אינו תקין.');
+        setErrorMsg('מספר הטלפון אינו תקין. ודא שהמספר הוזן ללא קידומת בינלאומית כפולה. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/too-many-requests') {
-        setErrorMsg('יותר מדי ניסיונות. אנא נסה שוב מאוחר יותר.');
+        setErrorMsg('יותר מדי ניסיונות בזמן קצר. גוגל חסמה זמנית את השליחה למספר זה. אנא המתן מספר דקות. (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/quota-exceeded') {
+        setErrorMsg('מכסת הודעות ה-SMS היומית של המערכת ב-Firebase הסתיימה. (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/captcha-check-failed') {
+        setErrorMsg('אימות ה-reCAPTCHA נכשל או פג תוקף. אנא סמן שוב את התיבה "אני לא רובוט". (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/app-not-authorized' || errCode === 'auth/unauthorized-domain') {
+        setErrorMsg('הדומיין הנוכחי אינו מורשה במסוף Firebase Authentication. (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/billing-not-enabled' || errCode === 'auth/operation-not-allowed') {
+        setErrorMsg('שליחת SMS לא מופעלת בפרויקט Firebase או דורשת שדרוג תוכנית (Blaze). (קוד: ' + errCode + ')');
+      } else if (errCode === 'auth/network-request-failed') {
+        setErrorMsg('שגיאת תקשורת. בדוק את החיבור לאינטרנט ונסה שוב. (קוד: ' + errCode + ')');
+      } else if (errCode.includes('-39') || errMsg.includes('-39')) {
+        setErrorMsg('שגיאת חסימת ספאם של Firebase (שגיאה 39-). המתן מספר שעות או נסה ממכשיר אחר.');
       } else {
-        setErrorMsg('שגיאה בשליחת קוד. נסה שוב.');
+        const displayCode = errCode ? ` [${errCode}]` : '';
+        setErrorMsg(`שגיאה בשליחת קוד: ${errMsg || 'נסה שוב'}${displayCode}`);
       }
     }
   };
@@ -153,13 +197,18 @@ export default function AuthWall() {
       }
       
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/invalid-verification-code') {
-        setErrorMsg('קוד האימות שגוי, אנא נסה שוב.');
-      } else if (err.code === 'auth/code-expired') {
-        setErrorMsg('קוד האימות פג תוקף.');
+      console.error('Verify OTP error:', err);
+      const code = err.code || '';
+      const msg = err.message || '';
+      if (code === 'auth/invalid-verification-code') {
+        setErrorMsg('קוד האימות שגוי. אנא נסה שוב. (קוד: ' + code + ')');
+      } else if (code === 'auth/code-expired') {
+        setErrorMsg('קוד האימות פג תוקף. לחץ על "לא קיבלת קוד? שלח שוב" לקבלת קוד חדש. (קוד: ' + code + ')');
+      } else if (code === 'auth/session-expired') {
+        setErrorMsg('פג תוקף סשן האימות. אנא חזור לאחור ושלח קוד חדש. (קוד: ' + code + ')');
       } else {
-        setErrorMsg('שגיאה באימות הקוד.');
+        const displayCode = code ? ` [${code}]` : '';
+        setErrorMsg(`שגיאה באימות הקוד: ${msg || 'נסה שוב'}${displayCode}`);
       }
       setIsSubmitting(false);
     }
