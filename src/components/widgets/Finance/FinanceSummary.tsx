@@ -136,9 +136,24 @@ export function FinanceSummary({
     }
   });
 
-  // Include pending invited partners (e.g., invited via WhatsApp link)
+  // Include pending invited partners (deduplicating so the same partner cannot appear multiple times)
   const pendingInvitesList = space.pendingInvites || [];
-  pendingInvitesList.forEach((inv: any) => {
+  const seenPendingKeys = new Set<string>();
+  // Process in reverse to pick the freshest invite for any named partner
+  const uniquePendingInvites: any[] = [];
+  for (let i = pendingInvitesList.length - 1; i >= 0; i--) {
+    const inv = pendingInvitesList[i];
+    if (!inv) continue;
+    const key = inv.targetUserId
+      ? `uid_${inv.targetUserId}`
+      : (inv.name && inv.name.trim() && inv.name.trim() !== 'שותף מוזמן' ? `name_${inv.name.trim().toLowerCase()}` : `token_${inv.token}`);
+    if (!seenPendingKeys.has(key)) {
+      seenPendingKeys.add(key);
+      uniquePendingInvites.unshift(inv);
+    }
+  }
+
+  uniquePendingInvites.forEach((inv: any) => {
     if (!unifiedBalances.has(inv.token)) {
       unifiedBalances.set(inv.token, {
         name: inv.name?.trim() || 'שותף מוזמן',
@@ -257,6 +272,17 @@ export function FinanceSummary({
     }
   });
 
+  // If total partner shares exceed 90% (leaving less than 10% for creator) or > 100%, scale/cap gracefully
+  if (totalPartnerShares >= 100 && totalParticipatingMembers > 1) {
+    const scaleFactor = 90 / totalPartnerShares; // reserve at least 10% for creator when shared
+    balances.forEach(b => {
+      if (!b.isCreator && b.isMember && b.userId !== TREASURY_MEMBER_ID) {
+        b.p = Number((b.p * scaleFactor).toFixed(1));
+      }
+    });
+    totalPartnerShares = 90;
+  }
+
   // Second pass: creator gets remainder to guarantee total = 100%
   balances.forEach(b => {
     if (b.isCreator) {
@@ -264,7 +290,7 @@ export function FinanceSummary({
         b.p = 100;
       } else {
         const remainingForCreator = Math.max(0, 100 - totalPartnerShares);
-        b.p = remainingForCreator;
+        b.p = Number(remainingForCreator.toFixed(1));
       }
     } else if (b.userId !== TREASURY_MEMBER_ID && !b.isMember) {
       b.p = 0;

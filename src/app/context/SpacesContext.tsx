@@ -412,13 +412,33 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         delete data.mediaItems; 
 
         let needsDbHealing = false;
-        const healedPendingInvites = (data.pendingInvites || []).map((inv: any) => {
+        const rawPendingInvites = (data.pendingInvites || []).map((inv: any) => {
           if (inv && inv.name && !isAuthenticPartnerName(inv.name)) {
             needsDbHealing = true;
             return { ...inv, name: 'שותף מוזמן' };
           }
           return inv;
         });
+
+        // Deduplicate pending invites so a partner isn't invited multiple times
+        const dedupedPendingInvites: any[] = [];
+        const seenInviteKeys = new Set<string>();
+        // Process in reverse so the latest invite is kept
+        for (let i = rawPendingInvites.length - 1; i >= 0; i--) {
+          const inv = rawPendingInvites[i];
+          if (!inv) continue;
+          const key = inv.targetUserId 
+            ? `uid_${inv.targetUserId}` 
+            : (inv.name && inv.name.trim() && inv.name.trim() !== 'שותף מוזמן' ? `name_${inv.name.trim().toLowerCase()}` : `token_${inv.token}`);
+          
+          if (!seenInviteKeys.has(key)) {
+            seenInviteKeys.add(key);
+            dedupedPendingInvites.unshift(inv);
+          } else {
+            needsDbHealing = true;
+          }
+        }
+        const healedPendingInvites = dedupedPendingInvites;
 
         const healedMembers = (data.members || []).map((m: any) => {
           if (m && m.name && !isAuthenticPartnerName(m.name)) {
