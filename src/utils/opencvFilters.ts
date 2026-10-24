@@ -75,57 +75,13 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       };
     };
 
-    // CamScanner-style Virtual Edge Intersection:
-    // If a corner is folded, torn, rounded, or merged with a background boundary,
-    // reconstruct the true corner using the perspective intersection of the two adjacent edges!
-    const snapAnyOutlierCorner = (pts: Point[]): Point[] => {
+    // CamScanner-style Convexity and Sanity Verification:
+    // If OpenCV approxPolyDP detects the 4 corners, preserve true perspective geometry!
+    // In real cameras, top edges are narrower than bottom edges due to perspective vanishing lines.
+    // We strictly preserve the true detected corners without affine parallelogram distortion.
+    const sanitizeQuad = (pts: Point[]): Point[] => {
       if (pts.length !== 4) return pts;
-
-      const p0 = pts[0], p1 = pts[1], p2 = pts[2], p3 = pts[3];
-      const avgSide = (
-        Math.hypot(p1.x - p0.x, p1.y - p0.y) +
-        Math.hypot(p2.x - p1.x, p2.y - p1.y) +
-        Math.hypot(p3.x - p2.x, p3.y - p2.y) +
-        Math.hypot(p0.x - p3.x, p0.y - p3.y)
-      ) / 4;
-
-      if (avgSide <= 0) return pts;
-
-      // Virtual intersections of the opposite edges:
-      // In clockwise order: TL (0), TR (1), BR (2), BL (3)
-      // Vector from BL to TL is (p0 - p3) which is roughly parallel to (p1 - p2).
-      // Vector from TR to TL is (p0 - p1) which is roughly parallel to (p3 - p2).
-      // So expected TL is p1 + (p3 - p2).
-      const expPoints = [
-        lineIntersection(p1, { x: p1.x + (p3.x - p2.x), y: p1.y + (p3.y - p2.y) }, p3, { x: p3.x + (p1.x - p2.x), y: p3.y + (p1.y - p2.y) }) || { x: p1.x + (p3.x - p2.x), y: p1.y + (p3.y - p2.y) },
-        lineIntersection(p0, { x: p0.x + (p2.x - p3.x), y: p0.y + (p2.y - p3.y) }, p2, { x: p2.x + (p0.x - p3.x), y: p2.y + (p0.y - p3.y) }) || { x: p0.x + (p2.x - p3.x), y: p0.y + (p2.y - p3.y) },
-        lineIntersection(p1, { x: p1.x + (p3.x - p0.x), y: p1.y + (p3.y - p0.y) }, p3, { x: p3.x + (p1.x - p0.x), y: p3.y + (p1.y - p0.y) }) || { x: p1.x + (p3.x - p0.x), y: p1.y + (p3.y - p0.y) },
-        lineIntersection(p0, { x: p0.x + (p2.x - p1.x), y: p0.y + (p2.y - p1.y) }, p2, { x: p2.x + (p0.x - p1.x), y: p2.y + (p0.y - p1.y) }) || { x: p0.x + (p2.x - p1.x), y: p0.y + (p2.y - p1.y) }
-      ];
-
-      let maxDevRatio = 0;
-      let outlierIdx = -1;
-
-      for (let i = 0; i < 4; i++) {
-        const dist = Math.hypot(pts[i].x - expPoints[i].x, pts[i].y - expPoints[i].y);
-        const ratio = dist / avgSide;
-        if (ratio > maxDevRatio) {
-          maxDevRatio = ratio;
-          outlierIdx = i;
-        }
-      }
-
-      // If any corner is displaced by folded paper, shadows, or background cardboard (> 5% deviation):
-      if (outlierIdx >= 0 && maxDevRatio > 0.05) {
-        const newPts = [...pts];
-        newPts[outlierIdx] = {
-          x: expPoints[outlierIdx].x,
-          y: expPoints[outlierIdx].y
-        };
-        return newPts;
-      }
-
-      return pts;
+      return orderPoints(pts);
     };
 
     // Helper: Extract 4 bounding corners
@@ -144,7 +100,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
             });
           }
           approx.delete();
-          return snapAnyOutlierCorner(orderPoints(pts));
+          return sanitizeQuad(pts);
         }
       }
       approx.delete();
@@ -199,7 +155,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
             }
           }
         }
-        if (best4) return snapAnyOutlierCorner(orderPoints(best4));
+        if (best4) return sanitizeQuad(best4);
       } else {
         hull.delete();
       }
@@ -213,7 +169,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
           y: vertices[i].y / tempScale
         });
       }
-      return snapAnyOutlierCorner(orderPoints(pts));
+      return sanitizeQuad(pts);
     };
 
     // Helper: Compute Boundary Line Gradient Step Strength across 4 sides

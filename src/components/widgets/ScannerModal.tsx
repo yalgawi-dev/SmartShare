@@ -407,32 +407,30 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const gRight = (guideBox.right - videoBox.left) * scaleFactor;
     const gBottom = (guideBox.bottom - videoBox.top) * scaleFactor;
 
-    // Fast initial bounding box based on the guide frame on screen:
-    let defaultPts = [
+    const defaultPts = [
       { x: gLeft, y: gTop },
       { x: gRight, y: gTop },
       { x: gRight, y: gBottom },
       { x: gLeft, y: gBottom }
     ];
-    setCropPoints(defaultPts);
 
-    // Freeze frame & switch UI in an instant (0.05s) - NO WAITING for OpenCV to complete!
+    // Compute document boundaries directly (300px scale executes in ~30ms):
+    let initialPts = defaultPts;
+    try {
+      const detectedPts = detectDocument(canvas);
+      if (detectedPts && detectedPts.length === 4) {
+        initialPts = detectedPts;
+      }
+    } catch (err) {
+      console.warn("Boundary detection warning:", err);
+    }
+    setCropPoints(initialPts);
+
+    // Freeze frame & switch UI in an instant (0.05s)
     const snapshotUrl = compressCanvas(canvas, 0.92, 'image/jpeg');
     setRawSnapshot(snapshotUrl);
     stopCamera();
     setStep('cropping');
-
-    // Run the heavy multi-factor document boundary detection in the background on the snapshot:
-    setTimeout(() => {
-      try {
-        const detectedPts = detectDocument(canvas);
-        if (detectedPts && detectedPts.length === 4) {
-          setCropPoints(detectedPts);
-        }
-      } catch (err) {
-        console.error("Background boundary detection error:", err);
-      }
-    }, 20);
   };
 
   const [profile, setProfile] = useState<'auto' | 'text' | 'photo' | 'mixed'>('auto');
@@ -983,7 +981,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.9' : 'סורק מסמכים v2.8.9'}</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.9.0' : 'סורק מסמכים v2.9.0'}</span>
           </h2>
 
 
