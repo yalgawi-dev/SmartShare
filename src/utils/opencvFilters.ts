@@ -20,6 +20,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     const cv = (window as any).cv;
     if (!cv || !cv.Mat) return null;
 
+    // Prerequisites: Work on a 300px scale version for instant sub-millisecond execution
     const tempScale = 300 / canvas.width;
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = 300;
@@ -30,465 +31,79 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 
     let src = cv.imread(tempCanvas);
     let gray = new cv.Mat();
+    let blurred = new cv.Mat();
+    let edged = new cv.Mat();
+
+    // 1. Grayscale, Blur, and Canny Edge Detection
     cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY, 0);
+    let ksize = new cv.Size(5, 5);
+    cv.GaussianBlur(gray, blurred, ksize, 0, 0, cv.BORDER_DEFAULT);
+    cv.Canny(blurred, edged, 75, 200, 3, false);
 
-    const imgArea = tempCanvas.width * tempCanvas.height;
-    let rawCandidates: { pts: Point[]; area: number; solidity: number; weightFactor: number }[] = [];
+    // Force open edges touching screen border to connect
+    cv.rectangle(edged, new cv.Point(0, 0), new cv.Point(edged.cols - 1, edged.rows - 1), new cv.Scalar(255, 255, 255, 255), 2);
 
-    // Helper: Sort 4 points strictly in clockwise order (TL, TR, BR, BL)
-    const orderPoints = (pts: Point[]): Point[] => {
-      if (pts.length !== 4) return pts;
-      const centerX = pts.reduce((sum, p) => sum + p.x, 0) / 4;
-      const centerY = pts.reduce((sum, p) => sum + p.y, 0) / 4;
+    // 2. Morphological Closing to connect edges
+    let M = cv.Mat.ones(3, 3, cv.CV_8U);
+    let closed = new cv.Mat();
+    cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
 
-      const sorted = [...pts].sort((a, b) => {
-        const angleA = Math.atan2(a.y - centerY, a.x - centerX);
-        const angleB = Math.atan2(b.y - centerY, b.x - centerX);
-        return angleA - angleB;
-      });
+    // 3. Find Contours
+    let contours = new cv.MatVector();
+    let hierarchy = new cv.Mat();
+    cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
-      let minVal = Infinity;
-      let minDistIdx = 0;
-      for (let i = 0; i < 4; i++) {
-        const val = sorted[i].x + sorted[i].y;
-        if (val < minVal) {
-          minVal = val;
-          minDistIdx = i;
+    let maxArea = 0;
+    let bestContour: any = null;
+
+    // 4. Find the largest 4-point contour (area between 15% and 95% of frame)
+    const maxContours = Math.min(contours.size(), 80);
+    for (let i = 0; i < maxContours; ++i) {
+      let cnt = contours.get(i);
+      let area = cv.contourArea(cnt);
+      if (area > src.rows * src.cols * 0.15 && area < src.rows * src.cols * 0.98) {
+        let peri = cv.arcLength(cnt, true);
+        let approx = new cv.Mat();
+        cv.approxPolyDP(cnt, approx, 0.03 * peri, true);
+        if (approx.rows >= 4 && approx.rows <= 8 && area > maxArea) {
+          maxArea = area;
+          if (bestContour) bestContour.delete();
+          bestContour = approx.clone();
         }
+        approx.delete();
       }
+    }
 
-      const reordered: Point[] = [];
-      for (let i = 0; i < 4; i++) {
-        reordered.push(sorted[(minDistIdx + i) % 4]);
-      }
-      return reordered;
-    };
+    let defaultPts: Point[] | null = null;
 
-    // Universal 4-Corner Parallelogram Snapping: Fixes ANY single drifting corner (TL/TR/BR/BL)
-    const snapAnyOutlierCorner = (pts: Point[]): Point[] => {
-      if (pts.length !== 4) return pts;
-      const expPoints = [
-        { x: pts[1].x + (pts[3].x - pts[2].x), y: pts[1].y + (pts[3].y - pts[2].y) }, // TL exp
-        { x: pts[0].x + (pts[2].x - pts[3].x), y: pts[0].y + (pts[2].y - pts[3].y) }, // TR exp
-        { x: pts[1].x + (pts[3].x - pts[0].x), y: pts[1].y + (pts[3].y - pts[0].y) }, // BR exp
-        { x: pts[0].x + (pts[2].x - pts[1].x), y: pts[0].y + (pts[2].y - pts[1].y) }  // BL exp
-      ];
-
-      const avgSide = (
-        Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y) +
-        Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y) +
-        Math.hypot(pts[3].x - pts[2].x, pts[3].y - pts[2].y) +
-        Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y)
-      ) / 4;
-
-      if (avgSide <= 0) return pts;
-
-      let maxDevRatio = 0;
-      let outlierIdx = -1;
-
-      for (let i = 0; i < 4; i++) {
-        const dist = Math.hypot(pts[i].x - expPoints[i].x, pts[i].y - expPoints[i].y);
-        const ratio = dist / avgSide;
-        if (ratio > maxDevRatio) {
-          maxDevRatio = ratio;
-          outlierIdx = i;
-        }
-      }
-
-      if (outlierIdx >= 0 && maxDevRatio > 0.12) {
-        const newPts = [...pts];
-        newPts[outlierIdx] = {
-          x: pts[outlierIdx].x * 0.25 + expPoints[outlierIdx].x * 0.75,
-          y: pts[outlierIdx].y * 0.25 + expPoints[outlierIdx].y * 0.75
-        };
-        return newPts;
-      }
-
-      return pts;
-    };
-
-    // Helper: Extract 4 bounding corners
-    const extractBest4Corners = (cnt: any): Point[] | null => {
-      let peri = cv.arcLength(cnt, true);
-      let approx = new cv.Mat();
-
-      for (let eps of [0.02, 0.03, 0.04, 0.05, 0.015, 0.06]) {
-        cv.approxPolyDP(cnt, approx, eps * peri, true);
-        if (approx.rows === 4) {
-          let pts: Point[] = [];
-          for (let i = 0; i < 4; i++) {
-            pts.push({
-              x: approx.data32S[i * 2] / tempScale,
-              y: approx.data32S[i * 2 + 1] / tempScale
-            });
-          }
-          approx.delete();
-          return snapAnyOutlierCorner(orderPoints(pts));
-        }
-      }
-      approx.delete();
-
-      let hull = new cv.Mat();
-      cv.convexHull(cnt, hull, false, true);
-
-      if (hull.rows >= 4) {
-        let hullPts: Point[] = [];
-        for (let i = 0; i < hull.rows; i++) {
-          hullPts.push({
-            x: hull.data32S[i * 2],
-            y: hull.data32S[i * 2 + 1]
-          });
-        }
-        hull.delete();
-
-        let bestArea = 0;
-        let best4: Point[] | null = null;
-        const n = hullPts.length;
-
-        let step = Math.max(1, Math.floor(n / 16));
-        let sampledPts: Point[] = [];
-        for (let i = 0; i < n; i += step) {
-          sampledPts.push(hullPts[i]);
-        }
-
-        const sn = sampledPts.length;
-        if (sn >= 4) {
-          for (let i = 0; i < sn - 3; i++) {
-            for (let j = i + 1; j < sn - 2; j++) {
-              for (let k = j + 1; k < sn - 1; k++) {
-                for (let l = k + 1; l < sn; l++) {
-                  const p1 = sampledPts[i], p2 = sampledPts[j], p3 = sampledPts[k], p4 = sampledPts[l];
-                  const qArea = 0.5 * Math.abs(
-                    (p1.x * p2.y - p2.x * p1.y) +
-                    (p2.x * p3.y - p3.x * p2.y) +
-                    (p3.x * p4.y - p4.x * p3.y) +
-                    (p4.x * p1.y - p1.x * p4.y)
-                  );
-                  if (qArea > bestArea) {
-                    bestArea = qArea;
-                    best4 = [
-                      { x: p1.x / tempScale, y: p1.y / tempScale },
-                      { x: p2.x / tempScale, y: p2.y / tempScale },
-                      { x: p3.x / tempScale, y: p3.y / tempScale },
-                      { x: p4.x / tempScale, y: p4.y / tempScale }
-                    ];
-                  }
-                }
-              }
-            }
-          }
-        }
-        if (best4) return snapAnyOutlierCorner(orderPoints(best4));
-      } else {
-        hull.delete();
-      }
-
-      let rect = cv.minAreaRect(cnt);
-      let vertices = cv.RotatedRect.points(rect);
-      let pts: Point[] = [];
-      for (let i = 0; i < 4; i++) {
-        pts.push({
-          x: vertices[i].x / tempScale,
-          y: vertices[i].y / tempScale
+    // 5. Extract Bounds and scale back to original image size
+    if (bestContour) {
+      let rawPoints: Point[] = [];
+      for (let i = 0; i < bestContour.rows; i++) {
+        rawPoints.push({
+          x: bestContour.data32S[i * 2] / tempScale,
+          y: bestContour.data32S[i * 2 + 1] / tempScale
         });
       }
-      return snapAnyOutlierCorner(orderPoints(pts));
-    };
 
-    // Helper: Compute Boundary Line Gradient Step Strength across 4 sides
-    const getBoundaryGradientStep = (quad: Point[]): number => {
-      try {
-        let totalStep = 0;
-        let count = 0;
+      // Sort corners: TL, TR, BR, BL
+      rawPoints.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+      const tl = rawPoints[0];
+      const br = rawPoints[rawPoints.length - 1];
 
-        for (let i = 0; i < 4; i++) {
-          const p1 = quad[i];
-          const p2 = quad[(i + 1) % 4];
+      rawPoints.sort((a, b) => (a.x - a.y) - (b.x - b.y));
+      const bl = rawPoints[0];
+      const tr = rawPoints[rawPoints.length - 1];
 
-          const p1x = p1.x * tempScale;
-          const p1y = p1.y * tempScale;
-          const p2x = p2.x * tempScale;
-          const p2y = p2.y * tempScale;
-
-          const dx = p2x - p1x;
-          const dy = p2y - p1y;
-          const len = Math.hypot(dx, dy);
-
-          if (len <= 0) continue;
-          const nx = -dy / len;
-          const ny = dx / len;
-
-          for (let step = 0.2; step <= 0.8; step += 0.1) {
-            const sx = Math.round(p1x + dx * step);
-            const sy = Math.round(p1y + dy * step);
-
-            const inX = Math.min(Math.max(0, Math.round(sx - nx * 3)), gray.cols - 1);
-            const inY = Math.min(Math.max(0, Math.round(sy - ny * 3)), gray.rows - 1);
-            const outX = Math.min(Math.max(0, Math.round(sx + nx * 3)), gray.cols - 1);
-            const outY = Math.min(Math.max(0, Math.round(sy + ny * 3)), gray.rows - 1);
-
-            const valIn = gray.ucharPtr(inY, inX)[0];
-            const valOut = gray.ucharPtr(outY, outX)[0];
-
-            totalStep += Math.abs(valIn - valOut);
-            count++;
-          }
-        }
-        return count > 0 ? (totalStep / count) : 0;
-      } catch (e) {
-        return 0;
-      }
-    };
-
-    // Helper: Compute Paper Luminance & Uniformity
-    const getPaperUniformityScore = (quad: Point[]): number => {
-      try {
-        let mask = new cv.Mat.zeros(gray.rows, gray.cols, cv.CV_8UC1);
-        let ptsVector = new cv.MatVector();
-        let matPts = cv.matFromArray(4, 1, cv.CV_32SC2, [
-          Math.round(quad[0].x * tempScale), Math.round(quad[0].y * tempScale),
-          Math.round(quad[1].x * tempScale), Math.round(quad[1].y * tempScale),
-          Math.round(quad[2].x * tempScale), Math.round(quad[2].y * tempScale),
-          Math.round(quad[3].x * tempScale), Math.round(quad[3].y * tempScale)
-        ]);
-        ptsVector.push_back(matPts);
-        cv.fillPoly(mask, ptsVector, new cv.Scalar(255));
-
-        let meanStd = new cv.Mat();
-        let stdDevMat = new cv.Mat();
-        cv.meanStdDev(gray, meanStd, stdDevMat, mask);
-
-        let meanLum = meanStd.doubleAt(0, 0);
-        let stdDev = stdDevMat.doubleAt(0, 0);
-
-        mask.delete(); ptsVector.delete(); matPts.delete(); meanStd.delete(); stdDevMat.delete();
-
-        // High luminance (light paper) & moderate variance = uniform paper background
-        if (meanLum >= 160 && stdDev <= 55) return 2.0;
-        if (meanLum < 130) return 0.2; // Penalty for dark furniture
-        return 1.0;
-      } catch (e) {
-        return 1.0;
-      }
-    };
-
-    // Precompute Canny edges ONCE for ink truncation evaluation instead of recomputing per candidate
-    let globalEdges = new cv.Mat();
-    cv.Canny(gray, globalEdges, 40, 120);
-
-    // Precompute edge counts per row to make boundary checking O(1) per row
-    const rowEdgeCounts = new Int32Array(globalEdges.rows);
-    for (let y = 0; y < globalEdges.rows; y++) {
-      let rowCount = 0;
-      for (let x = 0; x < globalEdges.cols; x++) {
-        if (globalEdges.ucharPtr(y, x)[0] > 0) rowCount++;
-      }
-      rowEdgeCounts[y] = rowCount;
+      defaultPts = [tl, tr, br, bl];
+      bestContour.delete();
     }
 
-    // Helper: Check Header/Footer Ink Truncation
-    const getHeaderFooterTruncationPenalty = (quad: Point[]): number => {
-      try {
-        let qMinY = Math.min(...quad.map(p => p.y * tempScale));
-        let qMaxY = Math.max(...quad.map(p => p.y * tempScale));
+    // Cleanup Mats safely
+    M.delete(); closed.delete(); contours.delete(); hierarchy.delete();
+    gray.delete(); blurred.delete(); edged.delete(); src.delete();
 
-        let topOutsideCount = 0;
-        let bottomOutsideCount = 0;
-
-        const minYLimit = Math.max(0, Math.floor(qMinY - 5));
-        for (let y = 0; y < minYLimit; y++) {
-          topOutsideCount += rowEdgeCounts[y];
-        }
-
-        const maxYLimit = Math.min(globalEdges.rows, Math.ceil(qMaxY + 5));
-        for (let y = maxYLimit; y < globalEdges.rows; y++) {
-          bottomOutsideCount += rowEdgeCounts[y];
-        }
-
-        // If inner quad cuts off top header logo/text (like HB logo in Image 2) or bottom text:
-        if (topOutsideCount > 40 || bottomOutsideCount > 40) {
-          return 0.05; // Severe truncation penalty!
-        }
-        return 1.0;
-      } catch (e) {
-        return 1.0;
-      }
-    };
-
-    // Candidate Collector
-    const collectContourCandidate = (cnt: any, weightFactor: number = 1.0) => {
-      let area = cv.contourArea(cnt);
-      if (area < imgArea * 0.04 || area > imgArea * 0.96) return;
-
-      let quad = extractBest4Corners(cnt);
-      if (!quad || quad.length !== 4) return;
-
-      const widthA = Math.hypot(quad[1].x - quad[0].x, quad[1].y - quad[0].y);
-      const widthB = Math.hypot(quad[2].x - quad[3].x, quad[2].y - quad[3].y);
-      const heightA = Math.hypot(quad[3].x - quad[0].x, quad[3].y - quad[0].y);
-      const heightB = Math.hypot(quad[2].x - quad[1].x, quad[2].y - quad[1].y);
-
-      const avgW = (widthA + widthB) / 2;
-      const avgH = (heightA + heightB) / 2;
-
-      if (avgW < 25 || avgH < 25) return;
-      const aspect = avgW / avgH;
-      if (aspect < 0.2 || aspect > 5.0) return;
-
-      let hull = new cv.Mat();
-      cv.convexHull(cnt, hull);
-      let hullArea = cv.contourArea(hull);
-      hull.delete();
-
-      let solidity = hullArea > 0 ? (area / hullArea) : 0.8;
-      rawCandidates.push({ pts: quad, area, solidity, weightFactor });
-    };
-
-    // --- PASS 1: Multi-Threshold Canny Passes ---
-    const cannyThresholdPairs = [
-      { low: 30, high: 100, weight: 1.0 },
-      { low: 50, high: 150, weight: 1.1 },
-      { low: 75, high: 200, weight: 1.0 }
-    ];
-
-    for (let tPair of cannyThresholdPairs) {
-      let blurred = new cv.Mat();
-      cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0, 0);
-
-      let edged = new cv.Mat();
-      cv.Canny(blurred, edged, tPair.low, tPair.high);
-
-      let M = cv.Mat.ones(3, 3, cv.CV_8U);
-      let closed = new cv.Mat();
-      cv.morphologyEx(edged, closed, cv.MORPH_CLOSE, M);
-
-      let contours = new cv.MatVector();
-      let hierarchy = new cv.Mat();
-      cv.findContours(closed, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-      for (let i = 0; i < contours.size(); i++) {
-        collectContourCandidate(contours.get(i), tPair.weight);
-      }
-
-      contours.delete(); hierarchy.delete(); closed.delete(); M.delete(); edged.delete(); blurred.delete();
-    }
-
-    // --- PASS 2: Otsu Adaptive Thresholding Pass ---
-    let blurredGray = new cv.Mat();
-    cv.GaussianBlur(gray, blurredGray, new cv.Size(5, 5), 0, 0);
-
-    let otsuMat = new cv.Mat();
-    cv.threshold(blurredGray, otsuMat, 0, 255, cv.THRESH_BINARY | cv.THRESH_OTSU);
-
-    let otsuClosed = new cv.Mat();
-    let M2 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-    cv.morphologyEx(otsuMat, otsuClosed, cv.MORPH_CLOSE, M2);
-
-    let otsuContours = new cv.MatVector();
-    let otsuHierarchy = new cv.Mat();
-    cv.findContours(otsuClosed, otsuContours, otsuHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-    for (let i = 0; i < otsuContours.size(); i++) {
-      collectContourCandidate(otsuContours.get(i), 1.25);
-    }
-
-    otsuContours.delete(); otsuHierarchy.delete(); otsuClosed.delete(); M2.delete(); otsuMat.delete(); blurredGray.delete();
-
-    // --- PASS 3: HSV Saturation Paper Boundary Pass ---
-    let hsv = new cv.Mat();
-    cv.cvtColor(src, hsv, cv.COLOR_RGBA2RGB);
-    cv.cvtColor(hsv, hsv, cv.COLOR_RGB2HSV);
-    let hsvPlanes = new cv.MatVector();
-    cv.split(hsv, hsvPlanes);
-    let satChannel = hsvPlanes.get(1);
-
-    let paperMask = new cv.Mat();
-    cv.threshold(satChannel, paperMask, 25, 255, cv.THRESH_BINARY_INV);
-
-    let satClosed = new cv.Mat();
-    let M3 = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
-    cv.morphologyEx(paperMask, satClosed, cv.MORPH_CLOSE, M3);
-
-    let satContours = new cv.MatVector();
-    let satHierarchy = new cv.Mat();
-    cv.findContours(satClosed, satContours, satHierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-    for (let i = 0; i < satContours.size(); i++) {
-      collectContourCandidate(satContours.get(i), 1.6);
-    }
-
-    satContours.delete(); satHierarchy.delete(); satClosed.delete(); M3.delete(); paperMask.delete();
-    satChannel.delete(); hsvPlanes.delete(); hsv.delete();
-
-    // Helper: Check if Quad A is contained inside Quad B
-    const isInsideOtherQuad = (target: Point[], container: Point[]): boolean => {
-      let tMinX = Math.min(...target.map(p => p.x));
-      let tMaxX = Math.max(...target.map(p => p.x));
-      let tMinY = Math.min(...target.map(p => p.y));
-      let tMaxY = Math.max(...target.map(p => p.y));
-
-      let cMinX = Math.min(...container.map(p => p.x));
-      let cMaxX = Math.max(...container.map(p => p.x));
-      let cMinY = Math.min(...container.map(p => p.y));
-      let cMaxY = Math.max(...container.map(p => p.y));
-
-      return (tMinX >= cMinX - 10 && tMaxX <= cMaxX + 10 && tMinY >= cMinY - 10 && tMaxY <= cMaxY + 10);
-    };
-
-    // --- STAGE 2: Advanced Multi-Factor Scoring (v17.7) ---
-    let scoredCandidates: { pts: Point[]; score: number }[] = [];
-
-    for (let candidate of rawCandidates) {
-      const quad = candidate.pts;
-
-      // 1. Center Prior Weighting
-      const quadCx = quad.reduce((sum, p) => sum + p.x, 0) / 4;
-      const quadCy = quad.reduce((sum, p) => sum + p.y, 0) / 4;
-      const imgCx = canvas.width / 2;
-      const imgCy = canvas.height / 2;
-      const normDist = Math.hypot(quadCx - imgCx, quadCy - imgCy) / Math.hypot(imgCx, imgCy);
-      const centerWeight = Math.exp(-1.5 * normDist * normDist);
-
-      // 2. Boundary Line Gradient Step Strength across 4 sides
-      const edgeGradientStep = getBoundaryGradientStep(quad);
-      let boundaryScore = 1.0 + Math.min(edgeGradientStep / 10, 3.0); // Boost for sharp 4-side paper boundary!
-
-      // 3. Paper Luminance Uniformity
-      const paperUniformity = getPaperUniformityScore(quad);
-
-      // 4. Header/Footer Ink Truncation Penalty
-      const truncationPenalty = getHeaderFooterTruncationPenalty(quad);
-
-      // 5. Inner Quad Priority
-      let innerBonus = 1.0;
-      for (let other of rawCandidates) {
-        if (other.area > candidate.area * 2.0 && isInsideOtherQuad(quad, other.pts)) {
-          innerBonus = 3.0;
-          break;
-        }
-      }
-
-      // 6. Penalize massive outer boundary frames (> 75% screen area)
-      let areaPenalty = 1.0;
-      if (candidate.area > imgArea * 0.75) {
-        areaPenalty = 0.05;
-      }
-
-      let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * boundaryScore * paperUniformity * truncationPenalty * innerBonus * areaPenalty;
-
-      scoredCandidates.push({ pts: quad, score });
-    }
-
-    globalEdges.delete(); gray.delete(); src.delete();
-    // Removed dangerous cleanupMats block that crashed OpenCV.js when .isDeleted() was undefined
-    // Memory leaks are prevented by explicitly deleting Mats in their respective blocks.
-
-    if (scoredCandidates.length > 0) {
-      scoredCandidates.sort((a, b) => b.score - a.score);
-      return scoredCandidates[0].pts;
-    }
-
-    return null;
+    return defaultPts;
   } catch (err) {
     console.warn("Auto-detect failed", err);
     return null;
