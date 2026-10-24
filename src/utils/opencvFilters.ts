@@ -64,7 +64,8 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       return reordered;
     };
 
-    // Universal 4-Corner Parallelogram Snapping: Fixes ANY single drifting corner (TL/TR/BR/BL)
+    // Universal 4-Corner Parallelogram Snapping & Folded Corner Reconstruction:
+    // If a corner is folded or rounded, reconstruct the virtual intersection of the adjacent edges.
     const snapAnyOutlierCorner = (pts: Point[]): Point[] => {
       if (pts.length !== 4) return pts;
       const expPoints = [
@@ -95,11 +96,13 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         }
       }
 
-      if (outlierIdx >= 0 && maxDevRatio > 0.12) {
+      // If a corner deviates by more than 8% of the average side (e.g. folded/cut corner),
+      // snap it 100% to the virtual intersection point of the adjacent document edges!
+      if (outlierIdx >= 0 && maxDevRatio > 0.08) {
         const newPts = [...pts];
         newPts[outlierIdx] = {
-          x: pts[outlierIdx].x * 0.25 + expPoints[outlierIdx].x * 0.75,
-          y: pts[outlierIdx].y * 0.25 + expPoints[outlierIdx].y * 0.75
+          x: expPoints[outlierIdx].x,
+          y: expPoints[outlierIdx].y
         };
         return newPts;
       }
@@ -468,10 +471,12 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         }
       }
 
-      // 6. Penalize massive outer boundary frames (> 75% screen area)
+      // 6. Close-up vs Far-distance Handling:
+      // Only penalize quads that touch the absolute camera frame edge (> 96% screen area).
+      // Close-up captures (70%-94% screen area) are fully supported with zero penalty!
       let areaPenalty = 1.0;
-      if (candidate.area > imgArea * 0.75) {
-        areaPenalty = 0.05;
+      if (candidate.area > imgArea * 0.95) {
+        areaPenalty = 0.1; // Only penalize the entire viewport rectangle itself
       }
 
       let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * boundaryScore * paperUniformity * truncationPenalty * innerBonus * areaPenalty;
