@@ -416,26 +416,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     ];
     setCropPoints(defaultPts);
 
-    // Fast Micro-Canvas for detectDocument: directly downscale from video without copying 8MP canvas
-    const microCanvas = document.createElement('canvas');
-    microCanvas.width = 300;
-    microCanvas.height = Math.round(300 * (canvas.height / canvas.width));
-    const microCtx = microCanvas.getContext('2d');
-    if (microCtx) {
-      const microScale = 300 / canvas.width;
-      microCtx.drawImage(video, renderX * microScale, renderY * microScale, renderW * microScale, renderH * microScale);
-    }
-
     // Freeze frame & switch UI in an instant (0.05s) - NO WAITING for OpenCV to complete!
     const snapshotUrl = compressCanvas(canvas, 0.92, 'image/jpeg');
     setRawSnapshot(snapshotUrl);
     stopCamera();
     setStep('cropping');
 
-    // Run the heavy multi-factor document boundary detection in the background:
+    // Run the heavy multi-factor document boundary detection in the background on the snapshot:
     setTimeout(() => {
       try {
-        const detectedPts = detectDocument(microCtx ? microCanvas : canvas, canvas.width, canvas.height);
+        const detectedPts = detectDocument(canvas);
         if (detectedPts && detectedPts.length === 4) {
           setCropPoints(detectedPts);
         }
@@ -993,7 +983,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.5' : 'סורק מסמכים v2.8.5'}</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.6' : 'סורק מסמכים v2.8.6'}</span>
           </h2>
 
 

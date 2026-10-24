@@ -15,17 +15,15 @@ export interface Point {
  * + Header/Footer Protection + Multi-Pass Canny/Otsu/HSV + Universal 4-Corner Snapping.
  * Returns an array of 4 ordered points (TL, TR, BR, BL) if found, otherwise returns null.
  */
-export function detectDocument(canvas: HTMLCanvasElement, targetOriginalWidth?: number, targetOriginalHeight?: number): Point[] | null {
+export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
   try {
     const cv = (window as any).cv;
     if (!cv || !cv.Mat) return null;
 
-    const origW = targetOriginalWidth || canvas.width;
-    const origH = targetOriginalHeight || canvas.height;
-    const tempScale = 300 / origW;
+    const tempScale = 300 / canvas.width;
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = 300;
-    tempCanvas.height = Math.round(origH * tempScale);
+    tempCanvas.height = Math.round(canvas.height * tempScale);
     const tempCtx = tempCanvas.getContext('2d');
     if (!tempCtx) return null;
     tempCtx.drawImage(canvas, 0, 0, tempCanvas.width, tempCanvas.height);
@@ -147,13 +145,10 @@ export function detectDocument(canvas: HTMLCanvasElement, targetOriginalWidth?: 
         let best4: Point[] | null = null;
         const n = hullPts.length;
 
-        let step = Math.max(1, Math.ceil(n / 10));
+        let step = Math.max(1, Math.floor(n / 16));
         let sampledPts: Point[] = [];
         for (let i = 0; i < n; i += step) {
           sampledPts.push(hullPts[i]);
-        }
-        if (sampledPts.length > 10) {
-          sampledPts = sampledPts.slice(0, 10);
         }
 
         const sn = sampledPts.length;
