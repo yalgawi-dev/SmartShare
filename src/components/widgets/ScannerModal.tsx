@@ -414,7 +414,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       { x: gLeft, y: gBottom }
     ];
     
-    const detectedPts = detectDocument(canvas);
+    // Fast Micro-Canvas for detectDocument: directly downscale from video without copying 8MP canvas
+    const microCanvas = document.createElement('canvas');
+    microCanvas.width = 300;
+    microCanvas.height = Math.round(300 * (canvas.height / canvas.width));
+    const microCtx = microCanvas.getContext('2d');
+    if (microCtx) {
+      const microScale = 300 / canvas.width;
+      microCtx.drawImage(video, renderX * microScale, renderY * microScale, renderW * microScale, renderH * microScale);
+    }
+
+    const detectedPts = detectDocument(microCtx ? microCanvas : canvas, canvas.width, canvas.height);
     if (detectedPts) {
       defaultPts = detectedPts;
     }
@@ -979,7 +989,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.1' : 'סורק מסמכים v2.8.1'}</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.3' : 'סורק מסמכים v2.8.3'}</span>
           </h2>
 
 
