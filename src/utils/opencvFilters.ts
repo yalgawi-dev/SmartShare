@@ -270,23 +270,33 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       try {
         let qMinY = Math.min(...quad.map(p => p.y * tempScale));
         let qMaxY = Math.max(...quad.map(p => p.y * tempScale));
+        let qMinX = Math.min(...quad.map(p => p.x * tempScale));
+        let qMaxX = Math.max(...quad.map(p => p.x * tempScale));
 
         let topOutsideCount = 0;
         let bottomOutsideCount = 0;
 
-        const minYLimit = Math.max(0, Math.floor(qMinY - 5));
+        const minYLimit = Math.max(0, Math.floor(qMinY - 8));
+        const minXLimit = Math.max(0, Math.floor(qMinX));
+        const maxXLimit = Math.min(globalEdges.cols - 1, Math.ceil(qMaxX));
+
         for (let y = 0; y < minYLimit; y++) {
-          topOutsideCount += rowEdgeCounts[y];
+          for (let x = minXLimit; x <= maxXLimit; x++) {
+            if (globalEdges.ucharPtr(y, x)[0] > 0) topOutsideCount++;
+          }
         }
 
-        const maxYLimit = Math.min(globalEdges.rows, Math.ceil(qMaxY + 5));
+        const maxYLimit = Math.min(globalEdges.rows - 1, Math.ceil(qMaxY + 8));
         for (let y = maxYLimit; y < globalEdges.rows; y++) {
-          bottomOutsideCount += rowEdgeCounts[y];
+          for (let x = minXLimit; x <= maxXLimit; x++) {
+            if (globalEdges.ucharPtr(y, x)[0] > 0) bottomOutsideCount++;
+          }
         }
 
-        // If inner quad cuts off top header logo/text (like Hadera logo in Image 2) or bottom text:
-        if (topOutsideCount > 15 || bottomOutsideCount > 25) {
-          return 0.001; // Completely eliminate sub-quads that cut through document text!
+        // Only penalize if there is dense document text/headers strictly within the column span outside the quad
+        // (prevents textured backgrounds/cloth from triggering false truncations)
+        if (topOutsideCount > 60 || bottomOutsideCount > 80) {
+          return 0.05; // Penalize sub-quads without completely killing close-ups
         }
         return 1.0;
       } catch (e) {
