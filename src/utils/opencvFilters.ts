@@ -92,13 +92,15 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       if (avgSide <= 0) return pts;
 
       // Virtual intersections of the opposite edges:
-      // TL (0): intersection of top edge direction (towards TR) and left edge direction (towards BL)
-      // We calculate the projective expected corners from the 3 valid corners:
+      // In clockwise order: TL (0), TR (1), BR (2), BL (3)
+      // Vector from BL to TL is (p0 - p3) which is roughly parallel to (p1 - p2).
+      // Vector from TR to TL is (p0 - p1) which is roughly parallel to (p3 - p2).
+      // So expected TL is p1 + (p3 - p2).
       const expPoints = [
-        lineIntersection(p1, { x: p1.x + (p2.x - p3.x), y: p1.y + (p2.y - p3.y) }, p3, { x: p3.x + (p2.x - p1.x), y: p3.y + (p2.y - p1.y) }) || { x: p1.x + (p3.x - p2.x), y: p1.y + (p3.y - p2.y) },
-        lineIntersection(p0, { x: p0.x + (p3.x - p2.x), y: p0.y + (p3.y - p2.y) }, p2, { x: p2.x + (p3.x - p0.x), y: p2.y + (p3.y - p0.y) }) || { x: p0.x + (p2.x - p3.x), y: p0.y + (p2.y - p3.y) },
-        lineIntersection(p1, { x: p1.x + (p0.x - p3.x), y: p1.y + (p0.y - p3.y) }, p3, { x: p3.x + (p0.x - p1.x), y: p3.y + (p0.y - p1.y) }) || { x: p1.x + (p3.x - p0.x), y: p1.y + (p3.y - p0.y) },
-        lineIntersection(p0, { x: p0.x + (p1.x - p2.x), y: p0.y + (p1.y - p2.y) }, p2, { x: p2.x + (p1.x - p0.x), y: p2.y + (p1.y - p0.y) }) || { x: p0.x + (p2.x - p1.x), y: p0.y + (p2.y - p1.y) }
+        lineIntersection(p1, { x: p1.x + (p3.x - p2.x), y: p1.y + (p3.y - p2.y) }, p3, { x: p3.x + (p1.x - p2.x), y: p3.y + (p1.y - p2.y) }) || { x: p1.x + (p3.x - p2.x), y: p1.y + (p3.y - p2.y) },
+        lineIntersection(p0, { x: p0.x + (p2.x - p3.x), y: p0.y + (p2.y - p3.y) }, p2, { x: p2.x + (p0.x - p3.x), y: p2.y + (p0.y - p3.y) }) || { x: p0.x + (p2.x - p3.x), y: p0.y + (p2.y - p3.y) },
+        lineIntersection(p1, { x: p1.x + (p3.x - p0.x), y: p1.y + (p3.y - p0.y) }, p3, { x: p3.x + (p1.x - p0.x), y: p3.y + (p1.y - p0.y) }) || { x: p1.x + (p3.x - p0.x), y: p1.y + (p3.y - p0.y) },
+        lineIntersection(p0, { x: p0.x + (p2.x - p1.x), y: p0.y + (p2.y - p1.y) }, p2, { x: p2.x + (p0.x - p1.x), y: p2.y + (p0.y - p1.y) }) || { x: p0.x + (p2.x - p1.x), y: p0.y + (p2.y - p1.y) }
       ];
 
       let maxDevRatio = 0;
@@ -324,9 +326,9 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
           bottomOutsideCount += rowEdgeCounts[y];
         }
 
-        // If inner quad cuts off top header logo/text (like HB logo in Image 2) or bottom text:
-        if (topOutsideCount > 40 || bottomOutsideCount > 40) {
-          return 0.05; // Severe truncation penalty!
+        // If inner quad cuts off top header logo/text (like Hadera logo in Image 2) or bottom text:
+        if (topOutsideCount > 15 || bottomOutsideCount > 25) {
+          return 0.001; // Completely eliminate sub-quads that cut through document text!
         }
         return 1.0;
       } catch (e) {
