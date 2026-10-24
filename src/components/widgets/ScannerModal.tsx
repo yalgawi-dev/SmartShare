@@ -407,13 +407,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const gRight = (guideBox.right - videoBox.left) * scaleFactor;
     const gBottom = (guideBox.bottom - videoBox.top) * scaleFactor;
 
+    // Fast initial bounding box based on the guide frame on screen:
     let defaultPts = [
       { x: gLeft, y: gTop },
       { x: gRight, y: gTop },
       { x: gRight, y: gBottom },
       { x: gLeft, y: gBottom }
     ];
-    
+    setCropPoints(defaultPts);
+
     // Fast Micro-Canvas for detectDocument: directly downscale from video without copying 8MP canvas
     const microCanvas = document.createElement('canvas');
     microCanvas.width = 300;
@@ -424,21 +426,23 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       microCtx.drawImage(video, renderX * microScale, renderY * microScale, renderW * microScale, renderH * microScale);
     }
 
-    const detectedPts = detectDocument(microCtx ? microCanvas : canvas, canvas.width, canvas.height);
-    if (detectedPts) {
-      defaultPts = detectedPts;
-    }
-    
-    setCropPoints(defaultPts);
-    
-    // OPTIMIZATION: Use high-quality hardware JPEG (0.92) for the intermediate raw snapshot.
-    // WebP 1.0 on a 2400x3200 canvas takes 15-20 seconds of CPU blocking (Lossless mode).
-    // JPEG 0.92 executes in ~30ms in native browser hardware, with zero visual degradation.
+    // Freeze frame & switch UI in an instant (0.05s) - NO WAITING for OpenCV to complete!
     const snapshotUrl = compressCanvas(canvas, 0.92, 'image/jpeg');
     setRawSnapshot(snapshotUrl);
-    
     stopCamera();
     setStep('cropping');
+
+    // Run the heavy multi-factor document boundary detection in the background:
+    setTimeout(() => {
+      try {
+        const detectedPts = detectDocument(microCtx ? microCanvas : canvas, canvas.width, canvas.height);
+        if (detectedPts && detectedPts.length === 4) {
+          setCropPoints(detectedPts);
+        }
+      } catch (err) {
+        console.error("Background boundary detection error:", err);
+      }
+    }, 20);
   };
 
   const [profile, setProfile] = useState<'auto' | 'text' | 'photo' | 'mixed'>('auto');
@@ -989,7 +993,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.3' : 'סורק מסמכים v2.8.3'}</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.8.4' : 'סורק מסמכים v2.8.4'}</span>
           </h2>
 
 
@@ -1426,6 +1430,12 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
   // imgRect removed
   const [, setTick] = useState(0);
   const [naturalSize, setNaturalSize] = useState({w: 1, h: 1});
+
+  useEffect(() => {
+    if (initialPoints && initialPoints.length === 4) {
+      setPoints(initialPoints);
+    }
+  }, [initialPoints]);
 
   useEffect(() => {
     const handleResize = () => {
