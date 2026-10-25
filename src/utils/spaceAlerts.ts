@@ -82,6 +82,8 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
   const notifs: AppNotification[] = [];
 
   uniqueSpaces.forEach(space => {
+    // Exclude archived/deleted spaces from notifications and counters
+    if (space.status === 'pending_deletion') return;
     const { myId: myActualId, isCreator } = resolveUserSpaceIdentity(space, user);
     const hasPartners = space.features?.includes('partners');
 

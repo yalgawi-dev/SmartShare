@@ -135,6 +135,12 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }, [activeChatId, space?.features]);
 
   const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string } | null>(null);
+  const [isScannerBannerDismissed, setIsScannerBannerDismissed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('hide_scanner_banner_' + id) === '1';
+    }
+    return false;
+  });
 
   useEffect(() => {
     const handleScannerForEvent = (e: any) => {
@@ -147,7 +153,24 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       }
     };
     window.addEventListener('smartshare:open_scanner_event', handleScannerForEvent);
-    return () => window.removeEventListener('smartshare:open_scanner_event', handleScannerForEvent);
+
+    const handleConvertDocToExpense = (e: any) => {
+      const { url, allPages } = e.detail || {};
+      if (url) {
+        setFinanceTab('transactions');
+        setTimeout(() => {
+          if (financeRef.current && typeof financeRef.current.processScan === 'function') {
+            financeRef.current.processScan(url, allPages);
+          }
+        }, 150);
+      }
+    };
+    window.addEventListener('smartshare:convert_doc_to_expense', handleConvertDocToExpense);
+
+    return () => {
+      window.removeEventListener('smartshare:open_scanner_event', handleScannerForEvent);
+      window.removeEventListener('smartshare:convert_doc_to_expense', handleConvertDocToExpense);
+    };
   }, []);
 
   useEffect(() => {
@@ -733,7 +756,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.2</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.3</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -841,8 +864,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         <TopGuestsWidget space={space} />
 
         {/* Standalone Scanner Info Banner */}
-        {hasScanner && !hasVault && !hasFinance && (
+        {hasScanner && !hasVault && !hasFinance && !isScannerBannerDismissed && (
           <div style={{
+            position: 'relative',
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',
             border: '1.5px dashed var(--primary)',
             borderRadius: '20px',
@@ -851,6 +875,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             boxShadow: 'var(--shadow-sm)',
             marginBottom: '1rem'
           }}>
+            <button 
+              onClick={() => setIsScannerBannerDismissed(true)} 
+              style={{ position: 'absolute', top: '12px', left: '12px', background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: 'var(--text-secondary)', padding: '4px' }}
+              title="סגור הודעה זו"
+            >
+              ✕
+            </button>
             <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📷</div>
             <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: '800' }}>
               מרחב סריקה מהירה (עצמאי)
@@ -895,6 +926,25 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 }}
               >
                 <span>📁</span> הוסף מחסן מסמכים לשמירה
+              </button>
+              <button
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem('hide_scanner_banner_' + id, '1');
+                  }
+                  setIsScannerBannerDismissed(true);
+                }}
+                style={{
+                  background: 'transparent',
+                  color: 'var(--text-secondary)',
+                  border: '1px solid var(--border-light)',
+                  borderRadius: '50px',
+                  padding: '0.6rem 1.2rem',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                הבנתי, אל תציג שוב
               </button>
             </div>
           </div>

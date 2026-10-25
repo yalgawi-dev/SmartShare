@@ -138,6 +138,7 @@ export interface SpaceSettings {
   defaultVatRate: number;
   allowPartnersToEditWall: boolean;
   mySharePercentage?: number;
+  showVaultTimeline?: boolean;
 }
 
 export interface SpaceMessage {
@@ -258,6 +259,7 @@ interface SpacesContextType {
   spaces: Space[];
   addSpace: (space: Omit<Space, 'id' | 'updatedAt' | 'settings' | 'invoices' | 'mediaItems' | 'date' | 'coverImage'>) => Promise<string>;
   deleteSpace: (spaceId: string) => void;
+  permanentlyDeleteSpace: (spaceId: string) => Promise<void>;
   restoreSpace: (spaceId: string) => void;
   updateSpaceTitle: (spaceId: string, newTitle: string) => void;
   updateSpaceDate: (spaceId: string, newDate: string) => void;
@@ -457,6 +459,16 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           pendingInvites: healedPendingInvites,
           members: healedMembers
         } as Omit<Space, 'mediaItems'>;
+      }).filter(s => {
+        // Auto-purge expired spaces in pending_deletion whose expiration date has passed
+        if (s.status === 'pending_deletion' && s.deletionScheduledFor) {
+          const expireTime = new Date(s.deletionScheduledFor).getTime();
+          if (!isNaN(expireTime) && expireTime <= Date.now()) {
+            deleteDoc(doc(db, 'spaces', s.id)).catch(console.error);
+            return false;
+          }
+        }
+        return true;
       });
 
       setSpacesBase(dbSpaces);
@@ -730,6 +742,17 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       }
     } else {
       await doSoftDelete();
+    }
+  };
+
+  const permanentlyDeleteSpace = async (spaceId: string) => {
+    try {
+      await deleteDoc(doc(db, 'spaces', spaceId));
+      setSpacesBase(prev => prev.filter(s => s.id !== spaceId));
+    } catch (e: any) {
+      console.error("Permanent delete failed", e);
+      alert("שגיאה במחיקת המרחב לצמיתות: " + (e.message || ""));
+      throw e;
     }
   };
 
@@ -1969,7 +1992,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,

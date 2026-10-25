@@ -179,7 +179,36 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                 )}
 
                 {/* Generic features message */}
-                {featureId !== 'finance' && featureId !== 'partners' && (
+                                {/* Specific configs for Vault */}
+                {featureId === 'vault' && (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                    <div>
+                      <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>ציר זמן ותחנות במחסן</h4>
+                      <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)' }}>הצג לשונית "ציר זמן (הסיפור)" לצד מחסן המסמכים</p>
+                    </div>
+                    <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={!!space.settings?.showVaultTimeline}
+                        onChange={(e) => updateSpaceSettings(id, { showVaultTimeline: e.target.checked })}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span style={{
+                        position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: space.settings?.showVaultTimeline ? 'var(--primary)' : '#cbd5e1',
+                        borderRadius: '34px', transition: '.3s'
+                      }}>
+                        <span style={{
+                          position: 'absolute', height: '20px', width: '20px', left: space.settings?.showVaultTimeline ? '4px' : '24px', bottom: '3px',
+                          backgroundColor: 'white', borderRadius: '50%', transition: '.3s'
+                        }} />
+                      </span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Generic features message */}
+                {featureId !== 'finance' && featureId !== 'partners' && featureId !== 'vault' && (
                   <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{feature.desc}</p>
                 )}
 

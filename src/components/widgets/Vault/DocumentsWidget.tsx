@@ -35,7 +35,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const documents = space.documents || [];
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>('timeline');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>(() => (space.settings?.showVaultTimeline ? 'timeline' : 'vault'));
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -45,7 +45,20 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>('feed');
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('myspace_vault_view_mode') as ViewMode;
+      if (saved === 'feed' || saved === 'grid' || saved === 'circles') return saved;
+    }
+    return 'feed';
+  });
+
+  const handleSetViewMode = (mode: ViewMode) => {
+    setViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('myspace_vault_view_mode', mode);
+    }
+  };
   const [showViewMenu, setShowViewMenu] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(() => {
     if (typeof window !== 'undefined') {
@@ -483,7 +496,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.0</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.3</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -492,14 +505,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
-            <button onClick={() => setActiveTab('timeline')} style={{ flex: 1, padding: '0.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'timeline' ? '3px solid #3b82f6' : '3px solid transparent', color: activeTab === 'timeline' ? '#3b82f6' : '#64748b', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
-              ציר זמן (הסיפור)
-            </button>
-            <button onClick={() => setActiveTab('vault')} style={{ flex: 1, padding: '0.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'vault' ? '3px solid #3b82f6' : '3px solid transparent', color: activeTab === 'vault' ? '#3b82f6' : '#64748b', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
-              מחסן מסמכים
-            </button>
-          </div>
+          {space.settings?.showVaultTimeline ? (
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <button onClick={() => setActiveTab('timeline')} style={{ flex: 1, padding: '0.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'timeline' ? '3px solid #3b82f6' : '3px solid transparent', color: activeTab === 'timeline' ? '#3b82f6' : '#64748b', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
+                ציר זמן (הסיפור)
+              </button>
+              <button onClick={() => setActiveTab('vault')} style={{ flex: 1, padding: '0.5rem', background: 'transparent', border: 'none', borderBottom: activeTab === 'vault' ? '3px solid #3b82f6' : '3px solid transparent', color: activeTab === 'vault' ? '#3b82f6' : '#64748b', fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer' }}>
+                מחסן מסמכים
+              </button>
+            </div>
+          ) : (
+            <div style={{ padding: '0.25rem 0', marginTop: '0.25rem' }}></div>
+          )}
         </div>
 
         {editingShelfCoverId === activeShelf.id && (
@@ -817,9 +834,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                             <div onClick={(e) => { e.stopPropagation(); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }} style={{ flex: 1.1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0', background: linkedEvent ? '#eff6ff' : 'transparent' }} title={linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה'}>
                               🔗 {linkedEvent ? 'תחנה' : 'קשר'}
                             </div>
-                            <div onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
-                              📤 שתף
-                            </div>
+                            <div onClick={(e) => { 
+                                e.stopPropagation(); 
+                                window.dispatchEvent(new CustomEvent('smartshare:convert_doc_to_expense', { 
+                                  detail: { url: doc.url, allPages: doc.pages || [doc.url], title: doc.title } 
+                                })); 
+                              }} style={{ flex: 1.3, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#8b5cf6', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="הוסף להוצאות המרחב (סריקה אוטומטית)">
+                                🧾 הוצאה
+                              </div>
+                              <div onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
+                                📤 שתף
+                              </div>
                             <div onClick={(e) => { e.stopPropagation(); downloadDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#0284c7', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="הורד מסמך">
                               ⬇️ הורד
                             </div>
@@ -1073,13 +1098,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           </button>
           {showViewMenu && (
             <div style={{ position: 'absolute', top: '110%', left: 0, background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', padding: '0.5rem', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
-              <button onClick={() => { setViewMode('feed'); setShowViewMenu(false); }} style={{ background: viewMode === 'feed' ? '#f8fafc' : 'transparent', border: 'none', padding: '0.75rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', color: '#334155', fontWeight: viewMode === 'feed' ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button onClick={() => { handleSetViewMode('feed'); setShowViewMenu(false); }} style={{ background: viewMode === 'feed' ? '#f8fafc' : 'transparent', border: 'none', padding: '0.75rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', color: '#334155', fontWeight: viewMode === 'feed' ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span>📑</span> רשימה
               </button>
-              <button onClick={() => { setViewMode('grid'); setShowViewMenu(false); }} style={{ background: viewMode === 'grid' ? '#f8fafc' : 'transparent', border: 'none', padding: '0.75rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', color: '#334155', fontWeight: viewMode === 'grid' ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button onClick={() => { handleSetViewMode('grid'); setShowViewMenu(false); }} style={{ background: viewMode === 'grid' ? '#f8fafc' : 'transparent', border: 'none', padding: '0.75rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', color: '#334155', fontWeight: viewMode === 'grid' ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span>▦</span> כרטיסיות
               </button>
-              <button onClick={() => { setViewMode('circles'); setShowViewMenu(false); }} style={{ background: viewMode === 'circles' ? '#f8fafc' : 'transparent', border: 'none', padding: '0.75rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', color: '#334155', fontWeight: viewMode === 'circles' ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <button onClick={() => { handleSetViewMode('circles'); setShowViewMenu(false); }} style={{ background: viewMode === 'circles' ? '#f8fafc' : 'transparent', border: 'none', padding: '0.75rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', color: '#334155', fontWeight: viewMode === 'circles' ? 'bold' : 'normal', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span>⭕</span> עיגולים
               </button>
             </div>

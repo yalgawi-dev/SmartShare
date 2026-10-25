@@ -669,11 +669,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     return { blob: pdfBlob, format: 'pdf' };
   };
 
-  const executeExport = async () => {
+  const executeExport = async (overrideType?: 'share' | 'save') => {
     if (!exportOptions) return;
     setIsProcessing(true);
     try {
-      const { type, urls } = exportOptions;
+      const type = overrideType || exportOptions.type;
+      const { urls } = exportOptions;
       if (type === 'share') {
          const result = await processMultiPage(urls, exportFormat, exportNumbers);
          const filename = 'scanned-document.pdf';
@@ -687,7 +688,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            const a = document.createElement('a');
            a.href = url;
            a.download = filename;
+           document.body.appendChild(a);
            a.click();
+           document.body.removeChild(a);
            URL.revokeObjectURL(url);
          }
       } else if (type === 'save') {
@@ -1173,9 +1176,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
             
 
-            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '0.5rem' }}>
-              <button onClick={() => setExportOptions(null)} style={{ flex: 1, padding: '0.9rem', background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>ביטול</button>
-              <button onClick={executeExport} style={{ flex: 1, padding: '0.9rem', background: '#10b981', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '1rem', fontWeight: 'bold' }}>{exportOptions.type === 'share' ? 'שתף עכשיו' : 'שמור עכשיו'}</button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', gap: '0.8rem' }}>
+                <button onClick={() => executeExport('share')} style={{ flex: 1, padding: '0.85rem', background: '#3b82f6', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                  <span>📤</span> שתף עכשיו
+                </button>
+                <button onClick={() => executeExport('save')} style={{ flex: 1, padding: '0.85rem', background: '#10b981', border: 'none', color: 'white', borderRadius: '8px', cursor: 'pointer', fontSize: '0.95rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                  <span>💾</span> {standalone ? 'שמור למכשיר' : 'שמור עכשיו'}
+                </button>
+              </div>
+              <button onClick={() => setExportOptions(null)} style={{ width: '100%', padding: '0.7rem', background: 'transparent', border: '1px solid #475569', color: '#cbd5e1', borderRadius: '8px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold' }}>ביטול</button>
             </div>
           </div>
         </div>

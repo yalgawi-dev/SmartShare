@@ -35,7 +35,7 @@ export default function SettingsPage() {
     }
   };
 
-  const { spaces, restoreSpace, removeMember } = useSpaces() as any;
+  const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
   
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [realName, setRealName] = useState(user?.realName || '');
@@ -423,13 +423,26 @@ export default function SettingsPage() {
                     <td style={{ padding: '1rem', color: '#EF4444', fontWeight: '500' }}>
                       נמחק ויעלם ב: {new Date(s.deletionScheduledFor || Date.now() + 14*86400000).toLocaleDateString()}
                     </td>
-                    <td style={{ padding: '1rem', textAlign: 'left' }}>
-                      <button 
-                        onClick={(e) => { e.preventDefault(); restoreSpace(s.id); }}
-                        style={{ padding: '0.5rem 1rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        ↩️ שחזר מרחב
-                      </button>
+                                        <td style={{ padding: '1rem', textAlign: 'left' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button 
+                          onClick={(e) => { e.preventDefault(); restoreSpace(s.id); }}
+                          style={{ padding: '0.5rem 0.85rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                        >
+                          ↩️ שחזר
+                        </button>
+                        <button 
+                          onClick={async (e) => { 
+                            e.preventDefault(); 
+                            if (window.confirm(`האם למחוק לצמיתות את המרחב "${s.title}"? פעולה זו היא בלתי הפיכה!`)) {
+                              await permanentlyDeleteSpace(s.id); 
+                            }
+                          }}
+                          style={{ padding: '0.5rem 0.85rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                        >
+                          🗑️ מחק לצמיתות
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
