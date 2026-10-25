@@ -1064,7 +1064,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.0' : 'סורק מסמכים v3.0.0'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.1' : 'סורק מסמכים v3.0.1'}</span>
           </h2>
 
 
@@ -1177,7 +1177,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <div style={{ position: 'absolute', top: 10, left: 10, right: 10, maxWidth: '380px', background: 'rgba(15, 23, 42, 0.92)', border: '1px solid rgba(16, 185, 129, 0.6)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)', color: '#10b981', padding: '0.6rem 0.8rem', borderRadius: '10px', zIndex: 100, fontSize: '0.78rem', fontFamily: 'monospace', backdropFilter: 'blur(8px)' }}>
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
-                   <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v2.9.9</span>
+                   <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.0.1</span>
                  </div>
                  {cropEndToEndTiming && (
                    <div style={{ color: '#38bdf8', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
@@ -1373,7 +1373,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
               <div style={{ display: 'flex', gap: '0.3rem' }}>
-                {hasFinance && (
+                {(hasFinance || standalone) && (
                   <button 
                     onClick={() => handleCategorySelect('receipt')} 
                     style={{ flex: 1, padding: '0.4rem', borderRadius: '8px', background: selectedCategory === 'receipt' ? '#10b981' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'receipt' ? 'white' : '#aaa', border: selectedCategory === 'receipt' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.85rem', fontWeight: selectedCategory === 'receipt' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', transition: 'all 0.2s' }}
@@ -1382,7 +1382,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                     <span>חשבונית+</span>
                   </button>
                 )}
-                {hasVault && (
+                {(hasVault || standalone) && (
                   <button 
                     onClick={() => handleCategorySelect('document')} 
                     style={{ flex: 1, padding: '0.4rem', borderRadius: '8px', background: selectedCategory === 'document' ? '#3b82f6' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'document' ? 'white' : '#aaa', border: selectedCategory === 'document' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.85rem', fontWeight: selectedCategory === 'document' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', transition: 'all 0.2s' }}
