@@ -20,6 +20,17 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   const [routingItem, setRoutingItem] = useState<any>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [processingItems, setProcessingItems] = useState<Set<string>>(new Set());
+  // Inbox tip banner state
+  const inboxHideKey = `hide_inbox_banner_${space.id}`;
+  const inboxSnoozeKey = `inbox_snooze_${space.id}`;
+  const [isInboxBannerDismissed, setIsInboxBannerDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    if (localStorage.getItem(inboxHideKey) === '1') return true;
+    const snoozeUntil = localStorage.getItem(inboxSnoozeKey);
+    if (snoozeUntil && Number(snoozeUntil) > Date.now()) return true;
+    return false;
+  });
+
   const [sortOption, setSortOption] = useState<'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc'>('date_desc');
 
   const inboxItems: InboxItem[] = space.inboxItems || [];
@@ -209,14 +220,65 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
   return (
     <div style={{ padding: '1rem' }}>
       <div style={{ display: 'flex', flexDirection: 'row', flexWrap: 'wrap', gap: '0.75rem', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-              <div style={{ background: '#e0e7ff', padding: '1rem', borderRadius: '12px', border: '1px solid #c7d2fe', marginBottom: '1.5rem', color: '#3730a3' }}>
-        <h4 style={{ margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '1.2rem' }}>📥</span> מחסן מסמכים כללי (תחנת מעבר)
-        </h4>
-        <p style={{ margin: 0, fontSize: '0.9rem', lineHeight: '1.5' }}>
-          אזור זה פתוח לכל השותפים ומשמש כתחנת מעבר למסמכים וקבלות שטרם הוגדרו כהוצאה. זה המקום לזרוק אליו חשבוניות שהתקבלו בוואטסאפ או במייל כדי לטפל בהן ולבדוק אותן ביסודיות מאוחר יותר. <strong>כל שותף יכול לראות, לטפל, לערוך ולאשר</strong> מסמכים אלו ולהכניס אותם למאזן הפרויקט.
-        </p>
-      </div>
+              {!isInboxBannerDismissed && (
+        <div style={{
+          position: 'relative',
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(79, 70, 229, 0.05) 100%)',
+          padding: '1.25rem 1.5rem',
+          borderRadius: '16px',
+          border: '1.5px dashed #818cf8',
+          boxShadow: '0 4px 15px rgba(99, 102, 241, 0.05)',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          width: '100%'
+        }}>
+          <button 
+            onClick={() => setIsInboxBannerDismissed(true)}
+            style={{ position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#64748b', padding: '4px' }}
+            title="סגור הודעה זו"
+          >
+            ✕
+          </button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.75rem', flexShrink: 0 }}>📥</span>
+            <div>
+              <h4 style={{ margin: '0 0 0.25rem 0', color: '#1e293b', fontSize: '1rem', fontWeight: '800' }}>
+                מחסן מסמכים כללי (תחנת מעבר)
+              </h4>
+              <p style={{ margin: 0, color: '#475569', fontSize: '0.88rem', lineHeight: '1.5' }}>
+                אזור זה פתוח לכל השותפים ומשמש כתחנת מעבר למסמכים וקבלות שטרם הוגדרו כהוצאה. זה המקום לזרוק אליו חשבוניות שהתקבלו בוואטסאפ או במייל כדי לטפל בהן ולבדוק אותן ביסודיות מאוחר יותר. <strong>כל שותף יכול לראות, לטפל, לערוך ולאשר</strong> מסמכים אלו ולהכניס אותם למאזן הפרויקט.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const snoozeUntil = Date.now() + 12 * 3600 * 1000;
+                  localStorage.setItem(inboxSnoozeKey, String(snoozeUntil));
+                }
+                setIsInboxBannerDismissed(true);
+              }}
+              style={{ padding: '0.45rem 1rem', background: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '50px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              ⏰ הזכר לי בעוד 12 שעות
+            </button>
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem(inboxHideKey, '1');
+                }
+                setIsInboxBannerDismissed(true);
+              }}
+              style={{ padding: '0.45rem 0.9rem', background: 'transparent', color: '#64748b', border: 'none', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              הבנתי, אל תציג שוב
+            </button>
+          </div>
+        </div>
+      )}
       <h4 style={{ margin: 0, color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>מסמכים ממתינים ({sortedInboxItems.length})</h4>
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

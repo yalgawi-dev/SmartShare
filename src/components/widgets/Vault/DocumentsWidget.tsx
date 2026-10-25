@@ -520,7 +520,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.4</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.5</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -1151,7 +1151,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.4</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.5</span>
         </h2>
         <input 
           type="text" 
@@ -1227,7 +1227,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           </div>
           <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
             <a 
-              href={`/space/${space.id}/settings`}
+              href={`/space/${space.id}/settings?openFeature=vault`}
               style={{ padding: '0.45rem 1.1rem', background: '#3b82f6', color: 'white', borderRadius: '50px', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
             >
               <span>⚙️</span> להפעלת ציר הזמן
@@ -1490,7 +1490,42 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       
 
 
-      {/* CUSTOM PROMPT MODAL (REPLACES BROWSER window.prompt) */}
+            {/* CONFIRM DELETE SHELF MODAL (Outer Shelves View) */}
+      <ConfirmModal
+        isOpen={Boolean(shelfToDelete)}
+        title="מחיקת מדף"
+        message={shelfToDelete?.count ? `מדף זה מכיל ${shelfToDelete.count} מסמכים. במחיקת המדף, המדף והמסמכים שבו יועברו לסל האשפה ויישמרו שם לזמן מוגבל.` : 'האם אתה בטוח שברצונך להעביר מדף זה לסל האשפה?'}
+        itemTitle={shelfToDelete?.name}
+        confirmText="העבר לסל אשפה"
+        onConfirm={() => {
+          if (shelfToDelete) {
+            removeShelf(space.id, shelfToDelete.id);
+            if (activeShelfId === shelfToDelete.id) {
+              setActiveShelfId(null);
+            }
+            setShelfToDelete(null);
+          }
+        }}
+        onClose={() => setShelfToDelete(null)}
+      />
+
+      {/* CONFIRM PERMANENT DELETE SHELF MODAL (Outer Shelves View) */}
+      <ConfirmModal
+        isOpen={Boolean(shelfToPermanentDelete)}
+        title="מחיקת מדף לצמיתות"
+        message="פעולה זו היא בלתי הפיכה! המדף וכל המסמכים שהיו שייכים אליו יימחקו לחלוטין מהמערכת."
+        itemTitle={shelfToPermanentDelete?.name}
+        confirmText="מחק לצמיתות"
+        onConfirm={() => {
+          if (shelfToPermanentDelete) {
+            permanentlyDeleteShelf(space.id, shelfToPermanentDelete.id);
+            setShelfToPermanentDelete(null);
+          }
+        }}
+        onClose={() => setShelfToPermanentDelete(null)}
+      />
+
+{/* CUSTOM PROMPT MODAL (REPLACES BROWSER window.prompt) */}
       {customPrompt?.isOpen && (
         <div 
           onClick={() => setCustomPrompt(null)}

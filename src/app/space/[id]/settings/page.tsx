@@ -17,7 +17,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
   
   const space = spaces.find(s => s.id === id);
   const [vatRate, setVatRate] = useState<number>(18);
-  const [expandedFeature, setExpandedFeature] = useState<string | null>(null);
+  const [expandedFeature, setExpandedFeature] = useState<string | null>(() => typeof window !== 'undefined' ? (new URLSearchParams(window.location.search).get('openFeature') || (window.location.hash ? window.location.hash.replace('#', '') : null)) : null);
 
   useEffect(() => {
     if (space?.settings) {
