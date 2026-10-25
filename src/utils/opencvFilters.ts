@@ -586,19 +586,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         if (forcedProfile === 'original') {
             cv.imshow(canvas, dst);
             const originalUrl = compressCanvas(canvas, 1.0);
-            resolve({ filtered: originalUrl, activeProfile: 'original', timings: { mathMs: 0, encodeMs: Math.round(performance.now() - t0_math), totalMs: Math.round(performance.now() - t0_total) } });
+            resolve({ filtered: originalUrl, activeProfile: 'original', timings: { mathMs: 0, encodeMs: Math.round(performance.now() - t0_math), totalMs: Math.round(performance.now() - t0_total), breakdown: { warp: Math.round(t_warp), bw: 0, hsv: 0, hull: 0, engine: 0, res: `${maxWidth}x${maxHeight}` } } });
             
-            try {
-                src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
-            } catch(e) {}
-            return;
-        }
-
-
-        if (forcedProfile === 'original') {
-            cv.imshow(canvas, dst);
-            const originalUrl = compressCanvas(canvas, 1.0);
-            resolve({ filtered: originalUrl, activeProfile: 'original' });
             try {
                 src.delete(); dst.delete(); M.delete(); srcTri.delete(); dstTri.delete();
             } catch(e) {}
@@ -1063,11 +1052,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.cvtColor(finalSmartPlusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
         finalSmartPlusRgb.delete();
         plusRgb.delete();
-
-        
-        
-
-
+        t_engine = performance.now() - mark;
+        mark = performance.now();
         }
 
         if (activeProfile === 'hybrid') {

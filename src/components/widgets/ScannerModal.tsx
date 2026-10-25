@@ -204,12 +204,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   // Document classifier
   const [classifyResult, setClassifyResult] = useState<ClassifyResult | null>(null);
   const [isClassifying, setIsClassifying] = useState(false);
-  const [showDebug, setShowDebug] = useState(false);
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setShowDebug(localStorage.getItem('show_scanner_debug') === 'true');
-    }
-  }, []);
+  const [showDebug, setShowDebug] = useState(true);
+  const [cropEndToEndTiming, setCropEndToEndTiming] = useState<{ totalUiMs: number; asyncWaitMs: number; cropFnMs: number; classifyMs?: number } | null>(null);
   const [classifyOverride, setClassifyOverride] = useState(false);
   
   // 1. Load OpenCV.js safely
@@ -482,13 +478,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleCropComplete = () => {
     if (!rawSnapshot || cropPoints.length !== 4) return;
+    const t_click = performance.now();
     setIsProcessing(true);
     setTimeout(async () => {
+      const t_async = performance.now();
+      const asyncWaitMs = Math.round(t_async - t_click);
       await performCrop(rawSnapshot, cropPoints);
+      const t_crop_done = performance.now();
+      const cropFnMs = Math.round(t_crop_done - t_async);
+      const totalUiMs = Math.round(t_crop_done - t_click);
+      setCropEndToEndTiming({ totalUiMs, asyncWaitMs, cropFnMs });
       setIsProcessing(false);
       setStep('review');
       // Auto-classify after crop (lightweight Gemini call)
-      classifyDocument(rawSnapshot);
+      const t_class_start = performance.now();
+      classifyDocument(rawSnapshot).finally(() => {
+        const classifyMs = Math.round(performance.now() - t_class_start);
+        setCropEndToEndTiming(prev => prev ? { ...prev, classifyMs } : null);
+      });
     }, 50);
   };
 
@@ -1029,7 +1036,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.9.2' : 'סורק מסמכים v2.9.2'}</span>
+            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.9.9' : 'סורק מסמכים v2.9.9'}</span>
           </h2>
 
 
@@ -1138,19 +1145,35 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {step === 'review' && (
            <div style={{ flex: 1, width: '100%', height: '100%', position: 'relative', overflow: 'hidden', background: '#111' }}>
              {/* TIMING TELEMETRY DISPLAY */}
-             {showDebug && timingCache[mode] && (
-               <div style={{ position: 'absolute', top: 10, left: 10, background: 'rgba(0,0,0,0.8)', color: '#0f0', padding: '0.5rem', borderRadius: '8px', zIndex: 100, fontSize: '0.8rem', fontFamily: 'monospace' }}>
-                 OpenCV Math: {timingCache[mode].mathMs}ms<br/>
-                 {timingCache[mode].breakdown && (
-                   <div style={{marginLeft:'10px', color:'#aaa', fontSize:'0.7rem'}}>
-                     Res: {timingCache[mode].breakdown.res}<br/>
-                     Warp: {timingCache[mode].breakdown.warp}ms | BW: {timingCache[mode].breakdown.bw}ms<br/>
-                     HSV: {timingCache[mode].breakdown.hsv}ms | Hull: {timingCache[mode].breakdown.hull}ms<br/>
-                     Engine: {timingCache[mode].breakdown.engine}ms
+             {showDebug && (timingCache[mode] || cropEndToEndTiming) && (
+               <div style={{ position: 'absolute', top: 10, left: 10, right: 10, maxWidth: '380px', background: 'rgba(15, 23, 42, 0.92)', border: '1px solid rgba(16, 185, 129, 0.6)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)', color: '#10b981', padding: '0.6rem 0.8rem', borderRadius: '10px', zIndex: 100, fontSize: '0.78rem', fontFamily: 'monospace', backdropFilter: 'blur(8px)' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
+                   <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
+                   <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v2.9.9</span>
+                 </div>
+                 {cropEndToEndTiming && (
+                   <div style={{ color: '#38bdf8', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
+                     סה"כ מהקליק: <b>{cropEndToEndTiming.totalUiMs}ms</b> (דיליי תור: {cropEndToEndTiming.asyncWaitMs}ms | עיבוד: {cropEndToEndTiming.cropFnMs}ms)
+                     {cropEndToEndTiming.classifyMs !== undefined && <span> | סיווג רשת: {cropEndToEndTiming.classifyMs}ms</span>}
                    </div>
                  )}
-                 Base64 Encode: {timingCache[mode].encodeMs}ms<br/>
-                 Total Crop Time: {timingCache[mode].totalMs}ms
+                 {timingCache[mode] && (
+                   <>
+                     <div style={{ color: '#4ade80', fontSize: '0.74rem' }}>
+                       OpenCV מתמטיקה: <b>{timingCache[mode].mathMs}ms</b> | קידוד WebP: <b>{timingCache[mode].encodeMs}ms</b>
+                     </div>
+                     {timingCache[mode].breakdown && (
+                       <div style={{ marginTop: '0.25rem', color: '#cbd5e1', fontSize: '0.7rem', lineHeight: '1.3' }}>
+                         רזולוציה: {timingCache[mode].breakdown.res}<br/>
+                         Warp: {timingCache[mode].breakdown.warp}ms | B&W: {timingCache[mode].breakdown.bw}ms | HSV: {timingCache[mode].breakdown.hsv}ms<br/>
+                         Hull: {timingCache[mode].breakdown.hull}ms | Engine ({mode}): {timingCache[mode].breakdown.engine}ms
+                       </div>
+                     )}
+                     <div style={{ marginTop: '0.3rem', borderTop: '1px dashed rgba(255,255,255,0.15)', paddingTop: '0.25rem', color: '#facc15', fontWeight: 'bold' }}>
+                       זמן מנוע חיתוך כולל: {timingCache[mode].totalMs}ms
+                     </div>
+                   </>
+                 )}
                </div>
              )}
              
