@@ -39,6 +39,10 @@ export interface UserProfile {
   spaceKeys?: Record<string, { role: "creator" | "partner", token: string }>;
   pwaInstalled?: boolean;
   pwaLastSeenAt?: string;
+  lastActiveAt?: string;
+  lastActiveMode?: 'app' | 'browser';
+  ocrCount?: number;
+  storageBytesUsed?: number;
 }
 
 interface AuthContextType {
@@ -215,7 +219,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               window.matchMedia('(display-mode: standalone)').matches ||
               (window.navigator as any).standalone === true
             );
-            const presenceUpdates: any = { lastActiveAt: new Date().toISOString() };
+            const presenceUpdates: any = { 
+              lastActiveAt: new Date().toISOString(),
+              lastActiveMode: isPwa ? 'app' : 'browser'
+            };
             if (isPwa) {
               presenceUpdates.pwaInstalled = true;
               presenceUpdates.pwaLastSeenAt = new Date().toISOString();
