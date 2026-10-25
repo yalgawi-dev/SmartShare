@@ -254,17 +254,20 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>
-                      {(space.features || []).includes('chat') 
-                        ? (viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`)
-                        : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`)
+                      {isInvite
+                        ? `הזמנת שותף - ${memberName}`
+                        : ((space.features || []).includes('chat') 
+                          ? (viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`)
+                          : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.5.9</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.8.9</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
+                      if (isInvite) return '#f59e0b';
                       if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
                       return getPresenceColor(member.userId, user?.id);
-                    })(), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title="מצב התחברות" />}
+                    })(), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title={isInvite ? 'ממתין' : 'מצב התחברות'} />}
                   </div>
                 {isGroup && (
                   <button onClick={() => setShowParticipants(!showParticipants)} style={{ background: showParticipants ? '#e2e8f0' : '#f1f5f9', border: 'none', borderRadius: '16px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', cursor: 'pointer' }}>
@@ -274,7 +277,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
                 
-              {(() => {
+              {!isInvite && (() => {
                 const isCurrentCreator = resolvedIsCreator || viewMode === 'creator';
                 const currentMember = user?.id ? (space.members || []).find((m: any) => m.userId === user?.id) : null;
                 const isCurrentAdmin = currentMember?.role === 'admin';
@@ -304,7 +307,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   </>
                 );
               })()}
-              {memberStatus !== 'active' && (
+              {!isInvite && memberStatus !== 'active' && (
 
                   <span style={{ 
                     background: memberStatus === 'pending' ? '#fef9c3' : '#fee2e2',
@@ -344,7 +347,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           
           {/* Action Buttons */}
           {isInvite && viewMode === 'creator' ? (
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+            <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1.25rem' }}>
               <button
                 type="button"
                 onClick={() => {
@@ -355,23 +358,36 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   alert('קישור ההזמנה הועתק ללוח!');
                 }}
                 style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                  background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
-                  fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
+                  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
                 }}
               >
-                <span style={{ fontSize: '1.1rem' }}>🔗</span> העתק קישור הזמנה שוב
+                <div style={{
+                  width: '46px', height: '46px', borderRadius: '50%', background: '#10b981', color: 'white',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
+                  boxShadow: '0 3px 8px rgba(16,185,129,0.35)'
+                }}>
+                  🔗
+                </div>
+                <span style={{ fontSize: '0.8rem', color: '#065f46', fontWeight: 600 }}>העתק קישור</span>
               </button>
+
               <button
                 type="button"
                 onClick={handleRemove}
                 style={{
-                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                  background: '#fee2e2', color: '#dc2626', border: '1px solid #fecdd3', padding: '0.6rem', borderRadius: '12px',
-                  fontWeight: 'bold', cursor: 'pointer'
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
+                  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
                 }}
               >
-                <span style={{ fontSize: '1.1rem' }}>🗑️</span> מחק ובטל הזמנה
+                <div style={{
+                  width: '46px', height: '46px', borderRadius: '50%', background: '#fee2e2', color: '#dc2626',
+                  border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
+                  boxShadow: '0 2px 6px rgba(239,68,68,0.2)'
+                }}>
+                  🗑️
+                </div>
+                <span style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>מחק הזמנה</span>
               </button>
             </div>
           ) : viewMode === 'creator' && member?.isActive !== false && (
@@ -483,7 +499,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                   🔄 אפס סטטוס
                 </button>
               )}
-              {member?.isActive !== false && (
+              {!isInvite && member?.isActive !== false && (
                 <button 
                   onClick={handleRemove} 
                   style={{ 

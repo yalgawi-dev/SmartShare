@@ -599,10 +599,14 @@ export function FinanceSummary({
                           style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: (isCreatorMe 
                           ? ((b.isMember || isPendingInvite) && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
                           : ((b.isMember || isPendingInvite) && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
-                          <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
+                          <td style={{ padding: '0.5rem 0.6rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'inherit' }}>
-                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />} {b.name} {b.userId === user?.id && <span style={{fontSize: '0.8rem', color: 'var(--text-secondary)'}}>(אני)</span>} {isInactive && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'inherit', whiteSpace: 'nowrap' }}>
+                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />}
+                                {b.name} 
+                                {b.userId === user?.id && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(אני)</span>}
+                                {isInactive && <span style={{fontSize: '0.7rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                                {isPendingInvite && <span style={{ fontSize: '0.7rem', color: '#7c3aed', background: '#f5f3ff', padding: '1px 5px', borderRadius: '6px', fontWeight: 500 }}>✉️ ממתין</span>}
                                 {(() => {
                                   if (!space.features?.includes('chat')) return null;
                                   let myUnreadCount = 0;
@@ -620,7 +624,7 @@ export function FinanceSummary({
                                     }
                                   }
                                   return myUnreadCount > 0 ? (
-                                    <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'20px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '4px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>
+                                    <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'18px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '3px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>
                                       <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
                                       {myUnreadCount}
                                     </span>
@@ -646,7 +650,7 @@ export function FinanceSummary({
                                   return (
                                     <div 
                                       onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} 
-                                      style={{ marginTop: '0.2rem', display: 'inline-block', fontSize: '0.75rem', color: '#991b1b', background: '#fee2e2', padding: '0.15rem 0.4rem', borderRadius: '12px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3', whiteSpace: 'nowrap' }}
+                                      style={{ marginTop: '0.15rem', display: 'inline-block', fontSize: '0.7rem', color: '#991b1b', background: '#fee2e2', padding: '0.1rem 0.35rem', borderRadius: '10px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3', whiteSpace: 'nowrap' }}
                                     >
                                       ❌ {disputedAmt.toLocaleString()}₪ במחלוקת
                                     </div>
@@ -655,27 +659,20 @@ export function FinanceSummary({
                                 return null;
                               })()}
                               {isExcludedFromPast && (
-                                <span style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.15rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
+                                <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '0.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
                                   🛡️ ללא הוצאות עבר
                                 </span>
-                              )}
-                              {(b as any).status === 'pending' && (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
-                                  <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 500 }}>
-                                    ✉️ ממתין להצטרפות
-                                  </span>
-                                </div>
                               )}
                               {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
                               {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
                             </div>
                         </td>
-                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
-                        <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                        <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
+                        <td style={{ padding: '0.5rem 0.6rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
                         {hasPartners && (() => {
                           const displayBalance = Math.round(b.balance);
                           return (
-                            <td style={{ padding: '0.75rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                            <td style={{ padding: '0.5rem 0.6rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
                               <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{displayBalance < 0 ? '(חובה)' : displayBalance > 0 ? '(זכות)' : ''}</span>
                               {displayBalance > 0 ? '+' : (displayBalance < 0 ? '-' : '')}{'₪'}{Math.abs(displayBalance).toLocaleString(undefined, {maximumFractionDigits: 0})}
                             </td>
