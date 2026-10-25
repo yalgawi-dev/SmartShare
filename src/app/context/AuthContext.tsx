@@ -24,6 +24,7 @@ export interface UserProfile {
   nickname?: string;
   avatarUrl?: string;
   phone?: string;
+  phoneVerified?: boolean;
   dismissedAlerts?: string[];
   email?: string;
   status?: 'single' | 'married' | 'relationship' | 'complicated' | 'hidden' | 'divorced' | 'widowed' | 'other';

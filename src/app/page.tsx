@@ -241,7 +241,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.9.2</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.9.3</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -415,6 +415,46 @@ export default function Dashboard() {
         {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
           <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', color: '#b45309', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => setShowAuthModal(true)}>
             <strong>שימו לב:</strong> אתם מחוברים כאורח! כדי לגבות את המרחבים שלכם ולמנוע איבוד נתונים, <span style={{ textDecoration: 'underline' }}>לחצו כאן להרשמה קצרה בחינם (10 שניות)</span>.
+          </div>
+        )}
+
+        {user && user.phone && user.phoneVerified === false && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(239, 246, 255, 0.95), rgba(219, 234, 254, 0.95))',
+            border: '1px solid #93c5fd',
+            color: '#1e40af',
+            padding: '0.85rem 1.1rem',
+            borderRadius: '16px',
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.75rem',
+            boxShadow: '0 4px 12px rgba(59, 130, 246, 0.08)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>🔔</span>
+              <div style={{ fontSize: '0.9rem', lineHeight: '1.4' }}>
+                <strong>מספר הטלפון שלך ({user.phone}) טרם אומת ב-SMS.</strong>
+                <div style={{ fontSize: '0.8rem', opacity: 0.85 }}>לאימות קל ומניעת כפילויות, תוכל לאמת אותו בכל עת.</div>
+              </div>
+            </div>
+            <Link
+              href="/settings"
+              style={{
+                background: '#2563eb',
+                color: 'white',
+                padding: '0.45rem 0.85rem',
+                borderRadius: '10px',
+                fontSize: '0.82rem',
+                fontWeight: 700,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+                flexShrink: 0
+              }}
+            >
+              אמת בהגדרות
+            </Link>
           </div>
         )}
       
