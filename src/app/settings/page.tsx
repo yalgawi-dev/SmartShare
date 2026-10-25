@@ -195,7 +195,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.5</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.6</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -474,85 +474,147 @@ export default function SettingsPage() {
 
         {/* ================= TAB 3: SPACES & ARCHIVE ================= */}
         {activeTab === 'spaces' && (
-          <>
-            {/* Active Spaces Overview */}
-            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 style={{ fontSize: '1.15rem', margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
-                  <span>🟢</span> מרחבים פעילים ({myActiveSpaces.length})
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {/* Spaces Sub-tabs Switcher */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: '1fr 1fr', 
+              gap: '6px', 
+              background: '#e2e8f0', 
+              padding: '4px', 
+              borderRadius: '14px' 
+            }}>
+              <button
+                type="button"
+                onClick={() => setSpacesSubTab('active')}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: spacesSubTab === 'active' ? '#ffffff' : 'transparent',
+                  color: spacesSubTab === 'active' ? '#2563eb' : '#64748b',
+                  fontWeight: spacesSubTab === 'active' ? 800 : 600,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: spacesSubTab === 'active' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🟢</span>
+                <span>מרחבים פעילים ({myActiveSpaces.length})</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setSpacesSubTab('archived')}
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: spacesSubTab === 'archived' ? '#ffffff' : 'transparent',
+                  color: spacesSubTab === 'archived' ? '#d97706' : '#64748b',
+                  fontWeight: spacesSubTab === 'archived' ? 800 : 600,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: spacesSubTab === 'archived' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🗄️</span>
+                <span>בארכיון ({myArchivedSpaces.length})</span>
+              </button>
+            </div>
+
+            {/* Sub-tab 1: Active Spaces */}
+            {spacesSubTab === 'active' && (
+              <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h2 style={{ fontSize: '1.15rem', margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                    <span>🟢</span> מרחבים פעילים ({myActiveSpaces.length})
+                  </h2>
+                  <Link href="/" style={{ color: '#2563eb', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>
+                    פתח במסך הראשי ↗
+                  </Link>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  {myActiveSpaces.map((s: any) => (
+                    <div key={s.id} style={{ padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                        <span style={{ fontSize: '1.4rem' }}>{s.icon || '🌟'}</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{s.title}</div>
+                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{(s.members || []).length} שותפים | {(s.invoices || []).length} הוצאות</div>
+                        </div>
+                      </div>
+                      <Link href={'/space/' + s.id} style={{ padding: '0.4rem 0.85rem', background: '#2563eb', color: 'white', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, textDecoration: 'none' }}>
+                        כניסה
+                      </Link>
+                    </div>
+                  ))}
+                  {myActiveSpaces.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>אין מרחבים פעילים</div>
+                  )}
+                </div>
+              </section>
+            )}
+
+            {/* Sub-tab 2: Archived Spaces */}
+            {spacesSubTab === 'archived' && (
+              <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+                <h2 style={{ fontSize: '1.15rem', margin: '0 0 0.5rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                  <span>🗄️</span> מרחבים בארכיון ({myArchivedSpaces.length})
                 </h2>
-                <Link href="/" style={{ color: '#2563eb', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>
-                  פתח במסך הראשי ↗
-                </Link>
-              </div>
+                <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
+                  מרחבים שהועברו לארכיון. מרחבים אלו ישמרו למשך 14 ימים לפני מחיקה לצמיתות.
+                </p>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                {myActiveSpaces.map((s: any) => (
-                  <div key={s.id} style={{ padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                      <span style={{ fontSize: '1.4rem' }}>{s.icon || '🌟'}</span>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {myArchivedSpaces.map((s: any) => (
+                    <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
                       <div>
-                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{s.title}</div>
-                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{(s.members || []).length} שותפים | {(s.invoices || []).length} הוצאות</div>
+                        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#9a3412' }}>{s.icon || '🗄️'} {s.title}</div>
+                        <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
+                          נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <button 
+                          onClick={() => restoreSpace(s.id)}
+                          style={{ padding: '0.45rem 0.9rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
+                        >
+                          ↩️ שחזר מרחב
+                        </button>
+                        <button 
+                          onClick={async () => {
+                            if (confirm('האם למחוק לצמיתות את "' + s.title + '"? הפעולה בלתי הפיכה!')) {
+                              await permanentlyDeleteSpace(s.id);
+                            }
+                          }}
+                          style={{ padding: '0.45rem 0.9rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
+                        >
+                          🗑️ מחק סופית
+                        </button>
                       </div>
                     </div>
-                    <Link href={'/space/' + s.id} style={{ padding: '0.4rem 0.85rem', background: '#2563eb', color: 'white', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, textDecoration: 'none' }}>
-                      כניסה
-                    </Link>
-                  </div>
-                ))}
-                {myActiveSpaces.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>אין מרחבים פעילים</div>
-                )}
-              </div>
-            </section>
-
-            {/* Archived Spaces */}
-            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-              <h2 style={{ fontSize: '1.15rem', margin: '0 0 0.5rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
-                <span>🗄️</span> מרחבים בארכיון ({myArchivedSpaces.length})
-              </h2>
-              <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
-                מרחבים שהועברו לארכיון. מרחבים אלו ישמרו למשך 14 ימים לפני מחיקה לצמיתות.
-              </p>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {myArchivedSpaces.map((s: any) => (
-                  <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#9a3412' }}>{s.icon || '🗄️'} {s.title}</div>
-                      <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
-                        נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')}
-                      </div>
+                  ))}
+                  {myArchivedSpaces.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                      אין מרחבים בארכיון כרגע.
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button 
-                        onClick={() => restoreSpace(s.id)}
-                        style={{ padding: '0.45rem 0.9rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
-                      >
-                        ↩️ שחזר מרחב
-                      </button>
-                      <button 
-                        onClick={async () => {
-                          if (confirm('האם למחוק לצמיתות את "' + s.title + '"? הפעולה בלתי הפיכה!')) {
-                            await permanentlyDeleteSpace(s.id);
-                          }
-                        }}
-                        style={{ padding: '0.45rem 0.9rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
-                      >
-                        🗑️ מחק סופית
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {myArchivedSpaces.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
-                    אין מרחבים בארכיון כרגע.
-                  </div>
-                )}
-              </div>
-            </section>
-          </>
+                  )}
+                </div>
+              </section>
+            )}
+          </div>
         )}
 
         {/* ================= TAB 4: SYSTEM & SETTINGS ================= */}
@@ -669,116 +731,124 @@ export default function SettingsPage() {
 
       </div>
 
-      {/* Modern Floating Bottom Dock for Settings */}
+      {/* FLOATING BOTTOM DOCK NAVIGATION BAR */}
       <div style={{
         position: 'fixed',
         bottom: '12px',
         left: '50%',
         transform: 'translateX(-50%)',
-        zIndex: 99999,
-        background: 'rgba(15, 23, 42, 0.92)',
+        width: 'calc(100% - 24px)',
+        maxWidth: '460px',
+        background: 'rgba(255, 255, 255, 0.96)',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        padding: '6px 10px',
-        borderRadius: '28px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '6px',
-        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1)',
-        maxWidth: '92vw',
+        border: '1px solid rgba(226, 232, 240, 0.9)',
+        borderRadius: '24px',
+        padding: '6px',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, 1fr)',
+        gap: '4px',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
+        zIndex: 99999,
         direction: 'rtl'
       }}>
+        {/* Profile */}
         <button
           onClick={() => setActiveTab('profile')}
           style={{
-            background: activeTab === 'profile' ? '#2563eb' : 'transparent',
-            color: activeTab === 'profile' ? '#ffffff' : '#94a3b8',
-            border: 'none',
-            borderRadius: '20px',
-            padding: '8px 14px',
-            fontWeight: 800,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
+            justifyContent: 'center',
+            padding: '8px 4px',
+            borderRadius: '18px',
+            border: 'none',
+            background: activeTab === 'profile' ? '#2563eb' : 'transparent',
+            color: activeTab === 'profile' ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
           }}
         >
-          <span>👤</span>
-          <span>פרופיל</span>
+          <span style={{ fontSize: '1.15rem' }}>👤</span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '2px' }}>פרופיל</span>
         </button>
 
+        {/* Contacts */}
         <button
           onClick={() => setActiveTab('contacts')}
           style={{
-            background: activeTab === 'contacts' ? '#2563eb' : 'transparent',
-            color: activeTab === 'contacts' ? '#ffffff' : '#94a3b8',
-            border: 'none',
-            borderRadius: '20px',
-            padding: '8px 14px',
-            fontWeight: 800,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '6px',
+            justifyContent: 'center',
+            padding: '8px 4px',
+            borderRadius: '18px',
+            border: 'none',
+            background: activeTab === 'contacts' ? '#2563eb' : 'transparent',
+            color: activeTab === 'contacts' ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
             transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
+            position: 'relative'
           }}
         >
-          <span>🤝</span>
-          <span>אנשי קשר</span>
-          {uniqueContacts.length > 0 && (
-            <span style={{ background: activeTab === 'contacts' ? 'rgba(255,255,255,0.25)' : '#334155', color: 'white', borderRadius: '10px', padding: '1px 6px', fontSize: '0.7rem' }}>
-              {uniqueContacts.length}
-            </span>
-          )}
+          <span style={{ fontSize: '1.15rem' }}>🤝</span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+            אנשי קשר
+            {uniqueContacts.length > 0 && (
+              <span style={{
+                background: activeTab === 'contacts' ? 'rgba(255,255,255,0.3)' : '#e2e8f0',
+                color: activeTab === 'contacts' ? '#ffffff' : '#334155',
+                borderRadius: '8px',
+                padding: '0 4px',
+                fontSize: '0.65rem',
+                fontWeight: 800
+              }}>
+                {uniqueContacts.length}
+              </span>
+            )}
+          </span>
         </button>
 
+        {/* Spaces */}
         <button
           onClick={() => setActiveTab('spaces')}
           style={{
-            background: activeTab === 'spaces' ? '#2563eb' : 'transparent',
-            color: activeTab === 'spaces' ? '#ffffff' : '#94a3b8',
-            border: 'none',
-            borderRadius: '20px',
-            padding: '8px 14px',
-            fontWeight: 800,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
+            justifyContent: 'center',
+            padding: '8px 4px',
+            borderRadius: '18px',
+            border: 'none',
+            background: activeTab === 'spaces' ? '#2563eb' : 'transparent',
+            color: activeTab === 'spaces' ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
           }}
         >
-          <span>📁</span>
-          <span>מרחבים</span>
+          <span style={{ fontSize: '1.15rem' }}>📁</span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '2px' }}>מרחבים</span>
         </button>
 
+        {/* System */}
         <button
           onClick={() => setActiveTab('system')}
           style={{
-            background: activeTab === 'system' ? '#2563eb' : 'transparent',
-            color: activeTab === 'system' ? '#ffffff' : '#94a3b8',
-            border: 'none',
-            borderRadius: '20px',
-            padding: '8px 14px',
-            fontWeight: 800,
-            fontSize: '0.85rem',
-            cursor: 'pointer',
             display: 'flex',
+            flexDirection: 'column',
             alignItems: 'center',
-            gap: '6px',
-            transition: 'all 0.2s ease',
-            whiteSpace: 'nowrap'
+            justifyContent: 'center',
+            padding: '8px 4px',
+            borderRadius: '18px',
+            border: 'none',
+            background: activeTab === 'system' ? '#2563eb' : 'transparent',
+            color: activeTab === 'system' ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
           }}
         >
-          <span>⚙️</span>
-          <span>מערכת</span>
+          <span style={{ fontSize: '1.15rem' }}>⚙️</span>
+          <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '2px' }}>מערכת</span>
         </button>
       </div>
 
