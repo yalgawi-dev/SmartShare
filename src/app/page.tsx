@@ -24,13 +24,12 @@ import { compressImage } from '../utils/imageOptimizer';
 
 
 export default function Dashboard() {
-  const { spaces, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite } = useSpaces() as any;
+  const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite } = useSpaces();
   const { user, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [spacesTab, setSpacesTab] = useState<'active' | 'archived'>('active');
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedSpaceId, setExpandedSpaceId] = useState<string | null>(null);
 
   const handleToggleSpace = (spaceId: string) => {
@@ -157,8 +156,7 @@ export default function Dashboard() {
     });
   };
 
-  const visibleSpaces = spaces.filter(s => s.status !== 'pending_deletion' && isUserMemberOfSpace(s));
-  const myArchivedSpaces = spaces.filter(s => s.status === 'pending_deletion' && isUserMemberOfSpace(s));
+  const visibleSpaces = spaces.filter(s => s.status !== 'pending_deletion' && isUserMemberOfSpace(s));
 
 
   const searchedSpaces = ([...universalSearch(visibleSpaces, searchQuery, ['title'])] as any[]).sort((a: any, b: any) => {
@@ -239,7 +237,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.9.4</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.9.5</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -457,55 +455,7 @@ export default function Dashboard() {
         )}
       
           
-          {/* Active vs Archived Spaces Tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', background: 'var(--bg-secondary)', padding: '0.35rem', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
-          <button
-            onClick={() => setSpacesTab('active')}
-            style={{
-              flex: 1,
-              padding: '0.65rem 0.5rem',
-              borderRadius: '10px',
-              border: 'none',
-              background: spacesTab === 'active' ? 'var(--primary)' : 'transparent',
-              color: spacesTab === 'active' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 800,
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.2s ease',
-              boxShadow: spacesTab === 'active' ? '0 2px 8px rgba(99, 102, 241, 0.3)' : 'none'
-            }}
-          >
-            <span>🟢</span> מרחבים פעילים ({visibleSpaces.length})
-          </button>
-          <button
-            onClick={() => setSpacesTab('archived')}
-            style={{
-              flex: 1,
-              padding: '0.65rem 0.5rem',
-              borderRadius: '10px',
-              border: 'none',
-              background: spacesTab === 'archived' ? '#ea580c' : 'transparent',
-              color: spacesTab === 'archived' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 800,
-              fontSize: '0.9rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.2s ease',
-              boxShadow: spacesTab === 'archived' ? '0 2px 8px rgba(234, 88, 12, 0.3)' : 'none'
-            }}
-          >
-            <span>🗄️</span> בארכיון ({myArchivedSpaces.length})
-          </button>
-        </div>
-
-        {spacesTab === 'active' && visibleSpaces.length >= 2 && (
+          {visibleSpaces.length >= 2 && (
             <div style={{ marginBottom: '1.5rem' }}>
               <input 
                 type="text" 
@@ -558,111 +508,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-{spacesTab === 'archived' ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', paddingBottom: '2rem' }}>
-            <div style={{ background: '#fff7ed', border: '1px solid #ffedd5', padding: '0.85rem 1rem', borderRadius: '12px', color: '#c2410c', fontSize: '0.85rem' }}>
-              💡 <strong>מרחבים בארכיון:</strong> מרחבים אלו ישמרו למשך 14 יום ממועד העברתם לארכיון, ולאחר מכן יימחקו לצמיתות. ניתן לשחזר מרחב בכל עת בלחיצה על "שחזר מרחב".
-            </div>
-            {myArchivedSpaces.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary)', background: 'var(--bg-main)', borderRadius: '16px', border: '1px dashed var(--border-light)' }}>
-                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>🗄️</span>
-                אין מרחבים בארכיון כרגע
-              </div>
-            ) : (
-              myArchivedSpaces.map((space: any) => {
-                const deletionDate = space.deletionScheduledFor ? new Date(space.deletionScheduledFor) : new Date(Date.now() + 14 * 86400000);
-                const daysRemaining = Math.max(0, Math.ceil((deletionDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
-                return (
-                  <div key={space.id} style={{
-                    background: 'var(--bg-main)',
-                    border: '1px solid #fed7aa',
-                    borderRadius: '16px',
-                    padding: '1.2rem',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '1rem',
-                    boxShadow: '0 2px 8px rgba(234, 88, 12, 0.08)'
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
-                        <div style={{
-                          width: '46px',
-                          height: '46px',
-                          borderRadius: '14px',
-                          background: '#ffedd5',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '1.6rem',
-                          flexShrink: 0
-                        }}>
-                          {space.icon || '🗄️'}
-                        </div>
-                        <div>
-                          <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#9a3412', fontWeight: 800 }}>{space.title}</h3>
-                          <div style={{ fontSize: '0.8rem', color: '#ea580c', marginTop: '3px' }}>
-                            נותרו {daysRemaining} ימים למחיקה סופית ({deletionDate.toLocaleDateString('he-IL')})
-                          </div>
-                        </div>
-                      </div>
-                      <span style={{ background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 800 }}>
-                        בארכיון
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', gap: '0.6rem', justifyContent: 'flex-end', borderTop: '1px solid #ffedd5', paddingTop: '0.85rem' }}>
-                      <button
-                        onClick={() => restoreSpace(space.id)}
-                        style={{
-                          flex: 1,
-                          padding: '0.6rem 1rem',
-                          background: '#2563eb',
-                          color: '#ffffff',
-                          border: 'none',
-                          borderRadius: '10px',
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.4rem',
-                          boxShadow: '0 2px 6px rgba(37, 99, 235, 0.25)'
-                        }}
-                      >
-                        <span>↩️</span> שחזר מרחב
-                      </button>
-                      <button
-                        onClick={async () => {
-                          if (confirm('האם למחוק לצמיתות את המרחב "' + space.title + '"? כל הנתונים, המסמכים וההגדרות יימחקו ללא אפשרות שחזור!')) {
-                            await permanentlyDeleteSpace(space.id);
-                          }
-                        }}
-                        style={{
-                          padding: '0.6rem 1rem',
-                          background: '#fee2e2',
-                          color: '#b91c1c',
-                          border: '1px solid #fca5a5',
-                          borderRadius: '10px',
-                          fontWeight: 700,
-                          fontSize: '0.88rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.4rem'
-                        }}
-                      >
-                        <span>🗑️</span> מחק לצמיתות
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '2rem' }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '2rem' }}>
           {searchedSpaces.length === 0 && visibleSpaces.length > 0 && (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               לא נמצאו מרחבים תואמים לחיפוש
@@ -847,7 +693,6 @@ export default function Dashboard() {
         );
         })}
       </div>
-      )}
       </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>

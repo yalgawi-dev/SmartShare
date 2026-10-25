@@ -13,6 +13,7 @@ export default function SettingsPage() {
   const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
   
   const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'system'>('profile');
+  const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>('active');
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [showNotificationHelp, setShowNotificationHelp] = useState(false);
   const [pushSuccessMessage, setPushSuccessMessage] = useState(false);
@@ -58,7 +59,6 @@ export default function SettingsPage() {
   const [birthDate, setBirthDate] = useState(user?.birthDate || '');
   const [zodiacSign, setZodiacSign] = useState(user?.zodiacSign || '');
   const [gender, setGender] = useState(user?.gender || '');
-  const [hideRealName, setHideRealName] = useState(user?.hideRealName || false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -72,7 +72,6 @@ export default function SettingsPage() {
       setBirthDate(user.birthDate || '');
       setZodiacSign(user.zodiacSign || '');
       setGender(user.gender || '');
-      setHideRealName(user.hideRealName || false);
     }
   }, [user]);
 
@@ -110,9 +109,12 @@ export default function SettingsPage() {
         contactsMap.set(creatorId, existing);
       }
 
-      // 2. Members of space
+      // 2. Members of space (filter out unauthenticated phantom invites like 'חנית' who never logged in)
       (s.members || []).forEach((m: any) => {
         if (!m.userId || m.userId === user.id) return;
+        if (m.isInvite || m.status === 'pending') return;
+        if (m.userId.startsWith('guest_') && !m.phone) return;
+
         const existing = contactsMap.get(m.userId) || {
           id: m.userId,
           name: m.name || 'שותף במרחב',
@@ -130,10 +132,11 @@ export default function SettingsPage() {
       });
     });
 
-    // Also include saved contacts in user.contacts
+    // Also include saved contacts in user.contacts (only if they have a phone or valid registered userId)
     (user.contacts || []).forEach((c: any) => {
       const cId = c.id || c.phone;
       if (!cId || cId === user.id) return;
+      if (!c.phone && cId.startsWith('guest_')) return;
       const existing = contactsMap.get(cId) || {
         id: cId,
         name: c.name || 'איש קשר',
@@ -192,7 +195,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.4</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.5</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -331,21 +334,7 @@ export default function SettingsPage() {
                 </label>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.25rem', background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                <input 
-                  type="checkbox" 
-                  id="hideRealNameCheckbox"
-                  checked={hideRealName} 
-                  onChange={(e) => {
-                    setHideRealName(e.target.checked);
-                    saveField('hideRealName', e.target.checked);
-                  }}
-                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                />
-                <label htmlFor="hideRealNameCheckbox" style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
-                  הסתר את שמי המלא ממשתמשים אחרים (יוצג כינוי בלבד)
-                </label>
-              </div>
+
             </section>
 
             {/* Accordion: Extra Profile Information */}
