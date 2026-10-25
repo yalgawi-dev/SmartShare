@@ -375,27 +375,34 @@ export function PartnersInviteModal({
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
-        {/* Step 1: סוג ההזמנה */}
-        <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
-            <span style={{ background: '#3b82f6', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800 }}>1</span>
-            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e293b' }}>שלב 1: סוג ההזמנה</span>
+        {/* Step 1: קוביה מעוצבת סוג ההזמנה */}
+        <div style={{ 
+          background: '#f0f7ff', 
+          border: '1.5px solid #bfdbfe', 
+          borderRadius: '16px', 
+          padding: '0.85rem', 
+          marginTop: '0.75rem',
+          marginBottom: '0.85rem',
+          boxShadow: '0 2px 6px rgba(59, 130, 246, 0.05)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <span style={{ background: '#2563eb', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>שלב 1</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e3a8a' }}>סוג ההזמנה</span>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#f1f5f9', padding: '0.3rem', borderRadius: '14px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#ffffff', padding: '0.35rem', borderRadius: '12px', border: '1px solid #dbeafe' }}>
             <button
               type="button"
               onClick={() => setInviteType('single')}
               style={{
                 padding: '0.65rem 0.5rem',
                 borderRadius: '10px',
-                border: 'none',
-                background: inviteType === 'single' ? 'white' : 'transparent',
-                color: inviteType === 'single' ? '#1e293b' : '#64748b',
+                border: inviteType === 'single' ? '2px solid #2563eb' : 'none',
+                background: inviteType === 'single' ? '#eff6ff' : 'transparent',
+                color: inviteType === 'single' ? '#1e40af' : '#64748b',
                 fontWeight: 800,
                 fontSize: '0.9rem',
                 cursor: 'pointer',
-                boxShadow: inviteType === 'single' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -405,7 +412,7 @@ export function PartnersInviteModal({
             >
               <span>👤</span>
               <span>הזמנת יחיד</span>
-              <span style={{ fontSize: '0.7rem', color: '#10b981', fontWeight: 'bold' }}>(מיידי)</span>
+              <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 'bold' }}>(מיידי)</span>
             </button>
 
             <button
@@ -414,13 +421,12 @@ export function PartnersInviteModal({
               style={{
                 padding: '0.65rem 0.5rem',
                 borderRadius: '10px',
-                border: 'none',
-                background: inviteType === 'group' ? 'white' : 'transparent',
-                color: inviteType === 'group' ? '#4f46e5' : '#64748b',
+                border: inviteType === 'group' ? '2px solid #4f46e5' : 'none',
+                background: inviteType === 'group' ? '#eef2ff' : 'transparent',
+                color: inviteType === 'group' ? '#3730a3' : '#64748b',
                 fontWeight: 800,
                 fontSize: '0.9rem',
                 cursor: 'pointer',
-                boxShadow: inviteType === 'group' ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -430,7 +436,7 @@ export function PartnersInviteModal({
             >
               <span>👥</span>
               <span>הזמנת קבוצה</span>
-              <span style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 'bold' }}>(דורש אישור)</span>
+              <span style={{ fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' }}>(דורש אישור)</span>
             </button>
           </div>
         </div>
@@ -519,11 +525,19 @@ export function PartnersInviteModal({
         {isFinancial && (<>
 
         {space.features?.includes("finance") && (<>
-        {/* Step 2: הגדרת אחוזים ותצוגה מקדימה */}
-        <div style={{ marginTop: '0.5rem', marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
-            <span style={{ background: '#3b82f6', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800 }}>2</span>
-            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e293b' }}>שלב 2: חלוקת אחוזים ותצוגה מקדימה</span>
+        {/* Step 2: קוביה מעוצבת חלוקת אחוזים ותצוגה מקדימה */}
+        <div style={{ 
+          background: '#faf5ff', 
+          border: '1.5px solid #e9d5ff', 
+          borderRadius: '16px', 
+          padding: '0.85rem', 
+          marginTop: '0.5rem',
+          marginBottom: '0.85rem',
+          boxShadow: '0 2px 6px rgba(147, 51, 234, 0.05)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+            <span style={{ background: '#7c3aed', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>שלב 2</span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#581c87' }}>חלוקת אחוזים ותצוגה מקדימה</span>
           </div>
 
           <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.5rem' }}>
@@ -713,23 +727,30 @@ export function PartnersInviteModal({
 
         </>)}
 
-        {/* Step 3: חיוב רטרואקטיבי (מוצג אך ורק אם יש חשבוניות במרחב) */}
+        {/* Step 3: קוביה מעוצבת חיוב רטרואקטיבי */}
         {space.features?.includes("finance") && space.invoices && space.invoices.length > 0 && (
-          <div style={{ marginTop: '0.75rem', marginBottom: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.4rem' }}>
-              <span style={{ background: '#3b82f6', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800 }}>3</span>
-              <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e293b' }}>שלב 3: חיוב רטרואקטיבי</span>
+          <div style={{ 
+            background: '#fffbeb', 
+            border: '1.5px solid #fde68a', 
+            borderRadius: '16px', 
+            padding: '0.85rem', 
+            marginBottom: '0.85rem',
+            boxShadow: '0 2px 6px rgba(217, 119, 6, 0.05)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+              <span style={{ background: '#d97706', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>שלב 3</span>
+              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#78350f' }}>חיוב רטרואקטיבי</span>
             </div>
-            <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+            <div style={{ background: '#ffffff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #fef3c7' }}>
               <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
                 <input 
                   type="checkbox" 
                   checked={isRetroactive} 
                   onChange={e => setIsRetroactive(e.target.checked)}
-                  style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: 'var(--primary, #3b82f6)' }}
+                  style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#d97706' }}
                 />
                 <div>
-                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem' }}>חיוב רטרואקטיבי</div>
+                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem' }}>חיוב רטרואקטיבי בהוצאות קודמות</div>
                   <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', lineHeight: '1.4' }}>
                     {isRetroactive ? 
                       'השותף ישתתף בכל ההוצאות שהיו במרחב מיום פתיחתו.' : 
@@ -742,15 +763,26 @@ export function PartnersInviteModal({
         )}
 
         </>)}
-        {/* Step 4: פרטי המוזמן ושליחה */}
-        <div style={{ borderTop: '2px solid #f1f5f9', paddingTop: '1rem', marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', opacity: isBalanced ? 1 : 0.5, pointerEvents: isBalanced ? 'auto' : 'none' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ background: '#3b82f6', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 800 }}>
-              {isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? '4' : '3') : '2'}
+        {/* Step 4: קוביה מעוצבת פרטי המוזמן ושליחה */}
+        <div style={{ 
+          background: '#f0fdf4', 
+          border: '1.5px solid #bbf7d0', 
+          borderRadius: '16px', 
+          padding: '0.85rem', 
+          marginTop: '0.5rem',
+          marginBottom: '0.5rem',
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '1rem', 
+          opacity: isBalanced ? 1 : 0.5, 
+          pointerEvents: isBalanced ? 'auto' : 'none',
+          boxShadow: '0 2px 6px rgba(22, 163, 74, 0.05)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ background: '#16a34a', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>
+              {isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4' : 'שלב 3') : 'שלב 2'}
             </span>
-            <span style={{ fontSize: '0.88rem', fontWeight: 800, color: '#1e293b' }}>
-              {isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4: פרטי המוזמן ושליחה' : 'שלב 3: פרטי המוזמן ושליחה') : 'שלב 2: פרטי המוזמן ושליחה'}
-            </span>
+            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#14532d' }}>פרטי המוזמן ושליחה מהירה</span>
           </div>
           
           {/* Quick General Share & Copy Link First */}
