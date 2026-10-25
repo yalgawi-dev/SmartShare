@@ -499,20 +499,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setTimeout(async () => {
       const t_async = performance.now();
       const asyncWaitMs = Math.round(t_async - t_click);
-      await performCrop(rawSnapshot, cropPoints);
+      const targetMode = (mode === 'original' || !mode) ? 'smart_plus' : mode;
+      await performCrop(rawSnapshot, cropPoints, targetMode);
       const t_crop_done = performance.now();
       const cropFnMs = Math.round(t_crop_done - t_async);
       const totalUiMs = Math.round(t_crop_done - t_click);
       setCropEndToEndTiming({ totalUiMs, asyncWaitMs, cropFnMs });
       setIsProcessing(false);
       setStep('review');
-      // Auto-classify after crop (lightweight Gemini call)
-      const t_class_start = performance.now();
-      classifyDocument(rawSnapshot).finally(() => {
-        const classifyMs = Math.round(performance.now() - t_class_start);
-        setCropEndToEndTiming(prev => prev ? { ...prev, classifyMs } : null);
-      });
-    }, 50);
+    }, 20);
   };
 
   // ─── Document Classifier ─────────────────────────────────────────────────
@@ -1064,7 +1059,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.1' : 'סורק מסמכים v3.0.1'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.2' : 'סורק מסמכים v3.0.2'}</span>
           </h2>
 
 
@@ -1177,7 +1172,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <div style={{ position: 'absolute', top: 10, left: 10, right: 10, maxWidth: '380px', background: 'rgba(15, 23, 42, 0.92)', border: '1px solid rgba(16, 185, 129, 0.6)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)', color: '#10b981', padding: '0.6rem 0.8rem', borderRadius: '10px', zIndex: 100, fontSize: '0.78rem', fontFamily: 'monospace', backdropFilter: 'blur(8px)' }}>
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
-                   <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.0.1</span>
+                   <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.0.2</span>
                  </div>
                  {cropEndToEndTiming && (
                    <div style={{ color: '#38bdf8', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
@@ -1372,30 +1367,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {step === 'review' && (
           <>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
-              <div style={{ display: 'flex', gap: '0.3rem' }}>
-                {(hasFinance || standalone) && (
-                  <button 
-                    onClick={() => handleCategorySelect('receipt')} 
-                    style={{ flex: 1, padding: '0.4rem', borderRadius: '8px', background: selectedCategory === 'receipt' ? '#10b981' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'receipt' ? 'white' : '#aaa', border: selectedCategory === 'receipt' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.85rem', fontWeight: selectedCategory === 'receipt' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', transition: 'all 0.2s' }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>🧾</span>
-                    <span>חשבונית+</span>
-                  </button>
-                )}
-                {(hasVault || standalone) && (
-                  <button 
-                    onClick={() => handleCategorySelect('document')} 
-                    style={{ flex: 1, padding: '0.4rem', borderRadius: '8px', background: selectedCategory === 'document' ? '#3b82f6' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'document' ? 'white' : '#aaa', border: selectedCategory === 'document' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.85rem', fontWeight: selectedCategory === 'document' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', transition: 'all 0.2s' }}
-                  >
-                    <span style={{ fontSize: '1rem' }}>📄</span>
-                    <span>מסמך+</span>
-                  </button>
-                )}
+              <div style={{ display: 'flex', gap: '0.4rem' }}>
+                <button 
+                  onClick={() => handleCategorySelect('document')} 
+                  style={{ flex: 1, padding: '0.5rem', borderRadius: '10px', background: (selectedCategory === 'document' || selectedCategory === 'receipt') ? '#3b82f6' : 'rgba(255,255,255,0.08)', color: (selectedCategory === 'document' || selectedCategory === 'receipt') ? 'white' : '#94a3b8', border: (selectedCategory === 'document' || selectedCategory === 'receipt') ? 'none' : '1px solid rgba(255,255,255,0.15)', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', transition: 'all 0.2s', cursor: 'pointer' }}
+                >
+                  <span style={{ fontSize: '1.15rem' }}>📄</span>
+                  <span>מסמך+</span>
+                </button>
                 <button 
                   onClick={() => handleCategorySelect('image')} 
-                  style={{ flex: 1, padding: '0.4rem', borderRadius: '8px', background: selectedCategory === 'image' ? '#f59e0b' : 'rgba(255,255,255,0.1)', color: selectedCategory === 'image' ? 'white' : '#aaa', border: selectedCategory === 'image' ? 'none' : '1px solid rgba(255,255,255,0.2)', fontSize: '0.85rem', fontWeight: selectedCategory === 'image' ? 'bold' : 'normal', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', transition: 'all 0.2s' }}
+                  style={{ flex: 1, padding: '0.5rem', borderRadius: '10px', background: selectedCategory === 'image' ? '#f59e0b' : 'rgba(255,255,255,0.08)', color: selectedCategory === 'image' ? 'white' : '#94a3b8', border: selectedCategory === 'image' ? 'none' : '1px solid rgba(255,255,255,0.15)', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', transition: 'all 0.2s', cursor: 'pointer' }}
                 >
-                  <span style={{ fontSize: '1rem' }}>🖼️</span>
+                  <span style={{ fontSize: '1.15rem' }}>🖼️</span>
                   <span>תמונה</span>
                 </button>
               </div>
@@ -1413,21 +1397,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   <button onClick={() => handleFilterSwitch('experimental')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'experimental' ? '#3b82f6' : 'transparent', color: mode === 'experimental' ? '#fff' : '#3b82f6', border: '1px solid #3b82f6', fontSize: '0.8rem', cursor: 'pointer' }}>ניסיוני (חדש)</button>
                   <button onClick={() => handleFilterSwitch('bw')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>שחור-לבן</button>
                   <button onClick={() => handleFilterSwitch('original')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>מקור</button>
-                </div>
-              )}
-
-              {/* Classifier banner */}
-              {isClassifying && (
-                <div style={{ textAlign: 'center', fontSize: '0.8rem', color: '#aaa', padding: '0.25rem' }}>מנתח מסמך בענן...</div>
-              )}
-              {classifyResult && !isClassifying && selectedCategory === 'receipt' && (
-                <div style={{ background: isFinancialDoc() ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)', border: `1px solid ${isFinancialDoc() ? '#10b981' : '#ef4444'}`, borderRadius: '8px', padding: '0.5rem 0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.82rem' }}>
-                  <span>{isFinancialDoc() ? '✅' : '⚠️'}</span>
-                  <span style={{ flex: 1 }}>
-                    {isFinancialDoc()
-                      ? `זיהוי: ${getClassifyLabel()} (${classifyResult.confidence}%)`
-                      : `זיהוי: ${getClassifyLabel()} – ייתכן שזה לא מתאים ל-OCR`}
-                  </span>
                 </div>
               )}
 
