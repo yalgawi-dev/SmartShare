@@ -197,7 +197,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.7</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.8</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -567,77 +567,68 @@ export default function SettingsPage() {
                         <div 
                           onClick={() => setExpandedSpaceId(isExpanded ? null : s.id)}
                           style={{ 
-                            padding: '1rem', 
+                            padding: '0.85rem 1rem', 
                             display: 'flex', 
                             justifyContent: 'space-between', 
                             alignItems: 'center', 
                             cursor: 'pointer',
-                            userSelect: 'none'
+                            userSelect: 'none',
+                            gap: '0.75rem'
                           }}
                         >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <span style={{ fontSize: '1.6rem' }}>{s.icon || '🌟'}</span>
-                            <div>
-                              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{s.title}</div>
-                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
+                            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{s.icon || '🌟'}</span>
+                            <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                              <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
+                              <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px' }}>
                                 {(s.features || []).length} פיצ'רים | {(s.members || []).length} שותפים | {(s.invoices || []).length} הוצאות
                               </div>
                             </div>
                           </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <Link 
-                              href={'/space/' + s.id} 
-                              onClick={(e) => {
-                                e.stopPropagation();
-                              }}
-                              style={{ 
-                                padding: '0.45rem 1rem', 
-                                background: '#2563eb', 
-                                color: 'white', 
-                                borderRadius: '10px', 
-                                fontSize: '0.84rem', 
-                                fontWeight: 800, 
-                                textDecoration: 'none' 
-                              }}
-                            >
-                              כניסה למרחב →
-                            </Link>
-                            <div style={{ 
-                              color: '#94a3b8', 
-                              fontSize: '0.85rem',
-                              transition: 'transform 0.25s ease', 
-                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' 
-                            }}>
-                              ▼
-                            </div>
+                          
+                          <div style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            width: '28px', 
+                            height: '28px', 
+                            borderRadius: '8px', 
+                            background: '#f1f5f9', 
+                            color: '#64748b', 
+                            fontSize: '0.75rem',
+                            flexShrink: 0,
+                            transition: 'transform 0.2s ease', 
+                            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' 
+                          }}>
+                            ▼
                           </div>
                         </div>
 
                         {/* Expanded Content Drawer matching home page */}
                         {isExpanded && (
-                          <div style={{ padding: '0.85rem 1rem 1rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                          <div style={{ padding: '0.75rem 1rem 0.85rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
                             {s.coverImage && (
-                              <div style={{ height: '110px', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.85rem' }}>
+                              <div style={{ height: '100px', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.75rem' }}>
                                 <img src={s.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                               </div>
                             )}
 
                             {s.description && (
-                              <p style={{ margin: '0 0 0.85rem 0', fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }}>
+                              <p style={{ margin: '0 0 0.65rem 0', fontSize: '0.84rem', color: '#475569', lineHeight: '1.4' }}>
                                 {s.description}
                               </p>
                             )}
 
                             {/* Features badges */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '0.75rem' }}>
                               {(s.features || []).map((fId: string) => (
                                 <span 
                                   key={fId} 
                                   style={{ 
                                     background: '#e0e7ff', 
                                     color: '#3730a3', 
-                                    fontSize: '0.75rem', 
-                                    padding: '2px 8px', 
+                                    fontSize: '0.72rem', 
+                                    padding: '2px 7px', 
                                     borderRadius: '6px', 
                                     fontWeight: 700 
                                   }}
@@ -647,7 +638,7 @@ export default function SettingsPage() {
                               ))}
                             </div>
 
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <Link 
                                 href={'/space/' + s.id} 
                                 style={{ 
@@ -656,10 +647,14 @@ export default function SettingsPage() {
                                   color: 'white', 
                                   textDecoration: 'none', 
                                   textAlign: 'center', 
-                                  padding: '0.7rem', 
-                                  borderRadius: '10px', 
-                                  fontWeight: 800, 
-                                  fontSize: '0.9rem' 
+                                  padding: '0.45rem 0.9rem', 
+                                  borderRadius: '8px', 
+                                  fontWeight: 700, 
+                                  fontSize: '0.84rem',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  gap: '4px'
                                 }}
                               >
                                 כניסה למרחב <span>→</span>
@@ -675,11 +670,12 @@ export default function SettingsPage() {
                                   background: '#fef2f2', 
                                   color: '#ef4444', 
                                   border: '1px solid #fecaca', 
-                                  borderRadius: '10px', 
-                                  padding: '0.7rem 1rem', 
+                                  borderRadius: '8px', 
+                                  padding: '0.45rem 0.85rem', 
                                   cursor: 'pointer', 
                                   fontWeight: 700, 
-                                  fontSize: '0.85rem' 
+                                  fontSize: '0.8rem',
+                                  whiteSpace: 'nowrap'
                                 }}
                               >
                                 🗑️ העבר לארכיון
