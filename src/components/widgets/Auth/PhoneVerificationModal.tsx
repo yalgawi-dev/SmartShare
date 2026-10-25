@@ -41,8 +41,8 @@ export default function PhoneVerificationModal() {
         try {
           if (!(window as any).recaptchaVerifier) {
             (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-              size: 'normal',
-              callback: () => { /* reCAPTCHA solved */ },
+              size: 'invisible',
+              callback: () => { /* reCAPTCHA solved silently */ },
               'expired-callback': () => { /* expired */ }
             });
           } else {
