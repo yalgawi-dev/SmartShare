@@ -733,7 +733,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.1</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.2</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -840,6 +840,67 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Gamification / Wall of Fame */}
         <TopGuestsWidget space={space} />
 
+        {/* Standalone Scanner Info Banner */}
+        {hasScanner && !hasVault && !hasFinance && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',
+            border: '1.5px dashed var(--primary)',
+            borderRadius: '20px',
+            padding: '1.75rem',
+            textAlign: 'center',
+            boxShadow: 'var(--shadow-sm)',
+            marginBottom: '1rem'
+          }}>
+            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📷</div>
+            <h3 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontSize: '1.25rem', fontWeight: '800' }}>
+              מרחב סריקה מהירה (עצמאי)
+            </h3>
+            <p style={{ margin: '0 0 1.25rem 0', color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: '1.5', maxWidth: '480px', marginInline: 'auto' }}>
+              מרחב זה מוגדר לסריקה, עריכה, שיתוף ישיר או שמירה למכשיר ללא אחסון בענן. אם ברצונך לתייק, לשמור קבצים באפליקציה ולנהל תיקיות — מומלץ להוסיף את תוסף האחסון (מחסן מסמכים).
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => { setScannerMode('camera'); setScannerCategory('document'); setIsScannerOpen(true); }}
+                style={{
+                  background: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50px',
+                  padding: '0.6rem 1.5rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  boxShadow: 'var(--shadow-md)'
+                }}
+              >
+                <span>📷</span> פתח סורק עכשיו
+              </button>
+              <button
+                onClick={() => toggleFeature(id, 'vault', user?.id || 'me')}
+                style={{
+                  background: 'var(--bg-main)',
+                  color: 'var(--primary)',
+                  border: '1.5px solid var(--primary)',
+                  borderRadius: '50px',
+                  padding: '0.6rem 1.4rem',
+                  fontSize: '0.95rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem'
+                }}
+              >
+                <span>📁</span> הוסף מחסן מסמכים לשמירה
+              </button>
+            </div>
+          </div>
+        )}
+
+
         {/* Active Widgets */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
@@ -929,11 +990,13 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             onClose={() => { setIsScannerOpen(false); setPendingEventScan(null); }}
             hasVault={hasVault}
             hasFinance={hasFinance}
+            standalone={!hasVault && !hasFinance}
             maxBytes={DOCUMENT_MAX_BYTES}
             defaultMode={scannerMode}
             defaultCategory={scannerCategory}
             onComplete={(url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
+                if (!hasVault && !hasFinance) return; // Standalone handled inside ScannerModal
                 const targetEventInfo = pendingEventScan;
                 setPendingEventScan(null);
                 const targetEventId = targetEventInfo?.eventId;

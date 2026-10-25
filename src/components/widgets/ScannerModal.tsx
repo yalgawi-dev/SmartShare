@@ -30,16 +30,17 @@ interface ClassifyResult {
 
 interface ScannerModalProps {
   onClose: () => void;
-  onComplete: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image' | 'receipt_batch') => void;
+  onComplete?: (imageDataUrl: string, ocrDataUrl?: string, allPages?: string[], routingType?: 'receipt' | 'document' | 'image' | 'receipt_batch') => void;
   hasVault?: boolean;
   hasFinance?: boolean;
+  standalone?: boolean;
   /** When set, saved pages are shrunk to this total byte budget (once, before PDF build). */
   maxBytes?: number;
   defaultMode?: 'camera' | 'upload';
   defaultCategory?: 'receipt' | 'document' | 'image';
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt' }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt' }: ScannerModalProps) {
   
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
@@ -680,7 +681,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
          
          const file = new File([result.blob], filename, { type: mimeType });
          if (navigator.canShare && navigator.canShare({ files: [file] })) {
-           await navigator.share({ files: [file], title: 'מסמך סרוק מ-SmartShare' });
+           await navigator.share({ files: [file], title: 'מסמך סרוק מ-MySpace' });
          } else {
            const url = URL.createObjectURL(result.blob);
            const a = document.createElement('a');
@@ -690,6 +691,23 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            URL.revokeObjectURL(url);
          }
       } else if (type === 'save') {
+         if (standalone || !onComplete) {
+           // Standalone: download file directly to phone/PC
+           const result = await processMultiPage(urls, exportFormat, exportNumbers);
+           const filename = `myspace-document-${Date.now()}.pdf`;
+           const url = URL.createObjectURL(result.blob);
+           const a = document.createElement('a');
+           a.href = url;
+           a.download = filename;
+           document.body.appendChild(a);
+           a.click();
+           document.body.removeChild(a);
+           URL.revokeObjectURL(url);
+           alert('הקובץ הורד בהצלחה למכשיר!');
+           onClose();
+           return;
+         }
+
          // Documents are saved as clean individual pages (urls).
          // Merging into a single scroll image is ONLY done if user explicitly selected 'scroll_pdf'.
          let savedUrl = urls[0];
@@ -707,7 +725,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             window.history.back();
           }
           setTimeout(() => {
-            onComplete(savedUrl, undefined, urls, finalRouting);
+            onComplete?.(savedUrl, undefined, urls, finalRouting);
             setIsProcessing(false);
           }, 50);
       }
@@ -1392,8 +1410,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                      </button>
                    )}
                    {(scannedPages.length > 0 || pendingImports.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
-                     <button onClick={() => handleDone()} style={{ flex: '2', background: 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', cursor: 'pointer' }}>
-                       סיום ושמירה ({scannedPages.length + pendingImports.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0)} עמודים)
+                     <button onClick={() => standalone ? handleShare() : handleDone()} style={{ flex: '2', background: standalone ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                       <span>{standalone ? '📤 שתף / 💾 שמור למכשיר' : 'סיום ושמירה'}</span>
+                       <span>({scannedPages.length + pendingImports.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0)} עמודים)</span>
                      </button>
                    )}
                  </div>

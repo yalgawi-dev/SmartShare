@@ -15,6 +15,7 @@ import PhoneLinkEnforcer from '../components/auth/PhoneLinkEnforcer';
 import WelcomeEmptyState from '../components/widgets/WelcomeEmptyState';
 import AppShareModal from '../components/widgets/AppShareModal';
 import PersonalInboxWidget from '../components/widgets/PersonalInboxWidget';
+import ScannerModal from '../components/widgets/ScannerModal';
 import { PushNotificationReminder } from '../components/widgets/PushNotificationReminder';
 import { universalSearch } from '../utils/searchEngine';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -47,6 +48,8 @@ export default function Dashboard() {
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
   const activeLogoSpaceIdRef = useRef<string | null>(null);
   const [showPersonalInbox, setShowPersonalInbox] = useState(false);
+  const [isStandaloneScannerOpen, setIsStandaloneScannerOpen] = useState(false);
+  const [standaloneScannerMode, setStandaloneScannerMode] = useState<'camera' | 'upload'>('camera');
   const [showNotifications, setShowNotifications] = useState(false);
   const unreadMessagesCount = useMemo(() => {
     return getUnreadAlertsCount(spaces, user);
@@ -238,7 +241,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.8.1</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.8.2</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -316,6 +319,23 @@ export default function Dashboard() {
             <span style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>חדש</span>
           </Link>
           
+          
+          {/* Quick Standalone Scanner */}
+          <button 
+            onClick={() => { setStandaloneScannerMode('camera'); setIsStandaloneScannerOpen(true); }}
+            title="סורק מסמכים מהיר (סריקה, עריכה, שיתוף ושמירה למכשיר)" 
+            style={{ 
+              background: 'transparent', border: 'none', padding: 0,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+              color: 'var(--text-secondary)', minWidth: '60px', transition: 'all 0.2s'
+            }}
+          >
+            <div style={{ width: '45px', height: '45px', borderRadius: '50%', background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(168, 85, 247, 0.15) 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(99, 102, 241, 0.3)', boxShadow: '0 2px 6px rgba(99, 102, 241, 0.2)' }}>
+              <span style={{ fontSize: '1.5rem' }}>📷</span>
+            </div>
+            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>סורק</span>
+          </button>
+
           {/* Notifications */}
           <button 
             onClick={() => setShowNotifications(true)}
@@ -706,6 +726,15 @@ export default function Dashboard() {
       {showAuthModal && (
 
         <AuthModal onClose={() => setShowAuthModal(false)} />
+      )}
+      
+      {isStandaloneScannerOpen && (
+        <ScannerModal
+          onClose={() => setIsStandaloneScannerOpen(false)}
+          standalone={true}
+          defaultMode={standaloneScannerMode}
+          defaultCategory="document"
+        />
       )}
       {showShareModal && (
         <AppShareModal onClose={() => setShowShareModal(false)} />
