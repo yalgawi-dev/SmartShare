@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { requestNotificationPermission } from '../../utils/notifications';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
+import { sortSpacesByUsagePriority } from '../../utils/spaceSorting';
 
 export default function SettingsPage() {
   const { user, updateProfile, logout, deleteMyAccount } = useAuth();
@@ -19,6 +20,7 @@ export default function SettingsPage() {
   const [pushSuccessMessage, setPushSuccessMessage] = useState(false);
   const [isStandalone, setIsStandalone] = useState(true);
   const [showExtraProfile, setShowExtraProfile] = useState(false);
+  const [expandedSpaceId, setExpandedSpaceId] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -151,8 +153,8 @@ export default function SettingsPage() {
 
     return {
       uniqueContacts: Array.from(contactsMap.values()),
-      myActiveSpaces: active,
-      myArchivedSpaces: archived
+      myActiveSpaces: sortSpacesByUsagePriority(active),
+      myArchivedSpaces: sortSpacesByUsagePriority(archived)
     };
   }, [spaces, user]);
 
@@ -195,7 +197,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.6</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.7</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -299,29 +301,30 @@ export default function SettingsPage() {
                   <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} onBlur={e => saveField('nickname', e.target.value)} placeholder="הכינוי שלך..." style={{ padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none' }} />
                 </label>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>מספר טלפון:</label>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    <input 
-                      type="text" 
-                      value={phone || 'לא מאומת'} 
-                      disabled 
-                      style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', direction: 'ltr', textAlign: 'right' }} 
-                    />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', minWidth: 0 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>מספר טלפון:</label>
                     {phone && (
                       <button 
+                        type="button"
                         onClick={async () => {
                           if (confirm('האם אתה בטוח שברצונך לשנות מספר? תצטרך לאמת את המספר החדש ב-SMS.')) {
                             await saveField('phone', '');
                             window.location.reload();
                           }
                         }}
-                        style={{ padding: '0.65rem 1rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        style={{ padding: '0.25rem 0.65rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', fontWeight: 700, cursor: 'pointer', fontSize: '0.75rem' }}
                       >
-                        שנה מספר
+                        שנה מספר ✏️
                       </button>
                     )}
                   </div>
+                  <input 
+                    type="text" 
+                    value={phone || 'לא מאומת'} 
+                    disabled 
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', direction: 'ltr', textAlign: 'right' }} 
+                  />
                   <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{phone ? (user.phoneVerified !== false ? 'המספר מאומת ומאובטח ✓' : 'המספר טרם אומת ב-SMS') : 'יש להזין מספר במסך הראשי.'}</span>
                 </div>
 
@@ -545,23 +548,152 @@ export default function SettingsPage() {
                   </Link>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                  {myActiveSpaces.map((s: any) => (
-                    <div key={s.id} style={{ padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                        <span style={{ fontSize: '1.4rem' }}>{s.icon || '🌟'}</span>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{s.title}</div>
-                          <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{(s.members || []).length} שותפים | {(s.invoices || []).length} הוצאות</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {myActiveSpaces.map((s: any) => {
+                    const isExpanded = expandedSpaceId === s.id;
+                    return (
+                      <div 
+                        key={s.id} 
+                        style={{ 
+                          borderRadius: '16px', 
+                          border: '1px solid #e2e8f0', 
+                          background: '#ffffff', 
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                          overflow: 'hidden',
+                          transition: 'all 0.2s ease'
+                        }}
+                      >
+                        {/* Card Header (clickable to expand/collapse) */}
+                        <div 
+                          onClick={() => setExpandedSpaceId(isExpanded ? null : s.id)}
+                          style={{ 
+                            padding: '1rem', 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span style={{ fontSize: '1.6rem' }}>{s.icon || '🌟'}</span>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#0f172a' }}>{s.title}</div>
+                              <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
+                                {(s.features || []).length} פיצ'רים | {(s.members || []).length} שותפים | {(s.invoices || []).length} הוצאות
+                              </div>
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Link 
+                              href={'/space/' + s.id} 
+                              onClick={(e) => {
+                                e.stopPropagation();
+                              }}
+                              style={{ 
+                                padding: '0.45rem 1rem', 
+                                background: '#2563eb', 
+                                color: 'white', 
+                                borderRadius: '10px', 
+                                fontSize: '0.84rem', 
+                                fontWeight: 800, 
+                                textDecoration: 'none' 
+                              }}
+                            >
+                              כניסה למרחב →
+                            </Link>
+                            <div style={{ 
+                              color: '#94a3b8', 
+                              fontSize: '0.85rem',
+                              transition: 'transform 0.25s ease', 
+                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' 
+                            }}>
+                              ▼
+                            </div>
+                          </div>
                         </div>
+
+                        {/* Expanded Content Drawer matching home page */}
+                        {isExpanded && (
+                          <div style={{ padding: '0.85rem 1rem 1rem', borderTop: '1px solid #f1f5f9', background: '#f8fafc' }}>
+                            {s.coverImage && (
+                              <div style={{ height: '110px', borderRadius: '10px', overflow: 'hidden', marginBottom: '0.85rem' }}>
+                                <img src={s.coverImage} alt="Cover" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </div>
+                            )}
+
+                            {s.description && (
+                              <p style={{ margin: '0 0 0.85rem 0', fontSize: '0.88rem', color: '#475569', lineHeight: '1.5' }}>
+                                {s.description}
+                              </p>
+                            )}
+
+                            {/* Features badges */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginBottom: '1rem' }}>
+                              {(s.features || []).map((fId: string) => (
+                                <span 
+                                  key={fId} 
+                                  style={{ 
+                                    background: '#e0e7ff', 
+                                    color: '#3730a3', 
+                                    fontSize: '0.75rem', 
+                                    padding: '2px 8px', 
+                                    borderRadius: '6px', 
+                                    fontWeight: 700 
+                                  }}
+                                >
+                                  {fId}
+                                </span>
+                              ))}
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                              <Link 
+                                href={'/space/' + s.id} 
+                                style={{ 
+                                  flex: 1, 
+                                  background: '#2563eb', 
+                                  color: 'white', 
+                                  textDecoration: 'none', 
+                                  textAlign: 'center', 
+                                  padding: '0.7rem', 
+                                  borderRadius: '10px', 
+                                  fontWeight: 800, 
+                                  fontSize: '0.9rem' 
+                                }}
+                              >
+                                כניסה למרחב <span>→</span>
+                              </Link>
+                              <button 
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  if (confirm('למחוק את המרחב "' + s.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
+                                    await permanentlyDeleteSpace(s.id);
+                                  }
+                                }}
+                                style={{ 
+                                  background: '#fef2f2', 
+                                  color: '#ef4444', 
+                                  border: '1px solid #fecaca', 
+                                  borderRadius: '10px', 
+                                  padding: '0.7rem 1rem', 
+                                  cursor: 'pointer', 
+                                  fontWeight: 700, 
+                                  fontSize: '0.85rem' 
+                                }}
+                              >
+                                🗑️ העבר לארכיון
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <Link href={'/space/' + s.id} style={{ padding: '0.4rem 0.85rem', background: '#2563eb', color: 'white', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, textDecoration: 'none' }}>
-                        כניסה
-                      </Link>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {myActiveSpaces.length === 0 && (
-                    <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>אין מרחבים פעילים</div>
+                    <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', background: '#f8fafc', borderRadius: '14px', border: '1px dashed #cbd5e1' }}>
+                      אין מרחבים פעילים
+                    </div>
                   )}
                 </div>
               </section>
@@ -688,18 +820,6 @@ export default function SettingsPage() {
               </div>
             </section>
 
-            {/* Future OCR & Modules Section */}
-            <section style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 800 }}>
-                <span>🔍</span> מנוע סריקה ו-OCR (בתהליך פיתוח)
-              </h3>
-              <p style={{ margin: '0 0 1rem 0', color: '#64748b', fontSize: '0.88rem', lineHeight: '1.5' }}>
-                מנוע זיהוי טקסט אוטומטי וסריקת קבלות מתקדמת. בקרוב יתווספו הגדרות איכות סריקה, שמירה אוטומטית למחסן וניתוח מע״מ.
-              </p>
-              <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px dashed #cbd5e1', fontSize: '0.82rem', color: '#64748b' }}>
-                מצב מנוע: פעיל ומחובר למחסן המסמכים | תמיכה במסמכים מרובי עמודים פעילה
-              </div>
-            </section>
 
             {/* Danger Zone */}
             <section style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '20px', padding: '1.5rem', marginTop: '1rem' }}>

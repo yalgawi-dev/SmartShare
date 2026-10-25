@@ -20,6 +20,7 @@ import { PushNotificationReminder } from '../components/widgets/PushNotification
 import { universalSearch } from '../utils/searchEngine';
 import { uploadImageToStorage } from '@/lib/firebase';
 import { compressImage } from '../utils/imageOptimizer';
+import { sortSpacesByUsagePriority, recordSpaceVisit } from '../utils/spaceSorting';
 
 
 
@@ -159,33 +160,8 @@ export default function Dashboard() {
   const visibleSpaces = spaces.filter(s => s.status !== 'pending_deletion' && isUserMemberOfSpace(s));
 
 
-  const searchedSpaces = ([...universalSearch(visibleSpaces, searchQuery, ['title'])] as any[]).sort((a: any, b: any) => {
-      // 1. Priority for new spaces (< 24h)
-      const timeA = new Date(a.createdAt || 0).getTime();
-      const timeB = new Date(b.createdAt || 0).getTime();
-      const isNewA = (Date.now() - timeA) < 86400000;
-      const isNewB = (Date.now() - timeB) < 86400000;
-      
-      if (isNewA && !isNewB) return -1;
-      if (!isNewA && isNewB) return 1;
-      if (isNewA && isNewB) return timeB - timeA; // Both new? newest first
+  const searchedSpaces = sortSpacesByUsagePriority(universalSearch(visibleSpaces, searchQuery, ['title']) as any[]);
 
-      // 2. Sort by visits
-      let visitsA = 0;
-      let visitsB = 0;
-      if (typeof window !== 'undefined') {
-        try {
-          visitsA = parseInt(localStorage.getItem(`space_visits_${a.id}`) || '0', 10);
-          visitsB = parseInt(localStorage.getItem(`space_visits_${b.id}`) || '0', 10);
-        } catch (e) {}
-      }
-      if (visitsA !== visitsB) return visitsB - visitsA; // Higher visits first
-      
-      // 3. Fallback to updatedAt / createdAt
-      const updateA = new Date(a.updatedAt || a.createdAt || 0).getTime();
-      const updateB = new Date(b.updatedAt || b.createdAt || 0).getTime();
-      return updateB - updateA;
-    });
 
   // Mark tutorials as seen for veteran users
   useEffect(() => {
@@ -237,7 +213,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.9.6</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v2.9.7</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -662,8 +638,7 @@ export default function Dashboard() {
                     onClick={() => {
                       try { 
                         sessionStorage.setItem('lastSpaceVisited', space.id); 
-                        const currentVisits = parseInt(localStorage.getItem(`space_visits_${space.id}`) || '0', 10);
-                        localStorage.setItem(`space_visits_${space.id}`, (currentVisits + 1).toString());
+                        recordSpaceVisit(space.id);
                       } catch(e){}
                       if (showFirstSpaceTip) {
                         try { localStorage.setItem('tutorial_enter_space', '1'); } catch(e){}
