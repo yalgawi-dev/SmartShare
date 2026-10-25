@@ -278,7 +278,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           {x: w * 0.1, y: h * 0.9}
         ];
         setCropPoints(pts);
-        const snapshotUrl = compressCanvas(canvas, 0.92, 'image/jpeg');
+        const snapshotUrl = compressCanvas(canvas, 0.88, 'image/webp');
         setRawSnapshot(snapshotUrl);
         if (!preserveId) setActiveDocId(generateDocId());
         // Imported files are usually already clean: skip forced crop (same as "דלג חיתוך").

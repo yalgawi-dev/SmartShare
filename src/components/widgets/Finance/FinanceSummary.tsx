@@ -584,7 +584,7 @@ export function FinanceSummary({
                       <React.Fragment key={b.userId || b.name}>
                         <tr id={`partner-row-${b.userId}`}
                           onClick={() => {
-                              if (isPendingInvite) { setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); return; }
+                              if (isPendingInvite) return; // Pending invites do not have a financial control panel yet
                               if (isCreatorMe) {
                                 // Creator: can click on partner rows, NOT own row
                                 if (b.isMember && !b.isCreator && b.userId !== user?.id) {
@@ -595,7 +595,9 @@ export function FinanceSummary({
                                 if (b.isMember && b.userId !== user?.id) { setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); }
                               }
                             }}
-                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: (isPendingInvite || (isCreatorMe ? (b.isMember && !b.isCreator && b.userId !== user?.id) : (b.isMember && b.userId !== user?.id))) ? 'pointer' : 'default', transition: 'background 0.15s' }}>
+                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isPendingInvite ? 'default' : (isCreatorMe 
+                          ? (b.isMember && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
+                          : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'inherit' }}>
@@ -658,12 +660,86 @@ export function FinanceSummary({
                               )}
                               {(b as any).status === 'pending' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
-                                  <span style={{ fontSize: '0.72rem', color: '#7c3aed', background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '1px 7px', borderRadius: '8px', fontWeight: 600 }}>
+                                  <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 500 }}>
                                     ✉️ ממתין
                                   </span>
-                                </div>
-                              )}
-                              {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
+
+                                  {/* Action buttons for pending invite: Compact, round & proportional */}
+                                  {(b as any).isInvite && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        const link = `${window.location.origin}/space/${space.id}?invite=${b.userId}`;
+                                        navigator.clipboard.writeText(link);
+                                        alert('קישור ההזמנה הועתק ללוח!');
+                                      }}
+                                      style={{
+                                        background: '#10b981',
+                                        color: '#ffffff',
+                                        border: 'none',
+                                        borderRadius: '50%',
+                                        width: '24px',
+                                        height: '24px',
+                                        fontSize: '0.75rem',
+                                        cursor: 'pointer',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
+                                        padding: 0,
+                                        flexShrink: 0
+                                      }}
+                                      title="העתק קישור להזמנה שוב"
+                                    >
+                                      🔗
+                                    </button>
+                                  )}
+
+                                    {(b as any).isInvite && isCreatorMe && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setConfirmModalConfig({
+                                            isOpen: true,
+                                            title: 'ביטול ומחיקת הזמנה',
+                                            message: `האם למחוק לצמיתות את ההזמנה עבור "${b.name}"?`,
+                                            confirmText: 'מחק הזמנה',
+                                            cancelText: 'ביטול',
+                                            variant: 'danger',
+                                            icon: '🗑️',
+                                            onConfirm: () => {
+                                              if (typeof declinePendingInvite === 'function') {
+                                                declinePendingInvite(space.id, b.userId);
+                                              }
+                                              setConfirmModalConfig(prev => ({ ...prev, isOpen: false }));
+                                            }
+                                          });
+                                        }}
+                                        style={{
+                                          background: '#ef4444',
+                                          color: '#ffffff',
+                                          border: 'none',
+                                          borderRadius: '50%',
+                                          width: '24px',
+                                          height: '24px',
+                                          fontSize: '0.7rem',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          boxShadow: '0 1px 3px rgba(239, 68, 68, 0.3)',
+                                          padding: 0,
+                                          flexShrink: 0
+                                        }}
+                                      >
+                                        🗑️
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                                {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
                                 {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
                               </div>
                           </td>
@@ -679,9 +755,9 @@ export function FinanceSummary({
                             );
                           })()}
                         </tr>
-                        {isCreatorMe && expandedPartnerId === b.userId && (memberObj || (b as any).isInvite) && (
+                        {isCreatorMe && expandedPartnerId === b.userId && memberObj && (
                           <PartnerControlPanel
-                            member={memberObj || { userId: b.userId, name: b.name, isInvite: true, status: 'pending', role: 'partner' }}
+                            member={memberObj}
                             space={space}
                             viewMode="creator"
                             onClose={() => setExpandedPartnerId(null)}
@@ -699,7 +775,7 @@ export function FinanceSummary({
                           };
                           const targetMember = b.isCreator
                             ? creatorMember
-                            : (space.members?.find((m: any) => m.userId === b.userId) || { userId: b.userId, name: b.name, isInvite: (b as any).isInvite, status: (b as any).status || 'pending', role: 'partner' });
+                            : (space.members?.find((m: any) => m.userId === b.userId) || { userId: b.userId, name: b.name, status: 'active', role: 'partner' });
                           if (!targetMember) return null;
                           return (
                             <PartnerControlPanel

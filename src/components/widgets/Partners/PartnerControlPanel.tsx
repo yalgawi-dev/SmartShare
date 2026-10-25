@@ -117,95 +117,35 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
   // Defensive: If this is a guest invite that hasn't joined, disallow chat / member panel
   if (member.isInvite || member.userId?.startsWith('guest_')) {
-    const inviteLink = typeof window !== 'undefined' ? `${window.location.origin}/space/${space.id}?invite=${member.userId}` : '';
-
     return createPortal(
-      <div 
-        onClick={onClose}
-        style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(15,23,42,0.6)', backdropFilter: 'blur(4px)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
-      >
-        <div 
-          onClick={e => e.stopPropagation()}
-          style={{ background: 'white', borderRadius: '24px', maxWidth: '420px', width: '100%', padding: '2rem 1.5rem', textAlign: 'center', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)', direction: 'rtl' }}
-        >
-          <div style={{ width: '60px', height: '60px', borderRadius: '50%', background: '#f5f3ff', color: '#7c3aed', fontSize: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem auto' }}>
-            ✉️
-          </div>
-          <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.3rem', fontWeight: '800' }}>
-            הזמנת שותף: {member.name || 'מוזמן'}
-          </h3>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 1.5rem 0' }}>
-            ההזמנה ממתינה להצטרפות השותף. באפשרותך להעתיק את הקישור שוב כדי לשלוח לוואטסאפ או לנהל את ההזמנה.
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+        <div style={{ background: 'white', borderRadius: '20px', maxWidth: '420px', width: '100%', padding: '1.75rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✉️</div>
+          <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b' }}>הזמנה ממתינה / פג תוקף</h3>
+          <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
+            השותף <strong>{member.name || 'מוזמן'}</strong> טרם הצטרף למרחב. לא ניתן לנהל צ'אט או לשלוח הודעות להזמנה שטרם אושרה.
           </p>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-            <button
-              type="button"
-              onClick={() => {
-                if (inviteLink) {
-                  navigator.clipboard.writeText(inviteLink);
-                  alert('קישור ההזמנה הועתק ללוח בהצלחה!');
-                }
-              }}
-              style={{
-                width: '100%',
-                padding: '0.85rem 1rem',
-                background: '#10b981',
-                color: 'white',
-                border: 'none',
-                borderRadius: '14px',
-                fontSize: '0.95rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.5rem',
-                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25)'
-              }}
-            >
-              <span>🔗</span> העתק קישור להזמנה שוב
-            </button>
-
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
             {viewMode === 'creator' && (
               <button
-                type="button"
                 onClick={() => {
-                  if (window.confirm(`האם למחוק ולבטל לצמיתות את ההזמנה עבור "${member.name || 'מוזמן'}"?`)) {
-                    if (typeof declinePendingInvite === 'function') {
-                      declinePendingInvite(space.id, member.userId);
-                    }
-                    onClose();
+                  if (typeof declinePendingInvite === 'function') {
+                    declinePendingInvite(space.id, member.userId);
                   }
+                  onClose();
                 }}
-                style={{
-                  width: '100%',
-                  padding: '0.85rem 1rem',
-                  background: '#fef2f2',
-                  color: '#dc2626',
-                  border: '1px solid #fecaca',
-                  borderRadius: '14px',
-                  fontSize: '0.95rem',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.5rem'
-                }}
+                style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecdd3', padding: '0.6rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
               >
-                <span>🗑️</span> מחק ובטל הזמנה זו
+                🗑️ מחק הזמנה
               </button>
             )}
+            <button
+              onClick={onClose}
+              style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              סגור
+            </button>
           </div>
-
-          <button
-            type="button"
-            onClick={onClose}
-            style={{ width: '100%', background: '#f1f5f9', color: '#475569', border: 'none', padding: '0.75rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.9rem' }}
-          >
-            סגור
-          </button>
         </div>
       </div>,
       document.body

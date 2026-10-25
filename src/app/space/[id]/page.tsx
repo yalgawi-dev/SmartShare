@@ -17,7 +17,7 @@ import { PushNotificationReminder } from '../../../components/widgets/PushNotifi
 import GenericWidget from '../../../components/widgets/GenericWidget';
 import { FloatingActionBar } from '../../../components/widgets/FloatingActionBar';
 import ScannerModal from '../../../components/widgets/ScannerModal';
-import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
+import { DOCUMENT_MAX_BYTES, compressImageWebP } from '../../../utils/imageOptimizer';
 
 import TopGuestsWidget from '../../../components/widgets/TopGuestsWidget';
 import WelcomeGate from '../../../components/widgets/Partners/WelcomeGate';
@@ -428,25 +428,36 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     }
   });
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (ev) => {
-         const url = ev.target?.result as string;
-         if (hasVault && financeTab === 'documents') {
-            documentsRef.current?.addDocument(url, 'document');
-            showToast('שומר כמסמך במחסן המסמכים');
-         } else if (hasFinance) {
-            financeRef.current?.processScan(url);
-            showToast('שומר חשבונית...');
-         } else if (hasVault) {
-            documentsRef.current?.addDocument(url, 'document');
-            setFinanceTab('documents' as any);
-            showToast('שומר כמסמך במחסן המסמכים');
-         }
-      };
-      reader.readAsDataURL(file);
+      try {
+        let url: string;
+        if (file.type.startsWith('image/')) {
+          url = await compressImageWebP(file, 1600, 1600, 0.85);
+        } else {
+          url = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (ev) => resolve(ev.target?.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+        }
+
+        if (hasVault && financeTab === 'documents') {
+          documentsRef.current?.addDocument(url, 'document');
+          showToast('שומר כמסמך במחסן המסמכים');
+        } else if (hasFinance) {
+          financeRef.current?.processScan(url);
+          showToast('שומר חשבונית...');
+        } else if (hasVault) {
+          documentsRef.current?.addDocument(url, 'document');
+          setFinanceTab('documents' as any);
+          showToast('שומר כמסמך במחסן המסמכים');
+        }
+      } catch (err) {
+        console.error('File upload failed', err);
+      }
     }
   };
   const showToast = (msg: string) => {
@@ -756,7 +767,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.6</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.7</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>

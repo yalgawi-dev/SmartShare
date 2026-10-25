@@ -69,6 +69,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   });
 
   // Custom modal states (replacing browser alert/prompt/confirm)
+  const [activeDocMenuId, setActiveDocMenuId] = useState<string | null>(null);
+  const hasFinance = (space.features || []).includes('finance');
+  const showTimeline = !!space.settings?.showVaultTimeline;
   const [shelfToDelete, setShelfToDelete] = useState<{ id: string, name: string, count: number } | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
   const [shelfToPermanentDelete, setShelfToPermanentDelete] = useState<{ id: string, name: string } | null>(null);
@@ -520,7 +523,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.6</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.7</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -593,36 +596,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           />
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0 1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', background: '#f8fafc', padding: '4px', borderRadius: '12px', alignSelf: 'flex-start' }}>
-              <button onClick={() => setFilterLinked('all')} style={{ background: filterLinked === 'all' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'all' ? 'bold' : 'normal', color: filterLinked === 'all' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'all' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>הכל</button>
-              <button onClick={() => setFilterLinked('linked')} style={{ background: filterLinked === 'linked' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'linked' ? 'bold' : 'normal', color: filterLinked === 'linked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'linked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>מקושרים</button>
-              <button onClick={() => setFilterLinked('unlinked')} style={{ background: filterLinked === 'unlinked' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'unlinked' ? 'bold' : 'normal', color: filterLinked === 'unlinked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'unlinked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>לא מקושרים</button>
-            </div>
+          {(showTimeline || shelfDocs.length > 1) && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.25rem' }}>
+              {showTimeline ? (
+                <div style={{ display: 'flex', gap: '0.5rem', background: '#f8fafc', padding: '4px', borderRadius: '12px', alignSelf: 'flex-start', border: '1px solid #e2e8f0' }}>
+                  <button onClick={() => setFilterLinked('all')} style={{ background: filterLinked === 'all' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'all' ? 'bold' : 'normal', color: filterLinked === 'all' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'all' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>הכל</button>
+                  <button onClick={() => setFilterLinked('linked')} style={{ background: filterLinked === 'linked' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'linked' ? 'bold' : 'normal', color: filterLinked === 'linked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'linked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>מקושרים</button>
+                  <button onClick={() => setFilterLinked('unlinked')} style={{ background: filterLinked === 'unlinked' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'unlinked' ? 'bold' : 'normal', color: filterLinked === 'unlinked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'unlinked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>לא מקושרים</button>
+                </div>
+              ) : <div />}
 
-            <button 
-              onClick={() => {
-                setIsMultiSelect(prev => !prev);
-                setSelectedDocIds([]);
-              }}
-              style={{
-                background: isMultiSelect ? '#eff6ff' : '#ffffff',
-                border: isMultiSelect ? '1px solid #3b82f6' : '1px solid #cbd5e1',
-                color: isMultiSelect ? '#2563eb' : '#475569',
-                padding: '6px 14px',
-                borderRadius: '12px',
-                fontSize: '0.82rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                boxShadow: isMultiSelect ? '0 2px 6px rgba(59,130,246,0.15)' : 'none'
-              }}
-            >
-              <span>{isMultiSelect ? '✓ ביטול בחירה' : '☑️ בחירה מרובה לשיתוף'}</span>
-            </button>
-          </div>
+              {shelfDocs.length > 1 && (
+                <button 
+                  onClick={() => {
+                    setIsMultiSelect(prev => !prev);
+                    setSelectedDocIds([]);
+                  }}
+                  style={{
+                    background: isMultiSelect ? '#eff6ff' : '#ffffff',
+                    border: isMultiSelect ? '1px solid #3b82f6' : '1px solid #cbd5e1',
+                    color: isMultiSelect ? '#2563eb' : '#475569',
+                    padding: '6px 14px',
+                    borderRadius: '12px',
+                    fontSize: '0.82rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.35rem',
+                    boxShadow: isMultiSelect ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
+                    marginRight: 'auto'
+                  }}
+                >
+                  <span>{isMultiSelect ? '✓ ביטול בחירה' : '☑️ בחירה מרובה לשיתוף'}</span>
+                </button>
+              )}
+            </div>
+          )}
 
           {/* MULTI-SELECT FLOATING ACTION BAR */}
           {isMultiSelect && (
@@ -808,9 +818,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         </div>
                       ) : (
                         <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '140px', background: '#e2e8f0', backgroundImage: 'url(' + (doc.thumbnailUrl || doc.url) + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
-                          <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>
-                            {(doc.url && (doc.url.includes('.webp') || doc.url.startsWith('data:image/webp'))) ? 'WEBP' : 'IMG'}
-                          </div>
+                          
                         </div>
                       )}
                       
@@ -866,29 +874,142 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         )}
                         
                         {!isMultiSelect && (
-                          <div style={{ marginTop: 'auto', display: 'flex', borderTop: '1px solid #e2e8f0', background: '#f8fafc' }}>
-                            <div onClick={(e) => { e.stopPropagation(); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }} style={{ flex: 1.1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#2563eb', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0', background: linkedEvent ? '#eff6ff' : 'transparent' }} title={linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה'}>
-                              🔗 {linkedEvent ? 'תחנה' : 'קשר'}
-                            </div>
-                            <div onClick={(e) => { 
-                                e.stopPropagation(); 
-                                window.dispatchEvent(new CustomEvent('smartshare:convert_doc_to_expense', { 
-                                  detail: { url: doc.url, allPages: doc.pages || [doc.url], title: doc.title } 
-                                })); 
-                              }} style={{ flex: 1.3, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#8b5cf6', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="הוסף להוצאות המרחב (סריקה אוטומטית)">
-                                🧾 הוצאה
-                              </div>
-                              <div onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#10b981', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="שתף מסמך">
+                          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '0.35rem 0.5rem', position: 'relative' }}>
+                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                              <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }}
+                                style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                title="שתף מסמך"
+                              >
                                 📤 שתף
-                              </div>
-                            <div onClick={(e) => { e.stopPropagation(); downloadDocument(doc.url, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#0284c7', fontWeight: 'bold', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="הורד מסמך">
-                              ⬇️ הורד
+                              </button>
+                              <button 
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); downloadDocument(doc.url, doc.title); }}
+                                style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.3rem 0.5rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                                title="הורד מסמך למכשיר"
+                              >
+                                ⬇️
+                              </button>
                             </div>
-                            <div onClick={(e) => { e.stopPropagation(); handleMoveDocument(doc.id, activeShelf.id); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#64748b', cursor: 'pointer', borderLeft: '1px solid #e2e8f0' }} title="העבר למדף אחר">
-                              🔄 העבר
-                            </div>
-                            <div onClick={(e) => { e.stopPropagation(); handleDeleteDocument(doc.id, doc.title); }} style={{ flex: 1, padding: '0.45rem 0.15rem', textAlign: 'center', fontSize: '0.72rem', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer' }} title="מחק מסמך">
-                              🗑️ מחק
+
+                            {/* 3-Dots Action Menu Trigger */}
+                            <div style={{ position: 'relative' }}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveDocMenuId(activeDocMenuId === doc.id ? null : doc.id);
+                                }}
+                                style={{ background: activeDocMenuId === doc.id ? '#e2e8f0' : 'transparent', color: '#475569', border: 'none', borderRadius: '8px', width: '28px', height: '28px', fontSize: '1.1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                title="פעולות נוספות"
+                              >
+                                ⋮
+                              </button>
+
+                              {activeDocMenuId === doc.id && (
+                                <>
+                                  <div 
+                                    onClick={(e) => { e.stopPropagation(); setActiveDocMenuId(null); }}
+                                    style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
+                                  />
+                                  <div 
+                                    onClick={(e) => e.stopPropagation()}
+                                    style={{
+                                      position: 'absolute',
+                                      bottom: '120%',
+                                      left: 0,
+                                      background: 'white',
+                                      borderRadius: '14px',
+                                      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1)',
+                                      border: '1px solid #e2e8f0',
+                                      padding: '0.4rem',
+                                      zIndex: 9999,
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '0.2rem',
+                                      minWidth: '160px',
+                                      textAlign: 'right',
+                                      direction: 'rtl'
+                                    }}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDocMenuId(null);
+                                        setPromptInput(doc.title);
+                                        setCustomPrompt({
+                                          isOpen: true,
+                                          title: 'עריכת כותרת מסמך',
+                                          placeholder: 'הזן כותרת...',
+                                          defaultValue: doc.title,
+                                          onSave: (val: string) => {
+                                            if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
+                                          }
+                                        });
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                    >
+                                      <span>✏️</span> ערוך כותרת
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDocMenuId(null);
+                                        handleMoveDocument(doc.id, activeShelf.id);
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                    >
+                                      <span>🔄</span> העבר למדף אחר
+                                    </button>
+
+                                    {/* Link to Timeline Station (Only if timeline is enabled in space) */}
+                                    {showTimeline && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveDocMenuId(null);
+                                          setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url });
+                                        }}
+                                        style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                      >
+                                        <span>🔗</span> {linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה בציר'}
+                                      </button>
+                                    )}
+
+                                    {/* Convert to Expense (Only if finance plugin exists in space) */}
+                                    {hasFinance && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setActiveDocMenuId(null);
+                                          window.dispatchEvent(new CustomEvent('smartshare:convert_doc_to_expense', { 
+                                            detail: { url: doc.url, allPages: doc.pages || [doc.url], title: doc.title } 
+                                          }));
+                                        }}
+                                        style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                      >
+                                        <span>🧾</span> הוסף להוצאות המרחב
+                                      </button>
+                                    )}
+
+                                    <div style={{ height: '1px', background: '#e2e8f0', margin: '0.2rem 0' }} />
+
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDocMenuId(null);
+                                        handleDeleteDocument(doc.id, doc.title);
+                                      }}
+                                      style={{ background: '#fef2f2', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#dc2626', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                                    >
+                                      <span>🗑️</span> מחק מסמך
+                                    </button>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           </div>
                         )}
@@ -1151,7 +1272,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.6</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.7</span>
         </h2>
         <input 
           type="text" 
