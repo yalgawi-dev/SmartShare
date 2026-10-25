@@ -97,6 +97,7 @@ export interface DocumentShelf {
   logoUrl?: string;
   icon?: string;
   highlightColor?: string;
+  deletedAt?: string;
 }
 
 export interface ShelfEventComment {
@@ -285,6 +286,8 @@ interface SpacesContextType {
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
+  restoreShelf: (spaceId: string, shelfId: string) => void;
+  permanentlyDeleteShelf: (spaceId: string, shelfId: string) => void;
   addShelfEvent: (spaceId: string, event: Omit<ShelfEvent, 'id' | 'createdAt' | 'createdBy' | 'comments'>) => void;
   updateShelfEvent: (spaceId: string, eventId: string, updates: Partial<ShelfEvent>) => void;
   removeShelfEvent: (spaceId: string, eventId: string) => void;
@@ -1767,9 +1770,31 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const removeShelf = (spaceId: string, shelfId: string) => {
+    // Soft delete: move to recycle bin
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      shelves: (space.shelves || []).filter(s => s.id !== shelfId)
+      shelves: (space.shelves || []).map(s => s.id === shelfId ? { ...s, deletedAt: new Date().toISOString() } : s)
+    }));
+  };
+
+  const restoreShelf = (spaceId: string, shelfId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelves: (space.shelves || []).map(s => {
+        if (s.id !== shelfId) return s;
+        const copy = { ...s };
+        delete copy.deletedAt;
+        return copy;
+      })
+    }));
+  };
+
+  const permanentlyDeleteShelf = (spaceId: string, shelfId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      shelves: (space.shelves || []).filter(s => s.id !== shelfId),
+      // Also delete unlinked documents that belonged to this shelf
+      documents: (space.documents || []).filter(d => d.shelfId !== shelfId)
     }));
   };
 
@@ -1992,7 +2017,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,

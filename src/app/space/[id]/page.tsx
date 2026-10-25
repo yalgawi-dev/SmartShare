@@ -71,7 +71,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -756,7 +756,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.3</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v2.8.4</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -1054,6 +1054,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
                 if (routingType === 'receipt_batch' && allPages && allPages.length > 1) {
                     financeRef.current?.processBatch(allPages);
+                } else if (financeTab === 'inbox') {
+                    // When on invoice inbox tab: save directly to inbox WITHOUT running OCR or opening expense form
+                    if (addInboxItems) {
+                      addInboxItems(space.id, [{
+                        imageUrl: url,
+                        pages: allPages && allPages.length > 1 ? allPages : undefined,
+                        status: 'ready',
+                        uploadedBy: user?.id || 'unknown'
+                      }]);
+                    }
                 } else if (routingType === 'receipt' || !routingType) {
                     financeRef.current?.processScan(url, allPages); 
                 } else if (routingType === 'document' || routingType === 'image') {

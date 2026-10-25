@@ -29,7 +29,7 @@ type ViewMode = 'feed' | 'grid' | 'circles';
 
 export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetProps>(({ space, activePartnersCount }, ref) => {
   const { user } = useAuth();
-  const { addShelf, updateShelf, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment } = useSpaces();
+  const { addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment } = useSpaces() as any;
   
   const shelves = space.shelves || [];
   const documents = space.documents || [];
@@ -45,9 +45,10 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
+  const viewModeStorageKey = `myspace_vault_view_${space.id}_${user?.id || 'guest'}`;
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('myspace_vault_view_mode') as ViewMode;
+      const saved = (localStorage.getItem(viewModeStorageKey) || localStorage.getItem('myspace_vault_view_mode')) as ViewMode;
       if (saved === 'feed' || saved === 'grid' || saved === 'circles') return saved;
     }
     return 'feed';
@@ -56,7 +57,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const handleSetViewMode = (mode: ViewMode) => {
     setViewMode(mode);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('myspace_vault_view_mode', mode);
+      localStorage.setItem(viewModeStorageKey, mode);
     }
   };
   const [showViewMenu, setShowViewMenu] = useState(false);
@@ -68,6 +69,21 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   });
 
   // Custom modal states (replacing browser alert/prompt/confirm)
+  const [shelfToDelete, setShelfToDelete] = useState<{ id: string, name: string, count: number } | null>(null);
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
+  const [shelfToPermanentDelete, setShelfToPermanentDelete] = useState<{ id: string, name: string } | null>(null);
+
+  // Timeline tip banner state
+  const timelineHideKey = `hide_timeline_tip_${space.id}`;
+  const timelineSnoozeKey = `timeline_snooze_${space.id}`;
+  const [isTimelineTipDismissed, setIsTimelineTipDismissed] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    if (localStorage.getItem(timelineHideKey) === '1') return true;
+    const snoozeUntil = localStorage.getItem(timelineSnoozeKey);
+    if (snoozeUntil && Number(snoozeUntil) > Date.now()) return true;
+    return false;
+  });
+
   const [docToDelete, setDocToDelete] = useState<{ id: string, title: string } | null>(null);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
   const [customPrompt, setCustomPrompt] = useState<{
@@ -379,20 +395,28 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       setPendingImport({ docId });
     };
 
+  const activeShelves = useMemo(() => {
+    return shelves.filter(s => !s.deletedAt);
+  }, [shelves]);
+
+  const deletedShelves = useMemo(() => {
+    return shelves.filter(s => !!s.deletedAt);
+  }, [shelves]);
+
   const sortedShelves = useMemo(() => {
     return universalSort(
-      shelves, 
+      activeShelves, 
       (s) => {
         const docs = documents.filter(d => d.shelfId === s.id);
         return docs.length > 0 ? Math.max(...docs.map(d => new Date(d.createdAt).getTime())) : new Date(s.createdAt || 0).getTime();
       },
       (s) => s.name
     );
-  }, [shelves, documents]);
+  }, [activeShelves, documents]);
 
   const filteredShelves = universalSearch(sortedShelves, searchQuery, ['name']);
 
-  if (shelves.length === 0) {
+  if (activeShelves.length === 0 && !showRecycleBin) {
     return (
       <>
         <div style={{ padding: '2rem 1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center' }}>
@@ -496,13 +520,25 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.3</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.4</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
-            <button onClick={() => setEditingShelfCoverId(activeShelf.id)} style={{ background: 'transparent', border: 'none', padding: '0', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem' }}>
-              🎨 עיצוב
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <button onClick={() => setEditingShelfCoverId(activeShelf.id)} style={{ background: 'transparent', border: 'none', padding: '0', color: '#3b82f6', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
+                🎨 עיצוב
+              </button>
+              <button 
+                onClick={() => {
+                  const docCount = documents.filter(d => d.shelfId === activeShelf.id).length;
+                  setShelfToDelete({ id: activeShelf.id, name: activeShelf.name, count: docCount });
+                }} 
+                style={{ background: 'transparent', border: 'none', padding: '0', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+                title="מחק מדף זה"
+              >
+                🗑️ מחק
+              </button>
+            </div>
           </div>
 
           {space.settings?.showVaultTimeline ? (
@@ -1040,6 +1076,41 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         onClose={() => setSharingDoc(null)} 
       />
 
+      {/* CONFIRM DELETE SHELF MODAL */}
+      <ConfirmModal
+        isOpen={Boolean(shelfToDelete)}
+        title="מחיקת מדף"
+        message={shelfToDelete?.count ? `מדף זה מכיל ${shelfToDelete.count} מסמכים. במחיקת המדף, המדף והמסמכים שבו יועברו לסל האשפה ויישמרו שם לזמן מוגבל.` : 'האם אתה בטוח שברצונך להעביר מדף זה לסל האשפה?'}
+        itemTitle={shelfToDelete?.name}
+        confirmText="העבר לסל אשפה"
+        onConfirm={() => {
+          if (shelfToDelete) {
+            removeShelf(space.id, shelfToDelete.id);
+            if (activeShelfId === shelfToDelete.id) {
+              setActiveShelfId(null);
+            }
+            setShelfToDelete(null);
+          }
+        }}
+        onClose={() => setShelfToDelete(null)}
+      />
+
+      {/* CONFIRM PERMANENT DELETE SHELF MODAL */}
+      <ConfirmModal
+        isOpen={Boolean(shelfToPermanentDelete)}
+        title="מחיקת מדף לצמיתות"
+        message="פעולה זו היא בלתי הפיכה! המדף וכל המסמכים שהיו שייכים אליו יימחקו לחלוטין מהמערכת."
+        itemTitle={shelfToPermanentDelete?.name}
+        confirmText="מחק לצמיתות"
+        onConfirm={() => {
+          if (shelfToPermanentDelete) {
+            permanentlyDeleteShelf(space.id, shelfToPermanentDelete.id);
+            setShelfToPermanentDelete(null);
+          }
+        }}
+        onClose={() => setShelfToPermanentDelete(null)}
+      />
+
       {/* CONFIRM DELETE SINGLE DOCUMENT MODAL */}
       <ConfirmModal
         isOpen={Boolean(docToDelete)}
@@ -1080,7 +1151,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.0</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.4</span>
         </h2>
         <input 
           type="text" 
@@ -1089,6 +1160,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           onChange={(e) => setSearchQuery(e.target.value)}
           style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', minWidth: 0, fontSize: '0.9rem' }}
         />
+        {deletedShelves.length > 0 && (
+          <button 
+            onClick={() => setShowRecycleBin(!showRecycleBin)}
+            style={{ padding: '0.5rem 0.75rem', background: showRecycleBin ? '#ef4444' : '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: showRecycleBin ? 'white' : '#ef4444', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+            title="סל אשפה של מדפים שנמחקו"
+          >
+            <span>🗑️</span>
+            <span>({deletedShelves.length})</span>
+          </button>
+        )}
         <div style={{ position: 'relative' }}>
           <button 
             onClick={() => setShowViewMenu(!showViewMenu)} 
@@ -1111,6 +1192,117 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           )}
         </div>
       </div>
+
+      {/* Timeline Discovery Banner */}
+      {!space.settings?.showVaultTimeline && !isTimelineTipDismissed && (
+        <div style={{
+          position: 'relative',
+          margin: '0 1rem 1.25rem 1rem',
+          padding: '1.25rem 1.5rem',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+          border: '1.5px dashed #60a5fa',
+          boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem'
+        }}>
+          <button 
+            onClick={() => setIsTimelineTipDismissed(true)}
+            style={{ position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#64748b', padding: '4px' }}
+            title="סגור הודעה זו"
+          >
+            ✕
+          </button>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.75rem', flexShrink: 0 }}>💡</span>
+            <div>
+              <h4 style={{ margin: '0 0 0.25rem 0', color: '#1e293b', fontSize: '1rem', fontWeight: '800' }}>
+                הידעת? ניתן להפעיל במרחב זה את 'ציר זמן ותחנות'
+              </h4>
+              <p style={{ margin: 0, color: '#475569', fontSize: '0.88rem', lineHeight: '1.5' }}>
+                ציר הזמן מאפשר לסדר מסמכים ואירועים לפי תחנות כרונולוגיות (כמו סיפור המרחב). ניתן להפעיל אותו בכל שלב בהגדרות המרחב.
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
+            <a 
+              href={`/space/${space.id}/settings`}
+              style={{ padding: '0.45rem 1.1rem', background: '#3b82f6', color: 'white', borderRadius: '50px', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              <span>⚙️</span> להפעלת ציר הזמן
+            </a>
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  const snoozeUntil = Date.now() + 12 * 3600 * 1000; // 12 hours
+                  localStorage.setItem(timelineSnoozeKey, String(snoozeUntil));
+                }
+                setIsTimelineTipDismissed(true);
+              }}
+              style={{ padding: '0.45rem 1rem', background: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '50px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' }}
+            >
+              ⏰ הזכר לי בעוד 12 שעות
+            </button>
+            <button 
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  localStorage.setItem(timelineHideKey, '1');
+                }
+                setIsTimelineTipDismissed(true);
+              }}
+              style={{ padding: '0.45rem 0.9rem', background: 'transparent', color: '#64748b', border: 'none', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+            >
+              הבנתי, אל תציג שוב
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Recycle Bin Drawer/Panel */}
+      {showRecycleBin && (
+        <div style={{ margin: '0 1rem 1.5rem 1rem', padding: '1.25rem', background: '#fff1f2', borderRadius: '16px', border: '1px solid #fecdd3' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h3 style={{ margin: 0, color: '#9f1239', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>🗑️</span> סל אשפה - מדפים שנמחקו
+            </h3>
+            <button onClick={() => setShowRecycleBin(false)} style={{ background: 'transparent', border: 'none', fontSize: '1rem', cursor: 'pointer', color: '#9f1239' }}>✕</button>
+          </div>
+          <p style={{ margin: '0 0 1rem 0', color: '#881337', fontSize: '0.85rem' }}>
+            מדפים אלו שמורים בסל האשפה. ניתן לשחזר מדף בכל עת או למחוק אותו לצמיתות.
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+            {deletedShelves.map(s => {
+              const docCount = documents.filter(d => d.shelfId === s.id).length;
+              return (
+                <div key={s.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #fecdd3' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <span style={{ fontSize: '1.2rem' }}>{s.icon || '🗂️'}</span>
+                    <div>
+                      <div style={{ fontWeight: 'bold', color: '#1e293b', fontSize: '0.95rem' }}>{s.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{docCount} מסמכים &bull; נמחק ב: {s.deletedAt ? new Date(s.deletedAt).toLocaleDateString('he-IL') : ''}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button 
+                      onClick={() => restoreShelf(space.id, s.id)}
+                      style={{ padding: '0.4rem 0.85rem', background: '#10b981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 'bold' }}
+                    >
+                      ↩️ שחזר
+                    </button>
+                    <button 
+                      onClick={() => setShelfToPermanentDelete({ id: s.id, name: s.name })}
+                      style={{ padding: '0.4rem 0.85rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 'bold' }}
+                    >
+                      🗑️ לצמיתות
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {editingShelfCoverId && (
         <ShelfCoverPicker 
@@ -1154,7 +1346,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     {isPrivate && <span style={{ background: '#fef2f2', color: '#ef4444', fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 'bold' }}>🔒</span>}
-                    <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', padding: 0 }}>🎨</button>
+                    <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      const docCount = documents.filter(d => d.shelfId === shelf.id).length;
+                      setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
+                    }} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="מחק מדף">🗑️</button>
                   </div>
                 </div>
                 
@@ -1193,7 +1390,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   </div>
                   <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{shelfDocs.length} מסמכים</div>
                   <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#cbd5e1', fontSize: '0.65rem', marginTop: '0.25rem' }}>נוצר: {new Date(shelf.createdAt).toLocaleDateString('he-IL')}</div>
-                  <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', bottom: '0.5rem', left: '0.5rem', background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🎨</button>
+                  <div style={{ position: 'absolute', bottom: '0.5rem', left: '0.5rem', display: 'flex', gap: '0.3rem' }}>
+                    <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
+                    <button onClick={(e) => {
+                      e.stopPropagation();
+                      const docCount = documents.filter(d => d.shelfId === shelf.id).length;
+                      setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
+                    }} style={{ background: '#fef2f2', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ef4444' }} title="מחק מדף">🗑️</button>
+                  </div>
                 </div>
               </div>
             );
@@ -1212,7 +1416,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
             return (
               <div key={shelf.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', width: '90px', position: 'relative' }}>
-                <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', top: 0, left: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>🎨</button>
+                <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ position: 'absolute', top: 0, left: 0, background: 'white', border: '1px solid #e2e8f0', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="עיצוב">🎨</button>
+                <button onClick={(e) => {
+                  e.stopPropagation();
+                  const docCount = documents.filter(d => d.shelfId === shelf.id).length;
+                  setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
+                }} style={{ position: 'absolute', top: 0, right: 0, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="מחק מדף">🗑️</button>
                 {hasNewRemoteDoc && <div style={{ position: 'absolute', top: '4px', right: '4px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }} />}
                 
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', ...highlightStyle, position: 'relative' }}>

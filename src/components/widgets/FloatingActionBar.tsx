@@ -236,7 +236,12 @@ export function FloatingActionBar({
         )}
         {hasScanner && (
            <button 
-             onClick={() => onOpenScanner('camera', (activeTab === 'documents' || isVaultTab || !hasFinance) ? 'document' : 'receipt')}
+             onClick={() => {
+               const cat = (activeTab === 'documents' || isVaultTab || !hasFinance) 
+                 ? 'document' 
+                 : (activeTab === 'inbox' ? 'document' : 'receipt');
+               onOpenScanner('camera', cat);
+             }}
              style={{
                position: 'relative', zIndex: 2,
                background: 'var(--primary)', border: 'none', padding: '0.75rem', borderRadius: '50%',

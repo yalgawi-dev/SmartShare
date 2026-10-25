@@ -694,22 +694,49 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
            URL.revokeObjectURL(url);
          }
       } else if (type === 'save') {
-         if (standalone || !onComplete) {
-           // Standalone: download file directly to phone/PC
-           const result = await processMultiPage(urls, exportFormat, exportNumbers);
-           const filename = `myspace-document-${Date.now()}.pdf`;
-           const url = URL.createObjectURL(result.blob);
-           const a = document.createElement('a');
-           a.href = url;
-           a.download = filename;
-           document.body.appendChild(a);
-           a.click();
-           document.body.removeChild(a);
-           URL.revokeObjectURL(url);
-           alert('הקובץ הורד בהצלחה למכשיר!');
-           onClose();
-           return;
-         }
+          if (standalone || !onComplete) {
+            // Standalone: download file directly to phone/PC
+            const result = await processMultiPage(urls, exportFormat, exportNumbers);
+            const filename = `myspace-document-${Date.now()}.pdf`;
+
+            // If browser supports File System Access API (Desktop Chrome/Edge), allow selecting destination directory/file
+            if (typeof window !== 'undefined' && 'showSaveFilePicker' in window) {
+              try {
+                const handle = await (window as any).showSaveFilePicker({
+                  suggestedName: filename,
+                  types: [{
+                    description: 'PDF Document',
+                    accept: { 'application/pdf': ['.pdf'] }
+                  }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(result.blob);
+                await writable.close();
+                alert('הקובץ נשמר בהצלחה במיקום שנבחר!');
+                onClose();
+                return;
+              } catch (pickerErr: any) {
+                if (pickerErr.name === 'AbortError') {
+                  setIsProcessing(false);
+                  return;
+                }
+                console.warn('showSaveFilePicker failed, falling back to download', pickerErr);
+              }
+            }
+
+            // Fallback for Mobile and browsers without showSaveFilePicker
+            const url = URL.createObjectURL(result.blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            alert('הקובץ הורד בהצלחה למכשיר!');
+            onClose();
+            return;
+          }
 
          // Documents are saved as clean individual pages (urls).
          // Merging into a single scroll image is ONLY done if user explicitly selected 'scroll_pdf'.
