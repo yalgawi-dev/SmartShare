@@ -28,9 +28,13 @@ export default function GlobalPWAPrompt() {
       || (window.navigator as any).standalone === true;
     if (isStandalone) return;
 
-    // Already dismissed
+    // Cooldown check (don't silence permanently, remind every 3 days if dismissed)
     try {
-      if (localStorage.getItem('pwa_v5') === 'done') return;
+      const dismissedAt = localStorage.getItem('pwa_dismissed_at');
+      if (dismissedAt) {
+        const days = (Date.now() - new Date(dismissedAt).getTime()) / (1000 * 3600 * 24);
+        if (days < 3) return;
+      }
     } catch (e) {}
 
     const ua = navigator.userAgent;
@@ -43,13 +47,17 @@ export default function GlobalPWAPrompt() {
     if (!isIOS && !isAndroid) return;
 
     if (isAndroid && isWebView)      setPlatform('android-webview');
-    // Android Chrome auto-prompt is handled ONLY by beforeinstallprompt now.
+    else if (isAndroid)              setPlatform('android-chrome');
     else if (isIOS && isWebView)     setPlatform('ios-webview');
     else if (isIOS && isSafari)      setPlatform('ios-safari');
     else                             setPlatform('other');
 
     // Grab Chrome's native install prompt
-    const onPrompt = (e: any) => { e.preventDefault(); setDeferredPrompt(e); setPlatform('android-chrome'); };
+    const onPrompt = (e: any) => { 
+      e.preventDefault(); 
+      setDeferredPrompt(e); 
+      setPlatform('android-chrome'); 
+    };
     window.addEventListener('beforeinstallprompt', onPrompt);
     const onTrigger = () => { 
       try { localStorage.removeItem('pwa_v5'); } catch (e) {}
@@ -76,7 +84,7 @@ export default function GlobalPWAPrompt() {
   }, []);
 
   const dismiss = () => {
-    try { localStorage.setItem('pwa_v5', 'done'); } catch (e) {}
+    try { localStorage.setItem('pwa_dismissed_at', new Date().toISOString()); } catch (e) {}
     setPlatform(null);
   };
 

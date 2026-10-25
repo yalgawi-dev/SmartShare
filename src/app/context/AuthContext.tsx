@@ -37,6 +37,8 @@ export interface UserProfile {
   createdAt: string;
   hideRealName?: boolean;
   spaceKeys?: Record<string, { role: "creator" | "partner", token: string }>;
+  pwaInstalled?: boolean;
+  pwaLastSeenAt?: string;
 }
 
 interface AuthContextType {
@@ -209,7 +211,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
           // Update presence immediately on login
           try {
-            await updateDoc(doc(db, 'users', firebaseUser.uid), { lastActiveAt: new Date().toISOString() });
+            const isPwa = typeof window !== 'undefined' && (
+              window.matchMedia('(display-mode: standalone)').matches ||
+              (window.navigator as any).standalone === true
+            );
+            const presenceUpdates: any = { lastActiveAt: new Date().toISOString() };
+            if (isPwa) {
+              presenceUpdates.pwaInstalled = true;
+              presenceUpdates.pwaLastSeenAt = new Date().toISOString();
+            }
+            await updateDoc(doc(db, 'users', firebaseUser.uid), presenceUpdates);
           } catch(e) {}
         }
         setIsLoaded(true);

@@ -30,14 +30,26 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
     setShow(true);
   }, []);
 
+  const [isSuccess, setIsSuccess] = useState(false);
+
   const handleAction = async (type: 'enable' | 'later' | 'forever') => {
     if (type === 'enable') {
-      const success = userId ? await requestNotificationPermission(userId) : false;
-      if (success) {
-        setShow(false);
-        localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
-        localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
-      } else {
+      try {
+        const success = userId ? await requestNotificationPermission(userId) : false;
+        const isGranted = (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted');
+        
+        if (success || isGranted) {
+          setIsSuccess(true);
+          localStorage.setItem('pushReminderDismiss_v2Type', 'forever');
+          localStorage.setItem('pushReminderDismiss_v2edAt', new Date().toISOString());
+          setTimeout(() => {
+            setShow(false);
+          }, 1600);
+        } else {
+          setShowNotificationHelp(true);
+        }
+      } catch (err) {
+        console.error('Notification enable error:', err);
         setShowNotificationHelp(true);
       }
     } else {
@@ -72,33 +84,52 @@ export function PushNotificationReminder({ userId }: { userId?: string }) {
     }}>
       <div style={{ position: 'absolute', top: 0, left: 0, width: '4px', height: '100%', background: '#22c55e' }}></div>
       
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <span style={{ fontSize: '1.5rem' }}>🔔</span>
-        <div style={{ flex: 1 }}>
-          <h4 style={{ margin: '0 0 0.25rem 0', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 'bold' }}>
-            הידעת?
-          </h4>
-          <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4' }}>
-            {Notification.permission === 'denied' 
-              ? 'ההתראות חסומות. כדי לא לפספס הודעות, פתח את הגדרות הטלפון -> אפליקציות -> MySpace והפעל התראות.'
-              : 'כדי לא לפספס הודעות ופעולות חשובות בקבוצה, מומלץ להפעיל התראות כעת.'}
-          </p>
+      {isSuccess ? (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          background: 'rgba(34, 197, 94, 0.1)',
+          padding: '0.75rem 1rem',
+          borderRadius: '8px',
+          color: '#15803d',
+          fontWeight: 'bold',
+          fontSize: '0.95rem'
+        }}>
+          <span style={{ fontSize: '1.25rem' }}>✅</span>
+          <span>ההתראות הופעלו בהצלחה! תישאר מעודכן בכל רגע.</span>
         </div>
-      </div>
+      ) : (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>🔔</span>
+            <div style={{ flex: 1 }}>
+              <h4 style={{ margin: '0 0 0.25rem 0', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 'bold' }}>
+                הידעת?
+              </h4>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4' }}>
+                {Notification.permission === 'denied' 
+                  ? 'ההתראות חסומות. כדי לא לפספס הודעות, פתח את הגדרות הטלפון -> אפליקציות -> MySpace והפעל התראות.'
+                  : 'כדי לא לפספס הודעות ופעולות חשובות בקבוצה, מומלץ להפעיל התראות כעת.'}
+              </p>
+            </div>
+          </div>
 
-      {Notification.permission !== 'denied' && (
-        <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
-          <button 
-            onClick={() => handleAction('enable')}
-            style={{ 
-              background: '#22c55e', color: 'white', border: 'none', padding: '0.7rem 1rem', 
-              borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1, 
-              fontSize: '0.95rem', boxShadow: '0 2px 4px rgba(34, 197, 94, 0.2)'
-            }}
-          >
-            הפעל התראות עכשיו
-          </button>
-        </div>
+          {Notification.permission !== 'denied' && (
+            <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <button 
+                onClick={() => handleAction('enable')}
+                style={{ 
+                  background: '#22c55e', color: 'white', border: 'none', padding: '0.7rem 1rem', 
+                  borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', flex: 1, 
+                  fontSize: '0.95rem', boxShadow: '0 2px 4px rgba(34, 197, 94, 0.2)'
+                }}
+              >
+                הפעל התראות עכשיו
+              </button>
+            </div>
+          )}
+        </>
       )}
       
       {/* Close button X */}

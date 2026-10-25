@@ -22,6 +22,38 @@ export default function AdminUsersPage() {
       <td style={{ padding: '1rem' }}>{u.phone}</td>
       <td style={{ padding: '1rem' }}>{u.email || '-'}</td>
       <td style={{ padding: '1rem' }}>{u.contacts?.length || 0}</td>
+      <td style={{ padding: '1rem' }}>
+        {u.pwaInstalled ? (
+          <span style={{ 
+            background: 'rgba(34, 197, 94, 0.15)', 
+            color: '#15803d', 
+            border: '1px solid #86efac', 
+            padding: '2px 8px', 
+            borderRadius: '12px', 
+            fontSize: '0.8rem', 
+            fontWeight: 'bold',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            📲 אפליקציה
+          </span>
+        ) : (
+          <span style={{ 
+            background: 'rgba(100, 116, 139, 0.1)', 
+            color: '#475569', 
+            border: '1px solid #cbd5e1', 
+            padding: '2px 8px', 
+            borderRadius: '12px', 
+            fontSize: '0.8rem',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}>
+            🌐 דפדפן
+          </span>
+        )}
+      </td>
       <td style={{ padding: '1rem' }}>{new Date(u.createdAt).toLocaleDateString('he-IL')}</td>
       <td style={{ padding: '1rem', textAlign: 'center', display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
         {u.id !== user.id && (
@@ -113,6 +145,7 @@ export default function AdminUsersPage() {
                   <th style={{ padding: '1rem' }}>טלפון</th>
                   <th style={{ padding: '1rem' }}>אימייל</th>
                   <th style={{ padding: '1rem' }}>אנשי קשר</th>
+                  <th style={{ padding: '1rem' }}>התקנת PWA</th>
                   <th style={{ padding: '1rem' }}>הצטרף ב</th>
                   <th style={{ padding: '1rem', textAlign: 'center' }}>פעולות</th>
                 </tr>
@@ -139,6 +172,7 @@ export default function AdminUsersPage() {
                   <th style={{ padding: '1rem' }}>טלפון</th>
                   <th style={{ padding: '1rem' }}>אימייל</th>
                   <th style={{ padding: '1rem' }}>אנשי קשר</th>
+                  <th style={{ padding: '1rem' }}>התקנת PWA</th>
                   <th style={{ padding: '1rem' }}>הצטרף ב</th>
                   <th style={{ padding: '1rem', textAlign: 'center' }}>פעולות</th>
                 </tr>
@@ -147,7 +181,7 @@ export default function AdminUsersPage() {
                 {regulars.map(u => <UserRow key={u.id} u={u} isAdminRow={false} />)}
                 {regulars.length === 0 && (
                   <tr>
-                    <td colSpan={8} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>אין משתמשים רגילים כרגע.</td>
+                    <td colSpan={9} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>אין משתמשים רגילים כרגע.</td>
                   </tr>
                 )}
               </tbody>
