@@ -1,6 +1,6 @@
 'use client';
 import NotificationHelpModal from '../../components/common/NotificationHelpModal';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 import { auth } from '@/lib/firebase';
 import { useAuth } from '../context/AuthContext';
@@ -10,15 +10,23 @@ import Link from 'next/link';
 
 export default function SettingsPage() {
   const { user, updateProfile, logout, deleteMyAccount } = useAuth();
+  const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
+  
+  const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'system'>('profile');
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [showNotificationHelp, setShowNotificationHelp] = useState(false);
   const [pushSuccessMessage, setPushSuccessMessage] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(true);
+  const [showExtraProfile, setShowExtraProfile] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'granted') {
+    if (typeof window !== 'undefined') {
+      if ('Notification' in window && Notification.permission === 'granted') {
         setIsPushEnabled(true);
       }
+      const standalone = window.matchMedia('(display-mode: standalone)').matches
+        || (window.navigator as any).standalone === true;
+      setIsStandalone(standalone);
     }
   }, []);
 
@@ -35,7 +43,11 @@ export default function SettingsPage() {
     }
   };
 
-  const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
+  const handleTriggerInstall = () => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('trigger-pwa-install'));
+    }
+  };
   
   const [nickname, setNickname] = useState(user?.nickname || '');
   const [realName, setRealName] = useState(user?.realName || '');
@@ -63,6 +75,83 @@ export default function SettingsPage() {
       setHideRealName(user.hideRealName || false);
     }
   }, [user]);
+
+  // Comprehensive calculation of contacts: Include ALL spaces user has access to
+  const { uniqueContacts, myActiveSpaces, myArchivedSpaces } = useMemo(() => {
+    if (!user?.id || !Array.isArray(spaces)) {
+      return { uniqueContacts: [], myActiveSpaces: [], myArchivedSpaces: [] };
+    }
+
+    const mySpaces = spaces.filter((s: any) => {
+      const isCreator = s.creatorId === user.id || user.spaceKeys?.[s.id]?.role === 'creator';
+      const isPartnerKey = user.spaceKeys?.[s.id]?.role === 'partner';
+      const isMember = (s.members || []).some((m: any) => m.userId === user.id || m.phone === user.phone);
+      return isCreator || isPartnerKey || isMember;
+    });
+
+    const active = mySpaces.filter((s: any) => s.status !== 'pending_deletion' && !s.isArchived);
+    const archived = mySpaces.filter((s: any) => s.status === 'pending_deletion' || s.isArchived);
+
+    // Extract all other participants from these spaces
+    const contactsMap = new Map<string, { id: string; name: string; phone?: string; avatarUrl?: string; spaces: { id: string; title: string }[] }>();
+
+    mySpaces.forEach((s: any) => {
+      // 1. If current user is not creator, creator is a contact
+      if (s.creatorId && s.creatorId !== user.id) {
+        const creatorId = s.creatorId;
+        const existing = contactsMap.get(creatorId) || {
+          id: creatorId,
+          name: s.createdBy || 'מנהל המרחב',
+          spaces: []
+        };
+        if (!existing.spaces.some(sp => sp.id === s.id)) {
+          existing.spaces.push({ id: s.id, title: s.title || 'פרויקט ללא שם' });
+        }
+        contactsMap.set(creatorId, existing);
+      }
+
+      // 2. Members of space
+      (s.members || []).forEach((m: any) => {
+        if (!m.userId || m.userId === user.id) return;
+        const existing = contactsMap.get(m.userId) || {
+          id: m.userId,
+          name: m.name || 'שותף במרחב',
+          phone: m.phone,
+          avatarUrl: m.avatarUrl,
+          spaces: []
+        };
+        if (m.name && existing.name === 'שותף במרחב') existing.name = m.name;
+        if (m.phone && !existing.phone) existing.phone = m.phone;
+        if (m.avatarUrl && !existing.avatarUrl) existing.avatarUrl = m.avatarUrl;
+        if (!existing.spaces.some(sp => sp.id === s.id)) {
+          existing.spaces.push({ id: s.id, title: s.title || 'פרויקט ללא שם' });
+        }
+        contactsMap.set(m.userId, existing);
+      });
+    });
+
+    // Also include saved contacts in user.contacts
+    (user.contacts || []).forEach((c: any) => {
+      const cId = c.id || c.phone;
+      if (!cId || cId === user.id) return;
+      const existing = contactsMap.get(cId) || {
+        id: cId,
+        name: c.name || 'איש קשר',
+        phone: c.phone,
+        avatarUrl: c.avatarUrl,
+        spaces: []
+      };
+      if (c.name && (!existing.name || existing.name === 'איש קשר')) existing.name = c.name;
+      if (c.phone && !existing.phone) existing.phone = c.phone;
+      contactsMap.set(cId, existing);
+    });
+
+    return {
+      uniqueContacts: Array.from(contactsMap.values()),
+      myActiveSpaces: active,
+      myArchivedSpaces: archived
+    };
+  }, [spaces, user]);
 
   if (!user || (user as any).isAnonymous) {
     return (
@@ -95,403 +184,627 @@ export default function SettingsPage() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
+    <div style={{ maxWidth: '820px', margin: '0 auto', paddingBottom: '7rem', direction: 'rtl' }}>
       
-      {/* Sticky Header / Back Button */}
-      <div style={{ position: 'sticky', top: 0, background: 'var(--bg-main, #f8fafc)', zIndex: 100, padding: '1rem', borderBottom: '1px solid var(--border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link href="/" style={{ color: 'var(--primary)', textDecoration: 'none', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>&rarr;</span> חזרה למסך הראשי
+      {/* Sticky Top Header */}
+      <div style={{ position: 'sticky', top: 0, background: 'rgba(255, 255, 255, 0.95)', backdropFilter: 'blur(12px)', zIndex: 100, padding: '0.85rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
+        <Link href="/" style={{ color: '#2563eb', textDecoration: 'none', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.95rem' }}>
+          <span>→</span> חזרה למסך הראשי
         </Link>
-        <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}>
-          התנתק
-        </button>
-      </div>
-
-      <header style={{ padding: '1.5rem 1rem 0' }}>
-        <h1 style={{ margin: 0, fontSize: '1.75rem', color: 'var(--text-primary)' }}>הגדרות חשבון אישי</h1>
-        <p style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>השינויים שתבצע יישמרו באופן אוטומטי ויחולו על כל המרחבים שלך.</p>
-      </header>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', padding: '1rem' }}>
-        
-        {/* Profile Card */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
-          <h2 style={{ fontSize: '1.15rem', margin: '0 0 1.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>👤</span> פרופיל אישי
-          </h2>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginBottom: '2rem' }}>
-            <div style={{ position: 'relative', width: '90px', height: '90px', flexShrink: 0 }}>
-              <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: 'var(--border-light)', overflow: 'hidden', border: '2px solid var(--primary)' }}>
-                {user.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                ) : (
-                  <div style={{ fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>🧑‍💻</div>
-                )}
-              </div>
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                style={{ position: 'absolute', bottom: -5, right: -5, background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'var(--shadow-sm)' }}
-                title="החלף תמונה"
-              >
-                📷
-              </button>
-              <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
-            </div>
-            <div>
-              <h3 style={{ margin: '0 0 0.25rem 0' }}>{realName || user.id}</h3>
-              <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: '0.9rem' }}>{phone || 'אין טלפון'}</p>
-            </div>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1.25rem' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              שם מלא:
-              <input type="text" value={realName} onChange={e => setRealName(e.target.value)} onBlur={e => saveField('realName', e.target.value)} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-            </label>
-
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              כינוי / תצוגה:
-              <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} onBlur={e => saveField('nickname', e.target.value)} placeholder="הכינוי שלך..." style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-            </label>
-
-            
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1.5rem', borderRadius: '16px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-          <div>
-            <h3 style={{ margin: '0 0 0.35rem 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><span>🔔</span> התראות ישירות לטלפון</h3>
-            <p style={{ margin: 0, color: '#15803d', fontSize: '0.9rem', lineHeight: '1.4' }}>
-              קופץ לך למכשיר ברגע ששותף מעלה הוצאה, שולח הודעה חדשה או מעביר כסף.
-            </p>
-          </div>
-          <button onClick={handleEnablePush} style={{ background: isPushEnabled ? '#86efac' : '#22c55e', color: isPushEnabled ? '#14532d' : 'white', border: 'none', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-md)', fontWeight: 'bold', cursor: 'pointer' }}>
-            {isPushEnabled ? 'פעיל ✔️ (לחץ לסנכרון מחדש)' : ((user?.fcmTokens?.length || 0) > 0 ? 'הפעל גם בדפדפן זה' : 'הפעל עכשיו')}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.4</span>
+          <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
+            התנתק
           </button>
         </div>
+      </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-              <label style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>מספר טלפון:</label>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <input 
-                  type="text" 
-                  value={phone || 'לא מאומת'} 
-                  disabled 
-                  style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: '#f3f4f6', color: '#6b7280', cursor: 'not-allowed' }} 
-                />
-                {phone && (
-                  <button 
-                    onClick={async () => {
-                      if (confirm('האם אתה בטוח שברצונך לשנות מספר? תצטרך לאמת את המספר החדש ב-SMS.')) {
-                        await saveField('phone', '');
-                        window.location.reload();
-                      }
-                    }}
-                    style={{ padding: '0.6rem 1rem', background: '#e0e7ff', color: '#4f46e5', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
-                  >
-                    שנה מספר
-                  </button>
-                )}
+      <header style={{ padding: '1.25rem 1rem 0.5rem' }}>
+        <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800, color: '#0f172a' }}>
+          הגדרות חשבון וניהול
+        </h1>
+        <p style={{ color: '#64748b', marginTop: '0.35rem', fontSize: '0.9rem' }}>
+          נהל את הפרופיל שלך, השותפים, המרחבים והגדרות המערכת בקלות.
+        </p>
+      </header>
+
+      {/* Main Content Area based on Active Tab */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.75rem 1rem' }}>
+        
+        {/* ================= TAB 1: PROFILE ================= */}
+        {activeTab === 'profile' && (
+          <>
+            {/* Install PWA Prompt Banner inside Profile if not standalone */}
+            {!isStandalone && (
+              <div style={{
+                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                color: 'white',
+                borderRadius: '18px',
+                padding: '1.1rem 1.25rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '1rem',
+                boxShadow: '0 8px 20px rgba(16, 185, 129, 0.25)',
+                animation: 'pulseGlow 3s infinite'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <div style={{ fontSize: '2rem' }}>📲</div>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '1.05rem' }}>התקן את MySpace בטלפון</div>
+                    <div style={{ fontSize: '0.82rem', opacity: 0.9, marginTop: '2px' }}>גישה מיידית ממסך הבית, מהירות שיא והתראות בזמן אמת</div>
+                  </div>
+                </div>
+                <button
+                  onClick={handleTriggerInstall}
+                  style={{
+                    background: '#ffffff',
+                    color: '#059669',
+                    border: 'none',
+                    padding: '0.6rem 1.2rem',
+                    borderRadius: '12px',
+                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  התקן עכשיו ⬇️
+                </button>
               </div>
-              <span style={{ fontSize: '0.75rem', color: '#9ca3af' }}>{phone ? 'המספר מאומת מאובטח.' : 'יש לאמת מספר במסך הראשי.'}</span>
-            </div>
+            )}
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              אימייל:
+            {/* Profile Main Card */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h2 style={{ fontSize: '1.15rem', margin: '0 0 1.25rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                <span>👤</span> פרופיל ראשי
+              </h2>
               
-              {auth.currentUser?.providerData.some(p => p.providerId === 'google.com' || p.providerId === 'facebook.com' || p.providerId === 'apple.com') ? (
-                <div style={{ position: 'relative' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input type="email" value={email} disabled style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)', background: 'var(--bg-secondary)', color: 'var(--text-secondary)', cursor: 'not-allowed' }} />
-                    <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>מאומת ✓</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                <div style={{ position: 'relative', width: '84px', height: '84px', flexShrink: 0 }}>
+                  <div style={{ width: '100%', height: '100%', borderRadius: '50%', background: '#f1f5f9', overflow: 'hidden', border: '3px solid #2563eb' }}>
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ fontSize: '2.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>🧑‍💻</div>
+                    )}
                   </div>
-                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem', display: 'block' }}>מייל זה מסונכרן מחשבון ההתחברות שלך ומוגן משינויים.</span>
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ position: 'absolute', bottom: -2, right: -2, background: '#2563eb', color: 'white', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
+                    title="החלף תמונה"
+                  >
+                    📷
+                  </button>
+                  <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
                 </div>
-              ) : (
-                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value)} placeholder="הזן מייל לקבלת חשבוניות" style={{ flex: 1, padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-                    {email && /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email) ? (
-                      (auth.currentUser?.email === email && auth.currentUser?.emailVerified) ? (
-                        <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>מאומת ✓</span>
-                      ) : (
-                        <span style={{ color: '#f59e0b', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>ממתין לאימות ⏳</span>
-                      )
-                    ) : email && !/^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email) ? (<span style={{ color: '#dc2626', fontWeight: 'bold', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>מייל לא חוקי ❌</span>) : null}
+                <div>
+                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>{realName || user.id}</h3>
+                  <p style={{ color: '#64748b', margin: 0, fontSize: '0.9rem', direction: 'ltr', textAlign: 'right' }}>{phone || 'אין טלפון'}</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                  שם מלא:
+                  <input type="text" value={realName} onChange={e => setRealName(e.target.value)} onBlur={e => saveField('realName', e.target.value)} style={{ padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none' }} />
+                </label>
+
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                  כינוי / תצוגה:
+                  <input type="text" value={nickname} onChange={e => setNickname(e.target.value)} onBlur={e => saveField('nickname', e.target.value)} placeholder="הכינוי שלך..." style={{ padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none' }} />
+                </label>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <label style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>מספר טלפון:</label>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <input 
+                      type="text" 
+                      value={phone || 'לא מאומת'} 
+                      disabled 
+                      style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#64748b', cursor: 'not-allowed', direction: 'ltr', textAlign: 'right' }} 
+                    />
+                    {phone && (
+                      <button 
+                        onClick={async () => {
+                          if (confirm('האם אתה בטוח שברצונך לשנות מספר? תצטרך לאמת את המספר החדש ב-SMS.')) {
+                            await saveField('phone', '');
+                            window.location.reload();
+                          }
+                        }}
+                        style={{ padding: '0.65rem 1rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '10px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}
+                      >
+                        שנה מספר
+                      </button>
+                    )}
                   </div>
-                  {email && /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email) && !(auth.currentUser?.email === email && auth.currentUser?.emailVerified) && (
-                    <button
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        if (!auth.currentUser) return;
-                        try {
-                          const { verifyBeforeUpdateEmail, sendEmailVerification } = await import('firebase/auth');
-                          if (auth.currentUser.email === email) {
-                            await sendEmailVerification(auth.currentUser);
-                          } else {
-                            await verifyBeforeUpdateEmail(auth.currentUser, email);
-                          }
-                          alert('נשלח לינק אימות לכתובת: ' + email + '\nאנא בדוק את תיבת הדואר שלך (וגם בספאם).');
-                        } catch (err: any) {
-                          if (err.code === 'auth/requires-recent-login') {
-                            alert('על מנת לאמת מייל זה, יש להתנתק מהמערכת ולהתחבר מחדש (מטעמי אבטחה).');
-                          } else {
-                            if (err.code === 'auth/email-already-in-use') {
-                              alert('המייל הזה כבר מופיע אצל משתמש אחר! אנא בחר מייל אחר או התחבר לחשבון השני.');
-                            } else {
-                              alert('שגיאה בשליחת אימות: ' + err.message);
-                            }
-                          }
-                        }
-                      }}
-                      style={{ padding: '0.4rem 0.8rem', background: '#fef3c7', color: '#d97706', border: '1px solid #fde68a', borderRadius: '6px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer', width: 'fit-content' }}
-                    >
-                      שלח לינק אימות למייל
-                    </button>
-                  )}
+                  <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{phone ? (user.phoneVerified !== false ? 'המספר מאומת ומאובטח ✓' : 'המספר טרם אומת ב-SMS') : 'יש להזין מספר במסך הראשי.'}</span>
                 </div>
-              )}
 
-            </label>
-          </div>
+                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                  אימייל:
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)} onBlur={e => saveField('email', e.target.value)} placeholder="name@example.com" style={{ flex: 1, padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.95rem', outline: 'none', direction: 'ltr', textAlign: 'right' }} />
+                    {email && <span style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.8rem', whiteSpace: 'nowrap' }}>רשום ✓</span>}
+                  </div>
+                </label>
+              </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.5rem', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-            <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0 }}>
-              <div style={{ position: 'relative' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '1.25rem', background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
                 <input 
                   type="checkbox" 
+                  id="hideRealNameCheckbox"
                   checked={hideRealName} 
                   onChange={(e) => {
                     setHideRealName(e.target.checked);
                     saveField('hideRealName', e.target.checked);
                   }}
-                  style={{ opacity: 0, width: 0, height: 0, position: 'absolute' }} 
+                  style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                 />
-                <div style={{ width: '44px', height: '24px', background: hideRealName ? 'var(--primary)' : '#ccc', borderRadius: '24px', position: 'relative', transition: 'background 0.3s' }}>
-                  <div style={{ width: '20px', height: '20px', background: 'white', borderRadius: '50%', position: 'absolute', top: '2px', left: hideRealName ? '2px' : '22px', transition: 'left 0.3s' }} />
+                <label htmlFor="hideRealNameCheckbox" style={{ fontSize: '0.88rem', fontWeight: 700, color: '#334155', cursor: 'pointer' }}>
+                  הסתר את שמי המלא ממשתמשים אחרים (יוצג כינוי בלבד)
+                </label>
+              </div>
+            </section>
+
+            {/* Accordion: Extra Profile Information */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <div 
+                onClick={() => setShowExtraProfile(!showExtraProfile)}
+                style={{ padding: '1rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', background: showExtraProfile ? '#f8fafc' : '#ffffff' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800, color: '#0f172a', fontSize: '1.05rem' }}>
+                  <span>🌟</span> פרטים אישיים נוספים (אופציונלי)
+                </div>
+                <div style={{ color: '#64748b', fontSize: '1rem', transition: 'transform 0.3s', transform: showExtraProfile ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+                  ▼
                 </div>
               </div>
-            </label>
-            <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>הסתר את שמי המלא ממשתמשים אחרים (יוצג כינוי בלבד)</span>
-          </div>
-        </section>
 
-        {/* Extended Info */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
-          <h2 style={{ fontSize: '1.15rem', margin: '0 0 1.25rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>🌟</span> מידע נוסף
-          </h2>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.25rem' }}>
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              מצב משפחתי:
-              <select value={status} onChange={e => { setStatus(e.target.value as any); saveField('status', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                <option value="hidden">לא מעוניין/ת לשתף</option>
-                <option value="single">רווק/ה</option>
-                <option value="relationship">במערכת יחסים</option>
-                <option value="married">נשוי/אה</option>
-                <option value="divorced">גרוש/ה</option>
-                <option value="widowed">אלמן/ה</option>
-                <option value="complicated">זה מסובך</option>
-                <option value="other">אחר...</option>
-              </select>
-            </label>
+              {showExtraProfile && (
+                <div style={{ padding: '1.25rem', borderTop: '1px solid #f1f5f9', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                    מצב משפחתי:
+                    <select value={status} onChange={e => { setStatus(e.target.value as any); saveField('status', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}>
+                      <option value="hidden">לא מעוניין/ת לשתף</option>
+                      <option value="single">רווק/ה</option>
+                      <option value="relationship">במערכת יחסים</option>
+                      <option value="married">נשוי/אה</option>
+                      <option value="divorced">גרוש/ה</option>
+                      <option value="widowed">אלמן/ה</option>
+                      <option value="complicated">זה מסובך</option>
+                      <option value="other">אחר...</option>
+                    </select>
+                  </label>
 
-            {status === 'other' && (
-              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-                פירוט:
-                <input type="text" value={customStatus} onChange={e => setCustomStatus(e.target.value)} onBlur={e => saveField('customStatus', e.target.value)} placeholder="מצב אישי..." style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-              </label>
-            )}
+                  {status === 'other' && (
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                      פירוט:
+                      <input type="text" value={customStatus} onChange={e => setCustomStatus(e.target.value)} onBlur={e => saveField('customStatus', e.target.value)} placeholder="מצב אישי..." style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1' }} />
+                    </label>
+                  )}
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              מגדר:
-              <select value={gender} onChange={e => { setGender(e.target.value); saveField('gender', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                <option value="">לא צוין</option>
-                <option value="male">זכר</option>
-                <option value="female">נקבה</option>
-                <option value="other">אחר</option>
-              </select>
-            </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                    מגדר:
+                    <select value={gender} onChange={e => { setGender(e.target.value); saveField('gender', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}>
+                      <option value="">לא צוין</option>
+                      <option value="male">זכר</option>
+                      <option value="female">נקבה</option>
+                      <option value="other">אחר</option>
+                    </select>
+                  </label>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              תאריך לידה:
-              <input type="date" value={birthDate} onChange={e => { setBirthDate(e.target.value); saveField('birthDate', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }} />
-            </label>
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                    תאריך לידה:
+                    <input type="date" value={birthDate} onChange={e => { setBirthDate(e.target.value); saveField('birthDate', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }} />
+                  </label>
 
-            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', fontSize: '0.9rem', fontWeight: 'bold' }}>
-              מזל:
-              <select value={zodiacSign} onChange={e => { setZodiacSign(e.target.value); saveField('zodiacSign', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)' }}>
-                <option value="">לא צוין</option>
-                <option value="טלה">טלה</option>
-                <option value="שור">שור</option>
-                <option value="תאומים">תאומים</option>
-                <option value="סרטן">סרטן</option>
-                <option value="אריה">אריה</option>
-                <option value="בתולה">בתולה</option>
-                <option value="מאזניים">מאזניים</option>
-                <option value="עקרב">עקרב</option>
-                <option value="קשת">קשת</option>
-                <option value="גדי">גדי</option>
-                <option value="דלי">דלי</option>
-                <option value="דגים">דגים</option>
-              </select>
-            </label>
-          </div>
-        </section>
-
-        {/* Contacts */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
-          <h2 style={{ fontSize: '1.15rem', margin: '0 0 1rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>🤝</span> אנשי קשר
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-            משתמשים שחולקים איתך מרחבי שותפות. תוכל ליצור איתם מרחבים חדשים בקלות.
-          </p>
-
-          {(() => {
-            // Include ANY space where the current user is a member
-            const mySpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === user?.id));
-            const allSpaceMembers = mySpaces.flatMap((s: any) => s.members || []);
-            const uniqueMembers = Array.from(new Map(allSpaceMembers.map((m: any) => [m.userId, m])).values()).filter((m: any) => m.userId !== user?.id);
-            
-            if (uniqueMembers.length === 0) {
-              return (
-                <div style={{ textAlign: 'center', padding: '1.5rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px dashed var(--border-light)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                  אין לך אנשי קשר משותפים במרחבים כרגע.
+                  <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.88rem', fontWeight: 700, color: '#334155' }}>
+                    מזל:
+                    <select value={zodiacSign} onChange={e => { setZodiacSign(e.target.value); saveField('zodiacSign', e.target.value); }} style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' }}>
+                      <option value="">לא צוין</option>
+                      <option value="טלה">טלה</option>
+                      <option value="שור">שור</option>
+                      <option value="תאומים">תאומים</option>
+                      <option value="סרטן">סרטן</option>
+                      <option value="אריה">אריה</option>
+                      <option value="בתולה">בתולה</option>
+                      <option value="מאזניים">מאזניים</option>
+                      <option value="עקרב">עקרב</option>
+                      <option value="קשת">קשת</option>
+                      <option value="גדי">גדי</option>
+                      <option value="דלי">דלי</option>
+                      <option value="דגים">דגים</option>
+                    </select>
+                  </label>
                 </div>
-              );
-            }
-            
-            return (
+              )}
+            </section>
+          </>
+        )}
+
+        {/* ================= TAB 2: CONTACTS ================= */}
+        {activeTab === 'contacts' && (
+          <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.15rem', margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                <span>🤝</span> אנשי קשר ושותפים ({uniqueContacts.length})
+              </h2>
+            </div>
+            <p style={{ color: '#64748b', marginBottom: '1.25rem', fontSize: '0.9rem', lineHeight: '1.5' }}>
+              כל השותפים שחולקים איתך מרחבים קיימים או שמורים באנשי הקשר שלך.
+            </p>
+
+            {uniqueContacts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1', color: '#64748b' }}>
+                <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>👥</div>
+                <div style={{ fontWeight: 700, fontSize: '1rem', color: '#1e293b' }}>אין אנשי קשר משותפים כרגע</div>
+                <div style={{ fontSize: '0.85rem', marginTop: '0.25rem' }}>כאשר תזמין שותפים למרחבים שלך או תצטרף למרחב, הם יופיעו כאן אוטומטית.</div>
+              </div>
+            ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                {uniqueMembers.map((contact: any) => {
-                  const userSpaces = spaces.filter((s: any) => s.members?.some((m: any) => m.userId === contact.userId));
-                  return (
-                    <div key={contact.userId} style={{ border: '1px solid var(--border-light)', padding: '1rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(0,0,0,0.01)' }}>
-                      <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: 'var(--border-light)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.25rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
-                        {contact.name.charAt(0)}
+                {uniqueContacts.map((contact) => (
+                  <div key={contact.id} style={{ border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '14px', display: 'flex', alignItems: 'center', gap: '1rem', background: '#ffffff', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
+                    <div style={{ width: '46px', height: '46px', borderRadius: '50%', background: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem', fontWeight: 800 }}>
+                      {contact.avatarUrl ? (
+                        <img src={contact.avatarUrl} alt={contact.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                      ) : (
+                        contact.name ? contact.name.charAt(0) : '👤'
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#0f172a' }}>{contact.name}</div>
+                      {contact.phone && (
+                        <div style={{ fontSize: '0.8rem', color: '#64748b', direction: 'ltr', textAlign: 'right' }}>{contact.phone}</div>
+                      )}
+                      <div style={{ color: '#2563eb', fontSize: '0.8rem', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {contact.spaces.length > 0 
+                          ? 'שותף ב: ' + contact.spaces.map(s => s.title).join(', ') 
+                          : 'איש קשר שמור'}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '1rem' }}>{contact.name}</div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-                          שותף ב: {userSpaces.map((s: any) => s.title || 'פרויקט ללא שם').join(', ')}
-                        </div>
-                      </div>
+                    </div>
+                    {contact.spaces.length > 0 && (
                       <button 
                         onClick={() => {
-                          if (confirm(`האם אתה בטוח שברצונך למחוק את ${contact.name} מכל הפרויקטים שלך לחלוטין?`)) {
-                            userSpaces.forEach((s: any) => removeMember(s.id, contact.userId, user?.id || 'admin'));
+                          if (confirm('האם אתה בטוח שברצונך להסיר את ' + contact.name + ' מכל הפרויקטים המשותפים?')) {
+                            contact.spaces.forEach(s => removeMember(s.id, contact.id, user.id));
                           }
                         }}
-                        style={{ padding: '0.4rem 1rem', borderRadius: 'var(--radius-full)', border: '1px solid #ef4444', background: 'white', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 'bold', color: '#ef4444' }}
+                        style={{ padding: '0.4rem 0.85rem', borderRadius: '20px', border: '1px solid #fecaca', background: '#fef2f2', cursor: 'pointer', fontSize: '0.8rem', fontWeight: 700, color: '#ef4444', whiteSpace: 'nowrap' }}
                       >
-                        מחק לצמיתות
+                        הסר שותף
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ================= TAB 3: SPACES & ARCHIVE ================= */}
+        {activeTab === 'spaces' && (
+          <>
+            {/* Active Spaces Overview */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 style={{ fontSize: '1.15rem', margin: 0, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                  <span>🟢</span> מרחבים פעילים ({myActiveSpaces.length})
+                </h2>
+                <Link href="/" style={{ color: '#2563eb', fontSize: '0.85rem', fontWeight: 700, textDecoration: 'none' }}>
+                  פתח במסך הראשי ↗
+                </Link>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {myActiveSpaces.map((s: any) => (
+                  <div key={s.id} style={{ padding: '0.85rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{s.icon || '🌟'}</span>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>{s.title}</div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b' }}>{(s.members || []).length} שותפים | {(s.invoices || []).length} הוצאות</div>
+                      </div>
+                    </div>
+                    <Link href={'/space/' + s.id} style={{ padding: '0.4rem 0.85rem', background: '#2563eb', color: 'white', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 700, textDecoration: 'none' }}>
+                      כניסה
+                    </Link>
+                  </div>
+                ))}
+                {myActiveSpaces.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8' }}>אין מרחבים פעילים</div>
+                )}
+              </div>
+            </section>
+
+            {/* Archived Spaces */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h2 style={{ fontSize: '1.15rem', margin: '0 0 0.5rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
+                <span>🗄️</span> מרחבים בארכיון ({myArchivedSpaces.length})
+              </h2>
+              <p style={{ color: '#64748b', fontSize: '0.88rem', marginBottom: '1.25rem' }}>
+                מרחבים שהועברו לארכיון. מרחבים אלו ישמרו למשך 14 ימים לפני מחיקה לצמיתות.
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {myArchivedSpaces.map((s: any) => (
+                  <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '1rem', color: '#9a3412' }}>{s.icon || '🗄️'} {s.title}</div>
+                      <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
+                        נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                      <button 
+                        onClick={() => restoreSpace(s.id)}
+                        style={{ padding: '0.45rem 0.9rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
+                      >
+                        ↩️ שחזר מרחב
+                      </button>
+                      <button 
+                        onClick={async () => {
+                          if (confirm('האם למחוק לצמיתות את "' + s.title + '"? הפעולה בלתי הפיכה!')) {
+                            await permanentlyDeleteSpace(s.id);
+                          }
+                        }}
+                        style={{ padding: '0.45rem 0.9rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
+                      >
+                        🗑️ מחק סופית
                       </button>
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-        </section>
-
-        {/* Archived Spaces */}
-        <section className="card glass-panel" style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)' }}>
-          <h2 style={{ fontSize: '1.15rem', margin: '0 0 1rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>🗄️</span> מרחבים בארכיון
-          </h2>
-          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-            כאן תוכל למצוא מרחבים שהשהית או שהעברת לארכיון. לאחר 30 ימים, הם ימחקו לצמיתות.
-          </p>
-          
-          <div style={{ overflowX: 'auto', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', minWidth: '600px', fontSize: '0.9rem' }}>
-              <thead>
-                <tr style={{ background: 'rgba(0,0,0,0.05)', borderBottom: '1px solid var(--border-light)' }}>
-                  <th style={{ padding: '0.75rem 1rem' }}>מרחב</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>שותפים</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>הוצאות</th>
-                  <th style={{ padding: '0.75rem 1rem' }}>מחיקה לצמיתות ב:</th>
-                  <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>פעולה</th>
-                </tr>
-              </thead>
-              <tbody>
-                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s.creatorId === user?.id || user?.spaceKeys?.[s.id])).map((s: any) => (
-                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border-light)' }}>
-                    <td style={{ padding: '1rem', fontWeight: 'bold' }}>{s.icon} {s.title}</td>
-                    <td style={{ padding: '1rem' }}>{s.members?.length || 0}</td>
-                    <td style={{ padding: '1rem' }}>{s.invoices?.length || 0}</td>
-                    <td style={{ padding: '1rem', color: '#EF4444', fontWeight: '500' }}>
-                      נמחק ויעלם ב: {new Date(s.deletionScheduledFor || Date.now() + 14*86400000).toLocaleDateString()}
-                    </td>
-                                        <td style={{ padding: '1rem', textAlign: 'left' }}>
-                      <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                        <button 
-                          onClick={(e) => { e.preventDefault(); restoreSpace(s.id); }}
-                          style={{ padding: '0.5rem 0.85rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
-                        >
-                          ↩️ שחזר
-                        </button>
-                        <button 
-                          onClick={async (e) => { 
-                            e.preventDefault(); 
-                            if (window.confirm(`האם למחוק לצמיתות את המרחב "${s.title}"? פעולה זו היא בלתי הפיכה!`)) {
-                              await permanentlyDeleteSpace(s.id); 
-                            }
-                          }}
-                          style={{ padding: '0.5rem 0.85rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
-                        >
-                          🗑️ מחק לצמיתות
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
+                  </div>
                 ))}
-                {spaces.filter((s: any) => s.status === 'pending_deletion' && (s.creatorId === user?.id || user?.spaceKeys?.[s.id])).length === 0 && (
-                  <tr>
-                    <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                      אין מרחבים בארכיון כרגע.
-                    </td>
-                  </tr>
+                {myArchivedSpaces.length === 0 && (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
+                    אין מרחבים בארכיון כרגע.
+                  </div>
                 )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-        <div style={{ marginTop: '3rem', paddingTop: '2rem', borderTop: '1px solid var(--border-light)', textAlign: 'center' }}>
-          <h3 style={{ color: '#ef4444', marginBottom: '1rem' }}>אזור מסוכן (Danger Zone)</h3>
-          <button 
-            onClick={async () => {
-              if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה לא ניתנת לביטול! (אם זהו חשבון כפול ריק, זו הפעולה הנכונה לשחרור מספר הטלפון)')) {
-                try {
-                  await deleteMyAccount();
-                  alert('החשבון נמחק בהצלחה.');
-                  window.location.href = '/';
-                } catch (e) {
-                  alert('שגיאה במחיקת חשבון: ' + e.message);
-                }
-              }
-            }}
-            style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', padding: '0.75rem 2rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '1rem', transition: 'all 0.2s' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#fee2e2'}
-            onMouseLeave={e => e.currentTarget.style.background = '#fef2f2'}
-          >
-            מחק את החשבון שלי לצמיתות
-          </button>
-        </div>
-
-
-              {showNotificationHelp && (
-          <NotificationHelpModal 
-            onClose={() => setShowNotificationHelp(false)} 
-            onRetry={handleEnablePush} 
-          />
+              </div>
+            </section>
+          </>
         )}
-        {pushSuccessMessage && (
-          <div style={{ position: 'fixed', bottom: '24px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.85rem 1.75rem', borderRadius: '999px', fontWeight: 'bold', boxShadow: '0 10px 25px rgba(16,185,129,0.4)', zIndex: 99999 }}>
-            ✓ ההתראות הופעלו בהצלחה!
-          </div>
+
+        {/* ================= TAB 4: SYSTEM & SETTINGS ================= */}
+        {activeTab === 'system' && (
+          <>
+            {/* Direct Phone Notifications Section */}
+            <section style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 0.35rem 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 800 }}>
+                    <span>🔔</span> התראות ישירות לטלפון (Push Notifications)
+                  </h3>
+                  <p style={{ margin: 0, color: '#15803d', fontSize: '0.88rem', lineHeight: '1.5' }}>
+                    קבל התראה מיידית למכשיר כששותף מעלה הוצאה, שולח מסמך או מעביר כסף.
+                  </p>
+                </div>
+                <button 
+                  onClick={handleEnablePush} 
+                  style={{ 
+                    background: isPushEnabled ? '#86efac' : '#22c55e', 
+                    color: isPushEnabled ? '#14532d' : 'white', 
+                    border: 'none', 
+                    padding: '0.75rem 1.4rem', 
+                    borderRadius: '12px', 
+                    fontWeight: 800, 
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    boxShadow: '0 4px 10px rgba(34, 197, 94, 0.25)'
+                  }}
+                >
+                  {isPushEnabled ? 'פעיל ✔️ (רענן סנכרון)' : 'הפעל עכשיו 🔔'}
+                </button>
+              </div>
+            </section>
+
+            {/* PWA App Install Section */}
+            <section style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: '0 0 0.35rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 800 }}>
+                    <span>📲</span> התקנת האפליקציה במכשיר (PWA)
+                  </h3>
+                  <p style={{ margin: 0, color: '#64748b', fontSize: '0.88rem', lineHeight: '1.5' }}>
+                    {isStandalone 
+                      ? 'האפליקציה כבר מותקנת ופועלת במצב אפליקציה עצמאית במכשיר שלך.' 
+                      : 'התקן את MySpace כאפליקציה אמיתית במסך הבית של הטלפון בלחיצה אחת.'}
+                  </p>
+                </div>
+                {!isStandalone ? (
+                  <button 
+                    onClick={handleTriggerInstall} 
+                    style={{ 
+                      background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
+                      color: 'white', 
+                      border: 'none', 
+                      padding: '0.75rem 1.4rem', 
+                      borderRadius: '12px', 
+                      fontWeight: 800, 
+                      cursor: 'pointer',
+                      fontSize: '0.9rem',
+                      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                    }}
+                  >
+                    התקן עכשיו ⬇️
+                  </button>
+                ) : (
+                  <span style={{ color: '#15803d', background: '#dcfce7', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.82rem', fontWeight: 800 }}>
+                    מותקן בהצלחה ✓
+                  </span>
+                )}
+              </div>
+            </section>
+
+            {/* Future OCR & Modules Section */}
+            <section style={{ background: '#ffffff', border: '1px solid #e2e8f0', borderRadius: '20px', padding: '1.5rem', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem', fontWeight: 800 }}>
+                <span>🔍</span> מנוע סריקה ו-OCR (בתהליך פיתוח)
+              </h3>
+              <p style={{ margin: '0 0 1rem 0', color: '#64748b', fontSize: '0.88rem', lineHeight: '1.5' }}>
+                מנוע זיהוי טקסט אוטומטי וסריקת קבלות מתקדמת. בקרוב יתווספו הגדרות איכות סריקה, שמירה אוטומטית למחסן וניתוח מע״מ.
+              </p>
+              <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px dashed #cbd5e1', fontSize: '0.82rem', color: '#64748b' }}>
+                מצב מנוע: פעיל ומחובר למחסן המסמכים | תמיכה במסמכים מרובי עמודים פעילה
+              </div>
+            </section>
+
+            {/* Danger Zone */}
+            <section style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: '20px', padding: '1.5rem', marginTop: '1rem' }}>
+              <h3 style={{ color: '#e11d48', margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 800 }}>
+                ⚠️ אזור מסוכן (Danger Zone)
+              </h3>
+              <p style={{ color: '#9f1239', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: '1.5' }}>
+                מחיקת חשבון הינה פעולה בלתי הפיכה. מחיקת החשבון תסיר את פרטיך ותשחרר את מספר הטלפון המקושר.
+              </p>
+              <button 
+                onClick={async () => {
+                  if (confirm('האם אתה בטוח שברצונך למחוק את החשבון הנוכחי לצמיתות? הפעולה בלתי הפיכה!')) {
+                    try {
+                      await deleteMyAccount();
+                      alert('החשבון נמחק בהצלחה.');
+                      window.location.href = '/';
+                    } catch (e: any) {
+                      alert('שגיאה במחיקת חשבון: ' + e.message);
+                    }
+                  }
+                }}
+                style={{ background: '#ef4444', color: 'white', border: 'none', padding: '0.65rem 1.25rem', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', fontSize: '0.88rem' }}
+              >
+                מחק את החשבון שלי לצמיתות
+              </button>
+            </section>
+          </>
         )}
+
       </div>
+
+      {/* Modern Floating Bottom Dock for Settings */}
+      <div style={{
+        position: 'fixed',
+        bottom: '12px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 99999,
+        background: 'rgba(15, 23, 42, 0.92)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        padding: '6px 10px',
+        borderRadius: '28px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        boxShadow: '0 20px 40px -10px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1)',
+        maxWidth: '92vw',
+        direction: 'rtl'
+      }}>
+        <button
+          onClick={() => setActiveTab('profile')}
+          style={{
+            background: activeTab === 'profile' ? '#2563eb' : 'transparent',
+            color: activeTab === 'profile' ? '#ffffff' : '#94a3b8',
+            border: 'none',
+            borderRadius: '20px',
+            padding: '8px 14px',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <span>👤</span>
+          <span>פרופיל</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('contacts')}
+          style={{
+            background: activeTab === 'contacts' ? '#2563eb' : 'transparent',
+            color: activeTab === 'contacts' ? '#ffffff' : '#94a3b8',
+            border: 'none',
+            borderRadius: '20px',
+            padding: '8px 14px',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <span>🤝</span>
+          <span>אנשי קשר</span>
+          {uniqueContacts.length > 0 && (
+            <span style={{ background: activeTab === 'contacts' ? 'rgba(255,255,255,0.25)' : '#334155', color: 'white', borderRadius: '10px', padding: '1px 6px', fontSize: '0.7rem' }}>
+              {uniqueContacts.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('spaces')}
+          style={{
+            background: activeTab === 'spaces' ? '#2563eb' : 'transparent',
+            color: activeTab === 'spaces' ? '#ffffff' : '#94a3b8',
+            border: 'none',
+            borderRadius: '20px',
+            padding: '8px 14px',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <span>📁</span>
+          <span>מרחבים</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('system')}
+          style={{
+            background: activeTab === 'system' ? '#2563eb' : 'transparent',
+            color: activeTab === 'system' ? '#ffffff' : '#94a3b8',
+            border: 'none',
+            borderRadius: '20px',
+            padding: '8px 14px',
+            fontWeight: 800,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            transition: 'all 0.2s ease',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <span>⚙️</span>
+          <span>מערכת</span>
+        </button>
+      </div>
+
+      {showNotificationHelp && (
+        <NotificationHelpModal 
+          onClose={() => setShowNotificationHelp(false)} 
+          onRetry={handleEnablePush} 
+        />
+      )}
+
+      {pushSuccessMessage && (
+        <div style={{ position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.85rem 1.75rem', borderRadius: '999px', fontWeight: 'bold', boxShadow: '0 10px 25px rgba(16,185,129,0.4)', zIndex: 99999 }}>
+          ✓ ההתראות הופעלו בהצלחה!
+        </div>
+      )}
     </div>
   );
 }
