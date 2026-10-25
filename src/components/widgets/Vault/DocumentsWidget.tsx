@@ -523,7 +523,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.7</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.8.8</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -874,23 +874,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         )}
                         
                         {!isMultiSelect && (
-                          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '0.35rem 0.5rem', position: 'relative' }}>
-                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '0.35rem 0.5rem', position: 'relative', gap: '0.25rem' }}>
+                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'wrap' }}>
                               <button 
                                 type="button"
                                 onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }}
-                                style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '0.3rem 0.6rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '0.3rem 0.5rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
                                 title="שתף מסמך"
                               >
                                 📤 שתף
                               </button>
+                              
+                              {/* Link to Timeline Station (Only if timeline is enabled in space) */}
+                              {showTimeline && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url });
+                                  }}
+                                  style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '0.3rem 0.45rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                  title={linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה בציר'}
+                                >
+                                  🔗 {linkedEvent ? 'תחנה' : 'קשר'}
+                                </button>
+                              )}
+
+                              {/* Move to another shelf */}
                               <button 
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); downloadDocument(doc.url, doc.title); }}
-                                style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '0.3rem 0.5rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                                title="הורד מסמך למכשיר"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleMoveDocument(doc.id, activeShelf.id);
+                                }}
+                                style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '0.3rem 0.45rem', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                                title="העבר למדף אחר"
                               >
-                                ⬇️
+                                🔄 העבר
                               </button>
                             </div>
 
@@ -919,7 +939,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     style={{
                                       position: 'absolute',
                                       bottom: '120%',
-                                      left: 0,
+                                      right: 0,
+                                      left: 'auto',
                                       background: 'white',
                                       borderRadius: '14px',
                                       boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1)',
@@ -929,11 +950,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       display: 'flex',
                                       flexDirection: 'column',
                                       gap: '0.2rem',
-                                      minWidth: '160px',
+                                      minWidth: '175px',
                                       textAlign: 'right',
                                       direction: 'rtl'
                                     }}
                                   >
+                                    {/* Download to Device */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDocMenuId(null);
+                                        downloadDocument(doc.url, doc.title);
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}
+                                    >
+                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>⬇️</span> הורד למכשיר
+                                    </button>
+
+                                    {/* Edit Title */}
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -951,33 +985,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       }}
                                       style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                     >
-                                      <span>✏️</span> ערוך כותרת
+                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>✏️</span> ערוך כותרת
                                     </button>
-
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveDocMenuId(null);
-                                        handleMoveDocument(doc.id, activeShelf.id);
-                                      }}
-                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                    >
-                                      <span>🔄</span> העבר למדף אחר
-                                    </button>
-
-                                    {/* Link to Timeline Station (Only if timeline is enabled in space) */}
-                                    {showTimeline && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveDocMenuId(null);
-                                          setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url });
-                                        }}
-                                        style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                      >
-                                        <span>🔗</span> {linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה בציר'}
-                                      </button>
-                                    )}
 
                                     {/* Convert to Expense (Only if finance plugin exists in space) */}
                                     {hasFinance && (
@@ -991,12 +1000,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         }}
                                         style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                       >
-                                        <span>🧾</span> הוסף להוצאות המרחב
+                                        <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>🧾</span> הוסף להוצאות המרחב
                                       </button>
                                     )}
 
                                     <div style={{ height: '1px', background: '#e2e8f0', margin: '0.2rem 0' }} />
 
+                                    {/* Delete Document */}
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1005,7 +1015,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       }}
                                       style={{ background: '#fef2f2', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#dc2626', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
                                     >
-                                      <span>🗑️</span> מחק מסמך
+                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>🗑️</span> מחק מסמך
                                     </button>
                                   </div>
                                 </>
@@ -1272,7 +1282,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.7</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.8.8</span>
         </h2>
         <input 
           type="text" 

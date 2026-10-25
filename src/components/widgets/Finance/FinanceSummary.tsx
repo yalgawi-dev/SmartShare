@@ -584,20 +584,21 @@ export function FinanceSummary({
                       <React.Fragment key={b.userId || b.name}>
                         <tr id={`partner-row-${b.userId}`}
                           onClick={() => {
-                              if (isPendingInvite) return; // Pending invites do not have a financial control panel yet
                               if (isCreatorMe) {
-                                // Creator: can click on partner rows, NOT own row
-                                if (b.isMember && !b.isCreator && b.userId !== user?.id) {
+                                // Creator: can click on partner rows (including pending invites), NOT own row
+                                if ((b.isMember || isPendingInvite) && !b.isCreator && b.userId !== user?.id) {
                                   setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId);
                                 }
                               } else {
                                 // Partner: can click on creator row and other partner rows, NOT own row
-                                if (b.isMember && b.userId !== user?.id) { setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); }
+                                if ((b.isMember || isPendingInvite) && b.userId !== user?.id) { 
+                                  setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); 
+                                }
                               }
                             }}
-                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: isPendingInvite ? 'default' : (isCreatorMe 
-                          ? (b.isMember && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
-                          : (b.isMember && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
+                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: (isCreatorMe 
+                          ? ((b.isMember || isPendingInvite) && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
+                          : ((b.isMember || isPendingInvite) && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
                           <td style={{ padding: '0.75rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', color: 'inherit' }}>
@@ -661,103 +662,38 @@ export function FinanceSummary({
                               {(b as any).status === 'pending' && (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
                                   <span style={{ fontSize: '0.7rem', color: '#7c3aed', fontWeight: 500 }}>
-                                    ✉️ ממתין
+                                    ✉️ ממתין להצטרפות
                                   </span>
-
-                                  {/* Action buttons for pending invite: Compact, round & proportional */}
-                                  {(b as any).isInvite && (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        const link = `${window.location.origin}/space/${space.id}?invite=${b.userId}`;
-                                        navigator.clipboard.writeText(link);
-                                        alert('קישור ההזמנה הועתק ללוח!');
-                                      }}
-                                      style={{
-                                        background: '#10b981',
-                                        color: '#ffffff',
-                                        border: 'none',
-                                        borderRadius: '50%',
-                                        width: '24px',
-                                        height: '24px',
-                                        fontSize: '0.75rem',
-                                        cursor: 'pointer',
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        boxShadow: '0 1px 3px rgba(16, 185, 129, 0.3)',
-                                        padding: 0,
-                                        flexShrink: 0
-                                      }}
-                                      title="העתק קישור להזמנה שוב"
-                                    >
-                                      🔗
-                                    </button>
-                                  )}
-
-                                    {(b as any).isInvite && isCreatorMe && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setConfirmModalConfig({
-                                            isOpen: true,
-                                            title: 'ביטול ומחיקת הזמנה',
-                                            message: `האם למחוק לצמיתות את ההזמנה עבור "${b.name}"?`,
-                                            confirmText: 'מחק הזמנה',
-                                            cancelText: 'ביטול',
-                                            variant: 'danger',
-                                            icon: '🗑️',
-                                            onConfirm: () => {
-                                              if (typeof declinePendingInvite === 'function') {
-                                                declinePendingInvite(space.id, b.userId);
-                                              }
-                                              setConfirmModalConfig(prev => ({ ...prev, isOpen: false }));
-                                            }
-                                          });
-                                        }}
-                                        style={{
-                                          background: '#ef4444',
-                                          color: '#ffffff',
-                                          border: 'none',
-                                          borderRadius: '50%',
-                                          width: '24px',
-                                          height: '24px',
-                                          fontSize: '0.7rem',
-                                          cursor: 'pointer',
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          justifyContent: 'center',
-                                          boxShadow: '0 1px 3px rgba(239, 68, 68, 0.3)',
-                                          padding: 0,
-                                          flexShrink: 0
-                                        }}
-                                      >
-                                        🗑️
-                                      </button>
-                                    )}
-                                  </div>
-                                )}
-                                {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
-                                {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
-                              </div>
-                          </td>
-                          <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
-                          <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                          {hasPartners && (() => {
-                            const displayBalance = Math.round(b.balance);
-                            return (
-                              <td style={{ padding: '0.75rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
-                                <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{displayBalance < 0 ? '(חובה)' : displayBalance > 0 ? '(זכות)' : ''}</span>
-                                {displayBalance > 0 ? '+' : (displayBalance < 0 ? '-' : '')}{'₪'}{Math.abs(displayBalance).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                              </td>
-                            );
-                          })()}
-                        </tr>
-                        {isCreatorMe && expandedPartnerId === b.userId && memberObj && (
+                                </div>
+                              )}
+                              {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
+                              {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
+                            </div>
+                        </td>
+                        <td style={{ padding: '0.75rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
+                        <td style={{ padding: '0.75rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                        {hasPartners && (() => {
+                          const displayBalance = Math.round(b.balance);
+                          return (
+                            <td style={{ padding: '0.75rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                              <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{displayBalance < 0 ? '(חובה)' : displayBalance > 0 ? '(זכות)' : ''}</span>
+                              {displayBalance > 0 ? '+' : (displayBalance < 0 ? '-' : '')}{'₪'}{Math.abs(displayBalance).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                            </td>
+                          );
+                        })()}
+                      </tr>
+                      {isCreatorMe && expandedPartnerId === b.userId && (() => {
+                        const effectiveMember = memberObj || {
+                          userId: b.userId,
+                          name: b.name,
+                          role: 'partner',
+                          status: 'pending',
+                          isInvite: (b as any).isInvite || true,
+                          guestShare: (b as any).guestShare
+                        };
+                        return (
                           <PartnerControlPanel
-                            member={memberObj}
+                            member={effectiveMember}
                             space={space}
                             viewMode="creator"
                             onClose={() => setExpandedPartnerId(null)}
@@ -765,30 +701,31 @@ export function FinanceSummary({
                             onTriggerTransfer={() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null}
                             onEditShares={() => setIsEditingShares(true)}
                           />
-                        )}
-                        {!isCreatorMe && expandedPartnerId === b.userId && (() => {
-                          const creatorMember = {
-                            userId: space.creatorId || space.createdBy || creatorId || 'creator',
-                            name: space.createdBy || 'מנהל המרחב',
-                            role: 'creator' as const,
-                            status: 'active' as const
-                          };
-                          const targetMember = b.isCreator
-                            ? creatorMember
-                            : (space.members?.find((m: any) => m.userId === b.userId) || { userId: b.userId, name: b.name, status: 'active', role: 'partner' });
-                          if (!targetMember) return null;
-                          return (
-                            <PartnerControlPanel
-                              member={targetMember}
-                              space={space}
-                              viewMode={b.isCreator ? "partner" : "peer"}
-                              onClose={() => setExpandedPartnerId(null)}
-                              onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
-                              onTriggerTransfer={b.isCreator ? (() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null) : undefined}
-                              onEditShares={undefined}
-                            />
-                          );
-                        })()}
+                        );
+                      })()}
+                      {!isCreatorMe && expandedPartnerId === b.userId && (() => {
+                        const creatorMember = {
+                          userId: space.creatorId || space.createdBy || creatorId || 'creator',
+                          name: space.createdBy || 'מנהל המרחב',
+                          role: 'creator' as const,
+                          status: 'active' as const
+                        };
+                        const targetMember = b.isCreator
+                          ? creatorMember
+                          : (space.members?.find((m: any) => m.userId === b.userId) || { userId: b.userId, name: b.name, status: (b as any).status || 'pending', role: 'partner', isInvite: (b as any).isInvite });
+                        if (!targetMember) return null;
+                        return (
+                          <PartnerControlPanel
+                            member={targetMember}
+                            space={space}
+                            viewMode={b.isCreator ? "partner" : "peer"}
+                            onClose={() => setExpandedPartnerId(null)}
+                            onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
+                            onTriggerTransfer={b.isCreator ? (() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null) : undefined}
+                            onEditShares={undefined}
+                          />
+                        );
+                      })()}
                       </React.Fragment>
                   )
                 })}

@@ -115,42 +115,8 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   if (!mounted || typeof document === 'undefined') return null;
   if (!member || !space) return null;
 
-  // Defensive: If this is a guest invite that hasn't joined, disallow chat / member panel
-  if (member.isInvite || member.userId?.startsWith('guest_')) {
-    return createPortal(
-      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 99999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-        <div style={{ background: 'white', borderRadius: '20px', maxWidth: '420px', width: '100%', padding: '1.75rem', textAlign: 'center', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✉️</div>
-          <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b' }}>הזמנה ממתינה / פג תוקף</h3>
-          <p style={{ color: '#64748b', fontSize: '0.9rem', lineHeight: '1.5', margin: '0 0 1.25rem 0' }}>
-            השותף <strong>{member.name || 'מוזמן'}</strong> טרם הצטרף למרחב. לא ניתן לנהל צ'אט או לשלוח הודעות להזמנה שטרם אושרה.
-          </p>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center' }}>
-            {viewMode === 'creator' && (
-              <button
-                onClick={() => {
-                  if (typeof declinePendingInvite === 'function') {
-                    declinePendingInvite(space.id, member.userId);
-                  }
-                  onClose();
-                }}
-                style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fecdd3', padding: '0.6rem 1rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-              >
-                🗑️ מחק הזמנה
-              </button>
-            )}
-            <button
-              onClick={onClose}
-              style={{ background: '#f1f5f9', color: '#475569', border: 'none', padding: '0.6rem 1.25rem', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              סגור
-            </button>
-          </div>
-        </div>
-      </div>,
-      document.body
-    );
-  }
+  const isInvite = Boolean(member.isInvite || member.userId?.startsWith('guest_') || member.status === 'pending');
+
 
   const memberName = viewMode === 'partner' ? (space?.createdBy || 'מנהל המרחב') : (member?.name || 'שותף');
   const memberStatus = member?.status || 'active';
@@ -377,7 +343,38 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           )}
           
           {/* Action Buttons */}
-          {viewMode === 'creator' && member?.isActive !== false && (
+          {isInvite && viewMode === 'creator' ? (
+            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/space/${space.id}?invite=${member.userId}`;
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    navigator.clipboard.writeText(link);
+                  }
+                  alert('קישור ההזמנה הועתק ללוח!');
+                }}
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
+                  fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 4px rgba(16,185,129,0.3)'
+                }}
+              >
+                <span style={{ fontSize: '1.1rem' }}>🔗</span> העתק קישור הזמנה שוב
+              </button>
+              <button
+                type="button"
+                onClick={handleRemove}
+                style={{
+                  flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                  background: '#fee2e2', color: '#dc2626', border: '1px solid #fecdd3', padding: '0.6rem', borderRadius: '12px',
+                  fontWeight: 'bold', cursor: 'pointer'
+                }}
+              >
+                <span style={{ fontSize: '1.1rem' }}>🗑️</span> מחק ובטל הזמנה
+              </button>
+            </div>
+          ) : viewMode === 'creator' && member?.isActive !== false && (
             <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
               {onTriggerTransfer && (
                 <button
@@ -515,12 +512,14 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         {/* Chat Messages Area */}
         {(space.features || []).includes('chat') ? (
           <ChatEngineUI
-            isFrozen={!(space.features || []).includes('partners') || member?.isActive === false}
-            frozenReason={!(space.features || []).includes('partners') 
-              ? 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'
-              : member?.isActive === false 
-                ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.' 
-                : undefined}
+            isFrozen={isInvite || !(space.features || []).includes('partners') || member?.isActive === false}
+            frozenReason={isInvite
+              ? 'השותף טרם הצטרף למרחב. לא ניתן לנהל צ\'אט עד שיאשר את ההזמנה.'
+              : !(space.features || []).includes('partners') 
+                ? 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'
+                : member?.isActive === false 
+                  ? 'השותף אינו פעיל במרחב זה. לא ניתן לשלוח הודעות.' 
+                  : undefined}
             space={space}
             conversationId={conversationId}
             member={member}
@@ -561,6 +560,13 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         ) : (
           /* No chat plugin – show only the finance banners in a compact area */
           <>
+            {isInvite && (
+              <div style={{ margin: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '1.25rem', textAlign: 'center', color: '#64748b', fontSize: '0.9rem' }}>
+                <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>✉️</div>
+                השותף טרם הצטרף למרחב.<br />
+                ברגע שיאשר את ההזמנה, יופיעו כאן נתוני הפעילות המלאים.
+              </div>
+            )}
             {viewMode === 'creator' && member?.extensionMessage && (
               <div style={{ margin: '1rem', background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#92400e', textAlign: 'center' }}>
                 💬 <strong>בקשת הארכה:</strong> {member.extensionMessage}
