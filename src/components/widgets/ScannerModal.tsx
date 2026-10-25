@@ -20,6 +20,7 @@ interface ScannedPage {
   cropPoints?: Point[];
   mode?: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow';
   category?: 'receipt' | 'document' | 'image' | 'advanced';
+  source?: 'camera' | 'upload';
 }
 
 interface ClassifyResult {
@@ -90,6 +91,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>(defaultMode);
+  const [activeSource, setActiveSource] = useState<'camera' | 'upload'>(defaultMode);
+  const [isEditingFromReview, setIsEditingFromReview] = useState(false);
 
   const hasContentRef = useRef(false);
 
@@ -248,6 +251,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     };
     document.body.appendChild(script);
   }, []);  const processImportUrl = (url: string, preserveId?: string) => {
+    setActiveSource('upload');
+    setScannerMode('upload');
+    setIsEditingFromReview(false);
     setActiveOriginalUrl(url);
     setStep('cropping');
     setRawSnapshot(null); // Triggers loading state
@@ -307,7 +313,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           id: items[idx].id,
           imageUrl: compressCanvas(canvas, 0.82),
           rawImageUrl: compressCanvas(canvas, 1.0),
-          pageNum: startPageNum + idx
+          pageNum: startPageNum + idx,
+          source: 'upload'
         });
       }
     }
@@ -319,6 +326,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     if (!files || files.length === 0) return;
     const fileList = Array.from(files);
     e.target.value = '';
+
+    setActiveSource('upload');
+    setScannerMode('upload');
+    setIsEditingFromReview(false);
 
     // URL.createObjectURL is instantaneous and RAM-friendly; PDFs are expanded to page images.
     const urls: string[] = [];
@@ -425,6 +436,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
     // Freeze frame & switch UI in an instant (0.05s)
     const snapshotUrl = compressCanvas(canvas, 0.92, 'image/jpeg');
+    setActiveSource('camera');
+    setScannerMode('camera');
+    setIsEditingFromReview(false);
     setRawSnapshot(snapshotUrl);
     stopCamera();
     setStep('cropping');
@@ -467,6 +481,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   
   const handleSkipCrop = () => {
     if (!rawSnapshot) return;
+    setIsEditingFromReview(false);
     setIsProcessing(true);
     setTimeout(() => {
       setIsProcessing(false);
@@ -478,6 +493,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleCropComplete = () => {
     if (!rawSnapshot || cropPoints.length !== 4) return;
+    setIsEditingFromReview(false);
     const t_click = performance.now();
     setIsProcessing(true);
     setTimeout(async () => {
@@ -550,7 +566,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       imageUrl: currentImg,
       pageNum: scannedPages.length + 1,
       rawImageUrl: rawSnapshot || undefined,
-      cropPoints: cropPoints
+      cropPoints: cropPoints,
+      source: activeSource
     };
     setScannedPages(prev => {
       if (prev.some(p => p.id === activeDocId)) return prev;
@@ -564,6 +581,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setDetectedType(null);
     setClassifyResult(null);
     setClassifyOverride(false);
+    setIsEditingFromReview(false);
 
     if (pendingImports.length > 0) {
         const nextItem = pendingImports[0];
@@ -617,7 +635,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           imageUrl: currentImg,
           pageNum: scannedPages.length + 1,
           rawImageUrl: rawSnapshot || undefined,
-          cropPoints: cropPoints
+          cropPoints: cropPoints,
+          source: activeSource
         };
         setScannedPages(prev => [...prev, newPage]);
       }
@@ -631,11 +650,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     if (nextPending) {
        setPendingImports(prev => prev.filter(p => p.id !== nextPending.id));
        setActiveDocId(nextPending.id);
+       setActiveSource('upload');
+       setScannerMode('upload');
+       setIsEditingFromReview(false);
        processImportUrl(nextPending.url, nextPending.id);
     } else if (nextScanned) {
        setScannedPages(prev => prev.filter(p => p.id !== nextScanned.id));
        const restoredMode = nextScanned.mode || 'smart_plus';
        const restoredCat = nextScanned.category || 'document';
+       const restoredSource = nextScanned.source || 'upload';
+       setActiveSource(restoredSource);
+       setScannerMode(restoredSource);
+       setIsEditingFromReview(false);
        setMode(restoredMode);
        setSelectedCategory(restoredCat);
        setImageCache({ [restoredMode]: nextScanned.imageUrl });
@@ -647,6 +673,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
        setRawSnapshot(null); 
        setActiveDocId(generateDocId());
        setImageCache({});
+       setIsEditingFromReview(false);
        if (step !== 'scanning') setStep('scanning');
     }
   };
@@ -661,7 +688,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setDetectedType(null);
     setClassifyResult(null);
     setClassifyOverride(false);
-    if (scannerMode === 'upload') {
+    setIsEditingFromReview(false);
+    if (activeSource === 'upload' || scannerMode === 'upload') {
       setTimeout(() => {
         galleryInputRef.current?.click();
       }, 100);
@@ -1036,7 +1064,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{scannerMode === 'upload' ? 'ייבוא מסמכים v2.9.9' : 'סורק מסמכים v2.9.9'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.0' : 'סורק מסמכים v3.0.0'}</span>
           </h2>
 
 
@@ -1303,13 +1331,26 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         {step === 'cropping' && (
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
-            <button 
-              onClick={handleRetake} 
-              style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
-            >
-              <span>{scannerMode === 'upload' ? '📁' : '📷'}</span>
-              <span>{scannerMode === 'upload' ? 'בחר קובץ אחר' : 'צלם שוב'}</span>
-            </button>
+            {isEditingFromReview ? (
+              <button 
+                onClick={() => {
+                  setIsEditingFromReview(false);
+                  setStep('review');
+                }} 
+                style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+              >
+                <span>↩️</span>
+                <span>ביטול עריכה</span>
+              </button>
+            ) : (
+              <button 
+                onClick={handleRetake} 
+                style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+              >
+                <span>{(activeSource === 'upload' || scannerMode === 'upload') ? '📁' : '📷'}</span>
+                <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'בחר קובץ אחר' : 'צלם שוב'}</span>
+              </button>
+            )}
             <button 
               onClick={handleSkipCrop} 
               disabled={isProcessing} 
@@ -1397,10 +1438,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   מחק
                 </button>
                 <button onClick={handleRetake} style={{ flex: 1, background: 'transparent', color: '#f59e0b', border: '1px solid #f59e0b', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontSize: '1rem' }}>{scannerMode === 'upload' ? '📁' : '📷'}</span>
-                  {scannerMode === 'upload' ? 'החלף קובץ' : 'צלם שוב'}
+                  <span style={{ fontSize: '1rem' }}>{(activeSource === 'upload' || scannerMode === 'upload') ? '📁' : '📷'}</span>
+                  {(activeSource === 'upload' || scannerMode === 'upload') ? 'החלף קובץ' : 'צלם שוב'}
                 </button>
-                <button onClick={() => setStep('cropping')} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                <button onClick={() => { setIsEditingFromReview(true); setStep('cropping'); }} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>✂️</span>
                   עריכה
                 </button>
@@ -1432,6 +1473,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                  setScannedPages(prev => prev.filter(p => p.id !== item.id));
                                  const restoredMode = docToLoad.mode || 'smart_plus';
                                  const restoredCat = docToLoad.category || 'document';
+                                 const restoredSource = docToLoad.source || 'upload';
+                                 setActiveSource(restoredSource);
+                                 setScannerMode(restoredSource);
+                                 setIsEditingFromReview(false);
                                  setMode(restoredMode);
                                  setSelectedCategory(restoredCat);
                                  setImageCache({ [restoredMode]: docToLoad.imageUrl });
@@ -1442,6 +1487,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                            } else if (item.type === 'pending') {
                               saveCurrentStateToTrays();
                               setActiveDocId(item.id);
+                              setActiveSource('upload');
+                              setScannerMode('upload');
+                              setIsEditingFromReview(false);
                               setPendingImports(prev => prev.filter(p => p.id !== item.id));
                               processImportUrl(item.url, item.id);
                            }
