@@ -131,6 +131,7 @@ export interface SpaceDocument {
   createdAt: string;
   thumbnailUrl?: string;
   pages?: string[];
+  deletedAt?: string;
 }
 
 export interface SpaceSettings {
@@ -283,6 +284,8 @@ interface SpacesContextType {
   addDocumentAndLinkToEvent: (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>, eventId: string) => string;
   updateDocument: (spaceId: string, docId: string, updates: Partial<SpaceDocument>) => void;
   removeDocument: (spaceId: string, docId: string) => void;
+  restoreDocument: (spaceId: string, docId: string) => void;
+  permanentlyDeleteDocument: (spaceId: string, docId: string) => void;
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
@@ -1747,6 +1750,26 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const removeDocument = (spaceId: string, docId: string) => {
+    // Soft delete: move to recycle bin
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documents: (space.documents || []).map(d => d.id === docId ? { ...d, deletedAt: new Date().toISOString() } : d)
+    }));
+  };
+
+  const restoreDocument = (spaceId: string, docId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documents: (space.documents || []).map(d => {
+        if (d.id !== docId) return d;
+        const copy = { ...d };
+        delete copy.deletedAt;
+        return copy;
+      })
+    }));
+  };
+
+  const permanentlyDeleteDocument = (spaceId: string, docId: string) => {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       documents: (space.documents || []).filter(d => d.id !== docId)
@@ -2017,7 +2040,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,
