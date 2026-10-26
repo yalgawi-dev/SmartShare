@@ -1073,7 +1073,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.2.2' : 'סורק מסמכים v3.2.2'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.2.3' : 'סורק מסמכים v3.2.3'}</span>
           </h2>
 
 
@@ -1274,7 +1274,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.2.2</span>
+                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.2.3</span>
                      <button
                        onClick={() => setShowDebug(false)}
                        title="סגור חלונית טלמטריה"
@@ -1478,7 +1478,37 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                )}
              </div>
              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
-               <div style={{ width: '60px' }} />
+               {scannedPages.length > 0 ? (
+                  <div 
+                    onClick={() => {
+                      if (scannedPages.length > 0) {
+                        const last = scannedPages[scannedPages.length - 1];
+                        setScannedPages(prev => prev.slice(0, -1));
+                        setActiveDocId(last.id);
+                        setActiveSource(last.source || 'camera');
+                        setScannerMode(last.source || 'camera');
+                        setMode(last.mode || 'smart_plus');
+                        setSelectedCategory(last.category || 'document');
+                        setImageCache({ [last.mode || 'smart_plus']: last.imageUrl });
+                        setRawSnapshot(last.rawImageUrl || last.imageUrl);
+                        if (last.cropPoints) setCropPoints(last.cropPoints);
+                        setStep('review');
+                      }
+                    }}
+                    style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer', width: '60px' }}
+                    title="צפה בעמודים שנסרקו"
+                  >
+                    <div style={{ width: '44px', height: '44px', borderRadius: '8px', border: '2px solid #FFD700', overflow: 'hidden', position: 'relative', boxShadow: '0 2px 8px rgba(0,0,0,0.5)' }}>
+                      <img src={scannedPages[scannedPages.length - 1].imageUrl} alt="Thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <div style={{ position: 'absolute', bottom: 0, right: 0, left: 0, background: 'rgba(0,0,0,0.75)', color: '#FFD700', fontSize: '0.65rem', fontWeight: 'bold', textAlign: 'center' }}>
+                        {scannedPages.length}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '0.65rem', marginTop: '0.25rem', color: '#e2e8f0', fontWeight: 'bold', whiteSpace: 'nowrap' }}>עמודים</span>
+                  </div>
+                ) : (
+                  <div style={{ width: '60px' }} />
+                )}
                <button onClick={handleCapture} style={{ width: '70px', height: '70px', borderRadius: '50%', background: 'white', border: '4px solid #ccc', cursor: 'pointer' }} />
                <div 
                  onClick={() => galleryInputRef.current?.click()}
@@ -1621,7 +1651,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           </>
         )}
         {/* GLOBAL TRAYS */}
-             {(scannedPages.length > 0 || pendingImports.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
+             {(step !== 'scanning' ? (scannedPages.length > 0 || pendingImports.length > 0 || (rawSnapshot || imageCache[mode])) : (pendingImports.length > 0 && scannerMode === 'upload')) && (
                <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                  <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', direction: 'ltr', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
                     <SortableTray 
