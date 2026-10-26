@@ -522,7 +522,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.0.4</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.0.5</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -891,7 +891,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       style={{ 
                         background: '#f8fafc', 
                         borderRadius: '14px', 
-                        overflow: 'hidden', 
+                        overflow: 'visible', 
                         border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0'), 
                         position: 'relative', 
                         opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1), 
@@ -931,12 +931,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       
 
                       {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
-                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? 'url(' + doc.thumbnailUrl + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? 'url(' + doc.thumbnailUrl + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative', borderTopLeftRadius: '13px', borderTopRightRadius: '13px', overflow: 'hidden' }}>
                           {!doc.thumbnailUrl && <span style={{ fontSize: '3rem' }}>📄</span>}
                           <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
                         </div>
                       ) : (
-                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: 'url(' + (doc.thumbnailUrl || doc.url) + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative' }}>
+                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: 'url(' + (doc.thumbnailUrl || doc.url) + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative', borderTopLeftRadius: '13px', borderTopRightRadius: '13px', overflow: 'hidden' }}>
                           
                         </div>
                       )}
@@ -993,7 +993,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         )}
                         
                         {!isMultiSelect && (
-                          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '0.35rem 0.4rem', position: 'relative', gap: '0.2rem' }}>
+                          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '0.35rem 0.4rem', position: 'relative', gap: '0.2rem', borderBottomLeftRadius: '13px', borderBottomRightRadius: '13px' }}>
                             <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden' }}>
                               <button 
                                 type="button"
@@ -1058,8 +1058,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     style={{
                                       position: 'absolute',
                                       bottom: '120%',
-                                      right: 0,
-                                      left: 'auto',
+                                      left: 0,
+                                      right: 'auto',
                                       background: 'white',
                                       borderRadius: '14px',
                                       boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1)',
@@ -1401,7 +1401,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.0.4</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.0.5</span>
         </h2>
         <input 
           type="text" 
