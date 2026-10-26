@@ -146,33 +146,46 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
 
     async function startCamera() {
       try {
-        let availableLenses = lenses;
-        if (availableLenses.length === 0) {
-          availableLenses = await discoverLenses();
+        let mediaStream: MediaStream | null = null;
+        
+        // 1. If user selected a specific lens, try it first
+        if (activeLensId) {
+          try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                deviceId: { ideal: activeLensId },
+                width: { ideal: 3840 },
+                height: { ideal: 2160 }
+              }
+            });
+          } catch (lensErr) {
+            console.warn("Specific lens constraint failed, falling back to basic deviceId", lensErr);
+            try {
+              mediaStream = await navigator.mediaDevices.getUserMedia({
+                video: { deviceId: activeLensId }
+              });
+            } catch (fallbackErr) {
+              console.warn("Direct deviceId failed, will fall back to environment camera", fallbackErr);
+            }
+          }
         }
 
-        const targetDeviceId = activeLensId || (availableLenses.length > 0 ? availableLenses[0].deviceId : undefined);
-
-        let mediaStream: MediaStream | null = null;
-        try {
-          const videoConstraints: MediaTrackConstraints = targetDeviceId ? {
-            deviceId: { exact: targetDeviceId },
-            width: { ideal: 4000 },
-            height: { ideal: 4000 }
-          } : {
-            facingMode: 'environment',
-            width: { ideal: 4000 },
-            height: { ideal: 4000 }
-          };
-
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: videoConstraints
-          });
-        } catch (strictErr) {
-          console.warn("High-res constraints failed, falling back to standard video:", strictErr);
-          mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: targetDeviceId ? { deviceId: { exact: targetDeviceId } } : { facingMode: 'environment' }
-          });
+        // 2. Default camera startup: always start with environment camera (never block permissions)
+        if (!mediaStream) {
+          try {
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: 'environment',
+                width: { ideal: 3840 },
+                height: { ideal: 2160 }
+              }
+            });
+          } catch (highResErr) {
+            console.warn("High-res environment camera failed, falling back to standard video", highResErr);
+            mediaStream = await navigator.mediaDevices.getUserMedia({
+              video: { facingMode: 'environment' }
+            });
+          }
         }
 
         if (isCancelled) {
@@ -184,9 +197,38 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         activeStreamRef.current = mediaStream;
         setError('');
 
-        // Re-evaluate lenses once permission is granted (labels are now readable!)
-        if (mediaStream) {
-          discoverLenses();
+        // Discover and populate lenses now that camera permission is actively granted
+        if (navigator.mediaDevices?.enumerateDevices) {
+          try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+            // Find current active track deviceId
+            const activeTrack = mediaStream.getVideoTracks()[0];
+            const activeTrackSettings = activeTrack?.getSettings ? activeTrack.getSettings() : {};
+            const currentDeviceId = activeTrackSettings.deviceId;
+
+            const detectedLenses: CameraLens[] = videoInputs.map((d, idx) => {
+              const label = d.label || `מצלמה ${idx + 1}`;
+              const isBack = /back|rear|environment|main|wide/i.test(label) || (!/front|user|selfie/i.test(label));
+              return {
+                deviceId: d.deviceId,
+                label: label,
+                kind: d.kind,
+                maxResolutionScore: isBack ? 1000 - idx : 100 - idx,
+                isRecommended: idx === 0 // First rear camera is usually the primary sensor
+              };
+            });
+
+            if (detectedLenses.length > 0) {
+              setLenses(detectedLenses);
+              if (!activeLensId && currentDeviceId) {
+                setActiveLensId(currentDeviceId);
+              }
+            }
+          } catch (enumErr) {
+            console.warn("Device enumeration after stream start failed", enumErr);
+          }
         }
 
         // Apply initial flash state
@@ -197,7 +239,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         }
       } catch (err) {
         if (!isCancelled) {
-          setError('לא ניתן לגשת למצלמה. אנא אשר הרשאות בדפדפן.');
+          setError('לא ניתן לגשת למצלמה. אנא ודא שהמצלמה אינה בשימוש באפליקציה אחרת ואשר הרשאות.');
           console.error("Camera access error:", err);
         }
       }
@@ -222,7 +264,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         activeStreamRef.current = null;
       }
     };
-  }, [isScanning, activeLensId, discoverLenses, applyHardwareTorch]);
+  }, [isScanning, activeLensId]);
 
   // Periodic lightweight quality & ambient lighting sensor loop (runs every ~600ms)
   useEffect(() => {

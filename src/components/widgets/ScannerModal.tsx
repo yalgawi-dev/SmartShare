@@ -1068,7 +1068,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.8' : 'סורק מסמכים v3.0.8'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.9' : 'סורק מסמכים v3.0.9'}</span>
           </h2>
 
 
@@ -1351,6 +1351,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <>
                    {lenses.slice(0, 3).map((lens, idx) => {
                      const isSelected = activeLensId === lens.deviceId || (!activeLensId && idx === 0);
+                     const isBest = idx === 0 || lens.isRecommended;
                      // Display friendly short label: 0.5x, 1x, 2x or camera number
                      const shortLabel = lens.label.toLowerCase().includes('wide') && !lens.label.toLowerCase().includes('ultra') ? '1x' :
                                         lens.label.toLowerCase().includes('ultra') ? '0.5x' :
@@ -1363,17 +1364,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                          style={{
                            background: isSelected ? 'white' : 'transparent',
                            color: isSelected ? 'black' : 'white',
-                           border: 'none',
-                           padding: '0.35rem 0.75rem',
+                           border: isBest ? '1px solid rgba(234, 179, 8, 0.7)' : 'none',
+                           padding: '0.35rem 0.65rem',
                            borderRadius: '16px',
                            fontWeight: 800,
-                           fontSize: '0.8rem',
+                           fontSize: '0.78rem',
                            cursor: 'pointer',
-                           transition: 'all 0.2s'
+                           transition: 'all 0.2s',
+                           display: 'flex',
+                           alignItems: 'center',
+                           gap: '0.25rem'
                          }}
-                         title={lens.label}
+                         title={isBest ? `${lens.label} (העדשה המומלצת ביותר - חדות מקסימלית)` : lens.label}
                        >
-                         {shortLabel}
+                         {isBest && <span style={{ color: isSelected ? '#b45309' : '#fde047', fontSize: '0.75rem' }}>★</span>}
+                         <span>{shortLabel}</span>
                        </button>
                      );
                    })}
