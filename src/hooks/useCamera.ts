@@ -373,8 +373,24 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
 
     try {
       await applyHardwareTorch(true);
-      // Wait ~160ms for sensor AE (auto-exposure) convergence under the flash light
-      await new Promise(res => setTimeout(res, 160));
+
+      // Hardware sync: On mobile, turning on the torch requires 350-400ms for:
+      // 1. Android Camera2 HAL AE (auto-exposure) convergence so the camera doesn't blow out or stay dark.
+      // 2. Hardware AGC (auto-gain) to stabilize.
+      // 3. Ensuring the new illuminated frame is actively decoded onto the <video> element.
+      await new Promise(res => setTimeout(res, 380));
+
+      // Wait for the exact next rendered video frame to guarantee the illuminated frame is drawn on canvas
+      const video = videoRef.current;
+      if (video) {
+        if ('requestVideoFrameCallback' in video) {
+          await new Promise(res => {
+            (video as any).requestVideoFrameCallback(() => res(true));
+          });
+        } else {
+          await new Promise(res => requestAnimationFrame(res));
+        }
+      }
     } catch (e) {
       console.warn("Flash pulse failed", e);
     }
@@ -382,10 +398,13 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     // Return cleanup callback to turn flash off after capture
     return () => {
       if (flashMode !== 'on') {
-        applyHardwareTorch(false).catch(() => {});
+        // Slight delay before turning torch off so the capture canvas draw is 100% completed
+        setTimeout(() => {
+          applyHardwareTorch(false).catch(() => {});
+        }, 80);
       }
     };
-  }, [flashMode, qualityMetrics.isLowLight, applyHardwareTorch]);
+  }, [flashMode, qualityMetrics.isLowLight, applyHardwareTorch, videoRef]);
 
   const resetSmudgeAlert = useCallback(() => {
     if (qualityAnalyzerRef.current) {
