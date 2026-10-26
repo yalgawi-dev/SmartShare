@@ -1071,7 +1071,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.3' : 'סורק מסמכים v3.1.3'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.4' : 'סורק מסמכים v3.1.4'}</span>
           </h2>
 
 
@@ -1272,7 +1272,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.3</span>
+                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.4</span>
                      <button
                        onClick={() => setShowDebug(false)}
                        title="סגור חלונית טלמטריה"
@@ -1392,12 +1392,40 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {step === 'scanning' && scannerMode === 'camera' && (
            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
              
-             {/* Lenses & Zoom Selector */}
+             {/* Real-time Lens Information Badge */}
+              {activeLensInfo && (
+                <div style={{
+                  background: 'rgba(15, 23, 42, 0.85)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  borderRadius: '16px',
+                  padding: '0.25rem 0.75rem',
+                  fontSize: '0.74rem',
+                  color: '#e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  maxWidth: '92%',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.4)',
+                  backdropFilter: 'blur(4px)'
+                }}>
+                  <span style={{ fontSize: '0.85rem' }}>📷</span>
+                  <span style={{ fontWeight: 600, color: '#38bdf8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {activeLensInfo.label}
+                  </span>
+                  {activeLensInfo.width && activeLensInfo.height && (
+                    <span style={{ color: '#94a3b8', fontSize: '0.68rem', opacity: 0.9 }}>
+                      • {activeLensInfo.width}×{activeLensInfo.height}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Lenses & Zoom Selector */}
              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,0,0,0.6)', padding: '0.35rem 0.6rem', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
                {/* Multi-lens switch buttons if more than 1 camera */}
                {lenses.length > 1 ? (
                  <>
-                   {lenses.slice(0, 3).map((lens, idx) => {
+                   {lenses.map((lens, idx) => {
                      const isSelected = activeLensId === lens.deviceId || (!activeLensId && idx === 0);
                      const isBest = idx === 0 || lens.isRecommended;
                      // Display friendly short label: 0.5x, 1x, 2x or camera number
