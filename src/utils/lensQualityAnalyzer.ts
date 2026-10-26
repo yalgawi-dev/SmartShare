@@ -48,7 +48,8 @@ export class LensQualityAnalyzer {
     }
 
     const avgLuminance = Math.round(totalLuminance / pixelCount);
-    const isLowLight = avgLuminance < 45;
+    // Low-light threshold calibrated for documents: < 80 indicates indoor dim lighting or phone shadow where flash is needed
+    const isLowLight = avgLuminance < 80;
 
     let motionDiff = 0;
     if (this.prevFrameData && this.prevFrameData.length === gray.length) {

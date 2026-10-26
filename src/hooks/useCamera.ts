@@ -338,11 +338,11 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         const metrics = qualityAnalyzerRef.current.analyzeFrame(video);
         setQualityMetrics(metrics);
 
-        // Auto-Flash management
+        // Auto-Flash management: turns on if dim/shadowed (< 80), turns off once daylight/bright room (> 105)
         if (flashMode === 'auto') {
           if (metrics.isLowLight && !isTorchPhysicallyOn) {
             applyHardwareTorch(true);
-          } else if (!metrics.isLowLight && metrics.luminance > 60 && isTorchPhysicallyOn) {
+          } else if (!metrics.isLowLight && metrics.luminance > 105 && isTorchPhysicallyOn) {
             applyHardwareTorch(false);
           }
         }
