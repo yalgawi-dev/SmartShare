@@ -38,16 +38,31 @@ export default function Dashboard() {
       setExpandedSpaceId(null);
     } else {
       setExpandedSpaceId(spaceId);
+      // Give React enough time to expand and render inner features before measuring
       setTimeout(() => {
         const el = document.getElementById(`space-${spaceId}`);
         if (el) {
           const rect = el.getBoundingClientRect();
           const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-          // Position the card nicely in the upper-middle of viewport with 80px header clearance
-          const targetY = scrollTop + rect.top - 80;
+          const viewportHeight = window.innerHeight;
+          // Floating navigation bar + safe margin is ~130px
+          const bottomBarClearance = 130;
+          const availableHeight = viewportHeight - bottomBarClearance;
+
+          let targetY: number;
+          if (rect.height <= availableHeight) {
+            // Card completely fits above the bottom floating bar:
+            // Ensure bottom of the card is fully revealed with safety padding above the floating bar
+            const cardBottomInDoc = scrollTop + rect.bottom;
+            targetY = cardBottomInDoc - availableHeight + 25;
+          } else {
+            // Card is taller than available height: align top nicely under header
+            targetY = scrollTop + rect.top - 75;
+          }
+
           window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
         }
-      }, 150);
+      }, 250);
     }
   };
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
@@ -217,7 +232,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.0.5</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.1.1</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -488,7 +503,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '7.5rem' }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '14rem' }}>
           {searchedSpaces.length === 0 && visibleSpaces.length > 0 && (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               לא נמצאו מרחבים תואמים לחיפוש
