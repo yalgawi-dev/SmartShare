@@ -1246,7 +1246,30 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                <div style={{ position: 'absolute', top: 10, left: 10, right: 10, maxWidth: '380px', background: 'rgba(15, 23, 42, 0.92)', border: '1px solid rgba(16, 185, 129, 0.6)', boxShadow: '0 4px 14px rgba(0,0,0,0.5)', color: '#10b981', padding: '0.6rem 0.8rem', borderRadius: '10px', zIndex: 100, fontSize: '0.78rem', fontFamily: 'monospace', backdropFilter: 'blur(8px)' }}>
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
-                   <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.0.4</span>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.0.9</span>
+                     <button
+                       onClick={() => setShowDebug(false)}
+                       title="סגור חלונית טלמטריה"
+                       style={{
+                         background: 'rgba(255, 255, 255, 0.2)',
+                         border: 'none',
+                         color: '#ffffff',
+                         borderRadius: '50%',
+                         width: '20px',
+                         height: '20px',
+                         display: 'flex',
+                         alignItems: 'center',
+                         justifyContent: 'center',
+                         cursor: 'pointer',
+                         fontSize: '0.75rem',
+                         fontWeight: 'bold',
+                         lineHeight: 1
+                       }}
+                     >
+                       ✕
+                     </button>
+                   </div>
                  </div>
                  {cropEndToEndTiming && (
                    <div style={{ color: '#38bdf8', marginBottom: '0.3rem', fontSize: '0.75rem' }}>
