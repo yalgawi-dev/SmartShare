@@ -122,6 +122,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     activeLensId,
     selectLens,
     qualityMetrics,
+    resetSmudgeAlert,
     zoom,
     setZoom,
     error: cameraError,
@@ -1068,7 +1069,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.9' : 'סורק מסמכים v3.0.9'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.0' : 'סורק מסמכים v3.1.0'}</span>
           </h2>
 
 
@@ -1186,11 +1187,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                     top: '16px',
                     left: '50%',
                     transform: 'translateX(-50%)',
-                    background: 'rgba(30, 41, 59, 0.92)',
+                    background: 'rgba(30, 41, 59, 0.94)',
                     backdropFilter: 'blur(8px)',
                     border: '1px solid #f59e0b',
                     borderRadius: '24px',
-                    padding: '0.45rem 1rem',
+                    padding: '0.45rem 0.8rem',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '0.6rem',
@@ -1219,6 +1220,28 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                         נסה עדשה אחרת 🔄
                       </button>
                     )}
+                    <button
+                      onClick={resetSmudgeAlert}
+                      aria-label="סגור התראה"
+                      title="התעלם והמשך"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.15)',
+                        border: 'none',
+                        color: '#fef3c7',
+                        width: '24px',
+                        height: '24px',
+                        borderRadius: '50%',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        padding: 0
+                      }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 )}
               </>
@@ -1247,7 +1270,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.0.9</span>
+                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.0</span>
                      <button
                        onClick={() => setShowDebug(false)}
                        title="סגור חלונית טלמטריה"

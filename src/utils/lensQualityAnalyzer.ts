@@ -80,13 +80,26 @@ export class LensQualityAnalyzer {
 
     const sharpness = gradCount > 0 ? Math.round((gradSum / gradCount) * 10) / 10 : 50;
 
-    if (!isLowLight && !isMotionDetected && sharpness < 14) {
+    // Contrast / Dynamic range check to prevent false positives on plain surfaces (e.g. walls, ceiling, blank sheet)
+    let minGray = 255;
+    let maxGray = 0;
+    for (let i = 0; i < gray.length; i += 8) {
+      if (gray[i] < minGray) minGray = gray[i];
+      if (gray[i] > maxGray) maxGray = gray[i];
+    }
+    const dynamicRange = maxGray - minGray;
+    const hasSufficientContrast = dynamicRange >= 60; // Plain walls/ceilings have very low contrast (< 40)
+
+    // Only count as blurry/smudged if there is sufficient scene texture/contrast to expect sharpness,
+    // not in low light, and no movement blur.
+    if (!isLowLight && !isMotionDetected && hasSufficientContrast && sharpness < 10) {
       this.lowSharpnessCount++;
     } else {
       this.lowSharpnessCount = Math.max(0, this.lowSharpnessCount - 1);
     }
 
-    const isSmudgedOrBlurry = this.lowSharpnessCount >= 3;
+    // Require 5 consecutive low-sharpness frames to prevent quick transient alerts
+    const isSmudgedOrBlurry = this.lowSharpnessCount >= 5;
 
     return {
       luminance: avgLuminance,

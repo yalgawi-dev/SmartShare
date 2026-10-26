@@ -114,26 +114,35 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoInputs = devices.filter(d => d.kind === 'videoinput');
 
-      // Separate environment (back) cameras if identifiable
-      const detectedLenses: CameraLens[] = videoInputs.map((d, idx) => {
-        const label = d.label || `מצלמה ${idx + 1}`;
-        const isBack = /back|rear|environment|macro|telephoto|ultra/i.test(label) || (!/front|user|selfie/i.test(label));
-        // Simple heuristic: main / wide rear cameras tend to have higher index or '0'
-        return {
+      const backLenses: CameraLens[] = [];
+      const otherLenses: CameraLens[] = [];
+
+      videoInputs.forEach((d, idx) => {
+        const label = (d.label || '').toLowerCase();
+        const isFront = label.includes('front') || label.includes('user') || label.includes('selfie') || label.includes('forward') || label.includes('face');
+        const isExplicitBack = label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('main') || label.includes('wide') || label.includes('ultra');
+
+        const lensItem: CameraLens = {
           deviceId: d.deviceId,
-          label: label,
+          label: d.label || `עדשה ${idx + 1}`,
           kind: d.kind,
-          maxResolutionScore: isBack ? 1000 - idx : 100 - idx,
+          maxResolutionScore: isExplicitBack ? 1000 - idx : 100 - idx,
           isRecommended: false
         };
+
+        if (isExplicitBack) {
+          backLenses.push(lensItem);
+        } else if (!isFront) {
+          otherLenses.push(lensItem);
+        }
       });
 
-      // Mark the highest score as recommended
-      if (detectedLenses.length > 0) {
-        detectedLenses[0].isRecommended = true;
+      const validLenses = backLenses.length > 0 ? backLenses : (otherLenses.length > 0 ? otherLenses : []);
+      if (validLenses.length > 0) {
+        validLenses[0].isRecommended = true;
       }
-      setLenses(detectedLenses);
-      return detectedLenses;
+      setLenses(validLenses);
+      return validLenses;
     } catch (e) {
       console.warn("Could not discover lenses:", e);
       return [];
@@ -208,22 +217,39 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
             const activeTrackSettings = activeTrack?.getSettings ? activeTrack.getSettings() : {};
             const currentDeviceId = activeTrackSettings.deviceId;
 
-            const detectedLenses: CameraLens[] = videoInputs.map((d, idx) => {
-              const label = d.label || `מצלמה ${idx + 1}`;
-              const isBack = /back|rear|environment|main|wide/i.test(label) || (!/front|user|selfie/i.test(label));
-              return {
+            // STRICT FILTER: Only back / rear / environment cameras! Never include front/selfie cameras in the document scanner.
+            const backLenses: CameraLens[] = [];
+            const otherLenses: CameraLens[] = [];
+
+            videoInputs.forEach((d, idx) => {
+              const label = (d.label || '').toLowerCase();
+              const isFront = label.includes('front') || label.includes('user') || label.includes('selfie') || label.includes('forward') || label.includes('face');
+              const isExplicitBack = label.includes('back') || label.includes('rear') || label.includes('environment') || label.includes('main') || label.includes('wide') || label.includes('ultra');
+
+              const lensItem: CameraLens = {
                 deviceId: d.deviceId,
-                label: label,
+                label: d.label || `עדשה ${idx + 1}`,
                 kind: d.kind,
-                maxResolutionScore: isBack ? 1000 - idx : 100 - idx,
-                isRecommended: idx === 0 // First rear camera is usually the primary sensor
+                maxResolutionScore: isExplicitBack ? 1000 - idx : 100 - idx,
+                isRecommended: false
               };
+
+              if (isExplicitBack) {
+                backLenses.push(lensItem);
+              } else if (!isFront) {
+                otherLenses.push(lensItem);
+              }
             });
 
-            if (detectedLenses.length > 0) {
-              setLenses(detectedLenses);
-              if (!activeLensId && currentDeviceId) {
-                setActiveLensId(currentDeviceId);
+            // If we found explicit back lenses, use ONLY them. Otherwise use devices that aren't marked as front.
+            const validLenses = backLenses.length > 0 ? backLenses : (otherLenses.length > 0 ? otherLenses : []);
+
+            if (validLenses.length > 0) {
+              validLenses[0].isRecommended = true;
+              setLenses(validLenses);
+              // Ensure we are active on a valid back lens
+              if (!activeLensId || !validLenses.some(l => l.deviceId === activeLensId)) {
+                setActiveLensId(validLenses[0].deviceId);
               }
             }
           } catch (enumErr) {
@@ -308,8 +334,16 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
   };
 
+  const resetSmudgeAlert = useCallback(() => {
+    if (qualityAnalyzerRef.current) {
+      qualityAnalyzerRef.current.reset();
+    }
+    setQualityMetrics(prev => ({ ...prev, isSmudgedOrBlurry: false }));
+  }, []);
+
   // Cycle to next lens
   const cycleCamera = () => {
+    resetSmudgeAlert();
     if (lenses.length > 1) {
       const currentIdx = lenses.findIndex(l => l.deviceId === activeLensId);
       const nextIdx = (currentIdx + 1) % lenses.length;
@@ -320,6 +354,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
   };
 
   const selectLens = (deviceId: string) => {
+    resetSmudgeAlert();
     setActiveLensId(deviceId);
   };
 
@@ -344,6 +379,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     activeLensId,
     selectLens,
     qualityMetrics,
+    resetSmudgeAlert,
     zoom,
     setZoom,
     error,
