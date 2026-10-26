@@ -381,7 +381,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     // Calculate a scale factor that targets a high-res ~2000px width.
     // 1000px was too low for OCR and caused extreme blurriness when cropping small receipts.
-    const scaleFactor = 2400 / videoBox.width;
+    const scaleFactor = 1600 / videoBox.width;
     canvas.width = videoBox.width * scaleFactor;
     canvas.height = videoBox.height * scaleFactor;
     const ctx = canvas.getContext('2d');
@@ -1071,7 +1071,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.0' : 'סורק מסמכים v3.1.0'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.3' : 'סורק מסמכים v3.1.3'}</span>
           </h2>
 
 
@@ -1272,7 +1272,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.0</span>
+                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.3</span>
                      <button
                        onClick={() => setShowDebug(false)}
                        title="סגור חלונית טלמטריה"
