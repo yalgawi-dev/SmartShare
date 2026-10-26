@@ -16,6 +16,8 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
   const activeStreamRef = useRef<MediaStream | null>(null);
   const [lenses, setLenses] = useState<CameraLens[]>([]);
   const [activeLensId, setActiveLensId] = useState<string | null>(null);
+  const [activeLensInfo, setActiveLensInfo] = useState<{ label: string; width?: number; height?: number } | null>(null);
+  const [torchSupported, setTorchSupported] = useState<boolean>(true);
   
   // Flash management: 'auto' | 'on' | 'off'
   const [flashMode, setFlashMode] = useState<FlashMode>('auto');
@@ -82,27 +84,39 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
   }, [stream, videoRef]);
 
-  // Apply torch constraints safely
+  // Apply torch constraints safely with capabilities inspection
   const applyHardwareTorch = useCallback(async (enable: boolean, currentStream?: MediaStream | null) => {
     const targetStream = currentStream || stream;
     if (!targetStream) return;
     const track = targetStream.getVideoTracks()[0];
     if (!track) return;
 
+    if (track.getCapabilities) {
+      const caps = track.getCapabilities() as any;
+      if (caps && caps.torch === false) {
+        setTorchSupported(false);
+        setIsTorchPhysicallyOn(false);
+        return;
+      }
+    }
+
     try {
       await track.applyConstraints({
         advanced: [{ torch: enable } as any]
       });
       setIsTorchPhysicallyOn(enable);
+      setTorchSupported(true);
     } catch (err) {
       try {
         await track.applyConstraints({
           advanced: [{ fillLightMode: enable ? 'flash' : 'off' } as any]
         });
         setIsTorchPhysicallyOn(enable);
+        setTorchSupported(true);
       } catch (fallbackErr) {
         console.warn("Torch hardware constraint failed on this lens", fallbackErr);
         setIsTorchPhysicallyOn(false);
+        setTorchSupported(false);
       }
     }
   }, [stream]);
@@ -252,17 +266,27 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
                 setActiveLensId(validLenses[0].deviceId);
               }
             }
+
+            // Capture active track information for dev/quality verification
+            const matchedLens = validLenses.find(l => l.deviceId === currentDeviceId);
+            setActiveLensInfo({
+              label: matchedLens?.label || activeTrack.label || 'מצלמה אחורית ראשית',
+              width: activeTrackSettings.width,
+              height: activeTrackSettings.height
+            });
           } catch (enumErr) {
             console.warn("Device enumeration after stream start failed", enumErr);
           }
         }
 
-        // Apply initial flash state
-        if (flashMode === 'on') {
-          applyHardwareTorch(true, mediaStream);
-        } else {
-          applyHardwareTorch(false, mediaStream);
-        }
+        // Apply initial flash state with a slight timeout to ensure hardware track is ready
+        setTimeout(() => {
+          if (flashMode === 'on') {
+            applyHardwareTorch(true, mediaStream);
+          } else {
+            applyHardwareTorch(false, mediaStream);
+          }
+        }, 200);
       } catch (err) {
         if (!isCancelled) {
           setError('לא ניתן לגשת למצלמה. אנא ודא שהמצלמה אינה בשימוש באפליקציה אחרת ואשר הרשאות.');
@@ -380,6 +404,8 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     selectLens,
     qualityMetrics,
     resetSmudgeAlert,
+    activeLensInfo,
+    torchSupported,
     zoom,
     setZoom,
     error,

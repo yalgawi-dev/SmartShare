@@ -123,6 +123,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     selectLens,
     qualityMetrics,
     resetSmudgeAlert,
+    activeLensInfo,
+    torchSupported,
     zoom,
     setZoom,
     error: cameraError,
