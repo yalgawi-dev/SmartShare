@@ -209,12 +209,31 @@ export async function convertImagesToPdfBlob(
       pdf.addPage('a4', orientation);
     }
 
-    // Proportional fit onto standard A4 page (with white background)
-    const scale = Math.min(pageW / item.width, pageH / item.height);
-    const renderW = Math.round(item.width * scale);
-    const renderH = Math.round(item.height * scale);
-    const posX = Math.round((pageW - renderW) / 2);
-    const posY = Math.round((pageH - renderH) / 2);
+    // CamScanner-compliant Page Placement:
+    // When a document aspect ratio is close to standard A4 (ratio between 1.22 and 1.58),
+    // stretch/fill the full A4 page directly (Full Bleed) without creating unwanted top/bottom white margins!
+    const imgRatio = isLandscape ? (item.width / item.height) : (item.height / item.width);
+    const standardA4Ratio = A4_PT_HEIGHT / A4_PT_WIDTH; // ~1.4143
+
+    let renderW: number;
+    let renderH: number;
+    let posX: number;
+    let posY: number;
+
+    if (imgRatio >= 1.22 && imgRatio <= 1.58) {
+      // Standard document: fill the entire A4 sheet cleanly
+      renderW = pageW;
+      renderH = pageH;
+      posX = 0;
+      posY = 0;
+    } else {
+      // Non-standard formats (slender receipts, square notes): fit proportionally with clean centering
+      const scale = Math.min(pageW / item.width, pageH / item.height);
+      renderW = Math.round(item.width * scale);
+      renderH = Math.round(item.height * scale);
+      posX = Math.round((pageW - renderW) / 2);
+      posY = Math.round((pageH - renderH) / 2);
+    }
 
     pdf.addImage(item.dataUrl, 'JPEG', posX, posY, renderW, renderH);
 

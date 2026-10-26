@@ -1000,7 +1000,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.dilate(mask, mask, maskDilateKernel);
         maskDilateKernel.delete();
 
-        // 4. Alpha Blending: Vivid Ink (where mask=255) + Pure White Paper (where mask=0)
+        // 4. Fast & Crisp 8-Bit Alpha Blending:
+        // Pure White Canvas (Scalar 255) + Vivid Ink copied where combinedMask > 0
         let combinedMask = new cv.Mat();
         if (colorfulRatio < 0.4) {
             let hardHybrid = new cv.Mat();
@@ -1010,45 +1011,14 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         } else {
             mask.copyTo(combinedMask);
         }
-        
-        let maskFloat = new cv.Mat();
-        combinedMask.convertTo(maskFloat, cv.CV_32F, 1.0 / 255.0);
         mask.delete();
+
+        // Start with pure white paper
+        let finalSmartPlusRgb = new cv.Mat(boostedRgb.rows, boostedRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
+        // Copy the vibrant ink directly on top of the white paper using the combined mask (Lightning Fast 8-bit copy)
+        boostedRgb.copyTo(finalSmartPlusRgb, combinedMask);
         combinedMask.delete();
-        
-        let mask3 = new cv.Mat();
-        cv.cvtColor(maskFloat, mask3, cv.COLOR_GRAY2RGB);
-        maskFloat.delete();
-        
-        let invMask3 = new cv.Mat();
-        let scalar1 = new cv.Mat(mask3.rows, mask3.cols, mask3.type(), new cv.Scalar(1.0, 1.0, 1.0));
-        cv.subtract(scalar1, mask3, invMask3);
-        scalar1.delete();
-        
-        let boostedFloat = new cv.Mat();
-        boostedRgb.convertTo(boostedFloat, cv.CV_32FC3);
         boostedRgb.delete();
-        
-        let whiteRgb = new cv.Mat(plusRgb.rows, plusRgb.cols, cv.CV_8UC3, new cv.Scalar(255, 255, 255));
-        let whiteFloat = new cv.Mat();
-        whiteRgb.convertTo(whiteFloat, cv.CV_32FC3);
-        whiteRgb.delete();
-        
-        let term1 = new cv.Mat();
-        cv.multiply(boostedFloat, mask3, term1);
-        boostedFloat.delete();
-        
-        let term2 = new cv.Mat();
-        cv.multiply(whiteFloat, invMask3, term2);
-        whiteFloat.delete(); invMask3.delete(); mask3.delete();
-        
-        let finalFloat = new cv.Mat();
-        cv.add(term1, term2, finalFloat);
-        term1.delete(); term2.delete();
-        
-        let finalSmartPlusRgb = new cv.Mat();
-        finalFloat.convertTo(finalSmartPlusRgb, cv.CV_8UC3);
-        finalFloat.delete();
 
         finalSmartPlusRgba = new cv.Mat();
         cv.cvtColor(finalSmartPlusRgb, finalSmartPlusRgba, cv.COLOR_RGB2RGBA);
@@ -1215,7 +1185,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           }
         }
 
-        t_engine = performance.now() - mark; mark = performance.now();
+        // Engine duration was accurately captured per active engine profile
         const t1_math = performance.now();
         let finalUrl = '';
         if (activeProfile === 'original') {
