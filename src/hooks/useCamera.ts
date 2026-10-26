@@ -171,21 +171,31 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
       try {
         let mediaStream: MediaStream | null = null;
         
-        // 1. If user selected a specific lens, try it first
+        // Stop any currently running stream first so hardware sensor is released on Android
+        if (activeStreamRef.current) {
+          activeStreamRef.current.getTracks().forEach(t => t.stop());
+          activeStreamRef.current = null;
+        }
+
+        // 1. If user selected a specific lens, try it first with EXACT hardware constraint
         if (activeLensId) {
           try {
             mediaStream = await navigator.mediaDevices.getUserMedia({
               video: {
-                deviceId: { ideal: activeLensId },
+                deviceId: { exact: activeLensId },
                 width: { ideal: 3840 },
                 height: { ideal: 2160 }
               }
             });
           } catch (lensErr) {
-            console.warn("Specific lens constraint failed, falling back to basic deviceId", lensErr);
+            console.warn("Exact lens constraint failed, falling back to direct deviceId", lensErr);
             try {
               mediaStream = await navigator.mediaDevices.getUserMedia({
-                video: { deviceId: activeLensId }
+                video: {
+                  deviceId: activeLensId,
+                  width: { ideal: 3840 },
+                  height: { ideal: 2160 }
+                }
               });
             } catch (fallbackErr) {
               console.warn("Direct deviceId failed, will fall back to environment camera", fallbackErr);
@@ -268,9 +278,11 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
             }
 
             // Capture active track information for dev/quality verification
-            const matchedLens = validLenses.find(l => l.deviceId === currentDeviceId);
+            const matchedLens = validLenses.find(l => l.deviceId === currentDeviceId) ||
+                                (activeLensId ? validLenses.find(l => l.deviceId === activeLensId) : null);
+            const fallbackLabel = activeTrack.label ? activeTrack.label : (activeLensId ? `מצלמה ${validLenses.findIndex(l => l.deviceId === activeLensId) + 1}` : 'מצלמה אחורית ראשית');
             setActiveLensInfo({
-              label: matchedLens?.label || activeTrack.label || 'מצלמה אחורית ראשית',
+              label: matchedLens?.label || fallbackLabel,
               width: activeTrackSettings.width,
               height: activeTrackSettings.height
             });
