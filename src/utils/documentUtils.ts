@@ -220,8 +220,26 @@ export async function convertImagesToPdfBlob(
     let posX: number;
     let posY: number;
 
-    if (imgRatio >= 1.22 && imgRatio <= 1.58) {
-      // Standard document: fill the entire A4 sheet cleanly
+    if (requestedFormat === 'scroll') {
+      // In scroll mode, if it's a tall receipt/scroll, adjust the PDF page to the exact aspect ratio of the image!
+      // This guarantees ZERO top/bottom letterboxing margins!
+      const targetPageH = Math.round(pageW * (item.height / item.width));
+      if (Math.abs(targetPageH - pageH) > 20) {
+        // Custom aspect page for long scroll receipts
+        pdf.deletePage(i + 1);
+        pdf.addPage([pageW, targetPageH], orientation);
+        renderW = pageW;
+        renderH = targetPageH;
+        posX = 0;
+        posY = 0;
+      } else {
+        renderW = pageW;
+        renderH = pageH;
+        posX = 0;
+        posY = 0;
+      }
+    } else if (imgRatio >= 1.15 && imgRatio <= 1.65) {
+      // Standard document (A4 / Letter / Invoice): fill the entire A4 sheet cleanly (Full Bleed, CamScanner standard)
       renderW = pageW;
       renderH = pageH;
       posX = 0;
