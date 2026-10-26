@@ -864,42 +864,96 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         }
 
         if (activeProfile === 'smart_plus' || activeProfile === 'hybrid') {
-        // --- Smart Plus (v18.0 Ultra-Fast Pure CamScanner Engine) ---
-        // Highly optimized: downscaled illumination modeling + fast 8-bit contrast + fast adaptive threshold
+        // --- Smart Plus (v17.0 Pure CamScanner Magic Color) ---
+        // Completely independent of the B&W mask! Uses direct HSV manipulation.
         let plusRgb = new cv.Mat();
         cv.cvtColor(dst, plusRgb, cv.COLOR_RGBA2RGB);
 
-        // 1. Text Mask generation with optimal kernel size (31x31 is ~4x faster than 61x61 and cleaner)
+        // Enhance edges gently (Removed Unsharp Mask because it amplifies JPG chroma noise into rainbow dots!)
+        
+        let plusHsv = new cv.Mat();
+        cv.cvtColor(plusRgb, plusHsv, cv.COLOR_RGB2HSV);
+        let plusHsvPlanes = new cv.MatVector();
+        cv.split(plusHsv, plusHsvPlanes);
+
+        let plusH = plusHsvPlanes.get(0);
+        let plusS = plusHsvPlanes.get(1);
+        let plusV = plusHsvPlanes.get(2);
+
+        // 1. Create a flawless binary mask of the text (ignores shadows completely)
         let grayForMask = new cv.Mat();
         cv.cvtColor(plusRgb, grayForMask, cv.COLOR_RGB2GRAY);
         cv.GaussianBlur(grayForMask, grayForMask, new cv.Size(getK(3), getK(3)), 0, 0);
         
         let mask = new cv.Mat();
-        const threshKernel = Math.min(31, getK(31));
-        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, threshKernel % 2 === 0 ? threshKernel + 1 : threshKernel, 15);
+        cv.adaptiveThreshold(grayForMask, mask, 255, cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV, getK(61), 15);
         grayForMask.delete();
+        cv.GaussianBlur(mask, mask, new cv.Size(getK(3), getK(3)), 0, 0);
 
-        // 2. Fast Downscaled Illumination Normalization (Retinex)
+        // 2. RGB Retinex Flattening (Restores TRUE colors under colored shadows!)
         let smallRgb = new cv.Mat();
         cv.resize(plusRgb, smallRgb, new cv.Size(0, 0), 0.1, 0.1, cv.INTER_AREA);
         
-        // Remove text from background model using fast medianBlur on 0.1x thumbnail (runs in ~10ms!)
-        let bgSmall = new cv.Mat();
-        cv.medianBlur(smallRgb, bgSmall, 15);
+        // Inpaint colorful logos so they don't become part of the background illumination map!
+        // This prevents Retinex from erasing the logo, and eliminates gray halos around it.
+        let hsvLogo = new cv.Mat();
+        cv.cvtColor(smallRgb, hsvLogo, cv.COLOR_RGB2HSV);
+        let hsvLogoPlanes = new cv.MatVector();
+        cv.split(hsvLogo, hsvLogoPlanes);
+        
+        let hLogo = hsvLogoPlanes.get(0);
+        let sLogo = hsvLogoPlanes.get(1);
+        
+        let smallLogoMask = new cv.Mat();
+        // Base logo mask: Saturation > 85 (Only STRONGLY colored logos/pens, ignores medium stains!)
+        cv.threshold(sLogo, smallLogoMask, 85, 255, cv.THRESH_BINARY);
+        
+        // Find warm/yellow/brown shadows (Hue 8 to 42 - slightly widened to catch reddish/greenish edges)
+        let hueHigh = new cv.Mat();
+        cv.threshold(hLogo, hueHigh, 8, 255, cv.THRESH_BINARY);
+        let hueLow = new cv.Mat();
+        cv.threshold(hLogo, hueLow, 42, 255, cv.THRESH_BINARY_INV);
+        
+        let warmShadowMask = new cv.Mat();
+        cv.bitwise_and(hueHigh, hueLow, warmShadowMask); // 10 < H <= 40
+        
+        // Exclude warm shadows from the logo mask!
+        cv.bitwise_not(warmShadowMask, warmShadowMask);
+        cv.bitwise_and(smallLogoMask, warmShadowMask, smallLogoMask);
+        
+        warmShadowMask.delete(); hueHigh.delete(); hueLow.delete();
+        hLogo.delete(); sLogo.delete(); hsvLogoPlanes.delete(); hsvLogo.delete();
+        
+        // Expand the logo mask slightly so inpainting covers the edges
+        let dilateLogo = cv.getStructuringElement(cv.MORPH_ELLIPSE, new cv.Size(3, 3));
+        cv.dilate(smallLogoMask, smallLogoMask, dilateLogo);
+        dilateLogo.delete();
+        
+        let inpaintedSmallRgb = new cv.Mat();
+        if (colorfulRatio < 0.4 && cv.countNonZero(smallLogoMask) > 0) {
+            cv.inpaint(smallRgb, smallLogoMask, inpaintedSmallRgb, 3, cv.INPAINT_TELEA);
+        } else {
+            smallRgb.copyTo(inpaintedSmallRgb);
+        }
+        smallLogoMask.delete();
         smallRgb.delete();
-        cv.GaussianBlur(bgSmall, bgSmall, new cv.Size(getK(3), getK(3)), 0, 0);
+        
+        let bgSmall2 = new cv.Mat();
+        cv.medianBlur(inpaintedSmallRgb, bgSmall2, 15); // Erases text, keeps shadows (logos are inpainted out so they are protected!)
+        inpaintedSmallRgb.delete();
+        cv.GaussianBlur(bgSmall2, bgSmall2, new cv.Size(getK(3), getK(3)), 0, 0); // Fast smooth on downscaled image!
         
         let bgRgb = new cv.Mat();
-        cv.resize(bgSmall, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_LINEAR);
-        bgSmall.delete();
+        cv.resize(bgSmall2, bgRgb, new cv.Size(plusRgb.cols, plusRgb.rows), 0, 0, cv.INTER_CUBIC);
+        bgSmall2.delete();
         
-        // Channel division to physically equalize background illumination
         let flatRgb = new cv.Mat();
         let planesRgb = new cv.MatVector();
         cv.split(plusRgb, planesRgb);
         let planesBg = new cv.MatVector();
         cv.split(bgRgb, planesBg);
         
+        // Divide channel by channel to physically neutralize the shadow's ambient light
         for (let i = 0; i < 3; i++) {
             let p = planesRgb.get(i);
             let bgP = planesBg.get(i);
@@ -910,13 +964,38 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         cv.merge(planesRgb, flatRgb);
         planesRgb.delete(); planesBg.delete(); bgRgb.delete();
 
-        // 3. Ultra-fast direct 8-bit contrast & saturation enhancement
-        // Instead of heavy full-res HSV round-trip (400ms), apply direct matrix curve (15ms!)
-        let boostedRgb = new cv.Mat();
-        flatRgb.convertTo(boostedRgb, -1, 1.15, -15);
-        flatRgb.delete();
+        // 3. Create the Vivid Ink layer using the color-restored image!
+        // Apply Unsharp Mask to the flattened image to thicken and darken text while strictly preserving colors!
+        let blurredFlat = new cv.Mat();
+        cv.GaussianBlur(flatRgb, blurredFlat, new cv.Size(0, 0), 2.0);
+        cv.addWeighted(flatRgb, 1.8, blurredFlat, -0.8, 0, flatRgb);
+        blurredFlat.delete();
 
-        // Thicken the text mask slightly so text is crisp and solid
+        let flatHsv = new cv.Mat();
+        cv.cvtColor(flatRgb, flatHsv, cv.COLOR_RGB2HSV);
+        let planes = new cv.MatVector();
+        cv.split(flatHsv, planes);
+        
+        // 1.25x Saturation for popping ink colors
+        let S = planes.get(1);
+        S.convertTo(S, -1, 1.25, 0);
+        planes.set(1, S);
+        S.delete();
+        
+        // Darken the flattened ink slightly (-20) so black text is strong, but blue ink stays blue!
+        let V = planes.get(2);
+        let VCurve = new cv.Mat();
+        V.convertTo(VCurve, -1, 1.1, -20); 
+        planes.set(2, VCurve);
+        V.delete(); VCurve.delete();
+        
+        cv.merge(planes, flatHsv);
+        let boostedRgb = new cv.Mat();
+        cv.cvtColor(flatHsv, boostedRgb, cv.COLOR_HSV2RGB);
+        flatHsv.delete(); planes.delete(); flatRgb.delete();
+
+
+        // Thicken the text mask slightly so the text doesn't look thin and "blinding"
         let maskDilateKernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(2, 2));
         cv.dilate(mask, mask, maskDilateKernel);
         maskDilateKernel.delete();
@@ -924,7 +1003,7 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         // 4. Fast & Crisp 8-Bit Alpha Blending:
         // Pure White Canvas (Scalar 255) + Vivid Ink copied where combinedMask > 0
         let combinedMask = new cv.Mat();
-        if (colorfulRatio < 0.4 && hybridMask) {
+        if (colorfulRatio < 0.4) {
             let hardHybrid = new cv.Mat();
             cv.threshold(hybridMask, hardHybrid, 10, 255, cv.THRESH_BINARY);
             cv.bitwise_or(mask, hardHybrid, combinedMask);
