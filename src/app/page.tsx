@@ -45,24 +45,25 @@ export default function Dashboard() {
           const rect = el.getBoundingClientRect();
           const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
           const viewportHeight = window.innerHeight;
-          // Floating navigation bar + safe margin is ~130px
-          const bottomBarClearance = 130;
-          const availableHeight = viewportHeight - bottomBarClearance;
+          // Bottom floating bar clearance (bar height + margin is ~110px) and top header clearance (~70px)
+          const bottomBarClearance = 110;
+          const topHeaderClearance = 70;
+          const availableVisibleHeight = Math.max(100, viewportHeight - bottomBarClearance - topHeaderClearance);
 
+          const cardAbsoluteTop = scrollTop + rect.top;
           let targetY: number;
-          if (rect.height <= availableHeight) {
-            // Card completely fits above the bottom floating bar:
-            // Ensure bottom of the card is fully revealed with safety padding above the floating bar
-            const cardBottomInDoc = scrollTop + rect.bottom;
-            targetY = cardBottomInDoc - availableHeight + 25;
+
+          if (rect.height <= availableVisibleHeight) {
+            // Center the card in the visible window space (between top header and bottom bar)
+            targetY = cardAbsoluteTop - topHeaderClearance - (availableVisibleHeight - rect.height) / 2;
           } else {
-            // Card is taller than available height: align top nicely under header
-            targetY = scrollTop + rect.top - 75;
+            // Card is taller than visible height: align comfortably below top header
+            targetY = cardAbsoluteTop - topHeaderClearance - 10;
           }
 
           window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
         }
-      }, 250);
+      }, 150);
     }
   };
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
@@ -232,7 +233,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.1.5</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.1.6</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
