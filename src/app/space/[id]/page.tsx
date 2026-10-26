@@ -152,8 +152,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   useEffect(() => {
     const handleScannerForEvent = (e: any) => {
       const { eventId, shelfId, mode } = e.detail || {};
-      if (eventId) {
-        setPendingEventScan({ eventId, shelfId });
+      if (eventId || shelfId) {
+        setPendingEventScan({ eventId: eventId || '', shelfId });
         setScannerMode(mode || 'camera');
         setScannerCategory('document');
         setIsScannerOpen(true);

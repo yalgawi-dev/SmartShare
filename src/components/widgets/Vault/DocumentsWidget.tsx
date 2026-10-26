@@ -209,8 +209,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
            setPendingImport({ url, type: typeof type !== 'undefined' ? type : 'document', allPages: typeof allPages !== 'undefined' ? allPages : [] });
            return undefined;
         } else {
-           const newShelfId = 'shelf_' + Date.now();
-           addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
+           const newShelfId = addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
            targetShelfId = newShelfId;
         }
       }
@@ -523,7 +522,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v2.9.9</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.0.4</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -753,7 +752,127 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               if (filterLinked === 'unlinked') return !isLinked;
               return true;
             });
-            if (filteredDocs.length === 0) return <div style={{ textAlign: 'center', color: '#94a3b8', marginTop: '3rem' }}>אין מסמכים תואמים.</div>;
+            if (filteredDocs.length === 0) {
+              const isFiltered = filterLinked !== 'all';
+              return (
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '3rem 1.5rem',
+                  background: 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
+                  borderRadius: '24px',
+                  border: '1.5px dashed #cbd5e1',
+                  margin: '1.5rem 0',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '3.5rem', marginBottom: '0.75rem', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.06))' }}>
+                    {isFiltered ? '🔍' : (activeShelf.icon || '📂')}
+                  </div>
+                  <h3 style={{ margin: '0 0 0.5rem 0', color: '#1e293b', fontSize: '1.25rem', fontWeight: 800 }}>
+                    {isFiltered ? 'אין מסמכים תואמים לסינון' : `המדף "${activeShelf.name}" ריק כרגע`}
+                  </h3>
+                  <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.9rem', maxWidth: '320px', lineHeight: '1.5' }}>
+                    {isFiltered 
+                      ? 'נסה לבחור סינון אחר כדי לראות את כל המסמכים במדף זה.' 
+                      : 'תוכל לצלם מסמך ישירות למדף זה או לייבא קבצים ותמונות מהמכשיר.'}
+                  </p>
+                  
+                  {isFiltered ? (
+                    <button
+                      type="button"
+                      onClick={() => setFilterLinked('all')}
+                      style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.65rem 1.4rem',
+                        borderRadius: '14px',
+                        fontWeight: 700,
+                        fontSize: '0.9rem',
+                        cursor: 'pointer',
+                        boxShadow: '0 4px 12px rgba(59,130,246,0.25)'
+                      }}
+                    >
+                      הצג את כל המסמכים
+                    </button>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%', maxWidth: '280px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
+                            detail: { shelfId: activeShelfId, mode: 'camera' }
+                          }));
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                          color: 'white',
+                          border: 'none',
+                          padding: '0.8rem 1.25rem',
+                          borderRadius: '16px',
+                          fontWeight: 700,
+                          fontSize: '0.95rem',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 14px rgba(37,99,235,0.3)',
+                          transition: 'transform 0.15s ease'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>📸</span> צלם מסמך למדף זה
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
+                            detail: { shelfId: activeShelfId, mode: 'upload' }
+                          }));
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.5rem',
+                          background: '#ffffff',
+                          color: '#334155',
+                          border: '1.5px solid #cbd5e1',
+                          padding: '0.75rem 1.25rem',
+                          borderRadius: '16px',
+                          fontWeight: 600,
+                          fontSize: '0.9rem',
+                          cursor: 'pointer',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.03)'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.1rem' }}>📄</span> ייבא מסמך מקובץ
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveShelfId(null)}
+                        style={{
+                          background: 'transparent',
+                          color: '#64748b',
+                          border: 'none',
+                          padding: '0.5rem',
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          marginTop: '0.25rem'
+                        }}
+                      >
+                        ← חזרה לכל המדפים
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            }
             
             return (
               <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
@@ -1040,7 +1159,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             <p style={{ textAlign: 'center', color: '#64748b', fontSize: '0.9rem', marginBottom: '1.5rem', marginTop: 0 }}>{pendingImport?.docId ? 'בחר את המדף שאליו תרצה להעביר את המסמך' : 'בחר את המדף שאליו יתווסף המסמך החדש'}</p>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
               {(() => {
-                const availableShelves = shelves.filter(s => pendingImport?.docId ? s.id !== activeShelfId : true);
+                const availableShelves = shelves.filter(s => !s.deletedAt && (pendingImport?.docId ? s.id !== activeShelfId : true));
                 if (availableShelves.length === 0) {
                   return (
                     <div style={{ textAlign: 'center', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '0.9rem' }}>
@@ -1280,33 +1399,48 @@ const handleDeleteDocument = (docId: string, title?: string) => {
   return (
     <div style={{ padding: '0', paddingBottom: '6rem' }}>
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.2rem', display: 'flex', flexDirection: 'column', lineHeight: '1', minWidth: '70px' }}>
+        <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v2.9.9</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.0.4</span>
         </h2>
         <input 
           type="text" 
           placeholder="חיפוש מדפים..." 
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          style={{ flex: 1, padding: '0.6rem 1rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', minWidth: 0, fontSize: '0.9rem' }}
+          style={{ flex: 1, minWidth: '90px', padding: '0.55rem 0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', fontSize: '0.88rem' }}
         />
         {deletedShelves.length > 0 && (
           <button 
             onClick={() => setShowRecycleBin(!showRecycleBin)}
-            style={{ padding: '0.5rem 0.75rem', background: showRecycleBin ? '#ef4444' : '#fef2f2', border: '1px solid #fecaca', borderRadius: '12px', color: showRecycleBin ? 'white' : '#ef4444', fontWeight: 'bold', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+            style={{ 
+              padding: '0.45rem 0.55rem', 
+              background: showRecycleBin ? '#ef4444' : '#fef2f2', 
+              border: '1px solid #fecaca', 
+              borderRadius: '12px', 
+              color: showRecycleBin ? 'white' : '#ef4444', 
+              fontWeight: 'bold', 
+              fontSize: '0.8rem', 
+              cursor: 'pointer', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '0.2rem', 
+              whiteSpace: 'nowrap',
+              flexShrink: 0
+            }}
             title="סל אשפה של מדפים שנמחקו"
           >
             <span>🗑️</span>
-            <span>({deletedShelves.length})</span>
+            <span style={{ fontSize: '0.75rem' }}>{deletedShelves.length}</span>
           </button>
         )}
-        <div style={{ position: 'relative' }}>
+        <div style={{ position: 'relative', flexShrink: 0 }}>
           <button 
             onClick={() => setShowViewMenu(!showViewMenu)} 
-            style={{ height: '100%', padding: '0 0.75rem', background: 'white', border: '1px solid #cbd5e1', borderRadius: '12px', color: '#475569', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem', whiteSpace: 'nowrap', fontSize: '0.9rem' }}
+            style={{ height: '100%', padding: '0.45rem 0.6rem', background: 'white', border: '1px solid #cbd5e1', borderRadius: '12px', color: '#475569', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap', fontSize: '0.85rem' }}
           >
-            <span>{viewMode === 'feed' ? '📑' : viewMode === 'grid' ? '▦' : '⭕'} תצוגה</span>
+            <span>{viewMode === 'feed' ? '📑' : viewMode === 'grid' ? '▦' : '⭕'}</span>
+            <span style={{ display: 'none', minWidth: '35px' }} className="sm-inline"> תצוגה</span>
           </button>
           {showViewMenu && (
             <div style={{ position: 'absolute', top: '110%', left: 0, background: 'white', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '1px solid #e2e8f0', padding: '0.5rem', zIndex: 100, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '130px' }}>
@@ -1585,7 +1719,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               {(() => {
                 const currentDoc = pendingImport?.docId ? documents.find(d => d.id === pendingImport.docId) : null;
                 const filterOutShelfId = activeShelfId || currentDoc?.shelfId;
-                const availableShelves = shelves.filter(s => pendingImport?.docId ? s.id !== filterOutShelfId : true);
+                const availableShelves = shelves.filter(s => !s.deletedAt && (pendingImport?.docId ? s.id !== filterOutShelfId : true));
                 if (availableShelves.length === 0) {
                   return (
                     <div style={{ textAlign: 'center', padding: '1.5rem', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1', color: '#64748b', fontSize: '0.9rem' }}>

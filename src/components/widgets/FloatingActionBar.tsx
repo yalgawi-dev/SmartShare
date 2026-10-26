@@ -44,16 +44,19 @@ export function FloatingActionBar({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [isInShelf, setIsInShelf] = useState(false);
+  const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
   const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('timeline');
   const [isVaultTab, setIsVaultTab] = useState(false);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   useEffect(() => {
     const handleOpen = (e?: any) => {
       setIsInShelf(true);
+      if (e?.detail?.shelfId) setActiveShelfId(e.detail.shelfId);
       if (e?.detail?.subTab) setShelfSubTab(e.detail.subTab);
     };
     const handleClose = () => {
       setIsInShelf(false);
+      setActiveShelfId(null);
       setShelfSubTab('timeline');
     };
     const handleSubTab = (e: any) => {
@@ -200,7 +203,15 @@ export function FloatingActionBar({
                 </button>
               ) : (
                 <button 
-                  onClick={() => onOpenScanner('upload', 'document')}
+                  onClick={() => {
+                    if (activeShelfId) {
+                      window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
+                        detail: { shelfId: activeShelfId, mode: 'upload' }
+                      }));
+                    } else {
+                      onOpenScanner('upload', 'document');
+                    }
+                  }}
                   style={{
                     background: 'transparent', 
                     border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
@@ -237,6 +248,12 @@ export function FloatingActionBar({
         {hasScanner && (
            <button 
              onClick={() => {
+               if (isInShelf && activeShelfId) {
+                 window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
+                   detail: { shelfId: activeShelfId, mode: 'camera' }
+                 }));
+                 return;
+               }
                const cat = (activeTab === 'documents' || isVaultTab || !hasFinance) 
                  ? 'document' 
                  : (activeTab === 'inbox' ? 'document' : 'receipt');
