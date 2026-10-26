@@ -1,21 +1,49 @@
-import { useState, useEffect, useRef, RefObject } from 'react';
+import { useState, useEffect, useRef, RefObject, useCallback } from 'react';
+import { LensQualityAnalyzer, LensQualityMetrics } from '../utils/lensQualityAnalyzer';
+
+export interface CameraLens {
+  deviceId: string;
+  label: string;
+  kind: MediaDeviceKind;
+  maxResolutionScore: number; // estimated quality score based on width/height capabilities
+  isRecommended: boolean;
+}
+
+export type FlashMode = 'auto' | 'on' | 'off';
 
 export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boolean) {
   const [stream, setStream] = useState<MediaStream | null>(null);
   const activeStreamRef = useRef<MediaStream | null>(null);
-  const [videoDevices, setVideoDevices] = useState<MediaDeviceInfo[]>([]);
-  const [currentDeviceIndex, setCurrentDeviceIndex] = useState<number>(0);
-  const [torchOn, setTorchOn] = useState(false);
+  const [lenses, setLenses] = useState<CameraLens[]>([]);
+  const [activeLensId, setActiveLensId] = useState<string | null>(null);
+  
+  // Flash management: 'auto' | 'on' | 'off'
+  const [flashMode, setFlashMode] = useState<FlashMode>('auto');
+  const [isTorchPhysicallyOn, setIsTorchPhysicallyOn] = useState(false);
   const [zoom, setZoom] = useState(1.0);
   const [error, setError] = useState('');
 
-  // Load saved zoom on mount
+  // Real-time quality & ambient light metrics
+  const [qualityMetrics, setQualityMetrics] = useState<LensQualityMetrics>({
+    luminance: 128,
+    isLowLight: false,
+    sharpness: 100,
+    isMotionDetected: false,
+    isSmudgedOrBlurry: false
+  });
+
+  const qualityAnalyzerRef = useRef<LensQualityAnalyzer | null>(null);
+  if (!qualityAnalyzerRef.current) {
+    qualityAnalyzerRef.current = new LensQualityAnalyzer();
+  }
+
+  // Load saved zoom & flashMode on mount
   useEffect(() => {
     try {
       const savedZoom = localStorage.getItem('myspace_scanner_zoom');
-      if (savedZoom) {
-        setZoom(parseFloat(savedZoom));
-      }
+      if (savedZoom) setZoom(parseFloat(savedZoom));
+      const savedFlash = localStorage.getItem('myspace_scanner_flash_mode') as FlashMode;
+      if (savedFlash) setFlashMode(savedFlash);
     } catch(e) {}
   }, []);
 
@@ -40,7 +68,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
   }, [zoom, stream]);
 
-  // Bind stream to video element whenever stream changes or video element mounts
+  // Bind stream to video element
   useEffect(() => {
     const video = videoRef.current;
     if (video && stream) {
@@ -54,36 +82,96 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
   }, [stream, videoRef]);
 
-  // Start Camera
+  // Apply torch constraints safely
+  const applyHardwareTorch = useCallback(async (enable: boolean, currentStream?: MediaStream | null) => {
+    const targetStream = currentStream || stream;
+    if (!targetStream) return;
+    const track = targetStream.getVideoTracks()[0];
+    if (!track) return;
+
+    try {
+      await track.applyConstraints({
+        advanced: [{ torch: enable } as any]
+      });
+      setIsTorchPhysicallyOn(enable);
+    } catch (err) {
+      try {
+        await track.applyConstraints({
+          advanced: [{ fillLightMode: enable ? 'flash' : 'off' } as any]
+        });
+        setIsTorchPhysicallyOn(enable);
+      } catch (fallbackErr) {
+        console.warn("Torch hardware constraint failed on this lens", fallbackErr);
+        setIsTorchPhysicallyOn(false);
+      }
+    }
+  }, [stream]);
+
+  // Discover all lenses and pick the best one by default
+  const discoverLenses = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return [];
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+      // Separate environment (back) cameras if identifiable
+      const detectedLenses: CameraLens[] = videoInputs.map((d, idx) => {
+        const label = d.label || `מצלמה ${idx + 1}`;
+        const isBack = /back|rear|environment|macro|telephoto|ultra/i.test(label) || (!/front|user|selfie/i.test(label));
+        // Simple heuristic: main / wide rear cameras tend to have higher index or '0'
+        return {
+          deviceId: d.deviceId,
+          label: label,
+          kind: d.kind,
+          maxResolutionScore: isBack ? 1000 - idx : 100 - idx,
+          isRecommended: false
+        };
+      });
+
+      // Mark the highest score as recommended
+      if (detectedLenses.length > 0) {
+        detectedLenses[0].isRecommended = true;
+      }
+      setLenses(detectedLenses);
+      return detectedLenses;
+    } catch (e) {
+      console.warn("Could not discover lenses:", e);
+      return [];
+    }
+  }, []);
+
+  // Start Camera with selected or best lens
   useEffect(() => {
     let isCancelled = false;
 
     async function startCamera() {
       try {
-        let devices = videoDevices;
-        if (devices.length === 0 && navigator.mediaDevices?.enumerateDevices) {
-          try {
-            const allDevices = await navigator.mediaDevices.enumerateDevices();
-            devices = allDevices.filter(d => d.kind === 'videoinput');
-            setVideoDevices(devices);
-          } catch (e) {
-            console.warn("Could not enumerate devices:", e);
-          }
+        let availableLenses = lenses;
+        if (availableLenses.length === 0) {
+          availableLenses = await discoverLenses();
         }
-        
+
+        const targetDeviceId = activeLensId || (availableLenses.length > 0 ? availableLenses[0].deviceId : undefined);
+
         let mediaStream: MediaStream | null = null;
         try {
+          const videoConstraints: MediaTrackConstraints = targetDeviceId ? {
+            deviceId: { exact: targetDeviceId },
+            width: { ideal: 4000 },
+            height: { ideal: 4000 }
+          } : {
+            facingMode: 'environment',
+            width: { ideal: 4000 },
+            height: { ideal: 4000 }
+          };
+
           mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { 
-              facingMode: 'environment', 
-              width: { ideal: 4000 }, 
-              height: { ideal: 4000 }
-            }
+            video: videoConstraints
           });
         } catch (strictErr) {
           console.warn("High-res constraints failed, falling back to standard video:", strictErr);
           mediaStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'environment' }
+            video: targetDeviceId ? { deviceId: { exact: targetDeviceId } } : { facingMode: 'environment' }
           });
         }
 
@@ -95,6 +183,18 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         setStream(mediaStream);
         activeStreamRef.current = mediaStream;
         setError('');
+
+        // Re-evaluate lenses once permission is granted (labels are now readable!)
+        if (mediaStream) {
+          discoverLenses();
+        }
+
+        // Apply initial flash state
+        if (flashMode === 'on') {
+          applyHardwareTorch(true, mediaStream);
+        } else {
+          applyHardwareTorch(false, mediaStream);
+        }
       } catch (err) {
         if (!isCancelled) {
           setError('לא ניתן לגשת למצלמה. אנא אשר הרשאות בדפדפן.');
@@ -102,7 +202,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         }
       }
     }
-    
+
     if (isScanning) {
       startCamera();
     } else {
@@ -111,6 +211,8 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         activeStreamRef.current = null;
       }
       setStream(null);
+      setIsTorchPhysicallyOn(false);
+      qualityAnalyzerRef.current?.reset();
     }
 
     return () => {
@@ -120,50 +222,63 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         activeStreamRef.current = null;
       }
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isScanning, currentDeviceIndex]);
+  }, [isScanning, activeLensId, discoverLenses, applyHardwareTorch]);
 
-  const cycleCamera = () => {
-    if (videoDevices.length > 1) {
-      setCurrentDeviceIndex((prev) => (prev + 1) % videoDevices.length);
-    } else {
-      alert('לא נמצאו מצלמות נוספות במכשיר זה.');
+  // Periodic lightweight quality & ambient lighting sensor loop (runs every ~600ms)
+  useEffect(() => {
+    if (!isScanning || !stream) return;
+
+    const interval = setInterval(() => {
+      const video = videoRef.current;
+      if (video && video.readyState >= 2 && qualityAnalyzerRef.current) {
+        const metrics = qualityAnalyzerRef.current.analyzeFrame(video);
+        setQualityMetrics(metrics);
+
+        // Auto-Flash management
+        if (flashMode === 'auto') {
+          if (metrics.isLowLight && !isTorchPhysicallyOn) {
+            applyHardwareTorch(true);
+          } else if (!metrics.isLowLight && metrics.luminance > 60 && isTorchPhysicallyOn) {
+            applyHardwareTorch(false);
+          }
+        }
+      }
+    }, 600);
+
+    return () => clearInterval(interval);
+  }, [isScanning, stream, flashMode, isTorchPhysicallyOn, videoRef, applyHardwareTorch]);
+
+  // Manual Flash Mode change
+  const handleSetFlashMode = (mode: FlashMode) => {
+    setFlashMode(mode);
+    try { localStorage.setItem('myspace_scanner_flash_mode', mode); } catch(e) {}
+
+    if (mode === 'on') {
+      applyHardwareTorch(true);
+    } else if (mode === 'off') {
+      applyHardwareTorch(false);
+    } else if (mode === 'auto') {
+      if (qualityMetrics.isLowLight) {
+        applyHardwareTorch(true);
+      } else {
+        applyHardwareTorch(false);
+      }
     }
   };
 
-  const toggleTorch = async () => {
-    if (!stream) return;
-    const track = stream.getVideoTracks()[0];
-    
-    const verifyTorch = () => {
-      const settings = track.getSettings();
-      // If we wanted it ON, but settings say it's OFF or undefined, it failed silently
-      if (!torchOn && !settings.torch) {
-        throw new Error("Silently failed hardware application");
-      }
-    };
-    
-    try {
-      // 1. Try standard WebRTC torch
-      await track.applyConstraints({
-        advanced: [{ torch: !torchOn } as any]
-      });
-      verifyTorch();
-      setTorchOn(!torchOn);
-    } catch (err: any) {
-      console.warn("Standard torch failed:", err);
-      try {
-        // 2. Try ImageCapture fillLightMode as fallback (some older devices/browsers)
-        await track.applyConstraints({
-          advanced: [{ fillLightMode: torchOn ? 'off' : 'flash' } as any]
-        });
-        // We can't easily verify fillLightMode via getSettings, so we assume success if it didn't throw
-        setTorchOn(!torchOn);
-      } catch (fallbackErr: any) {
-        console.error("All torch attempts failed:", fallbackErr);
-        alert("שגיאת פלאש: החומרה או העדשה הנוכחית חוסמת את הפעלת הפלאש (חלק מהעדשות הרחבות לא מכילות פלאש). נסה ללחוץ על 'החלף מצלמה' כדי לעבור לעדשה הראשית.");
-      }
+  // Cycle to next lens
+  const cycleCamera = () => {
+    if (lenses.length > 1) {
+      const currentIdx = lenses.findIndex(l => l.deviceId === activeLensId);
+      const nextIdx = (currentIdx + 1) % lenses.length;
+      setActiveLensId(lenses[nextIdx].deviceId);
+    } else {
+      alert('לא נמצאו עדשות נוספות במכשיר זה.');
     }
+  };
+
+  const selectLens = (deviceId: string) => {
+    setActiveLensId(deviceId);
   };
 
   const stopCamera = () => {
@@ -175,16 +290,23 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
       stream.getTracks().forEach(t => t.stop());
       setStream(null);
     }
+    setIsTorchPhysicallyOn(false);
   };
 
   return {
     stream,
-    torchOn,
+    torchOn: isTorchPhysicallyOn,
+    flashMode,
+    setFlashMode: handleSetFlashMode,
+    lenses,
+    activeLensId,
+    selectLens,
+    qualityMetrics,
     zoom,
     setZoom,
     error,
     cycleCamera,
-    toggleTorch,
     stopCamera
   };
 }
+

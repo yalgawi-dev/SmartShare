@@ -116,11 +116,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const {
     stream,
     torchOn,
+    flashMode,
+    setFlashMode,
+    lenses,
+    activeLensId,
+    selectLens,
+    qualityMetrics,
     zoom,
     setZoom,
     error: cameraError,
     cycleCamera,
-    toggleTorch,
     stopCamera
   } = useCamera(videoRef, isCameraActive);
   
@@ -1063,16 +1068,38 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.7' : 'סורק מסמכים v3.0.7'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.0.8' : 'סורק מסמכים v3.0.8'}</span>
           </h2>
 
 
         </div>
         
-        <div style={{ width: '80px', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+        <div style={{ minWidth: '95px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem' }}>
           {step === 'scanning' && stream && (
-            <button onClick={toggleTorch} style={{ background: 'transparent', color: torchOn ? '#FFD700' : 'white', border: 'none', fontSize: '1.2rem', cursor: 'pointer' }}>
-              🔦
+            <button
+              onClick={() => {
+                if (flashMode === 'auto') setFlashMode('on');
+                else if (flashMode === 'on') setFlashMode('off');
+                else setFlashMode('auto');
+              }}
+              title={`מצב פלאש: ${flashMode === 'auto' ? 'אוטומטי (ברירת מחדל)' : flashMode === 'on' ? 'פועל רציף' : 'כבוי'}`}
+              style={{
+                background: flashMode === 'auto' ? 'rgba(59, 130, 246, 0.25)' : flashMode === 'on' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
+                color: flashMode === 'auto' ? '#60a5fa' : flashMode === 'on' ? '#fde047' : '#94a3b8',
+                border: flashMode === 'auto' ? '1px solid #3b82f6' : flashMode === 'on' ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.2)',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '16px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <span>{flashMode === 'auto' ? '⚡' : flashMode === 'on' ? '💡' : '🚫'}</span>
+              <span>{flashMode === 'auto' ? 'אוטו' : flashMode === 'on' ? 'דולק' : 'כבוי'}</span>
             </button>
           )}
           {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.8rem', color: '#ccc'}}>טוען מנוע...</span>}
@@ -1151,6 +1178,49 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                    <div style={{ position: 'absolute', bottom: '-2px', left: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
                 </div>
+
+                {/* Smart Lens Smudge / Blur Alert Banner */}
+                {qualityMetrics.isSmudgedOrBlurry && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '16px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(30, 41, 59, 0.92)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid #f59e0b',
+                    borderRadius: '24px',
+                    padding: '0.45rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.6rem',
+                    zIndex: 100,
+                    boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+                    animation: 'fadeIn 0.3s ease-out'
+                  }}>
+                    <span style={{ fontSize: '1.2rem' }}>🧼</span>
+                    <span style={{ fontSize: '0.82rem', color: '#fef3c7', fontWeight: 600 }}>
+                      התמונה מעורפלת – מומלץ לנקות את העדשה
+                    </span>
+                    {lenses.length > 1 && (
+                      <button
+                        onClick={cycleCamera}
+                        style={{
+                          background: '#f59e0b',
+                          color: '#0f172a',
+                          border: 'none',
+                          padding: '0.2rem 0.55rem',
+                          borderRadius: '12px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          cursor: 'pointer'
+                        }}
+                      >
+                        נסה עדשה אחרת 🔄
+                      </button>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </>
@@ -1274,18 +1344,55 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {step === 'scanning' && scannerMode === 'camera' && (
            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
              
-             {/* Zoom Buttons */}
-             <div style={{ display: 'flex', gap: '0.5rem', background: 'rgba(0,0,0,0.5)', padding: '0.5rem', borderRadius: '24px' }}>
-               <button 
-                 onClick={() => setZoom(1.0)} 
-                 style={{ background: zoom === 1.0 ? 'white' : 'transparent', color: zoom === 1.0 ? 'black' : 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
-                 1x
-               </button>
-               <button 
-                 onClick={() => setZoom(2.0)} 
-                 style={{ background: zoom === 2.0 ? 'white' : 'transparent', color: zoom === 2.0 ? 'black' : 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'all 0.2s' }}>
-                 2x
-               </button>
+             {/* Lenses & Zoom Selector */}
+             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', background: 'rgba(0,0,0,0.6)', padding: '0.35rem 0.6rem', borderRadius: '24px', border: '1px solid rgba(255,255,255,0.1)' }}>
+               {/* Multi-lens switch buttons if more than 1 camera */}
+               {lenses.length > 1 ? (
+                 <>
+                   {lenses.slice(0, 3).map((lens, idx) => {
+                     const isSelected = activeLensId === lens.deviceId || (!activeLensId && idx === 0);
+                     // Display friendly short label: 0.5x, 1x, 2x or camera number
+                     const shortLabel = lens.label.toLowerCase().includes('wide') && !lens.label.toLowerCase().includes('ultra') ? '1x' :
+                                        lens.label.toLowerCase().includes('ultra') ? '0.5x' :
+                                        lens.label.toLowerCase().includes('tele') ? '2x' :
+                                        `עדשה ${idx + 1}`;
+                     return (
+                       <button
+                         key={lens.deviceId}
+                         onClick={() => selectLens(lens.deviceId)}
+                         style={{
+                           background: isSelected ? 'white' : 'transparent',
+                           color: isSelected ? 'black' : 'white',
+                           border: 'none',
+                           padding: '0.35rem 0.75rem',
+                           borderRadius: '16px',
+                           fontWeight: 800,
+                           fontSize: '0.8rem',
+                           cursor: 'pointer',
+                           transition: 'all 0.2s'
+                         }}
+                         title={lens.label}
+                       >
+                         {shortLabel}
+                       </button>
+                     );
+                   })}
+                 </>
+               ) : (
+                 /* Fallback digital zoom buttons */
+                 <>
+                   <button 
+                     onClick={() => setZoom(1.0)} 
+                     style={{ background: zoom === 1.0 ? 'white' : 'transparent', color: zoom === 1.0 ? 'black' : 'white', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+                     1x
+                   </button>
+                   <button 
+                     onClick={() => setZoom(2.0)} 
+                     style={{ background: zoom === 2.0 ? 'white' : 'transparent', color: zoom === 2.0 ? 'black' : 'white', border: 'none', padding: '0.35rem 0.75rem', borderRadius: '16px', fontWeight: 'bold', fontSize: '0.8rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+                     2x
+                   </button>
+                 </>
+               )}
              </div>
              <div style={{ display: 'flex', width: '100%', justifyContent: 'space-around', alignItems: 'center' }}>
                <div style={{ width: '60px' }} />
