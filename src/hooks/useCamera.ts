@@ -338,11 +338,10 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
         const metrics = qualityAnalyzerRef.current.analyzeFrame(video);
         setQualityMetrics(metrics);
 
-        // Auto-Flash management: turns on if dim/shadowed (< 80), turns off once daylight/bright room (> 105)
+        // Auto-Flash management: in auto mode, the torch stays OFF during preview so it doesn't glare/blind,
+        // and is fired as an exact synchronized strobe pulse only when capturing in low light!
         if (flashMode === 'auto') {
-          if (metrics.isLowLight && !isTorchPhysicallyOn) {
-            applyHardwareTorch(true);
-          } else if (!metrics.isLowLight && metrics.luminance > 105 && isTorchPhysicallyOn) {
+          if (isTorchPhysicallyOn) {
             applyHardwareTorch(false);
           }
         }
@@ -359,16 +358,34 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
 
     if (mode === 'on') {
       applyHardwareTorch(true);
-    } else if (mode === 'off') {
+    } else {
+      // For both 'off' and 'auto', torch is off during preview
       applyHardwareTorch(false);
-    } else if (mode === 'auto') {
-      if (qualityMetrics.isLowLight) {
-        applyHardwareTorch(true);
-      } else {
-        applyHardwareTorch(false);
-      }
     }
   };
+
+  // Trigger focused strobe pulse during capture if needed (auto in low light, or forced 'on')
+  const triggerFlashPulse = useCallback(async (): Promise<() => void> => {
+    const shouldFlash = (flashMode === 'auto' && qualityMetrics.isLowLight) || flashMode === 'on';
+    if (!shouldFlash) {
+      return () => {};
+    }
+
+    try {
+      await applyHardwareTorch(true);
+      // Wait ~160ms for sensor AE (auto-exposure) convergence under the flash light
+      await new Promise(res => setTimeout(res, 160));
+    } catch (e) {
+      console.warn("Flash pulse failed", e);
+    }
+
+    // Return cleanup callback to turn flash off after capture
+    return () => {
+      if (flashMode !== 'on') {
+        applyHardwareTorch(false).catch(() => {});
+      }
+    };
+  }, [flashMode, qualityMetrics.isLowLight, applyHardwareTorch]);
 
   const resetSmudgeAlert = useCallback(() => {
     if (qualityAnalyzerRef.current) {
@@ -422,7 +439,8 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     setZoom,
     error,
     cycleCamera,
-    stopCamera
+    stopCamera,
+    triggerFlashPulse
   };
 }
 
