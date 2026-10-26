@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSpaces } from '../../context/SpacesContext';
+import { getSharedContactsForUser } from '../../../utils/partnerUtils';
 import Link from 'next/link';
 
 export default function AdminUsersPage() {
@@ -265,7 +266,7 @@ export default function AdminUsersPage() {
               <div><span style={{ color: '#64748b' }}>אימייל:</span> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{u.email || '-'}</span></div>
               <div><span style={{ color: '#64748b' }}>מזהה:</span> <span style={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>{(u.id || '').substring(0,8)}...</span></div>
               <div><span style={{ color: '#64748b' }}>הצטרף ב:</span> {u.createdAt ? new Date(u.createdAt).toLocaleDateString('he-IL') : '-'}</div>
-              <div><span style={{ color: '#64748b' }}>אנשי קשר:</span> <strong>{u.contacts?.length || 0}</strong></div>
+              <div><span style={{ color: '#64748b' }}>אנשי קשר:</span> <strong style={{ color: '#2563eb' }}>{getSharedContactsForUser(u, spaces).length}</strong></div>
               <div><span style={{ color: '#64748b' }}>גלישה:</span> {u.lastActiveMode === 'app' ? 'אפליקציה (PWA)' : 'דפדפן'}</div>
             </div>
 
@@ -376,7 +377,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v2.9.9</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.0.7</span>
           </div>
         </div>
 
@@ -766,6 +767,7 @@ export default function AdminUsersPage() {
                 <div><strong>אימייל:</strong> {selectedUserForAnalysis.email || 'לא הוזן'}</div>
                 <div><strong>סטטוס PWA:</strong> {selectedUserForAnalysis.pwaInstalled ? 'מותקן 📲' : 'דפדפן 🌐'}</div>
                 <div><strong>פעילות:</strong> {formatLastActive(selectedUserForAnalysis.lastActiveAt)}</div>
+                <div style={{ gridColumn: 'span 2' }}><strong>אנשי קשר ושותפים:</strong> <span style={{ color: '#2563eb', fontWeight: 800 }}>{getSharedContactsForUser(selectedUserForAnalysis, spaces).length}</span> שותפים שמורים/משותפים</div>
               </div>
 
               <div>

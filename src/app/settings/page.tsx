@@ -8,6 +8,7 @@ import { requestNotificationPermission } from '../../utils/notifications';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 import { sortSpacesByUsagePriority } from '../../utils/spaceSorting';
+import { getSharedContactsForUser } from '../../utils/partnerUtils';
 
 export default function SettingsPage() {
   const { user, updateProfile, logout, deleteMyAccount } = useAuth();
@@ -93,66 +94,11 @@ export default function SettingsPage() {
     const active = mySpaces.filter((s: any) => s.status !== 'pending_deletion' && !s.isArchived);
     const archived = mySpaces.filter((s: any) => s.status === 'pending_deletion' || s.isArchived);
 
-    // Extract all other participants from these spaces
-    const contactsMap = new Map<string, { id: string; name: string; phone?: string; avatarUrl?: string; spaces: { id: string; title: string }[] }>();
-
-    mySpaces.forEach((s: any) => {
-      // 1. If current user is not creator, creator is a contact
-      if (s.creatorId && s.creatorId !== user.id) {
-        const creatorId = s.creatorId;
-        const existing = contactsMap.get(creatorId) || {
-          id: creatorId,
-          name: s.createdBy || 'מנהל המרחב',
-          spaces: []
-        };
-        if (!existing.spaces.some(sp => sp.id === s.id)) {
-          existing.spaces.push({ id: s.id, title: s.title || 'פרויקט ללא שם' });
-        }
-        contactsMap.set(creatorId, existing);
-      }
-
-      // 2. Members of space (filter out unauthenticated phantom invites like 'חנית' who never logged in)
-      (s.members || []).forEach((m: any) => {
-        if (!m.userId || m.userId === user.id) return;
-        if (m.isInvite || m.status === 'pending') return;
-        if (m.userId.startsWith('guest_') && !m.phone) return;
-
-        const existing = contactsMap.get(m.userId) || {
-          id: m.userId,
-          name: m.name || 'שותף במרחב',
-          phone: m.phone,
-          avatarUrl: m.avatarUrl,
-          spaces: []
-        };
-        if (m.name && existing.name === 'שותף במרחב') existing.name = m.name;
-        if (m.phone && !existing.phone) existing.phone = m.phone;
-        if (m.avatarUrl && !existing.avatarUrl) existing.avatarUrl = m.avatarUrl;
-        if (!existing.spaces.some(sp => sp.id === s.id)) {
-          existing.spaces.push({ id: s.id, title: s.title || 'פרויקט ללא שם' });
-        }
-        contactsMap.set(m.userId, existing);
-      });
-    });
-
-    // Also include saved contacts in user.contacts (only if they have a phone or valid registered userId)
-    (user.contacts || []).forEach((c: any) => {
-      const cId = c.id || c.phone;
-      if (!cId || cId === user.id) return;
-      if (!c.phone && cId.startsWith('guest_')) return;
-      const existing = contactsMap.get(cId) || {
-        id: cId,
-        name: c.name || 'איש קשר',
-        phone: c.phone,
-        avatarUrl: c.avatarUrl,
-        spaces: []
-      };
-      if (c.name && (!existing.name || existing.name === 'איש קשר')) existing.name = c.name;
-      if (c.phone && !existing.phone) existing.phone = c.phone;
-      contactsMap.set(cId, existing);
-    });
+    // Single Source of Truth for shared contacts (partnerUtils)
+    const contactsList = getSharedContactsForUser(user, spaces);
 
     return {
-      uniqueContacts: Array.from(contactsMap.values()),
+      uniqueContacts: contactsList,
       myActiveSpaces: sortSpacesByUsagePriority(active),
       myArchivedSpaces: sortSpacesByUsagePriority(archived)
     };

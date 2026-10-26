@@ -41,9 +41,13 @@ export default function Dashboard() {
       setTimeout(() => {
         const el = document.getElementById(`space-${spaceId}`);
         if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const rect = el.getBoundingClientRect();
+          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+          // Position the card nicely in the upper-middle of viewport with 80px header clearance
+          const targetY = scrollTop + rect.top - 80;
+          window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
         }
-      }, 100);
+      }, 150);
     }
   };
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
@@ -484,7 +488,7 @@ export default function Dashboard() {
             ))}
           </div>
         )}
-<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '2rem' }}>
+<div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', paddingBottom: '7.5rem' }}>
           {searchedSpaces.length === 0 && visibleSpaces.length > 0 && (
             <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-secondary)' }}>
               לא נמצאו מרחבים תואמים לחיפוש

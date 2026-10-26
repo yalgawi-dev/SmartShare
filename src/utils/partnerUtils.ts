@@ -91,3 +91,97 @@ export const sanitizePartnerDisplayName = (name: any, fallback = 'שותף מו�
   }
   return fallback;
 };
+
+export interface SharedContactItem {
+  id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  avatarUrl?: string;
+  spaces: { id: string; title: string }[];
+}
+
+/**
+ * Calculates all unique contacts for a given user across spaces and saved address book contacts (DRY Single Source of Truth).
+ */
+export const getSharedContactsForUser = (targetUser: any, spacesList: any[]): SharedContactItem[] => {
+  if (!targetUser) return [];
+
+  const targetUserId = targetUser.id;
+  const targetUserPhone = (targetUser.phone || '').trim();
+
+  // Find all spaces where targetUser is creator or member
+  const userSpaces = (spacesList || []).filter((s: any) => {
+    if (s.status === 'pending_deletion' || s.isArchived) return false;
+    const isCreator = s.creatorId === targetUserId || s.createdBy === targetUserId;
+    const isMember = (s.members || []).some((m: any) => 
+      (m.userId && m.userId === targetUserId) || 
+      (targetUserPhone && m.phone && m.phone === targetUserPhone)
+    );
+    return isCreator || isMember;
+  });
+
+  const contactsMap = new Map<string, SharedContactItem>();
+
+  userSpaces.forEach((s: any) => {
+    // 1. If targetUser is not the creator, creator is a contact
+    if (s.creatorId && s.creatorId !== targetUserId) {
+      const creatorId = s.creatorId;
+      const existing = contactsMap.get(creatorId) || {
+        id: creatorId,
+        name: s.createdBy || 'מנהל המרחב',
+        spaces: []
+      };
+      if (!existing.spaces.some(sp => sp.id === s.id)) {
+        existing.spaces.push({ id: s.id, title: s.title || 'פרויקט ללא שם' });
+      }
+      contactsMap.set(creatorId, existing);
+    }
+
+    // 2. Members of the space
+    (s.members || []).forEach((m: any) => {
+      const mId = m.userId;
+      if (!mId || mId === targetUserId) return;
+      if (targetUserPhone && m.phone && m.phone === targetUserPhone) return;
+      if (m.isInvite && m.status === 'pending' && !m.phone) return;
+      if (mId.startsWith('guest_') && !m.phone) return;
+
+      const contactKey = mId || m.phone;
+      const existing = contactsMap.get(contactKey) || {
+        id: contactKey,
+        name: m.name || 'שותף במרחב',
+        phone: m.phone,
+        avatarUrl: m.avatarUrl,
+        spaces: []
+      };
+      if (m.name && (existing.name === 'שותף במרחב' || !existing.name)) existing.name = m.name;
+      if (m.phone && !existing.phone) existing.phone = m.phone;
+      if (m.avatarUrl && !existing.avatarUrl) existing.avatarUrl = m.avatarUrl;
+      if (!existing.spaces.some(sp => sp.id === s.id)) {
+        existing.spaces.push({ id: s.id, title: s.title || 'פרויקט ללא שם' });
+      }
+      contactsMap.set(contactKey, existing);
+    });
+  });
+
+  // 3. Saved personal contacts from targetUser.contacts
+  (targetUser.contacts || []).forEach((c: any) => {
+    const cId = c.id || c.phone;
+    if (!cId || cId === targetUserId) return;
+    if (targetUserPhone && c.phone && c.phone === targetUserPhone) return;
+    if (!c.phone && cId.startsWith('guest_')) return;
+
+    const existing = contactsMap.get(cId) || {
+      id: cId,
+      name: c.name || 'איש קשר',
+      phone: c.phone,
+      avatarUrl: c.avatarUrl,
+      spaces: []
+    };
+    if (c.name && (!existing.name || existing.name === 'איש קשר')) existing.name = c.name;
+    if (c.phone && !existing.phone) existing.phone = c.phone;
+    contactsMap.set(cId, existing);
+  });
+
+  return Array.from(contactsMap.values());
+};
