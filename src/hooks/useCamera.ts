@@ -40,46 +40,81 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
     }
   }, [zoom, stream]);
 
+  // Bind stream to video element whenever stream changes or video element mounts
+  useEffect(() => {
+    const video = videoRef.current;
+    if (video && stream) {
+      if (video.srcObject !== stream) {
+        video.srcObject = stream;
+      }
+      video.onloadedmetadata = () => {
+        video.play().catch(e => console.warn("Video play on loadedmetadata failed:", e));
+      };
+      video.play().catch(e => console.warn("Direct video play failed:", e));
+    }
+  }, [stream, videoRef]);
+
   // Start Camera
   useEffect(() => {
+    let isCancelled = false;
+
     async function startCamera() {
       try {
         let devices = videoDevices;
-        if (devices.length === 0) {
-          const allDevices = await navigator.mediaDevices.enumerateDevices();
-          devices = allDevices.filter(d => d.kind === 'videoinput');
-          setVideoDevices(devices);
+        if (devices.length === 0 && navigator.mediaDevices?.enumerateDevices) {
+          try {
+            const allDevices = await navigator.mediaDevices.enumerateDevices();
+            devices = allDevices.filter(d => d.kind === 'videoinput');
+            setVideoDevices(devices);
+          } catch (e) {
+            console.warn("Could not enumerate devices:", e);
+          }
         }
         
-        let constraints: MediaStreamConstraints = {
-          video: { 
-            facingMode: 'environment', 
-            width: { ideal: 4000 }, 
-            height: { ideal: 4000 }
-          } as any
-        };
-        // Some devices require torch to be requested at stream creation to reserve the hardware
-        if (typeof window !== 'undefined') {
-          (constraints.video as any).advanced = [{ torch: false }];
+        let mediaStream: MediaStream | null = null;
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { 
+              facingMode: 'environment', 
+              width: { ideal: 4000 }, 
+              height: { ideal: 4000 }
+            }
+          });
+        } catch (strictErr) {
+          console.warn("High-res constraints failed, falling back to standard video:", strictErr);
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment' }
+          });
         }
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        if (isCancelled) {
+          mediaStream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
         setStream(mediaStream);
         activeStreamRef.current = mediaStream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-        }
+        setError('');
       } catch (err) {
-        setError('לא ניתן לגשת למצלמה. אנא אשר הרשאות בדפדפן.');
-        console.error(err);
+        if (!isCancelled) {
+          setError('לא ניתן לגשת למצלמה. אנא אשר הרשאות בדפדפן.');
+          console.error("Camera access error:", err);
+        }
       }
     }
     
     if (isScanning) {
       startCamera();
+    } else {
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
+        activeStreamRef.current = null;
+      }
+      setStream(null);
     }
 
     return () => {
+      isCancelled = true;
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
         activeStreamRef.current = null;
@@ -132,6 +167,10 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement>, isScanning: boo
   };
 
   const stopCamera = () => {
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(t => t.stop());
+      activeStreamRef.current = null;
+    }
     if (stream) {
       stream.getTracks().forEach(t => t.stop());
       setStream(null);
