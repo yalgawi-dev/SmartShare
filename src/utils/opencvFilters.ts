@@ -122,9 +122,10 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
         let best4: Point[] | null = null;
         const n = hullPts.length;
 
-        let step = Math.max(1, Math.floor(n / 16));
+        // Efficient corner sampling: limit to top 8 prominent extremal points
+        let step = Math.max(1, Math.floor(n / 8));
         let sampledPts: Point[] = [];
-        for (let i = 0; i < n; i += step) {
+        for (let i = 0; i < n && sampledPts.length < 8; i += step) {
           sampledPts.push(hullPts[i]);
         }
 

@@ -38,32 +38,36 @@ export default function Dashboard() {
       setExpandedSpaceId(null);
     } else {
       setExpandedSpaceId(spaceId);
-      // Give React enough time to expand and render inner features before measuring
-      setTimeout(() => {
+      // Execute after React has finished rendering the expanded space card
+      const scrollToCenter = () => {
         const el = document.getElementById(`space-${spaceId}`);
-        if (el) {
-          const rect = el.getBoundingClientRect();
-          const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-          const viewportHeight = window.innerHeight;
-          // Bottom floating bar clearance (bar height + margin is ~110px) and top header clearance (~70px)
-          const bottomBarClearance = 110;
-          const topHeaderClearance = 70;
-          const availableVisibleHeight = Math.max(100, viewportHeight - bottomBarClearance - topHeaderClearance);
+        if (!el) return;
+        
+        const rect = el.getBoundingClientRect();
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+        const viewportHeight = window.innerHeight;
+        // Floating bottom navigation bar (~115px) + top sticky header (~75px)
+        const bottomBarHeight = 115;
+        const topHeaderHeight = 75;
+        const availableHeight = viewportHeight - bottomBarHeight - topHeaderHeight;
+        
+        const cardAbsoluteTop = scrollTop + rect.top;
+        let targetY: number;
 
-          const cardAbsoluteTop = scrollTop + rect.top;
-          let targetY: number;
-
-          if (rect.height <= availableVisibleHeight) {
-            // Center the card in the visible window space (between top header and bottom bar)
-            targetY = cardAbsoluteTop - topHeaderClearance - (availableVisibleHeight - rect.height) / 2;
-          } else {
-            // Card is taller than visible height: align comfortably below top header
-            targetY = cardAbsoluteTop - topHeaderClearance - 10;
-          }
-
-          window.scrollTo({ top: Math.max(0, targetY), behavior: 'smooth' });
+        if (rect.height <= availableHeight) {
+          // Center card right in the visible area between header and floating bar
+          const verticalOffset = (availableHeight - rect.height) / 2;
+          targetY = cardAbsoluteTop - topHeaderHeight - verticalOffset;
+        } else {
+          // If card is taller than visible height, position its bottom cleanly above bottom bar
+          targetY = (cardAbsoluteTop + rect.height) - (viewportHeight - bottomBarHeight) + 20;
         }
-      }, 150);
+
+        window.scrollTo({ top: Math.max(0, Math.round(targetY)), behavior: 'smooth' });
+      };
+
+      // Immediate frame + fallback timeout for layout stabilization
+      requestAnimationFrame(() => setTimeout(scrollToCenter, 120));
     }
   };
   const [logoMenuOpenId, setLogoMenuOpenId] = useState<string | null>(null);
@@ -233,7 +237,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.1.6</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.1.7</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
