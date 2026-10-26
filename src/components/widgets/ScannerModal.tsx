@@ -374,20 +374,21 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const guideBox = guideRef.current.getBoundingClientRect();
     const videoBox = video.getBoundingClientRect();
     
-    const w = video.videoWidth;
-    const h = video.videoHeight;
+    const w = video.videoWidth || 1920;
+    const h = video.videoHeight || 1080;
 
-    const canvas = document.createElement('canvas');
+    // Target ~200 DPI for standard A4 document (1650px wide)
+    // Scale proportionally from videoBox without distortion
+    const targetWidth = 1650;
+    const scaleFactor = targetWidth / videoBox.width;
     
-    // Calculate a scale factor that targets a high-res ~2000px width.
-    // 1000px was too low for OCR and caused extreme blurriness when cropping small receipts.
-    const scaleFactor = 1600 / videoBox.width;
-    canvas.width = videoBox.width * scaleFactor;
-    canvas.height = videoBox.height * scaleFactor;
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(targetWidth);
+    canvas.height = Math.round(videoBox.height * scaleFactor);
+    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     
-    // Crucial for preventing "foggy" or "aliased" artifacts when downscaling 4K video
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
     
@@ -403,12 +404,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     let renderY = 0;
 
     if (videoRatio > boxRatio) {
-      // cover: wider
       renderH = canvas.height;
       renderW = canvas.height * videoRatio;
       renderX = (canvas.width - renderW) / 2;
     } else {
-      // cover: taller
       renderW = canvas.width;
       renderH = canvas.width / videoRatio;
       renderY = (canvas.height - renderH) / 2;
@@ -416,8 +415,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
     ctx.drawImage(video, renderX, renderY, renderW, renderH);
     
-    // Since the canvas exactly matches the videoBox visually (scaled by scaleFactor),
-    // mapping the guideBox is trivial:
+    // Map guide box corners to canvas coordinates
     const gLeft = (guideBox.left - videoBox.left) * scaleFactor;
     const gTop = (guideBox.top - videoBox.top) * scaleFactor;
     const gRight = (guideBox.right - videoBox.left) * scaleFactor;
@@ -430,7 +428,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       { x: gLeft, y: gBottom }
     ];
 
-    // Compute document boundaries directly (300px scale executes in ~30ms):
+    // Compute document boundaries directly using fast thumbnail (runs in ~20ms)
     let initialPts = defaultPts;
     try {
       const detectedPts = detectDocument(canvas);
@@ -442,14 +440,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
     setCropPoints(initialPts);
 
-    // Freeze frame & switch UI in an instant (0.05s)
-    const snapshotUrl = compressCanvas(canvas, 0.92, 'image/jpeg');
+    // Fast WebP compression (runs in ~30ms, matches processImportUrl)
+    const snapshotUrl = compressCanvas(canvas, 0.88, 'image/webp');
     setActiveSource('camera');
     setScannerMode('camera');
     setIsEditingFromReview(false);
     setRawSnapshot(snapshotUrl);
-    stopCamera();
     setStep('cropping');
+
+    // Release camera stream non-blockingly so UI transitions instantly
+    setTimeout(() => {
+      stopCamera();
+    }, 50);
   };
 
   const [profile, setProfile] = useState<'auto' | 'text' | 'photo' | 'mixed'>('auto');
@@ -1071,7 +1073,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.7' : 'סורק מסמכים v3.1.7'}</span>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.1.8' : 'סורק מסמכים v3.1.8'}</span>
           </h2>
 
 
@@ -1272,7 +1274,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.15)', paddingBottom: '0.3rem', marginBottom: '0.4rem' }}>
                    <span style={{ fontWeight: 'bold', color: '#fff', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>⏱️ טלמטריית זמנים (WebP)</span>
                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.7</span>
+                     <span style={{ fontSize: '0.7rem', background: '#10b981', color: '#000', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.1.8</span>
                      <button
                        onClick={() => setShowDebug(false)}
                        title="סגור חלונית טלמטריה"

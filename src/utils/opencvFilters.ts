@@ -543,7 +543,8 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let maxHeight = Math.round(Math.max(heightA, heightB));
         
         let scaleRatio = 1.0;
-        const MAX_PROCESSING_WIDTH = 2200;
+        // Standard CamScanner A4 document limit: 1650px gives exactly ~200 DPI
+        const MAX_PROCESSING_WIDTH = 1650;
         if (maxWidth > MAX_PROCESSING_WIDTH) {
             scaleRatio = MAX_PROCESSING_WIDTH / maxWidth;
             maxWidth = MAX_PROCESSING_WIDTH;
