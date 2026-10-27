@@ -20,7 +20,7 @@ import { PushNotificationReminder } from '../components/widgets/PushNotification
 import { universalSearch } from '../utils/searchEngine';
 import { uploadImageToStorage } from '@/lib/firebase';
 import { compressImage } from '../utils/imageOptimizer';
-import { sortSpacesByUsagePriority, recordSpaceVisit } from '../utils/spaceSorting';
+import { sortSpacesByUsagePriority, recordSpaceVisit, getSpaceUsageMetrics } from '../utils/spaceSorting';
 
 
 
@@ -237,7 +237,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.2.6</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.2.7</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -568,8 +568,18 @@ export default function Dashboard() {
                               </div>
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: 'var(--text-primary)' }}>{space.title}</h3>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
                   <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{space.features.length} פיצ'רים</span>
+                  {(() => {
+                    const metrics = getSpaceUsageMetrics(space.id);
+                    const createdDate = space.createdAt ? new Date(space.createdAt).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : 'לא ידוע';
+                    const isNew = (Date.now() - new Date(space.createdAt || 0).getTime()) < 86400000;
+                    return (
+                      <span style={{ fontSize: '0.72rem', background: 'rgba(99, 102, 241, 0.08)', color: '#4f46e5', padding: '1px 6px', borderRadius: '4px', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                        כניסות: <strong>{metrics.visits}</strong> | נוצר: {createdDate} {isNew ? '🔥 (<24 שעות)' : ''}
+                      </span>
+                    );
+                  })()}
                   {(() => {
                     const totalUnread = (space.members || []).reduce((acc: number, m: any) => acc + ((m.messages || []).filter((msg: any) => msg.from === 'partner' && !msg.readAt).length), 0);
                     const hasExtension = (space.members || []).some((m: any) => m.status === 'extension_requested');
