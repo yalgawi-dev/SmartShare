@@ -14,7 +14,52 @@ export default function SettingsPage() {
   const { user, updateProfile, logout, deleteMyAccount } = useAuth();
   const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
   
-  const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'system'>('profile');
+    const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'storage' | 'system'>('profile');
+  const [defaultStorageTarget, setDefaultStorageTarget] = useState<'cloud' | 'local' | 'gdrive'>(
+    user?.storageConfig?.defaultTarget || 'cloud'
+  );
+  const [spaceStorageOverrides, setSpaceStorageOverrides] = useState<Record<string, 'cloud' | 'local' | 'gdrive'>>(
+    user?.storageConfig?.spaceOverrides || {}
+  );
+  const [storageSaveSuccess, setStorageSaveSuccess] = useState(false);
+
+  useEffect(() => {
+    if (user?.storageConfig) {
+      if (user.storageConfig.defaultTarget) setDefaultStorageTarget(user.storageConfig.defaultTarget);
+      if (user.storageConfig.spaceOverrides) setSpaceStorageOverrides(user.storageConfig.spaceOverrides);
+    }
+  }, [user?.storageConfig]);
+
+  const handleSaveStorageConfig = (newTarget: 'cloud' | 'local' | 'gdrive', newOverrides?: Record<string, 'cloud' | 'local' | 'gdrive'>) => {
+    const overrides = newOverrides !== undefined ? newOverrides : spaceStorageOverrides;
+    setDefaultStorageTarget(newTarget);
+    updateProfile({
+      storageConfig: {
+        defaultTarget: newTarget,
+        spaceOverrides: overrides
+      }
+    });
+    setStorageSaveSuccess(true);
+    setTimeout(() => setStorageSaveSuccess(false), 3000);
+  };
+
+  const handleSetSpaceOverride = (spaceId: string, target: 'default' | 'cloud' | 'local' | 'gdrive') => {
+    const nextOverrides = { ...spaceStorageOverrides };
+    if (target === 'default') {
+      delete nextOverrides[spaceId];
+    } else {
+      nextOverrides[spaceId] = target;
+    }
+    setSpaceStorageOverrides(nextOverrides);
+    updateProfile({
+      storageConfig: {
+        defaultTarget: defaultStorageTarget,
+        spaceOverrides: nextOverrides
+      }
+    });
+    setStorageSaveSuccess(true);
+    setTimeout(() => setStorageSaveSuccess(false), 3000);
+  };
   const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>('active');
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [showNotificationHelp, setShowNotificationHelp] = useState(false);
@@ -143,7 +188,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v2.9.9</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.0</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -793,6 +838,197 @@ export default function SettingsPage() {
 
       </div>
 
+              {/* ================= TAB: STORAGE & PRIVACY ================= */}
+        {activeTab === 'storage' && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            
+            {/* Header / Intro Card */}
+            <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', color: 'white', borderRadius: '20px', padding: '1.4rem', boxShadow: '0 8px 24px rgba(15,23,42,0.15)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>🛡️</span>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>אחסון ופרטיות ב-MySpace</h2>
+              </div>
+              <p style={{ margin: 0, fontSize: '0.88rem', opacity: 0.85, lineHeight: '1.5' }}>
+                שליטה מלאה ועצמאית במיקום שמירת המסמכים והקבצים שלך. בחר היכן נשמר המידע שלך – בענן המאובטח של MySpace, ישירות על המכשיר שלך לפרטיות מרבית, או ב-Google Drive האישי שלך.
+              </p>
+            </div>
+
+            {storageSaveSuccess && (
+              <div style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>✓</span> הגדרות האחסון עודכנו ונשמרו בהצלחה!
+              </div>
+            )}
+
+            {/* Default Storage Destination Picker */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.4rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>🌐</span> יעד אחסון ראשי (ברירת מחדל לכל המרחבים)
+              </h3>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: '#64748b' }}>
+                יעד זה ישמש כברירת מחדל לכל מרחב חדש או קיים שלא הוגדרה לו החרגה מיוחדת.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+                
+                {/* 1. Cloud Storage */}
+                <div 
+                  onClick={() => handleSaveStorageConfig('cloud')}
+                  style={{
+                    border: defaultStorageTarget === 'cloud' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: defaultStorageTarget === 'cloud' ? '#eff6ff' : '#f8fafc',
+                    borderRadius: '16px',
+                    padding: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>☁️</span>
+                    {defaultStorageTarget === 'cloud' && (
+                      <span style={{ background: '#2563eb', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>פעיל</span>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>ענן MySpace</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                    סנכרון מלא, זמין מכל מכשיר, גיבוי אוטומטי שוטף. מומלץ למרבית המשתמשים.
+                  </div>
+                </div>
+
+                {/* 2. Local Storage */}
+                <div 
+                  onClick={() => handleSaveStorageConfig('local')}
+                  style={{
+                    border: defaultStorageTarget === 'local' ? '2px solid #10b981' : '1px solid #cbd5e1',
+                    background: defaultStorageTarget === 'local' ? '#f0fdf4' : '#f8fafc',
+                    borderRadius: '16px',
+                    padding: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>📱</span>
+                    {defaultStorageTarget === 'local' && (
+                      <span style={{ background: '#10b981', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>פעיל</span>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>שמירה מקומית במכשיר</div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                    פרטיות מרבית (WhatsApp Style). המסמכים לא עוברים לענן ונשמרים אך ורק בטלפון שלך.
+                  </div>
+                </div>
+
+                {/* 3. Google Drive */}
+                <div 
+                  onClick={() => handleSaveStorageConfig('gdrive')}
+                  style={{
+                    border: defaultStorageTarget === 'gdrive' ? '2px solid #8b5cf6' : '1px solid #cbd5e1',
+                    background: defaultStorageTarget === 'gdrive' ? '#f5f3ff' : '#f8fafc',
+                    borderRadius: '16px',
+                    padding: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>📁</span>
+                    {defaultStorageTarget === 'gdrive' && (
+                      <span style={{ background: '#8b5cf6', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>פעיל</span>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    Google Drive 
+                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>עסקי</span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                    שמירה ב-Google Drive האישי/העסקי שלך. כל הניהול ב-MySpace, הקבצים אצלך.
+                  </div>
+                </div>
+
+              </div>
+            </section>
+
+            {/* Per-Space Custom Storage Settings */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.4rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>🎯</span> התאמה אישית לפי מרחב
+              </h3>
+              <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: '#64748b' }}>
+                ניתן לקבוע לכל מרחב אישי יעד אחסון ספציפי (למשל: מרחב רפואי יישמר רק מקומית, בעוד מרחב הוצאות יישמר בענן).
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {myActiveSpaces.map((s: any) => {
+                  const currentOverride = spaceStorageOverrides[s.id] || 'default';
+                  const effectiveTarget = currentOverride === 'default' ? defaultStorageTarget : currentOverride;
+                  const targetLabel = effectiveTarget === 'cloud' ? 'ענן MySpace' : effectiveTarget === 'local' ? 'מקומי במכשיר' : 'Google Drive';
+                  const targetBadgeColor = effectiveTarget === 'cloud' ? '#2563eb' : effectiveTarget === 'local' ? '#10b981' : '#8b5cf6';
+
+                  return (
+                    <div 
+                      key={s.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.75rem 1rem',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        gap: '0.5rem',
+                        flexWrap: 'wrap'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '150px' }}>
+                        <span style={{ fontSize: '1.2rem' }}>{s.icon || '📁'}</span>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a' }}>{s.title}</div>
+                          <div style={{ fontSize: '0.75rem', color: targetBadgeColor, fontWeight: 700 }}>
+                            פעיל: {targetLabel} {currentOverride === 'default' ? '(ברירת מחדל)' : '(החרגה אישית)'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <select
+                          value={currentOverride}
+                          onChange={(e) => handleSetSpaceOverride(s.id, e.target.value as any)}
+                          style={{
+                            padding: '0.45rem 0.75rem',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontSize: '0.82rem',
+                            fontWeight: 700,
+                            background: '#ffffff',
+                            color: '#334155',
+                            outline: 'none',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="default">לפי ברירת מחדל ({defaultStorageTarget === 'cloud' ? 'ענן' : defaultStorageTarget === 'local' ? 'מקומי' : 'דרייב'})</option>
+                          <option value="cloud">☁️ ענן MySpace</option>
+                          <option value="local">📱 שמירה מקומית במכשיר</option>
+                          <option value="gdrive">📁 Google Drive</option>
+                        </select>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {myActiveSpaces.length === 0 && (
+                  <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.88rem' }}>
+                    לא נמצאו מרחבים פעילים.
+                  </div>
+                )}
+              </div>
+            </section>
+
+          </div>
+        )}
+
       {/* FLOATING BOTTOM DOCK NAVIGATION BAR */}
       <div style={{
         position: 'fixed',
@@ -808,8 +1044,8 @@ export default function SettingsPage() {
         borderRadius: '24px',
         padding: '6px',
         display: 'grid',
-        gridTemplateColumns: 'repeat(4, 1fr)',
-        gap: '4px',
+        gridTemplateColumns: 'repeat(5, 1fr)',
+        gap: '2px',
         boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.15)',
         zIndex: 99999,
         direction: 'rtl'
@@ -890,6 +1126,27 @@ export default function SettingsPage() {
         >
           <span style={{ fontSize: '1.15rem' }}>📁</span>
           <span style={{ fontSize: '0.72rem', fontWeight: 800, marginTop: '2px' }}>מרחבים</span>
+        </button>
+
+        {/* Storage */}
+        <button
+          onClick={() => setActiveTab('storage')}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px 2px',
+            borderRadius: '18px',
+            border: 'none',
+            background: activeTab === 'storage' ? '#2563eb' : 'transparent',
+            color: activeTab === 'storage' ? '#ffffff' : '#64748b',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          <span style={{ fontSize: '1.15rem' }}>🛡️</span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 800, marginTop: '2px', whiteSpace: 'nowrap' }}>אחסון</span>
         </button>
 
         {/* System */}

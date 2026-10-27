@@ -44,6 +44,10 @@ export interface UserProfile {
   lastActiveMode?: 'app' | 'browser';
   ocrCount?: number;
   storageBytesUsed?: number;
+  storageConfig?: {
+    defaultTarget: 'cloud' | 'local' | 'gdrive';
+    spaceOverrides?: Record<string, 'cloud' | 'local' | 'gdrive'>;
+  };
 }
 
 interface AuthContextType {

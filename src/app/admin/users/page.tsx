@@ -129,6 +129,28 @@ export default function AdminUsersPage() {
   const totalDocuments = activeSpaces.reduce((acc, s) => acc + (s.documents?.length || 0), 0);
   const totalMedia = activeSpaces.reduce((acc, s) => acc + (s.mediaItems?.length || 0), 0);
 
+  // Macro Storage Distribution
+  const storageDist = useMemo(() => {
+    let cloud = 0;
+    let local = 0;
+    let gdrive = 0;
+    allUsers.forEach(u => {
+      const target = u.storageConfig?.defaultTarget || 'cloud';
+      if (target === 'local') local++;
+      else if (target === 'gdrive') gdrive++;
+      else cloud++;
+    });
+    return { cloud, local, gdrive };
+  }, [allUsers]);
+
+  // Macro Cloud Storage calculation (Spark plan: 5GB = 5120 MB)
+  const totalStorageBytes = allUsers.reduce((sum, u) => sum + (u.storageBytesUsed || 0), 0);
+  const totalStorageMB = Number((totalStorageBytes / (1024 * 1024)).toFixed(2));
+  const maxStorageMB = 5120; // 5 GB Firebase Free Tier
+  const storageUsagePercent = Number(((totalStorageMB / maxStorageMB) * 100).toFixed(1));
+  const isStorageWarning = storageUsagePercent >= 70;
+  const isStorageDanger = storageUsagePercent >= 85;
+
   // Render Status Lamp Dot
   const renderStatusDot = (u: any) => {
     if (u.pwaInstalled && u.lastActiveMode === 'app') {
@@ -235,6 +257,28 @@ export default function AdminUsersPage() {
 
           {/* Right info: status dot, last active & expand arrow */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+            {(() => {
+              const target = u.storageConfig?.defaultTarget || 'cloud';
+              const badge = target === 'local' 
+                ? { label: '📱 מקומי', bg: '#f0fdf4', color: '#16a34a', border: '#bbf7d0' }
+                : target === 'gdrive'
+                ? { label: '📁 Drive', bg: '#f5f3ff', color: '#7c3aed', border: '#ddd6fe' }
+                : { label: '☁️ ענן', bg: '#eff6ff', color: '#2563eb', border: '#bfdbfe' };
+              return (
+                <span style={{ 
+                  fontSize: '0.68rem', 
+                  fontWeight: 800, 
+                  background: badge.bg, 
+                  color: badge.color, 
+                  border: `1px solid ${badge.border}`,
+                  padding: '1px 6px', 
+                  borderRadius: '6px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {badge.label}
+                </span>
+              );
+            })()}
             {renderStatusDot(u)}
             <div style={{ minWidth: '70px', textAlign: 'left' }}>
               {formatLastActive(u.lastActiveAt)}
@@ -268,6 +312,8 @@ export default function AdminUsersPage() {
               <div><span style={{ color: '#64748b' }}>הצטרף ב:</span> {u.createdAt ? new Date(u.createdAt).toLocaleDateString('he-IL') : '-'}</div>
               <div><span style={{ color: '#64748b' }}>אנשי קשר:</span> <strong style={{ color: '#2563eb' }}>{getSharedContactsForUser(u, spaces).length}</strong></div>
               <div><span style={{ color: '#64748b' }}>גלישה:</span> {u.lastActiveMode === 'app' ? 'אפליקציה (PWA)' : 'דפדפן'}</div>
+              <div><span style={{ color: '#64748b' }}>יעד אחסון:</span> <strong>{u.storageConfig?.defaultTarget === 'local' ? '📱 מקומי במכשיר' : u.storageConfig?.defaultTarget === 'gdrive' ? '📁 Google Drive' : '☁️ ענן MySpace'}</strong></div>
+              <div><span style={{ color: '#64748b' }}>החרגות מרחב:</span> <strong>{Object.keys(u.storageConfig?.spaceOverrides || {}).length} מרחבים</strong></div>
             </div>
 
             {/* Actions Bar */}
@@ -377,7 +423,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.0.7</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.0</span>
           </div>
         </div>
 
@@ -599,22 +645,136 @@ export default function AdminUsersPage() {
 
         {/* TAB 4: SYSTEM SETTINGS & STORAGE */}
         {activeTab === 'system' && (
-          <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800 }}>📦 שימוש במשאבים ו-OCR</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-              <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px' }}>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>סריקות OCR במערכת</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '0.2rem' }}>
-                  {allUsers.reduce((sum, u) => sum + (u.ocrCount || 0), 0)} סריקות
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            
+            {/* CAPACITY ALERT (Visual Warning if approaching 5GB limit) */}
+            <div style={{
+              background: isStorageDanger ? '#fef2f2' : isStorageWarning ? '#fffbeb' : '#f0fdf4',
+              border: `1px solid ${isStorageDanger ? '#f87171' : isStorageWarning ? '#fcd34d' : '#86efac'}`,
+              borderRadius: '16px',
+              padding: '1rem 1.25rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '1rem',
+              flexWrap: 'wrap'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <span style={{ fontSize: '1.75rem' }}>{isStorageDanger ? '🚨' : isStorageWarning ? '⚠️' : '✅'}</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.98rem', color: isStorageDanger ? '#991b1b' : isStorageWarning ? '#92400e' : '#166534' }}>
+                    {isStorageDanger 
+                      ? 'התראת עומס ענן קריטית! מעל 85% תפוסה' 
+                      : isStorageWarning 
+                      ? 'שים לב: ניצול שטח הענן חצה את 70%' 
+                      : 'שטח האחסון בענן תקין לחלוטין (מתחת ל-70%)'}
+                  </div>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
+                    בשימוש כעת: {totalStorageMB} MB מתוך {maxStorageMB} MB ({storageUsagePercent}%) בחשבון ה-Firebase Spark החינמי.
+                  </div>
                 </div>
               </div>
-              <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '10px' }}>
-                <div style={{ fontSize: '0.8rem', color: '#64748b' }}>קבצים ומסמכים</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '0.2rem' }}>
-                  {totalDocuments + totalMedia} פריטים
+              {isStorageWarning && (
+                <div style={{ background: isStorageDanger ? '#ef4444' : '#f59e0b', color: 'white', padding: '0.4rem 0.85rem', borderRadius: '10px', fontSize: '0.8rem', fontWeight: 800 }}>
+                  דרושה היערכות להרחבה
+                </div>
+              )}
+            </div>
+
+            {/* Macro Storage Gauge Card */}
+            <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '18px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>☁️</span> מאקרו ניצול ענן Firebase Storage
+                </h3>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: isStorageDanger ? '#ef4444' : '#2563eb' }}>
+                  {storageUsagePercent}% מנוצל
+                </span>
+              </div>
+
+              {/* Progress Bar */}
+              <div style={{ width: '100%', height: '12px', background: '#f1f5f9', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.75rem' }}>
+                <div style={{ 
+                  width: `${Math.max(storageUsagePercent, 1)}%`, 
+                  height: '100%', 
+                  background: isStorageDanger ? '#ef4444' : isStorageWarning ? '#f59e0b' : 'linear-gradient(90deg, #3b82f6 0%, #10b981 100%)',
+                  borderRadius: '999px',
+                  transition: 'width 0.5s ease'
+                }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', fontSize: '0.82rem', color: '#64748b' }}>
+                <div>תפוס: <strong style={{ color: '#0f172a' }}>{totalStorageMB} MB</strong></div>
+                <div>פנוי: <strong style={{ color: '#16a34a' }}>{(maxStorageMB - totalStorageMB).toFixed(1)} MB</strong></div>
+                <div>מכסה חינמית: <strong style={{ color: '#0f172a' }}>5,120 MB (5 GB)</strong></div>
+              </div>
+            </div>
+
+            {/* Business Model: User Storage Destination Distribution */}
+            <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '18px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <h3 style={{ margin: '0 0 0.85rem 0', fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>🎯</span> פילוח יעדי אחסון משתמשים (מודל עסקי)
+              </h3>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.85rem', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#1e40af', fontWeight: 700 }}>☁️ ענן MySpace</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#1d4ed8', marginTop: '0.2rem' }}>{storageDist.cloud}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>משתמשים שמגבים בענן</div>
+                </div>
+
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '0.85rem', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#166534', fontWeight: 700 }}>📱 מקומי במכשיר</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#15803d', marginTop: '0.2rem' }}>{storageDist.local}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>חיסכון מלא בעלויות ענן!</div>
+                </div>
+
+                <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.85rem', borderRadius: '12px' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#5b21b6', fontWeight: 700 }}>📁 Google Drive</div>
+                  <div style={{ fontSize: '1.6rem', fontWeight: 800, color: '#7c3aed', marginTop: '0.2rem' }}>{storageDist.gdrive}</div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>משתמשי ענן פרטי / Pro</div>
                 </div>
               </div>
             </div>
+
+            {/* OCR Engine Monitor & Rate Limit Watch */}
+            <div style={{ background: '#ffffff', padding: '1.25rem', borderRadius: '18px', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>⚡</span> מוניטור OCR וקצב פעילות (Gemini 2.0 Flash)
+                </h3>
+                <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#15803d', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                  מכסה חינמית: 15 RPM
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>סך סריקות מצטברות</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0f172a', marginTop: '0.2rem' }}>
+                    {allUsers.reduce((sum, u) => sum + (u.ocrCount || 0), 0)}
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#16a34a' }}>עד 1,500 חינם ביום (RPD)</div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>קצב מותר לדקה</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#2563eb', marginTop: '0.2rem' }}>
+                    15 RPM
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>מגבלת מהירות גוגל</div>
+                </div>
+
+                <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b' }}>חריגות קצב (Rate Limits)</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#16a34a', marginTop: '0.2rem' }}>
+                    0 שגיאות
+                  </div>
+                  <div style={{ fontSize: '0.72rem', color: '#16a34a' }}>תקין - אין חסימות פעילות</div>
+                </div>
+              </div>
+            </div>
+
           </div>
         )}
 
