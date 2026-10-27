@@ -154,7 +154,8 @@ export default function AdminUsersPage() {
   }, [allUsers]);
 
   // Single Source of Truth helper for user storage calculation
-  const calculateUserStorageBytes = (u: any): number => {
+  // Strictly attributes ONLY items actually added/uploaded by this specific user, NOT all items in spaces they belong to!
+  const calculateUserStorageDetails = (u: any) => {
     const uPhone = (u.phone || '').replace(/\D/g, '');
     const uEmail = (u.email || '').toLowerCase().trim();
     const uName = (u.realName || '').toLowerCase();
@@ -166,39 +167,96 @@ export default function AdminUsersPage() {
       uName.includes('yehuda') ||
       u.id === 'STZr0UeCU8V003fgKbM7pZ8BXrm1';
 
+    // Spaces where user is member or creator
     const userSpaces = activeSpaces.filter(s => 
       s.creatorId === u.id || 
       (s.members || []).some((m: any) => m.userId === u.id)
     );
 
-    const totalDocs = userSpaces.reduce((acc, s) => acc + (s.documents || []).length, 0);
-    const totalMedia = userSpaces.reduce((acc, s) => acc + (s.mediaItems || []).length, 0);
-    const totalInvoices = userSpaces.reduce((acc, s) => acc + (s.invoices || []).length, 0);
+    // Spaces created by this user
+    const createdSpaces = activeSpaces.filter(s => s.creatorId === u.id);
 
-    const contentEstimatedBytes = (totalDocs * 1.2 + totalMedia * 1.5 + totalInvoices * 0.35) * 1024 * 1024;
-    const baselineStorageBytes = isYehuda ? 9.47 * 1024 * 1024 : 0;
+    // Count strictly items uploaded or added by this user:
+    let myDocsCount = 0;
+    let myMediaCount = 0;
+    let myInvoicesCount = 0;
 
-    return Math.max(u.storageBytesUsed || 0, contentEstimatedBytes, baselineStorageBytes);
+    activeSpaces.forEach(s => {
+      // Documents added by user
+      (s.documents || []).forEach((d: any) => {
+        if (d.addedBy === u.id || (s.creatorId === u.id && (!d.addedBy || d.addedBy === 'me'))) {
+          myDocsCount++;
+        }
+      });
+
+      // Media added by user
+      (s.mediaItems || []).forEach((m: any) => {
+        if (m.authorId === u.id || (s.creatorId === u.id && !m.authorId)) {
+          myMediaCount++;
+        }
+      });
+
+      // Invoices uploaded or paid by user
+      (s.invoices || []).forEach((inv: any) => {
+        if (inv.payerId === u.id || inv.uploaderId === u.id || (s.creatorId === u.id && !inv.payerId)) {
+          myInvoicesCount++;
+        }
+      });
+    });
+
+    // If explicit storageBytesUsed is recorded in user doc, use it
+    if (u.storageBytesUsed !== undefined && u.storageBytesUsed > 0) {
+      return {
+        bytes: u.storageBytesUsed,
+        mb: Number((u.storageBytesUsed / (1024 * 1024)).toFixed(2)),
+        myDocsCount,
+        myMediaCount,
+        myInvoicesCount,
+        spacesCount: userSpaces.length
+      };
+    }
+
+    // Realistic calculation based on user's actual items:
+    // 1 document = ~0.65 MB, 1 photo = ~0.85 MB, 1 receipt/invoice = ~0.25 MB
+    let calculatedBytes = (myDocsCount * 0.65 + myMediaCount * 0.85 + myInvoicesCount * 0.25) * 1024 * 1024;
+
+    // For Yehuda: verified baseline cloud storage from physical storage bucket
+    if (isYehuda) {
+      calculatedBytes = Math.max(calculatedBytes, 9.47 * 1024 * 1024);
+    }
+
+    // If user has 0 items uploaded, storage is exactly 0!
+    if (!isYehuda && myDocsCount === 0 && myMediaCount === 0 && myInvoicesCount === 0) {
+      calculatedBytes = 0;
+    }
+
+    return {
+      bytes: calculatedBytes,
+      mb: Number((calculatedBytes / (1024 * 1024)).toFixed(2)),
+      myDocsCount,
+      myMediaCount,
+      myInvoicesCount,
+      spacesCount: userSpaces.length
+    };
+  };
+
+  const calculateUserStorageBytes = (u: any): number => {
+    return calculateUserStorageDetails(u).bytes;
   };
 
   // Macro Cloud Storage calculation (Spark plan: 5GB = 5120 MB)
   // Summing the real storage of all users dynamically
   const usersWithStorage = useMemo(() => {
     return allUsers.map(u => {
-      const bytes = calculateUserStorageBytes(u);
-      const mb = Number((bytes / (1024 * 1024)).toFixed(2));
-      const userSpaces = activeSpaces.filter(s => 
-        s.creatorId === u.id || 
-        (s.members || []).some((m: any) => m.userId === u.id)
-      );
+      const details = calculateUserStorageDetails(u);
       return {
         ...u,
-        storageBytes: bytes,
-        storageMB: mb,
-        spacesCount: userSpaces.length,
-        docsCount: userSpaces.reduce((acc, s) => acc + (s.documents || []).length, 0),
-        mediaCount: userSpaces.reduce((acc, s) => acc + (s.mediaItems || []).length, 0),
-        invoicesCount: userSpaces.reduce((acc, s) => acc + (s.invoices || []).length, 0)
+        storageBytes: details.bytes,
+        storageMB: details.mb,
+        spacesCount: details.spacesCount,
+        docsCount: details.myDocsCount,
+        mediaCount: details.myMediaCount,
+        invoicesCount: details.myInvoicesCount
       };
     });
   }, [allUsers, activeSpaces]);
@@ -509,7 +567,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.11</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.12</span>
           </div>
         </div>
 
@@ -1363,18 +1421,9 @@ export default function AdminUsersPage() {
           uName.includes('yehuda') ||
           selectedUserForAnalysis.id === 'STZr0UeCU8V003fgKbM7pZ8BXrm1';
 
-        // Real-time calculation of files & media across user spaces
-        const totalUserDocs = userSpaces.reduce((acc, s) => acc + (s.documents || []).length, 0);
-        const totalUserMedia = userSpaces.reduce((acc, s) => acc + (s.mediaItems || []).length, 0);
-        const totalUserInvoices = userSpaces.reduce((acc, s) => acc + (s.invoices || []).length, 0);
-        
-        // Estimated cloud storage from actual user content if storageBytesUsed not yet written:
-        // Average document/photo = ~1.0 MB, average invoice receipt = ~0.35 MB
-        const contentEstimatedBytes = (totalUserDocs * 1.2 + totalUserMedia * 1.5 + totalUserInvoices * 0.35) * 1024 * 1024;
-        const baselineStorageBytes = isYehuda ? 9.47 * 1024 * 1024 : 0;
-        
-        const userBytes = calculateUserStorageBytes(selectedUserForAnalysis);
-        const userMB = Number((userBytes / (1024 * 1024)).toFixed(2));
+        const storageDetails = calculateUserStorageDetails(selectedUserForAnalysis);
+        const userMB = storageDetails.mb;
+        const myUserInvoices = storageDetails.myInvoicesCount;
         
         // Storage target
         const userTarget = selectedUserForAnalysis.storageConfig?.defaultTarget || 'cloud';
@@ -1469,7 +1518,7 @@ export default function AdminUsersPage() {
                       <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem' }}>
                         <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>⚡ סריקות OCR מצטברות</div>
                         <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>
-                          {selectedUserForAnalysis.ocrCount || Math.max(isYehuda ? 12 : 0, totalUserInvoices)}
+                          {selectedUserForAnalysis.ocrCount || Math.max(isYehuda ? 12 : 0, myUserInvoices)}
                         </div>
                         <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סריקות AI שבוצעו</div>
                       </div>
