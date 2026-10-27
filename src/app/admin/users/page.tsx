@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSpaces } from '../../context/SpacesContext';
 import { getSharedContactsForUser } from '../../../utils/partnerUtils';
@@ -15,6 +15,8 @@ export default function AdminUsersPage() {
   const [showPartnersInModal, setShowPartnersInModal] = useState(false);
   const [filterByPartnerId, setFilterByPartnerId] = useState<string | null>(null);
   const [isMetricsAccordionOpen, setIsMetricsAccordionOpen] = useState(true);
+  const partnersCardRef = useRef<HTMLDivElement | null>(null);
+  const modalScrollRef = useRef<HTMLDivElement | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'lastActive' | 'duplicate' | 'pwa' | 'createdAt' | 'name'>('lastActive');
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -431,7 +433,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.8</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.9</span>
           </div>
         </div>
 
@@ -1203,7 +1205,9 @@ export default function AdminUsersPage() {
             padding: '1rem',
             direction: 'rtl'
           }}>
-            <div style={{ 
+            <div 
+              ref={modalScrollRef}
+              style={{ 
               background: '#ffffff', 
               borderRadius: '24px', 
               padding: '1.4rem', 
@@ -1211,7 +1215,8 @@ export default function AdminUsersPage() {
               maxWidth: '500px', 
               maxHeight: '90vh', 
               overflowY: 'auto',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              scrollBehavior: 'smooth'
             }}>
               {/* Header */}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
@@ -1298,7 +1303,10 @@ export default function AdminUsersPage() {
                 </div>
 
                 {/* 2. USER DETAILS & PARTNERS ACCORDION CARD (Right beneath the metrics) */}
-                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                <div 
+                  ref={partnersCardRef}
+                  style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}
+                >
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
                     <div><strong>טלפון:</strong> <span style={{ direction: 'ltr', display: 'inline-block' }}>{selectedUserForAnalysis.phone || 'לא הוזן'}</span></div>
                     <div><strong>אימייל:</strong> <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{selectedUserForAnalysis.email || 'לא הוזן'}</span></div>
@@ -1308,7 +1316,17 @@ export default function AdminUsersPage() {
 
                   {/* Clickable Partners Trigger Button */}
                   <div 
-                    onClick={() => setShowPartnersInModal(!showPartnersInModal)}
+                    onClick={() => {
+                      const nextState = !showPartnersInModal;
+                      setShowPartnersInModal(nextState);
+                      if (nextState) {
+                        setTimeout(() => {
+                          if (partnersCardRef.current) {
+                            partnersCardRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          }
+                        }, 50);
+                      }
+                    }}
                     style={{ 
                       background: showPartnersInModal ? '#eff6ff' : '#ffffff', 
                       border: showPartnersInModal ? '1.5px solid #2563eb' : '1px solid #cbd5e1', 
@@ -1352,7 +1370,10 @@ export default function AdminUsersPage() {
                         return (
                           <div 
                             key={idx} 
-                            onClick={() => setFilterByPartnerId(isFiltered ? null : contact.id)}
+                            onClick={() => {
+                              const newFilter = isFiltered ? null : contact.id;
+                              setFilterByPartnerId(newFilter);
+                            }}
                             style={{ 
                               background: isFiltered ? '#eff6ff' : '#f8fafc', 
                               padding: '0.65rem 0.85rem', 
@@ -1409,18 +1430,7 @@ export default function AdminUsersPage() {
                   )}
                 </div>
 
-                {/* 3. Storage Destination Preference */}
-                <div style={{ background: '#ffffff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>יעד אחסון מוגדר:</div>
-                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{targetLabel}</div>
-                  </div>
-                  <span style={{ fontSize: '0.72rem', background: '#dbeafe', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                    {Object.keys(selectedUserForAnalysis.storageConfig?.spaceOverrides || {}).length} החרגות מרחב
-                  </span>
-                </div>
-
-                {/* 4. PER-SPACE DETAILED LIST (Strict Filter Applied - Shows ONLY relevant spaces immediately in view!) */}
+                {/* 3. PER-SPACE DETAILED LIST (Immediately under Partners for seamless flow) */}
                 <div>
                   {(() => {
                     // Filter userSpaces strictly if filterByPartnerId is selected
@@ -1504,6 +1514,17 @@ export default function AdminUsersPage() {
                       </>
                     );
                   })()}
+                </div>
+
+                {/* 4. Storage Destination Preference (Placed neatly at the bottom) */}
+                <div style={{ background: '#ffffff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>יעד אחסון מוגדר:</div>
+                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#0f172a', marginTop: '2px' }}>{targetLabel}</div>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', background: '#dbeafe', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                    {Object.keys(selectedUserForAnalysis.storageConfig?.spaceOverrides || {}).length} החרגות מרחב
+                  </span>
                 </div>
 
                 <button 
