@@ -9,7 +9,7 @@ import { calculateUserStorageDetails } from '../../../utils/userStorageCalculato
 import Link from 'next/link';
 
 export default function AdminUsersPage() {
-  const { user, allUsers, blockUser, toggleAdmin, updateUserByAdmin, deleteUserDoc } = useAuth();
+  const { user, allUsers, blockUser, toggleAdmin, updateUserByAdmin, updateAllUsersQuotasByAdmin, deleteUserDoc } = useAuth();
   const { spaces, deleteSpace, permanentlyDeleteSpace, restoreSpace } = useSpaces() as any;
 
   const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'spaces' | 'system'>('users');
@@ -34,6 +34,13 @@ export default function AdminUsersPage() {
   const [editingOcrQuota, setEditingOcrQuota] = useState<number>(50);
   const [isSavingQuota, setIsSavingQuota] = useState(false);
   const [quotaSaveSuccess, setQuotaSaveSuccess] = useState(false);
+
+  // Global Quota for ALL Users (Macro)
+  const [globalStorageQuotaMB, setGlobalStorageQuotaMB] = useState<number>(500);
+  const [globalOcrQuota, setGlobalOcrQuota] = useState<number>(50);
+  const [isSavingGlobalQuota, setIsSavingGlobalQuota] = useState(false);
+  const [globalQuotaSuccess, setGlobalQuotaSuccess] = useState(false);
+  const [isGlobalQuotaCardOpen, setIsGlobalQuotaCardOpen] = useState(true);
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -505,7 +512,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.18</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.19</span>
           </div>
         </div>
 
@@ -604,6 +611,139 @@ export default function AdminUsersPage() {
         {/* TAB 1: USERS & CRM */}
         {activeTab === 'users' && (
           <>
+            {/* MACRO GLOBAL QUOTAS FOR ALL USERS (כוווולם) */}
+            <div style={{ background: '#ffffff', borderRadius: '16px', border: '1.5px solid #bbf7d0', overflow: 'hidden', boxShadow: '0 4px 12px rgba(34,197,94,0.06)' }}>
+              <div 
+                onClick={() => setIsGlobalQuotaCardOpen(!isGlobalQuotaCardOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.85rem 1rem',
+                  cursor: 'pointer',
+                  background: '#f0fdf4',
+                  borderBottom: isGlobalQuotaCardOpen ? '1px solid #bbf7d0' : 'none'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>🌍</span>
+                  <div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#166534' }}>
+                      הגדרת מכסות מקרו גלובליות (לכל {allUsers.length} המשתמשים!)
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#15803d' }}>
+                      קביעה או עדכון גורף של מכסת שטח ענן וסריקות OCR לכל המשתמשים בלחיצה אחת
+                    </div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  {globalQuotaSuccess && (
+                    <span style={{ fontSize: '0.72rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                      ✓ עודכן בהצלחה לכולם!
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 800 }}>
+                    {isGlobalQuotaCardOpen ? 'צמצם ▲' : 'פתח ▼'}
+                  </span>
+                </div>
+              </div>
+
+              {isGlobalQuotaCardOpen && (
+                <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                    {/* Global Storage Quota */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
+                        ☁️ מכסת ענן גורפת למשתמש (MB)
+                      </label>
+                      <input 
+                        type="number"
+                        min="10"
+                        step="50"
+                        value={globalStorageQuotaMB}
+                        onChange={(e) => setGlobalStorageQuotaMB(Math.max(10, parseInt(e.target.value) || 500))}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontWeight: 800,
+                          fontSize: '0.92rem',
+                          background: '#ffffff',
+                          color: '#0f172a'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>ברירת מחדל מומלצת: 500 MB</span>
+                    </div>
+
+                    {/* Global OCR Quota */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
+                        ⚡ מכסת OCR גורפת למשתמש (סריקות)
+                      </label>
+                      <input 
+                        type="number"
+                        min="5"
+                        step="25"
+                        value={globalOcrQuota}
+                        onChange={(e) => setGlobalOcrQuota(Math.max(5, parseInt(e.target.value) || 50))}
+                        style={{
+                          padding: '0.5rem 0.75rem',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontWeight: 800,
+                          fontSize: '0.92rem',
+                          background: '#ffffff',
+                          color: '#0f172a'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>ברירת מחדל מומלצת: 50 סריקות</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSavingGlobalQuota}
+                    onClick={async () => {
+                      if (!confirm(`האם להחיל מכסת ענן של ${globalStorageQuotaMB} MB ומכסת OCR של ${globalOcrQuota} סריקות על כל ${allUsers.length} המשתמשים במערכת?`)) {
+                        return;
+                      }
+                      setIsSavingGlobalQuota(true);
+                      try {
+                        await updateAllUsersQuotasByAdmin({
+                          storageQuotaMB: globalStorageQuotaMB,
+                          ocrQuota: globalOcrQuota
+                        });
+                        setGlobalQuotaSuccess(true);
+                        setTimeout(() => setGlobalQuotaSuccess(false), 4000);
+                        alert(`בהצלחה! כל ${allUsers.length} המשתמשים עודכנו למכסה של ${globalStorageQuotaMB} MB ענן ו-${globalOcrQuota} סריקות OCR.`);
+                      } catch (err: any) {
+                        alert('שגיאה בעדכון מכסות גלובליות: ' + (err.message || ''));
+                      } finally {
+                        setIsSavingGlobalQuota(false);
+                      }
+                    }}
+                    style={{
+                      background: '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '0.65rem 1rem',
+                      fontWeight: 800,
+                      fontSize: '0.88rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem',
+                      boxShadow: '0 4px 10px rgba(22,163,74,0.2)'
+                    }}
+                  >
+                    <span>{isSavingGlobalQuota ? 'מעדכן את כל המשתמשים...' : `🌍 החל מכסות אלו על כל ${allUsers.length} המשתמשים עכשיו!`}</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             {/* Collapsible Status Legend Accordion */}
             <div style={{ background: '#ffffff', borderRadius: '12px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
               <div 
@@ -1458,10 +1598,10 @@ export default function AdminUsersPage() {
                     )}
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem' }}>
                     {/* Cloud Storage Quota */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
+                      <label style={{ fontSize: '0.74rem', color: '#166534', fontWeight: 800, whiteSpace: 'nowrap' }}>
                         ☁️ מכסת ענן (MB)
                       </label>
                       <input 
@@ -1474,11 +1614,13 @@ export default function AdminUsersPage() {
                           setSelectedUserForAnalysis((prev: any) => ({ ...prev, storageQuotaMB: val }));
                         }}
                         style={{
-                          padding: '0.45rem 0.65rem',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '0.45rem 0.6rem',
                           borderRadius: '8px',
                           border: '1px solid #86efac',
                           fontWeight: 800,
-                          fontSize: '0.9rem',
+                          fontSize: '0.88rem',
                           background: '#ffffff'
                         }}
                       />
@@ -1486,8 +1628,8 @@ export default function AdminUsersPage() {
                     </div>
 
                     {/* OCR Quota */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
+                      <label style={{ fontSize: '0.74rem', color: '#166534', fontWeight: 800, whiteSpace: 'nowrap' }}>
                         ⚡ מכסת OCR (סריקות)
                       </label>
                       <input 
@@ -1500,11 +1642,13 @@ export default function AdminUsersPage() {
                           setSelectedUserForAnalysis((prev: any) => ({ ...prev, ocrQuota: val }));
                         }}
                         style={{
-                          padding: '0.45rem 0.65rem',
+                          width: '100%',
+                          boxSizing: 'border-box',
+                          padding: '0.45rem 0.6rem',
                           borderRadius: '8px',
                           border: '1px solid #86efac',
                           fontWeight: 800,
-                          fontSize: '0.9rem',
+                          fontSize: '0.88rem',
                           background: '#ffffff'
                         }}
                       />

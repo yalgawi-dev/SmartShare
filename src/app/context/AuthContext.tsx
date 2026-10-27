@@ -68,6 +68,7 @@ interface AuthContextType {
   blockUser: (userId: string, block: boolean) => void; // Admin action
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
   updateUserByAdmin: (userId: string, updates: Partial<UserProfile>) => Promise<void>;
+  updateAllUsersQuotasByAdmin: (updates: { storageQuotaMB?: number; ocrQuota?: number }) => Promise<void>;
   deleteUserDoc: (userId: string) => void;
   deleteMyAccount: () => Promise<void>; // Admin action
   isLoaded: boolean;
@@ -92,6 +93,8 @@ const AuthContext = createContext<AuthContextType>({
   addContact: () => {},
   blockUser: () => {},
   toggleAdmin: () => {},
+  updateUserByAdmin: async () => {},
+  updateAllUsersQuotasByAdmin: async () => {},
   deleteUserDoc: () => {},
     deleteMyAccount: async () => {},
   isLoaded: false,
@@ -99,7 +102,6 @@ const AuthContext = createContext<AuthContextType>({
     linkPhoneNumberMock: async () => {},
   findUserByPhone: async () => null,
   findUserById: async () => null,
-  updateUserByAdmin: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -514,6 +516,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateAllUsersQuotasByAdmin = async (updates: { storageQuotaMB?: number; ocrQuota?: number }) => {
+    if (!user?.isAdmin) return;
+    try {
+      const promises = allUsers.map(u => updateDoc(doc(db, 'users', u.id), updates));
+      await Promise.all(promises);
+      setAllUsers(prev => prev.map(u => ({ ...u, ...updates })));
+      if (user) {
+        setUser(prev => prev ? { ...prev, ...updates } : prev);
+      }
+    } catch (e) {
+      console.error("Failed to update all users quotas by admin", e);
+      throw e;
+    }
+  };
+
     const deleteMyAccount = async () => {
     if (!auth.currentUser || !user) return;
     try {
@@ -594,7 +611,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
-      logout, updateProfile, addContact, blockUser, toggleAdmin, updateUserByAdmin, deleteUserDoc, deleteMyAccount, isLoaded,
+      logout, updateProfile, addContact, blockUser, toggleAdmin, updateUserByAdmin, updateAllUsersQuotasByAdmin, deleteUserDoc, deleteMyAccount, isLoaded,
       loginWithPhone, linkPhoneNumberMock, findUserByPhone, findUserById
     }}>
       {children}
