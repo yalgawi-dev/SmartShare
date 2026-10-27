@@ -430,7 +430,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.5</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.6</span>
           </div>
         </div>
 
@@ -702,8 +702,14 @@ export default function AdminUsersPage() {
                   return (
                     <div key={s.id} style={{ background: '#ffffff', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span style={{ fontSize: '1.25rem' }}>{s.icon || '📁'}</span>
+                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
+                            {s.logoUrl ? (
+                              <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: '1.25rem' }}>{s.icon || '📁'}</span>
+                            )}
+                          </div>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
                         </div>
                         
@@ -744,8 +750,14 @@ export default function AdminUsersPage() {
                   return (
                     <div key={s.id} style={{ background: '#fffbeb', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                          <span>🗄️</span>
+                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7' }}>
+                            {s.logoUrl ? (
+                              <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <span style={{ fontSize: '1.25rem' }}>{s.icon || '🗄️'}</span>
+                            )}
+                          </div>
                           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
                           <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>בארכיון</span>
                         </div>
@@ -1160,7 +1172,7 @@ export default function AdminUsersPage() {
           (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id)
         );
         const createdSpacesCount = activeSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
-        const sharedContacts = getSharedContactsForUser(selectedUserForAnalysis, spaces);
+        const sharedContacts = getSharedContactsForUser(selectedUserForAnalysis, spaces, allUsers);
         
         // Calculate user storage in MB (Baseline 9.47 MB for Yehuda or tracked storageBytesUsed)
         const isYehuda = selectedUserForAnalysis.email === 'yehuda.algawi@gmail.com' || selectedUserForAnalysis.phone === '0509666008' || selectedUserForAnalysis.id === 'STZr0UeCU8V003fgKbM7pZ8BXrm1';
@@ -1268,6 +1280,7 @@ export default function AdminUsersPage() {
                           (contact.name && (u.realName === contact.name || u.nickname === contact.name))
                         );
                         const resolvedPhone = contact.phone || matchedUser?.phone || 'לא הוזן';
+                        const resolvedAvatar = contact.avatarUrl || matchedUser?.avatarUrl;
                         const isFiltered = filterByPartnerId === contact.id;
 
                         return (
@@ -1287,10 +1300,19 @@ export default function AdminUsersPage() {
                               transition: 'all 0.15s ease'
                             }}
                           >
-                            <div>
-                              <div style={{ fontWeight: 800, color: '#0f172a' }}>{contact.name || 'שותף'}</div>
-                              <div style={{ color: '#64748b', fontSize: '0.75rem', direction: 'ltr', textAlign: 'right' }}>
-                                📱 {resolvedPhone}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                              <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#e0e7ff', color: '#3730a3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontWeight: 800, fontSize: '0.85rem' }}>
+                                {resolvedAvatar ? (
+                                  <img src={resolvedAvatar} alt={contact.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                ) : (
+                                  contact.name ? contact.name.charAt(0) : '👤'
+                                )}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 800, color: '#0f172a' }}>{contact.name || 'שותף'}</div>
+                                <div style={{ color: '#64748b', fontSize: '0.75rem', direction: 'ltr', textAlign: 'right' }}>
+                                  📱 {resolvedPhone}
+                                </div>
                               </div>
                             </div>
                             <div style={{ textAlign: 'left' }}>
@@ -1418,20 +1440,29 @@ export default function AdminUsersPage() {
                             boxShadow: isPartnerSpace ? '0 4px 12px rgba(37,99,235,0.1)' : 'none'
                           }}
                         >
-                          <div>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <strong style={{ color: isPartnerSpace ? '#1d4ed8' : '#0f172a' }}>{s.title}</strong>
-                              <span style={{ fontSize: '0.7rem', color: isCreator ? '#d97706' : '#2563eb', fontWeight: 800 }}>
-                                {isCreator ? '(יוצר 👑)' : `(שותף - ${member?.sharePercentage || 0}%)`}
-                              </span>
-                              {isPartnerSpace && (
-                                <span style={{ fontSize: '0.65rem', background: '#2563eb', color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
-                                  משותף לשותף הנבחר
-                                </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e2e8f0' }}>
+                              {s.logoUrl ? (
+                                <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: '1.15rem' }}>{s.icon || '📁'}</span>
                               )}
                             </div>
-                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                              {docsCount} קבצים ומסמכים | {invoicesCount} הוצאות | {(s.features || []).length} כלים
+                            <div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <strong style={{ color: isPartnerSpace ? '#1d4ed8' : '#0f172a' }}>{s.title}</strong>
+                                <span style={{ fontSize: '0.7rem', color: isCreator ? '#d97706' : '#2563eb', fontWeight: 800 }}>
+                                  {isCreator ? '(יוצר 👑)' : `(שותף - ${member?.sharePercentage || 0}%)`}
+                                </span>
+                                {isPartnerSpace && (
+                                  <span style={{ fontSize: '0.65rem', background: '#2563eb', color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                                    משותף לשותף הנבחר
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                {docsCount} קבצים ומסמכים | {invoicesCount} הוצאות | {(s.features || []).length} כלים
+                              </div>
                             </div>
                           </div>
                           <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'none', fontSize: '0.78rem', background: '#ffffff', border: '1px solid #bfdbfe', padding: '4px 8px', borderRadius: '6px' }}>

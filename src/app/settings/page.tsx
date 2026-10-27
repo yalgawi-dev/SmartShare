@@ -12,7 +12,7 @@ import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota }
 import { getSharedContactsForUser } from '../../utils/partnerUtils';
 
 export default function SettingsPage() {
-  const { user, updateProfile, logout, deleteMyAccount } = useAuth();
+  const { user, allUsers, updateProfile, logout, deleteMyAccount } = useAuth();
   const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
   
     const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'storage' | 'system'>('profile');
@@ -160,14 +160,14 @@ export default function SettingsPage() {
     const archived = mySpaces.filter((s: any) => s.status === 'pending_deletion' || s.isArchived);
 
     // Single Source of Truth for shared contacts (partnerUtils)
-    const contactsList = getSharedContactsForUser(user, spaces);
+    const contactsList = getSharedContactsForUser(user, spaces, allUsers);
 
     return {
       uniqueContacts: contactsList,
       myActiveSpaces: sortSpacesByUsagePriority(active),
       myArchivedSpaces: sortSpacesByUsagePriority(archived)
     };
-  }, [spaces, user]);
+  }, [spaces, user, allUsers]);
 
   if (!user || (user as any).isAnonymous) {
     return (
@@ -208,7 +208,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.2</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.6</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -588,7 +588,13 @@ export default function SettingsPage() {
                           }}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flex: 1, minWidth: 0 }}>
-                            <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>{s.icon || '🌟'}</span>
+                            <div style={{ width: '38px', height: '38px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
+                              {s.logoUrl ? (
+                                <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: '1.4rem' }}>{s.icon || '🌟'}</span>
+                              )}
+                            </div>
                             <div style={{ minWidth: 0, overflow: 'hidden' }}>
                               <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{s.title}</div>
                               <div style={{ fontSize: '0.76rem', color: '#64748b', marginTop: '2px' }}>
@@ -719,10 +725,19 @@ export default function SettingsPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {myArchivedSpaces.map((s: any) => (
                     <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '1rem', color: '#9a3412' }}>{s.icon || '🗄️'} {s.title}</div>
-                        <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
-                          נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7' }}>
+                          {s.logoUrl ? (
+                            <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ fontSize: '1.2rem' }}>{s.icon || '🗄️'}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '1rem', color: '#9a3412' }}>{s.title}</div>
+                          <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
+                            נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')}
+                          </div>
                         </div>
                       </div>
                       <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -1115,8 +1130,14 @@ export default function SettingsPage() {
                         flexWrap: 'wrap'
                       }}
                     >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: '150px' }}>
-                        <span style={{ fontSize: '1.2rem' }}>{s.icon || '📁'}</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: '150px' }}>
+                        <div style={{ width: '34px', height: '34px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e2e8f0' }}>
+                          {s.logoUrl ? (
+                            <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ fontSize: '1.2rem' }}>{s.icon || '📁'}</span>
+                          )}
+                        </div>
                         <div>
                           <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a' }}>{s.title}</div>
                           <div style={{ fontSize: '0.75rem', color: targetBadgeColor, fontWeight: 700 }}>

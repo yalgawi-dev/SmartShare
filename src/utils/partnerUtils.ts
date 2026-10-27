@@ -104,7 +104,7 @@ export interface SharedContactItem {
 /**
  * Calculates all unique contacts for a given user across spaces and saved address book contacts (DRY Single Source of Truth).
  */
-export const getSharedContactsForUser = (targetUser: any, spacesList: any[]): SharedContactItem[] => {
+export const getSharedContactsForUser = (targetUser: any, spacesList: any[], allUsers?: any[]): SharedContactItem[] => {
   if (!targetUser) return [];
 
   const targetUserId = targetUser.id;
@@ -183,5 +183,21 @@ export const getSharedContactsForUser = (targetUser: any, spacesList: any[]): Sh
     contactsMap.set(cId, existing);
   });
 
-  return Array.from(contactsMap.values());
+  const contacts = Array.from(contactsMap.values());
+  if (Array.isArray(allUsers) && allUsers.length > 0) {
+    contacts.forEach(c => {
+      if (!c.avatarUrl) {
+        const matched = allUsers.find(u => 
+          (c.id && u.id === c.id) ||
+          (c.phone && u.phone && u.phone.trim() === c.phone.trim()) ||
+          (c.name && (u.realName === c.name || u.nickname === c.name))
+        );
+        if (matched?.avatarUrl) {
+          c.avatarUrl = matched.avatarUrl;
+        }
+      }
+    });
+  }
+
+  return contacts;
 };
