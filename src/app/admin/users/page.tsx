@@ -19,6 +19,7 @@ export default function AdminUsersPage() {
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [openSystemSection, setOpenSystemSection] = useState<'storage' | 'business' | 'ocr' | null>('storage');
+  const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>('active');
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -428,7 +429,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.3</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.4</span>
           </div>
         </div>
 
@@ -626,27 +627,147 @@ export default function AdminUsersPage() {
           </div>
         )}
 
-        {/* TAB 3: SPACES & PLUGINS */}
+        {/* TAB 3: SPACES & PLUGINS (Active vs Archived Sub-Tabs) */}
         {activeTab === 'spaces' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>
-              📁 מרחבים פעילים ({activeSpaces.length})
+            
+            {/* Sub-Tabs Switcher (Pill Navigation) */}
+            <div style={{
+              display: 'flex',
+              background: '#e2e8f0',
+              padding: '4px',
+              borderRadius: '12px',
+              gap: '4px'
+            }}>
+              <button
+                onClick={() => setSpacesSubTab('active')}
+                style={{
+                  flex: 1,
+                  padding: '0.55rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: spacesSubTab === 'active' ? '#ffffff' : 'transparent',
+                  color: spacesSubTab === 'active' ? '#1d4ed8' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: spacesSubTab === 'active' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🟢</span>
+                <span>מרחבים פעילים ({activeSpaces.length})</span>
+              </button>
+
+              <button
+                onClick={() => setSpacesSubTab('archived')}
+                style={{
+                  flex: 1,
+                  padding: '0.55rem',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: spacesSubTab === 'archived' ? '#ffffff' : 'transparent',
+                  color: spacesSubTab === 'archived' ? '#d97706' : '#64748b',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  boxShadow: spacesSubTab === 'archived' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>🗄️</span>
+                <span>בארכיון / מחיקה ({archivedSpaces.length})</span>
+              </button>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {activeSpaces.map(s => (
-                <div key={s.id} style={{ background: '#ffffff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{s.icon || '🌟'} {s.title}</div>
-                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
-                      יוצר: {s.createdBy || s.creatorId} | { (s.members || []).length } שותפים | { (s.invoices || []).length } הוצאות
+
+            {/* Sub-tab 1: Active Spaces */}
+            {spacesSubTab === 'active' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {activeSpaces.map(s => {
+                  const creatorUser = allUsers.find(u => u.id === (s.creatorId || s.createdBy));
+                  const creatorDisplayName = creatorUser ? (creatorUser.realName || creatorUser.nickname || creatorUser.phone) : (s.creatorId || 'לא ידוע');
+                  const membersCount = (s.members || []).length;
+                  const invoicesCount = (s.invoices || []).length;
+                  const docsCount = (s.documents || []).length + (s.mediaItems || []).length;
+
+                  return (
+                    <div key={s.id} style={{ background: '#ffffff', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span style={{ fontSize: '1.25rem' }}>{s.icon || '📁'}</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                        </div>
+                        
+                        {/* Clean Hebrew Metadata formatting (No RTL/LTR mix-ups) */}
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
+                          <span>יוצר: <strong style={{ color: '#0f172a' }}>{creatorDisplayName}</strong></span>
+                          <span>•</span>
+                          <span>שותפים: <strong style={{ color: '#2563eb' }}>{membersCount}</strong></span>
+                          <span>•</span>
+                          <span>הוצאות: <strong style={{ color: '#0f172a' }}>{invoicesCount}</strong></span>
+                          <span>•</span>
+                          <span>קבצים: <strong style={{ color: '#0f172a' }}>{docsCount}</strong></span>
+                        </div>
+                      </div>
+
+                      <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, fontSize: '0.82rem', textDecoration: 'none', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.45rem 0.85rem', borderRadius: '8px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        פתח ↗
+                      </Link>
                     </div>
+                  );
+                })}
+
+                {activeSpaces.length === 0 && (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', background: '#ffffff', borderRadius: '14px' }}>
+                    לא נמצאו מרחבים פעילים.
                   </div>
-                  <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, fontSize: '0.82rem', textDecoration: 'none' }}>
-                    פתח ↗
-                  </Link>
-                </div>
-              ))}
-            </div>
+                )}
+              </div>
+            )}
+
+            {/* Sub-tab 2: Archived Spaces */}
+            {spacesSubTab === 'archived' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                {archivedSpaces.map(s => {
+                  const creatorUser = allUsers.find(u => u.id === (s.creatorId || s.createdBy));
+                  const creatorDisplayName = creatorUser ? (creatorUser.realName || creatorUser.nickname) : 'לא ידוע';
+
+                  return (
+                    <div key={s.id} style={{ background: '#fffbeb', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#92400e', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span>🗄️</span>
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                          <span style={{ fontSize: '0.68rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>בארכיון</span>
+                        </div>
+                        <div style={{ fontSize: '0.78rem', color: '#78350f', marginTop: '4px' }}>
+                          יוצר: <strong>{creatorDisplayName}</strong> • { (s.members || []).length } שותפים
+                        </div>
+                      </div>
+
+                      <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#b45309', fontWeight: 800, fontSize: '0.82rem', textDecoration: 'none', background: '#fef3c7', padding: '0.45rem 0.85rem', borderRadius: '8px', whiteSpace: 'nowrap' }}>
+                        צפה ↗
+                      </Link>
+                    </div>
+                  );
+                })}
+
+                {archivedSpaces.length === 0 && (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#94a3b8', background: '#ffffff', borderRadius: '14px' }}>
+                    אין מרחבים בארכיון.
+                  </div>
+                )}
+              </div>
+            )}
+
           </div>
         )}
 
