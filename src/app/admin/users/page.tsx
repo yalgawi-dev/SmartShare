@@ -433,7 +433,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.9</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.10</span>
           </div>
         </div>
 
@@ -1280,7 +1280,11 @@ export default function AdminUsersPage() {
         const contentEstimatedBytes = (totalUserDocs * 1.2 + totalUserMedia * 1.5 + totalUserInvoices * 0.35) * 1024 * 1024;
         const baselineStorageBytes = isYehuda ? 9.47 * 1024 * 1024 : 0;
         
-        const userBytes = selectedUserForAnalysis.storageBytesUsed || Math.max(baselineStorageBytes, contentEstimatedBytes);
+        const userBytes = Math.max(
+          selectedUserForAnalysis.storageBytesUsed || 0,
+          contentEstimatedBytes,
+          baselineStorageBytes
+        );
         const userMB = Number((userBytes / (1024 * 1024)).toFixed(2));
         
         // Storage target
