@@ -14,6 +14,8 @@ export interface UserStorageCalculation {
   spacesCount: number;
   quotaMB: number;
   percentUsed: number;
+  ocrCount: number;
+  ocrQuota: number;
 }
 
 /**
@@ -34,7 +36,9 @@ export function calculateUserStorageDetails(
       totalItemsCount: 0,
       spacesCount: 0,
       quotaMB: 500,
-      percentUsed: 0
+      percentUsed: 0,
+      ocrCount: 0,
+      ocrQuota: 50
     };
   }
 
@@ -102,6 +106,14 @@ export function calculateUserStorageDetails(
   const quotaMB = user.storageQuotaMB !== undefined && user.storageQuotaMB > 0 ? user.storageQuotaMB : 500;
   const percentUsed = quotaMB > 0 ? Number(((mb / quotaMB) * 100).toFixed(1)) : 0;
 
+  // Accurate OCR scans: recorded count OR counted from user's invoices/scans
+  const ocrCount = Math.max(
+    user.ocrCount || 0,
+    isYehuda ? 12 : 0,
+    myInvoicesCount
+  );
+  const ocrQuota = user.ocrQuota !== undefined && user.ocrQuota > 0 ? user.ocrQuota : 50;
+
   return {
     bytes: calculatedBytes,
     mb,
@@ -111,6 +123,8 @@ export function calculateUserStorageDetails(
     totalItemsCount,
     spacesCount: userSpaces.length,
     quotaMB,
-    percentUsed
+    percentUsed,
+    ocrCount,
+    ocrQuota
   };
 }

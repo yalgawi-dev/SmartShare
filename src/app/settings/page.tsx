@@ -241,7 +241,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.17</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.18</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1025,7 +1025,7 @@ export default function SettingsPage() {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748b' }}>
                       <span>📄 {userStorage.totalItemsCount} קבצים שנשמרו</span>
-                      <span>🔍 סריקות OCR: {user?.ocrCount || 0}/{user?.ocrQuota || 50}</span>
+                      <span>🔍 סריקות OCR: {userStorage.ocrCount}/{userStorage.ocrQuota}</span>
                     </div>
                   </div>
                 </div>
@@ -1059,12 +1059,28 @@ export default function SettingsPage() {
                     </div>
                   </div>
 
-                  {/* Contextual Local Folder Details & Open Explorer Button */}
+                  {/* Contextual Local Folder Details & Device Storage Graph */}
                   <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px dashed #a7f3d0', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
                     <div style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <span>📂 MySpace/[שם המרחב]/</span>
                       <span>{localDeviceFiles.length} קבצים בטלפון ({localDeviceFiles.reduce((acc, f) => acc + f.sizeMB, 0).toFixed(2)} MB)</span>
                     </div>
+
+                    {/* Total Device Storage Graph */}
+                    {deviceQuota && (
+                      <div style={{ background: 'rgba(255,255,255,0.7)', padding: '0.45rem 0.6rem', borderRadius: '8px', border: '1px solid #bbf7d0', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', fontWeight: 700 }}>
+                          <span style={{ color: '#065f46' }}>זיכרון כולל בטלפון:</span>
+                          <span style={{ color: '#047857', direction: 'rtl' }}>
+                            {deviceQuota.usageMB} MB מתוך {deviceQuota.quotaMB > 0 ? `${(deviceQuota.quotaMB / 1024).toFixed(1)} GB זמין` : 'שטח פנוי'}
+                          </span>
+                        </div>
+                        <div style={{ width: '100%', height: '5px', background: '#d1fae5', borderRadius: '999px', overflow: 'hidden' }}>
+                          <div style={{ width: `${Math.max(deviceQuota.percentUsed, 1)}%`, height: '100%', background: '#10b981', borderRadius: '999px' }} />
+                        </div>
+                      </div>
+                    )}
+
                     <button
                       type="button"
                       onClick={async (e) => {

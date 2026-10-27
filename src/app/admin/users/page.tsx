@@ -396,7 +396,25 @@ export default function AdminUsersPage() {
                   fontSize: '0.8rem'
                 }}
               >
-                📊 ניתוח מלא
+                📊 ניתוח ומכסות
+              </button>
+
+              <button
+                onClick={() => setSelectedUserForAnalysis(u)}
+                style={{
+                  background: '#f0fdf4',
+                  color: '#15803d',
+                  border: '1px solid #bbf7d0',
+                  padding: '0.45rem 0.65rem',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '0.8rem',
+                  whiteSpace: 'nowrap'
+                }}
+                title="הגדר מכסת ענן ו-OCR למשתמש זה"
+              >
+                ⚙️ מכסות
               </button>
 
               {u.id !== user.id && (
@@ -487,7 +505,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.17</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.18</span>
           </div>
         </div>
 
@@ -757,74 +775,80 @@ export default function AdminUsersPage() {
                   const docsCount = (s.documents || []).length + (s.mediaItems || []).length;
 
                   return (
-                    <div key={s.id} style={{ background: '#ffffff', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                          <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
+                    <div key={s.id} style={{ background: '#ffffff', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.65rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        
+                        {/* Space Header: Icon + Full Title (never cut with ellipsis) */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flex: 1, minWidth: '180px' }}>
+                          <div style={{ width: '36px', height: '36px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9' }}>
                             {s.logoUrl ? (
                               <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
-                              <span style={{ fontSize: '1.25rem' }}>{s.icon || '📁'}</span>
+                              <span style={{ fontSize: '1.3rem' }}>{s.icon || '📁'}</span>
                             )}
                           </div>
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</span>
+                          <span style={{ fontWeight: 800, fontSize: '1.02rem', color: '#0f172a', wordBreak: 'break-word', lineHeight: '1.3' }}>
+                            {s.title}
+                          </span>
                         </div>
-                        
-                        {/* Clean Hebrew Metadata formatting (No RTL/LTR mix-ups) */}
-                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center' }}>
-                          <span>יוצר: <strong style={{ color: '#0f172a' }}>{creatorDisplayName}</strong></span>
-                          <span>•</span>
-                          <span>שותפים: <strong style={{ color: '#2563eb' }}>{membersCount}</strong></span>
-                          <span>•</span>
-                          <span>הוצאות: <strong style={{ color: '#0f172a' }}>{invoicesCount}</strong></span>
-                          <span>•</span>
-                          <span>קבצים: <strong style={{ color: '#0f172a' }}>{docsCount}</strong></span>
+
+                        {/* Action Buttons */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                          <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, fontSize: '0.8rem', textDecoration: 'none', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.45rem 0.75rem', borderRadius: '8px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                            פתח ↗
+                          </Link>
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`האם להעביר את המרחב "${s.title}" לארכיון?`)) {
+                                await deleteSpace(s.id);
+                              }
+                            }}
+                            title="העבר לארכיון"
+                            style={{
+                              background: '#fef2f2',
+                              color: '#dc2626',
+                              border: '1px solid #fecaca',
+                              borderRadius: '8px',
+                              padding: '0.45rem 0.75rem',
+                              fontSize: '0.78rem',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              whiteSpace: 'nowrap'
+                            }}
+                          >
+                            📦 ארכיון
+                          </button>
+                          <button
+                            onClick={async () => {
+                              if (window.confirm(`אזהרה! האם למחוק לצמיתות את המרחב "${s.title}" ממאגר הנתונים? פעולה זו בלתי הפיכה!`)) {
+                                await permanentlyDeleteSpace(s.id);
+                              }
+                            }}
+                            title="מחיקה לצמיתות (Admin)"
+                            style={{
+                              background: '#f1f5f9',
+                              color: '#64748b',
+                              border: '1px solid #cbd5e1',
+                              borderRadius: '8px',
+                              padding: '0.45rem 0.55rem',
+                              fontSize: '0.78rem',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, fontSize: '0.8rem', textDecoration: 'none', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.45rem 0.75rem', borderRadius: '8px', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                          פתח ↗
-                        </Link>
-                        <button
-                          onClick={async () => {
-                            if (window.confirm(`האם להעביר את המרחב "${s.title}" לארכיון?`)) {
-                              await deleteSpace(s.id);
-                            }
-                          }}
-                          title="העבר לארכיון"
-                          style={{
-                            background: '#fef2f2',
-                            color: '#dc2626',
-                            border: '1px solid #fecaca',
-                            borderRadius: '8px',
-                            padding: '0.45rem 0.75rem',
-                            fontSize: '0.78rem',
-                            fontWeight: 700,
-                            cursor: 'pointer'
-                          }}
-                        >
-                          📦 ארכיון
-                        </button>
-                        <button
-                          onClick={async () => {
-                            if (window.confirm(`אזהרה! האם למחוק לצמיתות את המרחב "${s.title}" ממאגר הנתונים? פעולה זו בלתי הפיכה!`)) {
-                              await permanentlyDeleteSpace(s.id);
-                            }
-                          }}
-                          title="מחיקה לצמיתות (Admin)"
-                          style={{
-                            background: '#f1f5f9',
-                            color: '#64748b',
-                            border: '1px solid #cbd5e1',
-                            borderRadius: '8px',
-                            padding: '0.45rem 0.55rem',
-                            fontSize: '0.78rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          🗑️
-                        </button>
+                      {/* Clean Hebrew Metadata formatting */}
+                      <div style={{ fontSize: '0.8rem', color: '#64748b', display: 'flex', flexWrap: 'wrap', gap: '0.6rem', alignItems: 'center', paddingTop: '0.3rem', borderTop: '1px dashed #f1f5f9' }}>
+                        <span>יוצר: <strong style={{ color: '#0f172a' }}>{creatorDisplayName}</strong></span>
+                        <span>•</span>
+                        <span>שותפים: <strong style={{ color: '#2563eb' }}>{membersCount}</strong></span>
+                        <span>•</span>
+                        <span>הוצאות: <strong style={{ color: '#0f172a' }}>{invoicesCount}</strong></span>
+                        <span>•</span>
+                        <span>קבצים: <strong style={{ color: '#0f172a' }}>{docsCount}</strong></span>
                       </div>
                     </div>
                   );
@@ -1421,7 +1445,110 @@ export default function AdminUsersPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 
-                {/* 1. TOP 4 CORE BUSINESS MODEL INDICATORS (First thing user sees, default open with accordion toggle) */}
+                {/* 1. ADMIN QUOTA ALLOCATION: Cloud Storage (MB) & OCR Scans (PROMINENT AT TOP) */}
+                <div style={{ background: '#f0fdf4', padding: '1rem', borderRadius: '16px', border: '2px solid #86efac', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontWeight: 800, fontSize: '0.96rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>⚙️</span> הקצאת מכסות אישיות (אדמין)
+                    </div>
+                    {quotaSaveSuccess && (
+                      <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                        ✓ נשמר בהצלחה!
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                    {/* Cloud Storage Quota */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>
+                        ☁️ מכסת ענן (MB)
+                      </label>
+                      <input 
+                        type="number"
+                        min="10"
+                        step="50"
+                        value={selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500}
+                        onChange={(e) => {
+                          const val = Math.max(10, parseInt(e.target.value) || 500);
+                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, storageQuotaMB: val }));
+                        }}
+                        style={{
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '8px',
+                          border: '1px solid #86efac',
+                          fontWeight: 800,
+                          fontSize: '0.9rem',
+                          background: '#ffffff'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.68rem', color: '#15803d' }}>בשימוש: {userMB} MB</span>
+                    </div>
+
+                    {/* OCR Quota */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>
+                        ⚡ מכסת OCR (סריקות)
+                      </label>
+                      <input 
+                        type="number"
+                        min="5"
+                        step="25"
+                        value={selectedUserForAnalysis.ocrQuota !== undefined ? selectedUserForAnalysis.ocrQuota : 50}
+                        onChange={(e) => {
+                          const val = Math.max(5, parseInt(e.target.value) || 50);
+                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, ocrQuota: val }));
+                        }}
+                        style={{
+                          padding: '0.45rem 0.65rem',
+                          borderRadius: '8px',
+                          border: '1px solid #86efac',
+                          fontWeight: 800,
+                          fontSize: '0.9rem',
+                          background: '#ffffff'
+                        }}
+                      />
+                      <span style={{ fontSize: '0.68rem', color: '#15803d' }}>בוצעו: {selectedUserForAnalysis.ocrCount || Math.max(isYehuda ? 12 : 0, myUserInvoices)}</span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    disabled={isSavingQuota}
+                    onClick={async () => {
+                      setIsSavingQuota(true);
+                      try {
+                        const newStorageMB = selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500;
+                        const newOcrQuota = selectedUserForAnalysis.ocrQuota !== undefined ? selectedUserForAnalysis.ocrQuota : 50;
+                        await updateUserByAdmin(selectedUserForAnalysis.id, {
+                          storageQuotaMB: newStorageMB,
+                          ocrQuota: newOcrQuota
+                        });
+                        setQuotaSaveSuccess(true);
+                        setTimeout(() => setQuotaSaveSuccess(false), 3000);
+                      } catch (err: any) {
+                        alert('שגיאה בעדכון מכסות: ' + (err.message || ''));
+                      } finally {
+                        setIsSavingQuota(false);
+                      }
+                    }}
+                    style={{
+                      background: '#16a34a',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      padding: '0.55rem',
+                      fontWeight: 800,
+                      fontSize: '0.84rem',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(22,163,74,0.25)'
+                    }}
+                  >
+                    {isSavingQuota ? 'שומר מכסות...' : '💾 שמור מכסות למשתמש זה'}
+                  </button>
+                </div>
+
+                {/* 2. TOP 4 CORE BUSINESS MODEL INDICATORS */}
                 <div style={{ background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                   <div 
                     onClick={() => setIsMetricsAccordionOpen(!isMetricsAccordionOpen)}
@@ -1730,109 +1857,6 @@ export default function AdminUsersPage() {
                   <span style={{ fontSize: '0.72rem', background: '#dbeafe', color: '#1e40af', padding: '3px 8px', borderRadius: '6px', fontWeight: 800 }}>
                     {Object.keys(selectedUserForAnalysis.storageConfig?.spaceOverrides || {}).length} החרגות מרחב
                   </span>
-                </div>
-
-                {/* 5. ADMIN QUOTA ALLOCATION: Cloud Storage (MB) & OCR Scans */}
-                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1.5px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span>⚙️</span> הקצאת מכסות אישיות (אדמין)
-                    </div>
-                    {quotaSaveSuccess && (
-                      <span style={{ fontSize: '0.75rem', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                        ✓ נשמר בהצלחה!
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                    {/* Cloud Storage Quota */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 700 }}>
-                        ☁️ מכסת ענן (MB)
-                      </label>
-                      <input 
-                        type="number"
-                        min="10"
-                        step="50"
-                        value={selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500}
-                        onChange={(e) => {
-                          const val = Math.max(10, parseInt(e.target.value) || 500);
-                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, storageQuotaMB: val }));
-                        }}
-                        style={{
-                          padding: '0.45rem 0.65rem',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontWeight: 800,
-                          fontSize: '0.9rem',
-                          background: '#ffffff'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.68rem', color: '#64748b' }}>בשימוש: {userMB} MB</span>
-                    </div>
-
-                    {/* OCR Quota */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 700 }}>
-                        ⚡ מכסת OCR (סריקות)
-                      </label>
-                      <input 
-                        type="number"
-                        min="5"
-                        step="25"
-                        value={selectedUserForAnalysis.ocrQuota !== undefined ? selectedUserForAnalysis.ocrQuota : 50}
-                        onChange={(e) => {
-                          const val = Math.max(5, parseInt(e.target.value) || 50);
-                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, ocrQuota: val }));
-                        }}
-                        style={{
-                          padding: '0.45rem 0.65rem',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontWeight: 800,
-                          fontSize: '0.9rem',
-                          background: '#ffffff'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.68rem', color: '#64748b' }}>בוצעו: {selectedUserForAnalysis.ocrCount || Math.max(isYehuda ? 12 : 0, myUserInvoices)}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    disabled={isSavingQuota}
-                    onClick={async () => {
-                      setIsSavingQuota(true);
-                      try {
-                        const newStorageMB = selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500;
-                        const newOcrQuota = selectedUserForAnalysis.ocrQuota !== undefined ? selectedUserForAnalysis.ocrQuota : 50;
-                        await updateUserByAdmin(selectedUserForAnalysis.id, {
-                          storageQuotaMB: newStorageMB,
-                          ocrQuota: newOcrQuota
-                        });
-                        setQuotaSaveSuccess(true);
-                        setTimeout(() => setQuotaSaveSuccess(false), 3000);
-                      } catch (err: any) {
-                        alert('שגיאה בעדכון מכסות: ' + (err.message || ''));
-                      } finally {
-                        setIsSavingQuota(false);
-                      }
-                    }}
-                    style={{
-                      background: '#2563eb',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '0.55rem',
-                      fontWeight: 800,
-                      fontSize: '0.82rem',
-                      cursor: 'pointer',
-                      boxShadow: '0 2px 6px rgba(37,99,235,0.25)'
-                    }}
-                  >
-                    {isSavingQuota ? 'שומר מכסות...' : '💾 שמור מכסות למשתמש זה'}
-                  </button>
                 </div>
 
                 <button 
