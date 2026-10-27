@@ -43,7 +43,9 @@ export interface UserProfile {
   lastActiveAt?: string;
   lastActiveMode?: 'app' | 'browser';
   ocrCount?: number;
+  ocrQuota?: number; // Maximum allocated OCR scans (default: 50, undefined = 50)
   storageBytesUsed?: number;
+  storageQuotaMB?: number; // Maximum allocated Cloud Storage in MB (default: 500, undefined = 500)
   storageConfig?: {
     defaultTarget: 'cloud' | 'local' | 'gdrive';
     spaceOverrides?: Record<string, 'cloud' | 'local' | 'gdrive'>;
@@ -65,6 +67,7 @@ interface AuthContextType {
   addContact: (contact: Omit<UserContact, 'addedAt'>) => void;
   blockUser: (userId: string, block: boolean) => void; // Admin action
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
+  updateUserByAdmin: (userId: string, updates: Partial<UserProfile>) => Promise<void>;
   deleteUserDoc: (userId: string) => void;
   deleteMyAccount: () => Promise<void>; // Admin action
   isLoaded: boolean;
@@ -96,6 +99,7 @@ const AuthContext = createContext<AuthContextType>({
     linkPhoneNumberMock: async () => {},
   findUserByPhone: async () => null,
   findUserById: async () => null,
+  updateUserByAdmin: async () => {},
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -496,6 +500,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUserByAdmin = async (userId: string, updates: Partial<UserProfile>) => {
+    if (!user?.isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), updates);
+      setAllUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+      if (user.id === userId) {
+        setUser(prev => prev ? { ...prev, ...updates } : prev);
+      }
+    } catch (e) {
+      console.error("Failed to update user by admin", e);
+      throw e;
+    }
+  };
+
     const deleteMyAccount = async () => {
     if (!auth.currentUser || !user) return;
     try {
@@ -576,7 +594,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user, allUsers, login, 
       loginWithGoogle, loginWithFacebook, loginWithApple, 
       loginWithEmail, registerWithEmail, resetPassword,
-      logout, updateProfile, addContact, blockUser, toggleAdmin, deleteUserDoc, deleteMyAccount, isLoaded,
+      logout, updateProfile, addContact, blockUser, toggleAdmin, updateUserByAdmin, deleteUserDoc, deleteMyAccount, isLoaded,
       loginWithPhone, linkPhoneNumberMock, findUserByPhone, findUserById
     }}>
       {children}
