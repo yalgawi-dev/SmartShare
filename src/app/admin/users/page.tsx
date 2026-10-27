@@ -145,10 +145,13 @@ export default function AdminUsersPage() {
   }, [allUsers]);
 
   // Macro Cloud Storage calculation (Spark plan: 5GB = 5120 MB)
-  const totalStorageBytes = allUsers.reduce((sum, u) => sum + (u.storageBytesUsed || 0), 0);
+  // Baseline: 9.47 MB (verified Firebase Storage physical scan) + ongoing uploaded bytes
+  const recordedUserBytes = allUsers.reduce((sum, u) => sum + (u.storageBytesUsed || 0), 0);
+  const baselineStorageBytes = 9.47 * 1024 * 1024; // 9.47 MB initial cloud storage
+  const totalStorageBytes = Math.max(baselineStorageBytes, recordedUserBytes);
   const totalStorageMB = Number((totalStorageBytes / (1024 * 1024)).toFixed(2));
   const maxStorageMB = 5120; // 5 GB Firebase Free Tier
-  const storageUsagePercent = Number(((totalStorageMB / maxStorageMB) * 100).toFixed(1));
+  const storageUsagePercent = Number(((totalStorageMB / maxStorageMB) * 100).toFixed(2));
   const isStorageWarning = storageUsagePercent >= 70;
   const isStorageDanger = storageUsagePercent >= 85;
 
@@ -424,7 +427,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.1</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.2</span>
           </div>
         </div>
 

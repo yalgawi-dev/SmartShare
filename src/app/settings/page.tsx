@@ -8,6 +8,7 @@ import { requestNotificationPermission } from '../../utils/notifications';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 import { sortSpacesByUsagePriority } from '../../utils/spaceSorting';
+import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota } from '../../utils/localDeviceStorage';
 import { getSharedContactsForUser } from '../../utils/partnerUtils';
 
 export default function SettingsPage() {
@@ -22,6 +23,25 @@ export default function SettingsPage() {
     user?.storageConfig?.spaceOverrides || {}
   );
   const [storageSaveSuccess, setStorageSaveSuccess] = useState(false);
+  const [deviceQuota, setDeviceQuota] = useState<LocalStorageQuota | null>(null);
+  const [fallbackTarget, setFallbackTarget] = useState<'local' | 'gdrive' | 'onedrive' | 'stop'>(
+    (user?.storageConfig as any)?.fallbackTarget || 'local'
+  );
+
+  useEffect(() => {
+    getDeviceStorageEstimate().then(setDeviceQuota);
+  }, []);
+
+  const handleRequestPersistence = async () => {
+    const success = await requestPersistentStorage();
+    const updated = await getDeviceStorageEstimate();
+    setDeviceQuota(updated);
+    if (success) {
+      alert('האחסון המקומי של MySpace הוגדר כקבוע ומוגן בזיכרון המכשיר בהצלחה!');
+    } else {
+      alert('המכשיר שלך מנהל את האחסון אוטומטית.');
+    }
+  };
 
   useEffect(() => {
     if (user?.storageConfig) {
@@ -188,7 +208,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.0</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.2</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -859,13 +879,54 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {/* Default Storage Destination Picker */}
+            {/* 1. Device Storage Quota Monitor (WhatsApp Style) */}
+            <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.4rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📱</span> תיקיית MySpace המקומית בטלפון (מודל WhatsApp)
+                </h3>
+                {deviceQuota && (
+                  <span style={{ fontSize: '0.75rem', background: deviceQuota.isPersistent ? '#dcfce7' : '#fef9c3', color: deviceQuota.isPersistent ? '#15803d' : '#854d0e', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
+                    {deviceQuota.isPersistent ? '🔒 אחסון קבוע ומוגן' : '⚡ אחסון רגיל'}
+                  </span>
+                )}
+              </div>
+
+              <p style={{ margin: '0 0 0.85rem 0', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.5' }}>
+                בדיוק כמו תיקיית <code style={{ direction: 'ltr', background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>WhatsApp/Media</code>, האפליקציה שומרת את הקבצים המקומיים בתיקייה ייעודית מבודדת ומסודרת: <strong style={{ color: '#0f172a' }}>MySpace/[שם המרחב]</strong>, מבלי לערבב שום דבר בתיקיית ההורדות הכללית של המכשיר.
+              </p>
+
+              {deviceQuota && (
+                <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700 }}>
+                    <span style={{ color: '#475569' }}>נפח בשימוש באפליקציה</span>
+                    <span style={{ color: '#2563eb' }}>{deviceQuota.usageMB} MB / {deviceQuota.quotaMB > 0 ? `${(deviceQuota.quotaMB / 1024).toFixed(1)} GB זמין` : 'ללא הגבלה'}</span>
+                  </div>
+                  <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.max(deviceQuota.percentUsed, 1)}%`, height: '100%', background: '#10b981', borderRadius: '999px' }} />
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>ניתן לנצל את מלוא שטח האחסון הפנוי במכשירך.</span>
+                    {!deviceQuota.isPersistent && (
+                      <button 
+                        onClick={handleRequestPersistence}
+                        style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.3rem 0.65rem', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                      >
+                        הפעל הגנת מחיקה קבועה
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* 2. Destination Picker with Waterfall Hybrid Option */}
             <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.4rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
               <h3 style={{ margin: '0 0 0.5rem 0', fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <span>🌐</span> יעד אחסון ראשי (ברירת מחדל לכל המרחבים)
+                <span>🌐</span> יעד אחסון ראשי (ברירת מחדל)
               </h3>
               <p style={{ margin: '0 0 1rem 0', fontSize: '0.85rem', color: '#64748b' }}>
-                יעד זה ישמש כברירת מחדל לכל מרחב חדש או קיים שלא הוגדרה לו החרגה מיוחדת.
+                בחר את המיקום העיקרי שבו תרצה לשמור את המסמכים שלך.
               </p>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
@@ -891,7 +952,7 @@ export default function SettingsPage() {
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>ענן MySpace</div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
-                    סנכרון מלא, זמין מכל מכשיר, גיבוי אוטומטי שוטף. מומלץ למרבית המשתמשים.
+                    סנכרון מלא, זמין מכל מכשיר, גיבוי אוטומטי שוטף.
                   </div>
                 </div>
 
@@ -916,7 +977,7 @@ export default function SettingsPage() {
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>שמירה מקומית במכשיר</div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
-                    פרטיות מרבית (WhatsApp Style). המסמכים לא עוברים לענן ונשמרים אך ורק בטלפון שלך.
+                    פרטיות מרבית (תיקיית MySpace ייעודית). אפס עלויות שרת.
                   </div>
                 </div>
 
@@ -940,14 +1001,86 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                    Google Drive 
+                    Google Drive
                     <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>עסקי</span>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
-                    שמירה ב-Google Drive האישי/העסקי שלך. כל הניהול ב-MySpace, הקבצים אצלך.
+                    שמירה ב-Drive האישי/העסקי שלך בתיקיית MySpace ייעודית.
                   </div>
                 </div>
 
+                {/* 4. Microsoft OneDrive */}
+                <div 
+                  onClick={() => handleSaveStorageConfig('onedrive' as any)}
+                  style={{
+                    border: (defaultStorageTarget as any) === 'onedrive' ? '2px solid #0284c7' : '1px solid #cbd5e1',
+                    background: (defaultStorageTarget as any) === 'onedrive' ? '#f0f9ff' : '#f8fafc',
+                    borderRadius: '16px',
+                    padding: '1rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>🏢</span>
+                    {(defaultStorageTarget as any) === 'onedrive' && (
+                      <span style={{ background: '#0284c7', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>פעיל</span>
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                    Microsoft OneDrive
+                    <span style={{ fontSize: '0.65rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Microsoft 365</span>
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
+                    שמירה ב-OneDrive הארגוני של מייקרוסופט.
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Hybrid Waterfall Fallback Setting */}
+              <div style={{ marginTop: '1.25rem', padding: '1rem', background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a', marginBottom: '0.3rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>🔄</span> שילוב היברידי: מה קורה כשהמכסה הראשית מסתיימת? (Fallback Chain)
+                </div>
+                <div style={{ fontSize: '0.82rem', color: '#64748b', marginBottom: '0.75rem' }}>
+                  אם מכסת ענן MySpace תסתיים, לאן להעביר אוטומטית את המסמכים הבאים כדי שלא תיתקע?
+                </div>
+                <select
+                  value={fallbackTarget}
+                  onChange={(e) => {
+                    const val = e.target.value as any;
+                    setFallbackTarget(val);
+                    updateProfile({
+                      storageConfig: {
+                        defaultTarget: defaultStorageTarget,
+                        spaceOverrides: spaceStorageOverrides,
+                        fallbackTarget: val
+                      } as any
+                    });
+                    setStorageSaveSuccess(true);
+                    setTimeout(() => setStorageSaveSuccess(false), 3000);
+                  }}
+                  style={{
+                    padding: '0.5rem 0.85rem',
+                    borderRadius: '10px',
+                    border: '1px solid #cbd5e1',
+                    fontSize: '0.88rem',
+                    fontWeight: 700,
+                    background: '#ffffff',
+                    color: '#0f172a',
+                    outline: 'none',
+                    cursor: 'pointer',
+                    width: '100%',
+                    maxWidth: '380px'
+                  }}
+                >
+                  <option value="local">📱 עבור אוטומטית לשמירה בתיקיית MySpace בטלפון</option>
+                  <option value="gdrive">📁 שמור ב-Google Drive האישי שלי</option>
+                  <option value="onedrive">🏢 שמור ב-Microsoft OneDrive שלי</option>
+                  <option value="stop">🛑 עצור והתרע לי לשדרג מנוי</option>
+                </select>
               </div>
             </section>
 
