@@ -11,9 +11,12 @@ export interface UserStorageCalculation {
   myMediaCount: number;
   myInvoicesCount: number;
   totalItemsCount: number;
+  myPagesCount: number; // Accurate count of every page (multi-page scrolls counted individually)
   spacesCount: number;
   quotaMB: number;
   formattedQuota: string;
+  quotaMode: 'storage' | 'pages';
+  pagesQuota: number;
   percentUsed: number;
   ocrCount: number;
   ocrQuota: number;
@@ -46,9 +49,12 @@ export function calculateUserStorageDetails(
       myMediaCount: 0,
       myInvoicesCount: 0,
       totalItemsCount: 0,
+      myPagesCount: 0,
       spacesCount: 0,
       quotaMB: 500,
       formattedQuota: '500 MB',
+      quotaMode: 'storage',
+      pagesQuota: 100,
       percentUsed: 0,
       ocrCount: 0,
       ocrQuota: 50
@@ -70,12 +76,16 @@ export function calculateUserStorageDetails(
   let myDocsCount = 0;
   let myMediaCount = 0;
   let myInvoicesCount = 0;
+  let myPagesCount = 0;
 
   activeSpaces.forEach(s => {
     // Documents explicitly added by user
     (s.documents || []).forEach((d: any) => {
       if (d.addedBy === user.id || (s.creatorId === user.id && (!d.addedBy || d.addedBy === 'me'))) {
         myDocsCount++;
+        // Count all pages individually for multi-page documents/scrolls (מגילות)
+        const docPages = Array.isArray(d.pages) && d.pages.length > 0 ? d.pages.length : 1;
+        myPagesCount += docPages;
       }
     });
 
@@ -91,6 +101,9 @@ export function calculateUserStorageDetails(
       const hasFile = !!(inv.hasAttachment && inv.attachmentUrl);
       if (hasFile && (inv.payerId === user.id || inv.uploaderId === user.id || (s.creatorId === user.id && !inv.payerId))) {
         myInvoicesCount++;
+        // Count pages in multi-page invoice attachments
+        const invPages = Array.isArray(inv.pages) && inv.pages.length > 0 ? inv.pages.length : 1;
+        myPagesCount += invPages;
       }
     });
   });
@@ -117,7 +130,17 @@ export function calculateUserStorageDetails(
   const mb = Number((calculatedBytes / (1024 * 1024)).toFixed(2));
   // User's allocated quota in MB (default: 500 MB)
   const quotaMB = user.storageQuotaMB !== undefined && user.storageQuotaMB > 0 ? user.storageQuotaMB : 500;
-  const percentUsed = quotaMB > 0 ? Number(((mb / quotaMB) * 100).toFixed(1)) : 0;
+  
+  // Quota mode: 'storage' (MB/GB) or 'pages' (individual document pages)
+  const quotaMode: 'storage' | 'pages' = user.quotaMode === 'pages' ? 'pages' : 'storage';
+  const pagesQuota = user.pagesQuota !== undefined && user.pagesQuota > 0 ? user.pagesQuota : 100;
+
+  let percentUsed = 0;
+  if (quotaMode === 'pages') {
+    percentUsed = pagesQuota > 0 ? Number(((myPagesCount / pagesQuota) * 100).toFixed(1)) : 0;
+  } else {
+    percentUsed = quotaMB > 0 ? Number(((mb / quotaMB) * 100).toFixed(1)) : 0;
+  }
 
   // Accurate OCR scans: recorded count OR counted from user's invoices/scans
   const ocrCount = Math.max(
@@ -134,9 +157,12 @@ export function calculateUserStorageDetails(
     myMediaCount,
     myInvoicesCount,
     totalItemsCount,
+    myPagesCount,
     spacesCount: userSpaces.length,
     quotaMB,
     formattedQuota: formatStorageSize(quotaMB),
+    quotaMode,
+    pagesQuota,
     percentUsed,
     ocrCount,
     ocrQuota

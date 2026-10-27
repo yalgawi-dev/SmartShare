@@ -241,7 +241,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.20</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.21</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1006,15 +1006,21 @@ export default function SettingsPage() {
                   {/* Contextual Cloud Usage Status */}
                   <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px dashed #bfdbfe' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                      <span style={{ color: '#1e3a8a' }}>שטח ענן אישי בשימוש:</span>
-                      <span style={{ color: '#2563eb' }}>{userStorage.mb} MB מתוך {userStorage.formattedQuota}</span>
+                      <span style={{ color: '#1e3a8a' }}>
+                        {userStorage.quotaMode === 'pages' ? 'עמודי מסמכים בשימוש:' : 'שטח ענן אישי בשימוש:'}
+                      </span>
+                      <span style={{ color: '#2563eb' }}>
+                        {userStorage.quotaMode === 'pages' 
+                          ? `${userStorage.myPagesCount} מתוך ${userStorage.pagesQuota} עמודים` 
+                          : `${userStorage.mb} MB מתוך ${userStorage.formattedQuota}`}
+                      </span>
                     </div>
 
                     {/* Progress Bar */}
                     <div style={{ width: '100%', height: '7px', background: '#dbeafe', borderRadius: '999px', overflow: 'hidden', marginBottom: '0.45rem' }}>
                       <div 
                         style={{ 
-                          width: `${Math.max(userStorage.percentUsed, userStorage.bytes > 0 ? 2 : 0)}%`, 
+                          width: `${Math.max(userStorage.percentUsed, (userStorage.quotaMode === 'pages' ? userStorage.myPagesCount > 0 : userStorage.bytes > 0) ? 2 : 0)}%`, 
                           height: '100%', 
                           background: userStorage.percentUsed > 90 ? '#ef4444' : '#2563eb', 
                           borderRadius: '999px',
@@ -1024,7 +1030,11 @@ export default function SettingsPage() {
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#64748b' }}>
-                      <span>📄 {userStorage.totalItemsCount} קבצים שנשמרו</span>
+                      <span>
+                        {userStorage.quotaMode === 'pages'
+                          ? `📄 ${userStorage.myDocsCount} מסמכים (${userStorage.myPagesCount} עמודים שנספרו)`
+                          : `📄 ${userStorage.totalItemsCount} קבצים שנשמרו`}
+                      </span>
                       <span>🔍 סריקות OCR: {userStorage.ocrCount}/{userStorage.ocrQuota}</span>
                     </div>
                   </div>

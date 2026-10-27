@@ -46,6 +46,8 @@ export interface UserProfile {
   ocrQuota?: number; // Maximum allocated OCR scans (default: 50, undefined = 50)
   storageBytesUsed?: number;
   storageQuotaMB?: number; // Maximum allocated Cloud Storage in MB (default: 500, undefined = 500)
+  quotaMode?: 'storage' | 'pages'; // Mode of quota: by storage volume (KB/MB/GB) or by document pages count
+  pagesQuota?: number; // Maximum allowed document pages (e.g. 50, 100, 500 pages)
   storageConfig?: {
     defaultTarget: 'cloud' | 'local' | 'gdrive';
     spaceOverrides?: Record<string, 'cloud' | 'local' | 'gdrive'>;
@@ -68,7 +70,7 @@ interface AuthContextType {
   blockUser: (userId: string, block: boolean) => void; // Admin action
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
   updateUserByAdmin: (userId: string, updates: Partial<UserProfile>) => Promise<void>;
-  updateAllUsersQuotasByAdmin: (updates: { storageQuotaMB?: number; ocrQuota?: number }) => Promise<void>;
+  updateAllUsersQuotasByAdmin: (updates: { storageQuotaMB?: number; ocrQuota?: number; quotaMode?: 'storage' | 'pages'; pagesQuota?: number }) => Promise<void>;
   deleteUserDoc: (userId: string) => void;
   deleteMyAccount: () => Promise<void>; // Admin action
   isLoaded: boolean;
@@ -516,7 +518,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateAllUsersQuotasByAdmin = async (updates: { storageQuotaMB?: number; ocrQuota?: number }) => {
+  const updateAllUsersQuotasByAdmin = async (updates: { storageQuotaMB?: number; ocrQuota?: number; quotaMode?: 'storage' | 'pages'; pagesQuota?: number }) => {
     if (!user?.isAdmin) return;
     try {
       const promises = allUsers.map(u => updateDoc(doc(db, 'users', u.id), updates));
