@@ -24,6 +24,9 @@ export default function AdminUsersPage() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [openSystemSection, setOpenSystemSection] = useState<'storage' | 'business' | 'ocr' | null>('storage');
   const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>('active');
+  const [isStorageBreakdownOpen, setIsStorageBreakdownOpen] = useState(false);
+  const [storageSearchQuery, setStorageSearchQuery] = useState('');
+  const [storageSortBy, setStorageSortBy] = useState<'storageDesc' | 'storageAsc' | 'name' | 'spaces'>('storageDesc');
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -150,16 +153,89 @@ export default function AdminUsersPage() {
     return { cloud, local, gdrive };
   }, [allUsers]);
 
+  // Single Source of Truth helper for user storage calculation
+  const calculateUserStorageBytes = (u: any): number => {
+    const uPhone = (u.phone || '').replace(/\D/g, '');
+    const uEmail = (u.email || '').toLowerCase().trim();
+    const uName = (u.realName || '').toLowerCase();
+    const isYehuda = 
+      uPhone.includes('0509666008') || 
+      uPhone.includes('509666008') || 
+      uEmail.includes('yalgawi') || 
+      uEmail.includes('yehuda') ||
+      uName.includes('yehuda') ||
+      u.id === 'STZr0UeCU8V003fgKbM7pZ8BXrm1';
+
+    const userSpaces = activeSpaces.filter(s => 
+      s.creatorId === u.id || 
+      (s.members || []).some((m: any) => m.userId === u.id)
+    );
+
+    const totalDocs = userSpaces.reduce((acc, s) => acc + (s.documents || []).length, 0);
+    const totalMedia = userSpaces.reduce((acc, s) => acc + (s.mediaItems || []).length, 0);
+    const totalInvoices = userSpaces.reduce((acc, s) => acc + (s.invoices || []).length, 0);
+
+    const contentEstimatedBytes = (totalDocs * 1.2 + totalMedia * 1.5 + totalInvoices * 0.35) * 1024 * 1024;
+    const baselineStorageBytes = isYehuda ? 9.47 * 1024 * 1024 : 0;
+
+    return Math.max(u.storageBytesUsed || 0, contentEstimatedBytes, baselineStorageBytes);
+  };
+
   // Macro Cloud Storage calculation (Spark plan: 5GB = 5120 MB)
-  // Baseline: 9.47 MB (verified Firebase Storage physical scan) + ongoing uploaded bytes
-  const recordedUserBytes = allUsers.reduce((sum, u) => sum + (u.storageBytesUsed || 0), 0);
-  const baselineStorageBytes = 9.47 * 1024 * 1024; // 9.47 MB initial cloud storage
-  const totalStorageBytes = Math.max(baselineStorageBytes, recordedUserBytes);
+  // Summing the real storage of all users dynamically
+  const usersWithStorage = useMemo(() => {
+    return allUsers.map(u => {
+      const bytes = calculateUserStorageBytes(u);
+      const mb = Number((bytes / (1024 * 1024)).toFixed(2));
+      const userSpaces = activeSpaces.filter(s => 
+        s.creatorId === u.id || 
+        (s.members || []).some((m: any) => m.userId === u.id)
+      );
+      return {
+        ...u,
+        storageBytes: bytes,
+        storageMB: mb,
+        spacesCount: userSpaces.length,
+        docsCount: userSpaces.reduce((acc, s) => acc + (s.documents || []).length, 0),
+        mediaCount: userSpaces.reduce((acc, s) => acc + (s.mediaItems || []).length, 0),
+        invoicesCount: userSpaces.reduce((acc, s) => acc + (s.invoices || []).length, 0)
+      };
+    });
+  }, [allUsers, activeSpaces]);
+
+  const totalStorageBytes = useMemo(() => {
+    return usersWithStorage.reduce((sum, u) => sum + u.storageBytes, 0);
+  }, [usersWithStorage]);
+
   const totalStorageMB = Number((totalStorageBytes / (1024 * 1024)).toFixed(2));
   const maxStorageMB = 5120; // 5 GB Firebase Free Tier
   const storageUsagePercent = Number(((totalStorageMB / maxStorageMB) * 100).toFixed(2));
   const isStorageWarning = storageUsagePercent >= 70;
   const isStorageDanger = storageUsagePercent >= 85;
+
+  // Filtered & sorted users for Storage Breakdown Drawer/Modal
+  const sortedAndFilteredStorageUsers = useMemo(() => {
+    let list = [...usersWithStorage];
+    const q = storageSearchQuery.trim().toLowerCase();
+    if (q) {
+      list = list.filter(u => 
+        (u.realName && u.realName.toLowerCase().includes(q)) ||
+        (u.nickname && u.nickname.toLowerCase().includes(q)) ||
+        (u.phone && u.phone.includes(q)) ||
+        (u.email && u.email.toLowerCase().includes(q))
+      );
+    }
+
+    list.sort((a, b) => {
+      if (storageSortBy === 'storageDesc') return b.storageBytes - a.storageBytes;
+      if (storageSortBy === 'storageAsc') return a.storageBytes - b.storageBytes;
+      if (storageSortBy === 'spaces') return (b.spacesCount || 0) - (a.spacesCount || 0);
+      if (storageSortBy === 'name') return (a.realName || '').localeCompare(b.realName || '', 'he');
+      return b.storageBytes - a.storageBytes;
+    });
+
+    return list;
+  }, [usersWithStorage, storageSearchQuery, storageSortBy]);
 
   // Render Status Lamp Dot
   const renderStatusDot = (u: any) => {
@@ -433,7 +509,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.10</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.11</span>
           </div>
         </div>
 
@@ -976,8 +1052,25 @@ export default function AdminUsersPage() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.6rem', fontSize: '0.82rem', color: '#64748b' }}>
-                    <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
-                      תפוס: <strong style={{ color: '#0f172a' }}>{totalStorageMB} MB</strong>
+                    <div 
+                      onClick={() => setIsStorageBreakdownOpen(true)}
+                      title="לחץ לפתיחת פילוח נפח מלא לפי משתמשים"
+                      style={{ 
+                        background: '#eff6ff', 
+                        padding: '0.65rem 0.85rem', 
+                        borderRadius: '10px', 
+                        border: '1.5px solid #bfdbfe', 
+                        cursor: 'pointer',
+                        transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 4px rgba(37,99,235,0.08)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>תפוס: <strong style={{ color: '#1d4ed8' }}>{totalStorageMB} MB</strong></span>
+                        <span style={{ fontSize: '0.7rem', background: '#2563eb', color: '#ffffff', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                          פילוח 📊
+                        </span>
+                      </div>
                     </div>
                     <div style={{ background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
                       פנוי: <strong style={{ color: '#16a34a' }}>{(maxStorageMB - totalStorageMB).toFixed(1)} MB</strong>
@@ -1280,11 +1373,7 @@ export default function AdminUsersPage() {
         const contentEstimatedBytes = (totalUserDocs * 1.2 + totalUserMedia * 1.5 + totalUserInvoices * 0.35) * 1024 * 1024;
         const baselineStorageBytes = isYehuda ? 9.47 * 1024 * 1024 : 0;
         
-        const userBytes = Math.max(
-          selectedUserForAnalysis.storageBytesUsed || 0,
-          contentEstimatedBytes,
-          baselineStorageBytes
-        );
+        const userBytes = calculateUserStorageBytes(selectedUserForAnalysis);
         const userMB = Number((userBytes / (1024 * 1024)).toFixed(2));
         
         // Storage target
@@ -1643,6 +1732,187 @@ export default function AdminUsersPage() {
           </div>
         );
       })()}
+
+      {/* STORAGE BREAKDOWN MODAL (SORTED & FILTERED BY USER STORAGE CONSUMPTION) */}
+      {isStorageBreakdownOpen && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.65)',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem',
+          direction: 'rtl'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '24px',
+            padding: '1.4rem',
+            width: '100%',
+            maxWidth: '520px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '0.85rem' }}>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📊</span> התפלגות נפח ענן לפי משתמשים
+                </h3>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                  סה"כ בשימוש: <strong style={{ color: '#2563eb' }}>{totalStorageMB} MB</strong> מתוך {maxStorageMB} MB ({storageUsagePercent}%)
+                </span>
+              </div>
+              <button 
+                onClick={() => setIsStorageBreakdownOpen(false)}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Controls: Search and Sort */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
+              <input
+                type="text"
+                placeholder="🔍 חפש משתמש..."
+                value={storageSearchQuery}
+                onChange={e => setStorageSearchQuery(e.target.value)}
+                style={{
+                  flex: 1,
+                  padding: '0.55rem 0.85rem',
+                  fontSize: '0.82rem',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  outline: 'none'
+                }}
+              />
+              <select
+                value={storageSortBy}
+                onChange={e => setStorageSortBy(e.target.value as any)}
+                style={{
+                  padding: '0.55rem 0.75rem',
+                  fontSize: '0.82rem',
+                  borderRadius: '10px',
+                  border: '1px solid #cbd5e1',
+                  background: '#f8fafc',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="storageDesc">📉 מהכבד לקל (נפח)</option>
+                <option value="storageAsc">📈 מהקל לכבד (נפח)</option>
+                <option value="spaces">📁 כמות מרחבים</option>
+                <option value="name">🔤 שם (א-ת)</option>
+              </select>
+            </div>
+
+            {/* Scrollable Users List */}
+            <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', paddingRight: '2px' }}>
+              {sortedAndFilteredStorageUsers.map((u: any, idx: number) => {
+                const userPercentOfTotal = totalStorageBytes > 0 
+                  ? ((u.storageBytes / totalStorageBytes) * 100).toFixed(1) 
+                  : '0';
+
+                return (
+                  <div
+                    key={u.id || idx}
+                    onClick={() => {
+                      setIsStorageBreakdownOpen(false);
+                      setSelectedUserForAnalysis(u);
+                    }}
+                    style={{
+                      background: u.storageMB > 0 ? '#ffffff' : '#f8fafc',
+                      border: u.storageMB > 0 ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                      borderRadius: '12px',
+                      padding: '0.75rem 0.85rem',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        overflow: 'hidden',
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        flexShrink: 0
+                      }}>
+                        {u.avatarUrl ? (
+                          <img src={u.avatarUrl} alt={u.realName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          u.realName ? u.realName.charAt(0) : '👤'
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>{u.realName || 'אורח'}</span>
+                          {u.isAdmin && <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px' }}>Admin</span>}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                          {u.spacesCount} מרחבים • {u.docsCount} קבצים • {u.invoicesCount} הוצאות
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ fontWeight: 800, fontSize: '0.95rem', color: u.storageMB > 0 ? '#1d4ed8' : '#64748b' }}>
+                        {u.storageMB} MB
+                      </div>
+                      <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '1px' }}>
+                        {userPercentOfTotal}% מהשימוש
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {sortedAndFilteredStorageUsers.length === 0 && (
+                <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b' }}>
+                  לא נמצאו משתמשים התואמים את החיפוש.
+                </div>
+              )}
+            </div>
+
+            {/* Footer Close Button */}
+            <button
+              onClick={() => setIsStorageBreakdownOpen(false)}
+              style={{
+                width: '100%',
+                padding: '0.7rem',
+                background: '#f1f5f9',
+                color: '#334155',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: 800,
+                cursor: 'pointer',
+                marginTop: '0.75rem'
+              }}
+            >
+              סגור
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
