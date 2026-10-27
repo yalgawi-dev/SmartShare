@@ -206,7 +206,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
         // --- TRACK B (Background): The High Quality Archive ---
         archiveImgUrl = await downscaleBase64(imgUrl, 1500, 0.85);
       }
-      const filename = `invoices/${space.id}/${Date.now()}.jpg`;
+      const filename = `invoices/${space.id}/${Date.now()}.webp`;
       
       // 1. Kick off the heavy Firebase upload, but DO NOT WAIT FOR IT!
       uploadPromiseRef.current = uploadImageToStorage(archiveImgUrl, filename).then(url => {

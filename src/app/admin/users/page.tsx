@@ -198,9 +198,10 @@ export default function AdminUsersPage() {
         }
       });
 
-      // Invoices uploaded or paid by user
+      // Invoices uploaded or paid by user (only those with physical attachments!)
       (s.invoices || []).forEach((inv: any) => {
-        if (inv.payerId === u.id || inv.uploaderId === u.id || (s.creatorId === u.id && !inv.payerId)) {
+        const hasFile = !!(inv.hasAttachment && inv.attachmentUrl);
+        if (hasFile && (inv.payerId === u.id || inv.uploaderId === u.id || (s.creatorId === u.id && !inv.payerId))) {
           myInvoicesCount++;
         }
       });
@@ -569,7 +570,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.13</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.14</span>
           </div>
         </div>
 
@@ -1992,14 +1993,15 @@ export default function AdminUsersPage() {
             </div>
 
             {/* Controls: Search and Sort */}
-            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.85rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.85rem' }}>
               <input
                 type="text"
                 placeholder="🔍 חפש משתמש..."
                 value={storageSearchQuery}
                 onChange={e => setStorageSearchQuery(e.target.value)}
                 style={{
-                  flex: 1,
+                  flex: '1 1 180px',
+                  minWidth: 0,
                   padding: '0.55rem 0.85rem',
                   fontSize: '0.82rem',
                   borderRadius: '10px',
@@ -2012,6 +2014,8 @@ export default function AdminUsersPage() {
                 value={storageSortBy}
                 onChange={e => setStorageSortBy(e.target.value as any)}
                 style={{
+                  flex: '0 1 auto',
+                  maxWidth: '100%',
                   padding: '0.55rem 0.75rem',
                   fontSize: '0.82rem',
                   borderRadius: '10px',

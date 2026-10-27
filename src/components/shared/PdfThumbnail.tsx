@@ -9,18 +9,21 @@ declare global {
 }
 
 interface PdfThumbnailProps {
-  base64Uri: string;
+  base64Uri?: string;
+  url?: string;
   style?: React.CSSProperties;
   onClick?: () => void;
 }
 
-export default function PdfThumbnail({ base64Uri, style, onClick }: PdfThumbnailProps) {
+export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThumbnailProps) {
   const [imgSrc, setImgSrc] = useState<string | null>(null);
   const [error, setError] = useState<boolean>(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const targetPdf = url || base64Uri;
 
   useEffect(() => {
     let isMounted = true;
+    if (!targetPdf) return;
     
     const renderPdf = async () => {
       try {
@@ -41,11 +44,18 @@ export default function PdfThumbnail({ base64Uri, style, onClick }: PdfThumbnail
           });
         }
 
-        const base64Data = base64Uri.includes('base64,') ? base64Uri.split('base64,')[1] : base64Uri;
-        const binaryString = window.atob(base64Data);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+        let bytes: Uint8Array;
+        if (targetPdf.startsWith('data:')) {
+          const base64Data = targetPdf.includes('base64,') ? targetPdf.split('base64,')[1] : targetPdf;
+          const binaryString = window.atob(base64Data);
+          bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+        } else {
+          const res = await fetch(targetPdf);
+          const arrayBuffer = await res.arrayBuffer();
+          bytes = new Uint8Array(arrayBuffer);
         }
 
         const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
@@ -65,7 +75,11 @@ export default function PdfThumbnail({ base64Uri, style, onClick }: PdfThumbnail
         await page.render({ canvasContext: context, viewport }).promise;
         
         if (isMounted) {
-          setImgSrc(canvas.toDataURL('image/jpeg', 0.8));
+          try {
+            setImgSrc(canvas.toDataURL('image/webp', 0.8));
+          } catch {
+            setImgSrc(canvas.toDataURL('image/jpeg', 0.8));
+          }
         }
       } catch (err) {
         console.error('Failed to render PDF thumbnail:', err);
@@ -78,7 +92,7 @@ export default function PdfThumbnail({ base64Uri, style, onClick }: PdfThumbnail
     return () => {
       isMounted = false;
     };
-  }, [base64Uri]);
+  }, [targetPdf]);
 
   if (error || !imgSrc) {
     // Fallback UI if it's loading or failed

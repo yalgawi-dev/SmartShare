@@ -7,6 +7,7 @@ import ScannerModal from '../ScannerModal';
 import { isDuplicateInvoice } from '../../../utils/duplicateCheck';
 import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
 import { convertImagesToPdfBlob } from '../../../utils/documentUtils';
+import PdfThumbnail from '../../shared/PdfThumbnail';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -431,7 +432,28 @@ export function FinanceTransactions({
                           }}
                           style={{ width: '100%', height: '150px', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-light)', overflow: 'hidden', cursor: 'pointer', position: 'relative' }}
                         >
-                          <img src={inv.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} alt="חשבונית סרוקה" />
+                          {inv.attachmentUrl.includes('.pdf') || inv.attachmentUrl.startsWith('data:application/pdf') ? (
+                            <PdfThumbnail url={inv.attachmentUrl} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <img 
+                              src={inv.attachmentUrl} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                              alt="חשבונית סרוקה" 
+                              onError={(e) => {
+                                const target = e.currentTarget;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.style.display = 'flex';
+                                  parent.style.flexDirection = 'column';
+                                  parent.style.alignItems = 'center';
+                                  parent.style.justifyContent = 'center';
+                                  parent.style.background = '#f8fafc';
+                                  parent.innerHTML = '<span style="font-size: 2.2rem">🧾</span><span style="font-size: 0.75rem; color: #475569; font-weight: bold; margin-top: 4px;">לחץ לפתיחת קובץ</span>';
+                                }
+                              }}
+                            />
+                          )}
                           <div style={{ position: 'absolute', bottom: '0.5rem', right: '0.5rem', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>🔍 הגדל</div>
                         </div>
                       </div>
