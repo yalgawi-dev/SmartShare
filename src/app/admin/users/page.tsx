@@ -4,6 +4,7 @@ import { useState, useMemo, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSpaces } from '../../context/SpacesContext';
 import { getSharedContactsForUser } from '../../../utils/partnerUtils';
+import { AVAILABLE_FEATURES, getFeatureById } from '../../data/features';
 import Link from 'next/link';
 
 export default function AdminUsersPage() {
@@ -27,6 +28,7 @@ export default function AdminUsersPage() {
   const [isStorageBreakdownOpen, setIsStorageBreakdownOpen] = useState(false);
   const [storageSearchQuery, setStorageSearchQuery] = useState('');
   const [storageSortBy, setStorageSortBy] = useState<'storageDesc' | 'storageAsc' | 'name' | 'spaces'>('storageDesc');
+  const [isFeaturesBreakdownOpen, setIsFeaturesBreakdownOpen] = useState(false);
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -567,7 +569,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.12</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.13</span>
           </div>
         </div>
 
@@ -1429,9 +1431,31 @@ export default function AdminUsersPage() {
         const userTarget = selectedUserForAnalysis.storageConfig?.defaultTarget || 'cloud';
         const targetLabel = userTarget === 'local' ? '📱 מקומי במכשיר' : userTarget === 'gdrive' ? '📁 Google Drive' : '☁️ ענן MySpace';
         
-        // Total tools/features across user spaces
-        const allFeaturesUsed = new Set<string>();
-        userSpaces.forEach(s => (s.features || []).forEach((f: string) => allFeaturesUsed.add(f)));
+        // Detailed mapping of tools and features across user's spaces
+        const featureUsageMap = new Map<string, { featureId: string; featureName: string; icon: string; spaces: any[] }>();
+        let totalActiveToolsCount = 0;
+
+        userSpaces.forEach(s => {
+          (s.features || []).forEach((fId: string) => {
+            totalActiveToolsCount++;
+            const featObj = getFeatureById(fId);
+            const name = featObj?.name || fId;
+            const icon = featObj?.icon || '⚙️';
+            
+            if (!featureUsageMap.has(fId)) {
+              featureUsageMap.set(fId, {
+                featureId: fId,
+                featureName: name,
+                icon,
+                spaces: [s]
+              });
+            } else {
+              featureUsageMap.get(fId)!.spaces.push(s);
+            }
+          });
+        });
+
+        const uniqueFeaturesCount = featureUsageMap.size;
 
         return (
           <div style={{ 
@@ -1532,13 +1556,33 @@ export default function AdminUsersPage() {
                         <div style={{ fontSize: '0.7rem', color: '#64748b' }}>מתוך {userSpaces.length} מרחבים סה"כ</div>
                       </div>
 
-                      {/* Metric 4: Tools & Features */}
-                      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '0.75rem' }}>
-                        <div style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 700 }}>🛠️ כלים ופיצ'רים בשימוש</div>
-                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
-                          {allFeaturesUsed.size}
+                      {/* Metric 4: Tools & Features (Clickable for Full Breakdown) */}
+                      <div 
+                        onClick={() => setIsFeaturesBreakdownOpen(true)}
+                        title="לחץ לפתיחת פירוט הכלים והמרחבים בהם הם פועלים"
+                        style={{ 
+                          background: '#fffbeb', 
+                          border: '1.5px solid #fde68a', 
+                          borderRadius: '12px', 
+                          padding: '0.75rem',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease',
+                          boxShadow: '0 2px 4px rgba(180,83,9,0.08)'
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 700 }}>🛠️ כלים ופיצ'רים</div>
+                          <span style={{ fontSize: '0.68rem', background: '#b45309', color: '#ffffff', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                            פירוט 🔍
+                          </span>
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סורק, הוצאות, ציר זמן ועוד</div>
+                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
+                          {totalActiveToolsCount}
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#92400e', marginRight: '4px' }}>
+                            ({uniqueFeaturesCount} סוגים)
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>ב-{userSpaces.length} מרחבים • לחץ לפירוט</div>
                       </div>
 
                     </div>
@@ -1777,6 +1821,126 @@ export default function AdminUsersPage() {
                   סגור
                 </button>
               </div>
+
+              {/* FEATURES BREAKDOWN SUB-MODAL */}
+              {isFeaturesBreakdownOpen && (
+                <div style={{
+                  position: 'fixed',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'rgba(0,0,0,0.7)',
+                  zIndex: 1000000,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '1rem',
+                  direction: 'rtl'
+                }}>
+                  <div style={{
+                    background: '#ffffff',
+                    borderRadius: '24px',
+                    padding: '1.4rem',
+                    width: '100%',
+                    maxWidth: '460px',
+                    maxHeight: '85vh',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.35)'
+                  }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '0.85rem' }}>
+                      <div>
+                        <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span>🛠️</span> פירוט כלים ופיצ'רים ({totalActiveToolsCount})
+                        </h3>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          {uniqueFeaturesCount} סוגי כלים בשימוש על פני {userSpaces.length} מרחבים
+                        </span>
+                      </div>
+                      <button 
+                        onClick={() => setIsFeaturesBreakdownOpen(false)}
+                        style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {/* Features List */}
+                    <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingRight: '2px' }}>
+                      {Array.from(featureUsageMap.values()).map((feat) => (
+                        <div 
+                          key={feat.featureId}
+                          style={{
+                            background: '#fffbeb',
+                            border: '1px solid #fde68a',
+                            borderRadius: '12px',
+                            padding: '0.75rem 0.85rem'
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.3rem' }}>{feat.icon}</span>
+                              <strong style={{ fontSize: '0.9rem', color: '#92400e' }}>{feat.featureName}</strong>
+                            </div>
+                            <span style={{ background: '#b45309', color: '#ffffff', borderRadius: '6px', padding: '2px 8px', fontSize: '0.72rem', fontWeight: 800 }}>
+                              ב-{feat.spaces.length} מרחבים
+                            </span>
+                          </div>
+
+                          {/* Spaces Tag List */}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', marginTop: '0.35rem' }}>
+                            {feat.spaces.map(sp => (
+                              <span 
+                                key={sp.id}
+                                style={{
+                                  background: '#ffffff',
+                                  color: '#78350f',
+                                  border: '1px solid #fcd34d',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 600,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}
+                              >
+                                📁 {sp.title}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+
+                      {featureUsageMap.size === 0 && (
+                        <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
+                          אין כרגע כלים מוגדרים במרחבים של משתמש זה.
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => setIsFeaturesBreakdownOpen(false)}
+                      style={{
+                        width: '100%',
+                        padding: '0.7rem',
+                        background: '#f1f5f9',
+                        color: '#334155',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        marginTop: '0.75rem'
+                      }}
+                    >
+                      סגור
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
