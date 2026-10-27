@@ -13,9 +13,21 @@ export interface UserStorageCalculation {
   totalItemsCount: number;
   spacesCount: number;
   quotaMB: number;
+  formattedQuota: string;
   percentUsed: number;
   ocrCount: number;
   ocrQuota: number;
+}
+
+export function formatStorageSize(mbValue: number): string {
+  if (mbValue < 1) {
+    const kb = Math.round(mbValue * 1024);
+    return `${kb} KB`;
+  }
+  if (mbValue >= 1024) {
+    return `${(mbValue / 1024).toFixed(1)} GB`;
+  }
+  return `${mbValue} MB`;
 }
 
 /**
@@ -36,6 +48,7 @@ export function calculateUserStorageDetails(
       totalItemsCount: 0,
       spacesCount: 0,
       quotaMB: 500,
+      formattedQuota: '500 MB',
       percentUsed: 0,
       ocrCount: 0,
       ocrQuota: 50
@@ -123,6 +136,7 @@ export function calculateUserStorageDetails(
     totalItemsCount,
     spacesCount: userSpaces.length,
     quotaMB,
+    formattedQuota: formatStorageSize(quotaMB),
     percentUsed,
     ocrCount,
     ocrQuota

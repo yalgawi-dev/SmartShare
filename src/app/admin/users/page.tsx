@@ -36,11 +36,15 @@ export default function AdminUsersPage() {
   const [quotaSaveSuccess, setQuotaSaveSuccess] = useState(false);
 
   // Global Quota for ALL Users (Macro)
-  const [globalStorageQuotaMB, setGlobalStorageQuotaMB] = useState<number>(500);
+  const [globalStorageValue, setGlobalStorageValue] = useState<number>(500);
+  const [globalStorageUnit, setGlobalStorageUnit] = useState<'KB' | 'MB' | 'GB'>('MB');
   const [globalOcrQuota, setGlobalOcrQuota] = useState<number>(50);
   const [isSavingGlobalQuota, setIsSavingGlobalQuota] = useState(false);
   const [globalQuotaSuccess, setGlobalQuotaSuccess] = useState(false);
   const [isGlobalQuotaCardOpen, setIsGlobalQuotaCardOpen] = useState(true);
+
+  // Individual User Modal Quota Unit State
+  const [modalStorageUnit, setModalStorageUnit] = useState<'KB' | 'MB' | 'GB'>('MB');
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -512,7 +516,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.19</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.20</span>
           </div>
         </div>
 
@@ -651,28 +655,59 @@ export default function AdminUsersPage() {
               {isGlobalQuotaCardOpen && (
                 <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-                    {/* Global Storage Quota */}
+                    {/* Global Storage Quota with Unit Selector (KB / MB / GB) */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                       <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
-                        ☁️ מכסת ענן גורפת למשתמש (MB)
+                        ☁️ מכסת ענן גורפת למשתמש
                       </label>
-                      <input 
-                        type="number"
-                        min="10"
-                        step="50"
-                        value={globalStorageQuotaMB}
-                        onChange={(e) => setGlobalStorageQuotaMB(Math.max(10, parseInt(e.target.value) || 500))}
-                        style={{
-                          padding: '0.5rem 0.75rem',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontWeight: 800,
-                          fontSize: '0.92rem',
-                          background: '#ffffff',
-                          color: '#0f172a'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>ברירת מחדל מומלצת: 500 MB</span>
+                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <input 
+                          type="number"
+                          min="1"
+                          step="any"
+                          value={globalStorageValue}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            setGlobalStorageValue(isNaN(val) ? 0 : val);
+                          }}
+                          style={{
+                            flex: 1,
+                            padding: '0.5rem 0.75rem',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontWeight: 800,
+                            fontSize: '0.92rem',
+                            background: '#ffffff',
+                            color: '#0f172a',
+                            minWidth: 0
+                          }}
+                        />
+                        <select
+                          value={globalStorageUnit}
+                          onChange={(e) => setGlobalStorageUnit(e.target.value as any)}
+                          style={{
+                            padding: '0.5rem 0.6rem',
+                            borderRadius: '8px',
+                            border: '1px solid #cbd5e1',
+                            fontWeight: 800,
+                            fontSize: '0.88rem',
+                            background: '#f8fafc',
+                            color: '#0f172a',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="KB">KB (קילו-בייט)</option>
+                          <option value="MB">MB (מגה-בייט)</option>
+                          <option value="GB">GB (גיגה-בייט)</option>
+                        </select>
+                      </div>
+                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        {globalStorageUnit === 'KB' 
+                          ? `ערך משוקלל: ${(globalStorageValue / 1024).toFixed(3)} MB` 
+                          : globalStorageUnit === 'GB' 
+                          ? `ערך משוקלל: ${globalStorageValue * 1024} MB` 
+                          : 'ברירת מחדל: 500 MB'}
+                      </span>
                     </div>
 
                     {/* Global OCR Quota */}
@@ -682,10 +717,13 @@ export default function AdminUsersPage() {
                       </label>
                       <input 
                         type="number"
-                        min="5"
-                        step="25"
+                        min="0"
+                        step="5"
                         value={globalOcrQuota}
-                        onChange={(e) => setGlobalOcrQuota(Math.max(5, parseInt(e.target.value) || 50))}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          setGlobalOcrQuota(isNaN(val) ? 0 : val);
+                        }}
                         style={{
                           padding: '0.5rem 0.75rem',
                           borderRadius: '8px',
@@ -704,18 +742,26 @@ export default function AdminUsersPage() {
                     type="button"
                     disabled={isSavingGlobalQuota}
                     onClick={async () => {
-                      if (!confirm(`האם להחיל מכסת ענן של ${globalStorageQuotaMB} MB ומכסת OCR של ${globalOcrQuota} סריקות על כל ${allUsers.length} המשתמשים במערכת?`)) {
+                      const computedMB = globalStorageUnit === 'KB' 
+                        ? Number((globalStorageValue / 1024).toFixed(4)) 
+                        : globalStorageUnit === 'GB' 
+                        ? globalStorageValue * 1024 
+                        : globalStorageValue;
+
+                      const displayUnit = `${globalStorageValue} ${globalStorageUnit}`;
+
+                      if (!confirm(`האם להחיל מכסת ענן של ${displayUnit} ומכסת OCR של ${globalOcrQuota} סריקות על כל ${allUsers.length} המשתמשים במערכת?`)) {
                         return;
                       }
                       setIsSavingGlobalQuota(true);
                       try {
                         await updateAllUsersQuotasByAdmin({
-                          storageQuotaMB: globalStorageQuotaMB,
+                          storageQuotaMB: Math.max(0.001, computedMB),
                           ocrQuota: globalOcrQuota
                         });
                         setGlobalQuotaSuccess(true);
                         setTimeout(() => setGlobalQuotaSuccess(false), 4000);
-                        alert(`בהצלחה! כל ${allUsers.length} המשתמשים עודכנו למכסה של ${globalStorageQuotaMB} MB ענן ו-${globalOcrQuota} סריקות OCR.`);
+                        alert(`בהצלחה! כל ${allUsers.length} המשתמשים עודכנו למכסה של ${displayUnit} ענן ו-${globalOcrQuota} סריקות OCR.`);
                       } catch (err: any) {
                         alert('שגיאה בעדכון מכסות גלובליות: ' + (err.message || ''));
                       } finally {
@@ -1599,32 +1645,67 @@ export default function AdminUsersPage() {
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem' }}>
-                    {/* Cloud Storage Quota */}
+                    {/* Cloud Storage Quota with Unit Selector (KB / MB / GB) */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: 0 }}>
                       <label style={{ fontSize: '0.74rem', color: '#166534', fontWeight: 800, whiteSpace: 'nowrap' }}>
-                        ☁️ מכסת ענן (MB)
+                        ☁️ מכסת ענן אישית
                       </label>
-                      <input 
-                        type="number"
-                        min="10"
-                        step="50"
-                        value={selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500}
-                        onChange={(e) => {
-                          const val = Math.max(10, parseInt(e.target.value) || 500);
-                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, storageQuotaMB: val }));
-                        }}
-                        style={{
-                          width: '100%',
-                          boxSizing: 'border-box',
-                          padding: '0.45rem 0.6rem',
-                          borderRadius: '8px',
-                          border: '1px solid #86efac',
-                          fontWeight: 800,
-                          fontSize: '0.88rem',
-                          background: '#ffffff'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.68rem', color: '#15803d' }}>בשימוש: {userMB} MB</span>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <input 
+                          type="number"
+                          min="0.1"
+                          step="any"
+                          value={
+                            modalStorageUnit === 'KB'
+                              ? Math.round((selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500) * 1024)
+                              : modalStorageUnit === 'GB'
+                              ? Number(((selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500) / 1024).toFixed(2))
+                              : (selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500)
+                          }
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value);
+                            const safeVal = isNaN(val) ? 0 : val;
+                            const inMB = modalStorageUnit === 'KB' 
+                              ? Number((safeVal / 1024).toFixed(4)) 
+                              : modalStorageUnit === 'GB' 
+                              ? safeVal * 1024 
+                              : safeVal;
+                            setSelectedUserForAnalysis((prev: any) => ({ ...prev, storageQuotaMB: inMB }));
+                          }}
+                          style={{
+                            flex: 1,
+                            minWidth: 0,
+                            boxSizing: 'border-box',
+                            padding: '0.45rem 0.5rem',
+                            borderRadius: '8px',
+                            border: '1px solid #86efac',
+                            fontWeight: 800,
+                            fontSize: '0.88rem',
+                            background: '#ffffff'
+                          }}
+                        />
+                        <select
+                          value={modalStorageUnit}
+                          onChange={(e) => setModalStorageUnit(e.target.value as any)}
+                          style={{
+                            padding: '0.45rem 0.35rem',
+                            borderRadius: '8px',
+                            border: '1px solid #86efac',
+                            fontWeight: 800,
+                            fontSize: '0.78rem',
+                            background: '#ffffff',
+                            color: '#166534',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          <option value="KB">KB</option>
+                          <option value="MB">MB</option>
+                          <option value="GB">GB</option>
+                        </select>
+                      </div>
+                      <span style={{ fontSize: '0.68rem', color: '#15803d' }}>
+                        בשימוש: {userMB} MB (מכסה: {selectedUserForAnalysis.storageQuotaMB !== undefined ? selectedUserForAnalysis.storageQuotaMB : 500} MB)
+                      </span>
                     </div>
 
                     {/* OCR Quota */}
@@ -1634,12 +1715,12 @@ export default function AdminUsersPage() {
                       </label>
                       <input 
                         type="number"
-                        min="5"
-                        step="25"
+                        min="0"
+                        step="5"
                         value={selectedUserForAnalysis.ocrQuota !== undefined ? selectedUserForAnalysis.ocrQuota : 50}
                         onChange={(e) => {
-                          const val = Math.max(5, parseInt(e.target.value) || 50);
-                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, ocrQuota: val }));
+                          const val = parseInt(e.target.value);
+                          setSelectedUserForAnalysis((prev: any) => ({ ...prev, ocrQuota: isNaN(val) ? 0 : val }));
                         }}
                         style={{
                           width: '100%',

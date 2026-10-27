@@ -241,7 +241,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.19</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.20</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1007,7 +1007,7 @@ export default function SettingsPage() {
                   <div style={{ marginTop: '0.85rem', paddingTop: '0.65rem', borderTop: '1px dashed #bfdbfe' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', fontWeight: 700, marginBottom: '0.35rem' }}>
                       <span style={{ color: '#1e3a8a' }}>שטח ענן אישי בשימוש:</span>
-                      <span style={{ color: '#2563eb' }}>{userStorage.mb} MB מתוך {userStorage.quotaMB} MB</span>
+                      <span style={{ color: '#2563eb' }}>{userStorage.mb} MB מתוך {userStorage.formattedQuota}</span>
                     </div>
 
                     {/* Progress Bar */}
