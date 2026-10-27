@@ -8,7 +8,7 @@ import { requestNotificationPermission } from '../../utils/notifications';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 import { sortSpacesByUsagePriority } from '../../utils/spaceSorting';
-import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota } from '../../utils/localDeviceStorage';
+import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota, listLocalDeviceFiles, getLocalDeviceFileBlob, LocalDeviceItem } from '../../utils/localDeviceStorage';
 import { getSharedContactsForUser } from '../../utils/partnerUtils';
 import { compressImageWebP } from '../../utils/imageOptimizer';
 
@@ -28,6 +28,15 @@ export default function SettingsPage() {
   const [fallbackTarget, setFallbackTarget] = useState<'local' | 'gdrive' | 'onedrive' | 'stop'>(
     (user?.storageConfig as any)?.fallbackTarget || 'local'
   );
+  const [showStorageIntroCard, setShowStorageIntroCard] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('myspace_hide_storage_intro') !== 'true';
+    }
+    return true;
+  });
+  const [isLocalExplorerOpen, setIsLocalExplorerOpen] = useState(false);
+  const [localDeviceFiles, setLocalDeviceFiles] = useState<LocalDeviceItem[]>([]);
+  const [isLoadingLocalFiles, setIsLoadingLocalFiles] = useState(false);
 
   useEffect(() => {
     getDeviceStorageEstimate().then(setDeviceQuota);
@@ -225,7 +234,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.15</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.16</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -898,55 +907,49 @@ export default function SettingsPage() {
         {activeTab === 'storage' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             
-            {/* Header / Intro Card */}
-            <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', color: 'white', borderRadius: '20px', padding: '1.4rem', boxShadow: '0 8px 24px rgba(15,23,42,0.15)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem' }}>
-                <span style={{ fontSize: '1.4rem' }}>🛡️</span>
-                <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>אחסון ופרטיות ב-MySpace</h2>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.88rem', opacity: 0.85, lineHeight: '1.5' }}>
-                שליטה מלאה ועצמאית במיקום שמירת המסמכים והקבצים שלך. בחר היכן נשמר המידע שלך – בענן המאובטח של MySpace, ישירות על המכשיר שלך לפרטיות מרבית, או ב-Google Drive האישי שלך.
-              </p>
-            </div>
-
-            {storageSaveSuccess && (
-              <div style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>✓</span> הגדרות האחסון עודכנו ונשמרו בהצלחה!
-              </div>
-            )}
-
-            {/* 1. Device Storage Quota Monitor (WhatsApp Style) */}
+            {/* 1. Device Storage Quota Monitor (WhatsApp Style) - FIRST */}
             <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.4rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <span>📱</span> תיקיית MySpace המקומית בטלפון (מודל WhatsApp)
+                  <span>📱</span> סטטוס שטח אחסון במכשיר (מודל WhatsApp)
                 </h3>
                 {deviceQuota && (
-                  <span style={{ fontSize: '0.75rem', background: deviceQuota.isPersistent ? '#dcfce7' : '#fef9c3', color: deviceQuota.isPersistent ? '#15803d' : '#854d0e', padding: '2px 8px', borderRadius: '6px', fontWeight: 800 }}>
-                    {deviceQuota.isPersistent ? '🔒 אחסון קבוע ומוגן' : '⚡ אחסון רגיל'}
+                  <span style={{ fontSize: '0.75rem', background: deviceQuota.isPersistent ? '#dcfce7' : '#fef9c3', color: deviceQuota.isPersistent ? '#15803d' : '#854d0e', padding: '3px 9px', borderRadius: '8px', fontWeight: 800 }}>
+                    {deviceQuota.isPersistent ? '🔒 מוגן ממחיקה' : '⚡ אחסון רגיל'}
                   </span>
                 )}
               </div>
 
               <p style={{ margin: '0 0 0.85rem 0', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.5' }}>
-                בדיוק כמו תיקיית <code style={{ direction: 'ltr', background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }}>WhatsApp/Media</code>, האפליקציה שומרת את הקבצים המקומיים בתיקייה ייעודית מבודדת ומסודרת: <strong style={{ color: '#0f172a' }}>MySpace/[שם המרחב]</strong>, מבלי לערבב שום דבר בתיקיית ההורדות הכללית של המכשיר.
+                האפליקציה שומרת את הקבצים המקומיים בתיקייה ייעודית ומבודדת במכשירך: <code style={{ direction: 'ltr', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', fontWeight: 700, color: '#0f172a' }}>MySpace/[שם המרחב]</code>, מבלי להעמיס על תיקיית ההורדות הכללית.
               </p>
 
               {deviceQuota && (
-                <div style={{ background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', fontWeight: 700 }}>
-                    <span style={{ color: '#475569' }}>נפח בשימוש באפליקציה</span>
-                    <span style={{ color: '#2563eb' }}>{deviceQuota.usageMB} MB / {deviceQuota.quotaMB > 0 ? `${(deviceQuota.quotaMB / 1024).toFixed(1)} GB זמין` : 'ללא הגבלה'}</span>
+                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', fontSize: '0.88rem', fontWeight: 700 }}>
+                    <span style={{ color: '#475569' }}>תפוסה באפליקציה:</span>
+                    <div style={{ direction: 'rtl', display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#0f172a' }}>
+                      <span style={{ color: '#2563eb', fontWeight: 800 }}>{deviceQuota.usageMB} MB</span>
+                      <span style={{ color: '#94a3b8' }}>מתוך</span>
+                      <span style={{ fontWeight: 800 }}>
+                        {deviceQuota.quotaMB > 0 
+                          ? `${(deviceQuota.quotaMB / 1024).toFixed(1)} GB זמין במכשיר` 
+                          : 'שטח המכשיר הפנוי'}
+                      </span>
+                    </div>
                   </div>
-                  <div style={{ width: '100%', height: '8px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
+                  
+                  {/* Progress Bar */}
+                  <div style={{ width: '100%', height: '9px', background: '#e2e8f0', borderRadius: '999px', overflow: 'hidden' }}>
                     <div style={{ width: `${Math.max(deviceQuota.percentUsed, 1)}%`, height: '100%', background: '#10b981', borderRadius: '999px' }} />
                   </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.2rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>ניתן לנצל את מלוא שטח האחסון הפנוי במכשירך.</span>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.2rem' }}>
+                    <span style={{ fontSize: '0.78rem', color: '#64748b' }}>הקבצים זמינים תמיד באופן מיידי, גם ללא חיבור לאינטרנט.</span>
                     {!deviceQuota.isPersistent && (
                       <button 
                         onClick={handleRequestPersistence}
-                        style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.3rem 0.65rem', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
+                        style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.35rem 0.75rem', fontSize: '0.78rem', fontWeight: 800, cursor: 'pointer' }}
                       >
                         הפעל הגנת מחיקה קבועה
                       </button>
@@ -955,6 +958,55 @@ export default function SettingsPage() {
                 </div>
               )}
             </section>
+
+            {/* Header / Intro Card - Dismissable */}
+            {showStorageIntroCard && (
+              <div style={{ background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)', color: 'white', borderRadius: '20px', padding: '1.25rem 1.4rem', boxShadow: '0 8px 24px rgba(15,23,42,0.15)', position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStorageIntroCard(false);
+                    try {
+                      localStorage.setItem('myspace_hide_storage_intro', 'true');
+                    } catch (e) {}
+                  }}
+                  title="סגור הודעה זו"
+                  style={{
+                    position: 'absolute',
+                    top: '1rem',
+                    left: '1rem',
+                    background: 'rgba(255,255,255,0.15)',
+                    border: 'none',
+                    color: 'white',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1rem',
+                    fontWeight: 'bold',
+                    transition: 'background 0.2s'
+                  }}
+                >
+                  ✕
+                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.4rem', paddingLeft: '2rem' }}>
+                  <span style={{ fontSize: '1.3rem' }}>🛡️</span>
+                  <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800 }}>אחסון ופרטיות ב-MySpace</h2>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', opacity: 0.85, lineHeight: '1.5', paddingLeft: '2rem' }}>
+                  שליטה מלאה ועצמאית במיקום שמירת המסמכים והקבצים שלך. בחר היכן נשמר המידע שלך – בענן המאובטח של MySpace, ישירות על המכשיר שלך לפרטיות מרבית, או ב-Google Drive האישי שלך.
+                </p>
+              </div>
+            )}
+
+            {storageSaveSuccess && (
+              <div style={{ background: '#dcfce7', color: '#15803d', border: '1px solid #86efac', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.88rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>✓</span> הגדרות האחסון עודכנו ונשמרו בהצלחה!
+              </div>
+            )}
 
             {/* 2. Destination Picker with Waterfall Hybrid Option */}
             <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.4rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
@@ -1014,6 +1066,44 @@ export default function SettingsPage() {
                   <div style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>שמירה מקומית במכשיר</div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
                     פרטיות מרבית (תיקיית MySpace ייעודית). אפס עלויות שרת.
+                  </div>
+
+                  {/* Visual Folder Path & Open Explorer Button */}
+                  <div style={{ marginTop: '0.75rem', paddingTop: '0.6rem', borderTop: '1px dashed #cbd5e1', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                    <div style={{ fontSize: '0.75rem', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                      <span>📂</span>
+                      <span>מיקום: </span>
+                      <code style={{ direction: 'ltr', background: 'rgba(16,185,129,0.1)', padding: '1px 5px', borderRadius: '4px', fontSize: '0.72rem' }}>MySpace/[שם המרחב]/</code>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        setIsLoadingLocalFiles(true);
+                        setIsLocalExplorerOpen(true);
+                        const files = await listLocalDeviceFiles();
+                        setLocalDeviceFiles(files);
+                        setIsLoadingLocalFiles(false);
+                      }}
+                      style={{
+                        background: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        padding: '0.4rem 0.65rem',
+                        fontSize: '0.78rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem',
+                        marginTop: '0.2rem',
+                        boxShadow: '0 2px 6px rgba(16,185,129,0.25)'
+                      }}
+                    >
+                      <span>📂</span> פתח את תיקיית MySpace
+                    </button>
                   </div>
                 </div>
 
@@ -1498,6 +1588,175 @@ export default function SettingsPage() {
             >
               ביטול
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Local Device Files Explorer Modal */}
+      {isLocalExplorerOpen && (
+        <div 
+          onClick={() => setIsLocalExplorerOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15,23,42,0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem',
+            direction: 'rtl'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '520px',
+              maxHeight: '85vh',
+              background: '#ffffff',
+              borderRadius: '24px',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              border: '1px solid #e2e8f0'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '1.25rem 1.4rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>📂</span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#0f172a' }}>
+                    תיקיית MySpace במכשיר
+                  </h3>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                    אחסון מקומי פרטי ומאובטח במכשירך
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsLocalExplorerOpen(false)}
+                style={{
+                  background: '#f1f5f9',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  color: '#64748b'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div style={{ padding: '1.25rem 1.4rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.82rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>🔒</span>
+                <span>הקבצים בתיקייה זו נשמרים ישירות בזיכרון המכשיר ללא תלות ברשת.</span>
+              </div>
+
+              {isLoadingLocalFiles ? (
+                <div style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b', fontSize: '0.9rem' }}>
+                  טוען את קבצי המכשיר...
+                </div>
+              ) : localDeviceFiles.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '2.5rem 1.5rem', background: '#f8fafc', borderRadius: '16px', border: '1px dashed #cbd5e1' }}>
+                  <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📁</div>
+                  <div style={{ fontWeight: 800, color: '#334155', fontSize: '1rem' }}>התיקייה המקומית ריקה עדיין</div>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '0.35rem', lineHeight: '1.5' }}>
+                    ברגע שתסרוק או תעלה מסמך כשיעד האחסון מוגדר "שמירה מקומית", הקובץ יופיע כאן מיידית.
+                  </div>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {localDeviceFiles.map((file, idx) => (
+                    <div 
+                      key={idx}
+                      style={{
+                        padding: '0.75rem 0.9rem',
+                        borderRadius: '12px',
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '0.5rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
+                        <span style={{ fontSize: '1.3rem' }}>📄</span>
+                        <div style={{ overflow: 'hidden' }}>
+                          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {file.fileName}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.4rem' }}>
+                            <span>מרחב: {file.spaceName}</span>
+                            <span>•</span>
+                            <span>{file.sizeMB} MB</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const blob = await getLocalDeviceFileBlob(file.spaceName, file.fileName);
+                          if (blob) {
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = file.fileName;
+                            a.click();
+                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                          }
+                        }}
+                        style={{
+                          background: '#ffffff',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.75rem',
+                          fontWeight: 700,
+                          color: '#334155',
+                          cursor: 'pointer',
+                          flexShrink: 0
+                        }}
+                      >
+                        הורד לקובץ ↓
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '0.85rem 1.4rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+              <button 
+                onClick={() => setIsLocalExplorerOpen(false)}
+                style={{
+                  background: '#0f172a',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '0.5rem 1.25rem',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                סגור
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -118,3 +118,76 @@ export async function saveLocalDeviceFile(
     return { success: false, localPath: '', error: err.message };
   }
 }
+
+export interface LocalDeviceItem {
+  spaceName: string;
+  fileName: string;
+  path: string;
+  sizeBytes: number;
+  sizeMB: number;
+}
+
+/**
+ * Lists all files stored in the local OPFS MySpace folder across all spaces.
+ */
+export async function listLocalDeviceFiles(): Promise<LocalDeviceItem[]> {
+  if (typeof window === 'undefined' || !('storage' in navigator) || !('getDirectory' in navigator.storage)) {
+    return [];
+  }
+  try {
+    const root = await navigator.storage.getDirectory();
+    let mySpaceDir: FileSystemDirectoryHandle;
+    try {
+      mySpaceDir = await root.getDirectoryHandle('MySpace');
+    } catch {
+      return [];
+    }
+
+    const items: LocalDeviceItem[] = [];
+    // Iterate space folders
+    // @ts-ignore
+    for await (const [spaceName, spaceHandle] of mySpaceDir.entries()) {
+      if (spaceHandle.kind === 'directory') {
+        const subDir = spaceHandle as FileSystemDirectoryHandle;
+        // @ts-ignore
+        for await (const [fileName, fileHandle] of subDir.entries()) {
+          if (fileHandle.kind === 'file') {
+            try {
+              const file = await (fileHandle as FileSystemFileHandle).getFile();
+              items.push({
+                spaceName,
+                fileName,
+                path: `MySpace/${spaceName}/${fileName}`,
+                sizeBytes: file.size,
+                sizeMB: Number((file.size / (1024 * 1024)).toFixed(2))
+              });
+            } catch (err) {}
+          }
+        }
+      }
+    }
+    return items;
+  } catch (err) {
+    console.error("Failed to list local device files:", err);
+    return [];
+  }
+}
+
+/**
+ * Retrieves a blob for a locally stored OPFS file.
+ */
+export async function getLocalDeviceFileBlob(spaceName: string, fileName: string): Promise<Blob | null> {
+  if (typeof window === 'undefined' || !('storage' in navigator) || !('getDirectory' in navigator.storage)) {
+    return null;
+  }
+  try {
+    const root = await navigator.storage.getDirectory();
+    const mySpaceDir = await root.getDirectoryHandle('MySpace');
+    const spaceDir = await mySpaceDir.getDirectoryHandle(spaceName);
+    const fileHandle = await spaceDir.getFileHandle(fileName);
+    return await fileHandle.getFile();
+  } catch (err) {
+    console.error("Failed to get local device file blob:", err);
+    return null;
+  }
+}
