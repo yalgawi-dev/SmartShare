@@ -14,6 +14,7 @@ export default function AdminUsersPage() {
   const [selectedUserForAnalysis, setSelectedUserForAnalysis] = useState<any | null>(null);
   const [showPartnersInModal, setShowPartnersInModal] = useState(false);
   const [filterByPartnerId, setFilterByPartnerId] = useState<string | null>(null);
+  const [isMetricsAccordionOpen, setIsMetricsAccordionOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'lastActive' | 'duplicate' | 'pwa' | 'createdAt' | 'name'>('lastActive');
   const [isLegendOpen, setIsLegendOpen] = useState(false);
@@ -430,7 +431,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.6</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.7</span>
           </div>
         </div>
 
@@ -1230,7 +1231,73 @@ export default function AdminUsersPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 
-                {/* 1. TOP PROFILE & PARTNERS CARD (Placed right at the top as requested!) */}
+                {/* 1. TOP 4 CORE BUSINESS MODEL INDICATORS (First thing user sees, default open with accordion toggle) */}
+                <div style={{ background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <div 
+                    onClick={() => setIsMetricsAccordionOpen(!isMetricsAccordionOpen)}
+                    style={{ 
+                      padding: '0.85rem 1rem', 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      alignItems: 'center', 
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      background: '#ffffff',
+                      borderBottom: isMetricsAccordionOpen ? '1px solid #e2e8f0' : 'none'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <span>📈</span> מדדי שימוש ומודל עסקי
+                    </div>
+                    <span style={{ fontSize: '0.75rem', color: '#2563eb', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                      {isMetricsAccordionOpen ? 'צמצם ▲' : 'הצג מדדים ▼'}
+                    </span>
+                  </div>
+
+                  {isMetricsAccordionOpen && (
+                    <div style={{ padding: '0.85rem', display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                      
+                      {/* Metric 1: Cloud Storage */}
+                      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 700 }}>☁️ נפח ענן בשימוש</div>
+                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1d4ed8', marginTop: '2px' }}>
+                          {userMB} MB
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>קבצים ומסמכים בענן</div>
+                      </div>
+
+                      {/* Metric 2: OCR Scans */}
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>⚡ סריקות OCR מצטברות</div>
+                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>
+                          {selectedUserForAnalysis.ocrCount || (isYehuda ? 12 : 0)}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סריקות AI שבוצעו</div>
+                      </div>
+
+                      {/* Metric 3: Spaces Owned */}
+                      <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '0.75rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#6b21a8', fontWeight: 700 }}>📁 מרחבים בבעלותו</div>
+                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#7e22ce', marginTop: '2px' }}>
+                          {createdSpacesCount}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>מתוך {userSpaces.length} מרחבים סה"כ</div>
+                      </div>
+
+                      {/* Metric 4: Tools & Features */}
+                      <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '0.75rem' }}>
+                        <div style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 700 }}>🛠️ כלים ופיצ'רים בשימוש</div>
+                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
+                          {allFeaturesUsed.size}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סורק, הוצאות, ציר זמן ועוד</div>
+                      </div>
+
+                    </div>
+                  )}
+                </div>
+
+                {/* 2. USER DETAILS & PARTNERS ACCORDION CARD (Right beneath the metrics) */}
                 <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', fontSize: '0.82rem', marginBottom: '0.75rem' }}>
                     <div><strong>טלפון:</strong> <span style={{ direction: 'ltr', display: 'inline-block' }}>{selectedUserForAnalysis.phone || 'לא הוזן'}</span></div>
@@ -1266,15 +1333,14 @@ export default function AdminUsersPage() {
                     </span>
                   </div>
 
-                  {/* Expanded Partners List (Right under profile header at the top) */}
+                  {/* Expanded Partners List */}
                   {showPartnersInModal && (
                     <div style={{ marginTop: '0.75rem', background: '#ffffff', borderRadius: '12px', border: '1px solid #bfdbfe', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                       <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e40af' }}>
-                        רשימת השותפים של {selectedUserForAnalysis.realName} (לחץ על שותף לסינון המרחבים שלו למטה):
+                        רשימת השותפים (לחץ לסינון מיידי של המרחבים למטה):
                       </div>
                       
                       {sharedContacts.map((contact: any, idx: number) => {
-                        // Resolve phone from allUsers if missing in contact
                         const matchedUser = allUsers.find(u => 
                           (contact.id && u.id === contact.id) || 
                           (contact.name && (u.realName === contact.name || u.nickname === contact.name))
@@ -1324,7 +1390,7 @@ export default function AdminUsersPage() {
                                 padding: '3px 8px', 
                                 borderRadius: '6px' 
                               }}>
-                                {(contact.spaces || []).length} מרחבים משותפים {isFiltered ? '✓ מסונן' : '🔍'}
+                                {(contact.spaces || []).length} מרחבים {isFiltered ? '✓ מסונן' : '🔍'}
                               </span>
                             </div>
                           </div>
@@ -1334,59 +1400,13 @@ export default function AdminUsersPage() {
                       {filterByPartnerId && (
                         <button 
                           onClick={() => setFilterByPartnerId(null)}
-                          style={{ background: '#f1f5f9', border: 'none', color: '#64748b', fontSize: '0.75rem', padding: '0.35rem', borderRadius: '6px', cursor: 'pointer', fontWeight: 700 }}
+                          style={{ background: '#f1f5f9', border: 'none', color: '#64748b', fontSize: '0.75rem', padding: '0.45rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 700 }}
                         >
-                          ✕ בטל סינון שותף והצג את כל המרחבים
+                          ✕ בטל סינון והצג את כל {userSpaces.length} המרחבים
                         </button>
                       )}
                     </div>
                   )}
-                </div>
-
-                {/* 2. 5 CORE BUSINESS MODEL INDICATORS (Accurately Populated!) */}
-                <div>
-                  <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f172a', marginBottom: '0.4rem' }}>
-                    📈 מדדי שימוש ומודל עסקי:
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
-                    
-                    {/* Metric 1: Cloud Storage */}
-                    <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#1e40af', fontWeight: 700 }}>☁️ נפח ענן בשימוש</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#1d4ed8', marginTop: '2px' }}>
-                        {userMB} MB
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>קבצים ומסמכים בענן</div>
-                    </div>
-
-                    {/* Metric 2: OCR Scans */}
-                    <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#166534', fontWeight: 700 }}>⚡ סריקות OCR מצטברות</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#15803d', marginTop: '2px' }}>
-                        {selectedUserForAnalysis.ocrCount || (isYehuda ? 12 : 0)}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סריקות AI שבוצעו</div>
-                    </div>
-
-                    {/* Metric 3: Spaces Owned */}
-                    <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '0.75rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#6b21a8', fontWeight: 700 }}>📁 מרחבים בבעלותו</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#7e22ce', marginTop: '2px' }}>
-                        {createdSpacesCount}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>מתוך {userSpaces.length} מרחבים סה"כ</div>
-                    </div>
-
-                    {/* Metric 4: Tools & Features */}
-                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '12px', padding: '0.75rem' }}>
-                      <div style={{ fontSize: '0.75rem', color: '#92400e', fontWeight: 700 }}>🛠️ כלים ופיצ'רים בשימוש</div>
-                      <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#b45309', marginTop: '2px' }}>
-                        {allFeaturesUsed.size}
-                      </div>
-                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סורק, הוצאות, ציר זמן ועוד</div>
-                    </div>
-
-                  </div>
                 </div>
 
                 {/* 3. Storage Destination Preference */}
@@ -1400,78 +1420,90 @@ export default function AdminUsersPage() {
                   </span>
                 </div>
 
-                {/* 4. PER-SPACE DETAILED LIST (With Partner Filter & Visual Highlight!) */}
+                {/* 4. PER-SPACE DETAILED LIST (Strict Filter Applied - Shows ONLY relevant spaces immediately in view!) */}
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                    <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>
-                      📁 מרחבים בשימוש ({userSpaces.length}):
-                    </h4>
-                    {filterByPartnerId && (
-                      <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 700 }}>
-                        מציג מרחבים משותפים לשותף הנבחר
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    // Filter userSpaces strictly if filterByPartnerId is selected
+                    const displayedSpaces = filterByPartnerId
+                      ? userSpaces.filter(s => (s.members || []).some((m: any) => m.userId === filterByPartnerId) || s.creatorId === filterByPartnerId)
+                      : userSpaces;
 
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                    {userSpaces.map(s => {
-                      const isCreator = s.creatorId === selectedUserForAnalysis.id;
-                      const member = (s.members || []).find((m: any) => m.userId === selectedUserForAnalysis.id);
-                      const docsCount = (s.documents || []).length + (s.mediaItems || []).length;
-                      const invoicesCount = (s.invoices || []).length;
-                      
-                      // Check if this space belongs to selected partner filter
-                      const isPartnerSpace = filterByPartnerId 
-                        ? (s.members || []).some((m: any) => m.userId === filterByPartnerId) || s.creatorId === filterByPartnerId
-                        : false;
+                    const filteredPartnerObj = filterByPartnerId ? sharedContacts.find(c => c.id === filterByPartnerId) : null;
 
-                      return (
-                        <div 
-                          key={s.id} 
-                          style={{ 
-                            background: isPartnerSpace ? '#eff6ff' : '#f8fafc', 
-                            padding: '0.75rem 0.85rem', 
-                            borderRadius: '12px', 
-                            border: isPartnerSpace ? '2px solid #2563eb' : '1px solid #e2e8f0', 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            alignItems: 'center', 
-                            fontSize: '0.82rem',
-                            boxShadow: isPartnerSpace ? '0 4px 12px rgba(37,99,235,0.1)' : 'none'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                            <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e2e8f0' }}>
-                              {s.logoUrl ? (
-                                <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              ) : (
-                                <span style={{ fontSize: '1.15rem' }}>{s.icon || '📁'}</span>
-                              )}
-                            </div>
-                            <div>
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                <strong style={{ color: isPartnerSpace ? '#1d4ed8' : '#0f172a' }}>{s.title}</strong>
-                                <span style={{ fontSize: '0.7rem', color: isCreator ? '#d97706' : '#2563eb', fontWeight: 800 }}>
-                                  {isCreator ? '(יוצר 👑)' : `(שותף - ${member?.sharePercentage || 0}%)`}
-                                </span>
-                                {isPartnerSpace && (
-                                  <span style={{ fontSize: '0.65rem', background: '#2563eb', color: 'white', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
-                                    משותף לשותף הנבחר
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
-                                {docsCount} קבצים ומסמכים | {invoicesCount} הוצאות | {(s.features || []).length} כלים
-                              </div>
-                            </div>
-                          </div>
-                          <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'none', fontSize: '0.78rem', background: '#ffffff', border: '1px solid #bfdbfe', padding: '4px 8px', borderRadius: '6px' }}>
-                            פתח ↗
-                          </Link>
+                    return (
+                      <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>
+                            📁 מרחבים ({displayedSpaces.length}{filterByPartnerId ? ` מתוך ${userSpaces.length}` : ''}):
+                          </h4>
+                          {filterByPartnerId && (
+                            <button
+                              onClick={() => setFilterByPartnerId(null)}
+                              style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: '6px', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                              מסנן לפי {filteredPartnerObj?.name || 'שותף'} ✕
+                            </button>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                          {displayedSpaces.map(s => {
+                            const isCreator = s.creatorId === selectedUserForAnalysis.id;
+                            const member = (s.members || []).find((m: any) => m.userId === selectedUserForAnalysis.id);
+                            const docsCount = (s.documents || []).length + (s.mediaItems || []).length;
+                            const invoicesCount = (s.invoices || []).length;
+
+                            return (
+                              <div 
+                                key={s.id} 
+                                style={{ 
+                                  background: filterByPartnerId ? '#eff6ff' : '#f8fafc', 
+                                  padding: '0.75rem 0.85rem', 
+                                  borderRadius: '12px', 
+                                  border: filterByPartnerId ? '2px solid #2563eb' : '1px solid #e2e8f0', 
+                                  display: 'flex', 
+                                  justifyContent: 'space-between', 
+                                  alignItems: 'center', 
+                                  fontSize: '0.82rem',
+                                  boxShadow: filterByPartnerId ? '0 4px 12px rgba(37,99,235,0.1)' : 'none'
+                                }}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                                  <div style={{ width: '32px', height: '32px', borderRadius: '8px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e2e8f0' }}>
+                                    {s.logoUrl ? (
+                                      <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    ) : (
+                                      <span style={{ fontSize: '1.15rem' }}>{s.icon || '📁'}</span>
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                      <strong style={{ color: filterByPartnerId ? '#1d4ed8' : '#0f172a' }}>{s.title}</strong>
+                                      <span style={{ fontSize: '0.7rem', color: isCreator ? '#d97706' : '#2563eb', fontWeight: 800 }}>
+                                        {isCreator ? '(יוצר 👑)' : `(שותף - ${member?.sharePercentage || 0}%)`}
+                                      </span>
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                                      {docsCount} קבצים ומסמכים | {invoicesCount} הוצאות | {(s.features || []).length} כלים
+                                    </div>
+                                  </div>
+                                </div>
+                                <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'none', fontSize: '0.78rem', background: '#ffffff', border: '1px solid #bfdbfe', padding: '4px 8px', borderRadius: '6px' }}>
+                                  פתח ↗
+                                </Link>
+                              </div>
+                            );
+                          })}
+
+                          {displayedSpaces.length === 0 && (
+                            <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
+                              לא נמצאו מרחבים משותפים לשותף זה.
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
 
                 <button 
