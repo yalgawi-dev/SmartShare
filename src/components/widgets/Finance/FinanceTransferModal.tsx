@@ -51,7 +51,7 @@ export function FinanceTransferModal({
           const { uploadImageToStorage } = await import('../../../lib/firebase');
           const { downscaleBase64 } = await import('../../../utils/imageOptimizer');
           const optimized = await downscaleBase64(proofImage, 1200, 0.8);
-          const filename = `transfers/${spaceId}/${Date.now()}_proof.jpg`;
+          const filename = `transfers/${spaceId}/${Date.now()}_proof.webp`;
           attachmentUrl = await uploadImageToStorage(optimized, filename);
         } catch (uploadErr) {
           console.error("Proof upload failed:", uploadErr);

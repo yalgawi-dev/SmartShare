@@ -101,25 +101,28 @@ export function FinanceInbox({ space, user, onReviewItem }: FinanceInboxProps) {
     const newItems: any[] = [];
     
     try {
-      const { storage } = await import('../../../lib/firebase');
-      const { ref, uploadBytes, uploadString, getDownloadURL } = await import('firebase/storage');
-      const { compressImage } = await import('../../../utils/imageOptimizer');
+      const { storage, uploadImageToStorage } = await import('../../../lib/firebase');
+      const { compressImage, convertPdfToOptimizedImage } = await import('../../../utils/imageOptimizer');
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         let downloadUrl = '';
-        const filename = `inbox/${space.id}/${Date.now()}-${i}`;
+        const filename = `inbox/${space.id}/${Date.now()}-${i}.webp`;
         
-        if (file.type.startsWith('image/')) {
-          const compressedDataUrl = await compressImage(file, 1500, 1500, 0.7);
-          const storageRef = ref(storage, filename + '.jpg');
-          const snapshot = await uploadString(storageRef, compressedDataUrl, 'data_url');
-          downloadUrl = await getDownloadURL(snapshot.ref);
+        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+          // Convert PDF to WebP using Single Source of Truth
+          const reader = new FileReader();
+          const base64Pdf = await new Promise<string>((resolve, reject) => {
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          const webpDataUrl = await convertPdfToOptimizedImage(base64Pdf, 1500, 0.85);
+          downloadUrl = await uploadImageToStorage(webpDataUrl, filename);
         } else {
-          // PDF or other
-          const storageRef = ref(storage, filename + '-' + file.name);
-          const snapshot = await uploadBytes(storageRef, file);
-          downloadUrl = await getDownloadURL(snapshot.ref);
+          // Image: compress to WebP
+          const compressedDataUrl = await compressImage(file, 1500, 1500, 0.80);
+          downloadUrl = await uploadImageToStorage(compressedDataUrl, filename);
         }
         
         newItems.push({

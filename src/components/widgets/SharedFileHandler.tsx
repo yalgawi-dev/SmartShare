@@ -328,7 +328,7 @@ export default function SharedFileHandler() {
             setUploadProgress({ current: i + 1, total: filesToProcess.length });
             const cleanUri = filesToProcess[i].replace(/^"|"$/g, '');
             const compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
-            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'me') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+            const publicUrl = await uploadImageToStorage(compressedUri, 'personal_inbox/' + (user?.id || 'me') + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.webp');
             await addToPersonalInbox({
               imageUrl: publicUrl,
               status: 'processing',
@@ -367,7 +367,7 @@ export default function SharedFileHandler() {
               } catch (err) {
                 console.error('Downscale failed', err);
               }
-              const publicUrl = await uploadImageToStorage(compressedUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.jpg');
+              const publicUrl = await uploadImageToStorage(compressedUri, 'inbox/' + selectedSpaceId + '/' + Date.now() + '-' + Math.random().toString(36).substring(7) + '.webp');
               itemsToAdd.push({
                 imageUrl: publicUrl,
                 createdAt: new Date().toISOString(),

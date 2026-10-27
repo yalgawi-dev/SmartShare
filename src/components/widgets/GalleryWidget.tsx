@@ -56,7 +56,7 @@ export default function GalleryWidget({ space, onRemove, isGuestMode }: { space:
         } else {
           // Handle Image with compression
           const compressed = await compressImage(file, 1200, 1200, 0.8);
-          const path = `spaces/gallery/${space.id}_${Date.now()}.jpg`;
+          const path = `spaces/gallery/${space.id}_${Date.now()}.webp`;
           finalUrl = await uploadImageToStorage(compressed, path);
         }
 

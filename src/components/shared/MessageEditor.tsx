@@ -121,7 +121,7 @@ export default function MessageEditor({ initialData, onSave, onCancel, onChange,
     try {
       let finalPhotoUrl = attachedPhotoPreview;
       if (attachedPhotoPreview && attachedPhotoPreview.startsWith('data:image')) {
-        const path = `spaces/media/${Date.now()}_photo.jpg`;
+        const path = `spaces/media/${Date.now()}_photo.webp`;
         finalPhotoUrl = await uploadImageToStorage(attachedPhotoPreview, path);
       }
       
