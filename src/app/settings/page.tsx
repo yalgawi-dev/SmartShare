@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { sortSpacesByUsagePriority } from '../../utils/spaceSorting';
 import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota } from '../../utils/localDeviceStorage';
 import { getSharedContactsForUser } from '../../utils/partnerUtils';
+import { compressImageWebP } from '../../utils/imageOptimizer';
 
 export default function SettingsPage() {
   const { user, allUsers, updateProfile, logout, deleteMyAccount } = useAuth();
@@ -127,7 +128,9 @@ export default function SettingsPage() {
   const [birthDate, setBirthDate] = useState(user?.birthDate || '');
   const [zodiacSign, setZodiacSign] = useState(user?.zodiacSign || '');
   const [gender, setGender] = useState(user?.gender || '');
+  const [showPhotoSourceSheet, setShowPhotoSourceSheet] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -191,12 +194,26 @@ export default function SettingsPage() {
     updateProfile({ [field]: value });
   };
 
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      updateProfile({ avatarUrl: url });
+      try {
+        const compressedBase64 = await compressImageWebP(file, 600, 600, 0.85);
+        updateProfile({ avatarUrl: compressedBase64 });
+      } catch (err) {
+        console.error('Failed to compress avatar, fallback to reader:', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            updateProfile({ avatarUrl: event.target.result as string });
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
+    // Reset inputs so selecting the same file again triggers onChange
+    if (e.target) e.target.value = '';
+    setShowPhotoSourceSheet(false);
   };
 
   return (
@@ -208,7 +225,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.7</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.8</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -287,13 +304,17 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <button 
-                    onClick={() => fileInputRef.current?.click()}
+                    type="button"
+                    onClick={() => setShowPhotoSourceSheet(true)}
                     style={{ position: 'absolute', bottom: -2, right: -2, background: '#2563eb', color: 'white', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}
-                    title="החלף תמונה"
+                    title="החלף תמונה (מצלמה או גלריה)"
                   >
                     📷
                   </button>
+                  {/* Gallery input */}
                   <input type="file" accept="image/*" ref={fileInputRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
+                  {/* Camera input with direct camera capture */}
+                  <input type="file" accept="image/*" capture="user" ref={cameraInputRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
                 </div>
                 <div>
                   <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>{realName || user.id}</h3>
@@ -1330,6 +1351,155 @@ export default function SettingsPage() {
           onClose={() => setShowNotificationHelp(false)} 
           onRetry={handleEnablePush} 
         />
+      )}
+
+      {/* Facebook-style Photo Source Bottom Sheet (Camera or Gallery) */}
+      {showPhotoSourceSheet && (
+        <div 
+          onClick={() => setShowPhotoSourceSheet(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 999999,
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            direction: 'rtl'
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              background: '#ffffff',
+              borderTopLeftRadius: '24px',
+              borderTopRightRadius: '24px',
+              padding: '1.5rem 1.25rem 2rem',
+              boxShadow: '0 -10px 40px rgba(0,0,0,0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.85rem',
+              animation: 'slideUp 0.25s ease-out'
+            }}
+          >
+            {/* Grab handle indicator */}
+            <div style={{ width: '40px', height: '4px', background: '#cbd5e1', borderRadius: '999px', margin: '0 auto 0.5rem' }} />
+
+            <div style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
+                עדכון תמונת פרופיל
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.82rem', color: '#64748b' }}>
+                בחר כיצד תרצה להעלות את תמונת הפרופיל שלך
+              </p>
+            </div>
+
+            {/* Option 1: Take Photo with Camera */}
+            <button
+              type="button"
+              onClick={() => {
+                cameraInputRef.current?.click();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                padding: '1rem 1.25rem',
+                background: '#f8fafc',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '16px',
+                cursor: 'pointer',
+                textAlign: 'right',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '50%',
+                background: '#eff6ff',
+                color: '#2563eb',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.4rem',
+                flexShrink: 0
+              }}>
+                📸
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a' }}>צילום תמונה במצלמה</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>פתח את המצלמה של המכשיר וצלם סלפי עכשיו</div>
+              </div>
+              <span style={{ color: '#94a3b8', fontSize: '1.2rem' }}>‹</span>
+            </button>
+
+            {/* Option 2: Choose from Gallery */}
+            <button
+              type="button"
+              onClick={() => {
+                fileInputRef.current?.click();
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '1rem',
+                padding: '1rem 1.25rem',
+                background: '#f8fafc',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '16px',
+                cursor: 'pointer',
+                textAlign: 'right',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <div style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '50%',
+                background: '#f0fdf4',
+                color: '#16a34a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1.4rem',
+                flexShrink: 0
+              }}>
+                🖼️
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a' }}>בחירה מהגלריה</div>
+                <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '2px' }}>בחר תמונה קיימת מתוך אלבום התמונות שלך</div>
+              </div>
+              <span style={{ color: '#94a3b8', fontSize: '1.2rem' }}>‹</span>
+            </button>
+
+            {/* Cancel Button */}
+            <button
+              type="button"
+              onClick={() => setShowPhotoSourceSheet(false)}
+              style={{
+                marginTop: '0.25rem',
+                padding: '0.85rem',
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '14px',
+                color: '#475569',
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                cursor: 'pointer'
+              }}
+            >
+              ביטול
+            </button>
+          </div>
+        </div>
       )}
 
       {pushSuccessMessage && (
