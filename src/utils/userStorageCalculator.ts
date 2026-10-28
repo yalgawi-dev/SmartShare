@@ -153,9 +153,9 @@ export function calculateUserStorageDetails(
   const pagesQuota = user.pagesQuota !== undefined && user.pagesQuota > 0 ? user.pagesQuota : 100;
 
   // Quota active state: explicit isQuotaActive flag on user document, or explicit quota set
-  // If isQuotaActive === false, user has NO limit (unlimited)
-  const isQuotaActive = user.isQuotaActive === true;
-  const hasCustomQuota = user.hasCustomQuota === true;
+  // Admins are exempt and never limited by quotas by virtue of being admin
+  const isQuotaActive = !user.isAdmin && user.isQuotaActive === true;
+  const hasCustomQuota = !user.isAdmin && user.hasCustomQuota === true;
 
   let percentUsed = 0;
   if (isQuotaActive) {

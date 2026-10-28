@@ -616,7 +616,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       //     * If global is active: VIP receives whichever is better (Math.max) for storage, pages, and OCR!
       //     * Their custom status (hasCustomQuota: true) is strictly preserved unless overrideCustom is selected.
 
-      const updatesPerUser = allUsers.map(u => {
+      // Admins are inherently exempt from quotas
+      const updatesPerUser = allUsers.filter(u => !u.isAdmin).map(u => {
         const isVip = u.hasCustomQuota === true;
 
         if (overrideCustom || !isVip) {

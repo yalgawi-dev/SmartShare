@@ -46,6 +46,7 @@ export default function AdminUsersPage() {
   const [globalPagesQuota, setGlobalPagesQuota] = useState<number>(100);
   const [globalOcrQuota, setGlobalOcrQuota] = useState<number>(50);
   const [isSavingGlobalQuota, setIsSavingGlobalQuota] = useState(false);
+  const [isTogglingGlobalQuota, setIsTogglingGlobalQuota] = useState(false);
   const [globalQuotaSuccess, setGlobalQuotaSuccess] = useState(false);
   const [isGlobalQuotaCardOpen, setIsGlobalQuotaCardOpen] = useState(true);
 
@@ -453,26 +454,32 @@ export default function AdminUsersPage() {
                   fontSize: '0.8rem'
                 }}
               >
-                📊 ניתוח ומכסות
+                📊 ניתוח משתמש
               </button>
 
-              <button
-                onClick={() => setSelectedUserForAnalysis(u)}
-                style={{
-                  background: '#f0fdf4',
-                  color: '#15803d',
-                  border: '1px solid #bbf7d0',
-                  padding: '0.45rem 0.65rem',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontWeight: 700,
-                  fontSize: '0.8rem',
-                  whiteSpace: 'nowrap'
-                }}
-                title="הגדר מכסת ענן ו-OCR למשתמש זה"
-              >
-                ⚙️ מכסות
-              </button>
+              {/* Individual quota configuration is ONLY for regular users (admins are unlimited) */}
+              {!u.isAdmin && (
+                <button
+                  onClick={() => {
+                    setSelectedUserForAnalysis(u);
+                    setIsUserQuotaAccordionOpen(true);
+                  }}
+                  style={{
+                    background: '#f0fdf4',
+                    color: '#15803d',
+                    border: '1px solid #bbf7d0',
+                    padding: '0.45rem 0.65rem',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title="הגדר מכסת ענן ו-OCR למשתמש זה"
+                >
+                  ⚙️ מכסות
+                </button>
+              )}
 
               {u.id !== user.id && (
                 <>
@@ -562,7 +569,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.31</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.32</span>
           </div>
         </div>
 
@@ -730,20 +737,51 @@ export default function AdminUsersPage() {
 
                       <button
                         type="button"
-                        onClick={() => setIsGlobalQuotaActive(!isGlobalQuotaActive)}
+                        disabled={isTogglingGlobalQuota}
+                        onClick={async () => {
+                          const nextState = !isGlobalQuotaActive;
+                          setIsGlobalQuotaActive(nextState);
+                          setIsTogglingGlobalQuota(true);
+                          try {
+                            const computedMB = globalStorageUnit === 'KB' 
+                              ? Number((globalStorageValue / 1024).toFixed(4)) 
+                              : globalStorageUnit === 'GB' 
+                              ? globalStorageValue * 1024 
+                              : globalStorageValue;
+
+                            await updateAllUsersQuotasByAdmin({
+                              isQuotaActive: nextState,
+                              quotaMode: globalQuotaMode,
+                              storageQuotaMB: Math.max(0.001, computedMB),
+                              pagesQuota: Math.max(1, globalPagesQuota),
+                              ocrQuota: globalOcrQuota,
+                              overrideCustom: false
+                            });
+                            setGlobalQuotaSuccess(true);
+                            setTimeout(() => setGlobalQuotaSuccess(false), 3000);
+                          } catch (err: any) {
+                            console.error("Failed toggling global quota status:", err);
+                            alert('שגיאה בשמירת סטטוס המגבלות: ' + (err.message || ''));
+                            setIsGlobalQuotaActive(!nextState); // Rollback on failure
+                          } finally {
+                            setIsTogglingGlobalQuota(false);
+                          }
+                        }}
                         style={{
-                          background: isGlobalQuotaActive ? '#16a34a' : '#64748b',
+                          background: isTogglingGlobalQuota ? '#94a3b8' : isGlobalQuotaActive ? '#16a34a' : '#64748b',
                           color: 'white',
                           border: 'none',
                           borderRadius: '8px',
                           padding: '0.4rem 0.85rem',
                           fontSize: '0.8rem',
                           fontWeight: 800,
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap'
+                          cursor: isTogglingGlobalQuota ? 'not-allowed' : 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.2s ease',
+                          boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
                         }}
                       >
-                        {isGlobalQuotaActive ? 'השבת מגבלות' : 'הפעל מגבלות'}
+                        {isTogglingGlobalQuota ? 'מעדכן...' : isGlobalQuotaActive ? 'השבת מגבלות' : 'הפעל מגבלות'}
                       </button>
                     </div>
 
@@ -1872,8 +1910,29 @@ export default function AdminUsersPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 
-                {/* 1. ADMIN QUOTA ALLOCATION: Accordion Card */}
-                <div style={{ background: '#f0fdf4', borderRadius: '16px', border: '2px solid #86efac', overflow: 'hidden' }}>
+                {/* 1. ADMIN STATUS (UNLIMITED) OR REGULAR USER QUOTA ALLOCATION */}
+                {selectedUserForAnalysis.isAdmin ? (
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '14px',
+                    padding: '0.85rem 1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem'
+                  }}>
+                    <span style={{ fontSize: '1.5rem' }}>👑</span>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.92rem', color: '#0f172a' }}>
+                        מנהל מערכת – גישה חופשית ללא הגבלת מכסות (Unlimited)
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                        משתמש זה הינו מנהל מערכת ולכן אינו כפוף למכסות אחסון ענן, עמודים או סריקות OCR.
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ background: '#f0fdf4', borderRadius: '16px', border: '2px solid #86efac', overflow: 'hidden' }}>
                   <div 
                     onClick={() => setIsUserQuotaAccordionOpen(!isUserQuotaAccordionOpen)}
                     style={{ 
@@ -2166,8 +2225,9 @@ export default function AdminUsersPage() {
                     </div>
                   )}
                 </div>
+              )}
 
-                {/* 2. TOP 4 CORE BUSINESS MODEL INDICATORS */}
+              {/* 2. TOP 4 CORE BUSINESS MODEL INDICATORS */}
                 <div style={{ background: '#f8fafc', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
                   <div 
                     onClick={() => setIsMetricsAccordionOpen(!isMetricsAccordionOpen)}
