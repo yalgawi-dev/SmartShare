@@ -115,6 +115,28 @@ const AuthContext = createContext<AuthContextType>({
   findUserById: async () => null,
 });
 
+// Super Admin Verification Helper (Central Source of Truth)
+export const checkIsSuperAdmin = (email?: string | null, phone?: string | null): boolean => {
+  const cleanEmail = (email || '').trim().toLowerCase();
+  const cleanPhone = (phone || '').replace(/\D/g, '');
+
+  const adminEmails = [
+    'yalgawi@gmail.com',
+    'yehuda.algawi@gmail.com'
+  ];
+  
+  const adminPhones = [
+    '0509666008',
+    '509666008',
+    '972509666008',
+    '0500000000',
+    '500000000',
+    '972500000000'
+  ];
+
+  return adminEmails.includes(cleanEmail) || adminPhones.includes(cleanPhone);
+};
+
 export const useAuth = () => useContext(AuthContext);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -181,7 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email || activeUser.email;
           const userPhone = firebaseUser.phoneNumber || activeUser.phone;
 
-          const isOwnerAdmin = bestEmail === 'yehuda.algawi@gmail.com' || userPhone === '0500000000';
+          const isOwnerAdmin = checkIsSuperAdmin(bestEmail, userPhone) || checkIsSuperAdmin(firebaseUser.email, firebaseUser.phoneNumber);
           if (isOwnerAdmin && !activeUser.isAdmin) {
             activeUser.isAdmin = true;
             needsUpdate = true;
@@ -241,7 +263,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
           const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
           const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
-          const isAdminUser = bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000';
+          const isAdminUser = checkIsSuperAdmin(bestEmail, firebaseUser.phoneNumber);
 
           activeUser = {
             id: firebaseUser.uid,
@@ -320,7 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           needsUpdate = true;
         }
 
-        const isOwnerAdmin = bestEmail === 'yehuda.algawi@gmail.com' || (firebaseUser.phoneNumber || activeUser.phone) === '0500000000';
+        const isOwnerAdmin = checkIsSuperAdmin(bestEmail, firebaseUser.phoneNumber || activeUser.phone);
         if (isOwnerAdmin && !activeUser.isAdmin) {
           activeUser.isAdmin = true;
           needsUpdate = true;
@@ -477,7 +499,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = async (phone: string, realName: string) => {
     if (!user) return;
     
-    const updatedUser = { ...user, phone, realName, isAdmin: phone === '0500000000' };
+    const updatedUser = { 
+      ...user, 
+      phone, 
+      realName, 
+      isAdmin: user.isAdmin || checkIsSuperAdmin(user.email, phone) 
+    };
     
     // Update local state immediately
     setUser(updatedUser);

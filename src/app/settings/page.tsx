@@ -526,7 +526,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.29</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.30</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -618,7 +618,30 @@ export default function SettingsPage() {
                   <input type="file" accept="image/*" capture="user" ref={cameraInputRef} onChange={handleAvatarUpload} style={{ display: 'none' }} />
                 </div>
                 <div>
-                  <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>{realName || user.id}</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: 800 }}>{realName || user.id}</h3>
+                    {user.isAdmin && (
+                      <Link 
+                        href="/admin/users"
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          background: '#fef2f2',
+                          color: '#dc2626',
+                          border: '1px solid #fecaca',
+                          borderRadius: '12px',
+                          padding: '2px 8px',
+                          fontSize: '0.75rem',
+                          fontWeight: 800,
+                          textDecoration: 'none'
+                        }}
+                        title="כניסה למרכז הבקרה"
+                      >
+                        🛡️ מנהל מערכת (ניהול)
+                      </Link>
+                    )}
+                  </div>
                   <p style={{ color: '#64748b', margin: 0, fontSize: '0.9rem', direction: 'ltr', textAlign: 'right' }}>{phone || 'אין טלפון'}</p>
                 </div>
               </div>
