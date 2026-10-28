@@ -7,6 +7,7 @@ import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
 import { downscaleBase64, extractPdfPages } from '../../utils/imageOptimizer';
+import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf } = useSpaces();
@@ -425,6 +426,20 @@ export default function SharedFileHandler() {
             compressedUri,
             `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
           );
+
+          // Save locally if target is local
+          const spaceOverride = user?.storageConfig?.spaceOverrides?.[selectedSpaceId];
+          const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
+          if (effectiveTarget === 'local') {
+            try {
+              const safeSpaceTitle = currentSpace?.title || 'General';
+              const fileName = `shared_${Date.now()}_${currentIdx}.${ext}`;
+              await saveLocalDeviceFile(safeSpaceTitle, fileName, compressedUri);
+            } catch (err) {
+              console.warn("Local save failed in SharedFileHandler:", err);
+            }
+          }
+
           addDocument(selectedSpaceId, {
             shelfId: targetShelfId,
             url: publicUrl,

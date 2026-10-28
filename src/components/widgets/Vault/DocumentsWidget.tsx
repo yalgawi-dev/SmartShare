@@ -13,6 +13,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
+import { saveLocalDeviceFile } from '../../../utils/localDeviceStorage';
 import MultiPageViewer from './MultiPageViewer';
 
 export interface DocumentsWidgetRef {
@@ -360,6 +361,32 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               return pageUrl;
             })
           );
+        }
+
+        // Check user's storage target (default or space override)
+        const spaceOverride = user?.storageConfig?.spaceOverrides?.[space.id];
+        const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
+
+        // If local storage is chosen, save copy into device OPFS folder
+        if (effectiveTarget === 'local') {
+          try {
+            const ext = url.startsWith('data:application/pdf') ? 'pdf' : (url.startsWith('data:image/webp') ? 'webp' : 'jpg');
+            const safeSpaceTitle = space.title || 'General';
+            const baseFileName = `${title}_${Date.now()}.${ext}`;
+            await saveLocalDeviceFile(safeSpaceTitle, baseFileName, url);
+            
+            // If document has multiple pages, save each page as well
+            if (allPages && allPages.length > 1) {
+              for (let pIdx = 0; pIdx < allPages.length; pIdx++) {
+                const pageData = allPages[pIdx];
+                const pExt = pageData.startsWith('data:application/pdf') ? 'pdf' : (pageData.startsWith('data:image/webp') ? 'webp' : 'jpg');
+                const pageFileName = `${title}_${Date.now()}_page_${pIdx + 1}.${pExt}`;
+                await saveLocalDeviceFile(safeSpaceTitle, pageFileName, pageData);
+              }
+            }
+          } catch (localSaveErr) {
+            console.warn("Failed saving document to local device OPFS:", localSaveErr);
+          }
         }
 
         const docPayload = {
@@ -1150,6 +1177,30 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}
                                     >
                                       <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>⬇️</span> הורד למכשיר
+                                    </button>
+
+                                    {/* Save to Local MySpace Folder */}
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        setActiveDocMenuId(null);
+                                        try {
+                                          const safeSpaceTitle = space.title || 'General';
+                                          const ext = doc.url.includes('.pdf') || doc.type === 'pdf' ? 'pdf' : 'jpg';
+                                          const fileName = `${doc.title || 'מסמך'}_${Date.now()}.${ext}`;
+                                          const res = await saveLocalDeviceFile(safeSpaceTitle, fileName, doc.url);
+                                          if (res.success) {
+                                            alert(`המסמך נשמר בהצלחה בתיקיית המכשיר:\n${res.localPath}`);
+                                          } else {
+                                            alert(`שגיאה בשמירה למכשיר: ${res.error || 'נסה שוב'}`);
+                                          }
+                                        } catch (err: any) {
+                                          alert(`שגיאה בשמירה: ${err.message || ''}`);
+                                        }
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}
+                                    >
+                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>📱</span> שמור בתיקיית MySpace
                                     </button>
 
                                     {/* Edit Title */}
