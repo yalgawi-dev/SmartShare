@@ -526,7 +526,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.25</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.26</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1409,57 +1409,55 @@ export default function SettingsPage() {
 
                 {/* 3. Google Drive */}
                 <div 
-                  onClick={() => handleSaveStorageConfig('gdrive')}
+                  onClick={() => alert('חיבור ישיר ל-Google Drive נמצא כעת בפיתוח! בקרוב תוכל להתחבר בקליק אחד עם חשבון הגוגל שלך לשמירה ישירה.')}
                   style={{
-                    border: defaultStorageTarget === 'gdrive' ? '2px solid #8b5cf6' : '1px solid #cbd5e1',
-                    background: defaultStorageTarget === 'gdrive' ? '#f5f3ff' : '#f8fafc',
+                    border: '1px dashed #cbd5e1',
+                    background: '#f8fafc',
                     borderRadius: '16px',
                     padding: '1.1rem',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    position: 'relative'
+                    position: 'relative',
+                    opacity: 0.85
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                     <span style={{ fontSize: '1.4rem' }}>📁</span>
-                    {defaultStorageTarget === 'gdrive' && (
-                      <span style={{ background: '#8b5cf6', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>פעיל</span>
-                    )}
+                    <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>🚧 בפיתוח</span>
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     Google Drive
-                    <span style={{ fontSize: '0.65rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>עסקי</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#475569', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>בקרוב</span>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
-                    שמירה ב-Drive האישי/העסקי שלך בתיקיית MySpace ייעודית.
+                    חיבור ישיר בקליק אחד לחשבון הגוגל האישי/עסקי שלך ושמירה אוטומטית בתיקייה ייעודית.
                   </div>
                 </div>
 
                 {/* 4. Microsoft OneDrive */}
                 <div 
-                  onClick={() => handleSaveStorageConfig('onedrive' as any)}
+                  onClick={() => alert('חיבור ל-Microsoft OneDrive נמצא כעת בפיתוח!')}
                   style={{
-                    border: (defaultStorageTarget as any) === 'onedrive' ? '2px solid #0284c7' : '1px solid #cbd5e1',
-                    background: (defaultStorageTarget as any) === 'onedrive' ? '#f0f9ff' : '#f8fafc',
+                    border: '1px dashed #cbd5e1',
+                    background: '#f8fafc',
                     borderRadius: '16px',
                     padding: '1.1rem',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
-                    position: 'relative'
+                    position: 'relative',
+                    opacity: 0.85
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
                     <span style={{ fontSize: '1.4rem' }}>🏢</span>
-                    {(defaultStorageTarget as any) === 'onedrive' && (
-                      <span style={{ background: '#0284c7', color: 'white', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>פעיל</span>
-                    )}
+                    <span style={{ background: '#fef3c7', color: '#b45309', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '999px', fontWeight: 800 }}>🚧 בפיתוח</span>
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.98rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     Microsoft OneDrive
-                    <span style={{ fontSize: '0.65rem', background: '#e0f2fe', color: '#0369a1', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>Microsoft 365</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#475569', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>בקרוב</span>
                   </div>
                   <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '0.25rem', lineHeight: '1.4' }}>
-                    שמירה ב-OneDrive הארגוני של מייקרוסופט.
+                    סנכרון ארגוני ישיר לחשבון Microsoft 365 של המשתמש.
                   </div>
                 </div>
 
@@ -1503,8 +1501,8 @@ export default function SettingsPage() {
                   }}
                 >
                   <option value="local">📱 עבור אוטומטית לשמירה בתיקיית MySpace בטלפון</option>
-                  <option value="gdrive">📁 שמור ב-Google Drive האישי שלי</option>
-                  <option value="onedrive">🏢 שמור ב-Microsoft OneDrive שלי</option>
+                  <option value="gdrive" disabled>📁 שמור ב-Google Drive האישי שלי (בפיתוח)</option>
+                  <option value="onedrive" disabled>🏢 שמור ב-Microsoft OneDrive שלי (בפיתוח)</option>
                   <option value="stop">🛑 עצור והתרע לי לשדרג מנוי</option>
                 </select>
               </div>
@@ -1576,7 +1574,7 @@ export default function SettingsPage() {
                           <option value="default">לפי ברירת מחדל ({defaultStorageTarget === 'cloud' ? 'ענן' : defaultStorageTarget === 'local' ? 'מקומי' : 'דרייב'})</option>
                           <option value="cloud">☁️ ענן MySpace</option>
                           <option value="local">📱 שמירה מקומית במכשיר</option>
-                          <option value="gdrive">📁 Google Drive</option>
+                          <option value="gdrive" disabled>📁 Google Drive (בפיתוח)</option>
                         </select>
                       </div>
                     </div>
