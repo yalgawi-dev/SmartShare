@@ -5,7 +5,7 @@ import { usePresence } from '../../../hooks/usePresence';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
-import { resolveUserSpaceIdentity } from '../../../utils/partnerUtils';
+import { resolveUserSpaceIdentity, buildInviteReminderMessage } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 class ErrorBoundary extends React.Component<any, { hasError: boolean, error: any }> {
@@ -271,7 +271,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                           : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.34</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.35</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (isInvite) return '#f59e0b';
@@ -396,46 +396,96 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 );
               })()}
 
-              <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+              <div style={{ display: 'flex', gap: '1.25rem', justifyContent: 'center' }}>
+                {/* Direct WhatsApp Send */}
                 <button
                   type="button"
-                  onClick={async () => {
+                  onClick={() => {
                     const inviteToken = member.userId;
-                    const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/space/${space.id}?invite=${inviteToken}`;
-                    const targetName = (member.name || '').trim();
-                    const greeting = targetName ? `היי ${targetName}! 👋` : 'היי! 👋';
-                    const cleanCreator = space.createdBy || user?.realName || user?.nickname || 'מנהל המרחב';
-                    const isFinancial = (space.features || []).includes('finance');
                     const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
                     const guestShare = inviteObj?.guestShare ?? member.sharePercentage;
-
-                    const shareText = isFinancial && guestShare
-                      ? `תזכורת להצטרפות למרחב 🔔\n\n${greeting}\n\n${cleanCreator} ממתין להצטרפותך כשותף למרחב:\n🌟 "${space.title}"\n\n🤝 הוגדר עבורך חלק של ${guestShare}% בפרויקט.\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`
-                      : `תזכורת להצטרפות למרחב 🔔\n\n${greeting}\n\n${cleanCreator} ממתין להצטרפותך למרחב:\n🌟 "${space.title}"\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`;
-
-                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                      try {
-                        await navigator.clipboard.writeText(shareText);
-                        alert('הודעת התזכורת וההזמנה המעוצבת הועתקה ללוח בהצלחה!\nניתן להדביק ישירות בוואטסאפ.');
-                        return;
-                      } catch (err) {
-                        console.error('Clipboard write failed', err);
-                      }
-                    }
-                    // Fallback
-                    alert('קישור ההזמנה:\n' + link);
+                    const { whatsappUrl } = buildInviteReminderMessage({
+                      space,
+                      inviteToken,
+                      targetName: member.name,
+                      creatorName: space.createdBy || user?.realName || user?.nickname,
+                      guestShare
+                    });
+                    window.open(whatsappUrl, '_blank');
                   }}
                   style={{
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
                     background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
                   }}
+                  title="שלח ישירות בוואטסאפ"
+                >
+                  <div style={{
+                    width: '46px', height: '46px', borderRadius: '50%', background: '#25D366', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
+                    boxShadow: '0 3px 8px rgba(37,211,102,0.35)'
+                  }}>
+                    💬
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: '#065f46', fontWeight: 600 }}>וואטסאפ</span>
+                </button>
+
+                {/* Copy Formatted Text */}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const inviteToken = member.userId;
+                    const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
+                    const guestShare = inviteObj?.guestShare ?? member.sharePercentage;
+                    const { shareText, link } = buildInviteReminderMessage({
+                      space,
+                      inviteToken,
+                      targetName: member.name,
+                      creatorName: space.createdBy || user?.realName || user?.nickname,
+                      guestShare
+                    });
+
+                    let copied = false;
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      try {
+                        await navigator.clipboard.writeText(shareText);
+                        copied = true;
+                      } catch (err) {
+                        console.error('Clipboard write failed', err);
+                      }
+                    }
+
+                    if (!copied && typeof document !== 'undefined') {
+                      try {
+                        const textArea = document.createElement('textarea');
+                        textArea.value = shareText;
+                        document.body.appendChild(textArea);
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                        copied = true;
+                      } catch (err) {
+                        console.error('ExecCommand copy failed', err);
+                      }
+                    }
+
+                    if (copied) {
+                      alert('הודעת התזכורת וההזמנה המעוצבת הועתקה ללוח בהצלחה!\nניתן להדביק ישירות בוואטסאפ.');
+                    } else {
+                      alert('קישור ההזמנה:\n' + link);
+                    }
+                  }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
+                    background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
+                  }}
+                  title="העתק טקסט מעוצב ומזמין"
                 >
                   <div style={{
                     width: '46px', height: '46px', borderRadius: '50%', background: '#10b981', color: 'white',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
                     boxShadow: '0 3px 8px rgba(16,185,129,0.35)'
                   }}>
-                    🔗
+                    📋
                   </div>
                   <span style={{ fontSize: '0.8rem', color: '#065f46', fontWeight: 600 }}>העתק הזמנה</span>
                 </button>

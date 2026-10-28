@@ -237,7 +237,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.34</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.35</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -267,11 +267,14 @@ export default function Dashboard() {
             </Link>
             <Link href="/settings" style={{ padding: '0.15rem', textDecoration: 'none' }} title={`פרופיל - ${user?.realName || 'אורח'}`}>
               <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                {user?.avatarUrl ? (
-                  <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <span style={{ fontSize: '0.95rem' }}>{user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}</span>
-                )}
+                {(() => {
+                  const avatarSrc = user?.avatarUrl || (typeof window !== 'undefined' ? localStorage.getItem('user_avatar') || localStorage.getItem('smartshare_avatar') : null);
+                  return avatarSrc ? (
+                    <img src={avatarSrc} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                  ) : (
+                    <span style={{ fontSize: '0.95rem' }}>{user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}</span>
+                  );
+                })()}
               </div>
             </Link>
           </div>

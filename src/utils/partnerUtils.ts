@@ -201,3 +201,30 @@ export const getSharedContactsForUser = (targetUser: any, spacesList: any[], all
 
   return contacts;
 };
+
+/**
+ * Builds formatted Hebrew reminder / invitation text for a partner (DRY Single Source of Truth).
+ */
+export const buildInviteReminderMessage = (params: {
+  space: any;
+  inviteToken: string;
+  targetName?: string;
+  creatorName?: string;
+  guestShare?: number;
+}): { shareText: string; link: string; whatsappUrl: string } => {
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const link = `${origin}/space/${params.space.id}?invite=${params.inviteToken}`;
+  const name = (params.targetName || '').trim();
+  const greeting = name ? `היי ${name}! 👋` : 'היי! 👋';
+  const cleanCreator = params.creatorName || params.space.createdBy || 'מנהל המרחב';
+  const isFinancial = (params.space.features || []).includes('finance');
+  const share = params.guestShare;
+
+  const shareText = isFinancial && share
+    ? `תזכורת להצטרפות למרחב 🔔\n\n${greeting}\n\n${cleanCreator} ממתין להצטרפותך כשותף למרחב:\n🌟 "${params.space.title}"\n\n🤝 הוגדר עבורך חלק של ${share}% בפרויקט.\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`
+    : `תזכורת להצטרפות למרחב 🔔\n\n${greeting}\n\n${cleanCreator} ממתין להצטרפותך למרחב:\n🌟 "${params.space.title}"\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`;
+
+  const whatsappUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
+
+  return { shareText, link, whatsappUrl };
+};

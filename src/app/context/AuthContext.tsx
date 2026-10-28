@@ -214,9 +214,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             activeUser.nickname = bestName.split(' ')[0];
             needsUpdate = true;
           }
-          if (!activeUser.avatarUrl && bestPhoto) {
-            activeUser.avatarUrl = bestPhoto;
+          let localAvatarFallback: string | null = null;
+          if (typeof window !== 'undefined') {
+            try {
+              localAvatarFallback = localStorage.getItem('user_avatar') || localStorage.getItem('smartshare_avatar');
+            } catch(e) {}
+          }
+
+          if (!activeUser.avatarUrl && (bestPhoto || localAvatarFallback)) {
+            activeUser.avatarUrl = bestPhoto || localAvatarFallback || undefined;
             needsUpdate = true;
+          } else if (activeUser.avatarUrl && typeof window !== 'undefined') {
+            try {
+              localStorage.setItem('user_avatar', activeUser.avatarUrl);
+            } catch(e) {}
           }
           if (!activeUser.email && bestEmail) {
             activeUser.email = bestEmail;
@@ -537,6 +548,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const updated = { ...user, ...updates };
     setUser(updated);
+    if (updates.avatarUrl && typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('user_avatar', updates.avatarUrl);
+      } catch(e) {}
+    }
     try {
       await updateDoc(doc(db, 'users', user.id), updates);
     } catch (e) {

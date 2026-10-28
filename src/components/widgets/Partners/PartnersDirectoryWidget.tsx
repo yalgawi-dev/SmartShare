@@ -6,7 +6,7 @@ import { useChat } from '../../../app/context/ChatContext';
 import { usePresence } from '../../../hooks/usePresence';
 import { PartnersInviteModal } from './PartnersInviteModal';
 import PartnerControlPanel from './PartnerControlPanel';
-import { sanitizePartnerDisplayName } from '../../../utils/partnerUtils';
+import { sanitizePartnerDisplayName, buildInviteReminderMessage } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
@@ -325,20 +325,80 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     </button>
                   )}
 
-                  {/* Copy Link for pending invite */}
+                  {/* Actions for pending invite: WhatsApp + Copy reminder */}
                   {m.isInvite && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        const link = `${window.location.origin}/space/${space.id}?invite=${m.userId}`;
-                        navigator.clipboard.writeText(link);
-                        alert('קישור ההזמנה הועתק ללוח!');
-                      }}
-                      style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.95rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
-                      title="העתק קישור להזמנה שוב"
-                    >
-                      🔗
-                    </button>
+                    <>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const inviteToken = m.userId;
+                          const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
+                          const guestShare = inviteObj?.guestShare ?? m.sharePercentage;
+                          const { whatsappUrl } = buildInviteReminderMessage({
+                            space,
+                            inviteToken,
+                            targetName: m.name,
+                            creatorName: space.createdBy || user?.realName || user?.nickname,
+                            guestShare
+                          });
+                          window.open(whatsappUrl, '_blank');
+                        }}
+                        style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
+                        title="שלח תזכורת בוואטסאפ"
+                      >
+                        💬
+                      </button>
+
+                      <button 
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const inviteToken = m.userId;
+                          const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
+                          const guestShare = inviteObj?.guestShare ?? m.sharePercentage;
+                          const { shareText, link } = buildInviteReminderMessage({
+                            space,
+                            inviteToken,
+                            targetName: m.name,
+                            creatorName: space.createdBy || user?.realName || user?.nickname,
+                            guestShare
+                          });
+
+                          let copied = false;
+                          if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                            try {
+                              await navigator.clipboard.writeText(shareText);
+                              copied = true;
+                            } catch (err) {
+                              console.error('Clipboard write failed', err);
+                            }
+                          }
+
+                          if (!copied && typeof document !== 'undefined') {
+                            try {
+                              const textArea = document.createElement('textarea');
+                              textArea.value = shareText;
+                              document.body.appendChild(textArea);
+                              textArea.select();
+                              document.execCommand('copy');
+                              document.body.removeChild(textArea);
+                              copied = true;
+                            } catch (err) {
+                              console.error('ExecCommand copy failed', err);
+                            }
+                          }
+
+                          if (copied) {
+                            alert('הודעת התזכורת וההזמנה המעוצבת הועתקה ללוח בהצלחה!\nניתן להדביק ישירות בוואטסאפ.');
+                          } else {
+                            alert('קישור ההזמנה:\n' + link);
+                          }
+                        }}
+                        style={{ background: "#f8fafc", color: "#0284c7", border: "1px solid #e2e8f0", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.95rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
+                        title="העתק טקסט תזכורת מעוצב"
+                      >
+                        📋
+                      </button>
+                    </>
                   )}
 
                   {m.isInvite && isCreatorMe && (
