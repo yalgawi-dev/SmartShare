@@ -445,7 +445,8 @@ export default function SharedFileHandler() {
             url: publicUrl,
             title: isPdf ? 'מסמך PDF ששותף' : 'מסמך ששותף',
             type: isPdf ? 'pdf' : 'document',
-            addedBy: user?.id || 'me'
+            addedBy: user?.id || 'me',
+            storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
           });
         }
 

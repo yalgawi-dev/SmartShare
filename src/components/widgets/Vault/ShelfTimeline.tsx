@@ -609,6 +609,10 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                               title={doc.title}
                             >
                               {(!doc.thumbnailUrl && doc.url.includes('.pdf')) && <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '1.2rem' }}>📄</span>}
+                              {/* Storage Badge */}
+                              <div style={{ position: 'absolute', bottom: '2px', right: '2px', background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.85)' : 'rgba(37, 99, 235, 0.85)', color: 'white', borderRadius: '4px', fontSize: '0.55rem', padding: '1px 3px', lineHeight: 1 }}>
+                                {doc.storageTarget === 'local' ? '📱' : doc.storageTarget === 'gdrive' ? '📁' : '☁️'}
+                              </div>
                             </div>
                           ))}
                           <button onClick={() => setShowDocSelector({ eventId: event.id })} style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: '8px', width: '60px', height: '80px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '1.5rem', cursor: 'pointer', flexShrink: 0 }} title="הוסף מסמך לתחנה">

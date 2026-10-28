@@ -396,7 +396,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           title, 
           addedBy: user?.id || '', 
           thumbnailUrl: finalThumbnailUrl,
-          pages: finalPages
+          pages: finalPages,
+          storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
         };
 
         // Save to real database - atomically link if targetEventId is present
@@ -1026,11 +1027,57 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
                         <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? 'url(' + doc.thumbnailUrl + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative', borderTopLeftRadius: '13px', borderTopRightRadius: '13px', overflow: 'hidden' }}>
                           {!doc.thumbnailUrl && <span style={{ fontSize: '3rem' }}>📄</span>}
-                          <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
+                          <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
+                          
+                          {/* Subtle Storage Location Badge */}
+                          <div 
+                            title={doc.storageTarget === 'local' ? 'שמור מקומית במכשיר' : doc.storageTarget === 'gdrive' ? 'שמור ב-Google Drive' : 'שמור בענן MySpace'}
+                            style={{ 
+                              position: 'absolute', 
+                              bottom: '6px', 
+                              right: '6px', 
+                              background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.85)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.85)' : 'rgba(37, 99, 235, 0.85)', 
+                              color: 'white', 
+                              padding: '2px 6px', 
+                              borderRadius: '6px', 
+                              fontSize: '0.65rem', 
+                              fontWeight: 700, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '3px',
+                              backdropFilter: 'blur(4px)',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                            }}
+                          >
+                            <span>{doc.storageTarget === 'local' ? '📱' : doc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
+                            <span>{doc.storageTarget === 'local' ? 'מקומי' : doc.storageTarget === 'gdrive' ? 'Drive' : 'ענן'}</span>
+                          </div>
                         </div>
                       ) : (
                         <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: 'url(' + (doc.thumbnailUrl || doc.url) + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative', borderTopLeftRadius: '13px', borderTopRightRadius: '13px', overflow: 'hidden' }}>
-                          
+                          {/* Subtle Storage Location Badge */}
+                          <div 
+                            title={doc.storageTarget === 'local' ? 'שמור מקומית במכשיר' : doc.storageTarget === 'gdrive' ? 'שמור ב-Google Drive' : 'שמור בענן MySpace'}
+                            style={{ 
+                              position: 'absolute', 
+                              bottom: '6px', 
+                              right: '6px', 
+                              background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.85)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.85)' : 'rgba(37, 99, 235, 0.85)', 
+                              color: 'white', 
+                              padding: '2px 6px', 
+                              borderRadius: '6px', 
+                              fontSize: '0.65rem', 
+                              fontWeight: 700, 
+                              display: 'flex', 
+                              alignItems: 'center', 
+                              gap: '3px',
+                              backdropFilter: 'blur(4px)',
+                              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
+                            }}
+                          >
+                            <span>{doc.storageTarget === 'local' ? '📱' : doc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
+                            <span>{doc.storageTarget === 'local' ? 'מקומי' : doc.storageTarget === 'gdrive' ? 'Drive' : 'ענן'}</span>
+                          </div>
                         </div>
                       )}
                       

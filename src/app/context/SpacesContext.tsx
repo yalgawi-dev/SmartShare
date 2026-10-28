@@ -131,6 +131,7 @@ export interface SpaceDocument {
   createdAt: string;
   thumbnailUrl?: string;
   pages?: string[];
+  storageTarget?: 'cloud' | 'local' | 'gdrive';
   deletedAt?: string;
 }
 

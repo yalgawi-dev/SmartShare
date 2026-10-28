@@ -255,6 +255,24 @@ export default function UniversalViewerModal({
           >
             {currentDoc.title || 'מסמך'}
           </span>
+          {/* Storage Target Badge */}
+          <span
+            style={{
+              background: currentDoc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(37, 99, 235, 0.2)',
+              color: currentDoc.storageTarget === 'local' ? '#34d399' : '#60a5fa',
+              border: `1px solid ${currentDoc.storageTarget === 'local' ? '#059669' : '#2563eb'}`,
+              padding: '2px 8px',
+              borderRadius: '8px',
+              fontSize: '0.72rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            <span>{currentDoc.storageTarget === 'local' ? '📱' : currentDoc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
+            <span>{currentDoc.storageTarget === 'local' ? 'במכשיר' : currentDoc.storageTarget === 'gdrive' ? 'Google Drive' : 'ענן MySpace'}</span>
+          </span>
           {docs.length > 1 && (
             <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
               ({currentIndex + 1}/{docs.length})
