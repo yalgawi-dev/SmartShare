@@ -176,15 +176,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           activeUser = userSnap.data() as UserProfile;
           let needsUpdate = false;
           
-          const shouldBeAdmin = activeUser.phone === '0500000000' || activeUser.email === 'yehuda.algawi@gmail.com';
-          if (activeUser.isAdmin !== shouldBeAdmin && !activeUser.isAdmin) {
-            activeUser.isAdmin = shouldBeAdmin;
-            needsUpdate = true;
-          }
-
           const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
           const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
-          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email || activeUser.email;
+          const userPhone = firebaseUser.phoneNumber || activeUser.phone;
+
+          const isOwnerAdmin = bestEmail === 'yehuda.algawi@gmail.com' || userPhone === '0500000000';
+          if (isOwnerAdmin && !activeUser.isAdmin) {
+            activeUser.isAdmin = true;
+            needsUpdate = true;
+          }
 
           if ((activeUser.realName === 'אורח' || activeUser.realName === 'אורח ללא הזדהות' || !activeUser.realName) && bestName) {
             activeUser.realName = bestName;
@@ -209,7 +210,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: activeUser.email || ''
             });
           }
-          // Check global policy settings if configured by admin
+        } else {
+          // Check global policy settings if configured by admin for newly registering users
           let initialQuotaConfig: any = {
             isQuotaActive: false, // Default: Unlimited unless admin activated global quota!
             storageQuotaMB: 500,
@@ -236,6 +238,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.warn("Could not load global_quotas system settings, using safe defaults", sysErr);
           }
           
+          const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
+          const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
+          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+          const isAdminUser = bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000';
+
           activeUser = {
             id: firebaseUser.uid,
             realName: bestName || '',
@@ -245,7 +252,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             avatarUrl: bestPhoto || null,
             status: 'hidden',
             contacts: [],
-            isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
+            isAdmin: isAdminUser,
             createdAt: new Date().toISOString(),
             ...initialQuotaConfig
           };
@@ -313,12 +320,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           needsUpdate = true;
         }
 
+        const isOwnerAdmin = bestEmail === 'yehuda.algawi@gmail.com' || (firebaseUser.phoneNumber || activeUser.phone) === '0500000000';
+        if (isOwnerAdmin && !activeUser.isAdmin) {
+          activeUser.isAdmin = true;
+          needsUpdate = true;
+        }
+
         if (needsUpdate) {
           await updateDoc(userRef, { 
             realName: activeUser.realName,
             nickname: activeUser.nickname,
             avatarUrl: activeUser.avatarUrl,
-            email: activeUser.email
+            email: activeUser.email,
+            ...(isOwnerAdmin ? { isAdmin: true } : {})
           });
         }
         setUser(prev => prev ? { ...prev, ...activeUser, id: firebaseUser.uid } as any : { ...activeUser, id: firebaseUser.uid } as any);
