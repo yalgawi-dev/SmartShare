@@ -125,6 +125,9 @@ export interface LocalDeviceItem {
   path: string;
   sizeBytes: number;
   sizeMB: number;
+  lastModified?: number;
+  previewUrl?: string; // Object URL for crisp thumbnail rendering
+  type?: 'image' | 'pdf' | 'document';
 }
 
 /**
@@ -154,19 +157,31 @@ export async function listLocalDeviceFiles(): Promise<LocalDeviceItem[]> {
           if (fileHandle.kind === 'file') {
             try {
               const file = await (fileHandle as FileSystemFileHandle).getFile();
+              const isPdf = fileName.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+              const isImage = file.type.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(fileName);
+              
+              let previewUrl: string | undefined = undefined;
+              if (isImage) {
+                previewUrl = URL.createObjectURL(file);
+              }
+
               items.push({
                 spaceName,
                 fileName,
                 path: `MySpace/${spaceName}/${fileName}`,
                 sizeBytes: file.size,
-                sizeMB: Number((file.size / (1024 * 1024)).toFixed(2))
+                sizeMB: Number((file.size / (1024 * 1024)).toFixed(2)),
+                lastModified: file.lastModified,
+                previewUrl,
+                type: isPdf ? 'pdf' : isImage ? 'image' : 'document'
               });
             } catch (err) {}
           }
         }
       }
     }
-    return items;
+    // Sort latest first
+    return items.sort((a, b) => (b.lastModified || 0) - (a.lastModified || 0));
   } catch (err) {
     console.error("Failed to list local device files:", err);
     return [];
@@ -189,5 +204,25 @@ export async function getLocalDeviceFileBlob(spaceName: string, fileName: string
   } catch (err) {
     console.error("Failed to get local device file blob:", err);
     return null;
+  }
+}
+
+/**
+ * Deletes a file from the local OPFS storage.
+ */
+export async function deleteLocalDeviceFile(spaceName: string, fileName: string): Promise<boolean> {
+  if (typeof window === 'undefined' || !('storage' in navigator) || !('getDirectory' in navigator.storage)) {
+    return false;
+  }
+  try {
+    const root = await navigator.storage.getDirectory();
+    const mySpaceDir = await root.getDirectoryHandle('MySpace');
+    const spaceDir = await mySpaceDir.getDirectoryHandle(spaceName);
+    // @ts-ignore
+    await spaceDir.removeEntry(fileName);
+    return true;
+  } catch (err) {
+    console.error("Failed to delete local device file:", err);
+    return false;
   }
 }

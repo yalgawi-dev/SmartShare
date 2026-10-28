@@ -8,10 +8,11 @@ import { requestNotificationPermission } from '../../utils/notifications';
 import { useSpaces } from '../context/SpacesContext';
 import Link from 'next/link';
 import { sortSpacesByUsagePriority } from '../../utils/spaceSorting';
-import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota, listLocalDeviceFiles, getLocalDeviceFileBlob, LocalDeviceItem } from '../../utils/localDeviceStorage';
+import { getDeviceStorageEstimate, requestPersistentStorage, LocalStorageQuota, listLocalDeviceFiles, getLocalDeviceFileBlob, deleteLocalDeviceFile, LocalDeviceItem } from '../../utils/localDeviceStorage';
 import { getSharedContactsForUser } from '../../utils/partnerUtils';
 import { compressImageWebP } from '../../utils/imageOptimizer';
 import { calculateUserStorageDetails } from '../../utils/userStorageCalculator';
+import UniversalViewerModal from '../../components/common/ViewerEngine/UniversalViewerModal';
 
 export default function SettingsPage() {
   const { user, allUsers, updateProfile, logout, deleteMyAccount } = useAuth();
@@ -38,6 +39,8 @@ export default function SettingsPage() {
   const [isLocalExplorerOpen, setIsLocalExplorerOpen] = useState(false);
   const [localDeviceFiles, setLocalDeviceFiles] = useState<LocalDeviceItem[]>([]);
   const [isLoadingLocalFiles, setIsLoadingLocalFiles] = useState(false);
+  const [selectedLocalSpaceFolder, setSelectedLocalSpaceFolder] = useState<string>('all');
+  const [localViewerItem, setLocalViewerItem] = useState<{ docs: any[]; index: number } | null>(null);
 
   // Calculate user-initiated cloud storage strictly from user's files and documents (DRY)
   const userStorage = useMemo(() => {
@@ -241,7 +244,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.23</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.24</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1673,11 +1676,70 @@ export default function SettingsPage() {
             </div>
 
             {/* Modal Content */}
-            <div style={{ padding: '1.25rem 1.4rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.82rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <div style={{ padding: '1.1rem 1.3rem', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.65rem 0.9rem', fontSize: '0.8rem', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span>🔒</span>
-                <span>הקבצים בתיקייה זו נשמרים ישירות בזיכרון המכשיר ללא תלות ברשת.</span>
+                <span>הקבצים בתיקייה זו נשמרים ישירות בזיכרון המכשיר (OPFS) ללא תלות ברשת.</span>
               </div>
+
+              {/* Folder Selector Tabs (Filter by Space Name) */}
+              {localDeviceFiles.length > 0 && (() => {
+                const spacesInLocal = Array.from(new Set(localDeviceFiles.map(f => f.spaceName)));
+                return (
+                  <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedLocalSpaceFolder('all')}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        borderRadius: '20px',
+                        border: selectedLocalSpaceFolder === 'all' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                        background: selectedLocalSpaceFolder === 'all' ? '#eff6ff' : '#f8fafc',
+                        color: selectedLocalSpaceFolder === 'all' ? '#1d4ed8' : '#475569',
+                        fontWeight: selectedLocalSpaceFolder === 'all' ? 800 : 600,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem'
+                      }}
+                    >
+                      <span>📂 כל התיקיות</span>
+                      <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({localDeviceFiles.length})</span>
+                    </button>
+
+                    {spacesInLocal.map(sName => {
+                      const count = localDeviceFiles.filter(f => f.spaceName === sName).length;
+                      const isSelected = selectedLocalSpaceFolder === sName;
+                      return (
+                        <button
+                          key={sName}
+                          type="button"
+                          onClick={() => setSelectedLocalSpaceFolder(sName)}
+                          style={{
+                            padding: '0.4rem 0.75rem',
+                            borderRadius: '20px',
+                            border: isSelected ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            background: isSelected ? '#eff6ff' : '#f8fafc',
+                            color: isSelected ? '#1d4ed8' : '#475569',
+                            fontWeight: isSelected ? 800 : 600,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            whiteSpace: 'nowrap',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.35rem'
+                          }}
+                        >
+                          <span>📁 {sName}</span>
+                          <span style={{ fontSize: '0.7rem', opacity: 0.8 }}>({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
 
               {isLoadingLocalFiles ? (
                 <div style={{ textAlign: 'center', padding: '2.5rem', color: '#64748b', fontSize: '0.9rem' }}>
@@ -1688,74 +1750,198 @@ export default function SettingsPage() {
                   <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📁</div>
                   <div style={{ fontWeight: 800, color: '#334155', fontSize: '1rem' }}>התיקייה המקומית ריקה עדיין</div>
                   <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '0.35rem', lineHeight: '1.5' }}>
-                    ברגע שתסרוק או תעלה מסמך כשיעד האחסון מוגדר "שמירה מקומית", הקובץ יופיע כאן מיידית.
+                    ברגע שתסרוק או תעלה מסמך כשיעד האחסון מוגדר "שמירה מקומית", הקובץ יופיע כאן מיידית עם תמונה מקדימה.
                   </div>
                 </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {localDeviceFiles.map((file, idx) => (
-                    <div 
-                      key={idx}
-                      style={{
-                        padding: '0.75rem 0.9rem',
-                        borderRadius: '12px',
-                        background: '#f8fafc',
-                        border: '1px solid #e2e8f0',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        gap: '0.5rem'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-                        <span style={{ fontSize: '1.3rem' }}>📄</span>
-                        <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                            {file.fileName}
-                          </div>
-                          <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', gap: '0.4rem' }}>
-                            <span>מרחב: {file.spaceName}</span>
-                            <span>•</span>
-                            <span>{file.sizeMB} MB</span>
-                          </div>
-                        </div>
-                      </div>
+              ) : (() => {
+                const displayedFiles = selectedLocalSpaceFolder === 'all' 
+                  ? localDeviceFiles 
+                  : localDeviceFiles.filter(f => f.spaceName === selectedLocalSpaceFolder);
 
-                      <button
-                        type="button"
+                if (displayedFiles.length === 0) {
+                  return (
+                    <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#64748b', fontSize: '0.85rem' }}>
+                      אין קבצים בתיקייה זו.
+                    </div>
+                  );
+                }
+
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '0.75rem' }}>
+                    {displayedFiles.map((file, idx) => (
+                      <div 
+                        key={file.path || idx}
                         onClick={async () => {
                           const blob = await getLocalDeviceFileBlob(file.spaceName, file.fileName);
                           if (blob) {
                             const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = file.fileName;
-                            a.click();
-                            setTimeout(() => URL.revokeObjectURL(url), 1000);
+                            setLocalViewerItem({
+                              docs: [{
+                                id: file.path,
+                                title: file.fileName,
+                                url,
+                                type: file.type || (file.fileName.endsWith('.pdf') ? 'pdf' : 'image'),
+                                storageTarget: 'local'
+                              }],
+                              index: 0
+                            });
                           }
                         }}
                         style={{
                           background: '#ffffff',
-                          border: '1px solid #cbd5e1',
-                          borderRadius: '8px',
-                          padding: '0.35rem 0.65rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: '#334155',
+                          borderRadius: '16px',
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                          overflow: 'hidden',
+                          display: 'flex',
+                          flexDirection: 'column',
                           cursor: 'pointer',
-                          flexShrink: 0
+                          transition: 'all 0.15s ease'
                         }}
                       >
-                        הורד לקובץ ↓
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+                        {/* Live Image Thumbnail Preview */}
+                        <div style={{ 
+                          height: '130px', 
+                          background: '#f1f5f9', 
+                          position: 'relative',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          overflow: 'hidden'
+                        }}>
+                          {file.previewUrl ? (
+                            <img 
+                              src={file.previewUrl} 
+                              alt={file.fileName} 
+                              style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            />
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', color: '#64748b' }}>
+                              <span style={{ fontSize: '2.5rem' }}>{file.type === 'pdf' ? '📑' : '📄'}</span>
+                              <span style={{ fontSize: '0.68rem', fontWeight: 700 }}>{file.type === 'pdf' ? 'מסמך PDF' : 'קובץ מקומי'}</span>
+                            </div>
+                          )}
+
+                          {/* Top-Right Badge: Space Name */}
+                          <div style={{
+                            position: 'absolute',
+                            top: '6px',
+                            right: '6px',
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            color: 'white',
+                            backdropFilter: 'blur(4px)',
+                            padding: '2px 7px',
+                            borderRadius: '6px',
+                            fontSize: '0.65rem',
+                            fontWeight: 700,
+                            maxWidth: '120px',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            📁 {file.spaceName}
+                          </div>
+
+                          {/* Bottom-Left Badge: Size */}
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '6px',
+                            left: '6px',
+                            background: 'rgba(16, 185, 129, 0.9)',
+                            color: 'white',
+                            padding: '2px 6px',
+                            borderRadius: '6px',
+                            fontSize: '0.65rem',
+                            fontWeight: 700
+                          }}>
+                            📱 {file.sizeMB} MB
+                          </div>
+                        </div>
+
+                        {/* File Details & Actions */}
+                        <div style={{ padding: '0.65rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <div style={{ 
+                            fontWeight: 800, 
+                            fontSize: '0.82rem', 
+                            color: '#0f172a', 
+                            overflow: 'hidden', 
+                            textOverflow: 'ellipsis', 
+                            whiteSpace: 'nowrap' 
+                          }}>
+                            {file.fileName}
+                          </div>
+
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.2rem' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#2563eb', fontWeight: 700 }}>
+                              👁️ לחץ לצפייה
+                            </span>
+
+                            <div style={{ display: 'flex', gap: '0.3rem' }} onClick={(e) => e.stopPropagation()}>
+                              {/* Download file button */}
+                              <button
+                                type="button"
+                                title="הורד קובץ למכשיר"
+                                onClick={async () => {
+                                  const blob = await getLocalDeviceFileBlob(file.spaceName, file.fileName);
+                                  if (blob) {
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = file.fileName;
+                                    a.click();
+                                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                                  }
+                                }}
+                                style={{
+                                  background: '#f1f5f9',
+                                  border: '1px solid #cbd5e1',
+                                  borderRadius: '6px',
+                                  padding: '0.25rem 0.45rem',
+                                  fontSize: '0.75rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ⬇️
+                              </button>
+
+                              {/* Delete file button */}
+                              <button
+                                type="button"
+                                title="מחק מהאחסון המקומי"
+                                onClick={async () => {
+                                  if (confirm(`האם למחוק את הקובץ "${file.fileName}" מתיקיית המכשיר?`)) {
+                                    await deleteLocalDeviceFile(file.spaceName, file.fileName);
+                                    const refreshed = await listLocalDeviceFiles();
+                                    setLocalDeviceFiles(refreshed);
+                                  }
+                                }}
+                                style={{
+                                  background: '#fee2e2',
+                                  border: '1px solid #fecaca',
+                                  color: '#dc2626',
+                                  borderRadius: '6px',
+                                  padding: '0.25rem 0.45rem',
+                                  fontSize: '0.75rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Modal Footer */}
-            <div style={{ padding: '0.85rem 1.4rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ padding: '0.85rem 1.4rem', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontSize: '0.78rem', color: '#64748b', fontWeight: 600 }}>
+                {localDeviceFiles.length} קבצים בזיכרון המכשיר
+              </span>
               <button 
                 onClick={() => setIsLocalExplorerOpen(false)}
                 style={{
@@ -1774,6 +1960,21 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Full-Screen Local Document Viewer (Universal Viewer) */}
+      {localViewerItem && (
+        <UniversalViewerModal
+          docs={localViewerItem.docs}
+          initialIndex={localViewerItem.index}
+          onClose={() => setLocalViewerItem(null)}
+          onDownload={(url, title) => {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = title || 'document';
+            a.click();
+          }}
+        />
       )}
 
       {pushSuccessMessage && (
