@@ -521,6 +521,63 @@ export function FinanceTransactions({
                       })()}
                       </div>
                       
+                      {/* Deletion Request Banner */}
+                      {inv.deletionRequest && inv.deletionRequest.status === 'pending' && (() => {
+                        const req = inv.deletionRequest;
+                        const isRequester = req.requestedById === myEffectiveId;
+                        const needsMyApproval = (req.approversNeeded || []).includes(myEffectiveId) && !(req.approversAgreed || []).includes(myEffectiveId);
+                        
+                        return (
+                          <div style={{ background: '#fff1f2', border: '1.5px solid #fecdd3', borderRadius: '12px', padding: '0.75rem', marginBottom: '0.75rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#be123c', fontWeight: 800, fontSize: '0.88rem' }}>
+                              <span>🗑️</span>
+                              <span>בקשת מחיקת חשבונית מאושרת</span>
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#881337', marginTop: '0.25rem' }}>
+                              מבקש המחיקה: <strong>{req.requestedBy}</strong> {isRequester ? '(אתה)' : ''}
+                            </div>
+                            {req.reason && (
+                              <div style={{ fontSize: '0.78rem', color: '#9f1239', marginTop: '0.2rem', fontStyle: 'italic' }}>
+                                נימוק: "{req.reason}"
+                              </div>
+                            )}
+                            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.35rem' }}>
+                              אישרו עד כה: {req.approversAgreed?.length || 0} מתוך {req.approversNeeded?.length || 0} שותפים מאשרים.
+                            </div>
+
+                            {needsMyApproval && (
+                              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (window.confirm('האם לאשר את מחיקת החשבונית המאושרת והעברתה לארכיון?')) {
+                                      await respondToInvoiceDeletionRequest(space.id, inv.id, myEffectiveId, true);
+                                    }
+                                  }}
+                                  style={{ flex: 1, padding: '0.5rem', background: '#e11d48', color: 'white', border: 'none', borderRadius: '8px', fontWeight: 800, fontSize: '0.8rem', cursor: 'pointer' }}
+                                >
+                                  ✅ אשר מחיקה
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    const reason = window.prompt('נא להזין סיבת דחייה:');
+                                    if (reason !== null) {
+                                      await respondToInvoiceDeletionRequest(space.id, inv.id, myEffectiveId, false, reason);
+                                    }
+                                  }}
+                                  style={{ flex: 1, padding: '0.5rem', background: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '8px', fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer' }}
+                                >
+                                  ❌ דחה בקשה
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
+
                       {/* Action Buttons */}
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: 'auto' }}>
                         {updateInvoice && calculateCanApprove(inv) && (
@@ -583,7 +640,11 @@ export function FinanceTransactions({
                                   e.stopPropagation();
                                   const isAlreadyApproved = inv.status === 'approved' || ((inv.approvedBy || []).length > 0);
                                   if (isAlreadyApproved && activePartnersCount > 0) {
-                                    alert('הוצאה זו כבר אושרה על ידי שותפים במרחב! לא ניתן למחוק אותה באופן חד-צדדי. יש לפתוח מחלוקת או לתאם עם השותפים.');
+                                    setDeletionRequestModal({
+                                      isOpen: true,
+                                      invoice: inv,
+                                      reason: ''
+                                    });
                                     return;
                                   }
                                   if (window.confirm('האם אתה בטוח שברצונך לבטל הוצאה זו? היא תעבור לארכיון.')) {
@@ -989,6 +1050,92 @@ export function FinanceTransactions({
         </div>
         )
       )}
+      {/* Modal for Deletion Request of Approved Invoice */}
+      {deletionRequestModal.isOpen && deletionRequestModal.invoice && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.65)',
+          zIndex: 999999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem',
+          direction: 'rtl'
+        }}>
+          <div style={{
+            background: '#ffffff',
+            borderRadius: '20px',
+            padding: '1.5rem',
+            maxWidth: '420px',
+            width: '100%',
+            boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#be123c', fontWeight: 800, fontSize: '1.05rem' }}>
+                <span>🛡️</span>
+                <span>מחיקת חשבונית מאושרת</span>
+              </div>
+              <button
+                onClick={() => setDeletionRequestModal({ isOpen: false, invoice: null, reason: '' })}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', cursor: 'pointer', fontSize: '1.1rem', color: '#64748b' }}
+              >✕</button>
+            </div>
+
+            <div style={{ fontSize: '0.85rem', color: '#334155', lineHeight: 1.5 }}>
+              חשבונית זו מול <strong>{deletionRequestModal.invoice.supplier || 'ספק'}</strong> ע"ס <strong>₪{deletionRequestModal.invoice.amount?.toLocaleString()}</strong> כבר אושרה ונחתמה על ידי שותפים במרחב.
+              <br />
+              לצורך מחיקתה, יש לשלוח בקשה רשמית לשותפים שאישרו אותה. לאחר אישורם, החשבונית תועבר לארכיון.
+            </div>
+
+            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.82rem', fontWeight: 700, color: '#475569' }}>
+              הסבר / נימוק למחיקה (אופציונלי):
+              <input
+                type="text"
+                placeholder="לדוגמה: הועלתה בטעות פעמיים, סכום שגוי..."
+                value={deletionRequestModal.reason}
+                onChange={(e) => setDeletionRequestModal(prev => ({ ...prev, reason: e.target.value }))}
+                style={{ padding: '0.6rem 0.8rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.88rem' }}
+              />
+            </label>
+
+            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
+              <button
+                type="button"
+                onClick={() => setDeletionRequestModal({ isOpen: false, invoice: null, reason: '' })}
+                style={{ flex: 1, padding: '0.65rem', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                ביטול
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const inv = deletionRequestModal.invoice;
+                  const success = await requestInvoiceDeletion(
+                    space.id,
+                    inv.id,
+                    user?.realName || user?.nickname || 'שותף',
+                    myEffectiveId,
+                    deletionRequestModal.reason
+                  );
+                  if (success) {
+                    alert('בקשת המחיקה נשלחה בהצלחה לשותפים שאישרו!');
+                    setDeletionRequestModal({ isOpen: false, invoice: null, reason: '' });
+                  } else {
+                    alert('שגיאה בשליחת בקשת מחיקה');
+                  }
+                }}
+                style={{ flex: 2, padding: '0.65rem', background: '#e11d48', color: 'white', border: 'none', borderRadius: '10px', fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 8px rgba(225,29,72,0.3)' }}
+              >
+                📤 שלח בקשת מחיקה לשותפים
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-}
+};

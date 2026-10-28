@@ -105,6 +105,26 @@ export function calculateSpaceNotifications(spaces: Space[], user: any): AppNoti
           });
         }
       }
+
+      // 1.1 Deletion Request Alert for Approving Partners
+      if (inv.deletionRequest && inv.deletionRequest.status === 'pending') {
+        const req = inv.deletionRequest;
+        const needsMyApproval = (req.approversNeeded || []).includes(user.id) && !(req.approversAgreed || []).includes(user.id);
+        if (needsMyApproval) {
+          notifs.push({
+            id: 'inv-del-' + space.id + '-' + inv.id,
+            invoiceId: inv.id,
+            type: 'invoice',
+            priority: 'high',
+            title: 'בקשת אישור מחיקת חשבונית',
+            text: `${req.requestedBy} מבקש למחוק את החשבונית מול '${inv.supplier || 'ספק'}' (₪${inv.amount || 0})`,
+            spaceId: space.id,
+            spaceName: space.title || 'מרחב',
+            createdAt: req.requestedAt || new Date().toISOString(),
+            actionable: true
+          });
+        }
+      }
     });
 
     if (hasPartners) {

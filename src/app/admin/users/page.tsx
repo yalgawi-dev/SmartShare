@@ -28,6 +28,7 @@ export default function AdminUsersPage() {
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const [openSystemSection, setOpenSystemSection] = useState<'storage' | 'business' | 'ocr' | null>('storage');
   const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>('active');
+  const [userModalSpacesSubTab, setUserModalSpacesSubTab] = useState<'active' | 'archived'>('active');
   const [isStorageBreakdownOpen, setIsStorageBreakdownOpen] = useState(false);
   const [storageSearchQuery, setStorageSearchQuery] = useState('');
   const [storageSortBy, setStorageSortBy] = useState<'storageDesc' | 'storageAsc' | 'spaces' | 'name'>('storageDesc');
@@ -567,7 +568,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.33</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.34</span>
           </div>
         </div>
 
@@ -1813,6 +1814,10 @@ export default function AdminUsersPage() {
           s.creatorId === selectedUserForAnalysis.id || 
           (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id)
         );
+        const userArchivedSpaces = (spaces || []).filter(s => 
+          (s.status === 'pending_deletion' || (s as any).isArchived) &&
+          (s.creatorId === selectedUserForAnalysis.id || (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id))
+        );
         const createdSpacesCount = activeSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
         const sharedContacts = getSharedContactsForUser(selectedUserForAnalysis, spaces, allUsers);
         
@@ -2447,19 +2452,55 @@ export default function AdminUsersPage() {
                 {/* 3. PER-SPACE DETAILED LIST (Immediately under Partners for seamless flow) */}
                 <div>
                   {(() => {
-                    // Filter userSpaces strictly if filterByPartnerId is selected
+                    // Filter either active or archived spaces
+                    const currentPool = userModalSpacesSubTab === 'active' ? userSpaces : userArchivedSpaces;
                     const displayedSpaces = filterByPartnerId
-                      ? userSpaces.filter(s => (s.members || []).some((m: any) => m.userId === filterByPartnerId) || s.creatorId === filterByPartnerId)
-                      : userSpaces;
+                      ? currentPool.filter(s => (s.members || []).some((m: any) => m.userId === filterByPartnerId) || s.creatorId === filterByPartnerId)
+                      : currentPool;
 
                     const filteredPartnerObj = filterByPartnerId ? sharedContacts.find(c => c.id === filterByPartnerId) : null;
 
                     return (
                       <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                          <h4 style={{ margin: 0, fontSize: '0.9rem', fontWeight: 800, color: '#0f172a' }}>
-                            📁 מרחבים ({displayedSpaces.length}{filterByPartnerId ? ` מתוך ${userSpaces.length}` : ''}):
-                          </h4>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                          {/* Active / Archived Toggle Subtabs */}
+                          <div style={{ display: 'flex', gap: '0.4rem', background: '#e2e8f0', padding: '2px', borderRadius: '8px' }}>
+                            <button
+                              type="button"
+                              onClick={() => setUserModalSpacesSubTab('active')}
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: userModalSpacesSubTab === 'active' ? '#ffffff' : 'transparent',
+                                color: userModalSpacesSubTab === 'active' ? '#2563eb' : '#64748b',
+                                fontWeight: 800,
+                                fontSize: '0.74rem',
+                                cursor: 'pointer',
+                                boxShadow: userModalSpacesSubTab === 'active' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                              }}
+                            >
+                              📁 פעילים ({userSpaces.length})
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setUserModalSpacesSubTab('archived')}
+                              style={{
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                border: 'none',
+                                background: userModalSpacesSubTab === 'archived' ? '#ffffff' : 'transparent',
+                                color: userModalSpacesSubTab === 'archived' ? '#dc2626' : '#64748b',
+                                fontWeight: 800,
+                                fontSize: '0.74rem',
+                                cursor: 'pointer',
+                                boxShadow: userModalSpacesSubTab === 'archived' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                              }}
+                            >
+                              📦 בארכיון ({userArchivedSpaces.length})
+                            </button>
+                          </div>
+
                           {filterByPartnerId && (
                             <button
                               onClick={() => setFilterByPartnerId(null)}
@@ -2476,15 +2517,16 @@ export default function AdminUsersPage() {
                             const member = (s.members || []).find((m: any) => m.userId === selectedUserForAnalysis.id);
                             const docsCount = (s.documents || []).length + (s.mediaItems || []).length;
                             const invoicesCount = (s.invoices || []).length;
+                            const isArchived = s.status === 'pending_deletion' || (s as any).isArchived;
 
                             return (
                               <div 
                                 key={s.id} 
                                 style={{ 
-                                  background: filterByPartnerId ? '#eff6ff' : '#f8fafc', 
+                                  background: isArchived ? '#fef2f2' : (filterByPartnerId ? '#eff6ff' : '#f8fafc'), 
                                   padding: '0.75rem 0.85rem', 
                                   borderRadius: '12px', 
-                                  border: filterByPartnerId ? '2px solid #2563eb' : '1px solid #e2e8f0', 
+                                  border: isArchived ? '1.5px solid #fecdd3' : (filterByPartnerId ? '2px solid #2563eb' : '1px solid #e2e8f0'), 
                                   display: 'flex', 
                                   justifyContent: 'space-between', 
                                   alignItems: 'center', 
@@ -2502,26 +2544,46 @@ export default function AdminUsersPage() {
                                   </div>
                                   <div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                      <strong style={{ color: filterByPartnerId ? '#1d4ed8' : '#0f172a' }}>{s.title}</strong>
+                                      <strong style={{ color: isArchived ? '#991b1b' : (filterByPartnerId ? '#1d4ed8' : '#0f172a') }}>{s.title}</strong>
                                       <span style={{ fontSize: '0.7rem', color: isCreator ? '#d97706' : '#2563eb', fontWeight: 800 }}>
                                         {isCreator ? '(יוצר 👑)' : `(שותף - ${member?.sharePercentage || 0}%)`}
                                       </span>
+                                      {isArchived && (
+                                        <span style={{ fontSize: '0.68rem', background: '#fee2e2', color: '#dc2626', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                                          ארכיון
+                                        </span>
+                                      )}
                                     </div>
                                     <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
                                       {docsCount} קבצים ומסמכים | {invoicesCount} הוצאות | {(s.features || []).length} כלים
                                     </div>
                                   </div>
                                 </div>
-                                <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'none', fontSize: '0.78rem', background: '#ffffff', border: '1px solid #bfdbfe', padding: '4px 8px', borderRadius: '6px' }}>
-                                  פתח ↗
-                                </Link>
+                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                  {isArchived && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (window.confirm(`האם לשחזר את המרחב "${s.title}"?`)) {
+                                          restoreSpace(s.id);
+                                        }
+                                      }}
+                                      style={{ color: '#16a34a', fontWeight: 800, fontSize: '0.75rem', background: '#ffffff', border: '1px solid #bbf7d0', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer' }}
+                                    >
+                                      שחזר ↩️
+                                    </button>
+                                  )}
+                                  <Link href={`/space/${s.id}`} target="_blank" style={{ color: '#2563eb', fontWeight: 800, textDecoration: 'none', fontSize: '0.78rem', background: '#ffffff', border: '1px solid #bfdbfe', padding: '4px 8px', borderRadius: '6px' }}>
+                                    פתח ↗
+                                  </Link>
+                                </div>
                               </div>
                             );
                           })}
 
                           {displayedSpaces.length === 0 && (
                             <div style={{ padding: '1rem', textAlign: 'center', color: '#64748b', background: '#f8fafc', borderRadius: '12px' }}>
-                              לא נמצאו מרחבים משותפים לשותף זה.
+                              {userModalSpacesSubTab === 'active' ? 'לא נמצאו מרחבים פעילים.' : 'אין מרחבים בארכיון עבור משתמש זה.'}
                             </div>
                           )}
                         </div>

@@ -22,10 +22,21 @@ export interface InboxItem {
   suggestedPayerId?: string;
 }
 
+export interface InvoiceDeletionRequest {
+  requestedBy: string;
+  requestedById: string;
+  requestedAt: string;
+  reason?: string;
+  approversNeeded: string[];
+  approversAgreed: string[];
+  status: 'pending' | 'rejected' | 'approved';
+}
+
 export interface Invoice {
   isActive?: boolean;
   isStoreCredit?: boolean;
   excludedMembers?: string[];
+  deletionRequest?: InvoiceDeletionRequest;
   id: string;
   amount: number | null;
   supplier: string | null;
@@ -333,6 +344,10 @@ interface SpacesContextType {
   updateAlbumSettings: (spaceId: string, size: 'A3-landscape' | 'A4-landscape' | 'A4-portrait' | 'square', newPhotos: string[]) => void;
   updateAtmospherePhoto: (spaceId: string, index: number, newUrl: string) => void;
   moveMediaItem: (spaceId: string, mediaId: string, newPageNumber: number, newSlotIndex: number) => void;
+  togglePendingInviteRetroactive: (spaceId: string, token: string, isRetroactive: boolean) => void;
+  toggleMemberRetroactive: (spaceId: string, userId: string, isRetroactive: boolean) => void;
+  requestInvoiceDeletion: (spaceId: string, invoiceId: string, requestedBy: string, requestedById: string, reason?: string) => Promise<boolean>;
+  respondToInvoiceDeletionRequest: (spaceId: string, invoiceId: string, approverId: string, approved: boolean, reason?: string) => Promise<void>;
   isLoaded: boolean;
 }
 
@@ -1089,6 +1104,147 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         ...space,
         pendingInvites: [...existingInvites, newInvite]
       };
+    });
+  };
+
+  const togglePendingInviteRetroactive = (spaceId: string, token: string, isRetroactive: boolean) => {
+    saveSpaceUpdate(spaceId, space => {
+      const pendingInvites = (space.pendingInvites || []).map((inv: any) => {
+        if (inv.token === token) {
+          return { ...inv, isRetroactive };
+        }
+        return inv;
+      });
+      return { ...space, pendingInvites };
+    });
+  };
+
+  const toggleMemberRetroactive = (spaceId: string, userId: string, isRetroactive: boolean) => {
+    saveSpaceUpdate(spaceId, space => {
+      const updatedInvoices = (space.invoices || []).map(inv => {
+        const curExcluded = inv.excludedMembers || [];
+        if (isRetroactive) {
+          // Remove from excluded list so partner participates retroactively
+          return {
+            ...inv,
+            excludedMembers: curExcluded.filter(id => id !== userId)
+          };
+        } else {
+          // Exclude partner from this past invoice if not already excluded
+          if (!curExcluded.includes(userId)) {
+            return {
+              ...inv,
+              excludedMembers: [...curExcluded, userId]
+            };
+          }
+          return inv;
+        }
+      });
+      return { ...space, invoices: updatedInvoices };
+    });
+  };
+
+  const requestInvoiceDeletion = async (spaceId: string, invoiceId: string, requestedBy: string, requestedById: string, reason?: string): Promise<boolean> => {
+    let success = false;
+    saveSpaceUpdate(spaceId, space => {
+      const invoices = space.invoices || [];
+      const targetInvoice = invoices.find(inv => inv.id === invoiceId);
+      if (!targetInvoice) return space;
+
+      // Approvers needed are all who approved this invoice, excluding the person making the request
+      const existingApprovers = targetInvoice.approvedBy || [];
+      const approversNeeded = existingApprovers.filter(id => id !== requestedById);
+
+      // If no other approvers are needed, we can soft-delete directly!
+      if (approversNeeded.length === 0) {
+        success = true;
+        return {
+          ...space,
+          invoices: invoices.map(inv => inv.id === invoiceId ? { ...inv, isActive: false } : inv)
+        };
+      }
+
+      const deletionRequest: InvoiceDeletionRequest = {
+        requestedBy,
+        requestedById,
+        requestedAt: new Date().toISOString(),
+        reason: reason || 'בקשת מחיקה מהמרחב',
+        approversNeeded,
+        approversAgreed: [],
+        status: 'pending'
+      };
+
+      success = true;
+      return {
+        ...space,
+        invoices: invoices.map(inv => inv.id === invoiceId ? { ...inv, deletionRequest } : inv)
+      };
+    });
+    return success;
+  };
+
+  const respondToInvoiceDeletionRequest = async (spaceId: string, invoiceId: string, approverId: string, approved: boolean, reason?: string): Promise<void> => {
+    saveSpaceUpdate(spaceId, space => {
+      const invoices = space.invoices || [];
+      const targetInvoice = invoices.find(inv => inv.id === invoiceId);
+      if (!targetInvoice || !targetInvoice.deletionRequest) return space;
+
+      const req = targetInvoice.deletionRequest;
+      if (!approved) {
+        // Request rejected
+        return {
+          ...space,
+          invoices: invoices.map(inv => {
+            if (inv.id !== invoiceId) return inv;
+            return {
+              ...inv,
+              deletionRequest: {
+                ...req,
+                status: 'rejected' as const,
+                reason: reason ? `נדחה: ${reason}` : 'בקשת המחיקה נדחתה על ידי שותף מאשר'
+              }
+            };
+          })
+        };
+      }
+
+      // Approved by this partner
+      const newAgreed = Array.from(new Set([...(req.approversAgreed || []), approverId]));
+      const allAgreed = req.approversNeeded.every(id => newAgreed.includes(id));
+
+      if (allAgreed) {
+        // Archive invoice completely
+        return {
+          ...space,
+          invoices: invoices.map(inv => {
+            if (inv.id !== invoiceId) return inv;
+            return {
+              ...inv,
+              isActive: false,
+              deletionRequest: {
+                ...req,
+                approversAgreed: newAgreed,
+                status: 'approved' as const
+              }
+            };
+          })
+        };
+      } else {
+        // Partial agreement
+        return {
+          ...space,
+          invoices: invoices.map(inv => {
+            if (inv.id !== invoiceId) return inv;
+            return {
+              ...inv,
+              deletionRequest: {
+                ...req,
+                approversAgreed: newAgreed
+              }
+            };
+          })
+        };
+      }
     });
   };
 
@@ -2095,6 +2251,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       updateAlbumSettings,
       updateAtmospherePhoto,
       moveMediaItem,
+      togglePendingInviteRetroactive,
+      toggleMemberRetroactive,
+      requestInvoiceDeletion,
+      respondToInvoiceDeletionRequest,
       isLoaded,
         personalInbox,
         setPersonalInbox,

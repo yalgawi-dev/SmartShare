@@ -237,40 +237,40 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.33</span></h1>
-            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.34</span></h1>
+            <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexShrink: 0 }}>
           {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
             <button 
               onClick={() => setShowAuthModal(true)}
-              style={{ fontSize: '0.85rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '20px', padding: '0.4rem 1rem', cursor: 'pointer', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}
+              style={{ fontSize: '0.8rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '20px', padding: '0.35rem 0.8rem', cursor: 'pointer', fontWeight: 'bold', boxShadow: 'var(--shadow-sm)' }}
             >
               התחבר
             </button>
           )}
           
-          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.2rem', gap: '0.2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.15rem 0.25rem', gap: '0.15rem' }}>
             
-            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.5rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', transition: 'all 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            <button onClick={() => setShowShareModal(true)} style={{ padding: '0.4rem', background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)', transition: 'all 0.2s', borderRadius: '50%' }} title="שתף אפליקציה" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
             {user?.isAdmin && (
-              <Link href="/admin/users" style={{ padding: '0.4rem', color: '#EF4444', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="ניהול מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+              <Link href="/admin/users" style={{ padding: '0.35rem', color: '#EF4444', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="ניהול מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                 🛡️
               </Link>
             )}
-            <Link href="/settings" style={{ padding: '0.4rem', color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="הגדרות" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+            <Link href="/settings" style={{ padding: '0.35rem', color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="הגדרות" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               ⚙️
             </Link>
-            <Link href="/settings" style={{ padding: '0.2rem', textDecoration: 'none' }} title={`פרופיל - ${user?.realName || 'אורח'}`}>
-              <div style={{ width: '32px', height: '32px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Link href="/settings" style={{ padding: '0.15rem', textDecoration: 'none' }} title={`פרופיל - ${user?.realName || 'אורח'}`}>
+              <div style={{ width: '30px', height: '30px', borderRadius: '50%', border: '2px solid var(--primary)', overflow: 'hidden', background: 'var(--bg-main)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 {user?.avatarUrl ? (
                   <img src={user.avatarUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 ) : (
-                  <span style={{ fontSize: '1rem' }}>{user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}</span>
+                  <span style={{ fontSize: '0.95rem' }}>{user?.gender === 'male' ? '👦' : user?.gender === 'female' ? '👧' : '👤'}</span>
                 )}
               </div>
             </Link>

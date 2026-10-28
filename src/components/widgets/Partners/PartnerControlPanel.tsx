@@ -59,7 +59,17 @@ interface Props {
 
 
 function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator', onNavigateToFilter, onTriggerTransfer, onEditShares }: Props) {
-  const { approveExtension, removeMember, updateMemberStatus, updateMemberRole, approveShareChange, rejectShareChange, declinePendingInvite } = useSpaces() as any;
+  const { 
+    approveExtension, 
+    removeMember, 
+    updateMemberStatus, 
+    updateMemberRole, 
+    approveShareChange, 
+    rejectShareChange, 
+    declinePendingInvite,
+    togglePendingInviteRetroactive,
+    toggleMemberRetroactive 
+  } = useSpaces() as any;
   const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
@@ -261,7 +271,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                           : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                       }
                     </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e2e8f0', color: '#64748b', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v2.9.9</span>
+                    <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.34</span>
                     
                     {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                       if (isInvite) return '#f59e0b';
@@ -347,88 +357,190 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           
           {/* Action Buttons */}
           {isInvite && viewMode === 'creator' ? (
-            <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', marginTop: '1.25rem' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/space/${space.id}?invite=${member.userId}`;
-                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                    navigator.clipboard.writeText(link);
-                  }
-                  alert('קישור ההזמנה הועתק ללוח!');
-                }}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
-                  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
-                }}
-              >
-                <div style={{
-                  width: '46px', height: '46px', borderRadius: '50%', background: '#10b981', color: 'white',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
-                  boxShadow: '0 3px 8px rgba(16,185,129,0.35)'
-                }}>
-                  🔗
-                </div>
-                <span style={{ fontSize: '0.8rem', color: '#065f46', fontWeight: 600 }}>העתק קישור</span>
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem' }}>
+              {/* Retroactive Toggle Button for Invite */}
+              {(() => {
+                const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === member.userId);
+                const isRetro = inviteObj ? inviteObj.isRetroactive : Boolean(member.isRetroactive);
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !isRetro;
+                        if (typeof togglePendingInviteRetroactive === 'function') {
+                          togglePendingInviteRetroactive(space.id, member.userId, nextVal);
+                        }
+                      }}
+                      style={{
+                        padding: '0.45rem 0.9rem',
+                        borderRadius: '20px',
+                        border: isRetro ? '1.5px solid #10b981' : '1.5px solid #cbd5e1',
+                        background: isRetro ? '#ecfdf5' : '#f8fafc',
+                        color: isRetro ? '#065f46' : '#64748b',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        transition: 'all 0.2s'
+                      }}
+                      title="לחץ להחלפה בין שותף רטרואקטיבי לשותף מכאן ולהבא בלבד"
+                    >
+                      <span>{isRetro ? '🛡️ רטרואקטיבי (חל על הוצאות עבר)' : '📅 מכאן ולהבא בלבד (ללא עבר)'}</span>
+                      <span style={{ fontSize: '0.7rem', textDecoration: 'underline', color: isRetro ? '#059669' : '#475569' }}>[שנה]</span>
+                    </button>
+                  </div>
+                );
+              })()}
 
-              <button
-                type="button"
-                onClick={handleRemove}
-                style={{
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
-                  background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
-                }}
-              >
-                <div style={{
-                  width: '46px', height: '46px', borderRadius: '50%', background: '#fee2e2', color: '#dc2626',
-                  border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
-                  boxShadow: '0 2px 6px rgba(239,68,68,0.2)'
-                }}>
-                  🗑️
-                </div>
-                <span style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>מחק הזמנה</span>
-              </button>
+              <div style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const inviteToken = member.userId;
+                    const link = `${typeof window !== 'undefined' ? window.location.origin : ''}/space/${space.id}?invite=${inviteToken}`;
+                    const targetName = (member.name || '').trim();
+                    const greeting = targetName ? `היי ${targetName}! 👋` : 'היי! 👋';
+                    const cleanCreator = space.createdBy || user?.realName || user?.nickname || 'מנהל המרחב';
+                    const isFinancial = (space.features || []).includes('finance');
+                    const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
+                    const guestShare = inviteObj?.guestShare ?? member.sharePercentage;
+
+                    const shareText = isFinancial && guestShare
+                      ? `תזכורת להצטרפות למרחב 🔔\n\n${greeting}\n\n${cleanCreator} ממתין להצטרפותך כשותף למרחב:\n🌟 "${space.title}"\n\n🤝 הוגדר עבורך חלק של ${guestShare}% בפרויקט.\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`
+                      : `תזכורת להצטרפות למרחב 🔔\n\n${greeting}\n\n${cleanCreator} ממתין להצטרפותך למרחב:\n🌟 "${space.title}"\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`;
+
+                    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                      try {
+                        await navigator.clipboard.writeText(shareText);
+                        alert('הודעת התזכורת וההזמנה המעוצבת הועתקה ללוח בהצלחה!\nניתן להדביק ישירות בוואטסאפ.');
+                        return;
+                      } catch (err) {
+                        console.error('Clipboard write failed', err);
+                      }
+                    }
+                    // Fallback
+                    alert('קישור ההזמנה:\n' + link);
+                  }}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
+                    background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
+                  }}
+                >
+                  <div style={{
+                    width: '46px', height: '46px', borderRadius: '50%', background: '#10b981', color: 'white',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem',
+                    boxShadow: '0 3px 8px rgba(16,185,129,0.35)'
+                  }}>
+                    🔗
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: '#065f46', fontWeight: 600 }}>העתק הזמנה</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleRemove}
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem',
+                    background: 'transparent', border: 'none', cursor: 'pointer', padding: 0
+                  }}
+                >
+                  <div style={{
+                    width: '46px', height: '46px', borderRadius: '50%', background: '#fee2e2', color: '#dc2626',
+                    border: '1px solid #fecdd3', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
+                    boxShadow: '0 2px 6px rgba(239,68,68,0.2)'
+                  }}>
+                    🗑️
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: '#991b1b', fontWeight: 600 }}>מחק הזמנה</span>
+                </button>
+              </div>
             </div>
           ) : viewMode === 'creator' && member?.isActive !== false && (
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.25rem' }}>
-              {onTriggerTransfer && (
-                <button
-                  onClick={() => {
-                    if ((space?.features || []).includes('partners')) {
-                      onClose(); onTriggerTransfer();
-                    }
-                  }}
-                  style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                    background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
-                    fontWeight: 'bold',
-                    cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
-                    opacity: (space?.features || []).includes('partners') ? 1 : 0.5,
-                    boxShadow: (space?.features || []).includes('partners') ? '0 2px 4px rgba(16,185,129,0.3)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>💸</span> תשלום
-                </button>
-              )}
-              {onEditShares && (
-                <button
-                  onClick={() => {
-                    if ((space?.features || []).includes('partners')) {
-                      onClose(); onEditShares();
-                    }
-                  }}
-                  style={{
-                    flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
-                    background: 'white', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '12px',
-                    fontWeight: 'bold',
-                    cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
-                    opacity: (space?.features || []).includes('partners') ? 1 : 0.5
-                  }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>📊</span> שינוי אחוזים
-                </button>
-              )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem' }}>
+              {/* Retroactive Toggle Button for Active Member */}
+              {(() => {
+                const pastExpenses = (space.invoices || []).filter((inv: any) => inv.isActive !== false && inv.type !== 'transfer' && inv.type !== 'income');
+                if (pastExpenses.length === 0 || member.role === 'creator') return null;
+                const isExcludedFromPast = pastExpenses.every((inv: any) => (inv.excludedMembers || []).includes(member.userId));
+                const isRetro = !isExcludedFromPast;
+
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextVal = !isRetro;
+                        if (typeof toggleMemberRetroactive === 'function') {
+                          toggleMemberRetroactive(space.id, member.userId, nextVal);
+                        }
+                      }}
+                      style={{
+                        padding: '0.45rem 0.9rem',
+                        borderRadius: '20px',
+                        border: isRetro ? '1.5px solid #10b981' : '1.5px solid #cbd5e1',
+                        background: isRetro ? '#ecfdf5' : '#f8fafc',
+                        color: isRetro ? '#065f46' : '#64748b',
+                        fontSize: '0.8rem',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.4rem',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                        transition: 'all 0.2s'
+                      }}
+                      title="לחץ לעדכון האם שותף זה משתתף בהוצאות שנוצרו בעבר"
+                    >
+                      <span>{isRetro ? '🛡️ רטרואקטיבי (משתתף בהוצאות עבר)' : '📅 מכאן ולהבא בלבד (ללא עבר)'}</span>
+                      <span style={{ fontSize: '0.7rem', textDecoration: 'underline', color: isRetro ? '#059669' : '#475569' }}>[שנה]</span>
+                    </button>
+                  </div>
+                );
+              })()}
+
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                {onTriggerTransfer && (
+                  <button
+                    onClick={() => {
+                      if ((space?.features || []).includes('partners')) {
+                        onClose(); onTriggerTransfer();
+                      }
+                    }}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                      background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
+                      fontWeight: 'bold',
+                      cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
+                      opacity: (space?.features || []).includes('partners') ? 1 : 0.5,
+                      boxShadow: (space?.features || []).includes('partners') ? '0 2px 4px rgba(16,185,129,0.3)' : 'none'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.1rem' }}>💸</span> תשלום
+                  </button>
+                )}
+                {onEditShares && (
+                  <button
+                    onClick={() => {
+                      if ((space?.features || []).includes('partners')) {
+                        onClose(); onEditShares();
+                      }
+                    }}
+                    style={{
+                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                      background: 'white', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '12px',
+                      fontWeight: 'bold',
+                      cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
+                      opacity: (space?.features || []).includes('partners') ? 1 : 0.5
+                    }}
+                  >
+                    <span style={{ fontSize: '1.1rem' }}>📊</span> שינוי אחוזים
+                  </button>
+                )}
+              </div>
             </div>
           )}
 
