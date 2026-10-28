@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSpaces } from '../../context/SpacesContext';
 import { getSharedContactsForUser } from '../../../utils/partnerUtils';
 import { AVAILABLE_FEATURES, getFeatureById } from '../../data/features';
 import { calculateUserStorageDetails } from '../../../utils/userStorageCalculator';
 import Link from 'next/link';
+import { db } from '../../../lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function AdminUsersPage() {
   const { user, allUsers, blockUser, toggleAdmin, updateUserByAdmin, updateAllUsersQuotasByAdmin, deleteUserDoc } = useAuth();
@@ -36,6 +38,8 @@ export default function AdminUsersPage() {
   const [quotaSaveSuccess, setQuotaSaveSuccess] = useState(false);
 
   // Global Quota for ALL Users (Macro)
+  const [isGlobalQuotaActive, setIsGlobalQuotaActive] = useState<boolean>(false);
+  const [overrideCustomQuota, setOverrideCustomQuota] = useState<boolean>(false);
   const [globalQuotaMode, setGlobalQuotaMode] = useState<'storage' | 'pages'>('storage');
   const [globalStorageValue, setGlobalStorageValue] = useState<number>(500);
   const [globalStorageUnit, setGlobalStorageUnit] = useState<'KB' | 'MB' | 'GB'>('MB');
@@ -47,6 +51,29 @@ export default function AdminUsersPage() {
 
   // Individual User Modal Quota Unit State
   const [modalStorageUnit, setModalStorageUnit] = useState<'KB' | 'MB' | 'GB'>('MB');
+
+  // Load current global quota policy on mount
+  useEffect(() => {
+    async function loadGlobalPolicy() {
+      try {
+        const snap = await getDoc(doc(db, 'system_settings', 'global_quotas'));
+        if (snap.exists()) {
+          const data = snap.data();
+          if (data.isQuotaActive !== undefined) setIsGlobalQuotaActive(data.isQuotaActive);
+          if (data.quotaMode) setGlobalQuotaMode(data.quotaMode);
+          if (data.storageQuotaMB) {
+            setGlobalStorageValue(data.storageQuotaMB);
+            setGlobalStorageUnit('MB');
+          }
+          if (data.pagesQuota) setGlobalPagesQuota(data.pagesQuota);
+          if (data.ocrQuota !== undefined) setGlobalOcrQuota(data.ocrQuota);
+        }
+      } catch (err) {
+        console.warn("Failed loading global policy:", err);
+      }
+    }
+    loadGlobalPolicy();
+  }, []);
 
   // Protect route
   if (!user || !user.isAdmin) {
@@ -316,11 +343,25 @@ export default function AdminUsersPage() {
               {u.realName || 'אורח'}
             </span>
             {u.isAdmin && <span title="מנהל מערכת">👑</span>}
+            {u.hasCustomQuota && (
+              <span title="בעל מכסה אישית מוגנת (חריג / VIP)" style={{
+                background: '#fef3c7',
+                color: '#b45309',
+                border: '1px solid #fde68a',
+                padding: '1px 5px',
+                borderRadius: '5px',
+                fontSize: '0.65rem',
+                fontWeight: 800,
+                flexShrink: 0
+              }}>
+                ⭐ VIP
+              </span>
+            )}
             {isDup && (
               <span style={{ 
-                background: '#fef3c7', 
-                color: '#b45309', 
-                border: '1px solid #fde68a', 
+                background: '#fee2e2', 
+                color: '#b91c1c', 
+                border: '1px solid #fecaca', 
                 padding: '1px 5px', 
                 borderRadius: '5px', 
                 fontSize: '0.65rem', 
@@ -518,7 +559,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.26</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.27</span>
           </div>
         </div>
 
@@ -654,131 +695,226 @@ export default function AdminUsersPage() {
                 </div>
               </div>
 
-              {isGlobalQuotaCardOpen && (
-                <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-                  
-                  {/* Quota Type Switcher: Storage volume vs Document pages */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
-                      🎯 שיטת מדידת המכסה לכלל המשתמשים:
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-                      <button
-                        type="button"
-                        onClick={() => setGlobalQuotaMode('storage')}
-                        style={{
-                          padding: '0.55rem 0.75rem',
-                          borderRadius: '10px',
-                          border: globalQuotaMode === 'storage' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                          background: globalQuotaMode === 'storage' ? '#eff6ff' : '#ffffff',
-                          color: globalQuotaMode === 'storage' ? '#1d4ed8' : '#475569',
-                          fontWeight: globalQuotaMode === 'storage' ? 800 : 600,
-                          fontSize: '0.82rem',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.35rem',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <span>💾</span> לפי שטח אחסון (KB / MB / GB)
-                      </button>
+              {isGlobalQuotaCardOpen && (() => {
+                const customUsersCount = allUsers.filter(u => u.hasCustomQuota).length;
+                const standardUsersCount = allUsers.length - customUsersCount;
+
+                return (
+                  <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
+                    
+                    {/* Master Switch: Enforce Quotas vs Unlimited (No Limits) */}
+                    <div style={{ 
+                      padding: '0.75rem 1rem', 
+                      background: isGlobalQuotaActive ? '#f0fdf4' : '#f8fafc', 
+                      borderRadius: '12px', 
+                      border: isGlobalQuotaActive ? '1px solid #86efac' : '1px solid #cbd5e1',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem'
+                    }}>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.9rem', color: isGlobalQuotaActive ? '#166534' : '#334155', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span>{isGlobalQuotaActive ? '🟢' : '⚪'}</span>
+                          <span>סטטוס הגבלת מכסות מערכתית: {isGlobalQuotaActive ? 'מופעלת (עם הגבלה)' : 'ללא הגבלה (Unlimited)'}</span>
+                        </div>
+                        <div style={{ fontSize: '0.74rem', color: '#64748b', marginTop: '2px' }}>
+                          {isGlobalQuotaActive 
+                            ? 'כל המשתמשים כפופים למכסות המוגדרות ורואים מד מגבלה ("מתוך X")' 
+                            : 'המשתמשים גולשים חופשי ללא הגבלה ורואים רק את כמות השימוש האישית ללא "מתוך"'}
+                        </div>
+                      </div>
 
                       <button
                         type="button"
-                        onClick={() => setGlobalQuotaMode('pages')}
+                        onClick={() => setIsGlobalQuotaActive(!isGlobalQuotaActive)}
                         style={{
-                          padding: '0.55rem 0.75rem',
-                          borderRadius: '10px',
-                          border: globalQuotaMode === 'pages' ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                          background: globalQuotaMode === 'pages' ? '#eff6ff' : '#ffffff',
-                          color: globalQuotaMode === 'pages' ? '#1d4ed8' : '#475569',
-                          fontWeight: globalQuotaMode === 'pages' ? 800 : 600,
-                          fontSize: '0.82rem',
+                          background: isGlobalQuotaActive ? '#16a34a' : '#64748b',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '8px',
+                          padding: '0.4rem 0.85rem',
+                          fontSize: '0.8rem',
+                          fontWeight: 800,
                           cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '0.35rem',
-                          transition: 'all 0.15s ease'
+                          whiteSpace: 'nowrap'
                         }}
                       >
-                        <span>📑</span> לפי כמות עמודי מסמכים (דפים)
+                        {isGlobalQuotaActive ? 'השבת מגבלות' : 'הפעל מגבלות'}
                       </button>
                     </div>
-                  </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-                    {globalQuotaMode === 'storage' ? (
-                      /* Global Storage Quota with Unit Selector (KB / MB / GB) */
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                        <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
-                          ☁️ מכסת נפח ענן גורפת למשתמש
-                        </label>
-                        <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    {/* Policy & Breakdown Badge */}
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      background: '#eff6ff', 
+                      padding: '0.6rem 0.85rem', 
+                      borderRadius: '10px', 
+                      border: '1px solid #bfdbfe',
+                      fontSize: '0.78rem'
+                    }}>
+                      <span style={{ color: '#1e40af', fontWeight: 700 }}>
+                        👥 פילוח משתמשים: <strong>{standardUsersCount}</strong> רגילים (יורשים) • <strong>{customUsersCount}</strong> עם מכסה אישית (חריגים/VIP)
+                      </span>
+                      <span style={{ color: '#2563eb', fontSize: '0.72rem', fontWeight: 600 }}>
+                        ✨ כל משתמש שיירשם בעתיד יקבל מדיניות זו אוטומטית!
+                      </span>
+                    </div>
+                    
+                    {/* Quota Type Switcher: Storage volume vs Document pages */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', opacity: isGlobalQuotaActive ? 1 : 0.6 }}>
+                      <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
+                        🎯 שיטת מדידת המכסה לכלל המשתמשים:
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setGlobalQuotaMode('storage')}
+                          style={{
+                            padding: '0.55rem 0.75rem',
+                            borderRadius: '10px',
+                            border: globalQuotaMode === 'storage' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            background: globalQuotaMode === 'storage' ? '#eff6ff' : '#ffffff',
+                            color: globalQuotaMode === 'storage' ? '#1d4ed8' : '#475569',
+                            fontWeight: globalQuotaMode === 'storage' ? 800 : 600,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.35rem',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span>💾</span> לפי שטח אחסון (KB / MB / GB)
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setGlobalQuotaMode('pages')}
+                          style={{
+                            padding: '0.55rem 0.75rem',
+                            borderRadius: '10px',
+                            border: globalQuotaMode === 'pages' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                            background: globalQuotaMode === 'pages' ? '#eff6ff' : '#ffffff',
+                            color: globalQuotaMode === 'pages' ? '#1d4ed8' : '#475569',
+                            fontWeight: globalQuotaMode === 'pages' ? 800 : 600,
+                            fontSize: '0.82rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.35rem',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          <span>📑</span> לפי כמות עמודי מסמכים (דפים)
+                        </button>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', opacity: isGlobalQuotaActive ? 1 : 0.6 }}>
+                      {globalQuotaMode === 'storage' ? (
+                        /* Global Storage Quota with Unit Selector (KB / MB / GB) */
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
+                            ☁️ מכסת נפח ענן גורפת למשתמש
+                          </label>
+                          <div style={{ display: 'flex', gap: '0.35rem' }}>
+                            <input 
+                              type="number"
+                              min="1"
+                              step="any"
+                              value={globalStorageValue}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value);
+                                setGlobalStorageValue(isNaN(val) ? 0 : val);
+                              }}
+                              style={{
+                                flex: 1,
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                fontWeight: 800,
+                                fontSize: '0.92rem',
+                                background: '#ffffff',
+                                color: '#0f172a',
+                                minWidth: 0
+                              }}
+                            />
+                            <select
+                              value={globalStorageUnit}
+                              onChange={(e) => setGlobalStorageUnit(e.target.value as any)}
+                              style={{
+                                padding: '0.5rem 0.6rem',
+                                borderRadius: '8px',
+                                border: '1px solid #cbd5e1',
+                                fontWeight: 800,
+                                fontSize: '0.88rem',
+                                background: '#f8fafc',
+                                color: '#0f172a',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              <option value="KB">KB (קילו-בייט)</option>
+                              <option value="MB">MB (מגה-בייט)</option>
+                              <option value="GB">GB (גיגה-בייט)</option>
+                            </select>
+                          </div>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                            {globalStorageUnit === 'KB' 
+                              ? `ערך משוקלל: ${(globalStorageValue / 1024).toFixed(3)} MB` 
+                              : globalStorageUnit === 'GB' 
+                              ? `ערך משוקלל: ${globalStorageValue * 1024} MB` 
+                              : 'ברירת מחדל: 500 MB'}
+                          </span>
+                        </div>
+                      ) : (
+                        /* Global Document Pages Quota */
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                          <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
+                            📑 מכסת עמודי מסמכים למשתמש (דפים)
+                          </label>
                           <input 
                             type="number"
                             min="1"
-                            step="any"
-                            value={globalStorageValue}
+                            step="10"
+                            value={globalPagesQuota}
                             onChange={(e) => {
-                              const val = parseFloat(e.target.value);
-                              setGlobalStorageValue(isNaN(val) ? 0 : val);
+                              const val = parseInt(e.target.value);
+                              setGlobalPagesQuota(isNaN(val) ? 0 : val);
                             }}
                             style={{
-                              flex: 1,
                               padding: '0.5rem 0.75rem',
                               borderRadius: '8px',
                               border: '1px solid #cbd5e1',
                               fontWeight: 800,
                               fontSize: '0.92rem',
                               background: '#ffffff',
-                              color: '#0f172a',
-                              minWidth: 0
+                              color: '#0f172a'
                             }}
                           />
-                          <select
-                            value={globalStorageUnit}
-                            onChange={(e) => setGlobalStorageUnit(e.target.value as any)}
-                            style={{
-                              padding: '0.5rem 0.6rem',
-                              borderRadius: '8px',
-                              border: '1px solid #cbd5e1',
-                              fontWeight: 800,
-                              fontSize: '0.88rem',
-                              background: '#f8fafc',
-                              color: '#0f172a',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <option value="KB">KB (קילו-בייט)</option>
-                            <option value="MB">MB (מגה-בייט)</option>
-                            <option value="GB">GB (גיגה-בייט)</option>
-                          </select>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                            סופר כל עמוד בנפרד (כולל מסמכים ומגילות מרובי עמודים)
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                          {globalStorageUnit === 'KB' 
-                            ? `ערך משוקלל: ${(globalStorageValue / 1024).toFixed(3)} MB` 
-                            : globalStorageUnit === 'GB' 
-                            ? `ערך משוקלל: ${globalStorageValue * 1024} MB` 
-                            : 'ברירת מחדל: 500 MB'}
-                        </span>
-                      </div>
-                    ) : (
-                      /* Global Document Pages Quota */
+                      )}
+
+                      {/* Global OCR Quota */}
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                         <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
-                          📑 מכסת עמודי מסמכים למשתמש (דפים)
+                          ⚡ מכסת OCR גורפת למשתמש (סריקות)
                         </label>
                         <input 
                           type="number"
-                          min="1"
-                          step="10"
-                          value={globalPagesQuota}
+                          min="0"
+                          step="5"
+                          value={globalOcrQuota}
                           onChange={(e) => {
                             const val = parseInt(e.target.value);
-                            setGlobalPagesQuota(isNaN(val) ? 0 : val);
+                            setGlobalOcrQuota(isNaN(val) ? 0 : val);
                           }}
                           style={{
                             padding: '0.5rem 0.75rem',
@@ -790,94 +926,106 @@ export default function AdminUsersPage() {
                             color: '#0f172a'
                           }}
                         />
-                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                          סופר כל עמוד בנפרד (כולל מסמכים ומגילות מרובי עמודים)
-                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b' }}>ברירת מחדל מומלצת: 50 סריקות</span>
                       </div>
+                    </div>
+
+                    {/* Checkbox: Protect or Override Custom Quota VIP Users */}
+                    {customUsersCount > 0 && (
+                      <label style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '0.5rem', 
+                        fontSize: '0.78rem', 
+                        fontWeight: 700, 
+                        color: '#b45309', 
+                        background: '#fef3c7', 
+                        padding: '0.5rem 0.75rem', 
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                      }}>
+                        <input 
+                          type="checkbox"
+                          checked={overrideCustomQuota}
+                          onChange={(e) => setOverrideCustomQuota(e.target.checked)}
+                          style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                        />
+                        <span>
+                          דרוס גם את <strong>{customUsersCount}</strong> המשתמשים בעלי מכסה אישית מיוחדת (VIP)
+                        </span>
+                      </label>
                     )}
 
-                    {/* Global OCR Quota */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                      <label style={{ fontSize: '0.78rem', color: '#334155', fontWeight: 800 }}>
-                        ⚡ מכסת OCR גורפת למשתמש (סריקות)
-                      </label>
-                      <input 
-                        type="number"
-                        min="0"
-                        step="5"
-                        value={globalOcrQuota}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value);
-                          setGlobalOcrQuota(isNaN(val) ? 0 : val);
-                        }}
-                        style={{
-                          padding: '0.5rem 0.75rem',
-                          borderRadius: '8px',
-                          border: '1px solid #cbd5e1',
-                          fontWeight: 800,
-                          fontSize: '0.92rem',
-                          background: '#ffffff',
-                          color: '#0f172a'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.7rem', color: '#64748b' }}>ברירת מחדל מומלצת: 50 סריקות</span>
-                    </div>
+                    {/* Action Button: Apply Global Policy to all (and future) users */}
+                    <button
+                      type="button"
+                      disabled={isSavingGlobalQuota}
+                      onClick={async () => {
+                        const computedMB = globalStorageUnit === 'KB' 
+                          ? Number((globalStorageValue / 1024).toFixed(4)) 
+                          : globalStorageUnit === 'GB' 
+                          ? globalStorageValue * 1024 
+                          : globalStorageValue;
+
+                        const displayDescription = !isGlobalQuotaActive 
+                          ? 'ללא הגבלה (Unlimited)' 
+                          : globalQuotaMode === 'pages'
+                          ? `${globalPagesQuota} עמודי מסמכים`
+                          : `${globalStorageValue} ${globalStorageUnit}`;
+
+                        const targetMessage = overrideCustomQuota || customUsersCount === 0
+                          ? `על כל ${allUsers.length} המשתמשים ועל כל משתמש שיירשם בעתיד`
+                          : `על ${standardUsersCount} המשתמשים הרגילים (מדלג על ${customUsersCount} משתמשי VIP) ועל כל משתמש שיירשם בעתיד`;
+
+                        if (!confirm(`האם להחיל מדיניות של "${displayDescription}" ${targetMessage}?`)) {
+                          return;
+                        }
+                        setIsSavingGlobalQuota(true);
+                        try {
+                          await updateAllUsersQuotasByAdmin({
+                            isQuotaActive: isGlobalQuotaActive,
+                            quotaMode: globalQuotaMode,
+                            storageQuotaMB: Math.max(0.001, computedMB),
+                            pagesQuota: Math.max(1, globalPagesQuota),
+                            ocrQuota: globalOcrQuota,
+                            overrideCustom: overrideCustomQuota
+                          });
+                          setGlobalQuotaSuccess(true);
+                          setTimeout(() => setGlobalQuotaSuccess(false), 4000);
+                          alert(`בהצלחה! המדיניות נשמרה במערכת והוחלה ${targetMessage}.`);
+                        } catch (err: any) {
+                          alert('שגיאה בעדכון מכסות גלובליות: ' + (err.message || ''));
+                        } finally {
+                          setIsSavingGlobalQuota(false);
+                        }
+                      }}
+                      style={{
+                        background: isGlobalQuotaActive ? '#16a34a' : '#2563eb',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        padding: '0.7rem 1rem',
+                        fontWeight: 800,
+                        fontSize: '0.9rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.4rem',
+                        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+                      }}
+                    >
+                      <span>
+                        {isSavingGlobalQuota 
+                          ? 'מעדכן את כל המערכת...' 
+                          : isGlobalQuotaActive 
+                          ? `🌍 החל מכסות אלו עכשיו + על כל נרשם חדש בעתיד!` 
+                          : `🌍 שמור כמדיניות ללא הגבלה לכל המשתמשים והעתידיים`}
+                      </span>
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    disabled={isSavingGlobalQuota}
-                    onClick={async () => {
-                      const computedMB = globalStorageUnit === 'KB' 
-                        ? Number((globalStorageValue / 1024).toFixed(4)) 
-                        : globalStorageUnit === 'GB' 
-                        ? globalStorageValue * 1024 
-                        : globalStorageValue;
-
-                      const displayDescription = globalQuotaMode === 'pages'
-                        ? `${globalPagesQuota} עמודי מסמכים`
-                        : `${globalStorageValue} ${globalStorageUnit}`;
-
-                      if (!confirm(`האם להחיל מכסה של ${displayDescription} ומכסת OCR של ${globalOcrQuota} סריקות על כל ${allUsers.length} המשתמשים במערכת?`)) {
-                        return;
-                      }
-                      setIsSavingGlobalQuota(true);
-                      try {
-                        await updateAllUsersQuotasByAdmin({
-                          quotaMode: globalQuotaMode,
-                          storageQuotaMB: Math.max(0.001, computedMB),
-                          pagesQuota: Math.max(1, globalPagesQuota),
-                          ocrQuota: globalOcrQuota
-                        });
-                        setGlobalQuotaSuccess(true);
-                        setTimeout(() => setGlobalQuotaSuccess(false), 4000);
-                        alert(`בהצלחה! כל ${allUsers.length} המשתמשים עודכנו למכסה של ${displayDescription} ו-${globalOcrQuota} סריקות OCR.`);
-                      } catch (err: any) {
-                        alert('שגיאה בעדכון מכסות גלובליות: ' + (err.message || ''));
-                      } finally {
-                        setIsSavingGlobalQuota(false);
-                      }
-                    }}
-                    style={{
-                      background: '#16a34a',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '10px',
-                      padding: '0.65rem 1rem',
-                      fontWeight: 800,
-                      fontSize: '0.88rem',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.4rem',
-                      boxShadow: '0 4px 10px rgba(22,163,74,0.2)'
-                    }}
-                  >
-                    <span>{isSavingGlobalQuota ? 'מעדכן את כל המשתמשים...' : `🌍 החל מכסות אלו על כל ${allUsers.length} המשתמשים עכשיו!`}</span>
-                  </button>
-                </div>
-              )}
+                );
+              })()}
             </div>
 
             {/* Collapsible Status Legend Accordion */}
@@ -1734,6 +1882,51 @@ export default function AdminUsersPage() {
                     )}
                   </div>
 
+                  {/* Quota Type Selection: Inherited vs Custom VIP Override */}
+                  <div style={{ 
+                    padding: '0.65rem 0.85rem', 
+                    background: selectedUserForAnalysis.hasCustomQuota ? '#fef3c7' : '#ffffff', 
+                    borderRadius: '10px', 
+                    border: selectedUserForAnalysis.hasCustomQuota ? '1px solid #fde68a' : '1px solid #86efac',
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    gap: '0.5rem'
+                  }}>
+                    <div>
+                      <div style={{ fontWeight: 800, fontSize: '0.82rem', color: selectedUserForAnalysis.hasCustomQuota ? '#b45309' : '#166534' }}>
+                        {selectedUserForAnalysis.hasCustomQuota ? '⭐ מכסה אישית מוגנת (חריג / VIP)' : '🌐 יורש ממדיניות המערכת הכללית'}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                        {selectedUserForAnalysis.hasCustomQuota 
+                          ? 'מוגן מפני שינויים גורפים במערכת' 
+                          : 'מתעדכן אוטומטית עם השינויים הכלליים של האדמין'}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedUserForAnalysis((prev: any) => ({
+                          ...prev,
+                          hasCustomQuota: !prev.hasCustomQuota
+                        }));
+                      }}
+                      style={{
+                        padding: '0.35rem 0.65rem',
+                        borderRadius: '6px',
+                        border: 'none',
+                        background: selectedUserForAnalysis.hasCustomQuota ? '#b45309' : '#16a34a',
+                        color: 'white',
+                        fontWeight: 800,
+                        fontSize: '0.74rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {selectedUserForAnalysis.hasCustomQuota ? 'בטל הגנה' : 'קבע כחריג VIP'}
+                    </button>
+                  </div>
+
                   {/* Quota Mode Switcher for Individual User */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                     <label style={{ fontSize: '0.74rem', color: '#166534', fontWeight: 800 }}>
@@ -1919,7 +2112,10 @@ export default function AdminUsersPage() {
                         const newPagesQuota = selectedUserForAnalysis.pagesQuota !== undefined ? selectedUserForAnalysis.pagesQuota : 100;
                         const newQuotaMode = selectedUserForAnalysis.quotaMode || 'storage';
                         const newOcrQuota = selectedUserForAnalysis.ocrQuota !== undefined ? selectedUserForAnalysis.ocrQuota : 50;
+                        const isCustom = selectedUserForAnalysis.hasCustomQuota === true;
                         await updateUserByAdmin(selectedUserForAnalysis.id, {
+                          isQuotaActive: true,
+                          hasCustomQuota: isCustom,
                           quotaMode: newQuotaMode,
                           pagesQuota: newPagesQuota,
                           storageQuotaMB: newStorageMB,

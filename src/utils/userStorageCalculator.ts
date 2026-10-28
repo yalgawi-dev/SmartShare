@@ -20,6 +20,8 @@ export interface UserStorageCalculation {
   percentUsed: number;
   ocrCount: number;
   ocrQuota: number;
+  isQuotaActive: boolean; // True only if admin explicitly activated quotas on the user / system
+  hasCustomQuota: boolean; // True if user has custom VIP/manual override that should not be overwritten globally
 }
 
 export function formatStorageSize(mbValue: number): string {
@@ -57,7 +59,9 @@ export function calculateUserStorageDetails(
       pagesQuota: 100,
       percentUsed: 0,
       ocrCount: 0,
-      ocrQuota: 50
+      ocrQuota: 50,
+      isQuotaActive: false,
+      hasCustomQuota: false
     };
   }
 
@@ -135,11 +139,18 @@ export function calculateUserStorageDetails(
   const quotaMode: 'storage' | 'pages' = user.quotaMode === 'pages' ? 'pages' : 'storage';
   const pagesQuota = user.pagesQuota !== undefined && user.pagesQuota > 0 ? user.pagesQuota : 100;
 
+  // Quota active state: explicit isQuotaActive flag on user document, or explicit quota set
+  // If isQuotaActive === false, user has NO limit (unlimited)
+  const isQuotaActive = user.isQuotaActive === true;
+  const hasCustomQuota = user.hasCustomQuota === true;
+
   let percentUsed = 0;
-  if (quotaMode === 'pages') {
-    percentUsed = pagesQuota > 0 ? Number(((myPagesCount / pagesQuota) * 100).toFixed(1)) : 0;
-  } else {
-    percentUsed = quotaMB > 0 ? Number(((mb / quotaMB) * 100).toFixed(1)) : 0;
+  if (isQuotaActive) {
+    if (quotaMode === 'pages') {
+      percentUsed = pagesQuota > 0 ? Number(((myPagesCount / pagesQuota) * 100).toFixed(1)) : 0;
+    } else {
+      percentUsed = quotaMB > 0 ? Number(((mb / quotaMB) * 100).toFixed(1)) : 0;
+    }
   }
 
   // Accurate OCR scans: recorded count OR counted from user's invoices/scans
@@ -165,6 +176,8 @@ export function calculateUserStorageDetails(
     pagesQuota,
     percentUsed,
     ocrCount,
-    ocrQuota
+    ocrQuota,
+    isQuotaActive,
+    hasCustomQuota
   };
 }

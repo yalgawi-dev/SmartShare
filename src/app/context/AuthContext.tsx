@@ -48,6 +48,8 @@ export interface UserProfile {
   storageQuotaMB?: number; // Maximum allocated Cloud Storage in MB (default: 500, undefined = 500)
   quotaMode?: 'storage' | 'pages'; // Mode of quota: by storage volume (KB/MB/GB) or by document pages count
   pagesQuota?: number; // Maximum allowed document pages (e.g. 50, 100, 500 pages)
+  isQuotaActive?: boolean; // If false/undefined (when no limit enforced), user is Unlimited!
+  hasCustomQuota?: boolean; // True if this user has VIP/custom limit override protected from global bulk overwrites
   storageConfig?: {
     defaultTarget: 'cloud' | 'local' | 'gdrive';
     spaceOverrides?: Record<string, 'cloud' | 'local' | 'gdrive'>;
@@ -70,7 +72,14 @@ interface AuthContextType {
   blockUser: (userId: string, block: boolean) => void; // Admin action
   toggleAdmin: (userId: string, makeAdmin: boolean) => void;
   updateUserByAdmin: (userId: string, updates: Partial<UserProfile>) => Promise<void>;
-  updateAllUsersQuotasByAdmin: (updates: { storageQuotaMB?: number; ocrQuota?: number; quotaMode?: 'storage' | 'pages'; pagesQuota?: number }) => Promise<void>;
+  updateAllUsersQuotasByAdmin: (updates: { 
+    isQuotaActive: boolean; 
+    storageQuotaMB?: number; 
+    ocrQuota?: number; 
+    quotaMode?: 'storage' | 'pages'; 
+    pagesQuota?: number; 
+    overrideCustom?: boolean; 
+  }) => Promise<void>;
   deleteUserDoc: (userId: string) => void;
   deleteMyAccount: () => Promise<void>; // Admin action
   isLoaded: boolean;
@@ -200,11 +209,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: activeUser.email || ''
             });
           }
-        } else {
-          // Create new user profile in Firestore
-          const bestName = firebaseUser.displayName || firebaseUser.providerData?.[0]?.displayName || (firebaseUser.email ? firebaseUser.email.split('@')[0] : null);
-          const bestPhoto = firebaseUser.photoURL || firebaseUser.providerData?.[0]?.photoURL;
-          const bestEmail = firebaseUser.email || firebaseUser.providerData?.[0]?.email;
+          // Check global policy settings if configured by admin
+          let initialQuotaConfig: any = {
+            isQuotaActive: false, // Default: Unlimited unless admin activated global quota!
+            storageQuotaMB: 500,
+            pagesQuota: 100,
+            quotaMode: 'storage',
+            ocrQuota: 50,
+            hasCustomQuota: false
+          };
+
+          try {
+            const systemSettingsSnap = await getDoc(doc(db, 'system_settings', 'global_quotas'));
+            if (systemSettingsSnap.exists()) {
+              const sysData = systemSettingsSnap.data();
+              initialQuotaConfig = {
+                isQuotaActive: sysData.isQuotaActive ?? false,
+                storageQuotaMB: sysData.storageQuotaMB ?? 500,
+                pagesQuota: sysData.pagesQuota ?? 100,
+                quotaMode: sysData.quotaMode ?? 'storage',
+                ocrQuota: sysData.ocrQuota ?? 50,
+                hasCustomQuota: false
+              };
+            }
+          } catch (sysErr) {
+            console.warn("Could not load global_quotas system settings, using safe defaults", sysErr);
+          }
           
           activeUser = {
             id: firebaseUser.uid,
@@ -217,6 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             contacts: [],
             isAdmin: (bestEmail === 'yehuda.algawi@gmail.com' || firebaseUser.phoneNumber === '0500000000'),
             createdAt: new Date().toISOString(),
+            ...initialQuotaConfig
           };
           await setDoc(userRef, activeUser);
         }
@@ -518,14 +549,56 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateAllUsersQuotasByAdmin = async (updates: { storageQuotaMB?: number; ocrQuota?: number; quotaMode?: 'storage' | 'pages'; pagesQuota?: number }) => {
+  const updateAllUsersQuotasByAdmin = async (updates: { 
+    isQuotaActive: boolean; 
+    storageQuotaMB?: number; 
+    ocrQuota?: number; 
+    quotaMode?: 'storage' | 'pages'; 
+    pagesQuota?: number; 
+    overrideCustom?: boolean; 
+  }) => {
     if (!user?.isAdmin) return;
     try {
-      const promises = allUsers.map(u => updateDoc(doc(db, 'users', u.id), updates));
+      const { overrideCustom = false, ...quotaFields } = updates;
+
+      // 1. Persist to system_settings/global_quotas so all future users inherit it automatically!
+      await setDoc(doc(db, 'system_settings', 'global_quotas'), {
+        ...quotaFields,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.id
+      }, { merge: true });
+
+      // 2. Select target users: protect users with custom quotas (VIP) unless explicitly requested to override
+      const usersToUpdate = allUsers.filter(u => {
+        if (overrideCustom) return true;
+        return !u.hasCustomQuota;
+      });
+
+      const promises = usersToUpdate.map(u => 
+        updateDoc(doc(db, 'users', u.id), {
+          ...quotaFields,
+          // If we explicitly overrode custom quotas, reset hasCustomQuota
+          ...(overrideCustom ? { hasCustomQuota: false } : {})
+        })
+      );
       await Promise.all(promises);
-      setAllUsers(prev => prev.map(u => ({ ...u, ...updates })));
-      if (user) {
-        setUser(prev => prev ? { ...prev, ...updates } : prev);
+
+      // 3. Update local state
+      setAllUsers(prev => prev.map(u => {
+        if (!overrideCustom && u.hasCustomQuota) return u;
+        return { 
+          ...u, 
+          ...quotaFields, 
+          ...(overrideCustom ? { hasCustomQuota: false } : {}) 
+        };
+      }));
+
+      if (user && (overrideCustom || !user.hasCustomQuota)) {
+        setUser(prev => prev ? { 
+          ...prev, 
+          ...quotaFields, 
+          ...(overrideCustom ? { hasCustomQuota: false } : {}) 
+        } : prev);
       }
     } catch (e) {
       console.error("Failed to update all users quotas by admin", e);
