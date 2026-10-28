@@ -309,7 +309,7 @@ interface SpacesContextType {
   devResetSpace: (spaceId: string, currentUserId: string) => void;
   addAuditLog: (spaceId: string, log: Omit<AuditRecord, 'id' | 'timestamp'>) => void;
   joinSpace: (spaceId: string, userId: string, name: string) => void;
-  getRoleForSpace: (spaceId: string) => 'creator' | 'partner' | 'none';
+  getRoleForSpace: (spaceId: string) => 'creator' | 'admin' | 'partner' | 'none';
   getTokenForSpace: (spaceId: string) => string | null;
   finalizeGuestJoin: (
     spaceId: string, 
@@ -382,12 +382,31 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const getRoleForSpace = (spaceId: string): 'creator' | 'partner' | 'none' => {
-    // 1. Check Auth Context (Single Source of Truth in Firestore)
-    if (user && user.spaceKeys && user.spaceKeys[spaceId]) {
-      return user.spaceKeys[spaceId].role;
+  const getRoleForSpace = (spaceId: string): 'creator' | 'admin' | 'partner' | 'none' => {
+    const space = spacesBase.find(s => s.id === spaceId);
+
+    // 1. Check if user is the direct creator
+    if (user?.id && space?.creatorId && user.id === space.creatorId) {
+      return 'creator';
     }
-    // 2. Check Local Storage (Fallback for pre-sync / anonymous users)
+
+    // 2. Check if user has explicit 'admin' role in space.members
+    if (user?.id && space?.members) {
+      const currentMember = space.members.find((m: any) => m.userId === user.id && m.isActive !== false);
+      if (currentMember?.role === 'admin') {
+        return 'admin';
+      }
+      if (currentMember?.role === 'creator') {
+        return 'creator';
+      }
+    }
+
+    // 3. Check Auth Context (Single Source of Truth in Firestore)
+    if (user && user.spaceKeys && user.spaceKeys[spaceId]) {
+      return user.spaceKeys[spaceId].role as any;
+    }
+
+    // 4. Check Local Storage (Fallback for pre-sync / anonymous users)
     if (typeof window !== 'undefined') {
       try {
         const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
@@ -395,15 +414,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       } catch(e) {}
     }
     
-    // 3. Strict DB entity matching by unique ID only
-    const space = spacesBase.find(s => s.id === spaceId);
-    if (space) {
-      if (user?.id && space.creatorId && user.id === space.creatorId) {
-        return 'creator';
-      }
-      if (user?.id && space.members?.some((m: any) => m.userId === user.id)) {
-        return 'partner';
-      }
+    // 5. Strict DB entity matching for partner
+    if (space && user?.id && space.members?.some((m: any) => m.userId === user.id && m.isActive !== false)) {
+      return 'partner';
     }
     
     return 'none';
@@ -719,6 +732,23 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     const spaceToDel = spacesBase.find(s => s.id === spaceId);
     if (!spaceToDel) return;
 
+    // 1. Permission Check: Only creator, admin, or superAdmin can delete
+    const role = getRoleForSpace(spaceId);
+    const canDelete = role === 'creator' || role === 'admin' || user?.isAdmin;
+    if (!canDelete) {
+      alert("אין לך הרשאת מנהל למחיקת מרחב זה.");
+      return;
+    }
+
+    // 2. Protection against deleting spaces with active partners
+    const activePartners = (spaceToDel.members || []).filter((m: any) => m.userId !== spaceToDel.creatorId && m.isActive !== false);
+    const hasInvoices = (spaceToDel.invoices || []).length > 0;
+
+    if (activePartners.length > 0) {
+      alert(`לא ניתן למחוק מרחב זה כיוון שיש בו ${activePartners.length} שותפים פעילים. על מנת לסגור את המרחב, על השותפים לעזוב או לאשר את סגירתו.`);
+      return;
+    }
+
     const doSoftDelete = async () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 14);
@@ -739,7 +769,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    if (!spaceToDel.invoices || spaceToDel.invoices.length === 0) {
+    if (!hasInvoices) {
       try {
         await deleteDoc(doc(db, 'spaces', spaceId));
         setSpacesBase(prev => prev.filter(s => s.id !== spaceId));

@@ -237,7 +237,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.32</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1.1rem, 4vw, 1.5rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.33</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.8rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -682,18 +682,31 @@ export default function Dashboard() {
                   >
                     כניסה למרחב <span>→</span>
                   </Link>
-                  <button 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
-                        deleteSpace(space.id);
-                      }
-                    }}
-                    style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.8rem', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                    title="מחק מרחב"
-                  >
-                    🗑️
-                  </button>
+                  {(() => {
+                    const mySpaceRole = getRoleForSpace(space.id);
+                    const canDeleteSpace = mySpaceRole === 'creator' || mySpaceRole === 'admin' || user?.isAdmin;
+                    if (!canDeleteSpace) return null;
+
+                    return (
+                      <button 
+                        onClick={(e) => {
+                          e.preventDefault();
+                          const activePartners = (space.members || []).filter((m: any) => m.userId !== space.creatorId && m.isActive !== false);
+                          if (activePartners.length > 0) {
+                            alert(`לא ניתן למחוק את המרחב כיוון שיש בו ${activePartners.length} שותפים פעילים. על השותפים לעזוב או לאשר את סגירתו.`);
+                            return;
+                          }
+                          if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
+                            deleteSpace(space.id);
+                          }
+                        }}
+                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.8rem', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="מחק מרחב"
+                      >
+                        🗑️
+                      </button>
+                    );
+                  })()}
                 </div>
 
               </div>

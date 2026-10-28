@@ -581,6 +581,11 @@ export function FinanceTransactions({
                                 <button onClick={(e) => {
                                   e.preventDefault();
                                   e.stopPropagation();
+                                  const isAlreadyApproved = inv.status === 'approved' || ((inv.approvedBy || []).length > 0);
+                                  if (isAlreadyApproved && activePartnersCount > 0) {
+                                    alert('הוצאה זו כבר אושרה על ידי שותפים במרחב! לא ניתן למחוק אותה באופן חד-צדדי. יש לפתוח מחלוקת או לתאם עם השותפים.');
+                                    return;
+                                  }
                                   if (window.confirm('האם אתה בטוח שברצונך לבטל הוצאה זו? היא תעבור לארכיון.')) {
                                     if (updateInvoice && space) {
                                       const details = `ביטל/ה את ההוצאה מול ספק '${inv.supplier}' על סך ₪${inv.amount?.toLocaleString()} והעביר/ה לארכיון`;
