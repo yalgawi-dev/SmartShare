@@ -107,9 +107,12 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.58</span>
+          <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
+            🏠 {space.title || 'מרחב'}
+          </span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.36</span>
         </div>
         {isCreatorMe && (
           <button 
@@ -264,7 +267,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           const isPending = m.status === "pending" || m.status === "extension_requested";
           const unreadCount = getUnreadCount(m.userId, m.role === 'creator');
           const isExpanded = expandedMember === m.userId;
-          const canClick = !m.isInvite && (isCreatorMe ? !isMe : !isMe && m.role !== 'creator');
+          const canClick = (isCreatorMe ? !isMe : !isMe && !m.isInvite && m.role !== 'creator');
 
           return (
             <React.Fragment key={m.userId || m.name}>

@@ -262,30 +262,31 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>
-                      {isInvite
-                        ? `הזמנת שותף - ${memberName}`
-                        : ((space.features || []).includes('chat') 
-                          ? (viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`)
-                          : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
-                      }
-                    </h3>
-                    <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.35</span>
-                    
-                    {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
-                      if (isInvite) return '#f59e0b';
-                      if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
-                      return getPresenceColor(member.userId, user?.id);
-                    })(), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title={isInvite ? 'ממתין' : 'מצב התחברות'} />}
-                  </div>
+                <h3 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>
+                  {isInvite
+                    ? `הזמנת שותף - ${memberName}`
+                    : ((space.features || []).includes('chat') 
+                      ? (viewMode === 'creator' || viewMode === 'peer' ? `שיחה עם ${memberName}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`)
+                      : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
+                  }
+                </h3>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.36</span>
+                
+                {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
+                  if (isInvite) return '#f59e0b';
+                  if (viewMode === 'partner') return getPresenceColor(space.creatorId || space.createdBy, user?.id);
+                  return getPresenceColor(member.userId, user?.id);
+                })(), boxShadow: '0 0 4px rgba(0,0,0,0.1)' }} title={isInvite ? 'ממתין' : 'מצב התחברות'} />}
                 {isGroup && (
                   <button onClick={() => setShowParticipants(!showParticipants)} style={{ background: showParticipants ? '#e2e8f0' : '#f1f5f9', border: 'none', borderRadius: '16px', padding: '0.2rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: '#475569', cursor: 'pointer' }}>
                     {space.members?.length || 0} משתתפים
                   </button>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', color: '#64748b', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 6px', borderRadius: '6px', border: '1px solid #dbeafe', fontSize: '0.78rem' }}>
+                  🏠 {space.title || 'מרחב'}
+                </span>
                 
               {!isInvite && (() => {
                 const isCurrentCreator = resolvedIsCreator || viewMode === 'creator';
@@ -363,35 +364,69 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === member.userId);
                 const isRetro = inviteObj ? inviteObj.isRetroactive : Boolean(member.isRetroactive);
                 return (
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextVal = !isRetro;
-                        if (typeof togglePendingInviteRetroactive === 'function') {
-                          togglePendingInviteRetroactive(space.id, member.userId, nextVal);
-                        }
-                      }}
-                      style={{
-                        padding: '0.45rem 0.9rem',
-                        borderRadius: '20px',
-                        border: isRetro ? '1.5px solid #10b981' : '1.5px solid #cbd5e1',
-                        background: isRetro ? '#ecfdf5' : '#f8fafc',
-                        color: isRetro ? '#065f46' : '#64748b',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        transition: 'all 0.2s'
-                      }}
-                      title="לחץ להחלפה בין שותף רטרואקטיבי לשותף מכאן ולהבא בלבד"
-                    >
-                      <span>{isRetro ? '🛡️ רטרואקטיבי (חל על הוצאות עבר)' : '📅 מכאן ולהבא בלבד (ללא עבר)'}</span>
-                      <span style={{ fontSize: '0.7rem', textDecoration: 'underline', color: isRetro ? '#059669' : '#475569' }}>[שנה]</span>
-                    </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>
+                      תחולת שותפות בהוצאות:
+                    </div>
+                    <div style={{
+                      display: 'inline-flex',
+                      background: '#f1f5f9',
+                      padding: '3px',
+                      borderRadius: '24px',
+                      border: '1px solid #cbd5e1',
+                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.06)'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isRetro && typeof togglePendingInviteRetroactive === 'function') {
+                            togglePendingInviteRetroactive(space.id, member.userId, false);
+                          }
+                        }}
+                        style={{
+                          padding: '0.35rem 0.8rem',
+                          borderRadius: '20px',
+                          border: 'none',
+                          background: !isRetro ? '#ffffff' : 'transparent',
+                          color: !isRetro ? '#1e293b' : '#64748b',
+                          fontWeight: !isRetro ? 800 : 600,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          boxShadow: !isRetro ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span>📅 מכאן והלאה</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isRetro && typeof togglePendingInviteRetroactive === 'function') {
+                            togglePendingInviteRetroactive(space.id, member.userId, true);
+                          }
+                        }}
+                        style={{
+                          padding: '0.35rem 0.8rem',
+                          borderRadius: '20px',
+                          border: 'none',
+                          background: isRetro ? '#10b981' : 'transparent',
+                          color: isRetro ? '#ffffff' : '#64748b',
+                          fontWeight: isRetro ? 800 : 600,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          boxShadow: isRetro ? '0 1px 4px rgba(16,185,129,0.3)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span>🛡️ רטרואקטיבי (כולל עבר)</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
@@ -519,35 +554,69 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 const isRetro = !isExcludedFromPast;
 
                 return (
-                  <div style={{ display: 'flex', justifyContent: 'center' }}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextVal = !isRetro;
-                        if (typeof toggleMemberRetroactive === 'function') {
-                          toggleMemberRetroactive(space.id, member.userId, nextVal);
-                        }
-                      }}
-                      style={{
-                        padding: '0.45rem 0.9rem',
-                        borderRadius: '20px',
-                        border: isRetro ? '1.5px solid #10b981' : '1.5px solid #cbd5e1',
-                        background: isRetro ? '#ecfdf5' : '#f8fafc',
-                        color: isRetro ? '#065f46' : '#64748b',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.4rem',
-                        boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                        transition: 'all 0.2s'
-                      }}
-                      title="לחץ לעדכון האם שותף זה משתתף בהוצאות שנוצרו בעבר"
-                    >
-                      <span>{isRetro ? '🛡️ רטרואקטיבי (משתתף בהוצאות עבר)' : '📅 מכאן ולהבא בלבד (ללא עבר)'}</span>
-                      <span style={{ fontSize: '0.7rem', textDecoration: 'underline', color: isRetro ? '#059669' : '#475569' }}>[שנה]</span>
-                    </button>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
+                    <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>
+                      תחולת שותפות בהוצאות:
+                    </div>
+                    <div style={{
+                      display: 'inline-flex',
+                      background: '#f1f5f9',
+                      padding: '3px',
+                      borderRadius: '24px',
+                      border: '1px solid #cbd5e1',
+                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.06)'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (isRetro && typeof toggleMemberRetroactive === 'function') {
+                            toggleMemberRetroactive(space.id, member.userId, false);
+                          }
+                        }}
+                        style={{
+                          padding: '0.35rem 0.8rem',
+                          borderRadius: '20px',
+                          border: 'none',
+                          background: !isRetro ? '#ffffff' : 'transparent',
+                          color: !isRetro ? '#1e293b' : '#64748b',
+                          fontWeight: !isRetro ? 800 : 600,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          boxShadow: !isRetro ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span>📅 מכאן והלאה</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isRetro && typeof toggleMemberRetroactive === 'function') {
+                            toggleMemberRetroactive(space.id, member.userId, true);
+                          }
+                        }}
+                        style={{
+                          padding: '0.35rem 0.8rem',
+                          borderRadius: '20px',
+                          border: 'none',
+                          background: isRetro ? '#10b981' : 'transparent',
+                          color: isRetro ? '#ffffff' : '#64748b',
+                          fontWeight: isRetro ? 800 : 600,
+                          fontSize: '0.78rem',
+                          cursor: 'pointer',
+                          boxShadow: isRetro ? '0 1px 4px rgba(16,185,129,0.3)' : 'none',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem',
+                          transition: 'all 0.2s'
+                        }}
+                      >
+                        <span>🛡️ רטרואקטיבי (כולל עבר)</span>
+                      </button>
+                    </div>
                   </div>
                 );
               })()}
