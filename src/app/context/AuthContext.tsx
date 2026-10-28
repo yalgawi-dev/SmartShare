@@ -568,37 +568,80 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedBy: user.id
       }, { merge: true });
 
-      // 2. Select target users: protect users with custom quotas (VIP) unless explicitly requested to override
-      const usersToUpdate = allUsers.filter(u => {
-        if (overrideCustom) return true;
-        return !u.hasCustomQuota;
+      // 2. Intelligent Benefiting Update for all users:
+      // - Standard users: receive the exact global policy.
+      // - VIP / Custom users:
+      //     * If global is Unlimited (isQuotaActive === false) -> VIP becomes Unlimited too (benefits them!).
+      //     * If global is active: VIP receives whichever is better (Math.max) for storage, pages, and OCR!
+      //     * Their custom status (hasCustomQuota: true) is strictly preserved unless overrideCustom is selected.
+
+      const updatesPerUser = allUsers.map(u => {
+        const isVip = u.hasCustomQuota === true;
+
+        if (overrideCustom || !isVip) {
+          // Standard user or forced override
+          return {
+            user: u,
+            payload: {
+              ...quotaFields,
+              ...(overrideCustom ? { hasCustomQuota: false } : {})
+            }
+          };
+        }
+
+        // VIP User with Upward-Only Benefits:
+        if (!quotaFields.isQuotaActive) {
+          // Benefit 1: If admin lifted limits for everyone, VIP also gets Unlimited!
+          return {
+            user: u,
+            payload: {
+              isQuotaActive: false
+            }
+          };
+        }
+
+        // Benefit 2: Admin set active limits -> VIP gets the higher/better value (never degraded)
+        const currentStorageMB = u.storageQuotaMB !== undefined ? u.storageQuotaMB : 500;
+        const currentPages = u.pagesQuota !== undefined ? u.pagesQuota : 100;
+        const currentOcr = u.ocrQuota !== undefined ? u.ocrQuota : 50;
+
+        const targetStorageMB = quotaFields.storageQuotaMB !== undefined ? quotaFields.storageQuotaMB : 500;
+        const targetPages = quotaFields.pagesQuota !== undefined ? quotaFields.pagesQuota : 100;
+        const targetOcr = quotaFields.ocrQuota !== undefined ? quotaFields.ocrQuota : 50;
+
+        const bestStorageMB = Math.max(currentStorageMB, targetStorageMB);
+        const bestPages = Math.max(currentPages, targetPages);
+        const bestOcr = Math.max(currentOcr, targetOcr);
+
+        return {
+          user: u,
+          payload: {
+            isQuotaActive: true,
+            quotaMode: u.quotaMode || quotaFields.quotaMode || 'storage',
+            storageQuotaMB: bestStorageMB,
+            pagesQuota: bestPages,
+            ocrQuota: bestOcr
+          }
+        };
       });
 
-      const promises = usersToUpdate.map(u => 
-        updateDoc(doc(db, 'users', u.id), {
-          ...quotaFields,
-          // If we explicitly overrode custom quotas, reset hasCustomQuota
-          ...(overrideCustom ? { hasCustomQuota: false } : {})
-        })
+      const promises = updatesPerUser.map(item => 
+        updateDoc(doc(db, 'users', item.user.id), item.payload)
       );
       await Promise.all(promises);
 
       // 3. Update local state
+      const payloadMap = new Map(updatesPerUser.map(i => [i.user.id, i.payload]));
       setAllUsers(prev => prev.map(u => {
-        if (!overrideCustom && u.hasCustomQuota) return u;
-        return { 
-          ...u, 
-          ...quotaFields, 
-          ...(overrideCustom ? { hasCustomQuota: false } : {}) 
-        };
+        const p = payloadMap.get(u.id);
+        return p ? { ...u, ...p } : u;
       }));
 
-      if (user && (overrideCustom || !user.hasCustomQuota)) {
-        setUser(prev => prev ? { 
-          ...prev, 
-          ...quotaFields, 
-          ...(overrideCustom ? { hasCustomQuota: false } : {}) 
-        } : prev);
+      if (user) {
+        const myPayload = payloadMap.get(user.id);
+        if (myPayload) {
+          setUser(prev => prev ? { ...prev, ...myPayload } : prev);
+        }
       }
     } catch (e) {
       console.error("Failed to update all users quotas by admin", e);
