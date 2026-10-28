@@ -526,7 +526,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.36</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.37</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1068,43 +1068,101 @@ export default function SettingsPage() {
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {myArchivedSpaces.map((s: any) => (
-                    <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <div style={{ width: '38px', height: '38px', borderRadius: '10px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7' }}>
-                          {s.logoUrl ? (
-                            <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <span style={{ fontSize: '1.2rem' }}>{s.icon || '🗄️'}</span>
-                          )}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: '1rem', color: '#9a3412' }}>{s.title}</div>
-                          <div style={{ fontSize: '0.8rem', color: '#b45309', marginTop: '2px' }}>
-                            נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')}
+                  {myArchivedSpaces.map((s: any) => {
+                    const isCreator = s.creatorId === user?.id || s.createdBy === user?.realName || user?.isAdmin;
+                    const creatorName = s.createdBy || (s.creatorId && allUsers?.find((u: any) => u.id === s.creatorId)?.realName) || 'לא צוין';
+                    const deletedByName = s.deletedByName || (s.deletedBy && allUsers?.find((u: any) => u.id === s.deletedBy)?.realName) || (isCreator ? 'מנהל המרחב' : 'אחד השותפים');
+
+                    return (
+                      <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem 1.15rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{ width: '42px', height: '42px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7', border: '1px solid #fde68a' }}>
+                              {s.logoUrl ? (
+                                <img src={s.logoUrl} alt={s.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                <span style={{ fontSize: '1.3rem' }}>{s.icon || '🗄️'}</span>
+                              )}
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#9a3412', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <span>{s.title}</span>
+                                <span style={{ fontSize: '0.68rem', padding: '2px 6px', background: '#fef3c7', color: '#b45309', borderRadius: '6px', border: '1px solid #fde68a', fontWeight: 700 }}>ארכיון</span>
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', marginTop: '4px', fontSize: '0.8rem', color: '#78350f' }}>
+                                <span>👤 <strong>נוצר ע״י:</strong> {creatorName}</span>
+                                <span>🗑️ <strong>הועבר לארכיון ע״י:</strong> {deletedByName}</span>
+                              </div>
+                              <div style={{ fontSize: '0.76rem', color: '#b45309', marginTop: '3px' }}>
+                                ⏳ נמחק סופית ב: {new Date(s.deletionScheduledFor || Date.now() + 14 * 86400000).toLocaleDateString('he-IL')} (סל מחזור 14 יום)
+                              </div>
+                            </div>
                           </div>
                         </div>
+
+                        {/* Action Toolbar */}
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.5rem', borderTop: '1px dashed #fed7aa' }}>
+                          {/* Peek / Preview into Space */}
+                          <Link 
+                            href={`/space/${s.id}`}
+                            style={{ 
+                              padding: '0.45rem 0.9rem', 
+                              background: '#ffffff', 
+                              color: '#4338ca', 
+                              border: '1px solid #c7d2fe', 
+                              borderRadius: '10px', 
+                              textDecoration: 'none', 
+                              fontWeight: 700, 
+                              fontSize: '0.82rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+                            }}
+                          >
+                            👁️ הצץ במרחב
+                          </Link>
+
+                          {isCreator ? (
+                            <>
+                              <button 
+                                onClick={() => restoreSpace(s.id)}
+                                style={{ padding: '0.45rem 0.9rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                              >
+                                ↩️ שחזר מרחב
+                              </button>
+                              <button 
+                                onClick={async () => {
+                                  if (confirm('האם למחוק לצמיתות את "' + s.title + '"? הפעולה בלתי הפיכה ותמחק את כל נתוני המרחב!')) {
+                                    await permanentlyDeleteSpace(s.id);
+                                  }
+                                }}
+                                style={{ padding: '0.45rem 0.9rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                              >
+                                🗑️ מחק סופית
+                              </button>
+                            </>
+                          ) : (
+                            <button 
+                              onClick={async () => {
+                                if (confirm(`להסיר את המרחב "${s.title}" מרשימת המרחבים שלך? (המרחב לא יימחק לצמיתות מהיוצר, רק יוסר מחשבונך)`)) {
+                                  const myMember = (s.members || []).find((m: any) => m.userId === user?.id || (m.phone && m.phone === user?.phone));
+                                  if (myMember) {
+                                    await removeMember(s.id, myMember.userId);
+                                  } else {
+                                    alert('המרחב הוסר מחשבונך.');
+                                  }
+                                }
+                              }}
+                              style={{ padding: '0.45rem 0.9rem', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '10px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                            >
+                              🚪 הסר מהרשימה שלי
+                            </button>
+                          )}
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '0.5rem' }}>
-                        <button 
-                          onClick={() => restoreSpace(s.id)}
-                          style={{ padding: '0.45rem 0.9rem', background: '#2563eb', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
-                        >
-                          ↩️ שחזר מרחב
-                        </button>
-                        <button 
-                          onClick={async () => {
-                            if (confirm('האם למחוק לצמיתות את "' + s.title + '"? הפעולה בלתי הפיכה!')) {
-                              await permanentlyDeleteSpace(s.id);
-                            }
-                          }}
-                          style={{ padding: '0.45rem 0.9rem', background: '#ef4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 700, fontSize: '0.82rem' }}
-                        >
-                          🗑️ מחק סופית
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                   {myArchivedSpaces.length === 0 && (
                     <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', background: '#f8fafc', borderRadius: '12px', border: '1px dashed #cbd5e1' }}>
                       אין מרחבים בארכיון כרגע.

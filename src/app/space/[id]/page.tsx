@@ -72,7 +72,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -617,6 +617,61 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       {toastMessage && (
         <div style={{ position: 'fixed', top: '2rem', left: '50%', transform: 'translateX(-50%)', background: '#10b981', color: 'white', padding: '0.75rem 1.5rem', borderRadius: 'var(--radius-full)', zIndex: 1000, boxShadow: 'var(--shadow-lg)', fontWeight: 'bold', animation: 'fadeIn 0.3s ease-out' }}>
           ✓ {toastMessage}
+        </div>
+      )}
+
+      {/* Archived Space Notice Banner (Preview / Read-Only Mode) */}
+      {(space.status === 'pending_deletion' || (space as any).isArchived) && (
+        <div style={{
+          background: 'linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%)',
+          border: '2px solid #fde68a',
+          borderRadius: '16px',
+          padding: '1rem 1.25rem',
+          marginBottom: '1rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '0.75rem',
+          boxShadow: '0 4px 15px rgba(245, 158, 11, 0.12)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.8rem' }}>🗄️</span>
+            <div>
+              <div style={{ fontWeight: 800, fontSize: '1.05rem', color: '#92400e' }}>
+                מרחב זה נמצא בארכיון (מצב צפייה בלבד)
+              </div>
+              <div style={{ fontSize: '0.82rem', color: '#b45309', marginTop: '2px' }}>
+                {space.deletedByName ? `הועבר לארכיון ע״י ${space.deletedByName} ` : ''}
+                {space.deletionScheduledFor ? `• יימחק לצמיתות ב-${new Date(space.deletionScheduledFor).toLocaleDateString('he-IL')}` : ''}
+              </div>
+            </div>
+          </div>
+          
+          {(space.creatorId === user?.id || space.createdBy === user?.realName || user?.isAdmin) && (
+            <button
+              onClick={() => {
+                restoreSpace(space.id);
+                setToastMessage('המרחב שוחזר בהצלחה!');
+              }}
+              style={{
+                background: '#2563eb',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '0.5rem 1.1rem',
+                fontWeight: 700,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+              }}
+            >
+              ↩️ שחזר מרחב זה
+            </button>
+          )}
         </div>
       )}
 

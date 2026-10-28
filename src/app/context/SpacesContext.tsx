@@ -247,6 +247,9 @@ export interface Space {
   albumAtmospherePhotos?: string[];
   status?: 'active' | 'pending_deletion';
   deletionScheduledFor?: string;
+  deletedBy?: string;
+  deletedByName?: string;
+  deletedAt?: string;
 }
 
 interface SpacesContextType {
@@ -767,16 +770,20 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     const doSoftDelete = async () => {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + 14);
+      const delByName = user?.realName || user?.nickname || (user?.email ? user.email.split('@')[0] : 'משתמש');
+      const delData = {
+        status: 'pending_deletion' as const,
+        deletionScheduledFor: futureDate.toISOString(),
+        deletedBy: user?.id || 'unknown',
+        deletedByName: delByName,
+        deletedAt: new Date().toISOString()
+      };
       try {
-        await updateDoc(doc(db, 'spaces', spaceId), {
-          status: 'pending_deletion',
-          deletionScheduledFor: futureDate.toISOString()
-        });
+        await updateDoc(doc(db, 'spaces', spaceId), delData);
         // Update local state ONLY on success
         setSpacesBase(prev => prev.map(s => s.id === spaceId ? { 
           ...s, 
-          status: 'pending_deletion', 
-          deletionScheduledFor: futureDate.toISOString() 
+          ...delData
         } : s));
       } catch (e: any) {
         console.error("Soft delete failed", e);
@@ -812,7 +819,10 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     saveSpaceUpdate(spaceId, space => ({
       ...space,
       status: 'active',
-      deletionScheduledFor: undefined
+      deletionScheduledFor: undefined,
+      deletedBy: undefined,
+      deletedByName: undefined,
+      deletedAt: undefined
     }));
   };
 
