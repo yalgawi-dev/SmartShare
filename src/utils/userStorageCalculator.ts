@@ -81,11 +81,16 @@ export function calculateUserStorageDetails(
   let myMediaCount = 0;
   let myInvoicesCount = 0;
   let myPagesCount = 0;
+  let ocrFromInvoices = 0;
 
   activeSpaces.forEach(s => {
-    // Documents explicitly added by user
+    const isUserSpace = s.creatorId === user.id || (s.members || []).some((m: any) => m.userId === user.id);
+    const isUserOnlyOrCreator = s.creatorId === user.id || (s.members && s.members.length <= 1);
+
+    // Documents added by user or in user's personal/created space
     (s.documents || []).forEach((d: any) => {
-      if (d.addedBy === user.id || (s.creatorId === user.id && (!d.addedBy || d.addedBy === 'me'))) {
+      const isDocAddedByUser = d.addedBy === user.id || (isUserOnlyOrCreator && (!d.addedBy || d.addedBy === 'me'));
+      if (isDocAddedByUser || (isUserSpace && !d.addedBy)) {
         myDocsCount++;
         // Count all pages individually for multi-page documents/scrolls (מגילות)
         const docPages = Array.isArray(d.pages) && d.pages.length > 0 ? d.pages.length : 1;
@@ -93,21 +98,29 @@ export function calculateUserStorageDetails(
       }
     });
 
-    // Media explicitly added by user
+    // Media added by user or in user's personal/created space
     (s.mediaItems || []).forEach((m: any) => {
-      if (m.authorId === user.id || (s.creatorId === user.id && !m.authorId)) {
+      const isMediaAddedByUser = m.authorId === user.id || (isUserOnlyOrCreator && !m.authorId);
+      if (isMediaAddedByUser || (isUserSpace && !m.authorId)) {
         myMediaCount++;
       }
     });
 
     // Invoices uploaded or paid by user (only those with physical attachments!)
     (s.invoices || []).forEach((inv: any) => {
-      const hasFile = !!(inv.hasAttachment && inv.attachmentUrl);
-      if (hasFile && (inv.payerId === user.id || inv.uploaderId === user.id || (s.creatorId === user.id && !inv.payerId))) {
+      const hasFile = !!(inv.hasAttachment && (inv.attachmentUrl || inv.imageUrl));
+      const isInvByUser = inv.payerId === user.id || inv.uploaderId === user.id || (isUserOnlyOrCreator && (!inv.payerId || inv.payerId === 'me'));
+      
+      if (hasFile && (isInvByUser || isUserSpace)) {
         myInvoicesCount++;
         // Count pages in multi-page invoice attachments
         const invPages = Array.isArray(inv.pages) && inv.pages.length > 0 ? inv.pages.length : 1;
         myPagesCount += invPages;
+      }
+
+      // Count OCR performed on invoice
+      if (inv.ocrData && (isInvByUser || isUserSpace)) {
+        ocrFromInvoices++;
       }
     });
   });
@@ -157,6 +170,7 @@ export function calculateUserStorageDetails(
   const ocrCount = Math.max(
     user.ocrCount || 0,
     isYehuda ? 12 : 0,
+    ocrFromInvoices,
     myInvoicesCount
   );
   const ocrQuota = user.ocrQuota !== undefined && user.ocrQuota > 0 ? user.ocrQuota : 50;
