@@ -8,7 +8,7 @@ import { AVAILABLE_FEATURES, getFeatureById } from '../../data/features';
 import { calculateUserStorageDetails } from '../../../utils/userStorageCalculator';
 import Link from 'next/link';
 import { db } from '../../../lib/firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 
 export default function AdminUsersPage() {
   const { user, allUsers, blockUser, toggleAdmin, updateUserByAdmin, updateAllUsersQuotasByAdmin, deleteUserDoc } = useAuth();
@@ -54,27 +54,25 @@ export default function AdminUsersPage() {
   const [modalStorageUnit, setModalStorageUnit] = useState<'KB' | 'MB' | 'GB'>('MB');
   const [isUserQuotaAccordionOpen, setIsUserQuotaAccordionOpen] = useState<boolean>(false);
 
-  // Load current global quota policy on mount
+  // Real-time synchronization of global quota policy
   useEffect(() => {
-    async function loadGlobalPolicy() {
-      try {
-        const snap = await getDoc(doc(db, 'system_settings', 'global_quotas'));
-        if (snap.exists()) {
-          const data = snap.data();
-          if (data.isQuotaActive !== undefined) setIsGlobalQuotaActive(data.isQuotaActive);
-          if (data.quotaMode) setGlobalQuotaMode(data.quotaMode);
-          if (data.storageQuotaMB) {
-            setGlobalStorageValue(data.storageQuotaMB);
-            setGlobalStorageUnit('MB');
-          }
-          if (data.pagesQuota) setGlobalPagesQuota(data.pagesQuota);
-          if (data.ocrQuota !== undefined) setGlobalOcrQuota(data.ocrQuota);
+    const unsub = onSnapshot(doc(db, 'system_settings', 'global_quotas'), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.isQuotaActive !== undefined) setIsGlobalQuotaActive(data.isQuotaActive);
+        if (data.quotaMode) setGlobalQuotaMode(data.quotaMode);
+        if (data.storageQuotaMB) {
+          setGlobalStorageValue(data.storageQuotaMB);
+          setGlobalStorageUnit('MB');
         }
-      } catch (err) {
-        console.warn("Failed loading global policy:", err);
+        if (data.pagesQuota) setGlobalPagesQuota(data.pagesQuota);
+        if (data.ocrQuota !== undefined) setGlobalOcrQuota(data.ocrQuota);
       }
-    }
-    loadGlobalPolicy();
+    }, (err) => {
+      console.warn("Failed subscribing to global policy:", err);
+    });
+
+    return () => unsub();
   }, []);
 
   // Protect route
