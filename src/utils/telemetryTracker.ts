@@ -29,7 +29,7 @@ export interface UserTelemetryPayload {
 }
 
 const LOCAL_STORAGE_KEY = 'smartshare_user_telemetry_v1';
-const MIN_SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours minimum between Firestore updates (Zero-Cost Throttling)
+const MIN_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 mins regular sync interval // 4 hours minimum between Firestore updates (Zero-Cost Throttling)
 
 export function getLocalTelemetry(): UserTelemetryPayload {
   if (typeof window === 'undefined') {
@@ -157,4 +157,23 @@ export function prepareSyncPayload(): UserTelemetryPayload {
   current.lastSyncedAt = new Date().toISOString();
   saveLocalTelemetry(current);
   return current;
+}
+
+
+export function triggerTelemetrySyncNow() {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new CustomEvent('smartshare:sync_telemetry_request'));
+}
+
+export function getNextSyncEstimate(): { lastSyncedAt?: string; nextSyncEstimate?: string } {
+  const current = getLocalTelemetry();
+  if (!current.lastSyncedAt) {
+    return { lastSyncedAt: undefined, nextSyncEstimate: 'בסנכרון הקרוב (ממתין לפעילות)' };
+  }
+  const nextTime = new Date(current.lastSyncedAt).getTime() + MIN_SYNC_INTERVAL_MS;
+  const isReady = Date.now() >= nextTime;
+  return {
+    lastSyncedAt: current.lastSyncedAt,
+    nextSyncEstimate: isReady ? 'מוכן לסנכרון בפעולה הבאה' : `בעוד ${Math.ceil((nextTime - Date.now()) / 60000)} דקות`
+  };
 }

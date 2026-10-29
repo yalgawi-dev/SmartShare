@@ -584,7 +584,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.62</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.63</span>
           </div>
         </div>
 
@@ -2505,12 +2505,16 @@ export default function AdminUsersPage() {
                 </div>
 
                 
-                {/* 1.5 USER TELEMETRY & ENGAGEMENT DWELL TIME CARD */}
+                                {/* 1.5 USER TELEMETRY & ENGAGEMENT DWELL TIME CARD */}
                 {(() => {
                   const t = selectedUserForAnalysis.telemetry;
                   const totalSec = t?.totalActiveSeconds || 0;
                   const userSpaces = t?.spaces ? Object.values(t.spaces) as any[] : [];
                   userSpaces.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+
+                  const lastSyncFormatted = t?.lastSyncedAt 
+                    ? new Date(t.lastSyncedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+                    : null;
 
                   return (
                     <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
@@ -2539,6 +2543,16 @@ export default function AdminUsersPage() {
                           משתמש זה טרם סנכרן זמני שהייה מקומיים (יסונכרן בפעילות הבאה).
                         </span>
                       )}
+
+                      {/* Sync Status Banner */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e0f2fe', paddingTop: '4px', marginTop: '2px', fontSize: '0.68rem', color: '#0369a1' }}>
+                        <span>
+                          📡 עודכן לאחרונה: <strong>{lastSyncFormatted ? `היום ${lastSyncFormatted}` : 'טרם סונכרן'}</strong>
+                        </span>
+                        <span style={{ color: '#0284c7', fontWeight: 600 }}>
+                          ⏱️ דגימה: כל 3 דק' / בסגירת מסך
+                        </span>
+                      </div>
                     </div>
                   );
                 })()}
