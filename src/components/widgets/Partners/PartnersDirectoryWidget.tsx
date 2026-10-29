@@ -21,6 +21,9 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
   const pendingGroupList: any[] = space.pendingGroupMembers || [];
   
+  const myLocalAvatar = typeof window !== 'undefined' ? (localStorage.getItem('user_avatar') || localStorage.getItem('smartshare_avatar')) : null;
+  const myEffectiveAvatar = user?.avatarUrl || myLocalAvatar;
+
   // Combine creator, members, and pending invites for full directory
   const pendingMembers = (space.pendingInvites || []).map((inv: any) => ({
     userId: inv.token,
@@ -31,17 +34,23 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
     joinedAt: inv.createdAt,
     sharePercentage: inv.guestShare,
     isInvite: true,
-    isRetroactive: inv.isRetroactive !== false
+    isRetroactive: inv.isRetroactive !== false,
+    avatarUrl: inv.avatarUrl || null
   }));
 
   const activeSpaceMembers = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false).map((m: any) => ({
     ...m,
-    name: sanitizePartnerDisplayName(m.name, m.role === 'creator' ? 'מנהל' : 'שותף מוזמן')
+    name: sanitizePartnerDisplayName(m.name, m.role === 'creator' ? 'מנהל' : 'שותף מוזמן'),
+    avatarUrl: m.localAvatarUrl || m.avatarUrl || (m.userId === user?.id ? myEffectiveAvatar : null)
   }));
 
   const creatorDisplayName = isCreatorMe
     ? (user?.realName || user?.nickname || user?.email || "אני")
     : (space.creatorName || (space.createdBy && space.createdBy !== 'אורח' && space.createdBy !== 'אני' ? space.createdBy : 'יוצר המרחב'));
+
+  const creatorAvatar = isCreatorMe 
+    ? myEffectiveAvatar 
+    : (space.creatorAvatarUrl || space.creatorAvatar || (space.members || []).find((m: any) => m.userId === space.creatorId || m.role === 'creator')?.avatarUrl || null);
 
   const totalPartnerShares = (space.members || [])
     .filter((m: any) => m.userId !== creatorId && m.isActive !== false)
@@ -60,7 +69,8 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
       name: creatorDisplayName,
       role: "creator",
       status: "active",
-      sharePercentage: creatorSharePercentage
+      sharePercentage: creatorSharePercentage,
+      avatarUrl: creatorAvatar
     },
     ...activeSpaceMembers,
     ...pendingMembers
@@ -131,7 +141,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.47</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.48</span>
         </div>
         {isCreatorMe && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -316,40 +326,80 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                   transition: "background 0.2s"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0, flex: 1 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.85rem", minWidth: 0, flex: 1 }}>
                   <div style={{ position: 'relative', flexShrink: 0 }}>
-                    <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: m.role === 'creator' ? 'linear-gradient(135deg, #fef08a, #f59e0b)' : 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.role === 'creator' ? '#92400e' : '#4338ca', fontWeight: 'bold', fontSize: '1.2rem', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
-                      {m.name?.charAt(0) || 'ש'}
+                    <div style={{ 
+                      width: '44px', 
+                      height: '44px', 
+                      borderRadius: '50%', 
+                      background: m.role === 'creator' ? 'linear-gradient(135deg, #fef08a, #f59e0b)' : 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      color: m.role === 'creator' ? '#92400e' : '#4338ca', 
+                      fontWeight: 'bold', 
+                      fontSize: '1.2rem', 
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                      overflow: 'hidden',
+                      border: isMe ? '2px solid var(--primary)' : '1px solid rgba(0,0,0,0.06)'
+                    }}>
+                      {m.avatarUrl ? (
+                        <img 
+                          src={m.avatarUrl} 
+                          alt={m.name || 'avatar'} 
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                          onError={(e) => { 
+                            (e.target as HTMLElement).style.display = 'none'; 
+                          }} 
+                        />
+                      ) : (
+                        <span>{m.name?.charAt(0) || 'ש'}</span>
+                      )}
                     </div>
-                    <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(m.userId, user?.id), border: '2px solid white', position: 'absolute', bottom: '0', right: '0' }} title="מצב התחברות" />
+                    <div style={{ width: '11px', height: '11px', borderRadius: '50%', background: getPresenceColor(m.userId, user?.id), border: '2px solid white', position: 'absolute', bottom: '0', right: '0' }} title="מצב התחברות" />
                   </div>
                   
-                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <span style={{ fontWeight: isMe ? 800 : 600, color: 'var(--text-primary)', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name || m.userId}</span>
-                      {isMe && <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>אני</span>}
-                      {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.75rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>מנהל</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, gap: '0.25rem' }}>
+                    {/* Line 1: Name and Primary identity tags */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: isMe ? 800 : 700, color: 'var(--text-primary)', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {m.name || m.userId}
+                      </span>
+                      {isMe && <span style={{ fontSize: '0.72rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>אני</span>}
+                      {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.72rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>מנהל</span>}
                       {m.sharePercentage !== undefined && (
-                        <span style={{ fontSize: '0.75rem', color: '#6366f1', background: '#eef2ff', padding: '0.1rem 0.45rem', borderRadius: '8px', fontWeight: 800, border: '1px solid #e0e7ff', flexShrink: 0 }}>
+                        <span style={{ fontSize: '0.75rem', color: '#4338ca', background: '#e0e7ff', padding: '0.1rem 0.5rem', borderRadius: '8px', fontWeight: 800, border: '1px solid #c7d2fe', flexShrink: 0 }}>
                           {m.sharePercentage}%
-                        </span>
-                      )}
-                      {m.isInvite && (
-                        <span style={{ fontSize: '0.7rem', background: '#f3e8ff', color: '#7e22ce', padding: '0.1rem 0.45rem', borderRadius: '6px', fontWeight: 'bold', flexShrink: 0 }}>
-                          ממתין לאישור
                         </span>
                       )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                    {/* Line 2: Status & Scope tags */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                       {m.isInvite ? (
-                        <span style={{ fontSize: '0.75rem', color: '#7e22ce', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                          {m.isRetroactive ? '🛡️ רטרואקטיבי (כולל עבר)' : '📅 מכאן והלאה'}
+                        <>
+                          <span style={{ fontSize: '0.7rem', background: '#f3e8ff', color: '#7e22ce', padding: '0.1rem 0.5rem', borderRadius: '6px', fontWeight: 700, border: '1px solid #e9d5ff', flexShrink: 0 }}>
+                            ⏳ ממתין לאישור
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#475569', background: '#f1f5f9', padding: '0.1rem 0.45rem', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
+                            {m.isRetroactive ? '🛡️ רטרואקטיבי' : '📅 מכאן והלאה'}
+                          </span>
+                        </>
+                      ) : m.status === "active" ? (
+                        <span style={{ fontSize: '0.7rem', color: '#10b981', background: '#ecfdf5', padding: '0.05rem 0.4rem', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                          ● פעיל
                         </span>
-                      ) : m.status === "active" ? null : 
-                       m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b', whiteSpace: 'nowrap' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6', whiteSpace: 'nowrap' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
-                       m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b', whiteSpace: 'nowrap' }}>🔄 מבקש הארכה</span> : 
-                       m.status === "disputed" ? <span style={{ fontSize: '0.8rem', color: '#dc2626', whiteSpace: 'nowrap' }}>⚠️ סכסוך</span> : <span style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{m.status}</span>}
+                      ) : m.status === "pending" ? (
+                        <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>
+                          {m.welcomed ? '⏳ ממתין שיאשר' : '✉️ הזמנה נשלחה'}
+                        </span>
+                      ) : m.status === "extension_requested" ? (
+                        <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>🔄 מבקש הארכה</span>
+                      ) : m.status === "disputed" ? (
+                        <span style={{ fontSize: '0.75rem', color: '#dc2626' }}>⚠️ סכסוך</span>
+                      ) : (
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>{m.status}</span>
+                      )}
                     </div>
                   </div>
                 </div>
