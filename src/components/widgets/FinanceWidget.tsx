@@ -19,7 +19,7 @@ import { isCashboxEnabled, createVirtualTreasury } from './Cashbox/CashboxEngine
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { shareDocument } from '@/utils/documentUtils';
 
-const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions'|'inbox', setActiveTab: (tab: 'summary'|'transactions'|'inbox') => void, onOpenPartnersModal?: () => void }, ref) => {
+const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab, onOpenPartnersModal }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions'|'inbox', setActiveTab: (tab: 'summary'|'transactions'|'inbox') => void, onOpenPartnersModal?: () => void }, ref) => {
   const { user } = useAuth();
   
   // Check if current user is a restricted partner (pending / guest)
@@ -556,7 +556,13 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
             )}
             {space.features?.includes('partners') && (
               <button 
-                onClick={() => handleInviteClick()}
+                onClick={() => {
+                  if (onOpenPartnersModal) {
+                    handleRestrictedAction(() => onOpenPartnersModal());
+                  } else {
+                    handleInviteClick();
+                  }
+                }}
                 style={{ background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', padding: '0.4rem 0.6rem', fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-primary)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', boxShadow: 'var(--shadow-sm)', minWidth: '4.5rem' }}
                 title="ניהול שותפים / הוספת שותף"
               >

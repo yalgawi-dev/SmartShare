@@ -413,7 +413,10 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasVault = spaceFeatures.includes('vault');
   const hasPartners = spaceFeatures.includes('partners');
   const creatorId = space.creatorId || space.createdBy;
-  const hasActivePartners = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false && m.status !== 'removed').length > 0;
+  const pendingInvitesCount = (space.pendingInvites || []).length;
+  const activeMembersCount = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false && m.status !== 'removed').length;
+  const totalPartnersCount = hasPartners ? (activeMembersCount + pendingInvitesCount) : 0;
+  const hasActivePartners = totalPartnersCount > 0;
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
@@ -423,7 +426,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     .map(f => getFeatureById(f))
     .filter(f => f !== undefined) as { id: string; name: string; desc: string; icon: string }[];
 
-  const activePartnersCount = hasPartners ? (space.members?.filter((m: any) => m.userId !== creatorId && m.isActive !== false && m.status !== 'removed').length || 0) : 0; 
+  const activePartnersCount = totalPartnersCount; 
   const unusedFeatures = AVAILABLE_FEATURES.filter(f => !spaceFeatures.includes(f.id));
 
   const missingDependenciesMap = new Map<string, string[]>();
