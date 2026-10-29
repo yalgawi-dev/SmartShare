@@ -6,12 +6,13 @@ import { useChat } from '../../../app/context/ChatContext';
 import { usePresence } from '../../../hooks/usePresence';
 import { PartnersInviteModal } from './PartnersInviteModal';
 import PartnerControlPanel from './PartnerControlPanel';
-import { sanitizePartnerDisplayName, buildInviteReminderMessage } from '../../../utils/partnerUtils';
+import { SharesEditorModal } from './SharesEditorModal';
+import { sanitizePartnerDisplayName } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
   const { user } = useAuth();
-  const { getRoleForSpace, removeMember, updateMemberStatus, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite } = useSpaces() as any;
+  const { getRoleForSpace, removeMember, updateMemberStatus, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite, updateSharesBulk } = useSpaces() as any;
   const { openChat } = useChat();
 
   const myRole = getRoleForSpace(space.id);
@@ -54,6 +55,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
   const [expandedMember, setExpandedMember] = useState<string | null>(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
+  const [showSharesModal, setShowSharesModal] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
@@ -116,19 +118,30 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.42</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.43</span>
         </div>
         {isCreatorMe && (
-          <button 
-            onClick={() => setShowInviteModal(true)} 
-            style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 10px rgba(99,102,241,0.25)' }}
-          >
-            <span>➕</span> הוסף / הזמן שותפים
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {activeSpaceMembers.length > 0 && (
+              <button 
+                onClick={() => setShowSharesModal(true)} 
+                style={{ background: '#f8fafc', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.5rem 0.85rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <span>📊</span> ערוך אחוזים
+              </button>
+            )}
+            <button 
+              onClick={() => setShowInviteModal(true)} 
+              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 10px rgba(99,102,241,0.25)' }}
+            >
+              <span>➕</span> הוסף / הזמן שותפים
+            </button>
+          </div>
         )}
       </div>
 
       {showInviteModal && <PartnersInviteModal space={space} onClose={() => setShowInviteModal(false)} />}
+      {showSharesModal && <SharesEditorModal space={space} user={user} onClose={() => setShowSharesModal(false)} updateSharesBulk={updateSharesBulk} />}
 
       {/* Pending Group Requests Section for Space Admin */}
       {isCreatorMe && pendingGroupList.length > 0 && (
@@ -332,110 +345,18 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     </button>
                   )}
 
-                  {/* Actions for pending invite: WhatsApp + Copy reminder */}
-                  {m.isInvite && (
-                    <>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const inviteToken = m.userId;
-                          const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
-                          const guestShare = inviteObj?.guestShare ?? m.sharePercentage;
-                          const { whatsappUrl } = buildInviteReminderMessage({
-                            space,
-                            inviteToken,
-                            targetName: m.name,
-                            creatorName: space.createdBy || user?.realName || user?.nickname,
-                            guestShare
-                          });
-                          window.open(whatsappUrl, '_blank');
-                        }}
-                        style={{ background: "#f0fdf4", color: "#16a34a", border: "1px solid #bbf7d0", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "1rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
-                        title="שלח תזכורת בוואטסאפ"
-                      >
-                        💬
-                      </button>
-
-                      <button 
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          const inviteToken = m.userId;
-                          const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === inviteToken);
-                          const guestShare = inviteObj?.guestShare ?? m.sharePercentage;
-                          const { shareText, link } = buildInviteReminderMessage({
-                            space,
-                            inviteToken,
-                            targetName: m.name,
-                            creatorName: space.createdBy || user?.realName || user?.nickname,
-                            guestShare
-                          });
-
-                          let copied = false;
-                          if (typeof navigator !== 'undefined' && navigator.clipboard) {
-                            try {
-                              await navigator.clipboard.writeText(shareText);
-                              copied = true;
-                            } catch (err) {
-                              console.error('Clipboard write failed', err);
-                            }
-                          }
-
-                          if (!copied && typeof document !== 'undefined') {
-                            try {
-                              const textArea = document.createElement('textarea');
-                              textArea.value = shareText;
-                              document.body.appendChild(textArea);
-                              textArea.select();
-                              document.execCommand('copy');
-                              document.body.removeChild(textArea);
-                              copied = true;
-                            } catch (err) {
-                              console.error('ExecCommand copy failed', err);
-                            }
-                          }
-
-                          if (copied) {
-                            alert('הודעת התזכורת וההזמנה המעוצבת הועתקה ללוח בהצלחה!\nניתן להדביק ישירות בוואטסאפ.');
-                          } else {
-                            alert('קישור ההזמנה:\n' + link);
-                          }
-                        }}
-                        style={{ background: "#f8fafc", color: "#0284c7", border: "1px solid #e2e8f0", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.95rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
-                        title="העתק טקסט תזכורת מעוצב"
-                      >
-                        📋
-                      </button>
-                    </>
-                  )}
-
-                  {m.isInvite && isCreatorMe && (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setConfirmModalConfig({
-                          isOpen: true,
-                          title: 'ביטול ומחיקת הזמנה',
-                          message: `האם למחוק לצמיתות את ההזמנה עבור "${m.name}"?`,
-                          confirmText: 'מחק הזמנה',
-                          cancelText: 'ביטול',
-                          variant: 'danger',
-                          icon: '🗑️',
-                          onConfirm: () => {
-                            if (typeof declinePendingInvite === 'function') {
-                              declinePendingInvite(space.id, m.userId);
-                            }
-                          }
-                        });
-                      }}
-                      style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fee2e2", borderRadius: "50%", width: "36px", height: "36px", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", fontSize: "0.95rem", boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'transform 0.2s' }}
-                      title="מחק הזמנה זו"
-                    >
-                      🗑️
-                    </button>
-                  )}
-                  
                   {canClick && (
-                    <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', background: '#f1f5f9', padding: '0.3rem 0.6rem', borderRadius: '8px' }}>
+                    <span style={{ 
+                      color: isExpanded ? '#4338ca' : 'var(--text-secondary)', 
+                      fontSize: '0.82rem', 
+                      background: isExpanded ? '#e0e7ff' : '#f1f5f9', 
+                      padding: '0.35rem 0.75rem', 
+                      borderRadius: '10px',
+                      fontWeight: 700,
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}>
                       {isExpanded ? 'סגור ▴' : 'ניהול ▾'}
                     </span>
                   )}
@@ -449,6 +370,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     space={space} 
                     viewMode={isCreatorMe ? 'creator' : (m.role === 'creator' || m.userId === space.creatorId || m.userId === space.createdBy ? 'partner' : 'peer')} 
                     onClose={() => setExpandedMember(null)} 
+                    onEditShares={isCreatorMe ? () => setShowSharesModal(true) : undefined}
                   />
                 </div>
               )}

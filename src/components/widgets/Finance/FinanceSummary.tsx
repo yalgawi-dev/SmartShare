@@ -1,4 +1,3 @@
-import PartnerControlPanel from '../Partners/PartnerControlPanel';
 import React, { useState, useEffect, useMemo } from 'react';
 import { usePresence } from '../../../hooks/usePresence';
 import { SharesEditorModal } from "../Partners/SharesEditorModal";
@@ -36,7 +35,6 @@ export function FinanceSummary({
 }: FinanceSummaryProps) {
   const [isEditingShares, setIsEditingShares] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [expandedPartnerId, setExpandedPartnerId] = useState<string | null>(null);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
@@ -134,46 +132,8 @@ export function FinanceSummary({
     }
   });
 
-  // Include pending invited partners (deduplicating so the same partner cannot appear multiple times)
-  const pendingInvitesList = space.pendingInvites || [];
-  const seenPendingKeys = new Set<string>();
-  // Process in reverse to pick the freshest invite for any named partner
-  const uniquePendingInvites: any[] = [];
-  for (let i = pendingInvitesList.length - 1; i >= 0; i--) {
-    const inv = pendingInvitesList[i];
-    if (!inv) continue;
-    const key = inv.targetUserId
-      ? `uid_${inv.targetUserId}`
-      : (inv.name && inv.name.trim() && inv.name.trim() !== 'שותף מוזמן' ? `name_${inv.name.trim().toLowerCase()}` : `token_${inv.token}`);
-    if (!seenPendingKeys.has(key)) {
-      seenPendingKeys.add(key);
-      uniquePendingInvites.unshift(inv);
-    }
-  }
-
-  uniquePendingInvites.forEach((inv: any) => {
-    if (!unifiedBalances.has(inv.token)) {
-      unifiedBalances.set(inv.token, {
-        name: inv.name?.trim() || 'שותף מוזמן',
-        paid: 0,
-        expected: 0,
-        balance: 0,
-        userId: inv.token,
-        isMember: true,
-        transfersSent: 0,
-        transfersReceived: 0,
-        incomeExpected: 0,
-        incomeHeld: 0,
-        p: Number(inv.guestShare) || 0,
-        rawP: Number(inv.guestShare) || 0,
-        isCreator: false,
-        status: 'pending',
-        joinedAt: inv.createdAt,
-        isInvite: true,
-        guestShare: inv.guestShare
-      });
-    }
-  });
+  // Note: Pending invites do NOT participate in Finance calculations (Strict Decoupling).
+  // Only actual joined members appear in FinanceSummary when activePartnersCount > 0.
 
   if (isCashboxEnabled(space)) {
     unifiedBalances.set(TREASURY_MEMBER_ID, { 
@@ -519,7 +479,7 @@ export function FinanceSummary({
           <div style={{ display: 'flex', gap: '0.5rem' }}>
 
           </div>
-          {hasPartners && (
+          {hasPartners && activePartnersCount > 0 && (
             <button 
               onClick={() => {
                 if (onRestrictedAction) {
@@ -550,7 +510,7 @@ export function FinanceSummary({
                   <th style={{ padding: '0.75rem' }}>שם</th>
                   <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
                   <th style={{ padding: '0.75rem' }}>שולם</th>
-                  {hasPartners && <th style={{ padding: '0.75rem' }}>מאזן</th>}
+                  {hasPartners && activePartnersCount > 0 && <th style={{ padding: '0.75rem' }}>מאזן</th>}
                 </tr>
               </thead>
               <tbody>
@@ -559,176 +519,77 @@ export function FinanceSummary({
                   const isPendingInvite = (b as any).isInvite || (b as any).status === 'pending';
                   const isInactive = !isPendingInvite && ((memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId));
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
-                  const unreadCount = (() => {
-  if (!space.features?.includes('chat')) return 0;
-  let count = 0;
-  count += (memberObj?.messages || []).filter((m: any) => {
-     if (m.readAt) return false;
-     if (isCreatorMe && m.from === 'partner') return true;
-     if (!isCreatorMe && memberObj?.userId === user?.id && m.from === 'creator') return true;
-     return false;
-  }).length;
-  
-  if (user?.id && b.userId) {
-    const targetId = isCreatorMe ? b.userId : creatorId;
-    const p2pConvoId = [myId, targetId].filter(Boolean).sort().join('_');
-    const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-    if (convo) {
-       const unreadMesh = convo.messages?.filter((msg: any) => msg.senderId !== user.id && msg.senderId !== myId && !msg.readBy?.includes(user.id)) || [];
-       count += unreadMesh.length;
-    }
-  }
-  return count;
-})();
+
                   return (
-                      <React.Fragment key={b.userId || b.name}>
-                        <tr id={`partner-row-${b.userId}`}
-                          onClick={() => {
-                              if (isCreatorMe) {
-                                // Creator: can click on partner rows (including pending invites), NOT own row
-                                if ((b.isMember || isPendingInvite) && !b.isCreator && b.userId !== user?.id) {
-                                  setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId);
-                                }
-                              } else {
-                                // Partner: can click on creator row and other partner rows, NOT own row
-                                if ((b.isMember || isPendingInvite) && b.userId !== user?.id) { 
-                                  setExpandedPartnerId(expandedPartnerId === b.userId ? null : b.userId); 
-                                }
-                              }
-                            }}
-                          style={{ scrollMarginTop: '100px', borderBottom: '1px solid var(--border-light)', background: expandedPartnerId === b.userId ? 'rgba(99,102,241,0.08)' : b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', opacity: isInactive ? 0.6 : 1, cursor: (isCreatorMe 
-                          ? ((b.isMember || isPendingInvite) && !b.isCreator && b.userId !== user?.id ? 'pointer' : 'default')
-                          : ((b.isMember || isPendingInvite) && b.userId !== user?.id ? 'pointer' : 'default')), transition: 'background 0.15s' }}>
-                          <td style={{ padding: '0.5rem 0.6rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
-                            <div style={{ display: 'flex', flexDirection: 'column' }}>
-                              <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'inherit', whiteSpace: 'nowrap' }}>
-                                {hasPartners && <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />}
-                                {b.name} 
-                                {b.userId === user?.id && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(אני)</span>}
-                                {isInactive && <span style={{fontSize: '0.7rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
-                                {isPendingInvite && <span style={{ fontSize: '0.7rem', color: '#7c3aed', background: '#f5f3ff', padding: '1px 5px', borderRadius: '6px', fontWeight: 500 }}>✉️ ממתין</span>}
-                                {(() => {
-                                  if (!space.features?.includes('chat')) return null;
-                                  let myUnreadCount = 0;
-                                  const targetId = b.isCreator ? (space.creatorId || space.createdBy) : b.userId;
-                                  const p2pConvoId = [myId, targetId].filter(Boolean).sort().join('_');
-                                  const convo = space.conversations?.find((c: any) => c.id === p2pConvoId);
-                                  if (convo) {
-                                    myUnreadCount = convo.messages?.filter((msg: any) => msg.senderId !== user?.id && msg.senderId !== myId && !msg.readBy?.includes(user?.id))?.length || 0;
-                                  } else {
-                                    if (isCreatorMe && !b.isCreator) {
-                                      myUnreadCount = (memberObj?.messages || []).filter((m: any) => m.from === 'partner' && !m.readAt).length;
-                                    } else if (!isCreatorMe && b.isCreator) {
-                                      const myActualMember = space.members?.find((m: any) => m.userId === user?.id);
-                                      myUnreadCount = (myActualMember?.messages || []).filter((m: any) => m.from === 'creator' && !m.readAt).length;
-                                    }
-                                  }
-                                  return myUnreadCount > 0 ? (
-                                    <span title={`${myUnreadCount} הודעות שלא נקראו`} style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 6px', height:'18px', fontSize:'0.7rem', fontWeight:'bold', flexShrink:0, animation: 'pulse 2s infinite', gap: '3px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)' }}>
-                                      <svg width="10" height="10" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
-                                      {myUnreadCount}
-                                    </span>
-                                  ) : null;
-                                })()}
-                                {isCreatorMe && (b as any).status === 'extension_requested' && <span style={{fontSize:'0.75rem'}}>🔔</span>}
-                              </span>
-                              {(() => {
-                                  const partnerDisputes = disputedInvoices.filter((i: any) => {
-                                    if (i.payerId === b.userId || (b.isCreator && i.payerId === 'me')) return true;
-                                    if (i.rejectedById === b.userId) return true;
-                                    if (!i.rejectedById && i.rejectedBy && i.rejectedBy.trim() === b.name.trim()) return true;
-                                    
-                                    const onlyOnePartner = activeMembersCount === 1;
-                                    if (onlyOnePartner && !b.isCreator && i.payerId !== b.userId) return true;
-                                    if (onlyOnePartner && b.isCreator && i.payerId !== b.userId && i.payerId !== 'me') return true;
-                                    
-                                    return false;
-                                  });
-                                  const disputedAmt = partnerDisputes.reduce((acc, i) => acc + (i.amount || 0), 0);
+                    <tr 
+                      key={b.userId || b.name}
+                      id={`partner-row-${b.userId}`}
+                      style={{ 
+                        borderBottom: '1px solid var(--border-light)', 
+                        background: b.userId === user?.id ? 'rgba(79, 70, 229, 0.05)' : 'transparent', 
+                        opacity: isInactive ? 0.6 : 1
+                      }}
+                    >
+                      <td style={{ padding: '0.5rem 0.6rem', fontWeight: b.userId === user?.id ? 'bold' : 'normal' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'inherit', whiteSpace: 'nowrap' }}>
+                            {hasPartners && activePartnersCount > 0 && (
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />
+                            )}
+                            {b.name} 
+                            {b.userId === user?.id && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(אני)</span>}
+                            {isInactive && <span style={{fontSize: '0.7rem', color: 'var(--text-secondary)'}}>(לא פעיל)</span>}
+                          </span>
+                          {(() => {
+                              const partnerDisputes = disputedInvoices.filter((i: any) => {
+                                if (i.payerId === b.userId || (b.isCreator && i.payerId === 'me')) return true;
+                                if (i.rejectedById === b.userId) return true;
+                                if (!i.rejectedById && i.rejectedBy && i.rejectedBy.trim() === b.name.trim()) return true;
                                 
-                                if (disputedAmt > 0) {
-                                  return (
-                                    <div 
-                                      onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} 
-                                      style={{ marginTop: '0.15rem', display: 'inline-block', fontSize: '0.7rem', color: '#991b1b', background: '#fee2e2', padding: '0.1rem 0.35rem', borderRadius: '10px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3', whiteSpace: 'nowrap' }}
-                                    >
-                                      ❌ {disputedAmt.toLocaleString()}₪ במחלוקת
-                                    </div>
-                                  );
-                                }
-                                return null;
-                              })()}
-                              {isExcludedFromPast && (
-                                <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '0.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
-                                  🛡️ ללא הוצאות עבר
-                                </span>
-                              )}
-                              {(b as any).status === 'disputed' && <span style={{fontSize: '0.7rem', color: '#ef4444'}}>במחלוקת</span>}
-                              {(b as any).status === 'extension_requested' && <span style={{fontSize: '0.7rem', color: '#f59e0b'}}>מבקש הארכה</span>}
-                            </div>
-                        </td>
-                        <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
-                        <td style={{ padding: '0.5rem 0.6rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                        {hasPartners && (() => {
-                          const displayBalance = Math.round(b.balance);
-                          return (
-                            <td style={{ padding: '0.5rem 0.6rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
-                              <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{displayBalance < 0 ? '(חובה)' : displayBalance > 0 ? '(זכות)' : ''}</span>
-                              {displayBalance > 0 ? '+' : (displayBalance < 0 ? '-' : '')}{'₪'}{Math.abs(displayBalance).toLocaleString(undefined, {maximumFractionDigits: 0})}
-                            </td>
-                          );
-                        })()}
-                      </tr>
-                      {isCreatorMe && expandedPartnerId === b.userId && (() => {
-                        const effectiveMember = memberObj || {
-                          userId: b.userId,
-                          name: b.name,
-                          role: 'partner',
-                          status: 'pending',
-                          isInvite: (b as any).isInvite || true,
-                          guestShare: (b as any).guestShare
-                        };
+                                const onlyOnePartner = activeMembersCount === 1;
+                                if (onlyOnePartner && !b.isCreator && i.payerId !== b.userId) return true;
+                                if (onlyOnePartner && b.isCreator && i.payerId !== b.userId && i.payerId !== 'me') return true;
+                                
+                                return false;
+                              });
+                              const disputedAmt = partnerDisputes.reduce((acc, i) => acc + (i.amount || 0), 0);
+                            
+                            if (disputedAmt > 0) {
+                              return (
+                                <div 
+                                  onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} 
+                                  style={{ marginTop: '0.15rem', display: 'inline-block', fontSize: '0.7rem', color: '#991b1b', background: '#fee2e2', padding: '0.1rem 0.35rem', borderRadius: '10px', cursor: 'pointer', alignSelf: 'flex-start', border: '1px solid #fecdd3', whiteSpace: 'nowrap' }}
+                                >
+                                  ❌ {disputedAmt.toLocaleString()}₪ במחלוקת
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
+                          {isExcludedFromPast && (
+                            <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: '0.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }} title="שותף זה הצטרף ללא חיוב רטרואקטיבי על הוצאות העבר">
+                              🛡️ ללא הוצאות עבר
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
+                      <td style={{ padding: '0.5rem 0.6rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
+                      {hasPartners && activePartnersCount > 0 && (() => {
+                        const displayBalance = Math.round(b.balance);
                         return (
-                          <PartnerControlPanel
-                            member={effectiveMember}
-                            space={space}
-                            viewMode="creator"
-                            onClose={() => setExpandedPartnerId(null)}
-                            onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
-                            onTriggerTransfer={() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null}
-                            onEditShares={() => setIsEditingShares(true)}
-                          />
+                          <td style={{ padding: '0.5rem 0.6rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
+                            <span style={{fontSize: '0.75rem', marginRight: '0.25rem', color: 'var(--text-secondary)'}}>{displayBalance < 0 ? '(חובה)' : displayBalance > 0 ? '(זכות)' : ''}</span>
+                            {displayBalance > 0 ? '+' : (displayBalance < 0 ? '-' : '')}{'₪'}{Math.abs(displayBalance).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                          </td>
                         );
                       })()}
-                      {!isCreatorMe && expandedPartnerId === b.userId && (() => {
-                        const creatorMember = {
-                          userId: space.creatorId || space.createdBy || creatorId || 'creator',
-                          name: space.createdBy || 'מנהל המרחב',
-                          role: 'creator' as const,
-                          status: 'active' as const
-                        };
-                        const targetMember = b.isCreator
-                          ? creatorMember
-                          : (space.members?.find((m: any) => m.userId === b.userId) || { userId: b.userId, name: b.name, status: (b as any).status || 'pending', role: 'partner', isInvite: (b as any).isInvite });
-                        if (!targetMember) return null;
-                        return (
-                          <PartnerControlPanel
-                            member={targetMember}
-                            space={space}
-                            viewMode={b.isCreator ? "partner" : "peer"}
-                            onClose={() => setExpandedPartnerId(null)}
-                            onNavigateToFilter={(f) => { setActiveTab('transactions'); setFilter(f as any); }}
-                            onTriggerTransfer={b.isCreator ? (() => onTriggerTransfer ? onTriggerTransfer(b.userId) : null) : undefined}
-                            onEditShares={undefined}
-                          />
-                        );
-                      })()}
-                      </React.Fragment>
-                  )
+                    </tr>
+                  );
                 })}
               </tbody>
-              </table>
-            </div>
+            </table>
+          </div>
 
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
             💡 <strong>איך מתחשבנים?</strong> מי שהמאזן שלו באדום (מינוס) צריך להעביר את הכסף למי שהמאזן שלו בירוק (פלוס), עד שהקופה כולה מתאפסת.
@@ -1024,15 +885,7 @@ export function FinanceSummary({
       )}
     
 
-      
-      {expandedPartnerId === 'group' && (
-        <PartnerControlPanel
-          member={{ userId: 'group', name: 'קבוצת המרחב', status: 'active' }}
-          space={space}
-          viewMode="peer"
-          onClose={() => setExpandedPartnerId(null)}
-        />
-      )}
+
 
       {/* Confirmation Modal for actions like deleting pending invites */}
       <ConfirmModal
