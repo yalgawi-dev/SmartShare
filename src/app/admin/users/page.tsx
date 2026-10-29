@@ -584,7 +584,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.61</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.62</span>
           </div>
         </div>
 
@@ -1150,35 +1150,187 @@ export default function AdminUsersPage() {
         )}
 
         {/* TAB 2: ANALYTICS & KPIS */}
-        {activeTab === 'analytics' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-              <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>רשומים במערכת</div>
-                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', marginTop: '0.2rem' }}>{totalUsers}</div>
-                <div style={{ fontSize: '0.75rem', color: '#16a34a' }}>פעילים ב-24 שעות: {activeIn24h}</div>
+        {activeTab === 'analytics' && (() => {
+          let totalTrackedSeconds = 0;
+          let totalTrackedInvoicesCreated = 0;
+          let totalTrackedApprovals = 0;
+          let totalTrackedOcr = 0;
+          const spaceEngagementMap: Record<string, { title: string; seconds: number; visits: number }> = {};
+
+          allUsers.forEach((u: any) => {
+            const telem = u.telemetry;
+            if (telem) {
+              totalTrackedSeconds += telem.totalActiveSeconds || 0;
+              totalTrackedInvoicesCreated += telem.actions?.invoicesCreated || 0;
+              totalTrackedApprovals += telem.actions?.invoicesApproved || 0;
+              totalTrackedOcr += telem.actions?.ocrScans || 0;
+              if (telem.spaces) {
+                Object.entries(telem.spaces).forEach(([sId, sData]: [string, any]) => {
+                  if (!spaceEngagementMap[sId]) {
+                    spaceEngagementMap[sId] = { title: sData.title || 'מרחב', seconds: 0, visits: 0 };
+                  }
+                  spaceEngagementMap[sId].seconds += sData.seconds || 0;
+                  spaceEngagementMap[sId].visits += sData.visits || 0;
+                });
+              }
+            }
+          });
+
+          const sortedSpacesByTime = Object.entries(spaceEngagementMap)
+            .map(([id, d]) => ({ id, ...d }))
+            .sort((a, b) => b.seconds - a.seconds);
+
+          const usersSortedByDwellTime = [...allUsers].sort((a: any, b: any) => {
+            const secA = a.telemetry?.totalActiveSeconds || 0;
+            const secB = b.telemetry?.totalActiveSeconds || 0;
+            return secB - secA;
+          });
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {/* Macro KPI Cards */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+                <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>רשומים במערכת</div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#0f172a', marginTop: '0.2rem' }}>{totalUsers}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#16a34a' }}>פעילים ב-24 שעות: {activeIn24h}</div>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>זמן שהייה מצטבר</div>
+                  <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#0284c7', marginTop: '0.2rem' }}>
+                    {formatDurationHe(totalTrackedSeconds)}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>זמן פעיל של כל המשתמשים</div>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>התקנות PWA</div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#15803d', marginTop: '0.2rem' }}>{pwaAdoptionRate}%</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{pwaUsersCount} מתוך {totalUsers}</div>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>פעילים שבועית</div>
+                  <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#2563eb', marginTop: '0.2rem' }}>{activeIn7d}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b' }}>מעורבות ב-7 ימים</div>
+                </div>
               </div>
 
-              <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>התקנות PWA</div>
-                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#15803d', marginTop: '0.2rem' }}>{pwaAdoptionRate}%</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{pwaUsersCount} מתוך {totalUsers}</div>
+              {/* SECTION 1: SPACES TIME BREAKDOWN (GRAPHIC BARS) */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1.15rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>⏱️</span> התפלגות זמני שהייה במרחבים
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b', background: '#f1f5f9', padding: '2px 8px', borderRadius: '6px' }}>
+                    איפה מבלים את הזמן?
+                  </span>
+                </div>
+
+                {sortedSpacesByTime.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {sortedSpacesByTime.map((sp) => {
+                      const pct = totalTrackedSeconds > 0 ? Math.round((sp.seconds / totalTrackedSeconds) * 100) : 0;
+                      return (
+                        <div key={sp.id} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem' }}>
+                            <span style={{ fontWeight: 700, color: '#1e293b' }}>📁 {sp.title}</span>
+                            <span style={{ color: '#0284c7', fontWeight: 800 }}>{formatDurationHe(sp.seconds)} ({pct}%)</span>
+                          </div>
+                          <div style={{ width: '100%', height: '8px', background: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.max(5, pct)}%`, height: '100%', background: 'linear-gradient(90deg, #38bdf8, #0284c7)', borderRadius: '4px' }} />
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                            {sp.visits} כניסות למרחב
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ padding: '1.5rem', textAlign: 'center', color: '#94a3b8', fontSize: '0.85rem' }}>
+                    טרם נצברו נתוני שהייה בסנכרון. נתונים ייקלטו אוטומטית ככל שמשתמשים ישהו במרחבים.
+                  </div>
+                )}
               </div>
 
-              <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>פעילים שבועית</div>
-                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#2563eb', marginTop: '0.2rem' }}>{activeIn7d}</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>מעורבות ב-7 ימים</div>
+              {/* SECTION 2: USERS ENGAGEMENT DRILL-DOWN TABLE */}
+              <div style={{ background: '#ffffff', borderRadius: '16px', border: '1px solid #e2e8f0', padding: '1.15rem', boxShadow: '0 2px 6px rgba(0,0,0,0.02)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>👥</span> טבלת פעילות וזמני משתמשים
+                  </h3>
+                  <span style={{ fontSize: '0.75rem', color: '#15803d', background: '#f0fdf4', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+                    ממוין לפי זמן פעיל
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {usersSortedByDwellTime.map((u: any) => {
+                    const t = u.telemetry;
+                    const dwellSec = t?.totalActiveSeconds || 0;
+                    const spacesVisitedCount = t?.spaces ? Object.keys(t.spaces).length : 0;
+                    let topSpaceName = '-';
+                    if (t?.spaces) {
+                      const userSpacesList = Object.values(t.spaces) as any[];
+                      userSpacesList.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+                      if (userSpacesList[0]) topSpaceName = userSpacesList[0].title || 'מרחב ראשי';
+                    }
+
+                    return (
+                      <div 
+                        key={u.id}
+                        onClick={() => setSelectedUserForAnalysis(u)}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.75rem 0.85rem',
+                          borderRadius: '12px',
+                          border: '1px solid #e2e8f0',
+                          background: dwellSec > 0 ? '#f0f9ff' : '#f8fafc',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                          <div style={{
+                            width: '36px', height: '36px', borderRadius: '50%',
+                            background: dwellSec > 0 ? '#0284c7' : '#94a3b8',
+                            color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontWeight: 800, fontSize: '0.9rem', flexShrink: 0
+                          }}>
+                            {u.realName ? u.realName.charAt(0) : '👤'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span>{u.realName || 'אורח'}</span>
+                              {u.isAdmin && <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 5px', borderRadius: '4px' }}>Admin</span>}
+                            </div>
+                            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px' }}>
+                              מרחב מוביל: <strong>{topSpaceName}</strong> • {spacesVisitedCount} מרחבים שנוטרו
+                            </div>
+                          </div>
+                        </div>
+
+                        <div style={{ textAlign: 'left' }}>
+                          <div style={{ fontWeight: 800, fontSize: '0.92rem', color: dwellSec > 0 ? '#0284c7' : '#94a3b8' }}>
+                            {formatDurationHe(dwellSec)}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '1px' }}>
+                            {t?.actions?.invoicesCreated ? `${t.actions.invoicesCreated} חשבוניות` : 'פעולות צפייה'}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
-              <div style={{ background: '#ffffff', padding: '1rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                <div style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 700 }}>מרחבים פעילים</div>
-                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#7c3aed', marginTop: '0.2rem' }}>{activeSpaces.length}</div>
-                <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{totalInvoices} הוצאות שנוהלו</div>
-              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 3: SPACES & PLUGINS (Active vs Archived Sub-Tabs) */}
         {activeTab === 'spaces' && (
@@ -1838,6 +1990,11 @@ export default function AdminUsersPage() {
         const createdActiveSpacesCount = activeSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
         const createdArchivedSpacesCount = userArchivedSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
         const totalCreatedSpacesCount = createdActiveSpacesCount + createdArchivedSpacesCount;
+
+        // Partner spaces (spaces where user is a member, but NOT the creator)
+        const partnerActiveSpacesCount = activeSpaces.filter(s => s.creatorId !== selectedUserForAnalysis.id && (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id)).length;
+        const partnerArchivedSpacesCount = userArchivedSpaces.filter(s => s.creatorId !== selectedUserForAnalysis.id && (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id)).length;
+        const totalPartnerSpacesCount = partnerActiveSpacesCount + partnerArchivedSpacesCount;
         const sharedContacts = getSharedContactsForUser(selectedUserForAnalysis, spaces, allUsers);
         
         // Clean phone & email comparison for robust Yehuda detection
@@ -2298,14 +2455,19 @@ export default function AdminUsersPage() {
                         <div style={{ fontSize: '0.7rem', color: '#64748b' }}>סריקות AI שבוצעו</div>
                       </div>
 
-                      {/* Metric 3: Spaces Owned */}
-                      <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '0.75rem' }}>
-                        <div style={{ fontSize: '0.75rem', color: '#6b21a8', fontWeight: 700 }}>📁 מרחבים בבעלותו</div>
-                        <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#7e22ce', marginTop: '2px' }}>
-                          {totalCreatedSpacesCount}
+                      {/* Metric 3: Spaces Owned & Partner */}
+                      <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '0.75rem', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: '#6b21a8', fontWeight: 700 }}>📁 מרחבים (בעלים ושותף)</div>
+                          <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#7e22ce', marginTop: '2px', display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                            <span>{totalCreatedSpacesCount + totalPartnerSpacesCount}</span>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#6b21a8' }}>
+                              ({totalCreatedSpacesCount} בבעלותו • {totalPartnerSpacesCount} כשותף)
+                            </span>
+                          </div>
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
-                          {createdActiveSpacesCount} פעילים {createdArchivedSpacesCount > 0 ? `• ${createdArchivedSpacesCount} בארכיון` : ''}
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '3px' }}>
+                          👑 בעלים: {createdActiveSpacesCount} פעילים{createdArchivedSpacesCount > 0 ? `, ${createdArchivedSpacesCount} ארכיון` : ''} | 🤝 שותף: {partnerActiveSpacesCount} פעילים{partnerArchivedSpacesCount > 0 ? `, ${partnerArchivedSpacesCount} ארכיון` : ''}
                         </div>
                       </div>
 
