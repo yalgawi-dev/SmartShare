@@ -628,7 +628,6 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
             setActiveTab={setActiveTab}
             setFilter={setFilter as any}
             updateSpaceSettings={updateSpaceSettings}
-            updateSharesBulk={updateSharesBulk}
             onRestrictedAction={onRestrictedAction}
             onTriggerTransfer={onTriggerTransfer}
           />

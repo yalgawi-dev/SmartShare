@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { usePresence } from '../../../hooks/usePresence';
-import { SharesEditorModal } from "../Partners/SharesEditorModal";
 import { useSpaces } from '@/app/context/SpacesContext';
 import { createPortal } from 'react-dom';
 import { isCashboxEnabled, TREASURY_MEMBER_ID, createVirtualTreasury } from '../Cashbox/CashboxEngine';
 import { CashboxWidget } from '../Cashbox/CashboxWidget';
-import ConfirmModal from '../../common/ConfirmModal';
 interface FinanceSummaryProps { [key: string]: any;
   onTriggerTransfer?: any;
   space: any;
@@ -16,7 +14,6 @@ interface FinanceSummaryProps { [key: string]: any;
   setActiveTab: (tab: 'summary' | 'transactions') => void;
   setFilter: (filter: string) => void;
   updateSpaceSettings: any;
-  updateSharesBulk?: any;
   onRestrictedAction?: (action: () => void) => void;
 }
 
@@ -29,11 +26,9 @@ export function FinanceSummary({
   setActiveTab,
   setFilter,
   updateSpaceSettings,
-  updateSharesBulk,
   onRestrictedAction,
   onTriggerTransfer
 }: FinanceSummaryProps) {
-  const [isEditingShares, setIsEditingShares] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showTotalBreakdown, setShowTotalBreakdown] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
@@ -43,21 +38,6 @@ export function FinanceSummary({
   const [transactionAction, setTransactionAction] = useState('deposit');
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
-  const [confirmModalConfig, setConfirmModalConfig] = useState<{
-    isOpen: boolean;
-    title: string;
-    message: string;
-    confirmText?: string;
-    cancelText?: string;
-    onConfirm: () => void;
-    variant?: 'danger' | 'primary';
-    icon?: string;
-  }>({
-    isOpen: false,
-    title: '',
-    message: '',
-    onConfirm: () => {}
-  });
 
   const presenceUids = useMemo(() => {
     const uids = space?.members?.map((m: any) => m.userId) || [];
@@ -110,7 +90,7 @@ export function FinanceSummary({
   
   // Prevent random anonymous viewers from being added to the math engine
     // READ ROLES DIRECTLY FROM THE PARTNERS ENGINE (SINGLE SOURCE OF TRUTH)
-  const { getRoleForSpace, getTokenForSpace, addInvoice, declinePendingInvite } = useSpaces();
+  const { getRoleForSpace, getTokenForSpace, addInvoice } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   let isCreatorMe = myRole === 'creator';
   const myId = user?.id || 'me';
@@ -213,19 +193,13 @@ export function FinanceSummary({
     if (b.userId === TREASURY_MEMBER_ID) {
       b.p = 0;
     } else if (!b.isCreator && b.isMember) {
-      if ((b as any).isInvite) {
-        const inviteP = typeof (b as any).guestShare === 'number' ? (b as any).guestShare : defaultShare;
-        b.p = inviteP;
-        totalPartnerShares += inviteP;
+      const m = validMembers.find((vm: any) => vm.userId === b.userId);
+      if (m && m.isActive === false) {
+        b.p = 0;
       } else {
-        const m = validMembers.find((vm: any) => vm.userId === b.userId);
-        if (m && m.isActive === false) {
-          b.p = 0;
-        } else {
-          const partnerP = (m && typeof m.sharePercentage === 'number' && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
-          b.p = partnerP;
-          totalPartnerShares += partnerP;
-        }
+        const partnerP = (m && typeof m.sharePercentage === 'number' && m.sharePercentage > 0) ? m.sharePercentage : defaultShare;
+        b.p = partnerP;
+        totalPartnerShares += partnerP;
       }
     }
   });
@@ -476,31 +450,6 @@ export function FinanceSummary({
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
           <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{activePartnersCount > 0 ? 'טבלת מאזנים' : 'התפלגות הוצאות'}</h4>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-
-          </div>
-          {hasPartners && activePartnersCount > 0 && (
-            <button 
-              onClick={() => {
-                if (onRestrictedAction) {
-                  onRestrictedAction(() => {
-                    if (myMember && myMember.canEditShares === false && !user?.isAdmin) {
-                      alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
-                    } else {
-                      setIsEditingShares(true);
-                    }
-                  });
-                } else if (myMember && myMember.canEditShares === false && !user?.isAdmin) {
-                  alert('אין לך הרשאה לערוך אחוזים במרחב זה. פנה למנהל המרחב.');
-                } else {
-                  setIsEditingShares(true);
-                }
-              }}
-              style={{ background: 'rgba(0,0,0,0.05)', border: 'none', padding: '0.4rem 0.75rem', borderRadius: '16px', fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              ✍️ ערוך אחוזי השתתפות
-            </button>
-          )}
         </div>
           
           <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
@@ -516,8 +465,7 @@ export function FinanceSummary({
               <tbody>
                 {balances.filter(b => b.userId !== TREASURY_MEMBER_ID).map((b) => {
                   const memberObj = space.members?.find((m: any) => m.userId === b.userId);
-                  const isPendingInvite = (b as any).isInvite || (b as any).status === 'pending';
-                  const isInactive = !isPendingInvite && ((memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId));
+                  const isInactive = (memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId);
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));
 
                   return (
@@ -534,7 +482,7 @@ export function FinanceSummary({
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: 'inherit', whiteSpace: 'nowrap' }}>
                             {hasPartners && activePartnersCount > 0 && (
-                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: isPendingInvite ? '#f59e0b' : getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title={isPendingInvite ? 'ממתין להצטרפות' : 'מצב התחברות'} />
+                              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: getPresenceColor(b.userId, user?.id), boxShadow: '0 0 2px rgba(0,0,0,0.2)', flexShrink: 0 }} title="מצב התחברות" />
                             )}
                             {b.name} 
                             {b.userId === user?.id && <span style={{fontSize: '0.75rem', color: 'var(--text-secondary)'}}>(אני)</span>}
@@ -878,27 +826,6 @@ export function FinanceSummary({
         document.body
       )}
 
-      {/* Edit Shares Modal */}
-      {isEditingShares && typeof document !== 'undefined' && createPortal(
-        <SharesEditorModal {...({ space, user, validMembers, onClose: () => setIsEditingShares(false), updateSharesBulk } as any)} />,
-        document.body
-      )}
-    
-
-
-
-      {/* Confirmation Modal for actions like deleting pending invites */}
-      <ConfirmModal
-        isOpen={confirmModalConfig.isOpen}
-        title={confirmModalConfig.title}
-        message={confirmModalConfig.message}
-        confirmText={confirmModalConfig.confirmText}
-        cancelText={confirmModalConfig.cancelText}
-        onConfirm={confirmModalConfig.onConfirm}
-        onClose={() => setConfirmModalConfig(prev => ({ ...prev, isOpen: false }))}
-        variant={confirmModalConfig.variant || 'primary'}
-        icon={confirmModalConfig.icon}
-      />
     </div>
   );
 }
