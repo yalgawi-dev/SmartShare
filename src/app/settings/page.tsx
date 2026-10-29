@@ -526,7 +526,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.37</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.38</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1069,9 +1069,10 @@ export default function SettingsPage() {
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {myArchivedSpaces.map((s: any) => {
-                    const isCreator = s.creatorId === user?.id || s.createdBy === user?.realName || user?.isAdmin;
+                    const isActualCreator = s.creatorId === user?.id || s.createdBy === user?.realName;
+                    const canManageArchive = isActualCreator;
                     const creatorName = s.createdBy || (s.creatorId && allUsers?.find((u: any) => u.id === s.creatorId)?.realName) || 'לא צוין';
-                    const deletedByName = s.deletedByName || (s.deletedBy && allUsers?.find((u: any) => u.id === s.deletedBy)?.realName) || (isCreator ? 'מנהל המרחב' : 'אחד השותפים');
+                    const deletedByName = s.deletedByName || (s.deletedBy && allUsers?.find((u: any) => u.id === s.deletedBy)?.realName) || (isActualCreator ? 'מנהל המרחב' : 'אחד השותפים');
 
                     return (
                       <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem 1.15rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
@@ -1123,7 +1124,7 @@ export default function SettingsPage() {
                             👁️ הצץ במרחב
                           </Link>
 
-                          {isCreator ? (
+                          {canManageArchive ? (
                             <>
                               <button 
                                 onClick={() => restoreSpace(s.id)}

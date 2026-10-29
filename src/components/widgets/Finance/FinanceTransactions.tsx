@@ -39,10 +39,11 @@ export function FinanceTransactions({
   processRetroScan
 }: FinanceTransactionsProps) {
 
-  const { getTokenForSpace, getRoleForSpace, sendMessageToMember } = useSpaces();
+  const { getTokenForSpace, getRoleForSpace, sendMessageToMember, requestInvoiceDeletion, respondToInvoiceDeletionRequest } = useSpaces() as any;
   const myRole = space ? getRoleForSpace(space.id) : 'none';
   const isCreatorMe = myRole === 'creator' || (space?.creatorId && user?.id === space.creatorId);
   const myEffectiveId = user?.id || 'me';
+  const [deletionRequestModal, setDeletionRequestModal] = useState<{ isOpen: boolean; invoice: any; reason: string }>({ isOpen: false, invoice: null, reason: '' });
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
