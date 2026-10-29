@@ -1487,42 +1487,47 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
   };
 
   const updateSharesBulk = (spaceId: string, myShare: number, partnerShares: Record<string, number>, scope: 'from_now_on' | 'retroactive' = 'from_now_on') => {
+    let affectedPartnerNotifications: { userId: string; name: string; oldShare: number; newShare: number }[] = [];
+    let currentSpaceTitle = '';
+
     saveSpaceUpdate(spaceId, space => {
+      currentSpaceTitle = space.title || 'מרחב';
       // 1. Calculate the active shares snapshot before this change
       const previousSharesSnapshot = calculateCurrentSharesSnapshot(space);
 
-      let requiresApproval = false;
       const newMembers = (space.members || []).map(m => {
         if (partnerShares[m.userId] !== undefined) {
           const newShare = partnerShares[m.userId];
-          if (m.status === 'active' && m.sharePercentage !== newShare) {
-            requiresApproval = true;
-            return {
-              ...m,
-              shareChangeRequest: {
-                proposedShare: newShare,
-                creatorShare: myShare,
-                timestamp: new Date().toISOString()
-              }
-            };
-          } else {
-            let newStatus = m.status;
-            let newJoinedAt = m.joinedAt;
-            let isResolving = false;
-            if (m.status === 'disputed') {
-              newStatus = 'pending';
-              newJoinedAt = new Date().toISOString(); // Reset timer
-              isResolving = true;
-            }
-            return { 
-              ...m, 
-              sharePercentage: newShare, 
-              isCustomShare: true,
-              status: newStatus,
-              joinedAt: newJoinedAt,
-              disputeResolved: isResolving ? true : m.disputeResolved
-            };
+          const oldShare = typeof m.sharePercentage === 'number' ? m.sharePercentage : (previousSharesSnapshot[m.userId] ?? newShare);
+          
+          if (oldShare !== newShare) {
+            affectedPartnerNotifications.push({
+              userId: m.userId,
+              name: m.name,
+              oldShare,
+              newShare
+            });
           }
+
+          let newStatus = m.status;
+          let newJoinedAt = m.joinedAt;
+          let isResolving = false;
+          if (m.status === 'disputed') {
+            newStatus = 'pending';
+            newJoinedAt = new Date().toISOString(); // Reset timer
+            isResolving = true;
+          }
+          
+          const mCopy = { 
+            ...m, 
+            sharePercentage: newShare, 
+            isCustomShare: true,
+            status: newStatus,
+            joinedAt: newJoinedAt,
+            disputeResolved: isResolving ? true : m.disputeResolved
+          };
+          delete (mCopy as any).shareChangeRequest;
+          return mCopy;
         }
         return m;
       });
@@ -1553,17 +1558,39 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         }));
       }
 
+      // Add audit log record
+      const auditLogItem = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'SHARES_UPDATED' as any,
+        performedBy: space.createdBy || 'מנהל המרחב',
+        details: `המנהל עדכן את חלוקת האחוזים במרחב (מנהל: ${myShare}%, תחולה: ${scope === 'retroactive' ? 'רטרואקטיבית' : 'מעכשיו והלאה'})`
+      };
+
       return {
         ...space,
         members: newMembers,
         invoices: updatedInvoices,
+        auditLogs: [auditLogItem, ...(space.auditLogs || [])],
         settings: { 
           ...space.settings, 
-          mySharePercentage: requiresApproval ? space.settings?.mySharePercentage : myShare, 
+          mySharePercentage: myShare, 
           isCustomShare: true 
         }
       };
     });
+
+    // 3. Send Push Notifications to partners whose shares were modified
+    if (affectedPartnerNotifications.length > 0) {
+      setTimeout(() => {
+        affectedPartnerNotifications.forEach(p => {
+          const title = `עדכון אחוזים: ${currentSpaceTitle}`;
+          const scopeText = scope === 'retroactive' ? '(תחולה רטרואקטיבית)' : '(מעכשיו והלאה)';
+          const body = `מנהל המרחב עדכן את חלקך בהוצאות מ-${p.oldShare}% ל-${p.newShare}% ${scopeText}.`;
+          triggerPushNotification([p.userId], title, body, { url: `/space/${spaceId}` });
+        });
+      }, 0);
+    }
   };
 
 const updateMemberPermissions = (spaceId: string, userId: string, permissions: Partial<SpaceMember>) => {
