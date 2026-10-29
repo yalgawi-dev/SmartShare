@@ -49,6 +49,8 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
   const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
   const [docSearchTerm, setDocSearchTerm] = useState('');
+  const [stationSearchQuery, setStationSearchQuery] = useState('');
+  const [filterStationHasDocs, setFilterStationHasDocs] = useState<'all' | 'with_docs' | 'with_tasks'>('all');
   const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);
   const [viewingSummaryEvent, setViewingSummaryEvent] = useState<ShelfEvent | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
@@ -58,13 +60,34 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [uploadingStationDoc, setUploadingStationDoc] = useState<{ eventId: string; previewUrl?: string } | null>(null);
   const [recentlyAddedDocs, setRecentlyAddedDocs] = useState<Record<string, SpaceDocument>>({});
 
+  const rawShelfEvents = React.useMemo(() => {
+    return (space.shelfEvents || []).filter(e => e.shelfId === activeShelfId);
+  }, [space.shelfEvents, activeShelfId]);
+
   const events = React.useMemo(() => {
-    return (space.shelfEvents || [])
-      .filter(e => e.shelfId === activeShelfId)
+    return rawShelfEvents
+      .filter(e => {
+        // Text search filter
+        if (stationSearchQuery.trim()) {
+          const q = stationSearchQuery.trim().toLowerCase();
+          const matchTitle = (e.title || '').toLowerCase().includes(q);
+          const matchDesc = (e.description || '').toLowerCase().includes(q);
+          const matchTasks = (e.tasks || []).some(t => (t.text || '').toLowerCase().includes(q));
+          if (!matchTitle && !matchDesc && !matchTasks) return false;
+        }
+        // Category filter
+        if (filterStationHasDocs === 'with_docs') {
+          return (e.documentIds || []).length > 0;
+        }
+        if (filterStationHasDocs === 'with_tasks') {
+          return (e.tasks || []).length > 0;
+        }
+        return true;
+      })
       .sort((a, b) => sortOrder === 'desc' 
         ? new Date(b.eventDate).getTime() - new Date(a.eventDate).getTime() 
         : new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime());
-  }, [space.shelfEvents, activeShelfId, sortOrder]);
+  }, [rawShelfEvents, stationSearchQuery, filterStationHasDocs, sortOrder]);
 
   // Collect doc IDs already linked to any station in this shelf
   const linkedDocIds = React.useMemo(() => {
@@ -406,11 +429,88 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} ref={fileInputRef} onChange={handleLocalUpload} />
       <div style={{padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <button onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} style={{ background: 'transparent', border: '1px solid #cbd5e1', color: '#475569', padding: '0.5rem 1rem', borderRadius: '20px', fontSize: '0.8rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
-          <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
-        </button>
-        <span style={{ fontSize: '0.75rem', color: '#4f46e5', fontWeight: 'bold' }}>ציר זמן v2.8.0</span>
+      {/* TIMELINE CONTROLS: SORT, SEARCH & FILTER BY STATIONS */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+          {/* Sort order toggle */}
+          <button 
+            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} 
+            style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '0.4rem 0.85rem', borderRadius: '16px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
+          >
+            <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
+          </button>
+
+          {/* Quick Filter Pills */}
+          <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '3px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+            <button
+              onClick={() => setFilterStationHasDocs('all')}
+              style={{
+                border: 'none',
+                background: filterStationHasDocs === 'all' ? '#ffffff' : 'transparent',
+                color: filterStationHasDocs === 'all' ? '#1e293b' : '#64748b',
+                padding: '3px 9px',
+                borderRadius: '10px',
+                fontSize: '0.75rem',
+                fontWeight: filterStationHasDocs === 'all' ? 800 : 600,
+                cursor: 'pointer',
+                boxShadow: filterStationHasDocs === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              כל התחנות ({rawShelfEvents.length})
+            </button>
+            <button
+              onClick={() => setFilterStationHasDocs('with_docs')}
+              style={{
+                border: 'none',
+                background: filterStationHasDocs === 'with_docs' ? '#ffffff' : 'transparent',
+                color: filterStationHasDocs === 'with_docs' ? '#2563eb' : '#64748b',
+                padding: '3px 9px',
+                borderRadius: '10px',
+                fontSize: '0.75rem',
+                fontWeight: filterStationHasDocs === 'with_docs' ? 800 : 600,
+                cursor: 'pointer',
+                boxShadow: filterStationHasDocs === 'with_docs' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              📎 עם מסמכים
+            </button>
+            <button
+              onClick={() => setFilterStationHasDocs('with_tasks')}
+              style={{
+                border: 'none',
+                background: filterStationHasDocs === 'with_tasks' ? '#ffffff' : 'transparent',
+                color: filterStationHasDocs === 'with_tasks' ? '#d97706' : '#64748b',
+                padding: '3px 9px',
+                borderRadius: '10px',
+                fontSize: '0.75rem',
+                fontWeight: filterStationHasDocs === 'with_tasks' ? 800 : 600,
+                cursor: 'pointer',
+                boxShadow: filterStationHasDocs === 'with_tasks' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              📋 עם משימות
+            </button>
+          </div>
+        </div>
+
+        {/* Search input for stations */}
+        <div style={{ position: 'relative' }}>
+          <input 
+            type="text" 
+            value={stationSearchQuery} 
+            onChange={(e) => setStationSearchQuery(e.target.value)} 
+            placeholder="🔍 חפש תחנה לפי כותרת, פירוט, או משימה..." 
+            style={{ width: '100%', padding: '0.45rem 2rem 0.45rem 0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', fontSize: '0.85rem', outline: 'none', boxSizing: 'border-box', background: '#ffffff' }}
+          />
+          {stationSearchQuery && (
+            <button 
+              onClick={() => setStationSearchQuery('')} 
+              style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: '0.9rem' }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {events.length === 0 ? (

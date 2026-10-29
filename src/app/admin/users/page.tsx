@@ -569,7 +569,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.50</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.52</span>
           </div>
         </div>
 
@@ -1234,7 +1234,9 @@ export default function AdminUsersPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {activeSpaces.map(s => {
                   const creatorUser = allUsers.find(u => u.id === (s.creatorId || s.createdBy));
-                  const creatorDisplayName = creatorUser ? (creatorUser.realName || creatorUser.nickname || creatorUser.phone) : (s.creatorId || 'לא ידוע');
+                  const creatorDisplayName = creatorUser 
+                    ? (creatorUser.realName || creatorUser.nickname || creatorUser.phone) 
+                    : (s.createdBy && s.createdBy !== 'unknown' ? s.createdBy : (s.creatorId || 'מערכת / יוצר מקורי'));
                   const membersCount = (s.members || []).length;
                   const invoicesCount = (s.invoices || []).length;
                   const docsCount = (s.documents || []).length + (s.mediaItems || []).length;
@@ -1332,7 +1334,9 @@ export default function AdminUsersPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {archivedSpaces.map(s => {
                   const creatorUser = allUsers.find(u => u.id === (s.creatorId || s.createdBy));
-                  const creatorDisplayName = creatorUser ? (creatorUser.realName || creatorUser.nickname) : 'לא ידוע';
+                  const creatorDisplayName = creatorUser 
+                    ? (creatorUser.realName || creatorUser.nickname || creatorUser.phone) 
+                    : (s.createdBy && s.createdBy !== 'unknown' ? s.createdBy : (s.creatorId || 'מערכת / יוצר מקורי'));
 
                   return (
                     <div key={s.id} style={{ background: '#fffbeb', padding: '0.9rem 1rem', borderRadius: '14px', border: '1px solid #fde68a', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
