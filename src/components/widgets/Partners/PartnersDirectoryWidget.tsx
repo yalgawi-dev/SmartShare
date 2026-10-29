@@ -141,7 +141,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.53</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.54</span>
         </div>
         {isCreatorMe && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -381,9 +381,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                           ⏳ ממתין לאישור
                         </span>
                       ) : m.status === "active" ? (
-                        <span style={{ fontSize: '0.7rem', color: '#10b981', background: '#ecfdf5', padding: '0.05rem 0.4rem', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                          ● פעיל
-                        </span>
+                        null
                       ) : m.status === "pending" ? (
                         <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>
                           {m.welcomed ? '⏳ ממתין שיאשר' : '✉️ הזמנה נשלחה'}

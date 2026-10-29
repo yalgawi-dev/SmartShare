@@ -237,7 +237,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.53</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.54</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -411,6 +411,82 @@ export default function Dashboard() {
         <WelcomeEmptyState />
       ) : (
       <>
+        {/* Tomorrow Stations Reminder Banner */}
+        {(() => {
+          const now = new Date();
+          const tomorrow = new Date(now);
+          tomorrow.setDate(tomorrow.getDate() + 1);
+          const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+          const upcomingEvents: { spaceId: string; spaceTitle: string; shelfId: string; event: any }[] = [];
+          visibleSpaces.forEach((sp: any) => {
+            (sp.shelfEvents || []).forEach((ev: any) => {
+              if (ev.eventDate === tomorrowStr) {
+                upcomingEvents.push({
+                  spaceId: sp.id,
+                  spaceTitle: sp.title,
+                  shelfId: ev.shelfId,
+                  event: ev
+                });
+              }
+            });
+          });
+
+          if (upcomingEvents.length === 0) return null;
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              {upcomingEvents.map((item, i) => (
+                <div
+                  key={`${item.spaceId}-${item.event.id}-${i}`}
+                  style={{
+                    background: 'linear-gradient(135deg, #f5f3ff 0%, #ede9fe 100%)',
+                    border: '1.5px solid #8b5cf6',
+                    borderRadius: '16px',
+                    padding: '0.85rem 1.1rem',
+                    boxShadow: '0 4px 14px rgba(139, 92, 246, 0.15)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '0.75rem',
+                    flexWrap: 'wrap'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                    <span style={{ fontSize: '1.4rem' }}>🗓️</span>
+                    <div>
+                      <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span>תזכורת: מחר יש אירוע / ביקור!</span>
+                        <span style={{ background: '#7c3aed', color: 'white', padding: '1px 6px', borderRadius: '6px', fontSize: '0.7rem' }}>{item.spaceTitle}</span>
+                      </div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 700, color: '#1e1b4b', marginTop: '2px' }}>
+                        {item.event.title}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Link
+                    href={`/space/${item.spaceId}?shelfId=${item.shelfId}`}
+                    style={{
+                      background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                      color: 'white',
+                      textDecoration: 'none',
+                      padding: '0.45rem 0.95rem',
+                      borderRadius: '10px',
+                      fontSize: '0.82rem',
+                      fontWeight: 800,
+                      boxShadow: '0 2px 6px rgba(124, 58, 237, 0.3)',
+                      marginRight: 'auto'
+                    }}
+                  >
+                    פתח תחנה ←
+                  </Link>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
         {(user?.realName === 'אורח' || user?.realName === 'אורח אנונימי' || !user?.realName) && (
           <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid #f59e0b', color: '#b45309', padding: '1rem', borderRadius: '12px', marginBottom: '1.5rem', textAlign: 'center', cursor: 'pointer' }} onClick={() => setShowAuthModal(true)}>
             <strong>שימו לב:</strong> אתם מחוברים כאורח! כדי לגבות את המרחבים שלכם ולמנוע איבוד נתונים, <span style={{ textDecoration: 'underline' }}>לחצו כאן להרשמה קצרה בחינם (10 שניות)</span>.

@@ -425,6 +425,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
+        @keyframes neonPulse {
+          0%, 100% {
+            box-shadow: 0 0 12px rgba(124, 58, 237, 0.45), 0 0 0 1.5px #8b5cf6, 0 4px 20px rgba(139, 92, 246, 0.15);
+          }
+          50% {
+            box-shadow: 0 0 22px rgba(124, 58, 237, 0.75), 0 0 0 2px #a855f7, 0 6px 26px rgba(168, 85, 247, 0.3);
+          }
+        }
       `}</style>
       <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} ref={fileInputRef} onChange={handleLocalUpload} />
       <div style={{padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
@@ -539,6 +547,11 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
             const completedTasks = (event.tasks || []).filter(t => t.isCompleted).length;
             const totalTasks = (event.tasks || []).length;
             const isExpanded = expandedEvents[event.id] || false;
+            const isFuture = (() => {
+              if (!event.eventDate) return false;
+              const todayStr = new Date().toISOString().split('T')[0];
+              return event.eventDate > todayStr;
+            })();
             
             return (
               <React.Fragment key={event.id}>
@@ -548,14 +561,49 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                   </div>
                 )}
                 <div id={`event-${event.id}`} style={{ position: 'relative', zIndex: 1, paddingRight: '3rem' }}>
-                  <div style={{ position: 'absolute', right: '12px', top: '24px', width: '18px', height: '18px', background: '#3b82f6', borderRadius: '50%', border: '4px solid #eff6ff', boxShadow: '0 0 0 1px #cbd5e1' }}></div>
+                  <div style={{
+                    position: 'absolute',
+                    right: '12px',
+                    top: '24px',
+                    width: '18px',
+                    height: '18px',
+                    background: isFuture ? '#8b5cf6' : '#3b82f6',
+                    borderRadius: '50%',
+                    border: isFuture ? '4px solid #f3e8ff' : '4px solid #eff6ff',
+                    boxShadow: isFuture ? '0 0 10px #a855f7' : '0 0 0 1px #cbd5e1'
+                  }}></div>
                   
-                  <div style={{ background: 'white', borderRadius: '16px', padding: '1.25rem', boxShadow: '0 4px 20px rgba(0,0,0,0.06)', border: '1px solid #f1f5f9' }}>
+                  <div style={{
+                    background: isFuture ? 'linear-gradient(180deg, #faf5ff 0%, #ffffff 100%)' : 'white',
+                    borderRadius: '16px',
+                    padding: '1.25rem',
+                    boxShadow: isFuture ? 'none' : '0 4px 20px rgba(0,0,0,0.06)',
+                    border: isFuture ? '1.5px solid #8b5cf6' : '1px solid #f1f5f9',
+                    animation: isFuture ? 'neonPulse 3s infinite ease-in-out' : 'none'
+                  }}>
                     <div 
                       onClick={() => setExpandedEvents(prev => ({ ...prev, [event.id]: !prev[event.id] }))}
                       style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer', marginBottom: isExpanded ? '0.5rem' : '0' }}
                     >
-                      <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', flex: 1 }}>{event.title}</h3>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, flexWrap: 'wrap' }}>
+                        <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem' }}>{event.title}</h3>
+                        {isFuture && (
+                          <span style={{
+                            background: 'linear-gradient(135deg, #7c3aed 0%, #9333ea 100%)',
+                            color: 'white',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            boxShadow: '0 2px 8px rgba(124, 58, 237, 0.35)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}>
+                            <span>🔮</span> ביקור עתידי
+                          </span>
+                        )}
+                      </div>
                       
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <button onClick={(e) => {
@@ -574,7 +622,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                           setEventToDelete({ id: event.id, title: event.title, docCount: evDocs.length, docIds: evDocs });
                         }} style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '1rem', color: '#ef4444' }} title="מחק תחנה">🗑️</button>
 
-                        <div style={{ background: '#f1f5f9', color: '#475569', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                        <div style={{ background: isFuture ? '#ede9fe' : '#f1f5f9', color: isFuture ? '#6d28d9' : '#475569', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', fontWeight: 'bold' }}>
                           {new Date(event.eventDate).toLocaleDateString('he-IL')}
                         </div>
                         <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>{isExpanded ? '▲' : '▼'}</span>

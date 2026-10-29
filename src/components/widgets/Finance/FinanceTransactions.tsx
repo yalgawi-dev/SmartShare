@@ -636,29 +636,70 @@ export function FinanceTransactions({
                                 }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                                   ✏️ {editingInvoice?.id === inv.id ? 'סגור עריכה' : 'עריכה'}
                                 </button>
-                                <button onClick={(e) => {
-                                  e.preventDefault();
-                                  e.stopPropagation();
-                                  const isAlreadyApproved = inv.status === 'approved' || ((inv.approvedBy || []).length > 0);
-                                  if (isAlreadyApproved && activePartnersCount > 0) {
-                                    setDeletionRequestModal({
-                                      isOpen: true,
-                                      invoice: inv,
-                                      reason: ''
-                                    });
-                                    return;
-                                  }
-                                  if (window.confirm('האם אתה בטוח שברצונך לבטל הוצאה זו? היא תעבור לארכיון.')) {
-                                    if (updateInvoice && space) {
-                                      const details = `ביטל/ה את ההוצאה מול ספק '${inv.supplier}' על סך ₪${inv.amount?.toLocaleString()} והעביר/ה לארכיון`;
-                                      updateInvoice(space.id, inv.id, { isActive: false }, user?.realName || user?.id || 'me', details);
-                                    } else {
-                                      alert('שגיאה. נסה שוב מאוחר יותר');
-                                    }
-                                  }
-                                }} style={{ flex: 1, padding: '0.75rem', background: '#fee2e2', color: '#991b1b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
-                                  🗑️ מחיקה לארכיון
-                                </button>
+                                {(() => {
+                                  const createdAtTime = inv.createdAt ? new Date(inv.createdAt).getTime() : 0;
+                                  const twoHoursMs = 2 * 60 * 60 * 1000;
+                                  const msElapsed = Date.now() - createdAtTime;
+                                  const isWithinTwoHours = createdAtTime > 0 && msElapsed < twoHoursMs;
+                                  const minutesLeft = Math.max(1, Math.ceil((twoHoursMs - msElapsed) / 60000));
+                                  const isApprovedByAny = (inv.approvedBy || []).length > 0 || inv.status === 'approved';
+                                  const canDirectDelete = isWithinTwoHours && !isApprovedByAny;
+
+                                  return (
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                      <button onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+
+                                        if (!canDirectDelete && activePartnersCount > 0) {
+                                          setDeletionRequestModal({
+                                            isOpen: true,
+                                            invoice: inv,
+                                            reason: ''
+                                          });
+                                          return;
+                                        }
+
+                                        const confirmMsg = canDirectDelete 
+                                          ? `ההוצאה הועלתה לאחרונה (נותרו ${minutesLeft} דקות לחלון הביטול). האם לבטל אותה ישירות ולהעבירה לארכיון?`
+                                          : 'האם אתה בטוח שברצונך לבטל הוצאה זו? היא תעבור לארכיון.';
+
+                                        if (window.confirm(confirmMsg)) {
+                                          if (updateInvoice && space) {
+                                            const details = `ביטל/ה את ההוצאה מול ספק '${inv.supplier}' על סך ₪${inv.amount?.toLocaleString()} והעביר/ה לארכיון`;
+                                            updateInvoice(space.id, inv.id, { isActive: false }, user?.realName || user?.id || 'me', details);
+                                          } else {
+                                            alert('שגיאה. נסה שוב מאוחר יותר');
+                                          }
+                                        }
+                                      }} style={{
+                                        width: '100%',
+                                        padding: '0.75rem',
+                                        background: canDirectDelete ? '#fee2e2' : '#f8fafc',
+                                        color: canDirectDelete ? '#991b1b' : '#64748b',
+                                        border: canDirectDelete ? 'none' : '1px solid #cbd5e1',
+                                        borderRadius: '12px',
+                                        fontWeight: 'bold',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        gap: '0.35rem'
+                                      }}>
+                                        <span>{canDirectDelete ? '🗑️ מחיקה מהירה' : '🛡️ בקש מחיקה משותפים'}</span>
+                                      </button>
+                                      {canDirectDelete ? (
+                                        <span style={{ fontSize: '0.7rem', color: '#b91c1c', textAlign: 'center', fontWeight: 600 }}>
+                                          {`⏱️ נותרו ${minutesLeft} דק' למחיקה עצמאית`}
+                                        </span>
+                                      ) : activePartnersCount > 0 && (
+                                        <span style={{ fontSize: '0.7rem', color: '#64748b', textAlign: 'center' }}>
+                                          🔒 נעול - מחייב אישור שותפים
+                                        </span>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </>
                             )}
                           </div>

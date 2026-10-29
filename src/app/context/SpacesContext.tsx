@@ -2038,10 +2038,14 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         const creatorName = user?.realName || user?.nickname || 'שותף';
         const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
         if (otherUserIds.length > 0) {
+          const isFuture = newEvent.eventDate && newEvent.eventDate > new Date().toISOString().split('T')[0];
+          const notifBody = isFuture
+            ? `🔮 ${creatorName} קבע/ה אירוע עתידי לתאריך ${new Date(newEvent.eventDate).toLocaleDateString('he-IL')}: "${newEvent.title}"`
+            : `📍 ${creatorName} הוסיף תחנה חדשה: "${newEvent.title}"`;
           triggerPushNotification(
             otherUserIds,
             space.title,
-            `📍 ${creatorName} הוסיף תחנה חדשה: "${newEvent.title}"`,
+            notifBody,
             { url: `/space/${spaceId}` }
           );
         }
