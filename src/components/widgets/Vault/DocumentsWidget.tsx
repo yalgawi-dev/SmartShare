@@ -38,6 +38,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>(() => (space.settings?.showVaultTimeline ? 'timeline' : 'vault'));
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all');
+  const [warehouseSortBy, setWarehouseSortBy] = useState<'station' | 'name' | 'date_desc' | 'date_asc'>('station');
+  const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
   const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
@@ -582,7 +584,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       return null;
     }
     const shelfDocs = [...activeDocuments.filter(d => d.shelfId === activeShelfId), ...uploadingDocs.filter(d => d.shelfId === activeShelfId).map(d => ({ ...d, createdAt: new Date().toISOString(), addedBy: user?.id || '' }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) as any[];
-    
+    const allSpaceEvents = space.shelfEvents || [];
+    const activeShelfEvents = allSpaceEvents.filter((e: any) => e.shelfId === activeShelfId);
 
     return (
       <>
@@ -594,7 +597,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.52</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.53</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -690,39 +693,97 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0 1rem' }}>
           {(showTimeline || shelfDocs.length > 1) && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.25rem' }}>
-              {showTimeline ? (
-                <div style={{ display: 'flex', gap: '0.5rem', background: '#f8fafc', padding: '4px', borderRadius: '12px', alignSelf: 'flex-start', border: '1px solid #e2e8f0' }}>
-                  <button onClick={() => setFilterLinked('all')} style={{ background: filterLinked === 'all' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'all' ? 'bold' : 'normal', color: filterLinked === 'all' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'all' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>הכל</button>
-                  <button onClick={() => setFilterLinked('linked')} style={{ background: filterLinked === 'linked' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'linked' ? 'bold' : 'normal', color: filterLinked === 'linked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'linked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>מקושרים</button>
-                  <button onClick={() => setFilterLinked('unlinked')} style={{ background: filterLinked === 'unlinked' ? 'white' : 'transparent', border: 'none', padding: '4px 12px', borderRadius: '8px', fontSize: '0.8rem', fontWeight: filterLinked === 'unlinked' ? 'bold' : 'normal', color: filterLinked === 'unlinked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'unlinked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>לא מקושרים</button>
-                </div>
-              ) : <div />}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                {showTimeline ? (
+                  <div style={{ display: 'flex', gap: '0.35rem', background: '#f8fafc', padding: '4px', borderRadius: '12px', alignSelf: 'flex-start', border: '1px solid #e2e8f0' }}>
+                    <button onClick={() => setFilterLinked('all')} style={{ background: filterLinked === 'all' ? 'white' : 'transparent', border: 'none', padding: '4px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: filterLinked === 'all' ? 'bold' : 'normal', color: filterLinked === 'all' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'all' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>הכל</button>
+                    <button onClick={() => setFilterLinked('linked')} style={{ background: filterLinked === 'linked' ? 'white' : 'transparent', border: 'none', padding: '4px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: filterLinked === 'linked' ? 'bold' : 'normal', color: filterLinked === 'linked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'linked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>מקושרים לתחנה</button>
+                    <button onClick={() => setFilterLinked('unlinked')} style={{ background: filterLinked === 'unlinked' ? 'white' : 'transparent', border: 'none', padding: '4px 10px', borderRadius: '8px', fontSize: '0.78rem', fontWeight: filterLinked === 'unlinked' ? 'bold' : 'normal', color: filterLinked === 'unlinked' ? '#0f172a' : '#64748b', cursor: 'pointer', boxShadow: filterLinked === 'unlinked' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none' }}>ללא תחנה</button>
+                  </div>
+                ) : <div />}
 
-              {shelfDocs.length > 1 && (
-                <button 
-                  onClick={() => {
-                    setIsMultiSelect(prev => !prev);
-                    setSelectedDocIds([]);
-                  }}
-                  style={{
-                    background: isMultiSelect ? '#eff6ff' : '#ffffff',
-                    border: isMultiSelect ? '1px solid #3b82f6' : '1px solid #cbd5e1',
-                    color: isMultiSelect ? '#2563eb' : '#475569',
-                    padding: '6px 14px',
-                    borderRadius: '12px',
-                    fontSize: '0.82rem',
-                    fontWeight: 'bold',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem',
-                    boxShadow: isMultiSelect ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
-                    marginRight: 'auto'
-                  }}
-                >
-                  <span>{isMultiSelect ? '✓ ביטול בחירה' : '☑️ בחירה מרובה לשיתוף'}</span>
-                </button>
+                {shelfDocs.length > 1 && (
+                  <button 
+                    onClick={() => {
+                      setIsMultiSelect(prev => !prev);
+                      setSelectedDocIds([]);
+                    }}
+                    style={{
+                      background: isMultiSelect ? '#eff6ff' : '#ffffff',
+                      border: isMultiSelect ? '1px solid #3b82f6' : '1px solid #cbd5e1',
+                      color: isMultiSelect ? '#2563eb' : '#475569',
+                      padding: '6px 14px',
+                      borderRadius: '12px',
+                      fontSize: '0.82rem',
+                      fontWeight: 'bold',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: isMultiSelect ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
+                      marginRight: 'auto'
+                    }}
+                  >
+                    <span>{isMultiSelect ? '✓ ביטול בחירה' : '☑️ בחירה מרובה לשיתוף'}</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Station Filter & Sorting Controls */}
+              {showTimeline && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', background: '#f1f5f9', padding: '6px 10px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <span style={{ color: '#475569', fontWeight: 700 }}>📍 סינון לפי תחנה:</span>
+                    <select
+                      value={warehouseStationFilter}
+                      onChange={(e) => setWarehouseStationFilter(e.target.value)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: 'white',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color: '#1e293b',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="all">כל התחנות במדף ({activeShelfEvents.length})</option>
+                      <option value="unlinked">ללא שיוך לתחנה</option>
+                      {activeShelfEvents.map(ev => (
+                        <option key={ev.id} value={ev.id}>
+                          {ev.title || 'תחנה ללא שם'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginRight: 'auto' }}>
+                    <span style={{ color: '#475569', fontWeight: 700 }}>⇅ מיון:</span>
+                    <select
+                      value={warehouseSortBy}
+                      onChange={(e) => setWarehouseSortBy(e.target.value as any)}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '8px',
+                        border: '1px solid #cbd5e1',
+                        background: 'white',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        color: '#1e293b',
+                        cursor: 'pointer',
+                        outline: 'none'
+                      }}
+                    >
+                      <option value="station">לפי שם תחנה (א-ת)</option>
+                      <option value="name">לפי שם מסמך (א-ת)</option>
+                      <option value="date_desc">מהחדש לישן</option>
+                      <option value="date_asc">מהישן לחדש</option>
+                    </select>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -840,14 +901,48 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               });
             };
 
-            const filteredDocs = shelfDocs.filter(doc => {
-              const isLinked = isDocLinked(doc.id, doc.url);
+            let filteredDocs = shelfDocs.filter(doc => {
+              const linkedEv = getDocLinkedEvent(doc.id, doc.url);
+              const isLinked = !!linkedEv;
               if (filterLinked === 'linked') return isLinked;
               if (filterLinked === 'unlinked') return !isLinked;
               return true;
             });
+
+            if (warehouseStationFilter !== 'all') {
+              if (warehouseStationFilter === 'unlinked') {
+                filteredDocs = filteredDocs.filter(doc => !isDocLinked(doc.id, doc.url));
+              } else {
+                filteredDocs = filteredDocs.filter(doc => {
+                  const ev = getDocLinkedEvent(doc.id, doc.url);
+                  return ev && ev.id === warehouseStationFilter;
+                });
+              }
+            }
+
+            // Apply Warehouse Sorting
+            filteredDocs = [...filteredDocs].sort((a, b) => {
+              if (warehouseSortBy === 'station') {
+                const evA = getDocLinkedEvent(a.id, a.url);
+                const evB = getDocLinkedEvent(b.id, b.url);
+                const stationTitleA = evA?.title || 'תתת_ללא תחנה';
+                const stationTitleB = evB?.title || 'תתת_ללא תחנה';
+                const cmp = stationTitleA.localeCompare(stationTitleB, 'he');
+                if (cmp !== 0) return cmp;
+                return (a.title || '').localeCompare(b.title || '', 'he');
+              }
+              if (warehouseSortBy === 'name') {
+                return (a.title || '').localeCompare(b.title || '', 'he');
+              }
+              if (warehouseSortBy === 'date_asc') {
+                return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+              }
+              // Default date_desc
+              return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+            });
+
             if (filteredDocs.length === 0) {
-              const isFiltered = filterLinked !== 'all';
+              const isFiltered = filterLinked !== 'all' || warehouseStationFilter !== 'all';
               return (
                 <div style={{
                   display: 'flex',
@@ -869,14 +964,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   </h3>
                   <p style={{ margin: '0 0 1.5rem 0', color: '#64748b', fontSize: '0.9rem', maxWidth: '320px', lineHeight: '1.5' }}>
                     {isFiltered 
-                      ? 'נסה לבחור סינון אחר כדי לראות את כל המסמכים במדף זה.' 
+                      ? 'נסה לבחור תחנה אחרת או לאפס סינון כדי לראות את כל המסמכים במדף זה.' 
                       : 'תוכל לצלם מסמך ישירות למדף זה או לייבא קבצים ותמונות מהמכשיר.'}
                   </p>
                   
                   {isFiltered ? (
                     <button
                       type="button"
-                      onClick={() => setFilterLinked('all')}
+                      onClick={() => {
+                        setFilterLinked('all');
+                        setWarehouseStationFilter('all');
+                      }}
                       style={{
                         background: '#3b82f6',
                         color: 'white',
@@ -1112,23 +1210,47 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                           {new Date(doc.createdAt).toLocaleDateString('he-IL')}
                         </div>
                         
-                        {linkedEvent && (
-                          <div style={{ padding: '0 0.5rem 0.5rem 0.5rem' }}>
-                            <div 
-                              onClick={(e) => { 
-                                if (isMultiSelect) return;
-                                e.stopPropagation(); 
-                                setActiveTab('timeline'); 
-                                setTimeout(() => {
-                                  const el = document.getElementById('event-' + linkedEvent.id);
-                                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                }, 100);
-                              }} 
-                              style={{ background: '#e0f2fe', color: '#0284c7', fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '12px', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontWeight: 'bold', maxWidth: '100%' }}
-                              title={'מקושר ל: ' + linkedEvent.title}
-                            >
-                              🔗 <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{linkedEvent.title}</span>
-                            </div>
+                        {showTimeline && (
+                          <div style={{ padding: '0 0.5rem 0.4rem 0.5rem' }}>
+                            {linkedEvent ? (
+                              <div 
+                                onClick={(e) => { 
+                                  if (isMultiSelect) return;
+                                  e.stopPropagation(); 
+                                  setWarehouseStationFilter(linkedEvent.id);
+                                }} 
+                                style={{ 
+                                  background: '#e0f2fe', 
+                                  color: '#0284c7', 
+                                  fontSize: '0.72rem', 
+                                  padding: '0.2rem 0.5rem', 
+                                  borderRadius: '8px', 
+                                  display: 'inline-flex', 
+                                  alignItems: 'center', 
+                                  gap: '0.3rem', 
+                                  cursor: 'pointer', 
+                                  fontWeight: 700, 
+                                  maxWidth: '100%',
+                                  border: '1px solid #bae6fd'
+                                }}
+                                title={'שייך לתחנה: ' + linkedEvent.title + ' (לחץ לסינון תחנה זו)'}
+                              >
+                                <span>📍</span> <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{linkedEvent.title}</span>
+                              </div>
+                            ) : (
+                              <span style={{ 
+                                fontSize: '0.68rem', 
+                                color: '#94a3b8', 
+                                background: '#f1f5f9', 
+                                padding: '1px 6px', 
+                                borderRadius: '6px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '3px'
+                              }}>
+                                <span>📎</span> ללא שיוך לתחנה
+                              </span>
+                            )}
                           </div>
                         )}
                         
@@ -1581,7 +1703,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.52</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.53</span>
         </h2>
         <input 
           type="text" 

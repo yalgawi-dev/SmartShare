@@ -259,25 +259,30 @@ export default function AdminUsersPage() {
     return list;
   }, [usersWithStorage, storageSearchQuery, storageSortBy]);
 
-  // Render Status Lamp Dot
+  // Render Status Lamp Dot (Online presence + Client platform)
   const renderStatusDot = (u: any) => {
+    const isOnline = u.lastActiveAt && (Date.now() - new Date(u.lastActiveAt).getTime() < 6 * 60 * 1000); // Active in last 6 mins
+    const clientType = u.pwaInstalled && u.lastActiveMode === 'app' ? 'אפליקציה' : u.pwaInstalled ? 'דפדפן (מותקן)' : 'דפדפן';
+
+    if (isOnline) {
+      return (
+        <span title={`מחובר עכשיו דרך ${clientType}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
+          🟢 {clientType}
+        </span>
+      );
+    }
+
     if (u.pwaInstalled && u.lastActiveMode === 'app') {
       return (
-        <span title="מותקן ופעיל באפליקציה" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#dcfce7', color: '#15803d', padding: '2px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-          🟢 אפליקציה
+        <span title="אפליקציה מותקנת (לא מחובר כרגע)" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 600 }}>
+          📱 אפליקציה
         </span>
       );
     }
-    if (u.pwaInstalled) {
-      return (
-        <span title="גולש כעת מדפדפן (הותקנה בעבר)" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#fef9c3', color: '#a16207', padding: '2px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>
-          🟡 דפדפן (מותקן)
-        </span>
-      );
-    }
+
     return (
-      <span title="גולש מדפדפן רגיל" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 600 }}>
-        ⚪ דפדפן
+      <span title="גולש מדפדפן (לא מחובר כרגע)" style={{ display: 'inline-flex', alignItems: 'center', gap: '3px', background: '#f1f5f9', color: '#64748b', padding: '2px 6px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 600 }}>
+        🌐 דפדפן
       </span>
     );
   };
@@ -569,7 +574,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.52</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.53</span>
           </div>
         </div>
 
@@ -1097,13 +1102,10 @@ export default function AdminUsersPage() {
               {isLegendOpen && (
                 <div style={{ padding: '0.75rem 1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.5rem', fontSize: '0.8rem', borderTop: '1px solid #f1f5f9' }}>
                   <div style={{ background: '#f0fdf4', padding: '0.5rem', borderRadius: '8px' }}>
-                    <strong style={{ color: '#15803d' }}>🟢 אפליקציה:</strong> מותקן במסך הבית ונכנס דרכה.
-                  </div>
-                  <div style={{ background: '#fefce8', padding: '0.5rem', borderRadius: '8px' }}>
-                    <strong style={{ color: '#a16207' }}>🟡 דפדפן (מותקן):</strong> הותקנה בעבר אך כרגע גולש מדפדפן.
+                    <strong style={{ color: '#15803d' }}>🟢 מקוון (אפליקציה/דפדפן):</strong> משתמש פעיל ומחובר ברגע זה.
                   </div>
                   <div style={{ background: '#f8fafc', padding: '0.5rem', borderRadius: '8px' }}>
-                    <strong style={{ color: '#475569' }}>⚪ דפדפן:</strong> משתמש שטרם התקין את האפליקציה.
+                    <strong style={{ color: '#475569' }}>📱 / 🌐 לא מחובר:</strong> לא פעיל כעת (סמל הנייד/דפדפן מציג מאיפה גלש לאחרונה).
                   </div>
                   <div style={{ background: '#fffbeb', padding: '0.5rem', borderRadius: '8px' }}>
                     <strong style={{ color: '#b45309' }}>⚠️ כפול:</strong> טלפון/מייל רשום פעמיים במערכת.
