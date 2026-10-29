@@ -636,6 +636,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
             updateSpaceSettings={updateSpaceSettings}
             onRestrictedAction={onRestrictedAction}
             onTriggerTransfer={onTriggerTransfer}
+            onOpenPartnersModal={onOpenPartnersModal}
           />
         )}
 
