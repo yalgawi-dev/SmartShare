@@ -6,6 +6,7 @@ import { setupForegroundFCM, requestNotificationPermission } from '@/utils/notif
 import { signInWithPhoneNumber,  GoogleAuthProvider  } from 'firebase/auth';
 import { signInWithRedirect, linkWithRedirect, getRedirectResult, onAuthStateChanged, signInWithPopup, linkWithPopup, FacebookAuthProvider, OAuthProvider, signOut, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, EmailAuthProvider, updateProfile as updateFirebaseProfile, linkWithCredential, deleteUser } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc, onSnapshot } from 'firebase/firestore';
+import { shouldSyncTelemetry, prepareSyncPayload, UserTelemetryPayload } from '@/utils/telemetryTracker';
 
 export interface UserContact {
   id: string;
@@ -50,6 +51,7 @@ export interface UserProfile {
   pagesQuota?: number; // Maximum allowed document pages (e.g. 50, 100, 500 pages)
   isQuotaActive?: boolean; // If false/undefined (when no limit enforced), user is Unlimited!
   hasCustomQuota?: boolean; // True if this user has VIP/custom limit override protected from global bulk overwrites
+  telemetry?: UserTelemetryPayload;
   storageConfig?: {
     defaultTarget: 'cloud' | 'local' | 'gdrive';
     spaceOverrides?: Record<string, 'cloud' | 'local' | 'gdrive'>;
@@ -307,6 +309,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               lastActiveAt: new Date().toISOString(),
               lastActiveMode: isPwa ? 'app' : 'browser'
             };
+            // Zero-Cost Piggyback Telemetry Sync: only sync if threshold met (e.g. 4+ hours since last sync)
+            if (shouldSyncTelemetry()) {
+              presenceUpdates.telemetry = prepareSyncPayload();
+            }
             if (isPwa) {
               presenceUpdates.pwaInstalled = true;
               presenceUpdates.pwaLastSeenAt = new Date().toISOString();

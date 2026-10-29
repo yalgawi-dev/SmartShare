@@ -1,5 +1,15 @@
 'use client';
 
+function formatDurationHe(totalSeconds?: number): string {
+  if (!totalSeconds || totalSeconds <= 0) return 'פחות מדקה';
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours > 0) {
+    return `${hours} שע' ${minutes > 0 ? `ו-${minutes} דק'` : ''}`.trim();
+  }
+  return `${minutes || 1} דק'`;
+}
+
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useSpaces } from '../../context/SpacesContext';
@@ -574,7 +584,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.60</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.61</span>
           </div>
         </div>
 
@@ -2331,6 +2341,45 @@ export default function AdminUsersPage() {
                     </div>
                   )}
                 </div>
+
+                
+                {/* 1.5 USER TELEMETRY & ENGAGEMENT DWELL TIME CARD */}
+                {(() => {
+                  const t = selectedUserForAnalysis.telemetry;
+                  const totalSec = t?.totalActiveSeconds || 0;
+                  const userSpaces = t?.spaces ? Object.values(t.spaces) as any[] : [];
+                  userSpaces.sort((a, b) => (b.seconds || 0) - (a.seconds || 0));
+
+                  return (
+                    <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>⏱️</span> זמן שהייה ופעילות מנוטרת
+                        </div>
+                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0284c7', background: '#e0f2fe', padding: '2px 8px', borderRadius: '6px' }}>
+                          {formatDurationHe(totalSec)}
+                        </span>
+                      </div>
+
+                      {userSpaces.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>התפלגות לפי מרחבים:</span>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                            {userSpaces.map((sp: any) => (
+                              <span key={sp.id} style={{ background: '#ffffff', border: '1px solid #7dd3fc', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', color: '#0369a1', fontWeight: 600 }}>
+                                📁 {sp.title}: {formatDurationHe(sp.seconds)} ({sp.visits} כניסות)
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          משתמש זה טרם סנכרן זמני שהייה מקומיים (יסונכרן בפעילות הבאה).
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* 2. USER DETAILS & PARTNERS ACCORDION CARD (Right beneath the metrics) */}
                 <div 

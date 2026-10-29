@@ -1,5 +1,6 @@
 "use client";
 import { isDuplicateInvoice } from '../../utils/duplicateCheck';
+import { recordTelemetryAction } from '../../utils/telemetryTracker';
 // @ts-nocheck
 
 import { PartnersInviteModal } from './Partners/PartnersInviteModal';
@@ -244,6 +245,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
           }
         if (allPages && allPages.length > 1) { data.pages = allPages; }
         setOcrData(data); // This will now correctly populate the form!
+        recordTelemetryAction('ocrScan');
         setOcrDebugMessage(null); // Ensure UI is clean
         
         // 3. Track Usage in Firebase
@@ -506,6 +508,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
       if(setIsAddingExpense) setIsAddingExpense(false);
     } else {
       addInvoice(space.id, newInvoice);
+      recordTelemetryAction('invoiceCreate');
     }
       if (reviewingInboxItemId) {
         removeInboxItem(space.id, reviewingInboxItemId);
