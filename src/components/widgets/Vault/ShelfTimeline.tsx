@@ -9,6 +9,7 @@ import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 import MultiPageViewer from './MultiPageViewer';
+import StationNotesEditor from './StationNotesEditor';
 
 interface ShelfTimelineProps {
   space: Space;
@@ -221,7 +222,21 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       const { docId, previewUrl } = e.detail || {};
       setUploadingStationDoc(null);
       if (docId) {
-        setSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
+        setShowAddModal(true); // Guarantee station modal stays visible!
+        setSelectedDocIds(prev => {
+          const next = prev.includes(docId) ? prev : [...prev, docId];
+          // Immediately update localStorage draft with the newly attached doc
+          try {
+            const saved = localStorage.getItem(draftStorageKey);
+            const currentDraft = saved ? JSON.parse(saved) : {};
+            localStorage.setItem(draftStorageKey, JSON.stringify({
+              ...currentDraft,
+              docIds: next
+            }));
+          } catch (err) {}
+          return next;
+        });
+
         if (previewUrl) {
           setRecentlyAddedDocs(prev => ({
             ...prev,
@@ -238,7 +253,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
           }));
         }
 
-        // Fail-safe Auto-Link: If modal was closed or station was already submitted,
+        // Fail-safe Auto-Link: If station was already submitted,
         // find the most recent station in this shelf created within the last 60 seconds and link the document!
         const currentEvents = (space.shelfEvents || []).filter(ev => ev.shelfId === activeShelfId);
         const recentEvent = currentEvents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
@@ -254,10 +269,25 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
     };
 
     const handleDocSavedForEditStation = (e: any) => {
-      const { docId, previewUrl } = e.detail || {};
+      const { docId, eventId, previewUrl } = e.detail || {};
       setUploadingStationDoc(null);
       if (docId) {
-        setEditSelectedDocIds(prev => prev.includes(docId) ? prev : [...prev, docId]);
+        const targetId = eventId || editEventId;
+        setEditSelectedDocIds(prev => {
+          const next = prev.includes(docId) ? prev : [...prev, docId];
+          // Auto-persist directly to the station in DB
+          if (targetId) {
+            const currentEv = (space.shelfEvents || []).find(ev => ev.id === targetId);
+            const existingIds = currentEv?.documentIds || [];
+            if (!existingIds.includes(docId)) {
+              onUpdateEvent(targetId, {
+                documentIds: [...existingIds, docId]
+              });
+            }
+          }
+          return next;
+        });
+
         if (previewUrl) {
           setRecentlyAddedDocs(prev => ({
             ...prev,
@@ -507,9 +537,16 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                     {isExpanded && (
                       <>
                         {event.description && (
-                          <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: '1.6', margin: '0.5rem 0', whiteSpace: 'pre-wrap' }}>
-                            {event.description}
-                          </p>
+                          event.description.includes('<') && event.description.includes('>') ? (
+                            <div 
+                              style={{ color: '#475569', fontSize: '0.9rem', lineHeight: '1.6', margin: '0.5rem 0' }}
+                              dangerouslySetInnerHTML={{ __html: event.description }}
+                            />
+                          ) : (
+                            <p style={{ color: '#475569', fontSize: '0.9rem', lineHeight: '1.6', margin: '0.5rem 0', whiteSpace: 'pre-wrap' }}>
+                              {event.description}
+                            </p>
+                          )
                         )}
 
                         {/* TASKS ACCORDION */}
@@ -929,8 +966,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט או סיכום התחנה (אופציונלי)</label>
-                <textarea value={editEventDesc} onChange={(e) => setEditEventDesc(e.target.value)} placeholder="מה סוכם? דגשים, הערות, החלטות או סיכום..." rows={4} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט או סיכום התחנה (טקסט עשיר, מרקרים ודיקטפון)</label>
+                <StationNotesEditor 
+                  value={editEventDesc} 
+                  onChange={setEditEventDesc} 
+                  placeholder="מה סוכם? דגשים, הערות, החלטות או סיכום (ניתן להשתמש בדיקטפון 🎙️ או לסמן במרקר זוהר)..." 
+                />
               </div>
 
               {(() => {
@@ -1237,8 +1278,12 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
               </div>
 
               <div>
-                <label style={{ display: 'block', marginBottom: '0.25rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט או סיכום התחנה (אופציונלי)</label>
-                <textarea value={newEventDesc} onChange={(e) => setNewEventDesc(e.target.value)} placeholder="מה סוכם? דגשים, הערות, החלטות או סיכום..." rows={3} style={{ width: '100%', padding: '0.75rem', borderRadius: '12px', border: '1px solid #cbd5e1', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }}></textarea>
+                <label style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#475569' }}>פירוט או סיכום התחנה (טקסט עשיר, מרקרים ודיקטפון)</label>
+                <StationNotesEditor 
+                  value={newEventDesc} 
+                  onChange={setNewEventDesc} 
+                  placeholder="מה סוכם? דגשים, הערות, החלטות או סיכום (ניתן להשתמש בדיקטפון 🎙️ או לסמן במרקר זוהר)..." 
+                />
               </div>
 
               {/* TASKS IN ADD EVENT */}
