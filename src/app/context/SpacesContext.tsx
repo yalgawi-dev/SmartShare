@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { AVAILABLE_FEATURES } from '../data/features';
-import { isAuthenticPartnerName } from '../../utils/partnerUtils';
+import { isAuthenticPartnerName, calculateCurrentSharesSnapshot } from '../../utils/partnerUtils';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import { triggerPushNotification } from '@/utils/notifications';
@@ -55,6 +55,7 @@ export interface Invoice {
   vatNumber?: string;
     documentType?: string;
   invoiceNumber?: string;
+  sharesSnapshot?: Record<string, number>;
 }
 
 export interface Comment {
@@ -269,7 +270,7 @@ interface SpacesContextType {
   removeFromPersonalInbox: (itemId: string) => Promise<void>;
   updatePersonalInboxItem: (itemId: string, updates: any) => Promise<void>;
 
-  updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
+  updateSharesBulk: (spaceId: string, myShare: number, partnerShares: Record<string, number>, scope?: 'from_now_on' | 'retroactive') => void;
   approveShareChange: (spaceId: string, userId: string) => void;
   rejectShareChange: (spaceId: string, userId: string) => void;
   approveExtension: (spaceId: string, memberId: string) => void;
@@ -1485,8 +1486,11 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     });
   };
 
-  const updateSharesBulk = (spaceId: string, myShare: number, partnerShares: Record<string, number>) => {
+  const updateSharesBulk = (spaceId: string, myShare: number, partnerShares: Record<string, number>, scope: 'from_now_on' | 'retroactive' = 'from_now_on') => {
     saveSpaceUpdate(spaceId, space => {
+      // 1. Calculate the active shares snapshot before this change
+      const previousSharesSnapshot = calculateCurrentSharesSnapshot(space);
+
       let requiresApproval = false;
       const newMembers = (space.members || []).map(m => {
         if (partnerShares[m.userId] !== undefined) {
@@ -1522,9 +1526,37 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         }
         return m;
       });
+
+      // 2. Compute updated invoices according to chosen scope
+      let updatedInvoices = space.invoices || [];
+      if (scope === 'from_now_on') {
+        // LOCK past invoices to previous snapshot if they don't already have one locked!
+        // This ensures past invoices will NEVER be affected by this or future changes!
+        updatedInvoices = updatedInvoices.map(inv => {
+          if (!inv.sharesSnapshot) {
+            return {
+              ...inv,
+              sharesSnapshot: previousSharesSnapshot
+            };
+          }
+          return inv;
+        });
+      } else if (scope === 'retroactive') {
+        // Retroactive: update or clear snapshots on all past invoices so they recalculate to new rates!
+        const nextSnapshot: Record<string, number> = {
+          [space.creatorId || space.createdBy || 'creator']: myShare,
+          ...partnerShares
+        };
+        updatedInvoices = updatedInvoices.map(inv => ({
+          ...inv,
+          sharesSnapshot: nextSnapshot
+        }));
+      }
+
       return {
         ...space,
         members: newMembers,
+        invoices: updatedInvoices,
         settings: { 
           ...space.settings, 
           mySharePercentage: requiresApproval ? space.settings?.mySharePercentage : myShare, 
@@ -1842,11 +1874,19 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   const addInvoice = (spaceId: string, invoiceData: Omit<Invoice, 'id'>) => {
-    saveSpaceUpdate(spaceId, space => ({
-      ...space,
-      invoices: [{ ...invoiceData, id: `inv-${Date.now()}` }, ...(space.invoices || [])],
-      updatedAt: new Date().toISOString()
-    }));
+    saveSpaceUpdate(spaceId, space => {
+      const activeShares = calculateCurrentSharesSnapshot(space);
+      const newInvoiceWithSnapshot = {
+        ...invoiceData,
+        sharesSnapshot: invoiceData.sharesSnapshot || activeShares,
+        id: `inv-${Date.now()}`
+      };
+      return {
+        ...space,
+        invoices: [newInvoiceWithSnapshot, ...(space.invoices || [])],
+        updatedAt: new Date().toISOString()
+      };
+    });
 
     const space = spacesBase.find(s => s.id === spaceId);
     if (space && space.members) {

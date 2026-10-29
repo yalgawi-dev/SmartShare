@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 interface SharesEditorModalProps { [key: string]: any;
   space: any;
   onClose: () => void;
-  updateSharesBulk?: (spaceId: string, myShare: number, partnerShares: Record<string, number>) => void;
+  updateSharesBulk?: (spaceId: string, myShare: number, partnerShares: Record<string, number>, scope?: 'from_now_on' | 'retroactive') => void;
   updateSpaceSettings?: (spaceId: string, settings: any) => void;
   user: any;
   removeMember?: (spaceId: string, userId: string, performedBy: string, isReject?: boolean) => void;
@@ -14,6 +14,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
   const [mounted, setMounted] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [shareScope, setShareScope] = useState<'from_now_on' | 'retroactive'>('from_now_on');
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -55,7 +56,7 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
     if (updateSharesBulk) {
       const pSharesNum: Record<string, number> = {};
       Object.keys(partnerShares).forEach(k => pSharesNum[k] = Number(partnerShares[k]));
-      updateSharesBulk(space.id, Number(myShare), pSharesNum);
+      updateSharesBulk(space.id, Number(myShare), pSharesNum, shareScope);
       setSaved(true);
       setTimeout(() => { setSaved(false); onClose(); }, 1500);
     }
@@ -184,6 +185,53 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
             <strong>שים לב:</strong> סך כל האחוזים חייב להיות בדיוק 100% כדי להישמר. יש לתקן את האחוזים.
           </div>
         )}
+
+        {/* Share Scope Selector: From Now On vs Retroactive */}
+        <div style={{ margin: '0 1.5rem 1rem 1.5rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+          <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155' }}>
+            🎯 תחולת שינוי האחוזים:
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+            <button
+              type="button"
+              onClick={() => setShareScope('from_now_on')}
+              style={{
+                padding: '0.55rem 0.6rem',
+                borderRadius: '10px',
+                border: shareScope === 'from_now_on' ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                background: shareScope === 'from_now_on' ? '#eff6ff' : '#ffffff',
+                color: shareScope === 'from_now_on' ? '#1d4ed8' : '#475569',
+                fontWeight: shareScope === 'from_now_on' ? 800 : 600,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+                lineHeight: 1.3
+              }}
+            >
+              📅 <strong>מעכשיו והלאה</strong>
+              <div style={{ fontSize: '0.68rem', opacity: 0.8, marginTop: '2px' }}>הוצאות עבר נשמרות</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShareScope('retroactive')}
+              style={{
+                padding: '0.55rem 0.6rem',
+                borderRadius: '10px',
+                border: shareScope === 'retroactive' ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                background: shareScope === 'retroactive' ? '#fef2f2' : '#ffffff',
+                color: shareScope === 'retroactive' ? '#b91c1c' : '#475569',
+                fontWeight: shareScope === 'retroactive' ? 800 : 600,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                textAlign: 'center',
+                lineHeight: 1.3
+              }}
+            >
+              🛡️ <strong>תיקון רטרואקטיבי</strong>
+              <div style={{ fontSize: '0.68rem', opacity: 0.8, marginTop: '2px' }}>מחשב מחדש כל העבר</div>
+            </button>
+          </div>
+        </div>
         </div>
 
         <div style={{ display: showHistory ? 'none' : 'flex', justifyContent: 'center', padding: '0 1.5rem 1.5rem 1.5rem' }}>

@@ -244,11 +244,20 @@ export function FinanceSummary({
 
     const excluded = inv.excludedMembers || [];
     const participating = balances.filter(b => b.isMember && !excluded.includes(b.userId));
-    const totalParticipatingShares = participating.reduce((sum, b) => sum + Number(b.p), 0);
+    
+    // If invoice locked a sharesSnapshot at creation time, respect it! Otherwise use current b.p
+    const getShareForInvoice = (b: any) => {
+      if (inv.sharesSnapshot && inv.sharesSnapshot[b.userId] !== undefined) {
+        return Number(inv.sharesSnapshot[b.userId]);
+      }
+      return Number(b.p);
+    };
+
+    const totalParticipatingShares = participating.reduce((sum, b) => sum + getShareForInvoice(b), 0);
     
     if (totalParticipatingShares > 0) {
       participating.forEach(b => {
-        b.incomeExpected += invAmount * (Number(b.p) / totalParticipatingShares);
+        b.incomeExpected += invAmount * (getShareForInvoice(b) / totalParticipatingShares);
       });
     }
   });
@@ -257,10 +266,19 @@ export function FinanceSummary({
     const invAmount = inv.amount || 0;
     const excluded = inv.excludedMembers || [];
     const participating = balances.filter(b => b.isMember && !excluded.includes(b.userId));
-    const totalParticipatingShares = participating.reduce((sum, b) => sum + Number(b.p), 0);
+
+    // If invoice locked a sharesSnapshot at creation time, respect it! Otherwise use current b.p
+    const getShareForInvoice = (b: any) => {
+      if (inv.sharesSnapshot && inv.sharesSnapshot[b.userId] !== undefined) {
+        return Number(inv.sharesSnapshot[b.userId]);
+      }
+      return Number(b.p);
+    };
+
+    const totalParticipatingShares = participating.reduce((sum, b) => sum + getShareForInvoice(b), 0);
     if (totalParticipatingShares > 0) {
       participating.forEach(b => {
-        b.expected += invAmount * (Number(b.p) / totalParticipatingShares);
+        b.expected += invAmount * (getShareForInvoice(b) / totalParticipatingShares);
       });
     }
   });
