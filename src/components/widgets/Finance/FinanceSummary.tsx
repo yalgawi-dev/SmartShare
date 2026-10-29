@@ -114,24 +114,7 @@ export function FinanceSummary({
     }
   });
 
-  // Include pending invited partners for visual display
-  const pendingInvitesList = space.pendingInvites || [];
-  const seenPendingKeys = new Set<string>();
-  const uniquePendingInvites: any[] = [];
-  for (let i = pendingInvitesList.length - 1; i >= 0; i--) {
-    const inv = pendingInvitesList[i];
-    if (!inv) continue;
-    const key = inv.targetUserId
-      ? `uid_${inv.targetUserId}`
-      : (inv.name && inv.name.trim() && inv.name.trim() !== 'שותף מוזמן' ? `name_${inv.name.trim().toLowerCase()}` : `token_${inv.token}`);
-    if (!seenPendingKeys.has(key)) {
-      seenPendingKeys.add(key);
-      uniquePendingInvites.unshift(inv);
-    }
-  }
-
-  // Note: Pending invites do not participate in math calculations (until they join).
-  // They are displayed visually at the top of the table.
+  // Note: Strict Decoupling - Pending invites are managed in PartnersDirectoryWidget only.
 
   if (isCashboxEnabled(space)) {
     unifiedBalances.set(TREASURY_MEMBER_ID, { 
@@ -481,58 +464,18 @@ export function FinanceSummary({
                 </tr>
               </thead>
               <tbody>
-                {/* Pending Invites (displayed at the top of the list) */}
-                {hasPartners && uniquePendingInvites.map((inv: any) => {
-                  const inviteName = inv.name?.trim() || 'שותף מוזמן';
-                  const isRetro = inv.isRetroactive !== false;
-                  return (
-                    <tr 
-                      key={inv.token || inv.id || inviteName}
-                      onClick={() => {
-                        if (onOpenPartnersModal) {
-                          onOpenPartnersModal();
-                        }
-                      }}
-                      style={{ 
-                        borderBottom: '1px solid var(--border-light)', 
-                        background: '#faf5ff',
-                        cursor: onOpenPartnersModal ? 'pointer' : 'default',
-                        transition: 'background 0.2s'
-                      }}
-                      title="שותף מוזמן (טרם אישר הצטרפות) - לחץ לפתיחת ספריית השותפים"
-                    >
-                      <td style={{ padding: '0.5rem 0.6rem' }}>
-                        <div style={{ display: 'flex', flexDirection: 'column' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: '#6b21a8', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a855f7', flexShrink: 0 }} title="ממתין להצטרפות" />
-                            {inviteName}
-                            <span style={{ fontSize: '0.68rem', background: '#f3e8ff', color: '#7e22ce', padding: '1px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
-                              ממתין לאישור
-                            </span>
-                          </span>
-                          <span style={{ fontSize: '0.65rem', color: '#7e22ce', marginTop: '0.1rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                            {isRetro ? '🛡️ ישתתף ברטרואקטיבי' : '📅 מכאן והלאה'}
-                          </span>
-                        </div>
-                      </td>
-                      <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center', color: '#7e22ce', fontWeight: 600 }}>
-                        {inv.guestShare !== undefined ? `${inv.guestShare}%` : '-'}
-                      </td>
-                      <td style={{ padding: '0.5rem 0.6rem', color: 'var(--text-secondary)' }}>
-                        ₪0
-                      </td>
-                      {hasPartners && activePartnersCount > 0 && (
-                        <td style={{ padding: '0.5rem 0.6rem', color: '#7e22ce', fontSize: '0.78rem' }}>
-                          <span style={{ background: '#f3e8ff', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>
-                            יחושב בהצטרפות
-                          </span>
-                        </td>
-                      )}
-                    </tr>
-                  );
-                })}
-
-                {balances.filter(b => b.userId !== TREASURY_MEMBER_ID).map((b) => {
+                {balances
+                  .filter(b => b.userId !== TREASURY_MEMBER_ID)
+                  .sort((a, b) => {
+                    const isAMe = a.userId === user?.id || (isCreatorMe && a.isCreator);
+                    const isBMe = b.userId === user?.id || (isCreatorMe && b.isCreator);
+                    if (isAMe && !isBMe) return -1;
+                    if (!isAMe && isBMe) return 1;
+                    if (a.isCreator && !b.isCreator) return -1;
+                    if (!a.isCreator && b.isCreator) return 1;
+                    return b.paid - a.paid;
+                  })
+                  .map((b) => {
                   const memberObj = space.members?.find((m: any) => m.userId === b.userId);
                   const isInactive = (memberObj?.isActive === false) || (activePartnersCount === 0 && b.userId !== myId);
                   const isExcludedFromPast = b.isMember && !b.isCreator && expensesOnly.length > 0 && expensesOnly.every((inv: any) => (inv.excludedMembers || []).includes(b.userId));

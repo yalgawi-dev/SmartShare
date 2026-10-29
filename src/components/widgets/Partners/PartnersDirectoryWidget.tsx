@@ -30,7 +30,8 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
     welcomed: false,
     joinedAt: inv.createdAt,
     sharePercentage: inv.guestShare,
-    isInvite: true
+    isInvite: true,
+    isRetroactive: inv.isRetroactive !== false
   }));
 
   const activeSpaceMembers = (space.members || []).filter((m: any) => m.userId !== creatorId && m.isActive !== false).map((m: any) => ({
@@ -42,12 +43,24 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
     ? (user?.realName || user?.nickname || user?.email || "אני")
     : (space.creatorName || (space.createdBy && space.createdBy !== 'אורח' && space.createdBy !== 'אני' ? space.createdBy : 'יוצר המרחב'));
 
+  const totalPartnerShares = (space.members || [])
+    .filter((m: any) => m.userId !== creatorId && m.isActive !== false)
+    .reduce((sum: number, m: any) => sum + (Number(m.sharePercentage) || 0), 0)
+    + (space.invites || [])
+    .filter((inv: any) => inv.status === 'pending')
+    .reduce((sum: number, inv: any) => sum + (Number(inv.guestShare) || 0), 0);
+
+  const creatorSharePercentage = typeof space.settings?.mySharePercentage === 'number'
+    ? space.settings.mySharePercentage
+    : Math.max(0, 100 - totalPartnerShares);
+
   const allMembers = [
     {
       userId: creatorId,
       name: creatorDisplayName,
       role: "creator",
-      status: "active"
+      status: "active",
+      sharePercentage: creatorSharePercentage
     },
     ...activeSpaceMembers,
     ...pendingMembers
@@ -118,7 +131,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.46</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.47</span>
         </div>
         {isCreatorMe && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -316,10 +329,24 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                       <span style={{ fontWeight: isMe ? 800 : 600, color: 'var(--text-primary)', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name || m.userId}</span>
                       {isMe && <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>אני</span>}
                       {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.75rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>מנהל</span>}
+                      {m.sharePercentage !== undefined && (
+                        <span style={{ fontSize: '0.75rem', color: '#6366f1', background: '#eef2ff', padding: '0.1rem 0.45rem', borderRadius: '8px', fontWeight: 800, border: '1px solid #e0e7ff', flexShrink: 0 }}>
+                          {m.sharePercentage}%
+                        </span>
+                      )}
+                      {m.isInvite && (
+                        <span style={{ fontSize: '0.7rem', background: '#f3e8ff', color: '#7e22ce', padding: '0.1rem 0.45rem', borderRadius: '6px', fontWeight: 'bold', flexShrink: 0 }}>
+                          ממתין לאישור
+                        </span>
+                      )}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                      {m.status === "active" ? null : 
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                      {m.isInvite ? (
+                        <span style={{ fontSize: '0.75rem', color: '#7e22ce', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          {m.isRetroactive ? '🛡️ רטרואקטיבי (כולל עבר)' : '📅 מכאן והלאה'}
+                        </span>
+                      ) : m.status === "active" ? null : 
                        m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b', whiteSpace: 'nowrap' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6', whiteSpace: 'nowrap' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
                        m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b', whiteSpace: 'nowrap' }}>🔄 מבקש הארכה</span> : 
                        m.status === "disputed" ? <span style={{ fontSize: '0.8rem', color: '#dc2626', whiteSpace: 'nowrap' }}>⚠️ סכסוך</span> : <span style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{m.status}</span>}

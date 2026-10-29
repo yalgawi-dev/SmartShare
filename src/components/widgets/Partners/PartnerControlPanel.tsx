@@ -270,7 +270,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                   }
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.46</span>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.47</span>
                 
                 {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                   if (isInvite) return '#f59e0b';
