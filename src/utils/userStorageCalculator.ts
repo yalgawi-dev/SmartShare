@@ -84,13 +84,12 @@ export function calculateUserStorageDetails(
   let ocrFromInvoices = 0;
 
   activeSpaces.forEach(s => {
-    const isUserSpace = s.creatorId === user.id || (s.members || []).some((m: any) => m.userId === user.id);
-    const isUserOnlyOrCreator = s.creatorId === user.id || (s.members && s.members.length <= 1);
+    const isSingleUserSpace = (s.creatorId === user.id || !s.creatorId) && (!s.members || s.members.length <= 1);
 
-    // Documents added by user or in user's personal/created space
+    // Documents added by user or in user's sole personal space
     (s.documents || []).forEach((d: any) => {
-      const isDocAddedByUser = d.addedBy === user.id || (isUserOnlyOrCreator && (!d.addedBy || d.addedBy === 'me'));
-      if (isDocAddedByUser || (isUserSpace && !d.addedBy)) {
+      const isDocAddedByUser = d.addedBy === user.id || (isSingleUserSpace && (!d.addedBy || d.addedBy === 'me'));
+      if (isDocAddedByUser) {
         myDocsCount++;
         // Count all pages individually for multi-page documents/scrolls (מגילות)
         const docPages = Array.isArray(d.pages) && d.pages.length > 0 ? d.pages.length : 1;
@@ -98,28 +97,28 @@ export function calculateUserStorageDetails(
       }
     });
 
-    // Media added by user or in user's personal/created space
+    // Media added by user or in user's sole personal space
     (s.mediaItems || []).forEach((m: any) => {
-      const isMediaAddedByUser = m.authorId === user.id || (isUserOnlyOrCreator && !m.authorId);
-      if (isMediaAddedByUser || (isUserSpace && !m.authorId)) {
+      const isMediaAddedByUser = m.authorId === user.id || (isSingleUserSpace && (!m.authorId || m.authorId === 'me'));
+      if (isMediaAddedByUser) {
         myMediaCount++;
       }
     });
 
-    // Invoices uploaded or paid by user (only those with physical attachments!)
+    // Invoices uploaded or paid strictly by this user (only those with physical attachments!)
     (s.invoices || []).forEach((inv: any) => {
       const hasFile = !!(inv.hasAttachment && (inv.attachmentUrl || inv.imageUrl));
-      const isInvByUser = inv.payerId === user.id || inv.uploaderId === user.id || (isUserOnlyOrCreator && (!inv.payerId || inv.payerId === 'me'));
+      const isInvByUser = inv.uploaderId === user.id || inv.payerId === user.id || (isSingleUserSpace && (!inv.payerId || inv.payerId === 'me'));
       
-      if (hasFile && (isInvByUser || isUserSpace)) {
+      if (hasFile && isInvByUser) {
         myInvoicesCount++;
         // Count pages in multi-page invoice attachments
         const invPages = Array.isArray(inv.pages) && inv.pages.length > 0 ? inv.pages.length : 1;
         myPagesCount += invPages;
       }
 
-      // Count OCR performed on invoice
-      if (inv.ocrData && (isInvByUser || isUserSpace)) {
+      // Count OCR performed on invoice by user
+      if (inv.ocrData && isInvByUser) {
         ocrFromInvoices++;
       }
     });

@@ -49,7 +49,7 @@ export default function AdminUsersPage() {
   const [isSavingGlobalQuota, setIsSavingGlobalQuota] = useState(false);
   const [isTogglingGlobalQuota, setIsTogglingGlobalQuota] = useState(false);
   const [globalQuotaSuccess, setGlobalQuotaSuccess] = useState(false);
-  const [isGlobalQuotaCardOpen, setIsGlobalQuotaCardOpen] = useState(true);
+  const [isGlobalQuotaCardOpen, setIsGlobalQuotaCardOpen] = useState(false);
 
   // Individual User Modal Quota Unit State
   const [modalStorageUnit, setModalStorageUnit] = useState<'KB' | 'MB' | 'GB'>('MB');
@@ -568,7 +568,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.40</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.41</span>
           </div>
         </div>
 
