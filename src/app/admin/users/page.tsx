@@ -1,5 +1,21 @@
 'use client';
 
+function getEngagementBadge(actions: any) {
+  const invs = actions?.invoicesCreated || 0;
+  const apps = actions?.invoicesApproved || 0;
+  const docs = actions?.docsUploaded || 0;
+  const ocr = actions?.ocrScans || 0;
+  const chat = actions?.chatMessages || 0;
+  const total = invs + apps + docs + ocr + chat;
+  if (total >= 5) {
+    return { label: '⭐ שותף יוצר', bg: '#fef3c7', color: '#b45309', border: '#fde68a', total, invs, apps, docs, ocr, chat };
+  }
+  if (total > 0) {
+    return { label: '⚡ שותף מעורב', bg: '#ecfdf5', color: '#047857', border: '#a7f3d0', total, invs, apps, docs, ocr, chat };
+  }
+  return { label: '👀 צופה', bg: '#f1f5f9', color: '#475569', border: '#cbd5e1', total: 0, invs: 0, apps: 0, docs: 0, ocr: 0, chat: 0 };
+}
+
 function formatDurationHe(totalSeconds?: number): string {
   if (!totalSeconds || totalSeconds <= 0) return 'פחות מדקה';
   const hours = Math.floor(totalSeconds / 3600);
@@ -584,7 +600,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.63</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.64</span>
           </div>
         </div>
 
@@ -2516,20 +2532,50 @@ export default function AdminUsersPage() {
                     ? new Date(t.lastSyncedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
                     : null;
 
+                  const badge = getEngagementBadge(t?.actions);
+
                   return (
-                    <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <span>⏱️</span> זמן שהייה ופעילות מנוטרת
+                        <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0369a1', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span>⏱️</span> זמן שהייה ומעורבות
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, background: badge.bg, color: badge.color, border: `1px solid ${badge.border}`, padding: '2px 8px', borderRadius: '8px' }}>
+                            {badge.label}
+                          </span>
                         </div>
-                        <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#0284c7', background: '#e0f2fe', padding: '2px 8px', borderRadius: '6px' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0284c7', background: '#e0f2fe', padding: '3px 10px', borderRadius: '8px' }}>
                           {formatDurationHe(totalSec)}
                         </span>
                       </div>
 
+                      {/* Action Breakdown Badges */}
+                      <div style={{ background: '#ffffff', borderRadius: '10px', border: '1px solid #e0f2fe', padding: '0.6rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                        <div style={{ fontSize: '0.72rem', color: '#475569', fontWeight: 700 }}>
+                          פילוח פעולות שבוצעו באפליקציה:
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                          <span style={{ fontSize: '0.72rem', background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
+                            🧾 {badge.invs} חשבוניות נוצרו
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#15803d', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
+                            ✅ {badge.apps} חשבוניות אושרו
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: '#faf5ff', border: '1px solid #e9d5ff', color: '#7e22ce', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
+                            📁 {badge.docs} מסמכים הועלו
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: '#fefce8', border: '1px solid #fef08a', color: '#a16207', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
+                            ⚡ {badge.ocr} סריקות OCR
+                          </span>
+                          <span style={{ fontSize: '0.72rem', background: '#f0fdfa', border: '1px solid #99f6e4', color: '#0f766e', padding: '2px 7px', borderRadius: '6px', fontWeight: 700 }}>
+                            💬 {badge.chat} הודעות צ\'אט
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Space Breakdown */}
                       {userSpaces.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '2px' }}>
-                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>התפלגות לפי מרחבים:</span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b' }}>זמן שהייה לפי מרחבים:</span>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
                             {userSpaces.map((sp: any) => (
                               <span key={sp.id} style={{ background: '#ffffff', border: '1px solid #7dd3fc', padding: '2px 8px', borderRadius: '6px', fontSize: '0.72rem', color: '#0369a1', fontWeight: 600 }}>

@@ -8,6 +8,7 @@ import { isDuplicateInvoice } from '../../../utils/duplicateCheck';
 import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
 import { convertImagesToPdfBlob } from '../../../utils/documentUtils';
 import PdfThumbnail from '../../shared/PdfThumbnail';
+import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -213,6 +214,7 @@ export function FinanceTransactions({
       const newApprovedBy = [...currentApprovedBy, user.id];
       const newApprovalsReceived = (inv.approvalsReceived || 0) + 1;
       const newStatus = newApprovalsReceived >= inv.approvalsNeeded ? 'approved' : 'pending';
+      recordTelemetryAction('invoiceApprove');
       updateInvoice(space.id, inv.id, {
         approvalsReceived: newApprovalsReceived,
         approvedBy: newApprovedBy,

@@ -24,6 +24,7 @@ export interface UserTelemetryPayload {
     invoicesApproved: number;
     docsUploaded: number;
     ocrScans: number;
+    chatMessages?: number;
   };
   lastSyncedAt?: string;
 }
@@ -36,7 +37,7 @@ export function getLocalTelemetry(): UserTelemetryPayload {
     return {
       totalActiveSeconds: 0,
       spaces: {},
-      actions: { invoicesCreated: 0, invoicesApproved: 0, docsUploaded: 0, ocrScans: 0 }
+      actions: { invoicesCreated: 0, invoicesApproved: 0, docsUploaded: 0, ocrScans: 0, chatMessages: 0 }
     };
   }
 
@@ -52,6 +53,7 @@ export function getLocalTelemetry(): UserTelemetryPayload {
           invoicesApproved: parsed.actions?.invoicesApproved || 0,
           docsUploaded: parsed.actions?.docsUploaded || 0,
           ocrScans: parsed.actions?.ocrScans || 0,
+          chatMessages: parsed.actions?.chatMessages || 0,
         },
         lastSyncedAt: parsed.lastSyncedAt
       };
@@ -63,7 +65,7 @@ export function getLocalTelemetry(): UserTelemetryPayload {
   return {
     totalActiveSeconds: 0,
     spaces: {},
-    actions: { invoicesCreated: 0, invoicesApproved: 0, docsUploaded: 0, ocrScans: 0 }
+    actions: { invoicesCreated: 0, invoicesApproved: 0, docsUploaded: 0, ocrScans: 0, chatMessages: 0 }
   };
 }
 
@@ -128,12 +130,13 @@ export function recordSpaceEnter(spaceId: string, spaceTitle?: string) {
 /**
  * Record key action events (creation, approval, OCR)
  */
-export function recordTelemetryAction(actionType: 'invoiceCreate' | 'invoiceApprove' | 'docUpload' | 'ocrScan') {
+export function recordTelemetryAction(actionType: 'invoiceCreate' | 'invoiceApprove' | 'docUpload' | 'ocrScan' | 'chatMessage') {
   const current = getLocalTelemetry();
   if (actionType === 'invoiceCreate') current.actions.invoicesCreated = (current.actions.invoicesCreated || 0) + 1;
   if (actionType === 'invoiceApprove') current.actions.invoicesApproved = (current.actions.invoicesApproved || 0) + 1;
   if (actionType === 'docUpload') current.actions.docsUploaded = (current.actions.docsUploaded || 0) + 1;
   if (actionType === 'ocrScan') current.actions.ocrScans = (current.actions.ocrScans || 0) + 1;
+  if (actionType === 'chatMessage') current.actions.chatMessages = (current.actions.chatMessages || 0) + 1;
   saveLocalTelemetry(current);
 }
 

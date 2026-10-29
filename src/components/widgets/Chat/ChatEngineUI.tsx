@@ -1,4 +1,5 @@
 'use client';
+import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
@@ -153,6 +154,7 @@ export default function ChatEngineUI({
     if (!messageText.trim()) return;
     if (typeof sendConversationMessage === 'function') {
       sendConversationMessage(space.id, conversationId, resolvedMyId, messageText.trim());
+      recordTelemetryAction('chatMessage');
     }
     setMessageText('');
   };
