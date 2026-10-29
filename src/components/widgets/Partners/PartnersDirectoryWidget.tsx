@@ -141,7 +141,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.48</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.49</span>
         </div>
         {isCreatorMe && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -374,17 +374,12 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                       )}
                     </div>
 
-                    {/* Line 2: Status & Scope tags */}
+                    {/* Line 2: Status tag */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                       {m.isInvite ? (
-                        <>
-                          <span style={{ fontSize: '0.7rem', background: '#f3e8ff', color: '#7e22ce', padding: '0.1rem 0.5rem', borderRadius: '6px', fontWeight: 700, border: '1px solid #e9d5ff', flexShrink: 0 }}>
-                            ⏳ ממתין לאישור
-                          </span>
-                          <span style={{ fontSize: '0.7rem', color: '#475569', background: '#f1f5f9', padding: '0.1rem 0.45rem', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', flexShrink: 0 }}>
-                            {m.isRetroactive ? '🛡️ רטרואקטיבי' : '📅 מכאן והלאה'}
-                          </span>
-                        </>
+                        <span style={{ fontSize: '0.72rem', background: '#f3e8ff', color: '#7e22ce', padding: '0.12rem 0.55rem', borderRadius: '6px', fontWeight: 700, border: '1px solid #e9d5ff', flexShrink: 0 }}>
+                          ⏳ ממתין לאישור
+                        </span>
                       ) : m.status === "active" ? (
                         <span style={{ fontSize: '0.7rem', color: '#10b981', background: '#ecfdf5', padding: '0.05rem 0.4rem', borderRadius: '6px', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
                           ● פעיל
@@ -423,18 +418,25 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                   )}
 
                   {canClick && (
-                    <span style={{ 
-                      color: isExpanded ? '#4338ca' : 'var(--text-secondary)', 
-                      fontSize: '0.82rem', 
-                      background: isExpanded ? '#e0e7ff' : '#f1f5f9', 
-                      padding: '0.35rem 0.75rem', 
-                      borderRadius: '10px',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.25rem'
-                    }}>
-                      {isExpanded ? 'סגור ▴' : 'ניהול ▾'}
+                    <span 
+                      title={isExpanded ? 'סגור פאנל' : 'פתח פאנל ניהול'}
+                      style={{ 
+                        color: isExpanded ? '#4338ca' : '#64748b', 
+                        fontSize: '0.95rem', 
+                        background: isExpanded ? '#e0e7ff' : '#f1f5f9', 
+                        width: '34px',
+                        height: '34px',
+                        borderRadius: '50%',
+                        fontWeight: 700,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: isExpanded ? '1px solid #c7d2fe' : '1px solid #e2e8f0',
+                        transition: 'all 0.2s',
+                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)'
+                      }}
+                    >
+                      ▼
                     </span>
                   )}
                 </div>
