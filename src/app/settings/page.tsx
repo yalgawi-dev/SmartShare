@@ -18,7 +18,15 @@ export default function SettingsPage() {
   const { user, allUsers, updateProfile, logout, deleteMyAccount } = useAuth();
   const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
   
-    const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'storage' | 'system'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'storage' | 'system'>(() => {
+    if (typeof window !== 'undefined') {
+      const t = new URLSearchParams(window.location.search).get('tab');
+      if (t === 'profile' || t === 'contacts' || t === 'spaces' || t === 'storage' || t === 'system') {
+        return t;
+      }
+    }
+    return 'profile';
+  });
   const [defaultStorageTarget, setDefaultStorageTarget] = useState<'cloud' | 'local' | 'gdrive'>(
     user?.storageConfig?.defaultTarget || 'cloud'
   );
@@ -382,7 +390,15 @@ export default function SettingsPage() {
     );
   };
 
-  const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>('active');
+  const [spacesSubTab, setSpacesSubTab] = useState<'active' | 'archived'>(() => {
+    if (typeof window !== 'undefined') {
+      const s = new URLSearchParams(window.location.search).get('sub');
+      if (s === 'archived' || s === 'active') {
+        return s;
+      }
+    }
+    return 'active';
+  });
   const [isPushEnabled, setIsPushEnabled] = useState(false);
   const [showNotificationHelp, setShowNotificationHelp] = useState(false);
   const [pushSuccessMessage, setPushSuccessMessage] = useState(false);
@@ -526,7 +542,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.55</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.56</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1002,7 +1018,7 @@ export default function SettingsPage() {
 
                             <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                               <Link 
-                                href={'/space/' + s.id} 
+                                href={'/space/' + s.id + '?from=settings_active'} 
                                 style={{ 
                                   flex: 1, 
                                   background: '#2563eb', 
@@ -1105,7 +1121,7 @@ export default function SettingsPage() {
                         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap', paddingTop: '0.5rem', borderTop: '1px dashed #fed7aa' }}>
                           {/* Peek / Preview into Space */}
                           <Link 
-                            href={`/space/${s.id}`}
+                            href={`/space/${s.id}?from=settings_archived`}
                             style={{ 
                               padding: '0.45rem 0.9rem', 
                               background: '#ffffff', 
