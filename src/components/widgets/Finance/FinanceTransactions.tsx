@@ -641,7 +641,12 @@ export function FinanceTransactions({
                                   const twoHoursMs = 2 * 60 * 60 * 1000;
                                   const msElapsed = Date.now() - createdAtTime;
                                   const isWithinTwoHours = createdAtTime > 0 && msElapsed < twoHoursMs;
-                                  const minutesLeft = Math.max(1, Math.ceil((twoHoursMs - msElapsed) / 60000));
+                                  const totalMinutesLeft = Math.max(1, Math.ceil((twoHoursMs - msElapsed) / 60000));
+                                  const hrsLeft = Math.floor(totalMinutesLeft / 60);
+                                  const minsLeft = totalMinutesLeft % 60;
+                                  const timeLeftStr = hrsLeft > 0 
+                                    ? `${hrsLeft} שע' ${minsLeft > 0 ? `ו-${minsLeft} דק'` : ''}`.trim() 
+                                    : `${minsLeft} דק'`;
                                   const isApprovedByOthers = (inv.approvedBy || []).some((id: string) => id !== myEffectiveId && id !== user?.id && id !== 'me');
                                   const canDirectDelete = isWithinTwoHours && !isApprovedByOthers;
 
@@ -661,7 +666,7 @@ export function FinanceTransactions({
                                         }
 
                                         const confirmMsg = canDirectDelete 
-                                          ? `ההוצאה הועלתה לאחרונה (נותרו ${minutesLeft} דקות לחלון הביטול). האם לבטל אותה ישירות ולהעבירה לארכיון?`
+                                          ? `ההוצאה הועלתה לאחרונה (נותרו ${timeLeftStr} לחלון הביטול). האם לבטל אותה ישירות ולהעבירה לארכיון?`
                                           : 'האם אתה בטוח שברצונך לבטל הוצאה זו? היא תעבור לארכיון.';
 
                                         if (window.confirm(confirmMsg)) {
@@ -690,7 +695,7 @@ export function FinanceTransactions({
                                       </button>
                                       {canDirectDelete ? (
                                         <span style={{ fontSize: '0.7rem', color: '#b91c1c', textAlign: 'center', fontWeight: 600 }}>
-                                          {`⏱️ נותרו ${minutesLeft} דק' למחיקה עצמאית`}
+                                          {`⏱️ נותרו ${timeLeftStr} למחיקה עצמאית`}
                                         </span>
                                       ) : activePartnersCount > 0 && (
                                         <span style={{ fontSize: '0.7rem', color: '#64748b', textAlign: 'center' }}>
@@ -991,7 +996,16 @@ export function FinanceTransactions({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {/* REVERSE CHRONOLOGICAL ORDER (Newest on top) */}
           {finallyFiltered.map((inv: any) => (
-            <div key={inv.id} style={{ display: 'flex', flexDirection: 'column', background: 'rgba(0,0,0,0.01)', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+            <div key={inv.id} style={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              background: 'var(--bg-card, #ffffff)', 
+              border: expandedInvoiceId === inv.id ? '1.5px solid #06b6d4' : '1px solid rgba(14, 165, 233, 0.45)', 
+              boxShadow: expandedInvoiceId === inv.id ? '0 0 14px rgba(6, 182, 212, 0.28)' : '0 2px 10px rgba(14, 165, 233, 0.1)',
+              borderRadius: '16px', 
+              overflow: 'hidden',
+              transition: 'all 0.25s ease'
+            }}>
               
               <div 
                 onClick={() => setExpandedInvoiceId(expandedInvoiceId === inv.id ? null : inv.id)}
