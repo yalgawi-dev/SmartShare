@@ -65,7 +65,7 @@ export function calculateUserStorageDetails(
     };
   }
 
-  const activeSpaces = spaces.filter(s => !s.deletedAt && !s.isDeleted);
+  const activeSpaces = spaces.filter(s => !s.deletedAt && !s.isDeleted && s.status !== 'permanently_deleted');
   const isYehuda =
     user.phone === '0502144866' ||
     user.phone?.includes('2144866') ||

@@ -204,7 +204,8 @@ export default function AdminUsersPage() {
   }, [allUsers]);
 
   // Single Source of Truth helper for user storage calculation (DRY)
-  const calculateUserDetails = (u: any) => calculateUserStorageDetails(u, activeSpaces);
+  // Calculates physical cloud storage across ALL user spaces (active + archived, excluding permanently deleted)
+  const calculateUserDetails = (u: any) => calculateUserStorageDetails(u, spaces);
   const calculateUserStorageBytes = (u: any): number => calculateUserDetails(u).bytes;
 
   // Macro Cloud Storage calculation (Spark plan: 5GB = 5120 MB)
@@ -568,7 +569,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.41</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.42</span>
           </div>
         </div>
 
@@ -1818,7 +1819,9 @@ export default function AdminUsersPage() {
           (s.status === 'pending_deletion' || (s as any).isArchived) &&
           (s.creatorId === selectedUserForAnalysis.id || (s.members || []).some((m: any) => m.userId === selectedUserForAnalysis.id))
         );
-        const createdSpacesCount = activeSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
+        const createdActiveSpacesCount = activeSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
+        const createdArchivedSpacesCount = userArchivedSpaces.filter(s => s.creatorId === selectedUserForAnalysis.id).length;
+        const totalCreatedSpacesCount = createdActiveSpacesCount + createdArchivedSpacesCount;
         const sharedContacts = getSharedContactsForUser(selectedUserForAnalysis, spaces, allUsers);
         
         // Clean phone & email comparison for robust Yehuda detection
@@ -1833,7 +1836,7 @@ export default function AdminUsersPage() {
           uName.includes('yehuda') ||
           selectedUserForAnalysis.id === 'STZr0UeCU8V003fgKbM7pZ8BXrm1';
 
-        const storageDetails = calculateUserStorageDetails(selectedUserForAnalysis, activeSpaces);
+        const storageDetails = calculateUserStorageDetails(selectedUserForAnalysis, spaces);
         const userMB = storageDetails.mb;
         const myUserInvoices = storageDetails.myInvoicesCount;
         
@@ -2283,9 +2286,11 @@ export default function AdminUsersPage() {
                       <div style={{ background: '#faf5ff', border: '1px solid #e9d5ff', borderRadius: '12px', padding: '0.75rem' }}>
                         <div style={{ fontSize: '0.75rem', color: '#6b21a8', fontWeight: 700 }}>📁 מרחבים בבעלותו</div>
                         <div style={{ fontSize: '1.35rem', fontWeight: 800, color: '#7e22ce', marginTop: '2px' }}>
-                          {createdSpacesCount}
+                          {totalCreatedSpacesCount}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>מתוך {userSpaces.length} מרחבים סה"כ</div>
+                        <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                          {createdActiveSpacesCount} פעילים {createdArchivedSpacesCount > 0 ? `• ${createdArchivedSpacesCount} בארכיון` : ''}
+                        </div>
                       </div>
 
                       {/* Metric 4: Tools & Features (Clickable for Full Breakdown) */}
