@@ -37,10 +37,14 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
     name: sanitizePartnerDisplayName(m.name, m.role === 'creator' ? 'מנהל' : 'שותף מוזמן')
   }));
 
+  const creatorDisplayName = isCreatorMe
+    ? (user?.realName || user?.nickname || user?.email || "אני")
+    : (space.creatorName || (space.createdBy && space.createdBy !== 'אורח' && space.createdBy !== 'אני' ? space.createdBy : 'יוצר המרחב'));
+
   const allMembers = [
     {
       userId: creatorId,
-      name: space.creatorName || (isCreatorMe ? (user?.realName || user?.nickname || user?.email || "מנהל") : "מנהל"),
+      name: creatorDisplayName,
       role: "creator",
       status: "active"
     },
@@ -112,7 +116,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.39</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.40</span>
         </div>
         {isCreatorMe && (
           <button 
