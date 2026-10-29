@@ -1,10 +1,10 @@
 'use client';
 
-function getEngagementBadge(actions: any) {
-  const invs = actions?.invoicesCreated || 0;
+function getEngagementBadge(actions: any, fallbackDetails?: { myInvoicesCount?: number; myDocsCount?: number; ocrCount?: number }) {
+  const invs = Math.max(actions?.invoicesCreated || 0, fallbackDetails?.myInvoicesCount || 0);
   const apps = actions?.invoicesApproved || 0;
-  const docs = actions?.docsUploaded || 0;
-  const ocr = actions?.ocrScans || 0;
+  const docs = Math.max(actions?.docsUploaded || 0, fallbackDetails?.myDocsCount || 0);
+  const ocr = Math.max(actions?.ocrScans || 0, fallbackDetails?.ocrCount || 0);
   const chat = actions?.chatMessages || 0;
   const total = invs + apps + docs + ocr + chat;
   if (total >= 5) {
@@ -600,7 +600,7 @@ export default function AdminUsersPage() {
             </Link>
             <span style={{ color: '#cbd5e1' }}>|</span>
             <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.64</span>
+            <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.3.65</span>
           </div>
         </div>
 
@@ -1175,11 +1175,17 @@ export default function AdminUsersPage() {
 
           allUsers.forEach((u: any) => {
             const telem = u.telemetry;
+            const uStorage = calculateUserStorageDetails(u, spaces);
+            const userInvs = Math.max(telem?.actions?.invoicesCreated || 0, uStorage.myInvoicesCount || 0);
+            const userApps = telem?.actions?.invoicesApproved || 0;
+            const userOcr = Math.max(telem?.actions?.ocrScans || 0, uStorage.ocrCount || 0);
+
+            totalTrackedInvoicesCreated += userInvs;
+            totalTrackedApprovals += userApps;
+            totalTrackedOcr += userOcr;
+
             if (telem) {
               totalTrackedSeconds += telem.totalActiveSeconds || 0;
-              totalTrackedInvoicesCreated += telem.actions?.invoicesCreated || 0;
-              totalTrackedApprovals += telem.actions?.invoicesApproved || 0;
-              totalTrackedOcr += telem.actions?.ocrScans || 0;
               if (telem.spaces) {
                 Object.entries(telem.spaces).forEach(([sId, sData]: [string, any]) => {
                   if (!spaceEngagementMap[sId]) {
@@ -1335,7 +1341,11 @@ export default function AdminUsersPage() {
                             {formatDurationHe(dwellSec)}
                           </div>
                           <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '1px' }}>
-                            {t?.actions?.invoicesCreated ? `${t.actions.invoicesCreated} חשבוניות` : 'פעולות צפייה'}
+                            {(() => {
+                            const uStorage = calculateUserStorageDetails(u, spaces);
+                            const uBadge = getEngagementBadge(t?.actions, uStorage);
+                            return `${uBadge.label} • ${uBadge.invs} חשבוניות`;
+                          })()}
                           </div>
                         </div>
                       </div>
@@ -2532,7 +2542,7 @@ export default function AdminUsersPage() {
                     ? new Date(t.lastSyncedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
                     : null;
 
-                  const badge = getEngagementBadge(t?.actions);
+                  const badge = getEngagementBadge(t?.actions, storageDetails);
 
                   return (
                     <div style={{ background: '#f0f9ff', border: '1.5px solid #bae6fd', padding: '0.85rem', borderRadius: '14px', display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
