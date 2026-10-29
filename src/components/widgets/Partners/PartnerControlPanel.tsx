@@ -270,7 +270,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                   }
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.38</span>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.3.39</span>
                 
                 {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                   if (isInvite) return '#f59e0b';
@@ -359,8 +359,11 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
           {/* Action Buttons */}
           {isInvite && viewMode === 'creator' ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem' }}>
-              {/* Retroactive Toggle Button for Invite */}
+              {/* Retroactive Toggle Button for Invite - Only show if space actually has past expenses */}
               {(() => {
+                const pastExpenses = (space.invoices || []).filter((inv: any) => inv.isActive !== false && inv.type !== 'transfer' && inv.type !== 'income');
+                if (pastExpenses.length === 0) return null;
+
                 const inviteObj = (space.pendingInvites || []).find((i: any) => i.token === member.userId);
                 const isRetro = inviteObj ? inviteObj.isRetroactive : Boolean(member.isRetroactive);
                 return (

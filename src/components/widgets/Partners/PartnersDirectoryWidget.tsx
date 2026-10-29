@@ -112,7 +112,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.38</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.39</span>
         </div>
         {isCreatorMe && (
           <button 
@@ -286,31 +286,31 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                   transition: "background 0.2s"
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-                  <div style={{ position: 'relative' }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", minWidth: 0, flex: 1 }}>
+                  <div style={{ position: 'relative', flexShrink: 0 }}>
                     <div style={{ width: '42px', height: '42px', borderRadius: '50%', background: m.role === 'creator' ? 'linear-gradient(135deg, #fef08a, #f59e0b)' : 'linear-gradient(135deg, #e0e7ff, #c7d2fe)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: m.role === 'creator' ? '#92400e' : '#4338ca', fontWeight: 'bold', fontSize: '1.2rem', boxShadow: '0 2px 5px rgba(0,0,0,0.05)' }}>
                       {m.name?.charAt(0) || 'ש'}
                     </div>
                     <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: getPresenceColor(m.userId, user?.id), border: '2px solid white', position: 'absolute', bottom: '0', right: '0' }} title="מצב התחברות" />
                   </div>
                   
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ fontWeight: isMe ? 800 : 600, color: 'var(--text-primary)', fontSize: '1rem' }}>{m.name || m.userId}</span>
-                      {isMe && <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold' }}>אני</span>}
-                      {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.75rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold' }}>מנהל</span>}
+                  <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span style={{ fontWeight: isMe ? 800 : 600, color: 'var(--text-primary)', fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{m.name || m.userId}</span>
+                      {isMe && <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>אני</span>}
+                      {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.75rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>מנהל</span>}
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
                       {m.status === "active" ? null : 
-                       m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
-                       m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>🔄 מבקש הארכה</span> : 
-                       m.status === "disputed" ? <span style={{ fontSize: '0.8rem', color: '#dc2626' }}>⚠️ סכסוך</span> : <span style={{ fontSize: '0.8rem' }}>{m.status}</span>}
+                       m.status === "pending" ? (m.welcomed ? <span style={{ fontSize: '0.8rem', color: '#f59e0b', whiteSpace: 'nowrap' }}>⏳ ממתין שיאשר</span> : <span style={{ fontSize: '0.8rem', color: '#8b5cf6', whiteSpace: 'nowrap' }}>✉️ הזמנה נשלחה (טרם הצטרף)</span>) : 
+                       m.status === "extension_requested" ? <span style={{ fontSize: '0.8rem', color: '#f59e0b', whiteSpace: 'nowrap' }}>🔄 מבקש הארכה</span> : 
+                       m.status === "disputed" ? <span style={{ fontSize: '0.8rem', color: '#dc2626', whiteSpace: 'nowrap' }}>⚠️ סכסוך</span> : <span style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>{m.status}</span>}
                     </div>
                   </div>
                 </div>
 
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                   {unreadCount > 0 && (
                     <span title={`${unreadCount} הודעות שלא נקראו`} style={{ display:'flex', alignItems:'center', justifyContent:'center', background:'#ef4444', color:'white', borderRadius:'12px', padding: '0 8px', height:'24px', fontSize:'0.75rem', fontWeight:'bold', gap: '4px', boxShadow: '0 2px 4px rgba(239, 68, 68, 0.4)', animation: 'pulse 2s infinite' }}>
                       <svg width="12" height="12" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM6 9h12v2H6V9zm8 5H6v-2h8v2zm4-6H6V6h12v2z"/></svg>
