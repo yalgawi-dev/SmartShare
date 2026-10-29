@@ -103,18 +103,6 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     return null;
   });
 
-  const [fromSettings, setFromSettings] = useState<'active' | 'archived' | null>(() => {
-    if (typeof window !== 'undefined') {
-      const fromParam = new URLSearchParams(window.location.search).get('from');
-      if (fromParam === 'settings_archived') return 'archived';
-      if (fromParam === 'settings_active' || fromParam === 'settings') return 'active';
-      if (document.referrer && document.referrer.includes('/settings')) {
-        return 'active';
-      }
-    }
-    return null;
-  });
-
   const unreadChatCount = useMemo(() => {
     if (!user || !space || !space.features?.includes('chat')) return 0;
     const mySpaceKey = typeof window !== 'undefined' ? (JSON.parse(localStorage.getItem('smartshare_keys') || '{}')[space.id]) : null;
@@ -662,30 +650,52 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             </div>
           </div>
           
-          {(space.creatorId === user?.id || space.createdBy === user?.realName || user?.isAdmin) && (
-            <button
-              onClick={() => {
-                restoreSpace(space.id);
-                setToastMessage('המרחב שוחזר בהצלחה!');
-              }}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+            <Link 
+              href="/settings?tab=spaces&sub=archived" 
               style={{
-                background: '#2563eb',
-                color: 'white',
-                border: 'none',
+                background: '#ffffff',
+                color: '#b45309',
+                border: '1.5px solid #fcd34d',
                 borderRadius: '10px',
-                padding: '0.5rem 1.1rem',
-                fontWeight: 700,
+                padding: '0.5rem 1rem',
+                fontWeight: 800,
                 fontSize: '0.85rem',
-                cursor: 'pointer',
-                display: 'flex',
+                textDecoration: 'none',
+                display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.4rem',
-                boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
               }}
             >
-              ↩️ שחזר מרחב זה
-            </button>
-          )}
+              <span>↩</span> חזרה להגדרות (ארכיון)
+            </Link>
+            
+            {(space.creatorId === user?.id || space.createdBy === user?.realName || user?.isAdmin) && (
+              <button
+                onClick={() => {
+                  restoreSpace(space.id);
+                  setToastMessage('המרחב שוחזר בהצלחה!');
+                }}
+                style={{
+                  background: '#2563eb',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '10px',
+                  padding: '0.5rem 1.1rem',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  boxShadow: '0 2px 6px rgba(37, 99, 235, 0.3)'
+                }}
+              >
+                ↩️ שחזר מרחב זה
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -701,29 +711,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         padding: '1rem 0',
         marginBottom: '0.5rem'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-          <Link href="/" className={styles.backBtn} style={{ margin: 0 }}>
-            <span>&rarr;</span> ללוח הראשי
-          </Link>
-          {fromSettings && (
-            <Link 
-              href={fromSettings === 'archived' ? '/settings?tab=spaces&sub=archived' : '/settings?tab=spaces'} 
-              className={styles.backBtn} 
-              style={{ 
-                margin: 0, 
-                background: fromSettings === 'archived' ? '#fffbeb' : '#eff6ff', 
-                color: fromSettings === 'archived' ? '#b45309' : '#1d4ed8', 
-                border: fromSettings === 'archived' ? '1px solid #fde68a' : '1px solid #bfdbfe',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                fontWeight: 700
-              }}
-            >
-              <span>↩</span> חזרה להגדרות {fromSettings === 'archived' ? '(ארכיון)' : ''}
-            </Link>
-          )}
-        </div>
+        <Link href="/" className={styles.backBtn} style={{ margin: 0 }}>
+          <span>&rarr;</span> ללוח הראשי
+        </Link>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
             <button onClick={() => {
@@ -863,7 +853,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v3.3.56</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v3.3.57</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
