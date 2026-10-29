@@ -642,8 +642,8 @@ export function FinanceTransactions({
                                   const msElapsed = Date.now() - createdAtTime;
                                   const isWithinTwoHours = createdAtTime > 0 && msElapsed < twoHoursMs;
                                   const minutesLeft = Math.max(1, Math.ceil((twoHoursMs - msElapsed) / 60000));
-                                  const isApprovedByAny = (inv.approvedBy || []).length > 0 || inv.status === 'approved';
-                                  const canDirectDelete = isWithinTwoHours && !isApprovedByAny;
+                                  const isApprovedByOthers = (inv.approvedBy || []).some((id: string) => id !== myEffectiveId && id !== user?.id && id !== 'me');
+                                  const canDirectDelete = isWithinTwoHours && !isApprovedByOthers;
 
                                   return (
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>

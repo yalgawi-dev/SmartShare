@@ -132,6 +132,14 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
                 const val = e.target.value;
                 if (val === '' || /^\d*\.?\d*$/.test(val)) {
                   setMyShare(val);
+                  // When only 2 participants (creator + 1 partner), automatically balance the partner's share
+                  if (validMembers.length === 1 && val !== '') {
+                    const numVal = Number(val);
+                    if (numVal >= 0 && numVal <= 100) {
+                      const complement = Number((100 - numVal).toFixed(1));
+                      setPartnerShares({ [validMembers[0].userId]: complement });
+                    }
+                  }
                 }
               }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                 style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}
@@ -163,6 +171,14 @@ export function SharesEditorModal({ space, onClose, updateSharesBulk, updateSpac
                   const val = e.target.value;
                   if (val === '' || /^\d*\.?\d*$/.test(val)) {
                     setPartnerShares({ ...partnerShares, [m.userId]: val });
+                    // When only 2 participants (creator + 1 partner), automatically balance the creator's share
+                    if (validMembers.length === 1 && val !== '') {
+                      const numVal = Number(val);
+                      if (numVal >= 0 && numVal <= 100) {
+                        const complement = Number((100 - numVal).toFixed(1));
+                        setMyShare(complement);
+                      }
+                    }
                   }
                 }} onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
                   style={{ width: '70px', padding: '0.4rem', borderRadius: '8px', border: '1px solid var(--border-light)', textAlign: 'center' }}

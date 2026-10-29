@@ -414,6 +414,19 @@ export default function SettingsPage() {
       const standalone = window.matchMedia('(display-mode: standalone)').matches
         || (window.navigator as any).standalone === true;
       setIsStandalone(standalone);
+
+      // Restore exact scroll position / card position if spaceId is specified
+      const targetSpace = new URLSearchParams(window.location.search).get('targetSpace');
+      if (targetSpace) {
+        setTimeout(() => {
+          const el = document.getElementById(`space-card-${targetSpace}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.style.outline = '3px solid #f59e0b';
+            setTimeout(() => { el.style.outline = 'none'; }, 2500);
+          }
+        }, 300);
+      }
     }
   }, []);
 
@@ -542,7 +555,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.58</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.59</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -1091,7 +1104,7 @@ export default function SettingsPage() {
                     const deletedByName = s.deletedByName || (s.deletedBy && allUsers?.find((u: any) => u.id === s.deletedBy)?.realName) || (isActualCreator ? 'מנהל המרחב' : 'אחד השותפים');
 
                     return (
-                      <div key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem 1.15rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                      <div id={`space-card-${s.id}`} key={s.id} style={{ border: '1px solid #fed7aa', background: '#fffbeb', padding: '1rem 1.15rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <div style={{ width: '42px', height: '42px', borderRadius: '12px', overflow: 'hidden', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#fef3c7', border: '1px solid #fde68a' }}>
