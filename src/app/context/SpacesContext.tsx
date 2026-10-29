@@ -2030,6 +2030,25 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       ...space,
       shelfEvents: [...(space.shelfEvents || []), newEvent]
     }));
+
+    // Trigger push notification to other members about the new station
+    try {
+      const space = spacesBase.find(s => s.id === spaceId);
+      if (space && space.members) {
+        const creatorName = user?.realName || user?.nickname || 'שותף';
+        const otherUserIds = space.members.filter(m => m.userId !== user?.id).map(m => m.userId);
+        if (otherUserIds.length > 0) {
+          triggerPushNotification(
+            otherUserIds,
+            space.title,
+            `📍 ${creatorName} הוסיף תחנה חדשה: "${newEvent.title}"`,
+            { url: `/space/${spaceId}` }
+          );
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to send push notification for new station', e);
+    }
   };
 
   const updateShelfEvent = (spaceId: string, eventId: string, updates: Partial<ShelfEvent>) => {

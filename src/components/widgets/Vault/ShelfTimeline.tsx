@@ -50,6 +50,7 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
   const [docSearchTerm, setDocSearchTerm] = useState('');
   const [activeChatEventId, setActiveChatEventId] = useState<string | null>(null);
+  const [viewingSummaryEvent, setViewingSummaryEvent] = useState<ShelfEvent | null>(null);
   const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const [expandedEvents, setExpandedEvents] = useState<Record<string, boolean>>({});
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -511,7 +512,19 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                            <span>{eventDocs.length > 0 ? `${eventDocs.length} קבצים 🔍` : '0 קבצים'}</span>
                          </div>
 
-                         {/* Talkbacks Indicator with V indicator */}
+                         {/* Dedicated Clean Summary Modal Button */}
+                          {event.description && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setViewingSummaryEvent(event); }} 
+                              style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '10px', padding: '3px 8px', color: '#6d28d9', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontWeight: 'bold' }}
+                              title="פתח מסך סיכום תחנה בלבד"
+                            >
+                              <span>📝</span>
+                              <span>סיכום</span>
+                            </button>
+                          )}
+
+                          {/* Talkbacks Indicator with V indicator */}
                          <button 
                            onClick={(e) => { e.stopPropagation(); setActiveChatEventId(event.id); }} 
                            style={{ background: (event.comments || []).length > 0 ? '#f0fdf4' : '#f8fafc', border: `1px solid ${(event.comments || []).length > 0 ? '#bbf7d0' : '#e2e8f0'}`, borderRadius: '10px', padding: '3px 8px', color: (event.comments || []).length > 0 ? '#16a34a' : '#94a3b8', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer', fontWeight: 'bold' }}
@@ -1493,6 +1506,98 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
                 )}
               </button>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CLEAN SUMMARY ONLY MODAL */}
+      {viewingSummaryEvent && (
+        <div 
+          onClick={() => setViewingSummaryEvent(null)}
+          style={{ 
+            position: 'fixed', 
+            inset: 0, 
+            background: 'rgba(15, 23, 42, 0.65)', 
+            backdropFilter: 'blur(4px)', 
+            zIndex: 100010, 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            padding: '1rem' 
+          }}
+        >
+          <div 
+            onClick={(e) => e.stopPropagation()}
+            style={{ 
+              background: '#ffffff', 
+              width: '100%', 
+              maxWidth: '600px', 
+              borderRadius: '20px', 
+              padding: '1.5rem', 
+              maxHeight: '85vh', 
+              display: 'flex', 
+              flexDirection: 'column', 
+              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+              position: 'relative'
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.85rem', marginBottom: '1rem' }}>
+              <div>
+                <div style={{ fontSize: '0.75rem', color: '#6d28d9', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '2px' }}>
+                  <span>📝</span>
+                  <span>סיכום תחנה</span>
+                  <span>•</span>
+                  <span>{new Date(viewingSummaryEvent.eventDate).toLocaleDateString('he-IL')}</span>
+                </div>
+                <h2 style={{ margin: 0, fontSize: '1.25rem', color: '#1e293b' }}>
+                  {viewingSummaryEvent.title}
+                </h2>
+              </div>
+              <button 
+                onClick={() => setViewingSummaryEvent(null)}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '1rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body: Rich Text Summary Content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0.5rem 0.25rem', fontSize: '0.98rem', lineHeight: '1.7', color: '#334155' }}>
+              {viewingSummaryEvent.description ? (
+                viewingSummaryEvent.description.includes('<') && viewingSummaryEvent.description.includes('>') ? (
+                  <div dangerouslySetInnerHTML={{ __html: viewingSummaryEvent.description }} />
+                ) : (
+                  <p style={{ whiteSpace: 'pre-wrap', margin: 0 }}>{viewingSummaryEvent.description}</p>
+                )
+              ) : (
+                <div style={{ textAlign: 'center', color: '#94a3b8', padding: '2rem 0' }}>לא הוזן פירוט או סיכום לתחנה זו.</div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '0.75rem', marginTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <button
+                onClick={() => {
+                  const ev = viewingSummaryEvent;
+                  setViewingSummaryEvent(null);
+                  setEditEventId(ev.id);
+                  setEditEventTitle(ev.title);
+                  setEditEventDesc(ev.description || '');
+                  setEditEventDate(ev.eventDate);
+                  setEditSelectedDocIds(ev.documentIds || []);
+                }}
+                style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '6px 14px', fontSize: '0.85rem', fontWeight: 'bold', color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <span>✏️</span> ערוך סיכום
+              </button>
+              <button 
+                onClick={() => setViewingSummaryEvent(null)}
+                style={{ background: '#1e293b', border: 'none', borderRadius: '12px', padding: '6px 16px', fontSize: '0.85rem', fontWeight: 'bold', color: 'white', cursor: 'pointer' }}
+              >
+                סגור
+              </button>
             </div>
           </div>
         </div>

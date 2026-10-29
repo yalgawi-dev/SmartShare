@@ -27,15 +27,6 @@ const HIGHLIGHT_COLORS = [
   { label: 'מרקר כתום זוהר', color: '#fed7aa' }
 ];
 
-// Quick templates chips
-const QUICK_CHIPS = [
-  { label: '📋 סיכום פגישה', snippet: '<div><strong>📋 סיכום פגישה:</strong></div><div>• </div>' },
-  { label: '⚖️ החלטות שנתקבלו', snippet: '<div><strong>⚖️ החלטות שהתקבלו:</strong></div><div>1. </div>' },
-  { label: '🔍 דגשים לבדיקה', snippet: '<div><strong>🔍 דגשים לבדיקה:</strong></div><div>• </div>' },
-  { label: '⚠️ נקודה דחופה', snippet: '<div><span style="background-color: #fef08a; font-weight: bold; padding: 2px 6px; border-radius: 4px;">⚠️ דחוף לטיפול:</span> </div>' },
-  { label: '• רשימת נקודות', snippet: '<div>• סעיף א: </div><div>• סעיף ב: </div>' }
-];
-
 export default function StationNotesEditor({
   value,
   onChange,
@@ -49,6 +40,7 @@ export default function StationNotesEditor({
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlighterPicker, setShowHighlighterPicker] = useState(false);
   const recognitionRef = useRef<any>(null);
+  const lastProcessedIndexRef = useRef<number>(0);
 
   // Sync incoming value to editor content if changed externally
   useEffect(() => {
@@ -59,7 +51,7 @@ export default function StationNotesEditor({
     }
   }, [value]);
 
-  // Setup Web Speech API for Hebrew Speech-to-Text
+  // Setup Web Speech API for Hebrew Speech-to-Text with strict duplication prevention
   useEffect(() => {
     if (typeof window !== 'undefined') {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -67,16 +59,17 @@ export default function StationNotesEditor({
         setSpeechSupported(true);
         const recognition = new SpeechRecognition();
         recognition.continuous = true;
-        recognition.interimResults = true;
+        recognition.interimResults = false; // Only accept finalized phrases to prevent repeated duplicate echoes
         recognition.lang = 'he-IL';
 
         recognition.onresult = (event: any) => {
-          for (let i = event.resultIndex; i < event.results.length; ++i) {
+          for (let i = lastProcessedIndexRef.current; i < event.results.length; ++i) {
             if (event.results[i].isFinal) {
               const text = event.results[i][0].transcript.trim();
               if (text) {
                 insertTextAtCursor(text + ' ');
               }
+              lastProcessedIndexRef.current = i + 1;
             }
           }
         };
@@ -88,6 +81,7 @@ export default function StationNotesEditor({
 
         recognition.onend = () => {
           setIsListening(false);
+          lastProcessedIndexRef.current = 0;
         };
 
         recognitionRef.current = recognition;
@@ -112,8 +106,10 @@ export default function StationNotesEditor({
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
+      lastProcessedIndexRef.current = 0;
     } else {
       try {
+        lastProcessedIndexRef.current = 0;
         recognitionRef.current.start();
         setIsListening(true);
         if (editorRef.current) {
@@ -160,6 +156,26 @@ export default function StationNotesEditor({
     handleInput();
   };
 
+  const insertBulletList = () => {
+    executeCommand('insertUnorderedList');
+  };
+
+  const insertNumberedList = () => {
+    executeCommand('insertOrderedList');
+  };
+
+  const insertMeetingSummaryTemplate = () => {
+    insertHtmlSnippet('<div><strong>📋 סיכום פגישה:</strong></div><ul><li>דגש ראשון</li></ul><div><br></div>');
+  };
+
+  const insertDecisionsTemplate = () => {
+    insertHtmlSnippet('<div><strong>⚖️ החלטות שהתקבלו:</strong></div><ol><li>החלטה ראשונה</li></ol><div><br></div>');
+  };
+
+  const insertUrgentNoteTemplate = () => {
+    insertHtmlSnippet('<div><span style="background-color: #fef08a; font-weight: bold; padding: 2px 8px; border-radius: 4px; border: 1px solid #fde047;">⚠️ דחוף לטיפול:</span> </div><div><br></div>');
+  };
+
   const applyHighlight = (color: string) => {
     if (typeof document === 'undefined') return;
     if (editorRef.current) editorRef.current.focus();
@@ -187,11 +203,12 @@ export default function StationNotesEditor({
       background: '#ffffff',
       border: '1.5px solid #cbd5e1',
       borderRadius: '16px',
-      overflow: 'hidden',
+      overflow: 'visible', // Ensure popups aren't clipped
       boxShadow: isExpanded ? '0 25px 50px -12px rgba(0, 0, 0, 0.25)' : '0 1px 3px rgba(0,0,0,0.05)',
       transition: 'all 0.2s ease',
       height: isExpanded ? '100%' : 'auto',
-      maxHeight: isExpanded ? '100%' : 'none'
+      maxHeight: isExpanded ? '100%' : 'none',
+      position: 'relative'
     }}>
       {/* TOOLBAR */}
       <div style={{
@@ -204,7 +221,7 @@ export default function StationNotesEditor({
         flexWrap: 'wrap',
         gap: '0.4rem'
       }}>
-        {/* Left Toolbar (Formatting) */}
+        {/* Formatting Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexWrap: 'wrap' }}>
           {/* Bold */}
           <button
@@ -251,6 +268,51 @@ export default function StationNotesEditor({
             }}
           >
             U
+          </button>
+
+          {/* Bullet List (Word style) */}
+          <button
+            type="button"
+            onClick={insertBulletList}
+            title="תבליטים (רשימת נקודות כמו בוורד - ירידת שורה באנטר ממשיכה נקודה)"
+            style={{
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              width: '32px',
+              height: '30px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1rem',
+              color: '#1e293b'
+            }}
+          >
+            •≡
+          </button>
+
+          {/* Numbered List (Word style 1, 2, 3) */}
+          <button
+            type="button"
+            onClick={insertNumberedList}
+            title="רשימה ממוספרת (1, 2, 3... ירידת שורה באנטר ממשיכה מספר)"
+            style={{
+              background: '#ffffff',
+              border: '1px solid #cbd5e1',
+              borderRadius: '8px',
+              width: '32px',
+              height: '30px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '0.85rem',
+              fontWeight: 'bold',
+              color: '#1e293b'
+            }}
+          >
+            1.≡
           </button>
 
           {/* Font Sizes */}
@@ -312,11 +374,12 @@ export default function StationNotesEditor({
                 background: 'white',
                 border: '1px solid #cbd5e1',
                 borderRadius: '12px',
-                padding: '6px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                zIndex: 50,
+                padding: '8px',
+                boxShadow: '0 10px 25px rgba(0,0,0,0.18)',
+                zIndex: 1000,
                 display: 'flex',
-                gap: '6px'
+                gap: '8px',
+                minWidth: '160px'
               }}>
                 {TEXT_COLORS.map(c => (
                   <button
@@ -325,12 +388,12 @@ export default function StationNotesEditor({
                     onClick={() => applyTextColor(c.color)}
                     title={c.label}
                     style={{
-                      width: '24px',
-                      height: '24px',
+                      width: '26px',
+                      height: '26px',
                       borderRadius: '50%',
                       background: c.color,
                       border: '2px solid white',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                      boxShadow: '0 1px 4px rgba(0,0,0,0.3)',
                       cursor: 'pointer'
                     }}
                   />
@@ -371,15 +434,16 @@ export default function StationNotesEditor({
                 background: 'white',
                 border: '1px solid #cbd5e1',
                 borderRadius: '12px',
-                padding: '8px',
-                boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-                zIndex: 50,
+                padding: '10px',
+                boxShadow: '0 12px 28px rgba(0,0,0,0.2)',
+                zIndex: 1000,
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '6px'
+                gap: '8px',
+                minWidth: '180px'
               }}>
-                <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>בחר צבע טוש זוהר:</div>
-                <div style={{ display: 'flex', gap: '6px' }}>
+                <div style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 'bold' }}>בחר צבע מרקר זוהר:</div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   {HIGHLIGHT_COLORS.map(c => (
                     <button
                       key={c.color}
@@ -387,12 +451,13 @@ export default function StationNotesEditor({
                       onClick={() => applyHighlight(c.color)}
                       title={c.label}
                       style={{
-                        width: '26px',
-                        height: '26px',
+                        width: '28px',
+                        height: '28px',
                         borderRadius: '6px',
                         background: c.color,
-                        border: '1px solid rgba(0,0,0,0.15)',
-                        cursor: 'pointer'
+                        border: '1.5px solid rgba(0,0,0,0.15)',
+                        cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
                       }}
                     />
                   ))}
@@ -401,14 +466,15 @@ export default function StationNotesEditor({
                     onClick={() => applyHighlight('transparent')}
                     title="נקה מרקר"
                     style={{
-                      height: '26px',
-                      padding: '0 6px',
+                      height: '28px',
+                      padding: '0 8px',
                       borderRadius: '6px',
                       background: '#f1f5f9',
                       border: '1px solid #cbd5e1',
-                      fontSize: '0.7rem',
+                      fontSize: '0.75rem',
                       cursor: 'pointer',
-                      color: '#64748b'
+                      color: '#64748b',
+                      fontWeight: 'bold'
                     }}
                   >
                     נקה
@@ -469,38 +535,90 @@ export default function StationNotesEditor({
         </div>
       </div>
 
-      {/* QUICK TEMPLATE CHIPS BAR */}
+      {/* QUICK TEMPLATE CHIPS BAR - High visibility & clear pills */}
       <div style={{
-        background: '#f1f5f9',
-        padding: '0.3rem 0.6rem',
+        background: '#f8fafc',
+        padding: '0.5rem 0.6rem',
         borderBottom: '1px solid #e2e8f0',
         display: 'flex',
         alignItems: 'center',
-        gap: '0.35rem',
+        gap: '0.5rem',
         overflowX: 'auto',
         whiteSpace: 'nowrap'
       }}>
-        <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 'bold' }}>תבניות מהירות:</span>
-        {QUICK_CHIPS.map(chip => (
-          <button
-            key={chip.label}
-            type="button"
-            onClick={() => insertHtmlSnippet(chip.snippet)}
-            style={{
-              background: '#ffffff',
-              border: '1px solid #cbd5e1',
-              borderRadius: '12px',
-              padding: '2px 8px',
-              fontSize: '0.72rem',
-              cursor: 'pointer',
-              color: '#334155',
-              flexShrink: 0,
-              transition: 'background 0.15s'
-            }}
-          >
-            {chip.label}
-          </button>
-        ))}
+        <span style={{ fontSize: '0.75rem', color: '#475569', fontWeight: 'bold' }}>כפתורי מבנה:</span>
+        
+        <button
+          type="button"
+          onClick={insertMeetingSummaryTemplate}
+          style={{
+            background: '#eff6ff',
+            border: '1px solid #bfdbfe',
+            borderRadius: '16px',
+            padding: '4px 10px',
+            fontSize: '0.78rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            color: '#1d4ed8',
+            flexShrink: 0
+          }}
+        >
+          📋 סיכום פגישה
+        </button>
+
+        <button
+          type="button"
+          onClick={insertDecisionsTemplate}
+          style={{
+            background: '#ecfdf5',
+            border: '1px solid #a7f3d0',
+            borderRadius: '16px',
+            padding: '4px 10px',
+            fontSize: '0.78rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            color: '#047857',
+            flexShrink: 0
+          }}
+        >
+          ⚖️ החלטות שנתקבלו (ממוספר)
+        </button>
+
+        <button
+          type="button"
+          onClick={insertBulletList}
+          style={{
+            background: '#f1f5f9',
+            border: '1px solid #cbd5e1',
+            borderRadius: '16px',
+            padding: '4px 10px',
+            fontSize: '0.78rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            color: '#334155',
+            flexShrink: 0
+          }}
+        >
+          • רשימת נקודות (וורד)
+        </button>
+
+        <button
+          type="button"
+          onClick={insertUrgentNoteTemplate}
+          style={{
+            background: '#fffbeb',
+            border: '1px solid #fde68a',
+            borderRadius: '16px',
+            padding: '4px 10px',
+            fontSize: '0.78rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            color: '#b45309',
+            flexShrink: 0
+          }}
+        >
+          ⚠️ נקודה דחופה
+        </button>
       </div>
 
       {/* RICH CONTENT EDITABLE AREA */}
@@ -516,7 +634,7 @@ export default function StationNotesEditor({
           padding: '0.85rem 1rem',
           outline: 'none',
           fontSize: '0.95rem',
-          lineHeight: '1.6',
+          lineHeight: '1.7',
           color: '#1e293b',
           direction: 'rtl',
           textAlign: 'right',
@@ -528,16 +646,16 @@ export default function StationNotesEditor({
       <div style={{
         background: '#fafafa',
         borderTop: '1px solid #f1f5f9',
-        padding: '0.25rem 0.75rem',
+        padding: '0.35rem 0.75rem',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        fontSize: '0.7rem',
-        color: '#94a3b8'
+        fontSize: '0.72rem',
+        color: '#64748b'
       }}>
-        <span>טקסט עשיר • מרקרים זוהרים • הקלטה קולית</span>
+        <span>טקסט עשיר • רשימות חכמות כמו בוורד • מרקרים זוהרים • הקלטה קולית</span>
         {isListening && (
-          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🎙️ מדבר כעת... הטקסט מוזן אוטומטית בעברית</span>
+          <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🎙️ מדבר כעת... הטקסט מוזן אוטומטית</span>
         )}
       </div>
     </div>
