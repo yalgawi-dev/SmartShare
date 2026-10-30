@@ -30,7 +30,7 @@ export interface UserTelemetryPayload {
 }
 
 const LOCAL_STORAGE_KEY = 'smartshare_user_telemetry_v1';
-const MIN_SYNC_INTERVAL_MS = 15 * 60 * 1000; // 15 mins regular sync interval // 4 hours minimum between Firestore updates (Zero-Cost Throttling)
+const MIN_SYNC_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 hours minimum between Firestore updates (Zero-Cost Throttling)
 
 export function getLocalTelemetry(): UserTelemetryPayload {
   if (typeof window === 'undefined') {

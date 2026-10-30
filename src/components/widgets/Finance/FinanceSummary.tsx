@@ -40,6 +40,7 @@ export function FinanceSummary({
   const [transactionAction, setTransactionAction] = useState('deposit');
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
+  const isSharedOnly = Boolean(space?.settings?.sharedExpensesOnly || space?.settings?.disableSettlements);
 
   const presenceUids = useMemo(() => {
     const uids = space?.members?.map((m: any) => m.userId) || [];
@@ -368,7 +369,7 @@ export function FinanceSummary({
 
         {/* Row 2: Pending and Balances */}
         {(() => {
-          if (!hasPartners) return null;
+          if (!hasPartners || isSharedOnly) return null;
 
           const pendingCount = activeInvoices.filter((i: any) => { 
             if (i.status !== 'pending') return false; 
@@ -468,7 +469,9 @@ export function FinanceSummary({
 
       <div style={{ marginBottom: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-          <h4 style={{ margin: 0, fontSize: '1.1rem' }}>{activePartnersCount > 0 ? 'טבלת מאזנים' : 'התפלגות הוצאות'}</h4>
+          <h4 style={{ margin: 0, fontSize: '1.1rem' }}>
+            {isSharedOnly ? 'סיכום תשלומים לפי שותף' : (activePartnersCount > 0 ? 'טבלת מאזנים' : 'התפלגות הוצאות')}
+          </h4>
         </div>
           
           <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
@@ -476,9 +479,9 @@ export function FinanceSummary({
               <thead>
                 <tr style={{ background: 'var(--bg-main)', borderBottom: '1px solid var(--border-light)', whiteSpace: 'nowrap' }}>
                   <th style={{ padding: '0.75rem' }}>שם</th>
-                  <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>
+                  {!isSharedOnly && <th style={{ padding: '0.75rem', textAlign: 'center' }}>%</th>}
                   <th style={{ padding: '0.75rem' }}>שולם</th>
-                  {hasPartners && activePartnersCount > 0 && <th style={{ padding: '0.75rem' }}>מאזן</th>}
+                  {hasPartners && activePartnersCount > 0 && !isSharedOnly && <th style={{ padding: '0.75rem' }}>מאזן</th>}
                 </tr>
               </thead>
               <tbody>
@@ -551,9 +554,9 @@ export function FinanceSummary({
                           )}
                         </div>
                       </td>
-                      <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>
+                      {!isSharedOnly && <td style={{ padding: '0.5rem 0.6rem', textAlign: 'center' }}>{b.p.toFixed(1)}%</td>}
                       <td style={{ padding: '0.5rem 0.6rem' }}>{'₪'}{b.paid.toLocaleString(undefined, {maximumFractionDigits: 0})}</td>
-                      {hasPartners && activePartnersCount > 0 && (() => {
+                      {hasPartners && activePartnersCount > 0 && !isSharedOnly && (() => {
                         const displayBalance = Math.round(b.balance);
                         return (
                           <td style={{ padding: '0.5rem 0.6rem', fontWeight: 'bold', color: displayBalance > 0 ? '#10b981' : displayBalance < 0 ? '#ef4444' : 'var(--text-secondary)' }} dir="ltr">
@@ -569,9 +572,15 @@ export function FinanceSummary({
             </table>
           </div>
 
+          {isSharedOnly ? (
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
-            💡 <strong>איך מתחשבנים?</strong> מי שהמאזן שלו באדום (מינוס) צריך להעביר את הכסף למי שהמאזן שלו בירוק (פלוס), עד שהקופה כולה מתאפסת.
-          </p>
+              💡 במרחב זה מוגדר מעקב הוצאות משותף ללא התחשבנות הדדית (ריכוז וסיכום כלל הוצאות המרחב).
+            </p>
+          ) : (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginTop: '0.75rem', lineHeight: '1.4' }}>
+              💡 <strong>איך מתחשבנים?</strong> מי שהמאזן שלו באדום (מינוס) צריך להעביר את הכסף למי שהמאזן שלו בירוק (פלוס), עד שהקופה כולה מתאפסת.
+            </p>
+          )}
         </div>
 
       {!hasScanner && (

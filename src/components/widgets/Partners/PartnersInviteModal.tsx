@@ -23,6 +23,7 @@ export function PartnersInviteModal({
   const [allocationMode, setAllocationMode] = useState<'from_creator' | 'equal' | 'proportional' | 'custom'>('from_creator');
   const [customShare, setCustomShare] = useState('10');
   const isFinancial = space.features?.includes('finance');
+  const isSharedOnly = Boolean(space?.settings?.sharedExpensesOnly || space?.settings?.disableSettlements);
 
   // Existing active partners (excluding creator)
   const validMembers = useMemo(() => {
@@ -522,7 +523,7 @@ export function PartnersInviteModal({
           </div>
         ) : (
           <>
-        {isFinancial && (<>
+        {isFinancial && !isSharedOnly && (<>
 
         {space.features?.includes("finance") && (<>
         {/* Step 2: קוביה מעוצבת חלוקת אחוזים ותצוגה מקדימה */}
@@ -780,7 +781,7 @@ export function PartnersInviteModal({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ background: '#16a34a', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>
-              {isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4' : 'שלב 3') : 'שלב 2'}
+              {isSharedOnly ? 'שלב 2' : (isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4' : 'שלב 3') : 'שלב 2')}
             </span>
             <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#14532d' }}>פרטי המוזמן ושליחה מהירה</span>
           </div>

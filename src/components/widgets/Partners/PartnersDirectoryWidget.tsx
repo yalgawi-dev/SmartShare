@@ -18,6 +18,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === "creator";
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
+  const isSharedOnly = Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements);
 
   const pendingGroupList: any[] = space.pendingGroupMembers || [];
   
@@ -141,11 +142,11 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
           <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.65</span>
+          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.66</span>
         </div>
         {isCreatorMe && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            {activeSpaceMembers.length > 0 && (
+            {activeSpaceMembers.length > 0 && !isSharedOnly && (
               <button 
                 onClick={() => setShowSharesModal(true)} 
                 style={{ background: '#f8fafc', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.5rem 0.85rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
@@ -367,7 +368,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                       </span>
                       {isMe && <span style={{ fontSize: '0.72rem', background: 'var(--primary)', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>אני</span>}
                       {(m.role === 'creator' || m.role === 'admin') && <span style={{ fontSize: '0.72rem', background: '#f59e0b', color: 'white', padding: '0.1rem 0.45rem', borderRadius: '10px', fontWeight: 'bold', flexShrink: 0 }}>מנהל</span>}
-                      {m.sharePercentage !== undefined && (
+                      {m.sharePercentage !== undefined && !isSharedOnly && (
                         <span style={{ fontSize: '0.75rem', color: '#4338ca', background: '#e0e7ff', padding: '0.1rem 0.5rem', borderRadius: '8px', fontWeight: 800, border: '1px solid #c7d2fe', flexShrink: 0 }}>
                           {m.sharePercentage}%
                         </span>

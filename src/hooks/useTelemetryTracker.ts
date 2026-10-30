@@ -86,8 +86,8 @@ export function useTelemetryTracker(currentSpaceId?: string, currentSpaceTitle?:
         }
         lastActiveTimestampRef.current = now;
 
-        // Periodic sync to Firestore every 3 minutes (180,000ms)
-        if (now - lastFirestoreSyncRef.current >= 180000) {
+        // Periodic sync to Firestore every 4 hours (14,400,000ms)
+        if (now - lastFirestoreSyncRef.current >= 4 * 60 * 60 * 1000) {
           syncToFirestore();
         }
       }
