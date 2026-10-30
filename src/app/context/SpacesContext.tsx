@@ -156,6 +156,7 @@ export interface SpaceSettings {
   showVaultTimeline?: boolean;
   sharedExpensesOnly?: boolean;
   disableSettlements?: boolean;
+  monthlyRollingDefault?: boolean;
 }
 
 export interface SpaceMessage {

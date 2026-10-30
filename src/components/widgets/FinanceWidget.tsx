@@ -541,7 +541,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                ניהול הוצאות <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>v0.67</span>
+                ניהול הוצאות <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>v0.68</span>
               </h2>
               
             </div>

@@ -8,60 +8,7 @@ interface ExpenseDateReportProps {
   onPreviewImage: (url: string) => void;
 }
 
-const HEBREW_MONTHS = [
-  'ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני',
-  'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'
-];
-
-function formatYMD(year: number, month: number, day: number): string {
-  const y = String(year);
-  const m = String(month).padStart(2, '0');
-  const d = String(day).padStart(2, '0');
-  return `${y}-${m}-${d}`;
-}
-
-function getDaysInMonth(year: number, month: number): number {
-  return new Date(year, month, 0).getDate();
-}
-
-function normalizeToYMD(dateStr: any): string {
-  if (!dateStr || typeof dateStr !== 'string') return '';
-  const trimmed = dateStr.trim();
-  
-  if (trimmed.includes('.')) {
-    const parts = trimmed.split('.');
-    if (parts.length === 3) {
-      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    }
-  }
-  if (trimmed.includes('/')) {
-    const parts = trimmed.split('/');
-    if (parts.length === 3) {
-      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    }
-  }
-  if (trimmed.includes('-')) {
-    const parts = trimmed.split('-');
-    if (parts.length === 3) {
-      if (parts[0].length === 4) {
-        return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
-      }
-      const year = parts[2].length === 2 ? '20' + parts[2] : parts[2];
-      return `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    }
-  }
-  
-  const parsed = new Date(trimmed);
-  if (!isNaN(parsed.getTime())) {
-    const y = parsed.getFullYear();
-    const m = parsed.getMonth() + 1;
-    const d = parsed.getDate();
-    return formatYMD(y, m, d);
-  }
-  return '';
-}
+import { HEBREW_MONTHS, formatYMD, getDaysInMonth, normalizeToYMD } from '@/utils/dateUtils';
 
 export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: ExpenseDateReportProps) {
   const [preset, setPreset] = useState<string>('all');

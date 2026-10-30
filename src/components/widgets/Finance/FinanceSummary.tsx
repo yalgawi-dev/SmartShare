@@ -1,3 +1,4 @@
+import { normalizeToYMD, getDateRangeForPreset, HEBREW_MONTHS } from '../../../utils/dateUtils';
 import React, { useState, useEffect, useMemo } from 'react';
 import { usePresence } from '../../../hooks/usePresence';
 import { useSpaces } from '@/app/context/SpacesContext';
@@ -41,6 +42,33 @@ export function FinanceSummary({
   const [depositPartnerId, setDepositPartnerId] = useState('');
   const [showSettlementBreakdown, setShowSettlementBreakdown] = useState(false);
   const isSharedOnly = Boolean(space?.settings?.sharedExpensesOnly || space?.settings?.disableSettlements);
+  const isMonthlyRolling = Boolean(space?.settings?.monthlyRollingDefault);
+
+  // Date Filtering State
+  const [datePreset, setDatePreset] = useState<string>(() => isMonthlyRolling ? 'current_month' : 'all');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [showDateFilterModal, setShowDateFilterModal] = useState<boolean>(false);
+
+  // Long-press handling for previous month peek (Only when monthlyRollingDefault is on)
+  const [isPeekingPreviousMonth, setIsPeekingPreviousMonth] = useState<boolean>(false);
+  const longPressTimerRef = React.useRef<any>(null);
+  const isLongPressTriggeredRef = React.useRef<boolean>(false);
+
+  // Compute active effective date range
+  const effectiveRange = useMemo(() => {
+    if (isMonthlyRolling && isPeekingPreviousMonth) {
+      return getDateRangeForPreset('last_month');
+    }
+    if (datePreset === 'custom') {
+      let label = 'טווח מותאם';
+      if (customStartDate && customEndDate) label = `${customStartDate.split('-').reverse().join('.')} - ${customEndDate.split('-').reverse().join('.')}`;
+      else if (customStartDate) label = `החל מ-${customStartDate.split('-').reverse().join('.')}`;
+      else if (customEndDate) label = `עד ${customEndDate.split('-').reverse().join('.')}`;
+      return { startDate: customStartDate, endDate: customEndDate, label };
+    }
+    return getDateRangeForPreset(datePreset);
+  }, [datePreset, customStartDate, customEndDate, isMonthlyRolling, isPeekingPreviousMonth]);
 
   const presenceUids = useMemo(() => {
     const uids = space?.members?.map((m: any) => m.userId) || [];
@@ -67,7 +95,17 @@ export function FinanceSummary({
   })();
   const myMember = space.members?.find((m: any) => m.userId === user?.id || (myPartnerToken && m.userId === myPartnerToken));
   
-  const activeInvoices = invoices.filter((inv: any) => inv.isActive !== false);
+  const rawActiveInvoices = invoices.filter((inv: any) => inv.isActive !== false);
+  const activeInvoices = useMemo(() => {
+    if (!effectiveRange.startDate && !effectiveRange.endDate) return rawActiveInvoices;
+    return rawActiveInvoices.filter((inv: any) => {
+      const invYMD = normalizeToYMD(inv.date || inv.createdAt);
+      if (!invYMD) return true; // keep if no date
+      if (effectiveRange.startDate && invYMD < effectiveRange.startDate) return false;
+      if (effectiveRange.endDate && invYMD > effectiveRange.endDate) return false;
+      return true;
+    });
+  }, [rawActiveInvoices, effectiveRange]);
   const expensesOnly = activeInvoices.filter((inv: any) => inv.type !== 'transfer' && inv.type !== 'income' && inv.status !== 'dispute' && inv.category !== 'cashbox_equity' && inv.category !== 'cashbox_withdrawal');
   const incomesOnly = activeInvoices.filter((inv: any) => inv.type === 'income' && inv.status !== 'dispute');
   const transfersOnly = activeInvoices.filter((inv: any) => inv.type === 'transfer' && inv.status === 'approved');
@@ -350,18 +388,149 @@ export function FinanceSummary({
       {/* Summary Metrics */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
         
-        {/* Row 1: Total Expenses */}
+        {/* Row 1: Total Expenses with Date Range Selector & Long Press */}
         <div 
-          onClick={() => setShowTotalBreakdown(true)}
-          style={{ background: 'rgba(0,0,0,0.02)', padding: '1.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)', textAlign: 'center', cursor: 'pointer', transition: 'background 0.2s', width: '100%' }}
-          title="פירוט ההוצאות לפי קטגוריות"
+          onClick={() => {
+            if (isLongPressTriggeredRef.current) {
+              isLongPressTriggeredRef.current = false;
+              return;
+            }
+            setShowTotalBreakdown(true);
+          }}
+          onMouseDown={() => {
+            if (!isMonthlyRolling) return;
+            isLongPressTriggeredRef.current = false;
+            longPressTimerRef.current = setTimeout(() => {
+              isLongPressTriggeredRef.current = true;
+              setIsPeekingPreviousMonth(true);
+            }, 500);
+          }}
+          onMouseUp={() => {
+            if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+            if (isPeekingPreviousMonth) {
+              setIsPeekingPreviousMonth(false);
+            }
+          }}
+          onMouseLeave={() => {
+            if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+            if (isPeekingPreviousMonth) {
+              setIsPeekingPreviousMonth(false);
+            }
+          }}
+          onTouchStart={() => {
+            if (!isMonthlyRolling) return;
+            isLongPressTriggeredRef.current = false;
+            longPressTimerRef.current = setTimeout(() => {
+              isLongPressTriggeredRef.current = true;
+              setIsPeekingPreviousMonth(true);
+            }, 500);
+          }}
+          onTouchEnd={() => {
+            if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+            if (isPeekingPreviousMonth) {
+              setIsPeekingPreviousMonth(false);
+            }
+          }}
+          style={{ 
+            background: isPeekingPreviousMonth ? 'rgba(239, 68, 68, 0.05)' : 'rgba(0,0,0,0.02)', 
+            padding: '1.25rem 1.5rem', 
+            borderRadius: 'var(--radius-md)', 
+            border: isPeekingPreviousMonth ? '1.5px dashed #f87171' : '1px solid var(--border-light)', 
+            textAlign: 'center', 
+            cursor: 'pointer', 
+            transition: 'all 0.2s', 
+            width: '100%',
+            position: 'relative',
+            userSelect: 'none'
+          }}
+          title={isMonthlyRolling ? "לחיצה רגילה: פירוט לפי קטגוריות. לחיצה ממושכת: הצגת חודש קודם." : "פירוט ההוצאות לפי קטגוריות"}
         >
-          <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-secondary)' }}>סה"כ הוצאות</p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <h3 style={{ margin: 0, fontSize: '2.5rem', color: 'var(--text-primary)' }}>₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}</h3>
+          {/* Header Row: Label & Date Filter Controls */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', fontWeight: 600 }}>סה"כ הוצאות</span>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={(e) => e.stopPropagation()}>
+              <button
+                type="button"
+                onClick={() => setShowDateFilterModal(true)}
+                style={{
+                  background: (effectiveRange.startDate || effectiveRange.endDate) ? '#eff6ff' : 'var(--bg-main)',
+                  border: (effectiveRange.startDate || effectiveRange.endDate) ? '1px solid #bfdbfe' : '1px solid var(--border-light)',
+                  color: (effectiveRange.startDate || effectiveRange.endDate) ? '#1d4ed8' : 'var(--text-primary)',
+                  padding: '0.25rem 0.65rem',
+                  borderRadius: '12px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
+                  boxShadow: 'var(--shadow-sm)'
+                }}
+                title="בחירת טווח זמנים לסיכום ההוצאות והמאזנים"
+              >
+                <span>📅</span>
+                <span>{isPeekingPreviousMonth ? 'חודש קודם (מציץ)' : (effectiveRange.label || 'כל הזמנים')}</span>
+                <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>▾</span>
+              </button>
+
+              {(effectiveRange.startDate || effectiveRange.endDate) && !isPeekingPreviousMonth && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDatePreset('all');
+                    setCustomStartDate('');
+                    setCustomEndDate('');
+                  }}
+                  style={{
+                    background: '#fee2e2',
+                    border: '1px solid #fecdd3',
+                    color: '#991b1b',
+                    padding: '0.25rem 0.55rem',
+                    borderRadius: '12px',
+                    fontSize: '0.72rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.2rem'
+                  }}
+                  title="ביטול הסינון והצגת כל הזמנים בלחיצה אחת"
+                >
+                  <span>✕ הצג הכל</span>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Amount Display */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.25rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+            <h3 style={{ margin: 0, fontSize: '2.5rem', color: isPeekingPreviousMonth ? '#dc2626' : 'var(--text-primary)' }}>
+              ₪{totalExpenses.toLocaleString(undefined, {maximumFractionDigits: 0})}
+            </h3>
             {totalDisputed > 0 && (
               <span onClick={(e) => { e.stopPropagation(); setActiveTab('transactions'); setFilter('dispute'); }} style={{ background: '#fee2e2', color: '#991b1b', border: '1px solid #fecdd3', padding: '0.3rem 0.6rem', borderRadius: '16px', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}>
                 + ₪{totalDisputed.toLocaleString()} במחלוקת
+              </span>
+            )}
+          </div>
+
+          {/* Contextual Notice */}
+          <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {isPeekingPreviousMonth ? (
+              <span style={{ color: '#dc2626', fontWeight: 700, background: '#fee2e2', padding: '1px 8px', borderRadius: '8px' }}>
+                👀 הצצה לחודש קודם ({effectiveRange.label}) • שחרר כדי לחזור
+              </span>
+            ) : (effectiveRange.startDate || effectiveRange.endDate) ? (
+              <span style={{ color: '#2563eb', fontWeight: 600 }}>
+                💡 הנתונים והמאזנים מחושבים עבור {effectiveRange.label} ({activeInvoices.length} הוצאות)
+              </span>
+            ) : (
+              <span>💡 מציג את כל ההוצאות מיום פתיחת המרחב ({activeInvoices.length} הוצאות)</span>
+            )}
+            {isMonthlyRolling && !isPeekingPreviousMonth && (
+              <span style={{ color: '#64748b', fontSize: '0.7rem' }}>
+                (לחיצה ארוכה = חודש קודם)
               </span>
             )}
           </div>
@@ -865,7 +1034,131 @@ export function FinanceSummary({
         document.body
       )}
 
-    </div>
+    
+      {/* Date Range Selector Modal */}
+      {showDateFilterModal && typeof document !== 'undefined' && createPortal(
+        <div style={{ position: 'fixed', inset: 0, zIndex: 100000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="bottom-sheet-overlay" onClick={() => setShowDateFilterModal(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.5)' }}></div>
+          <div className="bottom-sheet" style={{ position: 'relative', width: '92%', maxWidth: '440px', background: 'var(--bg-card)', borderRadius: '24px', padding: '1.5rem', boxShadow: '0 10px 40px rgba(0,0,0,0.25)', maxHeight: '90vh', overflowY: 'auto' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>📅</span>
+                <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)' }}>בחירת טווח זמנים להוצאות ומאזנים</h3>
+              </div>
+              <button onClick={() => setShowDateFilterModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer', padding: '0.2rem' }}>×</button>
+            </div>
+
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginTop: 0, marginBottom: '1rem', lineHeight: '1.4' }}>
+              בחירת טווח תעדכן את סה״כ ההוצאות, את טבלת חלוקת התשלומים ואת מאזני השותפים בדיוק עבור התקופה הנבחרת.
+            </p>
+
+            {/* Quick Presets Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem', marginBottom: '1.25rem' }}>
+              {[
+                { key: 'all', label: 'כל הזמנים (הכל)', icon: '♾️' },
+                { key: 'current_month', label: 'החודש הנוכחי', icon: '📍' },
+                { key: 'last_month', label: 'חודש קודם', icon: '⏪' },
+                { key: 'last_3_months', label: '3 חודשים אחרונים', icon: '📊' },
+                { key: 'year_to_date', label: 'מתחילת השנה', icon: '📅' },
+              ].map(p => {
+                const isSelected = datePreset === p.key;
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => {
+                      setDatePreset(p.key);
+                      setCustomStartDate('');
+                      setCustomEndDate('');
+                      setShowDateFilterModal(false);
+                    }}
+                    style={{
+                      padding: '0.7rem 0.6rem',
+                      borderRadius: '12px',
+                      border: isSelected ? '2px solid var(--primary, #3b82f6)' : '1px solid var(--border-light)',
+                      background: isSelected ? 'rgba(59, 130, 246, 0.08)' : 'var(--bg-main)',
+                      color: isSelected ? 'var(--primary, #3b82f6)' : 'var(--text-primary)',
+                      fontWeight: isSelected ? 800 : 600,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      justifyContent: 'center',
+                      fontSize: '0.82rem',
+                      transition: 'all 0.15s'
+                    }}
+                  >
+                    <span>{p.icon}</span>
+                    <span>{p.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Custom Range Section */}
+            <div style={{ background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--border-light)', marginBottom: '1.25rem' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>🎯</span>
+                <span>טווח תאריכים מותאם אישית:</span>
+              </div>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>מתאריך:</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => {
+                      setCustomStartDate(e.target.value);
+                      setDatePreset('custom');
+                    }}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '0.85rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: '0.25rem' }}>עד תאריך:</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => {
+                      setCustomEndDate(e.target.value);
+                      setDatePreset('custom');
+                    }}
+                    style={{ width: '100%', padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '0.85rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  setDatePreset('all');
+                  setCustomStartDate('');
+                  setCustomEndDate('');
+                  setShowDateFilterModal(false);
+                }}
+                style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-main)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', color: 'var(--text-secondary)' }}
+              >
+                ✕ בטל סינון (הצג הכל)
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowDateFilterModal(false)}
+                style={{ flex: 1, padding: '0.75rem', background: 'var(--primary, #3b82f6)', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', boxShadow: '0 2px 6px rgba(59, 130, 246, 0.3)' }}
+              >
+                ✓ החל טווח
+              </button>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+</div>
   );
 }
 
