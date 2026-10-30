@@ -175,7 +175,7 @@ export default function AuthWall() {
       initRecaptcha();
       
       if (errCode === 'auth/argument-error') {
-        setErrorMsg('אימות האבטחה אינו בתוקף. אנא חזור לשלב הקודם וסמן מחדש את אימות האבטחה. (קוד: ' + errCode + ')');
+        setErrorMsg('שגיאת אימות זמנית. אנא נסה שוב.');
       } else if (errCode === 'auth/invalid-phone-number') {
         setErrorMsg('מספר הטלפון אינו תקין. ודא שהמספר הוזן ללא קידומת בינלאומית כפולה. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/too-many-requests') {
@@ -183,7 +183,7 @@ export default function AuthWall() {
       } else if (errCode === 'auth/quota-exceeded') {
         setErrorMsg('מכסת הודעות ה-SMS היומית של המערכת ב-Firebase הסתיימה. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/captcha-check-failed') {
-        setErrorMsg('אימות ה-reCAPTCHA נכשל או פג תוקף. אנא סמן שוב את התיבה "אני לא רובוט". (קוד: ' + errCode + ')');
+        setErrorMsg('אימות האבטחה האוטומטי נכשל. אנא רענן את הדף ונסה שוב.');
       } else if (errCode === 'auth/app-not-authorized' || errCode === 'auth/unauthorized-domain') {
         setErrorMsg('הדומיין הנוכחי אינו מורשה במסוף Firebase Authentication. (קוד: ' + errCode + ')');
       } else if (errCode === 'auth/billing-not-enabled' || errCode === 'auth/operation-not-allowed') {
@@ -524,6 +524,8 @@ export default function AuthWall() {
                   key={i}
                   id={`otp-${i}`}
                   type="text"
+                  inputMode="numeric"
+                  autoComplete={i === 0 ? "one-time-code" : "off"}
                   maxLength={1}
                   className="otp-input"
                   value={digit}
@@ -556,7 +558,10 @@ export default function AuthWall() {
                 onClick={() => {
                   setStep(1);
                   setOtp(['', '', '', '', '', '']);
-                  setErrorMsg('אנא סמן את אימות האבטחה (reCAPTCHA) ולחץ המשך לשליחת קוד חדש');
+                  setErrorMsg('');
+                  setTimeout(() => {
+                    handleSendCode();
+                  }, 150);
                 }} 
                 disabled={isSubmitting} 
                 style={{ background: 'none', border: 'none', color: '#2563EB', fontSize: '0.95rem', cursor: 'pointer', fontWeight: '500', textDecoration: 'underline' }}

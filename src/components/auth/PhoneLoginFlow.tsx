@@ -210,7 +210,10 @@ export default function PhoneLoginFlow({ onSuccess, onCancel }: { onSuccess: () 
               onClick={() => {
                 setStep(1);
                 setOtp(['', '', '', '', '', '']);
-                setErrorMsg('אנא סמן את אימות האבטחה (reCAPTCHA) לשליחת קוד חדש');
+                setErrorMsg('');
+                setTimeout(() => {
+                  handleSendCode();
+                }, 150);
               }} 
               disabled={isSubmitting} 
               style={{ background: 'none', border: 'none', color: '#25D366', fontSize: '0.95rem', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
