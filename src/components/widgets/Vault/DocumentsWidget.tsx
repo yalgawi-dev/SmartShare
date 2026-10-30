@@ -4,7 +4,7 @@ import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalView
 import React, { useState, forwardRef, useImperativeHandle, useMemo } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
-import { Space, useSpaces } from '../../../app/context/SpacesContext';
+import { Space, useSpaces, DocumentFolder } from '../../../app/context/SpacesContext';
 import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -31,7 +31,12 @@ type ViewMode = 'feed' | 'grid' | 'circles';
 
 export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetProps>(({ space, activePartnersCount }, ref) => {
   const { user } = useAuth();
-  const { addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment } = useSpaces() as any;
+  const { 
+    addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, 
+    addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, 
+    addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder,
+    addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment 
+  } = useSpaces() as any;
   
   const shelves = space.shelves || [];
   const documents = space.documents || [];
@@ -109,6 +114,12 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [isSharingBatch, setIsSharingBatch] = useState(false);
 
+  // Folders management states
+  const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const [linkStationFolder, setLinkStationFolder] = useState<DocumentFolder | null>(null);
+  const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [moveDocToFolder, setMoveDocToFolder] = useState<{ docId: string, currentFolderId?: string | null } | null>(null);
+
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
       const paramShelfId = new URLSearchParams(window.location.search).get('shelfId');
@@ -119,6 +130,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }, [shelves]);
 
   React.useEffect(() => {
+    setCurrentFolderId(null);
     if (activeShelfId) {
       window.dispatchEvent(new CustomEvent('smartshare:shelf_opened', { detail: { shelfId: activeShelfId, subTab: activeTab } }));
       window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: activeTab }));
@@ -327,7 +339,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       setDragOverDocId(null);
     };
 
-    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string) => {
+    const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, folderId?: string | null) => {
       // Optimistic UI update
       const tempId = 'temp-' + Date.now();
       const title = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
@@ -392,8 +404,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }
         }
 
+        // Determine effective folderId (passed in or currentFolderId if same shelf)
+        const effectiveFolderId = typeof folderId !== 'undefined' ? folderId : (shelfId === activeShelfId ? currentFolderId : null);
+
+        // Station resolution: If targetEventId not specified, check if effective folder has linked station
+        let effectiveTargetEventId = targetEventId;
+        if (!effectiveTargetEventId && effectiveFolderId) {
+          const targetFolder = (space.documentFolders || []).find(f => f.id === effectiveFolderId);
+          if (targetFolder?.stationId) {
+            effectiveTargetEventId = targetFolder.stationId;
+          }
+        }
+
         const docPayload = {
           shelfId, 
+          folderId: effectiveFolderId || null,
           url: finalUrl, 
           type, 
           title, 
@@ -403,10 +428,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
         };
 
-        // Save to real database - atomically link if targetEventId is present
+        // Save to real database - atomically link if effectiveTargetEventId is present
         let docId: string;
-        if (targetEventId && targetEventId !== '__new_station__') {
-          docId = addDocumentAndLinkToEvent(space.id, docPayload, targetEventId);
+        if (effectiveTargetEventId && effectiveTargetEventId !== '__new_station__') {
+          docId = addDocumentAndLinkToEvent(space.id, docPayload, effectiveTargetEventId);
         } else {
           docId = addDocument(space.id, docPayload);
           recordTelemetryAction('docUpload');
@@ -599,7 +624,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.69</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.70</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -705,12 +730,55 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   </div>
                 ) : <div />}
 
-                {shelfDocs.length > 1 && (
-                  <button 
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {/* Folder with Plus button (Windows Explorer style) */}
+                  <button
+                    type="button"
                     onClick={() => {
-                      setIsMultiSelect(prev => !prev);
-                      setSelectedDocIds([]);
+                      setPromptInput('');
+                      setCustomPrompt({
+                        isOpen: true,
+                        title: 'יצירת תיקייה חדשה',
+                        placeholder: 'שם התיקייה...',
+                        defaultValue: '',
+                        onSave: (folderName: string) => {
+                          if (folderName.trim()) {
+                            addDocumentFolder(space.id, {
+                              shelfId: activeShelf.id,
+                              parentId: currentFolderId || null,
+                              name: folderName.trim()
+                            });
+                          }
+                        }
+                      });
                     }}
+                    style={{
+                      background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)',
+                      border: '1.5px solid #cbd5e1',
+                      color: '#1e293b',
+                      padding: '6px 14px',
+                      borderRadius: '12px',
+                      fontSize: '0.84rem',
+                      fontWeight: 800,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="צור תיקייה חדשה במיקום זה"
+                  >
+                    <span style={{ fontSize: '1.1rem' }}>📁⁺</span>
+                    <span>תיקייה חדשה</span>
+                  </button>
+
+                  {shelfDocs.length > 1 && (
+                    <button 
+                      onClick={() => {
+                        setIsMultiSelect(prev => !prev);
+                        setSelectedDocIds([]);
+                      }}
                     style={{
                       background: isMultiSelect ? '#eff6ff' : '#ffffff',
                       border: isMultiSelect ? '1px solid #3b82f6' : '1px solid #cbd5e1',
@@ -730,7 +798,117 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     <span>{isMultiSelect ? '✓ ביטול בחירה' : '☑️ בחירה מרובה לשיתוף'}</span>
                   </button>
                 )}
+                </div>
               </div>
+
+              {/* Windows Explorer Style Breadcrumbs Navigation */}
+              {(() => {
+                const allFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelf.id);
+                const breadcrumbTrail: DocumentFolder[] = [];
+                let walkerId = currentFolderId;
+                while (walkerId) {
+                  const f = allFolders.find(item => item.id === walkerId);
+                  if (f) {
+                    breadcrumbTrail.unshift(f);
+                    walkerId = f.parentId || null;
+                  } else {
+                    break;
+                  }
+                }
+
+                return (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '12px',
+                    padding: '6px 12px',
+                    fontSize: '0.82rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                      <span style={{ color: '#64748b', fontWeight: 600 }}>מיקום:</span>
+                      <button
+                        type="button"
+                        onClick={() => setCurrentFolderId(null)}
+                        style={{
+                          background: !currentFolderId ? '#dbeafe' : 'transparent',
+                          color: !currentFolderId ? '#1d4ed8' : '#475569',
+                          border: 'none',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontWeight: !currentFolderId ? 800 : 600,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        <span>🏠</span> ראשי (כללי)
+                      </button>
+
+                      {breadcrumbTrail.map((crumb, idx) => {
+                        const isLast = idx === breadcrumbTrail.length - 1;
+                        return (
+                          <React.Fragment key={crumb.id}>
+                            <span style={{ color: '#94a3b8' }}>/</span>
+                            <button
+                              type="button"
+                              onClick={() => setCurrentFolderId(crumb.id)}
+                              style={{
+                                background: isLast ? '#dbeafe' : 'transparent',
+                                color: isLast ? '#1d4ed8' : '#475569',
+                                border: 'none',
+                                padding: '3px 8px',
+                                borderRadius: '6px',
+                                fontWeight: isLast ? 800 : 600,
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.25rem',
+                                maxWidth: '140px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}
+                            >
+                              <span>📂</span> {crumb.name}
+                            </button>
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+
+                    {currentFolderId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const currentF = allFolders.find(f => f.id === currentFolderId);
+                          setCurrentFolderId(currentF?.parentId || null);
+                        }}
+                        style={{
+                          background: 'white',
+                          border: '1px solid #cbd5e1',
+                          borderRadius: '8px',
+                          padding: '3px 10px',
+                          fontSize: '0.78rem',
+                          fontWeight: 700,
+                          color: '#334155',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.3rem'
+                        }}
+                      >
+                        <span>⮌</span> עלה שלב למעלה
+                      </button>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Station Filter & Sorting Controls */}
               {showTimeline && (
@@ -903,7 +1081,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               });
             };
 
+            // Current Level Folders (Explorer Hierarchy)
+            const allShelfFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelfId);
+            const currentLevelFolders = allShelfFolders.filter(f => currentFolderId ? f.parentId === currentFolderId : !f.parentId);
+
             let filteredDocs = shelfDocs.filter(doc => {
+              // Explorer Hierarchy check: document must reside in the current folder level
+              const matchesFolder = currentFolderId ? doc.folderId === currentFolderId : !doc.folderId;
+              if (!matchesFolder) return false;
+
               const linkedEv = getDocLinkedEvent(doc.id, doc.url);
               const isLinked = !!linkedEv;
               if (filterLinked === 'linked') return isLinked;
@@ -943,7 +1129,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
             });
 
-            if (filteredDocs.length === 0) {
+            if (filteredDocs.length === 0 && currentLevelFolders.length === 0) {
               const isFiltered = filterLinked !== 'all' || warehouseStationFilter !== 'all';
               return (
                 <div style={{
@@ -1070,6 +1256,163 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             
             return (
               <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
+                {/* EXPLORER FOLDER CARDS */}
+                {currentLevelFolders.map(folder => {
+                  const subfolderCount = allShelfFolders.filter(f => f.parentId === folder.id).length;
+                  const docCount = shelfDocs.filter(d => d.folderId === folder.id).length;
+                  const folderStation = folder.stationId ? (space.shelfEvents || []).find(e => e.id === folder.stationId) : null;
+
+                  return (
+                    <div
+                      key={folder.id}
+                      onClick={() => setCurrentFolderId(folder.id)}
+                      style={{
+                        background: '#ffffff',
+                        borderRadius: '16px',
+                        border: '1.5px solid #e2e8f0',
+                        boxShadow: '0 3px 10px rgba(0,0,0,0.03)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                        overflow: 'hidden',
+                        transition: 'all 0.15s ease',
+                        position: 'relative'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = '#93c5fd';
+                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(59,130,246,0.1)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'none';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,0,0,0.03)';
+                      }}
+                    >
+                      {/* Top folder header preview */}
+                      <div style={{
+                        height: '110px',
+                        background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative',
+                        borderBottom: '1px solid #bbf7d0'
+                      }}>
+                        <span style={{ fontSize: '3rem', filter: 'drop-shadow(0 4px 6px rgba(22,101,52,0.15))' }}>📁</span>
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '6px',
+                          left: '6px',
+                          background: 'rgba(255,255,255,0.9)',
+                          padding: '2px 8px',
+                          borderRadius: '6px',
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          color: '#166534',
+                          border: '1px solid #86efac'
+                        }}>
+                          {subfolderCount > 0 ? `${subfolderCount} תתי-תיקיות • ` : ''}{docCount} מסמכים
+                        </div>
+                      </div>
+
+                      {/* Folder Content & Actions */}
+                      <div style={{ padding: '0.6rem 0.75rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
+                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={folder.name}>
+                            {folder.name}
+                          </span>
+                        </div>
+
+                        {/* Station badge if folder is linked */}
+                        {showTimeline && (
+                          <div style={{ marginTop: '2px' }}>
+                            {folderStation ? (
+                              <div
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setWarehouseStationFilter(folderStation.id);
+                                }}
+                                style={{
+                                  background: '#e0f2fe',
+                                  color: '#0369a1',
+                                  fontSize: '0.72rem',
+                                  padding: '2px 6px',
+                                  borderRadius: '6px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  fontWeight: 700,
+                                  border: '1px solid #bae6fd',
+                                  maxWidth: '100%'
+                                }}
+                                title={'מקושרת לתחנה: ' + folderStation.title}
+                              >
+                                <span>📍</span>
+                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderStation.title}</span>
+                              </div>
+                            ) : (
+                              <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ללא שיוך לתחנה</span>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Action buttons on card */}
+                        <div style={{ marginTop: 'auto', paddingTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', gap: '0.3rem' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setPromptInput(folder.name);
+                              setCustomPrompt({
+                                isOpen: true,
+                                title: 'עריכת שם תיקייה',
+                                placeholder: 'שם התיקייה...',
+                                defaultValue: folder.name,
+                                onSave: (val) => {
+                                  if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
+                                }
+                              });
+                            }}
+                            style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                            title="ערוך שם תיקייה"
+                          >
+                            <span>✏️</span> ערוך
+                          </button>
+
+                          {showTimeline && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setLinkStationFolder(folder);
+                              }}
+                              style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
+                              title="קשר תיקייה לתחנה בציר הזמן (יקשר את כל תוכנה)"
+                            >
+                              <span>🔗</span> תחנה
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFolderToDelete({ id: folder.id, name: folder.name });
+                            }}
+                            style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
+                            title="מחק תיקייה"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* DOCUMENT CARDS */}
                 {filteredDocs.map(doc => {
                   const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
                   const isChecked = selectedDocIds.includes(doc.id);
@@ -1395,6 +1738,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>✏️</span> ערוך כותרת
                                     </button>
 
+                                    {/* Move Document to Folder */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setActiveDocMenuId(null);
+                                        setMoveDocToFolder({ docId: doc.id, currentFolderId: doc.folderId });
+                                      }}
+                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
+                                    >
+                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>📁</span> העבר לתיקייה
+                                    </button>
+
                                     {/* Convert to Expense (Only if finance plugin exists in space) */}
                                     {hasFinance && (
                                       <button
@@ -1591,6 +1946,226 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
+      {/* LINK FOLDER TO TIMELINE STATION MODAL */}
+      {linkStationFolder && (() => {
+        const activeShelfEvents = (space.shelfEvents || []).filter(e => e.shelfId === activeShelfId);
+        const currentFolderStation = linkStationFolder.stationId 
+          ? activeShelfEvents.find(e => e.id === linkStationFolder.stationId)
+          : null;
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '1.5rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', direction: 'rtl' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>שיוך תיקייה לתחנה בציר הזמן</h3>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px' }}>
+                    📁 {linkStationFolder.name}
+                  </div>
+                </div>
+                <button onClick={() => setLinkStationFolder(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
+
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '0.75rem', marginBottom: '1rem', fontSize: '0.8rem', color: '#1e40af', lineHeight: '1.4' }}>
+                💡 <strong>שים לב:</strong> שיוך התיקייה לתחנה יקשר אוטומטית את כל המסמכים שנמצאים בתוכה לתחנה זו בציר הזמן!
+              </div>
+
+              {currentFolderStation && (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '12px', padding: '0.75rem', marginBottom: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ fontSize: '0.85rem', color: '#166534' }}>
+                    <strong>משויכת כרגע לתחנה:</strong><br />
+                    {currentFolderStation.title}
+                  </div>
+                  <button 
+                    onClick={() => {
+                      updateDocumentFolder(space.id, linkStationFolder.id, { stationId: null });
+                      setLinkStationFolder(null);
+                    }}
+                    style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626', padding: '0.4rem 0.8rem', borderRadius: '8px', fontSize: '0.78rem', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    בטל שיוך
+                  </button>
+                </div>
+              )}
+
+              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.5rem' }}>
+                בחר תחנה לשיוך:
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
+                {activeShelfEvents.length > 0 ? activeShelfEvents.map(event => {
+                  const isCurrent = event.id === currentFolderStation?.id;
+                  return (
+                    <button
+                      key={event.id}
+                      onClick={() => {
+                        updateDocumentFolder(space.id, linkStationFolder.id, { stationId: event.id });
+                        setLinkStationFolder(null);
+                      }}
+                      style={{
+                        padding: '0.85rem 1rem',
+                        background: isCurrent ? '#eff6ff' : '#f8fafc',
+                        border: isCurrent ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                        borderRadius: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        textAlign: 'right',
+                        transition: 'all 0.15s'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                        <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#1d4ed8' : '#1e293b' }}>
+                          {event.title}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                          📅 {new Date(event.eventDate).toLocaleDateString('he-IL')}
+                        </span>
+                      </div>
+                      {isCurrent && <span style={{ color: '#2563eb', fontWeight: 'bold', fontSize: '1.1rem' }}>✓</span>}
+                    </button>
+                  );
+                }) : (
+                  <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.9rem' }}>
+                    עדיין אין תחנות בציר הזמן של מדף זה.
+                  </div>
+                )}
+              </div>
+
+              <button 
+                onClick={() => setLinkStationFolder(null)} 
+                style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                סגור
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* MOVE DOCUMENT TO FOLDER MODAL */}
+      {moveDocToFolder && (() => {
+        const docToMove = documents.find(d => d.id === moveDocToFolder.docId);
+        const allShelfFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelfId);
+
+        return (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '1.5rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', direction: 'rtl' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>העברת מסמך לתיקייה</h3>
+                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    📄 {docToMove?.title || 'מסמך'}
+                  </div>
+                </div>
+                <button onClick={() => setMoveDocToFolder(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
+
+              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.75rem' }}>
+                בחר תיקיית יעד:
+              </div>
+
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
+                {/* Option 1: Root level */}
+                <button
+                  onClick={() => {
+                    updateDocument(space.id, moveDocToFolder.docId, { folderId: null });
+                    setMoveDocToFolder(null);
+                  }}
+                  style={{
+                    padding: '0.85rem 1rem',
+                    background: !moveDocToFolder.currentFolderId ? '#eff6ff' : '#f8fafc',
+                    border: !moveDocToFolder.currentFolderId ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                    borderRadius: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    textAlign: 'right'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '1.3rem' }}>🏠</span>
+                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: !moveDocToFolder.currentFolderId ? '#1d4ed8' : '#1e293b' }}>
+                      תיקייה ראשית (ללא תיקייה)
+                    </span>
+                  </div>
+                  {!moveDocToFolder.currentFolderId && <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓ נוכחי</span>}
+                </button>
+
+                {/* Available folders in this shelf */}
+                {allShelfFolders.map(f => {
+                  const isCurrent = f.id === moveDocToFolder.currentFolderId;
+                  const parentF = f.parentId ? allShelfFolders.find(p => p.id === f.parentId) : null;
+                  return (
+                    <button
+                      key={f.id}
+                      onClick={() => {
+                        updateDocument(space.id, moveDocToFolder.docId, { folderId: f.id });
+                        setMoveDocToFolder(null);
+                      }}
+                      style={{
+                        padding: '0.85rem 1rem',
+                        background: isCurrent ? '#eff6ff' : '#f8fafc',
+                        border: isCurrent ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                        borderRadius: '14px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        textAlign: 'right'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '1.3rem' }}>📁</span>
+                        <div>
+                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#1d4ed8' : '#1e293b' }}>
+                            {f.name}
+                          </div>
+                          {parentF && (
+                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                              נמצאת בתוך: {parentF.name}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {isCurrent && <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓ נוכחי</span>}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button 
+                onClick={() => setMoveDocToFolder(null)} 
+                style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
+              >
+                ביטול
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* CONFIRM DELETE FOLDER MODAL */}
+      <ConfirmModal
+        isOpen={Boolean(folderToDelete)}
+        title="מחיקת תיקייה"
+        message="התיקייה תועבר לסל האשפה. המסמכים שהיו בתוכה יישמרו ויועברו לרמה הראשית של המדף."
+        itemTitle={folderToDelete?.name}
+        confirmText="העבר לסל אשפה"
+        onConfirm={() => {
+          if (folderToDelete) {
+            removeDocumentFolder(space.id, folderToDelete.id);
+            if (currentFolderId === folderToDelete.id) {
+              setCurrentFolderId(null);
+            }
+            setFolderToDelete(null);
+          }
+        }}
+        onClose={() => setFolderToDelete(null)}
+      />
+
       {/* UNIVERSAL VIEWER ENGINE MODAL (CAMSCANNER STYLE) */}
       {previewState && (
         <UniversalViewerModal
@@ -1705,7 +2280,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.69</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.70</span>
         </h2>
         <input 
           type="text" 

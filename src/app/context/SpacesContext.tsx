@@ -132,9 +132,20 @@ export interface ShelfEvent {
   tasks?: { id: string; text: string; isCompleted: boolean; documentId?: string; completedAt?: string }[];
 }
 
+export interface DocumentFolder {
+  id: string;
+  shelfId: string;
+  parentId?: string | null;
+  name: string;
+  stationId?: string | null;
+  createdAt: string;
+  deletedAt?: string;
+}
+
 export interface SpaceDocument {
   id: string;
   shelfId: string;
+  folderId?: string | null;
   partitionName?: string;
   url: string;
   title: string;
@@ -239,6 +250,7 @@ export interface Space {
   settings: SpaceSettings;
   invoices: Invoice[];
   documents?: SpaceDocument[];
+  documentFolders?: DocumentFolder[];
   shelves?: DocumentShelf[];
   shelfEvents?: ShelfEvent[];
   mediaItems: MediaItem[];
@@ -305,6 +317,11 @@ interface SpacesContextType {
   removeDocument: (spaceId: string, docId: string) => void;
   restoreDocument: (spaceId: string, docId: string) => void;
   permanentlyDeleteDocument: (spaceId: string, docId: string) => void;
+  addDocumentFolder: (spaceId: string, folder: Omit<DocumentFolder, 'id' | 'createdAt'>) => string;
+  updateDocumentFolder: (spaceId: string, folderId: string, updates: Partial<DocumentFolder>) => void;
+  removeDocumentFolder: (spaceId: string, folderId: string) => void;
+  restoreDocumentFolder: (spaceId: string, folderId: string) => void;
+  permanentlyDeleteDocumentFolder: (spaceId: string, folderId: string) => void;
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
@@ -2043,6 +2060,100 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     }));
   };
 
+  const addDocumentFolder = (spaceId: string, folder: Omit<DocumentFolder, 'id' | 'createdAt'>) => {
+    const folderId = `folder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documentFolders: [...(space.documentFolders || []), { ...folder, id: folderId, createdAt: new Date().toISOString() }]
+    }));
+    return folderId;
+  };
+
+  const updateDocumentFolder = (spaceId: string, folderId: string, updates: Partial<DocumentFolder>) => {
+    saveSpaceUpdate(spaceId, space => {
+      const updatedFolders = (space.documentFolders || []).map(f => f.id === folderId ? { ...f, ...updates } : f);
+      
+      // If folder's stationId was updated, propagate/inherit to all documents inside this folder
+      let updatedEvents = space.shelfEvents || [];
+      if ('stationId' in updates) {
+        const newStationId = updates.stationId;
+        
+        // Find all documents in this folder or subfolders
+        const getSubfolderIds = (parentId: string): string[] => {
+          const direct = updatedFolders.filter(f => f.parentId === parentId && !f.deletedAt).map(f => f.id);
+          let all = [...direct];
+          direct.forEach(subId => {
+            all = [...all, ...getSubfolderIds(subId)];
+          });
+          return all;
+        };
+        const allTargetFolderIds = [folderId, ...getSubfolderIds(folderId)];
+        const docsInHierarchy = (space.documents || []).filter(d => d.folderId && allTargetFolderIds.includes(d.folderId));
+        const docIdsToLink = docsInHierarchy.map(d => d.id);
+        
+        if (docIdsToLink.length > 0) {
+          updatedEvents = updatedEvents.map(ev => {
+            // Remove docs from other stations in the same shelf
+            const filteredDocIds = (ev.documentIds || []).filter(id => !docIdsToLink.includes(id));
+            if (newStationId && ev.id === newStationId) {
+              const combined = Array.from(new Set([...filteredDocIds, ...docIdsToLink]));
+              return { ...ev, documentIds: combined };
+            }
+            return { ...ev, documentIds: filteredDocIds };
+          });
+        }
+      }
+
+      return {
+        ...space,
+        documentFolders: updatedFolders,
+        shelfEvents: updatedEvents
+      };
+    });
+  };
+
+  const removeDocumentFolder = (spaceId: string, folderId: string) => {
+    // Soft delete: move to recycle bin
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documentFolders: (space.documentFolders || []).map(f => f.id === folderId ? { ...f, deletedAt: new Date().toISOString() } : f)
+    }));
+  };
+
+  const restoreDocumentFolder = (spaceId: string, folderId: string) => {
+    saveSpaceUpdate(spaceId, space => ({
+      ...space,
+      documentFolders: (space.documentFolders || []).map(f => {
+        if (f.id !== folderId) return f;
+        const copy = { ...f };
+        delete copy.deletedAt;
+        return copy;
+      })
+    }));
+  };
+
+  const permanentlyDeleteDocumentFolder = (spaceId: string, folderId: string) => {
+    saveSpaceUpdate(spaceId, space => {
+      // Find all subfolder IDs recursively
+      const getSubfolderIds = (parentId: string): string[] => {
+        const direct = (space.documentFolders || []).filter(f => f.parentId === parentId).map(f => f.id);
+        let all = [...direct];
+        direct.forEach(subId => {
+          all = [...all, ...getSubfolderIds(subId)];
+        });
+        return all;
+      };
+      const allDeletedFolderIds = [folderId, ...getSubfolderIds(folderId)];
+
+      return {
+        ...space,
+        documentFolders: (space.documentFolders || []).filter(f => !allDeletedFolderIds.includes(f.id)),
+        // Move any documents in these folders to root of the shelf (folderId: null) so they are not lost
+        documents: (space.documents || []).map(d => d.folderId && allDeletedFolderIds.includes(d.folderId) ? { ...d, folderId: null } : d)
+      };
+    });
+  };
+
   const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
     const shelfId = `shelf-${Date.now()}`;
     saveSpaceUpdate(spaceId, space => ({
@@ -2330,7 +2441,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,
