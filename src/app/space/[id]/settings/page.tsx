@@ -143,6 +143,41 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                 {/* Specific configs for Finance */}
                 {featureId === 'finance' && (
                   <>
+                    {/* Shared Expenses Only (without debts/settlements) */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                      <div style={{ paddingLeft: '1rem' }}>
+                        <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>מעקב הוצאות משותף בלבד (ללא התחשבנות)</h4>
+                        <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                          הפיכת המערכת לריכוז וסכימת כלל ההוצאות ללא חישובי חובות, ללא אחוזים וללא קיזוזים (מתאים להורים, משקי בית ועוד).
+                        </p>
+                      </div>
+                      <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', flexShrink: 0 }}>
+                        <input 
+                          type="checkbox" 
+                          checked={Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements)}
+                          onChange={(e) => {
+                            const val = e.target.checked;
+                            updateSpaceSettings(id, {
+                              sharedExpensesOnly: val,
+                              disableSettlements: val
+                            });
+                          }}
+                          style={{ opacity: 0, width: 0, height: 0 }}
+                        />
+                        <span style={{
+                          position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0,
+                          backgroundColor: Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements) ? 'var(--primary)' : '#cbd5e1',
+                          borderRadius: '34px', transition: '.3s'
+                        }}>
+                          <span style={{
+                            position: 'absolute', height: '20px', width: '20px', 
+                            left: Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements) ? '4px' : '24px', 
+                            bottom: '3px',
+                            backgroundColor: 'white', borderRadius: '50%', transition: '.3s'
+                          }} />
+                        </span>
+                      </label>
+                    </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.25rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
                       <div>
                         <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem' }}>אחוז מע"מ מוגדר</h4>

@@ -154,6 +154,8 @@ export interface SpaceSettings {
   allowPartnersToEditWall: boolean;
   mySharePercentage?: number;
   showVaultTimeline?: boolean;
+  sharedExpensesOnly?: boolean;
+  disableSettlements?: boolean;
 }
 
 export interface SpaceMessage {
