@@ -120,6 +120,20 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
   const [moveDocToFolder, setMoveDocToFolder] = useState<{ docId: string, currentFolderId?: string | null } | null>(null);
   const [showSortFilterModal, setShowSortFilterModal] = useState(false);
+  const [vaultViewMode, setVaultViewMode] = useState<'grid_medium' | 'grid_large' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('smartshare_vault_view_mode');
+      if (saved === 'grid_medium' || saved === 'grid_large' || saved === 'list') return saved;
+    }
+    return 'grid_medium';
+  });
+
+  const handleSetVaultViewMode = (mode: 'grid_medium' | 'grid_large' | 'list') => {
+    setVaultViewMode(mode);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('smartshare_vault_view_mode', mode);
+    }
+  };
 
   React.useEffect(() => {
     const folderHandler = () => {
@@ -651,7 +665,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.71</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.72</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -750,7 +764,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {/* Clean Sort & Filter Button (Only in Vault where relevant) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     onClick={() => setShowSortFilterModal(true)}
@@ -784,6 +798,84 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       }}>פעיל</span>
                     )}
                   </button>
+
+                  {/* Explorer View Mode Switcher (כמו ב-Windows / סייר המכשיר) */}
+                  <div style={{
+                    display: 'flex',
+                    background: '#e2e8f0',
+                    borderRadius: '10px',
+                    padding: '2px',
+                    gap: '2px'
+                  }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSetVaultViewMode('list')}
+                      title="תצוגת רשימה (List)"
+                      style={{
+                        border: 'none',
+                        background: vaultViewMode === 'list' ? '#ffffff' : 'transparent',
+                        color: vaultViewMode === 'list' ? '#0f172a' : '#64748b',
+                        fontWeight: vaultViewMode === 'list' ? 800 : 500,
+                        borderRadius: '8px',
+                        padding: '4px 8px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        boxShadow: vaultViewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                      }}
+                    >
+                      <span>☰</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>רשימה</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSetVaultViewMode('grid_medium')}
+                      title="קלפים בינוניים (Medium Icons)"
+                      style={{
+                        border: 'none',
+                        background: vaultViewMode === 'grid_medium' ? '#ffffff' : 'transparent',
+                        color: vaultViewMode === 'grid_medium' ? '#0f172a' : '#64748b',
+                        fontWeight: vaultViewMode === 'grid_medium' ? 800 : 500,
+                        borderRadius: '8px',
+                        padding: '4px 8px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        boxShadow: vaultViewMode === 'grid_medium' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                      }}
+                    >
+                      <span>▦</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>בינוני</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleSetVaultViewMode('grid_large')}
+                      title="קלפים גדולים (Large Icons)"
+                      style={{
+                        border: 'none',
+                        background: vaultViewMode === 'grid_large' ? '#ffffff' : 'transparent',
+                        color: vaultViewMode === 'grid_large' ? '#0f172a' : '#64748b',
+                        fontWeight: vaultViewMode === 'grid_large' ? 800 : 500,
+                        borderRadius: '8px',
+                        padding: '4px 8px',
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px',
+                        boxShadow: vaultViewMode === 'grid_large' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                      }}
+                    >
+                      <span>☷</span>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>גדול</span>
+                    </button>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginRight: 'auto' }}>
@@ -1134,541 +1226,716 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             }
 
             return (
-              <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                {/* EXPLORER FOLDER CARDS */}
-                {currentLevelFolders.map(folder => {
-                  const subfolderCount = allShelfFolders.filter(f => f.parentId === folder.id).length;
-                  const docCount = shelfDocs.filter(d => d.folderId === folder.id).length;
-                  const folderStation = folder.stationId ? (space.shelfEvents || []).find(e => e.id === folder.stationId) : null;
-
+              (() => {
+                if (vaultViewMode === 'list') {
                   return (
-                    <div
-                      key={folder.id}
-                      onClick={() => setCurrentFolderId(folder.id)}
-                      style={{
-                        background: '#ffffff',
-                        borderRadius: '16px',
-                        border: '1.5px solid #e2e8f0',
-                        boxShadow: '0 3px 10px rgba(0,0,0,0.03)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        cursor: 'pointer',
-                        overflow: 'hidden',
-                        transition: 'all 0.15s ease',
-                        position: 'relative'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.borderColor = '#93c5fd';
-                        e.currentTarget.style.boxShadow = '0 6px 16px rgba(59,130,246,0.1)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'none';
-                        e.currentTarget.style.borderColor = '#e2e8f0';
-                        e.currentTarget.style.boxShadow = '0 3px 10px rgba(0,0,0,0.03)';
-                      }}
-                    >
-                      {/* Top folder header preview */}
-                      <div style={{
-                        height: '110px',
-                        background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        position: 'relative',
-                        borderBottom: '1px solid #bbf7d0'
-                      }}>
-                        <span style={{ fontSize: '3rem', filter: 'drop-shadow(0 4px 6px rgba(22,101,52,0.15))' }}>📁</span>
-                        <div style={{
-                          position: 'absolute',
-                          bottom: '6px',
-                          left: '6px',
-                          background: 'rgba(255,255,255,0.9)',
-                          padding: '2px 8px',
-                          borderRadius: '6px',
-                          fontSize: '0.68rem',
-                          fontWeight: 700,
-                          color: '#166534',
-                          border: '1px solid #86efac'
-                        }}>
-                          {subfolderCount > 0 ? `${subfolderCount} תתי-תיקיות • ` : ''}{docCount} מסמכים
-                        </div>
-                      </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                      {/* FOLDERS LIST */}
+                      {currentLevelFolders.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '0.1rem' }}>
+                            <span>📁</span>
+                            <span>תיקיות ({currentLevelFolders.length}):</span>
+                          </div>
+                          {currentLevelFolders.map(folder => {
+                            const subfolderCount = allShelfFolders.filter(f => f.parentId === folder.id).length;
+                            const docCount = shelfDocs.filter(d => d.folderId === folder.id).length;
+                            const folderStation = folder.stationId ? (space.shelfEvents || []).find(e => e.id === folder.stationId) : null;
 
-                      {/* Folder Content & Actions */}
-                      <div style={{ padding: '0.6rem 0.75rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.35rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.3rem' }}>
-                          <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={folder.name}>
-                            {folder.name}
-                          </span>
-                        </div>
-
-                        {/* Station badge if folder is linked */}
-                        {showTimeline && (
-                          <div style={{ marginTop: '2px' }}>
-                            {folderStation ? (
+                            return (
                               <div
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setWarehouseStationFilter(folderStation.id);
+                                key={folder.id}
+                                onClick={() => setCurrentFolderId(folder.id)}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '0.55rem 0.85rem',
+                                  background: '#ffffff',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '12px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)',
+                                  gap: '0.5rem'
+                                }}
+                                onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#93c5fd')}
+                                onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#e2e8f0')}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
+                                  <span style={{ fontSize: '1.6rem', filter: 'drop-shadow(0 2px 4px rgba(245,158,11,0.25))', flexShrink: 0 }}>📁</span>
+                                  <div style={{ minWidth: 0, flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                                      <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                        {folder.name}
+                                      </span>
+                                      {showTimeline && folderStation && (
+                                        <span
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setWarehouseStationFilter(folderStation.id);
+                                          }}
+                                          style={{
+                                            background: '#e0f2fe',
+                                            color: '#0369a1',
+                                            fontSize: '0.68rem',
+                                            padding: '1px 6px',
+                                            borderRadius: '6px',
+                                            fontWeight: 700,
+                                            border: '1px solid #bae6fd'
+                                          }}
+                                          title={'מקושרת לתחנה: ' + folderStation.title}
+                                        >
+                                          📍 {folderStation.title}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
+                                      {subfolderCount > 0 ? `${subfolderCount} תתי-תיקיות • ` : ''}{docCount} מסמכים
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Folder Action Buttons in List View */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPromptInput(folder.name);
+                                      setCustomPrompt({
+                                        isOpen: true,
+                                        title: 'עריכת שם תיקייה',
+                                        placeholder: 'שם התיקייה...',
+                                        defaultValue: folder.name,
+                                        onSave: (val) => {
+                                          if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
+                                        }
+                                      });
+                                    }}
+                                    style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}
+                                    title="ערוך שם"
+                                  >
+                                    ✏️
+                                  </button>
+                                  {showTimeline && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setLinkStationFolder(folder)}
+                                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer' }}
+                                      title="קשר לתחנה"
+                                    >
+                                      🔗
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setFolderToDelete({ id: folder.id, name: folder.name })}
+                                    style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
+                                    title="מחק תיקייה"
+                                  >
+                                    🗑️
+                                  </button>
+                                  <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginRight: '4px' }}>❯</span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {/* DOCUMENTS LIST */}
+                      {filteredDocs.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: currentLevelFolders.length > 0 ? '0.5rem' : 0 }}>
+                          <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '0.1rem' }}>
+                            <span>📄</span>
+                            <span>מסמכים ({filteredDocs.length}):</span>
+                          </div>
+
+                          {/* List Table Header */}
+                          <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: isMultiSelect ? '30px 42px 1fr 85px 105px' : '42px 1fr 85px 105px',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.35rem 0.6rem',
+                            background: '#f1f5f9',
+                            borderRadius: '8px',
+                            fontSize: '0.72rem',
+                            fontWeight: 800,
+                            color: '#475569'
+                          }}>
+                            {isMultiSelect && <span style={{ textAlign: 'center' }}>בחר</span>}
+                            <span>תצוגה</span>
+                            <span>שם המסמך ושיוך</span>
+                            <span>תאריך</span>
+                            <span style={{ textAlign: 'center' }}>פעולות</span>
+                          </div>
+
+                          {filteredDocs.map(doc => {
+                            const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
+                            const isChecked = selectedDocIds.includes(doc.id);
+                            const isPdf = (doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf';
+
+                            return (
+                              <div
+                                key={doc.id}
+                                data-doc-id={doc.id}
+                                onClick={() => {
+                                  if (isMultiSelect) {
+                                    setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
+                                  } else {
+                                    setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) });
+                                  }
                                 }}
                                 style={{
-                                  background: '#e0f2fe',
-                                  color: '#0369a1',
-                                  fontSize: '0.72rem',
-                                  padding: '2px 6px',
-                                  borderRadius: '6px',
-                                  display: 'inline-flex',
+                                  display: 'grid',
+                                  gridTemplateColumns: isMultiSelect ? '30px 42px 1fr 85px 105px' : '42px 1fr 85px 105px',
                                   alignItems: 'center',
-                                  gap: '0.25rem',
-                                  fontWeight: 700,
-                                  border: '1px solid #bae6fd',
-                                  maxWidth: '100%'
+                                  gap: '0.5rem',
+                                  padding: '0.4rem 0.6rem',
+                                  background: isChecked ? '#eff6ff' : '#ffffff',
+                                  border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                                  borderRadius: '10px',
+                                  cursor: 'pointer',
+                                  transition: 'background 0.15s ease',
+                                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
                                 }}
-                                title={'מקושרת לתחנה: ' + folderStation.title}
+                                onMouseEnter={(e) => { if (!isChecked) e.currentTarget.style.background = '#f8fafc'; }}
+                                onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.background = '#ffffff'; }}
                               >
-                                <span>📍</span>
-                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{folderStation.title}</span>
-                              </div>
-                            ) : (
-                              <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>ללא שיוך לתחנה</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Action buttons on card */}
-                        <div style={{ marginTop: 'auto', paddingTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #f1f5f9', gap: '0.3rem' }}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setPromptInput(folder.name);
-                              setCustomPrompt({
-                                isOpen: true,
-                                title: 'עריכת שם תיקייה',
-                                placeholder: 'שם התיקייה...',
-                                defaultValue: folder.name,
-                                onSave: (val) => {
-                                  if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
-                                }
-                              });
-                            }}
-                            style={{ background: '#f8fafc', border: '1px solid #e2e8f0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#334155', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                            title="ערוך שם תיקייה"
-                          >
-                            <span>✏️</span> ערוך
-                          </button>
-
-                          {showTimeline && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setLinkStationFolder(folder);
-                              }}
-                              style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#2563eb', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
-                              title="קשר תיקייה לתחנה בציר הזמן (יקשר את כל תוכנה)"
-                            >
-                              <span>🔗</span> תחנה
-                            </button>
-                          )}
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setFolderToDelete({ id: folder.id, name: folder.name });
-                            }}
-                            style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
-                            title="מחק תיקייה"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* DOCUMENT CARDS */}
-                {filteredDocs.map(doc => {
-                  const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
-                  const isChecked = selectedDocIds.includes(doc.id);
-                  return (
-                    <div 
-                      key={doc.id} 
-                      data-doc-id={doc.id} 
-                      onClick={() => {
-                        if (isMultiSelect) {
-                          setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
-                        }
-                      }}
-                      style={{ 
-                        background: '#f8fafc', 
-                        borderRadius: '14px', 
-                        overflow: 'visible', 
-                        border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0'), 
-                        position: 'relative', 
-                        opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1), 
-                        transition: 'all 0.2s', 
-                        transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : 'scale(1)'), 
-                        boxShadow: isChecked ? '0 6px 16px rgba(37,99,235,0.2)' : 'none',
-                        display: 'flex', 
-                        flexDirection: 'column',
-                        cursor: isMultiSelect ? 'pointer' : 'default'
-                      }}
-                    >
-                      {/* MULTI SELECT CHECKBOX OVERLAY */}
-                      {isMultiSelect && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '8px',
-                          left: '8px',
-                          zIndex: 25,
-                          background: isChecked ? '#2563eb' : 'rgba(255,255,255,0.9)',
-                          color: 'white',
-                          borderRadius: '8px',
-                          width: '24px',
-                          height: '24px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: isChecked ? 'none' : '2px solid #94a3b8',
-                          boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
-                          fontSize: '0.85rem',
-                          fontWeight: 'bold'
-                        }}>
-                          {isChecked ? '✓' : ''}
-                        </div>
-                      )}
-
-                      {doc.id.startsWith('temp-') && <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem', zIndex: 20 }}>מעלה...</div>}
-                      
-
-                      {((doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf') ? (
-                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? 'url(' + doc.thumbnailUrl + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'zoom-in', position: 'relative', borderTopLeftRadius: '13px', borderTopRightRadius: '13px', overflow: 'hidden' }}>
-                          {!doc.thumbnailUrl && <span style={{ fontSize: '3rem' }}>📄</span>}
-                          <div style={{ position: 'absolute', bottom: '6px', left: '6px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '2px 6px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', letterSpacing: '1px' }}>PDF</div>
-                          
-                          {/* Subtle Storage Location Badge */}
-                          <div 
-                            title={doc.storageTarget === 'local' ? 'שמור מקומית במכשיר' : doc.storageTarget === 'gdrive' ? 'שמור ב-Google Drive' : 'שמור בענן MySpace'}
-                            style={{ 
-                              position: 'absolute', 
-                              bottom: '6px', 
-                              right: '6px', 
-                              background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.85)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.85)' : 'rgba(37, 99, 235, 0.85)', 
-                              color: 'white', 
-                              padding: '2px 6px', 
-                              borderRadius: '6px', 
-                              fontSize: '0.65rem', 
-                              fontWeight: 700, 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '3px',
-                              backdropFilter: 'blur(4px)',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-                            }}
-                          >
-                            <span>{doc.storageTarget === 'local' ? '📱' : doc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
-                            <span>{doc.storageTarget === 'local' ? 'מקומי' : doc.storageTarget === 'gdrive' ? 'Drive' : 'ענן'}</span>
-                          </div>
-                        </div>
-                      ) : (
-                        <div onClick={(e) => { if (isMultiSelect) return; e.stopPropagation(); setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) }); }} style={{ height: '160px', background: '#e2e8f0', backgroundImage: 'url(' + (doc.thumbnailUrl || doc.url) + ')', backgroundSize: 'cover', backgroundPosition: 'center', cursor: 'zoom-in', position: 'relative', borderTopLeftRadius: '13px', borderTopRightRadius: '13px', overflow: 'hidden' }}>
-                          {/* Subtle Storage Location Badge */}
-                          <div 
-                            title={doc.storageTarget === 'local' ? 'שמור מקומית במכשיר' : doc.storageTarget === 'gdrive' ? 'שמור ב-Google Drive' : 'שמור בענן MySpace'}
-                            style={{ 
-                              position: 'absolute', 
-                              bottom: '6px', 
-                              right: '6px', 
-                              background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.85)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.85)' : 'rgba(37, 99, 235, 0.85)', 
-                              color: 'white', 
-                              padding: '2px 6px', 
-                              borderRadius: '6px', 
-                              fontSize: '0.65rem', 
-                              fontWeight: 700, 
-                              display: 'flex', 
-                              alignItems: 'center', 
-                              gap: '3px',
-                              backdropFilter: 'blur(4px)',
-                              boxShadow: '0 2px 4px rgba(0,0,0,0.15)'
-                            }}
-                          >
-                            <span>{doc.storageTarget === 'local' ? '📱' : doc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
-                            <span>{doc.storageTarget === 'local' ? 'מקומי' : doc.storageTarget === 'gdrive' ? 'Drive' : 'ענן'}</span>
-                          </div>
-                        </div>
-                      )}
-                      
-                      {!isMultiSelect && (
-                        <div onTouchStart={(e) => handleTouchDragStart(e, doc.id)} onMouseDown={(e) => handleTouchDragStart(e, doc.id)} style={{ display: 'flex', justifyContent: 'center', padding: '0.35rem', background: '#f1f5f9', borderBottom: '1px solid #e2e8f0', cursor: 'grab' }}>
-                          <span style={{ fontSize: '0.8rem', color: '#94a3b8', letterSpacing: '2px' }}>|||</span>
-                        </div>
-                      )}
-                      
-                      <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-                        <div 
-                          onClick={(e) => { 
-                            if (isMultiSelect) return;
-                            e.stopPropagation(); 
-                            setPromptInput(doc.title);
-                            setCustomPrompt({
-                              isOpen: true,
-                              title: 'עריכת כותרת מסמך',
-                              placeholder: 'הזן כותרת...',
-                              defaultValue: doc.title,
-                              onSave: (val: string) => {
-                                if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
-                              }
-                            });
-                          }} 
-                          style={{ padding: '0.5rem 0.5rem 0.2rem 0.5rem', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }} 
-                          title="לחץ לשינוי שם"
-                        >
-                          {doc.title}
-                        </div>
-                        <div style={{ padding: '0 0.5rem 0.2rem 0.5rem', fontSize: '0.7rem', color: '#64748b' }}>
-                          {new Date(doc.createdAt).toLocaleDateString('he-IL')}
-                        </div>
-                        
-                        {showTimeline && (
-                          <div style={{ padding: '0 0.5rem 0.4rem 0.5rem' }}>
-                            {linkedEvent ? (
-                              <div 
-                                onClick={(e) => { 
-                                  if (isMultiSelect) return;
-                                  e.stopPropagation(); 
-                                  setWarehouseStationFilter(linkedEvent.id);
-                                }} 
-                                style={{ 
-                                  background: '#e0f2fe', 
-                                  color: '#0284c7', 
-                                  fontSize: '0.72rem', 
-                                  padding: '0.2rem 0.5rem', 
-                                  borderRadius: '8px', 
-                                  display: 'inline-flex', 
-                                  alignItems: 'center', 
-                                  gap: '0.3rem', 
-                                  cursor: 'pointer', 
-                                  fontWeight: 700, 
-                                  maxWidth: '100%',
-                                  border: '1px solid #bae6fd'
-                                }}
-                                title={'שייך לתחנה: ' + linkedEvent.title + ' (לחץ לסינון תחנה זו)'}
-                              >
-                                <span>📍</span> <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{linkedEvent.title}</span>
-                              </div>
-                            ) : (
-                              <span style={{ 
-                                fontSize: '0.68rem', 
-                                color: '#94a3b8', 
-                                background: '#f1f5f9', 
-                                padding: '1px 6px', 
-                                borderRadius: '6px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '3px'
-                              }}>
-                                <span>📎</span> ללא שיוך לתחנה
-                              </span>
-                            )}
-                          </div>
-                        )}
-                        
-                        {!isMultiSelect && (
-                          <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid #e2e8f0', background: '#f8fafc', padding: '0.35rem 0.4rem', position: 'relative', gap: '0.2rem', borderBottomLeftRadius: '13px', borderBottomRightRadius: '13px' }}>
-                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center', flexWrap: 'nowrap', overflow: 'hidden' }}>
-                              <button 
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }}
-                                style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '0.25rem 0.45rem', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem', whiteSpace: 'nowrap' }}
-                                title="שתף מסמך"
-                              >
-                                📤 שתף
-                              </button>
-                              
-                              {/* Link to Timeline Station (Only if timeline is enabled in space) */}
-                              {showTimeline && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url });
-                                  }}
-                                  style={{ background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '0.25rem 0.4rem', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
-                                  title={linkedEvent ? 'שנה שיוך לתחנה' : 'שייך לתחנה בציר'}
-                                >
-                                  🔗 {linkedEvent ? 'תחנה' : 'קשר'}
-                                </button>
-                              )}
-
-                              {/* Move to another shelf */}
-                              <button 
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleMoveDocument(doc.id, activeShelf.id);
-                                }}
-                                style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '0.25rem 0.4rem', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.15rem', whiteSpace: 'nowrap' }}
-                                title="העבר למדף אחר"
-                              >
-                                🔄 העבר
-                              </button>
-                            </div>
-
-                            {/* 3-Dots Action Menu Trigger */}
-                            <div style={{ position: 'relative', flexShrink: 0 }}>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setActiveDocMenuId(activeDocMenuId === doc.id ? null : doc.id);
-                                }}
-                                style={{ background: activeDocMenuId === doc.id ? '#e2e8f0' : 'transparent', color: '#475569', border: 'none', borderRadius: '6px', width: '24px', height: '24px', fontSize: '1rem', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                title="פעולות נוספות"
-                              >
-                                ⋮
-                              </button>
-
-                              {activeDocMenuId === doc.id && (
-                                <>
-                                  <div 
-                                    onClick={(e) => { e.stopPropagation(); setActiveDocMenuId(null); }}
-                                    style={{ position: 'fixed', inset: 0, zIndex: 9998 }}
-                                  />
-                                  <div 
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{
-                                      position: 'absolute',
-                                      bottom: '120%',
-                                      left: 0,
-                                      right: 'auto',
-                                      background: 'white',
-                                      borderRadius: '14px',
-                                      boxShadow: '0 10px 25px -5px rgba(0,0,0,0.2), 0 8px 10px -6px rgba(0,0,0,0.1)',
-                                      border: '1px solid #e2e8f0',
-                                      padding: '0.4rem',
-                                      zIndex: 9999,
-                                      display: 'flex',
-                                      flexDirection: 'column',
-                                      gap: '0.2rem',
-                                      minWidth: '175px',
-                                      textAlign: 'right',
-                                      direction: 'rtl'
-                                    }}
-                                  >
-                                    {/* Download to Device */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveDocMenuId(null);
-                                        downloadDocument(doc.url, doc.title);
-                                      }}
-                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}
-                                    >
-                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>⬇️</span> הורד למכשיר
-                                    </button>
-
-                                    {/* Save to Local MySpace Folder */}
-                                    <button
-                                      type="button"
-                                      onClick={async () => {
-                                        setActiveDocMenuId(null);
-                                        try {
-                                          const safeSpaceTitle = space.title || 'General';
-                                          const ext = doc.url.includes('.pdf') || doc.type === 'pdf' ? 'pdf' : 'jpg';
-                                          const fileName = `${doc.title || 'מסמך'}_${Date.now()}.${ext}`;
-                                          const res = await saveLocalDeviceFile(safeSpaceTitle, fileName, doc.url);
-                                          if (res.success) {
-                                            alert(`המסמך נשמר בהצלחה בתיקיית המכשיר:\n${res.localPath}`);
-                                          } else {
-                                            alert(`שגיאה בשמירה למכשיר: ${res.error || 'נסה שוב'}`);
-                                          }
-                                        } catch (err: any) {
-                                          alert(`שגיאה בשמירה: ${err.message || ''}`);
-                                        }
-                                      }}
-                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}
-                                    >
-                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>📱</span> שמור בתיקיית MySpace
-                                    </button>
-
-                                    {/* Edit Title */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveDocMenuId(null);
-                                        setPromptInput(doc.title);
-                                        setCustomPrompt({
-                                          isOpen: true,
-                                          title: 'עריכת כותרת מסמך',
-                                          placeholder: 'הזן כותרת...',
-                                          defaultValue: doc.title,
-                                          onSave: (val: string) => {
-                                            if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
-                                          }
-                                        });
-                                      }}
-                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                    >
-                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>✏️</span> ערוך כותרת
-                                    </button>
-
-                                    {/* Move Document to Folder */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveDocMenuId(null);
-                                        setMoveDocToFolder({ docId: doc.id, currentFolderId: doc.folderId });
-                                      }}
-                                      style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600 }}
-                                    >
-                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>📁</span> העבר לתיקייה
-                                    </button>
-
-                                    {/* Convert to Expense (Only if finance plugin exists in space) */}
-                                    {hasFinance && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          setActiveDocMenuId(null);
-                                          window.dispatchEvent(new CustomEvent('smartshare:convert_doc_to_expense', { 
-                                            detail: { url: doc.url, allPages: doc.pages || [doc.url], title: doc.title } 
-                                          }));
-                                        }}
-                                        style={{ background: 'transparent', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#7c3aed', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                      >
-                                        <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>🧾</span> הוסף להוצאות המרחב
-                                      </button>
-                                    )}
-
-                                    <div style={{ height: '1px', background: '#e2e8f0', margin: '0.2rem 0' }} />
-
-                                    {/* Delete Document */}
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setActiveDocMenuId(null);
-                                        handleDeleteDocument(doc.id, doc.title);
-                                      }}
-                                      style={{ background: '#fef2f2', border: 'none', padding: '0.55rem 0.75rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.82rem', color: '#dc2626', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
-                                    >
-                                      <span style={{ fontSize: '1rem', width: '20px', textAlign: 'center', flexShrink: 0 }}>🗑️</span> מחק מסמך
-                                    </button>
+                                {isMultiSelect && (
+                                  <div style={{ textAlign: 'center' }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {}}
+                                      style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+                                    />
                                   </div>
-                                </>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                                )}
+
+                                {/* Thumbnail */}
+                                <div style={{
+                                  width: '38px',
+                                  height: '38px',
+                                  borderRadius: '6px',
+                                  overflow: 'hidden',
+                                  background: '#f1f5f9',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  flexShrink: 0,
+                                  border: '1px solid #e2e8f0'
+                                }}>
+                                  {doc.thumbnailUrl ? (
+                                    <img src={doc.thumbnailUrl} alt={doc.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ) : isPdf ? (
+                                    <span style={{ fontSize: '1.2rem' }}>📑</span>
+                                  ) : (
+                                    <img src={doc.url} alt={doc.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  )}
+                                </div>
+
+                                {/* Title & Station */}
+                                <div style={{ minWidth: 0 }}>
+                                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {doc.title}
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px', flexWrap: 'wrap' }}>
+                                    {showTimeline && linkedEvent && (
+                                      <span style={{ fontSize: '0.66rem', color: '#0284c7', background: '#e0f2fe', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }}>
+                                        📍 {linkedEvent.title}
+                                      </span>
+                                    )}
+                                    <span style={{ fontSize: '0.64rem', color: '#64748b' }}>
+                                      {doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Date */}
+                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                  {new Date(doc.createdAt).toLocaleDateString('he-IL')}
+                                </div>
+
+                                {/* Quick Actions */}
+                                <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSharingDoc(doc)}
+                                    title="שתף מסמך"
+                                    style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    📤
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPromptInput(doc.title);
+                                      setCustomPrompt({
+                                        isOpen: true,
+                                        title: 'עריכת כותרת מסמך',
+                                        placeholder: 'הזן כותרת...',
+                                        defaultValue: doc.title,
+                                        onSave: (val) => {
+                                          if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
+                                        }
+                                      });
+                                    }}
+                                    title="ערוך שם"
+                                    style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    ✏️
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMoveDocToFolder({ docId: doc.id, currentFolderId: doc.folderId })}
+                                    title="העבר לתיקייה"
+                                    style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    📁
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteDocument(doc.id, doc.title)}
+                                    title="מחק מסמך"
+                                    style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
-                })}
-              </div>
+                }
+
+                // Grid Views: grid_medium (125px) / grid_large (175px)
+                const minFolderCardWidth = vaultViewMode === 'grid_large' ? '175px' : '125px';
+                const folderIconSize = vaultViewMode === 'grid_large' ? '3.4rem' : '2.6rem';
+                const docCardHeight = vaultViewMode === 'grid_large' ? '185px' : '135px';
+
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* FOLDERS GRID SECTION */}
+                    {currentLevelFolders.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <span>📁</span>
+                          <span>תיקיות ({currentLevelFolders.length}):</span>
+                        </div>
+
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: `repeat(auto-fill, minmax(${minFolderCardWidth}, 1fr))`,
+                          gap: '0.75rem'
+                        }}>
+                          {currentLevelFolders.map(folder => {
+                            const subfolderCount = allShelfFolders.filter(f => f.parentId === folder.id).length;
+                            const docCount = shelfDocs.filter(d => d.folderId === folder.id).length;
+                            const folderStation = folder.stationId ? (space.shelfEvents || []).find(e => e.id === folder.stationId) : null;
+
+                            return (
+                              <div
+                                key={folder.id}
+                                onClick={() => setCurrentFolderId(folder.id)}
+                                style={{
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '0.75rem 0.5rem 0.5rem 0.5rem',
+                                  background: '#ffffff',
+                                  border: '1px solid #e2e8f0',
+                                  borderRadius: '16px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.03)',
+                                  textAlign: 'center',
+                                  gap: '0.35rem',
+                                  position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.transform = 'translateY(-2px)';
+                                  e.currentTarget.style.borderColor = '#93c5fd';
+                                  e.currentTarget.style.boxShadow = '0 6px 16px rgba(59,130,246,0.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.transform = 'none';
+                                  e.currentTarget.style.borderColor = '#e2e8f0';
+                                  e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.03)';
+                                }}
+                              >
+                                {/* Folder Icon with item count badge (Windows / Mac Style) */}
+                                <div style={{ position: 'relative' }}>
+                                  <span style={{ fontSize: folderIconSize, filter: 'drop-shadow(0 4px 6px rgba(245,158,11,0.25))' }}>📁</span>
+                                  <span style={{
+                                    position: 'absolute',
+                                    bottom: '2px',
+                                    right: '-4px',
+                                    background: '#2563eb',
+                                    color: 'white',
+                                    borderRadius: '999px',
+                                    padding: '1px 5px',
+                                    fontSize: '0.65rem',
+                                    fontWeight: 800
+                                  }}>
+                                    {docCount + subfolderCount}
+                                  </span>
+                                </div>
+
+                                <div style={{
+                                  fontWeight: 800,
+                                  fontSize: '0.82rem',
+                                  color: '#0f172a',
+                                  width: '100%',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }} title={folder.name}>
+                                  {folder.name}
+                                </div>
+
+                                {/* Station badge */}
+                                {showTimeline && folderStation && (
+                                  <span
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setWarehouseStationFilter(folderStation.id);
+                                    }}
+                                    style={{
+                                      background: '#e0f2fe',
+                                      color: '#0369a1',
+                                      fontSize: '0.64rem',
+                                      padding: '1px 6px',
+                                      borderRadius: '6px',
+                                      fontWeight: 700,
+                                      border: '1px solid #bae6fd',
+                                      maxWidth: '90%',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap'
+                                    }}
+                                    title={'מקושרת לתחנה: ' + folderStation.title}
+                                  >
+                                    📍 {folderStation.title}
+                                  </span>
+                                )}
+
+                                {/* Folder card actions */}
+                                <div style={{ display: 'flex', gap: '3px', marginTop: '0.2rem', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setPromptInput(folder.name);
+                                      setCustomPrompt({
+                                        isOpen: true,
+                                        title: 'עריכת שם תיקייה',
+                                        placeholder: 'שם התיקייה...',
+                                        defaultValue: folder.name,
+                                        onSave: (val) => {
+                                          if (val.trim()) updateDocumentFolder(space.id, folder.id, { name: val.trim() });
+                                        }
+                                      });
+                                    }}
+                                    style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                                    title="ערוך שם"
+                                  >
+                                    ✏️
+                                  </button>
+                                  {showTimeline && (
+                                    <button
+                                      type="button"
+                                      onClick={() => setLinkStationFolder(folder)}
+                                      style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                                      title="קשר לתחנה"
+                                    >
+                                      🔗
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => setFolderToDelete({ id: folder.id, name: folder.name })}
+                                    style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                                    title="מחק תיקייה"
+                                  >
+                                    🗑️
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* DOCUMENTS GRID SECTION */}
+                    {filteredDocs.length > 0 && (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {currentLevelFolders.length > 0 && (
+                          <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📄</span>
+                            <span>מסמכים ({filteredDocs.length}):</span>
+                          </div>
+                        )}
+
+                        <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minFolderCardWidth}, 1fr))`, gap: '0.75rem' }}>
+                          {filteredDocs.map(doc => {
+                            const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
+                            const isChecked = selectedDocIds.includes(doc.id);
+                            const isPdf = (doc.url && doc.url.includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.type === 'pdf';
+
+                            return (
+                              <div
+                                key={doc.id}
+                                data-doc-id={doc.id}
+                                onClick={() => {
+                                  if (isMultiSelect) {
+                                    setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
+                                  }
+                                }}
+                                style={{
+                                  background: '#ffffff',
+                                  borderRadius: '14px',
+                                  overflow: 'visible',
+                                  border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0'),
+                                  position: 'relative',
+                                  opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1),
+                                  transition: 'all 0.2s',
+                                  transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : 'scale(1)'),
+                                  boxShadow: isChecked ? '0 6px 16px rgba(37,99,235,0.2)' : '0 2px 4px rgba(0,0,0,0.03)',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  cursor: isMultiSelect ? 'pointer' : 'default'
+                                }}
+                              >
+                                {/* MULTI SELECT CHECKBOX OVERLAY */}
+                                {isMultiSelect && (
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '6px',
+                                    left: '6px',
+                                    zIndex: 25,
+                                    background: isChecked ? '#2563eb' : 'rgba(255,255,255,0.9)',
+                                    color: 'white',
+                                    borderRadius: '6px',
+                                    width: '20px',
+                                    height: '20px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    border: isChecked ? 'none' : '1.5px solid #94a3b8',
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+                                    fontSize: '0.75rem',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {isChecked ? '✓' : ''}
+                                  </div>
+                                )}
+
+                                {doc.id.startsWith('temp-') && (
+                                  <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '0.75rem', zIndex: 20 }}>
+                                    מעלה...
+                                  </div>
+                                )}
+
+                                {/* Card Preview */}
+                                <div
+                                  onClick={(e) => {
+                                    if (isMultiSelect) return;
+                                    e.stopPropagation();
+                                    setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) });
+                                  }}
+                                  style={{
+                                    height: docCardHeight,
+                                    background: '#e2e8f0',
+                                    backgroundImage: isPdf
+                                      ? (doc.thumbnailUrl ? `url(${doc.thumbnailUrl})` : 'none')
+                                      : `url(${doc.thumbnailUrl || doc.url})`,
+                                    backgroundSize: 'cover',
+                                    backgroundPosition: 'center',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    cursor: 'zoom-in',
+                                    position: 'relative',
+                                    borderTopLeftRadius: '13px',
+                                    borderTopRightRadius: '13px',
+                                    overflow: 'hidden'
+                                  }}
+                                >
+                                  {isPdf && !doc.thumbnailUrl && <span style={{ fontSize: '2.5rem' }}>📑</span>}
+                                  {isPdf && (
+                                    <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>
+                                      PDF
+                                    </div>
+                                  )}
+                                  <div style={{
+                                    position: 'absolute',
+                                    bottom: '4px',
+                                    right: '4px',
+                                    background: doc.storageTarget === 'local' ? 'rgba(16, 185, 129, 0.9)' : doc.storageTarget === 'gdrive' ? 'rgba(234, 179, 8, 0.9)' : 'rgba(37, 99, 235, 0.9)',
+                                    color: 'white',
+                                    padding: '1px 5px',
+                                    borderRadius: '5px',
+                                    fontSize: '0.6rem',
+                                    fontWeight: 700
+                                  }}>
+                                    {doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'}
+                                  </div>
+                                </div>
+
+                                {!isMultiSelect && (
+                                  <div onTouchStart={(e) => handleTouchDragStart(e, doc.id)} onMouseDown={(e) => handleTouchDragStart(e, doc.id)} style={{ display: 'flex', justifyContent: 'center', padding: '0.2rem', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', cursor: 'grab' }}>
+                                    <span style={{ fontSize: '0.7rem', color: '#94a3b8', letterSpacing: '1px' }}>|||</span>
+                                  </div>
+                                )}
+
+                                {/* Content Details */}
+                                <div style={{ padding: '0.4rem 0.5rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.15rem' }}>
+                                  <div
+                                    onClick={(e) => {
+                                      if (isMultiSelect) return;
+                                      e.stopPropagation();
+                                      setPromptInput(doc.title);
+                                      setCustomPrompt({
+                                        isOpen: true,
+                                        title: 'עריכת כותרת מסמך',
+                                        placeholder: 'הזן כותרת...',
+                                        defaultValue: doc.title,
+                                        onSave: (val) => {
+                                          if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() });
+                                        }
+                                      });
+                                    }}
+                                    style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                                    title="לחץ לשינוי שם"
+                                  >
+                                    {doc.title}
+                                  </div>
+
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
+                                    <span>{new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
+                                    {showTimeline && linkedEvent && (
+                                      <span
+                                        onClick={(e) => {
+                                          if (isMultiSelect) return;
+                                          e.stopPropagation();
+                                          setWarehouseStationFilter(linkedEvent.id);
+                                        }}
+                                        style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
+                                        title={'שייך לתחנה: ' + linkedEvent.title}
+                                      >
+                                        📍
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Action bar */}
+                                  {!isMultiSelect && (
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9' }}>
+                                      <div style={{ display: 'flex', gap: '3px' }}>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }}
+                                          style={{ background: '#ecfdf5', color: '#059669', border: '1px solid #a7f3d0', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                          title="שתף מסמך"
+                                        >
+                                          📤
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setMoveDocToFolder({ docId: doc.id, currentFolderId: doc.folderId }); }}
+                                          style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                          title="העבר לתיקייה"
+                                        >
+                                          📁
+                                        </button>
+                                      </div>
+
+                                      {/* Dots Menu */}
+                                      <div style={{ position: 'relative' }}>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveDocMenuId(activeDocMenuId === doc.id ? null : doc.id);
+                                          }}
+                                          style={{ background: 'transparent', color: '#64748b', border: 'none', borderRadius: '4px', padding: '1px 4px', fontSize: '0.85rem', cursor: 'pointer' }}
+                                        >
+                                          ⋮
+                                        </button>
+
+                                        {activeDocMenuId === doc.id && (
+                                          <>
+                                            <div onClick={(e) => { e.stopPropagation(); setActiveDocMenuId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+                                            <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', padding: '0.35rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: '160px', direction: 'rtl' }}>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setActiveDocMenuId(null); downloadDocument(doc.url, doc.title); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                ⬇️ הורד למכשיר
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  setPromptInput(doc.title);
+                                                  setCustomPrompt({
+                                                    isOpen: true,
+                                                    title: 'עריכת כותרת מסמך',
+                                                    placeholder: 'הזן כותרת...',
+                                                    defaultValue: doc.title,
+                                                    onSave: (val) => { if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() }); }
+                                                  });
+                                                }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                ✏️ ערוך כותרת
+                                              </button>
+                                              {showTimeline && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => { setActiveDocMenuId(null); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }}
+                                                  style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                >
+                                                  🔗 {linkedEvent ? 'שנה תחנה' : 'קשר לתחנה'}
+                                                </button>
+                                              )}
+                                              <button
+                                                type="button"
+                                                onClick={() => { setActiveDocMenuId(null); handleMoveDocument(doc.id, activeShelf.id); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                🔄 העבר למדף אחר
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setActiveDocMenuId(null); handleDeleteDocument(doc.id, doc.title); }}
+                                                style={{ background: '#fef2f2', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#dc2626', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                🗑️ מחק מסמך
+                                              </button>
+                                            </div>
+                                          </>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()
             );
           })()}
         </div>
@@ -2391,7 +2658,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           מחסן
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.71</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.72</span>
         </h2>
         <input 
           type="text" 
