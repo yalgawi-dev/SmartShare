@@ -473,33 +473,6 @@ export function FinanceSummary({
                 <span>{isPeekingPreviousMonth ? 'חודש קודם (מציץ)' : (effectiveRange.label || 'כל הזמנים')}</span>
                 <span style={{ fontSize: '0.65rem', opacity: 0.7 }}>▾</span>
               </button>
-
-              {(effectiveRange.startDate || effectiveRange.endDate) && !isPeekingPreviousMonth && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setDatePreset('all');
-                    setCustomStartDate('');
-                    setCustomEndDate('');
-                  }}
-                  style={{
-                    background: '#fee2e2',
-                    border: '1px solid #fecdd3',
-                    color: '#991b1b',
-                    padding: '0.25rem 0.55rem',
-                    borderRadius: '12px',
-                    fontSize: '0.72rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.2rem'
-                  }}
-                  title="ביטול הסינון והצגת כל הזמנים בלחיצה אחת"
-                >
-                  <span>✕ הצג הכל</span>
-                </button>
-              )}
             </div>
           </div>
 
@@ -523,10 +496,10 @@ export function FinanceSummary({
               </span>
             ) : (effectiveRange.startDate || effectiveRange.endDate) ? (
               <span style={{ color: '#2563eb', fontWeight: 600 }}>
-                💡 הנתונים והמאזנים מחושבים עבור {effectiveRange.label} ({activeInvoices.length} הוצאות)
+                💡 הנתונים והמאזנים מחושבים עבור {effectiveRange.label}
               </span>
             ) : (
-              <span>💡 מציג את כל ההוצאות מיום פתיחת המרחב ({activeInvoices.length} הוצאות)</span>
+              <span>💡 מציג את כל ההוצאות מיום פתיחת המרחב</span>
             )}
             {isMonthlyRolling && !isPeekingPreviousMonth && (
               <span style={{ color: '#64748b', fontSize: '0.7rem' }}>

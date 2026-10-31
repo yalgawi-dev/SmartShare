@@ -47,6 +47,7 @@ export function FloatingActionBar({
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
   const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('timeline');
   const [isVaultTab, setIsVaultTab] = useState(false);
+  const [timelineSortOrder, setTimelineSortOrder] = useState<'desc' | 'asc'>('desc');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   useEffect(() => {
     const handleOpen = (e?: any) => {
@@ -73,6 +74,9 @@ export function FloatingActionBar({
     const handleTriggerUpload = () => fileInputRef.current?.click();
     const handlePreviewOpen = () => setIsPreviewOpen(true);
     const handlePreviewClose = () => setIsPreviewOpen(false);
+    const handleSortChanged = (e: any) => {
+      if (e?.detail?.sortOrder) setTimelineSortOrder(e.detail.sortOrder);
+    };
 
     window.addEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     window.addEventListener("smartshare:shelf_opened", handleOpen);
@@ -82,6 +86,7 @@ export function FloatingActionBar({
     window.addEventListener("smartshare:vault_tab_inactive", handleVaultOff);
     window.addEventListener("smartshare:preview_open", handlePreviewOpen);
     window.addEventListener("smartshare:preview_closed", handlePreviewClose);
+    window.addEventListener("smartshare:timeline_sort_changed", handleSortChanged);
     return () => {
       window.removeEventListener("smartshare:shelf_opened", handleOpen);
       window.removeEventListener("smartshare:shelf_closed", handleClose);
@@ -91,6 +96,7 @@ export function FloatingActionBar({
       window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
       window.removeEventListener("smartshare:preview_open", handlePreviewOpen);
       window.removeEventListener("smartshare:preview_closed", handlePreviewClose);
+      window.removeEventListener("smartshare:timeline_sort_changed", handleSortChanged);
     };
   }, []);
 
@@ -335,10 +341,26 @@ export function FloatingActionBar({
                     <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>נושא חדש</span>
                   </button>
                 ) : (
-                  <button onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
-                    <span style={{ fontSize: '1.2rem' }}>📍</span>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
-                  </button>
+                  <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
+                    <button 
+                      onClick={() => { const e = new CustomEvent('smartshare:toggle_timeline_sort'); window.dispatchEvent(e); }} 
+                      style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                      title={timelineSortOrder === 'desc' ? 'סדר: מהחדש לישן' : 'סדר: מהישן לחדש'}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>{timelineSortOrder === 'desc' ? '⬇️' : '⬆️'}</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>
+                        {timelineSortOrder === 'desc' ? 'חדש לישן' : 'ישן לחדש'}
+                      </span>
+                    </button>
+
+                    <button 
+                      onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} 
+                      style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>📍</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>הוסף תחנה</span>
+                    </button>
+                  </div>
                 )}
               </>
             )}

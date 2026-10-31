@@ -46,6 +46,14 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
   const [newTaskInput, setNewTaskInput] = useState('');
   const [taskInputs, setTaskInputs] = useState<Record<string, string>>({});
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+
+  useEffect(() => {
+    const handleToggle = () => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+    window.addEventListener('smartshare:toggle_timeline_sort', handleToggle);
+    window.dispatchEvent(new CustomEvent('smartshare:timeline_sort_changed', { detail: { sortOrder } }));
+    return () => window.removeEventListener('smartshare:toggle_timeline_sort', handleToggle);
+  }, [sortOrder]);
+
   const [expandedChats, setExpandedChats] = useState<Record<string, boolean>>({});
   const [showDocSelector, setShowDocSelector] = useState<{ eventId: string, taskId?: string } | null>(null);
   const [docSearchTerm, setDocSearchTerm] = useState('');
@@ -439,17 +447,9 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
       
       {/* TIMELINE CONTROLS: SORT, SEARCH & FILTER BY STATIONS */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-          {/* Sort order toggle */}
-          <button 
-            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')} 
-            style={{ background: '#ffffff', border: '1px solid #cbd5e1', color: '#334155', padding: '0.4rem 0.85rem', borderRadius: '16px', fontSize: '0.82rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.35rem', boxShadow: '0 1px 2px rgba(0,0,0,0.04)' }}
-          >
-            <span>{sortOrder === 'desc' ? '⬇️ מהחדש לישן' : '⬆️ מהישן לחדש'}</span>
-          </button>
-
+        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
           {/* Quick Filter Pills */}
-          <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '3px', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '3px', borderRadius: '14px', border: '1px solid #e2e8f0', width: '100%', justifyContent: 'space-between' }}>
             <button
               onClick={() => setFilterStationHasDocs('all')}
               style={{
