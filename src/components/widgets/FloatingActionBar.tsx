@@ -59,6 +59,9 @@ export function FloatingActionBar({
       setIsInShelf(false);
       setActiveShelfId(null);
       setShelfSubTab('timeline');
+      if (setActiveTab) {
+        setActiveTab('shelves');
+      }
     };
     const handleSubTab = (e: any) => {
       if (e?.detail) {
@@ -98,12 +101,16 @@ export function FloatingActionBar({
       window.removeEventListener("smartshare:preview_closed", handlePreviewClose);
       window.removeEventListener("smartshare:timeline_sort_changed", handleSortChanged);
     };
-  }, []);
+  }, [setActiveTab, activeTab]);
 
   if (isAddingExpense || isScannerOpen || isPreviewOpen || !mounted) return null;
 
-  // When a space does not have finance, default outside activeTab to 'shelves' so buttons and styling are immediate
-  const effectiveTab = (!hasFinance && (activeTab === 'summary' || !activeTab)) ? 'shelves' : activeTab;
+  // When outside a shelf:
+  // 1. If space has no finance, or activeTab is 'documents' or empty/summary without finance, default to 'shelves'
+  // 2. Even in a space with finance, if outside a shelf and activeTab was left as 'documents', resolve to 'shelves'
+  const effectiveTab = !isInShelf && (activeTab === 'documents' || (!hasFinance && (activeTab === 'summary' || !activeTab)))
+    ? 'shelves'
+    : activeTab;
   const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : effectiveTab === 'shelves';
   const isDocsActive = isInShelf ? shelfSubTab === 'vault' : effectiveTab === 'documents';
   const isSummaryActive = !isInShelf && hasFinance && (effectiveTab === 'summary' || !effectiveTab);

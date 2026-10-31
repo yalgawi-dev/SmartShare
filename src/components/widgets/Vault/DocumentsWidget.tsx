@@ -679,18 +679,49 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     const shelfDocs = [...activeDocuments.filter(d => d.shelfId === activeShelfId), ...uploadingDocs.filter(d => d.shelfId === activeShelfId).map(d => ({ ...d, createdAt: new Date().toISOString(), addedBy: user?.id || '' }))].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) as any[];
     const allSpaceEvents = space.shelfEvents || [];
     const activeShelfEvents = allSpaceEvents.filter((e: any) => e.shelfId === activeShelfId);
+    const activeShelfFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelf.id);
+    const currentActiveFolder = currentFolderId ? activeShelfFolders.find(f => f.id === currentFolderId) : null;
+
+    const handleHierarchicalBack = () => {
+      if (currentFolderId) {
+        if (currentActiveFolder?.parentId) {
+          setCurrentFolderId(currentActiveFolder.parentId);
+        } else {
+          setCurrentFolderId(null);
+        }
+      } else {
+        setActiveShelfId(null);
+      }
+    };
 
     return (
       <>
         <div style={{ padding: '0', paddingBottom: '6rem' }}>
         <div style={{ position: 'sticky', top: '56px', zIndex: 100, background: 'var(--bg-main, #f8fafc)', borderBottom: '1px solid #e2e8f0', margin: '0 -1rem 1rem -1rem', padding: '0.5rem 1rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <button onClick={() => setActiveShelfId(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.25rem', cursor: 'pointer', color: '#64748b', padding: '0' }}>
-              ←
+            <button 
+              onClick={handleHierarchicalBack} 
+              title={currentFolderId ? (currentActiveFolder?.parentId ? 'חזרה לתיקיית האב' : 'חזרה לראשי הנושא') : 'חזרה לכל הנושאים'}
+              style={{ 
+                background: currentFolderId ? '#eff6ff' : 'transparent', 
+                border: currentFolderId ? '1px solid #bfdbfe' : 'none', 
+                borderRadius: '8px',
+                padding: currentFolderId ? '3px 8px' : '0 4px',
+                fontSize: currentFolderId ? '0.85rem' : '1.25rem', 
+                cursor: 'pointer', 
+                color: currentFolderId ? '#1d4ed8' : '#64748b', 
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontWeight: currentFolderId ? 700 : 'normal'
+              }}
+            >
+              <span>←</span>
+              {currentFolderId && <span style={{ fontSize: '0.78rem' }}>חזרה</span>}
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.77</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.79</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
