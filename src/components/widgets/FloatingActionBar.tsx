@@ -104,6 +104,7 @@ export function FloatingActionBar({
 
   const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : activeTab === 'shelves';
   const isDocsActive = isInShelf ? shelfSubTab === 'vault' : activeTab === 'documents';
+  const isSummaryActive = !isInShelf && (activeTab === 'summary' || (!activeTab && hasFinance));
 
   return createPortal(
     <div style={{
@@ -114,8 +115,6 @@ export function FloatingActionBar({
       width: '98%',
       maxWidth: '420px',
       background: '#ffffff',
-      
-      
       border: '1px solid rgba(0,0,0,0.08)',
       borderRadius: '24px',
       padding: '0.4rem',
@@ -137,110 +136,96 @@ export function FloatingActionBar({
       
       {/* Right side (RTL Start) - Tabs */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasFinance && (
+        {isInShelf ? (
           <>
-            <button 
-              onClick={() => setActiveTab && setActiveTab('summary')}
-              style={{
-                background: activeTab === 'summary' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'summary' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'summary' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>📊</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'summary' ? '800' : '600' }}>ראשי</span>
-            </button>
-
-            <button 
-              onClick={() => setActiveTab && setActiveTab('transactions')}
-              style={{
-                background: activeTab === 'transactions' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'transactions' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>🧾</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>הוצאות</span>
-            </button>
-
-            {hasVault && (
-              <>
-                <button 
-                  onClick={() => {
-                    setActiveTab && setActiveTab('shelves');
-                    window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
-                  }}
-                  style={{
-                    background: isShelvesActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                    color: isShelvesActive ? '#2563eb' : '#64748b',
-                    minWidth: '45px', transition: 'all 0.2s', boxShadow: isShelvesActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '1.2rem' }}>🗂️</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>נושאים</span>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    setActiveTab && setActiveTab('documents');
-                    window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
-                  }}
-                  style={{
-                    background: isDocsActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                    color: isDocsActive ? '#2563eb' : '#64748b',
-                    minWidth: '45px', transition: 'all 0.2s', boxShadow: isDocsActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-                  }}
-                >
-                  <span style={{ fontSize: '1.2rem' }}>📁</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: isDocsActive ? '800' : '600' }}>מחסן</span>
-                </button>
-              </>
-            )}
-          </>
-        )}
-        {!hasFinance && hasVault && (
-          <>
+            {/* When INSIDE a Topic/Shelf: Toggle between Timeline and Warehouse */}
             <button 
               onClick={() => {
-                setActiveTab && setActiveTab('shelves');
+                setShelfSubTab('timeline');
                 window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
               }}
               style={{
-                background: isShelvesActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                background: shelfSubTab === 'timeline' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: isShelvesActive ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: isShelvesActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                color: shelfSubTab === 'timeline' ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: shelfSubTab === 'timeline' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
-              <span style={{ fontSize: '1.2rem' }}>🗂️</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>נושאים</span>
+              <span style={{ fontSize: '1.2rem' }}>⏱️</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: shelfSubTab === 'timeline' ? '800' : '600' }}>ציר זמן</span>
             </button>
 
             <button 
               onClick={() => {
-                setActiveTab && setActiveTab('documents');
+                setShelfSubTab('vault');
                 window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
               }}
               style={{
-                background: isDocsActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                background: shelfSubTab === 'vault' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: isDocsActive ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: isDocsActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                color: shelfSubTab === 'vault' ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: shelfSubTab === 'vault' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📁</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: isDocsActive ? '800' : '600' }}>מחסן</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: shelfSubTab === 'vault' ? '800' : '600' }}>מחסן</span>
             </button>
+          </>
+        ) : (
+          <>
+            {/* When OUTSIDE in main space: Summary, Expenses, Topics */}
+            {hasFinance && (
+              <>
+                <button 
+                  onClick={() => setActiveTab && setActiveTab('summary')}
+                  style={{
+                    background: isSummaryActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                    color: isSummaryActive ? '#2563eb' : '#64748b',
+                    minWidth: '45px', transition: 'all 0.2s', boxShadow: isSummaryActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📊</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: isSummaryActive ? '800' : '600' }}>ראשי</span>
+                </button>
+
+                <button 
+                  onClick={() => setActiveTab && setActiveTab('transactions')}
+                  style={{
+                    background: activeTab === 'transactions' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                    color: activeTab === 'transactions' ? '#2563eb' : '#64748b',
+                    minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'transactions' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>🧾</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'transactions' ? '800' : '600' }}>הוצאות</span>
+                </button>
+              </>
+            )}
+
+            {hasVault && (
+              <button 
+                onClick={() => {
+                  setActiveTab && setActiveTab('shelves');
+                  window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
+                }}
+                style={{
+                  background: isShelvesActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: isShelvesActive ? '#2563eb' : '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', boxShadow: isShelvesActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>🗂️</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>נושאים</span>
+              </button>
+            )}
           </>
         )}
       </div>
@@ -332,15 +317,15 @@ export function FloatingActionBar({
           </>
         ) : (
           <>
-            {/* When in Shelves mode */}
-            {activeTab === 'shelves' && (
+            {/* When in Shelves / Vault mode */}
+            {(activeTab === 'shelves' || isInShelf) && (
               <>
                 {!isInShelf ? (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
                     <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
                     <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>נושא חדש</span>
                   </button>
-                ) : (
+                ) : shelfSubTab === 'timeline' ? (
                   <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
                     <button 
                       onClick={() => { const e = new CustomEvent('smartshare:toggle_timeline_sort'); window.dispatchEvent(e); }} 
@@ -361,38 +346,35 @@ export function FloatingActionBar({
                       <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>הוסף תחנה</span>
                     </button>
                   </div>
+                ) : (
+                  <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
+                    <button 
+                      onClick={() => { window.dispatchEvent(new CustomEvent('smartshare:add_folder')); }} 
+                      style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                      title="צור תיקייה חדשה"
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
+                    </button>
+
+                    <button 
+                      onClick={() => {
+                        if (activeShelfId) {
+                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
+                            detail: { shelfId: activeShelfId, mode: 'upload' }
+                          }));
+                        } else {
+                          onOpenScanner('upload', 'document');
+                        }
+                      }} 
+                      style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>📄</span>
+                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
+                    </button>
+                  </div>
                 )}
               </>
-            )}
-
-            {/* When in Documents / Warehouse mode */}
-            {activeTab === 'documents' && (
-              <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
-                <button 
-                  onClick={() => { window.dispatchEvent(new CustomEvent('smartshare:add_folder')); }} 
-                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
-                  title="צור תיקייה חדשה"
-                >
-                  <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
-                </button>
-
-                <button 
-                  onClick={() => {
-                    if (activeShelfId) {
-                      window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
-                        detail: { shelfId: activeShelfId, mode: 'upload' }
-                      }));
-                    } else {
-                      onOpenScanner('upload', 'document');
-                    }
-                  }} 
-                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
-                >
-                  <span style={{ fontSize: '1.2rem' }}>📄</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
-                </button>
-              </div>
             )}
             
             {/* Direct Upload button - show in shelves mode when outside shelf */}

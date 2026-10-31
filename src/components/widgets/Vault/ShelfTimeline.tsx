@@ -443,10 +443,10 @@ export default function ShelfTimeline({ space, activeShelfId, shelfDocs, onAddEv
         }
       `}</style>
       <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} ref={fileInputRef} onChange={handleLocalUpload} />
-      <div style={{padding: '0 0.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1rem' }}>
+      <div style={{padding: '0 0.25rem', display: 'flex', flexDirection: 'column', gap: '1rem', marginTop: '0.25rem' }}>
       
       {/* TIMELINE CONTROLS: SORT, SEARCH & FILTER BY STATIONS */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '0.5rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.25rem', background: '#f8fafc', padding: '0.5rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
         <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
           {/* Quick Filter Pills */}
           <div style={{ display: 'flex', gap: '0.35rem', background: '#f1f5f9', padding: '3px', borderRadius: '14px', border: '1px solid #e2e8f0', width: '100%', justifyContent: 'space-between' }}>
