@@ -96,6 +96,9 @@ export function FloatingActionBar({
 
   if (isAddingExpense || isScannerOpen || isPreviewOpen || !mounted) return null;
 
+  const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : activeTab === 'shelves';
+  const isDocsActive = isInShelf ? shelfSubTab === 'vault' : activeTab === 'documents';
+
   return createPortal(
     <div style={{
       position: 'fixed',
@@ -166,15 +169,15 @@ export function FloatingActionBar({
                     window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
                   }}
                   style={{
-                    background: activeTab === 'shelves' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                    background: isShelvesActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                     border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                    color: activeTab === 'shelves' ? '#2563eb' : '#64748b',
-                    minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'shelves' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                    color: isShelvesActive ? '#2563eb' : '#64748b',
+                    minWidth: '45px', transition: 'all 0.2s', boxShadow: isShelvesActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
                   }}
                 >
                   <span style={{ fontSize: '1.2rem' }}>🗂️</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'shelves' ? '800' : '600' }}>מדפים</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>נושאים</span>
                 </button>
 
                 <button 
@@ -183,15 +186,15 @@ export function FloatingActionBar({
                     window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
                   }}
                   style={{
-                    background: activeTab === 'documents' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                    background: isDocsActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                     border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                    color: activeTab === 'documents' ? '#2563eb' : '#64748b',
-                    minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'documents' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                    color: isDocsActive ? '#2563eb' : '#64748b',
+                    minWidth: '45px', transition: 'all 0.2s', boxShadow: isDocsActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
                   }}
                 >
                   <span style={{ fontSize: '1.2rem' }}>📁</span>
-                  <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'documents' ? '800' : '600' }}>מחסן</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: isDocsActive ? '800' : '600' }}>מחסן</span>
                 </button>
               </>
             )}
@@ -205,15 +208,15 @@ export function FloatingActionBar({
                 window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
               }}
               style={{
-                background: activeTab === 'shelves' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                background: isShelvesActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'shelves' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'shelves' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                color: isShelvesActive ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: isShelvesActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>🗂️</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'shelves' ? '800' : '600' }}>מדפים</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>נושאים</span>
             </button>
 
             <button 
@@ -222,15 +225,15 @@ export function FloatingActionBar({
                 window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
               }}
               style={{
-                background: activeTab === 'documents' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                background: isDocsActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'documents' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'documents' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                color: isDocsActive ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: isDocsActive ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📁</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'documents' ? '800' : '600' }}>מחסן</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: isDocsActive ? '800' : '600' }}>מחסן</span>
             </button>
           </>
         )}
@@ -329,7 +332,7 @@ export function FloatingActionBar({
                 {!isInShelf ? (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
                     <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>נושא חדש</span>
                   </button>
                 ) : (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>

@@ -1,7 +1,7 @@
 .container {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 2rem;
+  padding: 0.5rem 1rem 5rem 1rem;
 }
 
 .header {
@@ -195,8 +195,7 @@
 
 @media (max-width: 768px) {
   .container {
-    padding: 1rem;
-    padding-bottom: 5rem; /* Safe area for FAB */
+    padding: 0.5rem 0.75rem 5rem 0.75rem; /* Safe area for FAB */
   }
   
   .header {
