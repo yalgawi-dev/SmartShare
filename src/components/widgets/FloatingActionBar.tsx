@@ -102,9 +102,11 @@ export function FloatingActionBar({
 
   if (isAddingExpense || isScannerOpen || isPreviewOpen || !mounted) return null;
 
-  const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : activeTab === 'shelves';
-  const isDocsActive = isInShelf ? shelfSubTab === 'vault' : activeTab === 'documents';
-  const isSummaryActive = !isInShelf && (activeTab === 'summary' || (!activeTab && hasFinance));
+  // When a space does not have finance, default outside activeTab to 'shelves' so buttons and styling are immediate
+  const effectiveTab = (!hasFinance && (activeTab === 'summary' || !activeTab)) ? 'shelves' : activeTab;
+  const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : effectiveTab === 'shelves';
+  const isDocsActive = isInShelf ? shelfSubTab === 'vault' : effectiveTab === 'documents';
+  const isSummaryActive = !isInShelf && hasFinance && (effectiveTab === 'summary' || !effectiveTab);
 
   return createPortal(
     <div style={{
@@ -275,20 +277,20 @@ export function FloatingActionBar({
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasFinance && activeTab !== 'documents' && activeTab !== 'shelves' ? (
+        {hasFinance && effectiveTab !== 'documents' && effectiveTab !== 'shelves' ? (
           <>
             <button 
               onClick={() => setActiveTab && setActiveTab('inbox')}
               style={{
-                background: activeTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                background: effectiveTab === 'inbox' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: activeTab === 'inbox' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none', flex: 1
+                color: effectiveTab === 'inbox' ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: effectiveTab === 'inbox' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none', flex: 1
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📥</span>
-              <span style={{ fontSize: '0.6rem', fontWeight: activeTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן חשבוניות</span>
+              <span style={{ fontSize: '0.6rem', fontWeight: effectiveTab === 'inbox' ? '800' : '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מחסן חשבוניות</span>
             </button>
 
             <button 
@@ -318,7 +320,7 @@ export function FloatingActionBar({
         ) : (
           <>
             {/* When in Shelves / Vault mode */}
-            {(activeTab === 'shelves' || isInShelf) && (
+            {(effectiveTab === 'shelves' || isInShelf) && (
               <>
                 {!isInShelf ? (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
@@ -378,7 +380,7 @@ export function FloatingActionBar({
             )}
             
             {/* Direct Upload button - show in shelves mode when outside shelf */}
-            {activeTab === 'shelves' && !isInShelf && (
+            {effectiveTab === 'shelves' && !isInShelf && (
               <button 
                 onClick={() => onOpenScanner('upload', 'document')}
                 style={{

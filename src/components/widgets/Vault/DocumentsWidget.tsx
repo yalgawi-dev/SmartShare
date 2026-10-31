@@ -1,7 +1,7 @@
 'use client';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
-import React, { useState, forwardRef, useImperativeHandle, useMemo } from 'react';
+import React, { useState, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
 import { Space, useSpaces, DocumentFolder } from '../../../app/context/SpacesContext';
@@ -120,6 +120,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
   const [moveDocToFolder, setMoveDocToFolder] = useState<{ docId: string, currentFolderId?: string | null } | null>(null);
   const [showSortFilterModal, setShowSortFilterModal] = useState(false);
+  const [showVaultViewDropdown, setShowVaultViewDropdown] = useState(false);
+  const vaultViewDropdownRef = useRef<HTMLDivElement>(null);
   const [vaultViewMode, setVaultViewMode] = useState<'grid_medium' | 'grid_large' | 'list'>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('smartshare_vault_view_mode');
@@ -130,10 +132,23 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   const handleSetVaultViewMode = (mode: 'grid_medium' | 'grid_large' | 'list') => {
     setVaultViewMode(mode);
+    setShowVaultViewDropdown(false);
     if (typeof window !== 'undefined') {
       localStorage.setItem('smartshare_vault_view_mode', mode);
     }
   };
+
+  React.useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (vaultViewDropdownRef.current && !vaultViewDropdownRef.current.contains(e.target as Node)) {
+        setShowVaultViewDropdown(false);
+      }
+    };
+    if (showVaultViewDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showVaultViewDropdown]);
 
   React.useEffect(() => {
     const folderHandler = () => {
@@ -675,7 +690,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.76</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.77</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -796,82 +811,127 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     )}
                   </button>
 
-                  {/* Explorer View Mode Switcher (כמו ב-Windows / סייר המכשיר) */}
-                  <div style={{
-                    display: 'flex',
-                    background: '#e2e8f0',
-                    borderRadius: '10px',
-                    padding: '2px',
-                    gap: '2px'
-                  }}>
+                  {/* Explorer View Mode Dropdown Button (Compact, Space-Saving) */}
+                  <div ref={vaultViewDropdownRef} style={{ position: 'relative' }}>
                     <button
                       type="button"
-                      onClick={() => handleSetVaultViewMode('list')}
-                      title="תצוגת רשימה (List)"
+                      onClick={() => setShowVaultViewDropdown(prev => !prev)}
+                      title="שינוי תצוגת מסמכים (רשימה / בינוני / גדול)"
                       style={{
-                        border: 'none',
-                        background: vaultViewMode === 'list' ? '#ffffff' : 'transparent',
-                        color: vaultViewMode === 'list' ? '#0f172a' : '#64748b',
-                        fontWeight: vaultViewMode === 'list' ? 800 : 500,
-                        borderRadius: '8px',
-                        padding: '4px 8px',
-                        fontSize: '0.8rem',
+                        background: showVaultViewDropdown ? '#eff6ff' : '#f8fafc',
+                        border: showVaultViewDropdown ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                        color: showVaultViewDropdown ? '#1d4ed8' : '#334155',
+                        padding: '6px 12px',
+                        borderRadius: '12px',
+                        fontSize: '0.82rem',
+                        fontWeight: 700,
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '3px',
-                        boxShadow: vaultViewMode === 'list' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+                        gap: '0.4rem',
+                        boxShadow: showVaultViewDropdown ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
+                        transition: 'all 0.15s ease'
                       }}
                     >
-                      <span>☰</span>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>רשימה</span>
+                      <span style={{ fontSize: '0.95rem' }}>
+                        {vaultViewMode === 'list' ? '☰' : vaultViewMode === 'grid_large' ? '☷' : '▦'}
+                      </span>
+                      <span>
+                        {vaultViewMode === 'list' ? 'רשימה' : vaultViewMode === 'grid_large' ? 'גדול' : 'בינוני'}
+                      </span>
+                      <span style={{ fontSize: '0.65rem', opacity: 0.65 }}>▾</span>
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSetVaultViewMode('grid_medium')}
-                      title="קלפים בינוניים (Medium Icons)"
-                      style={{
-                        border: 'none',
-                        background: vaultViewMode === 'grid_medium' ? '#ffffff' : 'transparent',
-                        color: vaultViewMode === 'grid_medium' ? '#0f172a' : '#64748b',
-                        fontWeight: vaultViewMode === 'grid_medium' ? 800 : 500,
-                        borderRadius: '8px',
-                        padding: '4px 8px',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
+                    {showVaultViewDropdown && (
+                      <div style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 4px)',
+                        left: 0,
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                        padding: '4px',
+                        zIndex: 9999,
+                        minWidth: '120px',
                         display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        boxShadow: vaultViewMode === 'grid_medium' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      <span>▦</span>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>בינוני</span>
-                    </button>
+                        flexDirection: 'column',
+                        gap: '2px',
+                        animation: 'fadeIn 0.15s ease-out'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => handleSetVaultViewMode('list')}
+                          style={{
+                            border: 'none',
+                            background: vaultViewMode === 'list' ? '#eff6ff' : 'transparent',
+                            color: vaultViewMode === 'list' ? '#1d4ed8' : '#334155',
+                            fontWeight: vaultViewMode === 'list' ? 800 : 500,
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textAlign: 'right',
+                            width: '100%'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.95rem' }}>☰</span>
+                          <span>רשימה</span>
+                          {vaultViewMode === 'list' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                        </button>
 
-                    <button
-                      type="button"
-                      onClick={() => handleSetVaultViewMode('grid_large')}
-                      title="קלפים גדולים (Large Icons)"
-                      style={{
-                        border: 'none',
-                        background: vaultViewMode === 'grid_large' ? '#ffffff' : 'transparent',
-                        color: vaultViewMode === 'grid_large' ? '#0f172a' : '#64748b',
-                        fontWeight: vaultViewMode === 'grid_large' ? 800 : 500,
-                        borderRadius: '8px',
-                        padding: '4px 8px',
-                        fontSize: '0.8rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        boxShadow: vaultViewMode === 'grid_large' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-                      }}
-                    >
-                      <span>☷</span>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 700 }}>גדול</span>
-                    </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSetVaultViewMode('grid_medium')}
+                          style={{
+                            border: 'none',
+                            background: vaultViewMode === 'grid_medium' ? '#eff6ff' : 'transparent',
+                            color: vaultViewMode === 'grid_medium' ? '#1d4ed8' : '#334155',
+                            fontWeight: vaultViewMode === 'grid_medium' ? 800 : 500,
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textAlign: 'right',
+                            width: '100%'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.95rem' }}>▦</span>
+                          <span>בינוני</span>
+                          {vaultViewMode === 'grid_medium' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleSetVaultViewMode('grid_large')}
+                          style={{
+                            border: 'none',
+                            background: vaultViewMode === 'grid_large' ? '#eff6ff' : 'transparent',
+                            color: vaultViewMode === 'grid_large' ? '#1d4ed8' : '#334155',
+                            fontWeight: vaultViewMode === 'grid_large' ? 800 : 500,
+                            borderRadius: '8px',
+                            padding: '6px 10px',
+                            fontSize: '0.8rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '6px',
+                            textAlign: 'right',
+                            width: '100%'
+                          }}
+                        >
+                          <span style={{ fontSize: '0.95rem' }}>☷</span>
+                          <span>גדול</span>
+                          {vaultViewMode === 'grid_large' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2655,7 +2715,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.76</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.77</span>
         </h2>
         <input 
           type="text" 
