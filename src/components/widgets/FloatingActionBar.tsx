@@ -30,8 +30,8 @@ export function FloatingActionBar({
   hasPartners?: boolean;
   hasActivePartners?: boolean;
   partnersCount?: number;
-  activeTab?: 'summary' | 'transactions' | 'inbox' | 'documents';
-  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'documents') => void;
+  activeTab?: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents';
+  setActiveTab?: (tab: 'summary' | 'transactions' | 'inbox' | 'shelves' | 'documents') => void;
   onAddExpense: () => void;
   onOpenScanner: (mode?: 'camera' | 'upload', category?: 'receipt' | 'document' | 'image') => void;
   onOpenPartners?: () => void;
@@ -60,7 +60,13 @@ export function FloatingActionBar({
       setShelfSubTab('timeline');
     };
     const handleSubTab = (e: any) => {
-      if (e?.detail) setShelfSubTab(e.detail);
+      if (e?.detail) {
+        setShelfSubTab(e.detail);
+        if (setActiveTab) {
+          if (e.detail === 'timeline' && activeTab !== 'shelves') setActiveTab('shelves');
+          if (e.detail === 'vault' && activeTab !== 'documents') setActiveTab('documents');
+        }
+      }
     };
     const handleVaultOn = () => setIsVaultTab(true);
     const handleVaultOff = () => setIsVaultTab(false);
@@ -153,95 +159,79 @@ export function FloatingActionBar({
             </button>
 
             {hasVault && (
-              <button 
-                onClick={() => setActiveTab && setActiveTab('documents')}
-                style={{
-                  background: activeTab === 'documents' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                  color: activeTab === 'documents' ? '#2563eb' : '#64748b',
-                  minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'documents' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-                }}
-              >
-                <span style={{ fontSize: '1.2rem' }}>📁</span>
-                <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'documents' ? '800' : '600' }}>מסמכים</span>
-              </button>
+              <>
+                <button 
+                  onClick={() => {
+                    setActiveTab && setActiveTab('shelves');
+                    window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
+                  }}
+                  style={{
+                    background: activeTab === 'shelves' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                    color: activeTab === 'shelves' ? '#2563eb' : '#64748b',
+                    minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'shelves' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>🗂️</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'shelves' ? '800' : '600' }}>מדפים</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    setActiveTab && setActiveTab('documents');
+                    window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
+                  }}
+                  style={{
+                    background: activeTab === 'documents' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                    color: activeTab === 'documents' ? '#2563eb' : '#64748b',
+                    minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'documents' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                  }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📁</span>
+                  <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'documents' ? '800' : '600' }}>מחסן</span>
+                </button>
+              </>
             )}
           </>
         )}
         {!hasFinance && hasVault && (
           <>
-            {!isInShelf && (
-              <button 
-                onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }}
-                style={{
-                  background: 'transparent', 
-                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                  color: '#64748b',
-                  minWidth: '45px', transition: 'all 0.2s', flex: 1
-                }}
-              >
-                <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
-                <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
-              </button>
-            )}
-            {isInShelf && (
-              shelfSubTab === 'timeline' ? (
-                <button 
-                  onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }}
-                  style={{
-                    background: 'transparent', 
-                    border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                    color: '#10b981',
-                    minWidth: '45px', transition: 'all 0.2s', flex: 1
-                  }}
-                >
-                  <span style={{ fontSize: '1.2rem' }}>📍</span>
-                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
-                </button>
-              ) : (
-                <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
-                  <button 
-                    onClick={() => { window.dispatchEvent(new CustomEvent('smartshare:add_folder')); }}
-                    style={{
-                      background: 'transparent', 
-                      border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                      color: '#0284c7',
-                      minWidth: '42px', transition: 'all 0.2s', flex: 1
-                    }}
-                    title="צור תיקייה חדשה"
-                  >
-                    <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
-                  </button>
+            <button 
+              onClick={() => {
+                setActiveTab && setActiveTab('shelves');
+                window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
+              }}
+              style={{
+                background: activeTab === 'shelves' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'shelves' ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'shelves' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>🗂️</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'shelves' ? '800' : '600' }}>מדפים</span>
+            </button>
 
-                  <button 
-                    onClick={() => {
-                      if (activeShelfId) {
-                        window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
-                          detail: { shelfId: activeShelfId, mode: 'upload' }
-                        }));
-                      } else {
-                        onOpenScanner('upload', 'document');
-                      }
-                    }}
-                    style={{
-                      background: 'transparent', 
-                      border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                      color: '#2563eb',
-                      minWidth: '42px', transition: 'all 0.2s', flex: 1
-                    }}
-                  >
-                    <span style={{ fontSize: '1.2rem' }}>📄</span>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
-                  </button>
-                </div>
-              )
-            )}
+            <button 
+              onClick={() => {
+                setActiveTab && setActiveTab('documents');
+                window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
+              }}
+              style={{
+                background: activeTab === 'documents' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                color: activeTab === 'documents' ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: activeTab === 'documents' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>📁</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: activeTab === 'documents' ? '800' : '600' }}>מחסן</span>
+            </button>
           </>
         )}
       </div>
@@ -271,7 +261,7 @@ export function FloatingActionBar({
                  }));
                  return;
                }
-               const cat = (activeTab === 'documents' || isVaultTab || !hasFinance) 
+               const cat = (activeTab === 'documents' || activeTab === 'shelves' || isVaultTab || !hasFinance) 
                  ? 'document' 
                  : (activeTab === 'inbox' ? 'document' : 'receipt');
                onOpenScanner('camera', cat);
@@ -291,7 +281,7 @@ export function FloatingActionBar({
 
       {/* Left side (RTL End) - Inbox and Manual Add */}
       <div style={{ display: 'flex', gap: '0.1rem', paddingLeft: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
-        {hasFinance && activeTab !== 'documents' ? (
+        {hasFinance && activeTab !== 'documents' && activeTab !== 'shelves' ? (
           <>
             <button 
               onClick={() => setActiveTab && setActiveTab('inbox')}
@@ -333,44 +323,55 @@ export function FloatingActionBar({
           </>
         ) : (
           <>
-            {/* When hasFinance AND activeTab is documents: show shelf/station button on the left (since right side is occupied by tabs) */}
-            {hasFinance && hasVault && activeTab === 'documents' && (
+            {/* When in Shelves mode */}
+            {activeTab === 'shelves' && (
               <>
-                {!isInShelf && (
+                {!isInShelf ? (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
                     <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
                     <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>מדף חדש</span>
                   </button>
-                )}
-                {isInShelf && (
-                  shelfSubTab === 'timeline' ? (
-                    <button onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
-                      <span style={{ fontSize: '1.2rem' }}>📍</span>
-                      <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
-                    </button>
-                  ) : (
-                    <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
-                      <button 
-                        onClick={() => { window.dispatchEvent(new CustomEvent('smartshare:add_folder')); }} 
-                        style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
-                        title="צור תיקייה חדשה"
-                      >
-                        <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
-                        <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
-                      </button>
-
-                      <button onClick={() => onOpenScanner('upload', 'document')} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}>
-                        <span style={{ fontSize: '1.2rem' }}>📄</span>
-                        <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
-                      </button>
-                    </div>
-                  )
+                ) : (
+                  <button onClick={() => { const e = new CustomEvent('smartshare:add_station'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#10b981', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
+                    <span style={{ fontSize: '1.2rem' }}>📍</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>הוסף תחנה</span>
+                  </button>
                 )}
               </>
             )}
+
+            {/* When in Documents / Warehouse mode */}
+            {activeTab === 'documents' && (
+              <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
+                <button 
+                  onClick={() => { window.dispatchEvent(new CustomEvent('smartshare:add_folder')); }} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  title="צור תיקייה חדשה"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
+                </button>
+
+                <button 
+                  onClick={() => {
+                    if (activeShelfId) {
+                      window.dispatchEvent(new CustomEvent('smartshare:open_scanner_event', {
+                        detail: { shelfId: activeShelfId, mode: 'upload' }
+                      }));
+                    } else {
+                      onOpenScanner('upload', 'document');
+                    }
+                  }} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📄</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
+                </button>
+              </div>
+            )}
             
-            {/* Direct Upload/Import to Scanner button for vault - only show outside shelf or in timeline to prevent duplicate */}
-            {hasVault && (!isInShelf || shelfSubTab === 'timeline') && (
+            {/* Direct Upload button - show in shelves mode when outside shelf */}
+            {activeTab === 'shelves' && !isInShelf && (
               <button 
                 onClick={() => onOpenScanner('upload', 'document')}
                 style={{
