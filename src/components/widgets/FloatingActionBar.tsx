@@ -232,7 +232,7 @@ export function FloatingActionBar({
                 }}
               >
                 <span style={{ fontSize: '1.2rem' }}>🗂️</span>
-                <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>נושאים</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: isShelvesActive ? '800' : '600' }}>מסמכים</span>
               </button>
             )}
           </>

@@ -51,6 +51,8 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
 
   const handleShare = async (mode: ShareMode) => {
     setIsSharing(true);
+    // Dismiss the share choice modal immediately so the user doesn't see it hanging behind the OS share sheet
+    onClose();
     try {
       await shareDocument(doc.url, doc.title, {
         mode,
