@@ -20,6 +20,7 @@ export default function SharedFileHandler() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedShelfId, setSelectedShelfId] = useState<string>('');
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
@@ -303,6 +304,10 @@ export default function SharedFileHandler() {
   }, [selectedSpaceId, spaceHasFinance, spaceHasVault, routeDestination, sharedFiles.length]);
 
   useEffect(() => {
+    setSelectedFolderId(null);
+  }, [selectedSpaceId, selectedShelfId]);
+
+  useEffect(() => {
     if (selectedSpaceId) {
       const sp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
       const sh = sp?.shelves || [];
@@ -442,6 +447,7 @@ export default function SharedFileHandler() {
 
           addDocument(selectedSpaceId, {
             shelfId: targetShelfId,
+            folderId: selectedFolderId || undefined,
             url: publicUrl,
             title: isPdf ? 'מסמך PDF ששותף' : 'מסמך ששותף',
             type: isPdf ? 'pdf' : 'document',
@@ -460,7 +466,7 @@ export default function SharedFileHandler() {
         setIsModalOpen(false);
         setIsProcessing(false);
         setSharedFiles([]);
-        router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId);
+        router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId + (selectedFolderId ? '&folderId=' + selectedFolderId : ''));
       } else {
         // Direct route: save primary and allPages to IndexedDB for page-by-page review
         try {
@@ -838,23 +844,52 @@ export default function SharedFileHandler() {
               </div>
 
               {/* Sub-step A: Shelf Picker if Vault Selected */}
-              {routeDestination === 'vault' && selectedSpaceId && (
-                <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                  <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
-                    בחר מדף יעד במסמכים:
-                  </label>
-                  <select 
-                    value={selectedShelfId} 
-                    onChange={e => setSelectedShelfId(e.target.value)}
-                    style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
-                  >
-                    {(activeSpaces.find((s: any) => s.id === selectedSpaceId)?.shelves || []).map((sh: any) => (
-                      <option key={sh.id} value={sh.id}>{sh.icon || '📁'} {sh.name}</option>
-                    ))}
-                    <option value="__new__">+ צור מדף חדש בשם &quot;כללי&quot;</option>
-                  </select>
-                </div>
-              )}
+              {routeDestination === 'vault' && selectedSpaceId && (() => {
+                const curSp = activeSpaces.find((s: any) => s.id === selectedSpaceId);
+                const availableFolders = (curSp?.documentFolders || []).filter((f: any) => !f.deletedAt && f.shelfId === selectedShelfId);
+                return (
+                  <div style={{ marginBottom: '1.25rem', background: '#f8fafc', padding: '0.85rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div>
+                      <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
+                        בחר מדף יעד במסמכים:
+                      </label>
+                      <select 
+                        value={selectedShelfId} 
+                        onChange={e => setSelectedShelfId(e.target.value)}
+                        style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+                      >
+                        {(curSp?.shelves || []).map((sh: any) => (
+                          <option key={sh.id} value={sh.id}>{sh.icon || '📁'} {sh.name}</option>
+                        ))}
+                        <option value="__new__">+ צור מדף חדש בשם &quot;כללי&quot;</option>
+                      </select>
+                    </div>
+
+                    {availableFolders.length > 0 && selectedShelfId !== '__new__' && (
+                      <div>
+                        <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#334155', marginBottom: '0.35rem', display: 'block' }}>
+                          בחר תיקייה בתוך המדף (אופציונלי):
+                        </label>
+                        <select 
+                          value={selectedFolderId || ''} 
+                          onChange={e => setSelectedFolderId(e.target.value || null)}
+                          style={{ width: '100%', boxSizing: 'border-box', padding: '0.65rem 0.75rem', borderRadius: '10px', border: '1px solid #cbd5e1', fontSize: '0.9rem', backgroundColor: '#ffffff' }}
+                        >
+                          <option value="">📁 ראשי (ללא תיקייה)</option>
+                          {availableFolders.map((f: any) => {
+                            const parentF = f.parentId ? availableFolders.find((p: any) => p.id === f.parentId) : null;
+                            return (
+                              <option key={f.id} value={f.id}>
+                                📁 {parentF ? parentF.name + ' > ' : ''}{f.name}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Sub-step B: Payer Selection ONLY if Direct Expense Selected */}
               {routeDestination === 'direct' && selectedSpaceId && (

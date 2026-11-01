@@ -179,9 +179,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   React.useEffect(() => {
     if (typeof window !== 'undefined') {
-      const paramShelfId = new URLSearchParams(window.location.search).get('shelfId');
+      const params = new URLSearchParams(window.location.search);
+      const paramShelfId = params.get('shelfId');
+      const paramFolderId = params.get('folderId');
       if (paramShelfId && shelves.some(s => s.id === paramShelfId)) {
         setActiveShelfId(paramShelfId);
+        if (paramFolderId) {
+          setCurrentFolderId(paramFolderId);
+        }
       }
     }
   }, [shelves]);
@@ -775,7 +780,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.80</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.81</span>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -2020,10 +2025,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                           e.stopPropagation();
                                           setWarehouseStationFilter(linkedEvent.id);
                                         }}
-                                        style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer' }}
+                                        style={{ 
+                                          background: '#e0f2fe', 
+                                          color: '#0369a1', 
+                                          padding: '1px 5px', 
+                                          borderRadius: '4px', 
+                                          fontWeight: 700, 
+                                          cursor: 'pointer',
+                                          maxWidth: '120px',
+                                          overflow: 'hidden',
+                                          textOverflow: 'ellipsis',
+                                          whiteSpace: 'nowrap',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '2px'
+                                        }}
                                         title={'שייך לתחנה: ' + linkedEvent.title}
                                       >
-                                        📍
+                                        📍 {linkedEvent.title}
                                       </span>
                                     )}
                                   </div>
@@ -2858,7 +2877,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.80</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.81</span>
         </h2>
         <input 
           type="text" 
