@@ -780,7 +780,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
-                {activeShelf.icon || '🗂️'} {activeShelf.name} <span style={{ fontSize: '0.75rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '6px', marginLeft: '0.4rem', fontWeight: 'bold' }}>v3.3.81</span>
+                {activeShelf.icon || '🗂️'} {activeShelf.name}
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>✏️</span>
               </h2>
             </div>
@@ -1026,16 +1026,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', marginRight: 'auto' }}>
-                  {shelfDocs.length > 1 && (
+                  {shelfDocs.length > 1 && !isMultiSelect && (
                     <button 
                       onClick={() => {
-                        setIsMultiSelect(prev => !prev);
+                        setIsMultiSelect(true);
                         setSelectedDocIds([]);
                       }}
                       style={{
-                        background: isMultiSelect ? '#eff6ff' : '#ffffff',
-                        border: isMultiSelect ? '1px solid #3b82f6' : '1px solid #cbd5e1',
-                        color: isMultiSelect ? '#2563eb' : '#475569',
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                        color: '#475569',
                         padding: '6px 14px',
                         borderRadius: '12px',
                         fontSize: '0.82rem',
@@ -1043,11 +1043,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '0.35rem',
-                        boxShadow: isMultiSelect ? '0 2px 6px rgba(59,130,246,0.15)' : 'none'
+                        gap: '0.35rem'
                       }}
                     >
-                      <span>{isMultiSelect ? '✓ ביטול בחירה' : '☑️ בחירה מרובה לשיתוף'}</span>
+                      <span>☑️ בחירה מרובה</span>
                     </button>
                   )}
                 </div>
@@ -1160,104 +1159,151 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </div>
           )}
 
-          {/* MULTI-SELECT FLOATING ACTION BAR */}
-          {isMultiSelect && (
-            <div style={{
-              background: '#1e293b',
-              color: 'white',
-              borderRadius: '16px',
-              padding: '0.75rem 1rem',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '0.5rem',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
-              position: 'sticky',
-              top: '115px',
-              zIndex: 90
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '0.9rem', fontWeight: 'bold' }}>
-                  נבחרו {selectedDocIds.length} מסמכים
-                </span>
-                <button 
-                  onClick={() => {
-                    if (selectedDocIds.length === shelfDocs.length) {
+          {/* MULTI-SELECT FLOATING ACTION BAR - REFACTORED CLEAN & SYMMETRIC */}
+          {isMultiSelect && (() => {
+            const currentLevelDocIds = shelfDocs
+              .filter(d => (currentFolderId ? d.folderId === currentFolderId : !d.folderId))
+              .map(d => d.id);
+            const isAllSelected = currentLevelDocIds.length > 0 && currentLevelDocIds.every(id => selectedDocIds.includes(id));
+
+            return (
+              <div style={{
+                background: '#0f172a',
+                color: 'white',
+                borderRadius: '16px',
+                padding: '0.75rem 0.85rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.65rem',
+                boxShadow: '0 10px 25px -5px rgba(15,23,42,0.4)',
+                position: 'sticky',
+                top: '115px',
+                zIndex: 90,
+                border: '1px solid #334155'
+              }}>
+                {/* Top Row: Checkbox Select All, Selection Count Badge, Cancel Action */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.4rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', userSelect: 'none' }}>
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      onChange={() => {
+                        if (isAllSelected) {
+                          setSelectedDocIds(prev => prev.filter(id => !currentLevelDocIds.includes(id)));
+                        } else {
+                          setSelectedDocIds(prev => Array.from(new Set([...prev, ...currentLevelDocIds])));
+                        }
+                      }}
+                      style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#3b82f6' }}
+                    />
+                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f1f5f9' }}>
+                      בחר הכל ({currentLevelDocIds.length})
+                    </span>
+                  </label>
+
+                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#93c5fd', background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.3)', padding: '2px 8px', borderRadius: '12px' }}>
+                    נבחרו: {selectedDocIds.length}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsMultiSelect(false);
                       setSelectedDocIds([]);
-                    } else {
-                      setSelectedDocIds(shelfDocs.map(d => d.id));
-                    }
-                  }}
-                  style={{ background: 'transparent', border: 'none', color: '#93c5fd', fontSize: '0.8rem', cursor: 'pointer', textDecoration: 'underline' }}
-                >
-                  {selectedDocIds.length === shelfDocs.length ? 'נקה הכל' : 'בחר הכל'}
-                </button>
+                    }}
+                    style={{
+                      background: 'rgba(255,255,255,0.08)',
+                      border: 'none',
+                      color: '#cbd5e1',
+                      padding: '3px 10px',
+                      borderRadius: '8px',
+                      fontSize: '0.78rem',
+                      fontWeight: 600,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    ✕ ביטול
+                  </button>
+                </div>
+
+                {/* Bottom Row: 3 Symmetrical, Balanced Action Buttons (Move, Share, Delete) */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    disabled={selectedDocIds.length === 0}
+                    onClick={() => setMoveDocToFolder({ docIds: selectedDocIds, currentFolderId })}
+                    style={{
+                      background: '#0284c7',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.55rem 0.5rem',
+                      borderRadius: '10px',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: selectedDocIds.length === 0 ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.3rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                    title="העבר מסמכים נבחרים לתיקייה"
+                  >
+                    <span>📁</span> העבר לתיקייה
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={selectedDocIds.length === 0 || isSharingBatch}
+                    onClick={() => shareMultipleDocuments(selectedDocIds)}
+                    style={{
+                      background: '#10b981',
+                      color: 'white',
+                      border: 'none',
+                      padding: '0.55rem 0.5rem',
+                      borderRadius: '10px',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: selectedDocIds.length === 0 || isSharingBatch ? 'not-allowed' : 'pointer',
+                      opacity: selectedDocIds.length === 0 || isSharingBatch ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.3rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span>📤</span> {isSharingBatch ? 'מכין...' : 'שתף'}
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={selectedDocIds.length === 0}
+                    onClick={() => setBatchDeleteConfirm(true)}
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.2)',
+                      color: '#fca5a5',
+                      border: '1px solid #ef4444',
+                      padding: '0.55rem 0.5rem',
+                      borderRadius: '10px',
+                      fontWeight: 700,
+                      fontSize: '0.82rem',
+                      cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: selectedDocIds.length === 0 ? 0.5 : 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.3rem',
+                      whiteSpace: 'nowrap'
+                    }}
+                  >
+                    <span>🗑️</span> מחק
+                  </button>
+                </div>
               </div>
-
-              <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                <button
-                  disabled={selectedDocIds.length === 0}
-                  onClick={() => setMoveDocToFolder({ docIds: selectedDocIds, currentFolderId })}
-                  style={{
-                    background: '#0284c7',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 0.85rem',
-                    borderRadius: '10px',
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem',
-                    cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
-                    opacity: selectedDocIds.length === 0 ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem'
-                  }}
-                  title="העבר מסמכים נבחרים לתיקייה"
-                >
-                  <span>📁</span> העבר לתיקייה
-                </button>
-
-                <button
-                  disabled={selectedDocIds.length === 0 || isSharingBatch}
-                  onClick={() => shareMultipleDocuments(selectedDocIds)}
-                  style={{
-                    background: '#10b981',
-                    color: 'white',
-                    border: 'none',
-                    padding: '0.5rem 0.85rem',
-                    borderRadius: '10px',
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem',
-                    cursor: selectedDocIds.length === 0 || isSharingBatch ? 'not-allowed' : 'pointer',
-                    opacity: selectedDocIds.length === 0 || isSharingBatch ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.35rem'
-                  }}
-                >
-                  <span>📤</span> {isSharingBatch ? 'מכין...' : 'שתף'}
-                </button>
-
-                <button
-                  disabled={selectedDocIds.length === 0}
-                  onClick={() => setBatchDeleteConfirm(true)}
-                  style={{
-                    background: 'rgba(239, 68, 68, 0.2)',
-                    color: '#f87171',
-                    border: '1px solid #ef4444',
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: '10px',
-                    fontWeight: 'bold',
-                    fontSize: '0.85rem',
-                    cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
-                    opacity: selectedDocIds.length === 0 ? 0.6 : 1
-                  }}
-                >
-                  🗑️
-                </button>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {(() => {
             const allSpaceEvents = space.shelfEvents || [];
@@ -2877,7 +2923,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.81</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.82</span>
         </h2>
         <input 
           type="text" 
