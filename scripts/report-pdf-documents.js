@@ -11,11 +11,8 @@ const fs = require('fs');
 const path = require('path');
 
 function loadEnv() {
-  const file = path.join(__dirname, '..', '.env.local');
-  for (const line of fs.readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^"|"$/g, '');
-  }
+  const dotenv = require('dotenv');
+  dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
 }
 
 const isPdfUrl = (u) => typeof u === 'string' && /\.pdf(\?|$)/i.test(decodeURIComponent(u.split('?')[0]) + '?');
