@@ -34,12 +34,20 @@ export const googleProvider = new GoogleAuthProvider();
 
 import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 
-export const uploadImageToStorage = async (dataUrl: string, path: string): Promise<string> => {
-  if (!dataUrl.startsWith('data:image') && !dataUrl.startsWith('data:application/pdf')) {
+export const uploadImageToStorage = async (inputDataUrl: string, path: string): Promise<string> => {
+  if (!inputDataUrl.startsWith('data:image') && !inputDataUrl.startsWith('data:application/pdf')) {
     // If it's already a URL (e.g. from a previous upload or an external link), just return it
-    return dataUrl;
+    return inputDataUrl;
   }
-  
+
+  // Storage policy (single source of truth): raw PDFs are never stored – always optimized WebP.
+  let dataUrl = inputDataUrl;
+  if (dataUrl.startsWith('data:application/pdf')) {
+    const { convertPdfToOptimizedImage } = await import('../utils/imageOptimizer');
+    dataUrl = await convertPdfToOptimizedImage(dataUrl, 1500, 0.85);
+    path = path.replace(/\.pdf$/i, '.webp');
+  }
+
   // If the dataUrl is webp but path ended with .jpg, adjust path to .webp for consistency
   let resolvedPath = path;
   if (dataUrl.startsWith('data:image/webp') && resolvedPath.endsWith('.jpg')) {
