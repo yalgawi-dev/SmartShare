@@ -138,6 +138,7 @@ export interface DocumentFolder {
   parentId?: string | null;
   name: string;
   stationId?: string | null;
+  allowedPartners?: string[];
   createdAt: string;
   deletedAt?: string;
 }
@@ -159,6 +160,7 @@ export interface SpaceDocument {
 }
 
 export interface SpaceSettings {
+  isManagedMode?: boolean;
   isCustomShare?: boolean;
   customCategories?: string[];
   defaultVatRate: number;

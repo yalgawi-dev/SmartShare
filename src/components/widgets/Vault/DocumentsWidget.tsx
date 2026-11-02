@@ -1,4 +1,5 @@
 'use client';
+import { canAccessItem } from '../../../utils/permissionUtils';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import React, { useState, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
@@ -589,9 +590,20 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     return documents.filter(d => !!d.deletedAt);
   }, [documents]);
 
+  const myRole = (useSpaces() as any).getRoleForSpace(space.id) || 'partner';
+  const isManaged = Boolean(space.settings?.isManagedMode);
+
   const activeShelves = useMemo(() => {
-    return shelves.filter(s => !s.deletedAt);
-  }, [shelves]);
+    return shelves.filter(s => {
+      if (s.deletedAt) return false;
+      return canAccessItem({
+        spaceRole: myRole,
+        userId: user?.id,
+        isManagedMode: isManaged,
+        allowedPartners: s.allowedPartners
+      });
+    });
+  }, [shelves, myRole, user?.id, isManaged]);
 
   const deletedShelves = useMemo(() => {
     return shelves.filter(s => !!s.deletedAt);
@@ -1342,7 +1354,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             };
 
             // Current Level Folders (Explorer Hierarchy)
-            const allShelfFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelfId);
+            const allShelfFolders = (space.documentFolders || []).filter(f => {
+              if (f.deletedAt || f.shelfId !== activeShelfId) return false;
+              return canAccessItem({
+                spaceRole: myRole,
+                userId: user?.id,
+                isManagedMode: isManaged,
+                allowedPartners: f.allowedPartners
+              });
+            });
             const currentLevelFolders = allShelfFolders.filter(f => currentFolderId ? f.parentId === currentFolderId : !f.parentId);
 
             let filteredDocs = shelfDocs.filter(doc => {
@@ -2923,7 +2943,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.82</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.83</span>
         </h2>
         <input 
           type="text" 

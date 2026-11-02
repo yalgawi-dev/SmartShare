@@ -79,6 +79,68 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
         
+        {/* GLOBAL SPACE ACCESS & MANAGED MODE SECTION (Rule 16: Independent of features) */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              ניהול הרשאות ומצב מרחב
+            </span>
+            <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(0,0,0,0.1), transparent)' }}></div>
+          </div>
+
+          <section className="card glass-panel" style={{ padding: '1.25rem', background: 'var(--bg-card)', borderRadius: 'var(--radius-lg)', boxShadow: '0 10px 40px rgba(0,0,0,0.06)', border: '1px solid rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* Managed Mode Toggle */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem', background: 'rgba(0,0,0,0.02)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+              <div style={{ paddingLeft: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>מרחב מנוהל (היררכי)</h4>
+                  <span style={{ fontSize: '0.7rem', color: '#1d4ed8', background: '#dbeafe', padding: '2px 8px', borderRadius: '12px', fontWeight: 800 }}>🛡️ בקרת גישה</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                  במצב מנוהל: מנהלים (יוצר המרחב ומנהלים ממונים) רואים את כל המידע והתיקיות. שותפים רגילים רואים רק חומרים ששויכו אליהם אישית או פריטים שהם עצמם העלו. (מתאים לצוותי מכירות, ועדי בית ובתי ספר).
+                </p>
+              </div>
+              <label style={{ position: 'relative', display: 'inline-block', width: '48px', height: '26px', flexShrink: 0, opacity: isCreatorMe ? 1 : 0.5, cursor: isCreatorMe ? 'pointer' : 'not-allowed' }}>
+                <input 
+                  type="checkbox" 
+                  disabled={!isCreatorMe}
+                  checked={Boolean(space.settings?.isManagedMode)}
+                  onChange={(e) => {
+                    if (!isCreatorMe) return;
+                    updateSpaceSettings(id, {
+                      isManagedMode: e.target.checked
+                    });
+                  }}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: 'absolute', cursor: isCreatorMe ? 'pointer' : 'not-allowed', top: 0, left: 0, right: 0, bottom: 0,
+                  backgroundColor: Boolean(space.settings?.isManagedMode) ? '#2563eb' : '#cbd5e1',
+                  borderRadius: '34px', transition: '.3s'
+                }}>
+                  <span style={{
+                    position: 'absolute', height: '20px', width: '20px', 
+                    left: Boolean(space.settings?.isManagedMode) ? '4px' : '24px', 
+                    bottom: '3px',
+                    backgroundColor: 'white', borderRadius: '50%', transition: '.3s'
+                  }} />
+                </span>
+              </label>
+            </div>
+
+            {/* Standalone Members Directory when Partners Feature is NOT enabled */}
+            {!(space.features || []).includes('partners') && (
+              <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
+                <div style={{ marginBottom: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#1e293b' }}>חברי המרחב והרשאות ניהול</h4>
+                  <span style={{ fontSize: '0.75rem', color: '#64748b' }}>שליטה על תפקידי מנהל / שותף</span>
+                </div>
+                <PartnersDirectoryWidget space={space} />
+              </div>
+            )}
+          </section>
+        </div>
+
         {/* Empty State for Settings */}
         {(!space.features || space.features.length === 0) && (
           <div style={{ textAlign: 'center', padding: '4rem 2rem', background: 'white', borderRadius: '24px', boxShadow: '0 10px 40px rgba(0,0,0,0.03)', border: '1px solid rgba(0,0,0,0.05)', marginTop: '2rem' }}>
