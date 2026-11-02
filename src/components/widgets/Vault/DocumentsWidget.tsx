@@ -775,21 +775,23 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               onClick={handleHierarchicalBack} 
               title={currentFolderId ? (currentActiveFolder?.parentId ? 'חזרה לתיקיית האב' : 'חזרה לראשי הנושא') : 'חזרה לכל הנושאים'}
               style={{ 
-                background: currentFolderId ? '#eff6ff' : 'transparent', 
-                border: currentFolderId ? '1px solid #bfdbfe' : 'none', 
-                borderRadius: '8px',
-                padding: currentFolderId ? '3px 8px' : '0 4px',
-                fontSize: currentFolderId ? '0.85rem' : '1.25rem', 
+                background: currentFolderId ? '#eff6ff' : '#f8fafc', 
+                border: currentFolderId ? '1.5px solid #93c5fd' : '1px solid #cbd5e1', 
+                borderRadius: '12px',
+                padding: '6px 12px',
+                fontSize: '0.82rem', 
                 cursor: 'pointer', 
-                color: currentFolderId ? '#1d4ed8' : '#64748b', 
+                color: currentFolderId ? '#1d4ed8' : '#334155', 
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.25rem',
-                fontWeight: currentFolderId ? 700 : 'normal'
+                gap: '0.45rem',
+                fontWeight: 700,
+                boxShadow: currentFolderId ? '0 2px 6px rgba(37,99,235,0.12)' : '0 1px 3px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease'
               }}
             >
-              <span>←</span>
-              {currentFolderId && <span style={{ fontSize: '0.78rem' }}>חזרה</span>}
+              <span style={{ fontSize: '1rem', fontWeight: 900, transform: 'translateY(-1px)' }}>↩</span>
+              <span>{currentFolderId ? (currentActiveFolder?.parentId ? 'לתיקיית האב' : 'לראשי') : 'לנושאים'}</span>
             </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
@@ -1759,13 +1761,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     ✏️
                                   </button>
                                   <button
-                                    type="button"
-                                    onClick={() => setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId })}
-                                    title="העבר לתיקייה"
-                                    style={{ background: '#f0f9ff', color: '#0284c7', border: '1px solid #bae6fd', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
-                                  >
-                                    📁
-                                  </button>
+                                           type="button"
+                                           onClick={(e) => { e.stopPropagation(); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
+                                           style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 6px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                           title="העבר לתיקייה אחרת"
+                                         >
+                                           📁
+                                         </button>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteDocument(doc.id, doc.title)}
@@ -2224,6 +2226,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 </button>
                                               )}
                                               <button
+                                                  type="button"
+                                                  onClick={() => { setActiveDocMenuId(null); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
+                                                  style={{ background: '#f0f9ff', border: '1px solid #bae6fd', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0284c7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                >
+                                                  📁 העבר לתיקייה
+                                                </button>
+                                                <button
                                                 type="button"
                                                 onClick={() => { setActiveDocMenuId(null); handleMoveDocument(doc.id, activeShelf.id); }}
                                                 style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -2544,6 +2553,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
                 {/* Option 1: Root level */}
                 <button
+                  type="button"
                   onClick={() => handleConfirmMove(null)}
                   style={{
                     padding: '0.85rem 1rem',
@@ -2554,55 +2564,147 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    textAlign: 'right'
+                    textAlign: 'right',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontSize: '1.3rem' }}>🏠</span>
-                    <span style={{ fontSize: '0.95rem', fontWeight: 'bold', color: !moveDocToFolder.currentFolderId ? '#1d4ed8' : '#1e293b' }}>
-                      תיקייה ראשית (ללא תיקייה)
-                    </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <span style={{ fontSize: '1.35rem' }}>🏠</span>
+                    <div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: !moveDocToFolder.currentFolderId ? '#1d4ed8' : '#1e293b' }}>
+                        תיקייה ראשית (ללא תיקייה)
+                      </div>
+                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                        שכבת הבסיס של המדף
+                      </div>
+                    </div>
                   </div>
-                  {!moveDocToFolder.currentFolderId && <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓ נוכחי</span>}
+                  {!moveDocToFolder.currentFolderId ? (
+                    <span style={{ background: '#dbeafe', color: '#1d4ed8', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>מיקום נוכחי</span>
+                  ) : (
+                    <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 700 }}>העבר לכאן ←</span>
+                  )}
                 </button>
 
-                {/* Available folders in this shelf */}
-                {allShelfFolders.map(f => {
-                  const isCurrent = f.id === moveDocToFolder.currentFolderId;
-                  const parentF = f.parentId ? allShelfFolders.find(p => p.id === f.parentId) : null;
+                {/* Available folders in this shelf (Categorized by siblings & other folders) */}
+                {(() => {
+                  // Find current folder info
+                  const currentFolder = moveDocToFolder.currentFolderId ? allShelfFolders.find(f => f.id === moveDocToFolder.currentFolderId) : null;
+                  const currentParentId = currentFolder ? currentFolder.parentId || null : null;
+
+                  // Sibling folders: share the exact same parentId as current folder!
+                  const siblingFolders = allShelfFolders.filter(f => {
+                    const fParentId = f.parentId || null;
+                    return fParentId === currentParentId;
+                  });
+
+                  const otherFolders = allShelfFolders.filter(f => {
+                    const fParentId = f.parentId || null;
+                    return fParentId !== currentParentId;
+                  });
+
                   return (
-                    <button
-                      key={f.id}
-                      onClick={() => handleConfirmMove(f.id)}
-                      style={{
-                        padding: '0.85rem 1rem',
-                        background: isCurrent ? '#eff6ff' : '#f8fafc',
-                        border: isCurrent ? '2px solid #2563eb' : '1px solid #e2e8f0',
-                        borderRadius: '14px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        textAlign: 'right'
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ fontSize: '1.3rem' }}>📁</span>
-                        <div>
-                          <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#1d4ed8' : '#1e293b' }}>
-                            {f.name}
+                    <>
+                      {siblingFolders.length > 0 && (
+                        <div style={{ marginTop: '0.35rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>📁</span>
+                            <span>{currentFolder ? 'תיקיות מקבילות (באותה שכבה):' : 'תיקיות ברמה הראשית:'}</span>
                           </div>
-                          {parentF && (
-                            <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                              נמצאת בתוך: {parentF.name}
-                            </div>
-                          )}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {siblingFolders.map(f => {
+                              const isCurrent = f.id === moveDocToFolder.currentFolderId;
+                              return (
+                                <button
+                                  key={f.id}
+                                  type="button"
+                                  disabled={isCurrent}
+                                  onClick={() => handleConfirmMove(f.id)}
+                                  style={{
+                                    padding: '0.85rem 1rem',
+                                    background: isCurrent ? '#f1f5f9' : '#ffffff',
+                                    border: isCurrent ? '2px solid #94a3b8' : '1px solid #bfdbfe',
+                                    borderRadius: '14px',
+                                    cursor: isCurrent ? 'default' : 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    textAlign: 'right',
+                                    boxShadow: isCurrent ? 'none' : '0 1px 4px rgba(37,99,235,0.06)'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <span style={{ fontSize: '1.35rem' }}>📁</span>
+                                    <div>
+                                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#64748b' : '#0f172a' }}>
+                                        {f.name}
+                                      </div>
+                                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                        {isCurrent ? 'המסמך כבר נמצא בתיקייה זו' : 'תיקייה מקבילה באותה שכבה'}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  {isCurrent ? (
+                                    <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>תיקייה נוכחית</span>
+                                  ) : (
+                                    <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 700 }}>העבר לכאן ←</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                      {isCurrent && <span style={{ color: '#2563eb', fontWeight: 'bold' }}>✓ נוכחי</span>}
-                    </button>
+                      )}
+
+                      {otherFolders.length > 0 && (
+                        <div style={{ marginTop: '0.6rem' }}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>🗂️</span>
+                            <span>תיקיות בשכבות אחרות:</span>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {otherFolders.map(f => {
+                              const parentF = f.parentId ? allShelfFolders.find(p => p.id === f.parentId) : null;
+                              return (
+                                <button
+                                  key={f.id}
+                                  type="button"
+                                  onClick={() => handleConfirmMove(f.id)}
+                                  style={{
+                                    padding: '0.75rem 1rem',
+                                    background: '#f8fafc',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: '14px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    textAlign: 'right'
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                                    <span style={{ fontSize: '1.2rem' }}>📁</span>
+                                    <div>
+                                      <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: '#334155' }}>
+                                        {f.name}
+                                      </div>
+                                      {parentF && (
+                                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                          בתוך: {parentF.name}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                  <span style={{ color: '#2563eb', fontSize: '0.78rem', fontWeight: 700 }}>העבר לכאן ←</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   );
-                })}
+                })()}
               </div>
 
               <button 
@@ -3127,7 +3229,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.84</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.85</span>
         </h2>
         <input 
           type="text" 
