@@ -136,29 +136,59 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.25rem' }}>ספריית שותפים</h3>
-          <span style={{ fontWeight: 700, color: '#3b82f6', background: '#eff6ff', padding: '1px 8px', borderRadius: '8px', border: '1px solid #dbeafe', fontSize: '0.8rem' }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>ספריית שותפים</h3>
+          <span style={{ fontWeight: 700, color: '#2563eb', background: '#eff6ff', padding: '3px 10px', borderRadius: '20px', border: '1px solid #bfdbfe', fontSize: '0.78rem' }}>
             🏠 {space.title || 'מרחב'}
           </span>
-          <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v3.3.83</span>
         </div>
         {isCreatorMe && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             {activeSpaceMembers.length > 0 && !isSharedOnly && (
               <button 
+                type="button"
                 onClick={() => setShowSharesModal(true)} 
-                style={{ background: '#f8fafc', color: '#16a34a', border: '1px solid #bbf7d0', padding: '0.5rem 0.85rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                style={{ 
+                  background: '#f8fafc', 
+                  color: '#16a34a', 
+                  border: '1px solid #86efac', 
+                  padding: '0.5rem 0.9rem', 
+                  borderRadius: '12px', 
+                  cursor: 'pointer', 
+                  fontSize: '0.85rem', 
+                  fontWeight: 700, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '0.35rem',
+                  height: '38px',
+                  boxSizing: 'border-box'
+                }}
               >
                 <span>📊</span> ערוך אחוזים
               </button>
             )}
             <button 
+              type="button"
               onClick={() => setShowInviteModal(true)} 
-              style={{ background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)', color: 'white', border: 'none', padding: '0.55rem 1.1rem', borderRadius: '12px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 10px rgba(99,102,241,0.25)' }}
+              style={{ 
+                background: '#4f46e5', 
+                color: 'white', 
+                border: 'none', 
+                padding: '0.5rem 1rem', 
+                borderRadius: '12px', 
+                cursor: 'pointer', 
+                fontSize: '0.85rem', 
+                fontWeight: 700, 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '0.35rem', 
+                boxShadow: '0 2px 6px rgba(79,70,229,0.25)',
+                height: '38px',
+                boxSizing: 'border-box'
+              }}
             >
-              <span>➕</span> הוסף / הזמן שותפים
+              <span>➕</span> הזמן שותפים
             </button>
           </div>
         )}
