@@ -30,6 +30,7 @@ export default function SharedFileHandler() {
   const [touchStartX, setTouchStartX] = useState(0);
   const [showChromeUpdateModal, setShowChromeUpdateModal] = useState(false);
   const isCancelledRef = useRef(false);
+  const hasHandledShareRef = useRef(false);
   const router = useRouter();
 
   // Thorough cleanup of all share caches across browser storage
@@ -48,7 +49,7 @@ export default function SharedFileHandler() {
     }
 
     try {
-      const dbReq = indexedDB.open('MySpaceDB');
+      const dbReq = indexedDB.open('MySpaceDB', 1);
       dbReq.onsuccess = (e: any) => {
         const db = e.target.result;
         if (db.objectStoreNames.contains('sharedFiles')) {
@@ -122,7 +123,7 @@ export default function SharedFileHandler() {
   }, [activeSpaces, searchQuery]);
 
   const processFoundFiles = React.useCallback(async (rawResult: any, source: string) => {
-    if (!rawResult || isCancelledRef.current) return;
+    if (!rawResult || isCancelledRef.current || hasHandledShareRef.current) return;
     const files = Array.isArray(rawResult) ? rawResult : [rawResult];
     if (files.length === 0) return;
 
@@ -171,7 +172,7 @@ export default function SharedFileHandler() {
     }
 
     const checkPendingFiles = async () => {
-      if (isCancelledRef.current) return false;
+      if (isCancelledRef.current || hasHandledShareRef.current) return false;
 
       // 1. Check Cache Storage directly first
       if (typeof caches !== 'undefined') {
@@ -212,7 +213,7 @@ export default function SharedFileHandler() {
             const store = tx.objectStore('sharedFiles');
             const getReq = store.get('latest_shared');
             getReq.onsuccess = () => {
-              if (getReq.result && !isCancelledRef.current) {
+              if (getReq.result && !isCancelledRef.current && !hasHandledShareRef.current) {
                 processFoundFiles(getReq.result, 'INDEXED_DB');
               }
             };
@@ -228,7 +229,7 @@ export default function SharedFileHandler() {
 
     // Listen to messages from Service Worker
     const handleSwMessage = (event: MessageEvent) => {
-      if (!event.data || isCancelledRef.current) return;
+      if (!event.data || isCancelledRef.current || hasHandledShareRef.current) return;
       if (event.data.action === 'SHARE_FILES_PAYLOAD' && event.data.files && event.data.files.length > 0) {
         processFoundFiles(event.data.files, 'SW_POST_MESSAGE');
       } else if (event.data.action === 'NEW_SHARE_RECEIVED') {
@@ -252,7 +253,7 @@ export default function SharedFileHandler() {
     // Keep checking every 300ms for up to 3.5 seconds to guarantee capture in all lifecycle states
     let retries = 0;
     const interval = setInterval(async () => {
-      if (isCancelledRef.current) {
+      if (isCancelledRef.current || hasHandledShareRef.current) {
         clearInterval(interval);
         return;
       }
@@ -324,6 +325,9 @@ export default function SharedFileHandler() {
   const handleProcess = async () => {
     if (routeDestination !== 'personal' && !selectedSpaceId) return;
     if (sharedFiles.length === 0) return;
+    hasHandledShareRef.current = true;
+    isCancelledRef.current = true;
+    clearAllShareStores();
     setIsProcessing(true);
     
     try {
@@ -445,10 +449,19 @@ export default function SharedFileHandler() {
             }
           }
 
+          let docThumbnailUrl: string | undefined = undefined;
+          let docPages: string[] | undefined = undefined;
+          if (isPdf && sharedAllPages && sharedAllPages.length > 0) {
+            docPages = sharedAllPages;
+            docThumbnailUrl = sharedAllPages[0];
+          }
+
           addDocument(selectedSpaceId, {
             shelfId: targetShelfId,
             folderId: selectedFolderId || undefined,
             url: publicUrl,
+            thumbnailUrl: docThumbnailUrl,
+            pages: docPages,
             title: isPdf ? 'מסמך PDF ששותף' : 'מסמך ששותף',
             type: isPdf ? 'pdf' : 'document',
             addedBy: user?.id || 'me',
@@ -593,7 +606,7 @@ export default function SharedFileHandler() {
       {isModalOpen && (
       <div style={{
         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 99999,
+        backgroundColor: 'rgba(15, 23, 42, 0.75)', zIndex: 100005,
         display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
         backdropFilter: 'blur(6px)'
       }}>
@@ -622,9 +635,39 @@ export default function SharedFileHandler() {
                 </div>
               </div>
             </div>
-            <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.22)', padding: '0.25rem 0.55rem', borderRadius: '20px', fontWeight: '800' }}>
-              {sharedAllPages && sharedAllPages.length > 1 ? `${sharedAllPages.length} עמודים` : `${sharedFiles.length} ${sharedFiles.length > 1 ? 'קבצים' : 'קובץ'}`}
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '0.72rem', background: 'rgba(255,255,255,0.22)', padding: '0.25rem 0.55rem', borderRadius: '20px', fontWeight: '800' }}>
+                {sharedAllPages && sharedAllPages.length > 1 ? `${sharedAllPages.length} עמודים` : `${sharedFiles.length} ${sharedFiles.length > 1 ? 'קבצים' : 'קובץ'}`}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  hasHandledShareRef.current = true;
+                  isCancelledRef.current = true;
+                  setIsModalOpen(false);
+                  setSharedFiles([]);
+                  setSharedAllPages(null);
+                  clearAllShareStores();
+                }}
+                title="סגור ללא שמירה"
+                style={{
+                  background: 'rgba(255,255,255,0.2)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '28px',
+                  height: '28px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  fontSize: '0.9rem',
+                  fontWeight: 'bold'
+                }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
           {/* Document Preview Thumbnails */}
@@ -917,6 +960,7 @@ export default function SharedFileHandler() {
             <button 
               type="button"
               onClick={() => { 
+                hasHandledShareRef.current = true;
                 isCancelledRef.current = true;
                 setIsModalOpen(false); 
                 setSharedFiles([]);
