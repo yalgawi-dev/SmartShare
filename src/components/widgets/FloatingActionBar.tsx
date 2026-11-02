@@ -45,7 +45,7 @@ export function FloatingActionBar({
   useEffect(() => setMounted(true), []);
   const [isInShelf, setIsInShelf] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
-  const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('timeline');
+  const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('vault');
   const [isVaultTab, setIsVaultTab] = useState(false);
   const [timelineSortOrder, setTimelineSortOrder] = useState<'desc' | 'asc'>('desc');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -58,7 +58,7 @@ export function FloatingActionBar({
     const handleClose = () => {
       setIsInShelf(false);
       setActiveShelfId(null);
-      setShelfSubTab('timeline');
+      setShelfSubTab('vault');
       if (setActiveTab) {
         setActiveTab('shelves');
       }
