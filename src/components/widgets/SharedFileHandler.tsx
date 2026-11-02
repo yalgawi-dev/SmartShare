@@ -470,7 +470,7 @@ export default function SharedFileHandler() {
             url: publicUrl,
             thumbnailUrl: docThumbnailUrl,
             pages: docPages,
-            title: isPdf ? 'מסמך ששותף (PDF)' : 'מסמך ששותף',
+            title: 'מסמך ששותף',
             type: 'document',
             addedBy: user?.id || 'me',
             storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'

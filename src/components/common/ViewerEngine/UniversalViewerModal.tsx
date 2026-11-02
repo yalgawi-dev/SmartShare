@@ -216,19 +216,20 @@ export default function UniversalViewerModal({
         onClick={(e) => e.stopPropagation()}
         style={{
           position: 'absolute',
-          top: '12px',
+          top: 'max(12px, env(safe-area-inset-top))',
           left: 0,
           right: 0,
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '0.75rem 1.25rem',
+          gap: '0.5rem',
+          padding: '0.75rem 1rem',
           zIndex: 200010,
           pointerEvents: 'auto'
         }}
       >
         {/* Version Badge & Title */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, flex: 1, overflow: 'hidden' }}>
           <span
             style={{
               background: '#4f46e5',
@@ -237,6 +238,7 @@ export default function UniversalViewerModal({
               borderRadius: '8px',
               fontSize: '0.7rem',
               fontWeight: 800,
+              flexShrink: 0,
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
@@ -247,7 +249,8 @@ export default function UniversalViewerModal({
               color: '#f8fafc',
               fontWeight: 700,
               fontSize: '0.95rem',
-              maxWidth: '200px',
+              minWidth: 0,
+              flexShrink: 1,
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap'
