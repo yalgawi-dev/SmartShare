@@ -421,40 +421,48 @@ export default function SharedFileHandler() {
           currentIdx++;
           setUploadProgress({ current: currentIdx, total: sharedFiles.length });
           const cleanUri = dataUri.replace(/^"|"$/g, '');
-          const isPdf = cleanUri.includes('.pdf') || cleanUri.startsWith('data:application/pdf');
-          const ext = isPdf ? 'pdf' : 'jpg';
-          let compressedUri = cleanUri;
-          if (!isPdf) {
+          const isPdf = cleanUri.includes('.pdf') || cleanUri.includes('application/pdf');
+
+          // Policy: never store raw PDFs – always optimized WebP pages
+          let webpPages: string[] = [];
+          if (isPdf) {
+            if (sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 0) {
+              webpPages = sharedAllPages;
+            } else {
+              webpPages = await extractPdfPages(cleanUri, 1500, 0.85);
+            }
+          }
+          if (webpPages.length === 0) {
             try {
-              compressedUri = await downscaleBase64(cleanUri, 1500, 0.85);
+              webpPages = [await downscaleBase64(cleanUri, 1500, 0.85)];
             } catch (err) {
               console.error('Downscale failed', err);
+              webpPages = [cleanUri];
             }
           }
-          const publicUrl = await uploadImageToStorage(
-            compressedUri,
-            `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.${ext}`
-          );
 
-          // Save locally if target is local
           const spaceOverride = user?.storageConfig?.spaceOverrides?.[selectedSpaceId];
           const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
-          if (effectiveTarget === 'local') {
-            try {
-              const safeSpaceTitle = currentSpace?.title || 'General';
-              const fileName = `shared_${Date.now()}_${currentIdx}.${ext}`;
-              await saveLocalDeviceFile(safeSpaceTitle, fileName, compressedUri);
-            } catch (err) {
-              console.warn("Local save failed in SharedFileHandler:", err);
+          const uploadedPages: string[] = [];
+          for (let p = 0; p < webpPages.length; p++) {
+            const pageUri = webpPages[p];
+            const ext = pageUri.startsWith('data:image/webp') ? 'webp' : 'jpg';
+            uploadedPages.push(await uploadImageToStorage(
+              pageUri,
+              `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.${ext}`
+            ));
+            if (effectiveTarget === 'local') {
+              try {
+                await saveLocalDeviceFile(currentSpace?.title || 'General', `shared_${Date.now()}_${currentIdx}_${p + 1}.${ext}`, pageUri);
+              } catch (err) {
+                console.warn("Local save failed in SharedFileHandler:", err);
+              }
             }
           }
 
-          let docThumbnailUrl: string | undefined = undefined;
-          let docPages: string[] | undefined = undefined;
-          if (isPdf && sharedAllPages && sharedAllPages.length > 0) {
-            docPages = sharedAllPages;
-            docThumbnailUrl = sharedAllPages[0];
-          }
+          const publicUrl = uploadedPages[0];
+          const docThumbnailUrl: string | undefined = uploadedPages[0];
+          const docPages: string[] | undefined = uploadedPages.length > 1 ? uploadedPages : undefined;
 
           addDocument(selectedSpaceId, {
             shelfId: targetShelfId,
@@ -462,8 +470,8 @@ export default function SharedFileHandler() {
             url: publicUrl,
             thumbnailUrl: docThumbnailUrl,
             pages: docPages,
-            title: isPdf ? 'מסמך PDF ששותף' : 'מסמך ששותף',
-            type: isPdf ? 'pdf' : 'document',
+            title: isPdf ? 'מסמך ששותף (PDF)' : 'מסמך ששותף',
+            type: 'document',
             addedBy: user?.id || 'me',
             storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
           });
