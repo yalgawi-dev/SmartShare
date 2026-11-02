@@ -221,7 +221,6 @@ export function FloatingActionBar({
               <button 
                 onClick={() => {
                   setActiveTab && setActiveTab('shelves');
-                  window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
                 }}
                 style={{
                   background: isShelvesActive ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
