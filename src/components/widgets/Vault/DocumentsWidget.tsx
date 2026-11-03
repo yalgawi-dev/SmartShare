@@ -44,7 +44,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const documents = space.documents || [];
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>('vault');
+  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>(() => (space.settings?.showVaultTimeline ? 'timeline' : 'vault'));
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [warehouseSortBy, setWarehouseSortBy] = useState<'station' | 'name' | 'date_desc' | 'date_asc'>('station');
   const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
@@ -206,15 +206,19 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }, []);
 
   React.useEffect(() => {
+    setActiveTab(showTimeline ? 'timeline' : 'vault');
+  }, [showTimeline]);
+
+  React.useEffect(() => {
     setCurrentFolderId(null);
     if (activeShelfId) {
       window.dispatchEvent(new CustomEvent('smartshare:shelf_opened', { detail: { shelfId: activeShelfId, subTab: activeTab } }));
       window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: activeTab }));
     } else {
-      setActiveTab('vault');
+      setActiveTab(showTimeline ? 'timeline' : 'vault');
       window.dispatchEvent(new CustomEvent('smartshare:shelf_closed'));
     }
-  }, [activeShelfId, activeTab]);
+  }, [activeShelfId, activeTab, showTimeline]);
 
   React.useEffect(() => {
     if (previewState) {
@@ -770,7 +774,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         }
       } else {
         setActiveShelfId(null);
-        setActiveTab('vault');
+        setActiveTab(showTimeline ? 'timeline' : 'vault');
       }
     };
 
@@ -845,6 +849,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               </button>
             </div>
           </div>
+
+          {showTimeline ? (
+            <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
+              <button 
+                onClick={() => {
+                  setActiveTab('timeline');
+                  window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: 'timeline' }));
+                }} 
+                style={{ 
+                  flex: 1, padding: '0.5rem', background: 'transparent', border: 'none', 
+                  borderBottom: activeTab === 'timeline' ? '3px solid #3b82f6' : '3px solid transparent', 
+                  color: activeTab === 'timeline' ? '#2563eb' : '#64748b', 
+                  fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem'
+                }}
+              >
+                <span>⏱️</span> ציר זמן (הסיפור) <span style={{ fontSize: '0.78rem', opacity: 0.85 }}>({activeShelfEvents.length})</span>
+              </button>
+              <button 
+                onClick={() => {
+                  setActiveTab('vault');
+                  window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: 'vault' }));
+                }} 
+                style={{ 
+                  flex: 1, padding: '0.5rem', background: 'transparent', border: 'none', 
+                  borderBottom: activeTab === 'vault' ? '3px solid #3b82f6' : '3px solid transparent', 
+                  color: activeTab === 'vault' ? '#2563eb' : '#64748b', 
+                  fontWeight: 'bold', fontSize: '0.9rem', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem'
+                }}
+              >
+                <span>📁</span> מחסן מסמכים <span style={{ fontSize: '0.78rem', opacity: 0.85 }}>({shelfDocs.length})</span>
+              </button>
+            </div>
+          ) : (
+            <div style={{ padding: '0.25rem 0', marginTop: '0.25rem' }}></div>
+          )}
         </div>
 
         {editingShelfCoverId === activeShelf.id && (
@@ -3349,7 +3390,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.97</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.98</span>
         </h2>
         <input 
           type="text" 
