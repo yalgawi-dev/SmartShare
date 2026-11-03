@@ -18,6 +18,7 @@ import PersonalInboxWidget from '../components/widgets/PersonalInboxWidget';
 import ScannerModal from '../components/widgets/ScannerModal';
 import { PushNotificationReminder } from '../components/widgets/PushNotificationReminder';
 import InstallAppHeaderButton from '../components/InstallAppHeaderButton';
+import { SpaceAnnouncementBanner } from '../components/common/SpaceAnnouncementBanner';
 import { universalSearch } from '../utils/searchEngine';
 import { uploadImageToStorage } from '@/lib/firebase';
 import { compressImage } from '../utils/imageOptimizer';
@@ -26,9 +27,10 @@ import { sortSpacesByUsagePriority, recordSpaceVisit, getSpaceUsageMetrics } fro
 
 
 export default function Dashboard() {
-  const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite, removeMember } = useSpaces();
+  const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite, removeMember, globalAnnouncement } = useSpaces();
   const { user, allUsers, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isGlobalAnnouncementEditorOpen, setIsGlobalAnnouncementEditorOpen] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -194,7 +196,7 @@ export default function Dashboard() {
   }, [user?.id, (user as any)?.isAnonymous, myPendingInvites.length]);
 
   // Creator-side retroactive auto-approval: if any space has a pendingInvite for an already-registered user
-  // (e.g. invited before v3.4.07/v3.4.07, like "לינוי"), promote them to active member immediately!
+  // (e.g. invited before v3.4.08/v3.4.08, like "לינוי"), promote them to active member immediately!
   useEffect(() => {
     if (!isSpacesLoaded || !spaces.length) return;
     spaces.forEach((s: any) => {
@@ -326,7 +328,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.07</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.08</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -348,9 +350,32 @@ export default function Dashboard() {
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
             </button>
             {user?.isAdmin && (
-              <Link href="/admin/users" style={{ padding: '0.35rem', color: '#EF4444', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="ניהול מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                🛡️
-              </Link>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsGlobalAnnouncementEditorOpen(true)}
+                  style={{
+                    padding: '0.35rem',
+                    background: globalAnnouncement?.announcementEnabled && globalAnnouncement?.announcementText ? '#dbeafe' : 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '1.05rem',
+                    transition: 'transform 0.2s',
+                    borderRadius: '50%',
+                  }}
+                  title="הודעה מתפרצת ראשית לכל המשתמשים"
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'}
+                  onMouseLeave={e => e.currentTarget.style.background = globalAnnouncement?.announcementEnabled && globalAnnouncement?.announcementText ? '#dbeafe' : 'transparent'}
+                >
+                  📢
+                </button>
+                <Link href="/admin/users" style={{ padding: '0.35rem', color: '#EF4444', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="ניהול מערכת" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                  🛡️
+                </Link>
+              </>
             )}
             <Link href="/settings" style={{ padding: '0.35rem', color: 'var(--text-primary)', textDecoration: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', transition: 'transform 0.2s', borderRadius: '50%' }} title="הגדרות" onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
               ⚙️
@@ -497,9 +522,17 @@ export default function Dashboard() {
           <div className={styles.loader} style={{ border: '3px solid rgba(255,255,255,0.1)', borderTopColor: 'var(--primary)', borderRadius: '50%', width: '40px', height: '40px', animation: 'spin 1s linear infinite' }} />
           <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
-      ) : visibleSpaces.length === 0 ? (
-        <WelcomeEmptyState />
       ) : (
+        <>
+          {/* Global System-Wide Admin Breaking Announcement Banner (Above all spaces) */}
+          <SpaceAnnouncementBanner
+            isGlobal
+            externalOpenEditor={isGlobalAnnouncementEditorOpen}
+            onCloseExternalEditor={() => setIsGlobalAnnouncementEditorOpen(false)}
+          />
+          {visibleSpaces.length === 0 ? (
+            <WelcomeEmptyState />
+          ) : (
       <>
         {/* Tomorrow Stations Reminder Banner */}
         {(() => {
@@ -922,6 +955,8 @@ export default function Dashboard() {
         })}
       </div>
       </>
+          )}
+        </>
       )}
       <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
         v6.8.43 - Restored Native Full-Scroll Multi-Page PDF Viewer

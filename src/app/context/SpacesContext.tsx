@@ -173,6 +173,13 @@ export interface SpaceDocument {
   note?: string;
 }
 
+export interface GlobalAnnouncement {
+  announcementText?: string;
+  announcementEnabled?: boolean;
+  announcementId?: string;
+  announcementAuthor?: string;
+}
+
 export interface SpaceSettings {
   isManagedMode?: boolean;
   isCustomShare?: boolean;
@@ -393,6 +400,8 @@ interface SpacesContextType {
   toggleMemberRetroactive: (spaceId: string, userId: string, isRetroactive: boolean) => void;
   requestInvoiceDeletion: (spaceId: string, invoiceId: string, requestedBy: string, requestedById: string, reason?: string) => Promise<boolean>;
   respondToInvoiceDeletionRequest: (spaceId: string, invoiceId: string, approverId: string, approved: boolean, reason?: string) => Promise<void>;
+  globalAnnouncement: GlobalAnnouncement;
+  updateGlobalAnnouncement: (updates: Partial<GlobalAnnouncement>) => Promise<void>;
   isLoaded: boolean;
 }
 
@@ -427,7 +436,16 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   const [mediaItemsBySpace, setMediaItemsBySpace] = useState<Record<string, MediaItem[]>>({});
   const [isLoaded, setIsLoaded] = useState(false);
   const [personalInbox, setPersonalInbox] = useState<any[]>([]);
+  const [globalAnnouncement, setGlobalAnnouncement] = useState<GlobalAnnouncement>({});
   const mediaUnsubscribes = useRef<Record<string, () => void>>({});
+
+  const updateGlobalAnnouncement = async (updates: Partial<GlobalAnnouncement>) => {
+    setGlobalAnnouncement(prev => {
+      const next = { ...prev, ...updates };
+      setDoc(doc(db, 'spaces', '__global_announcement__'), next, { merge: true }).catch(console.error);
+      return next;
+    });
+  };
 
   const getTokenForSpace = (spaceId: string): string | null => {
     if (user && user.spaceKeys && user.spaceKeys[spaceId]) {
@@ -484,7 +502,14 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const spacesRef = collection(db, 'spaces');
     const unsubscribeSpaces = onSnapshot(spacesRef, (snapshot) => {
-      const dbSpaces = snapshot.docs.map(doc => {
+      const globalAnnDoc = snapshot.docs.find(d => d.id === '__global_announcement__');
+      if (globalAnnDoc) {
+        setGlobalAnnouncement(globalAnnDoc.data() as GlobalAnnouncement);
+      }
+
+      const dbSpaces = snapshot.docs
+        .filter(d => d.id !== '__global_announcement__')
+        .map(doc => {
         const data = doc.data();
         // ensure mediaItems are not pulled from root doc anymore if they exist there legacy
         delete data.mediaItems; 
@@ -2647,6 +2672,8 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
       toggleMemberRetroactive,
       requestInvoiceDeletion,
       respondToInvoiceDeletionRequest,
+      globalAnnouncement,
+      updateGlobalAnnouncement,
       isLoaded,
         personalInbox,
         setPersonalInbox,

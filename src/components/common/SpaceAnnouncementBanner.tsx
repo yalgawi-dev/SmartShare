@@ -5,34 +5,60 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 
 interface SpaceAnnouncementBannerProps {
-  spaceId: string;
+  spaceId?: string;
+  isGlobal?: boolean;
   externalOpenEditor?: boolean;
   onCloseExternalEditor?: () => void;
   onSavedToast?: (msg: string) => void;
 }
 
 export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = ({
-  spaceId,
+  spaceId = 'global',
+  isGlobal = false,
   externalOpenEditor = false,
   onCloseExternalEditor,
   onSavedToast,
 }) => {
-  const { spaces, updateSpaceSettings, getRoleForSpace } = useSpaces();
+  const { spaces, updateSpaceSettings, getRoleForSpace, globalAnnouncement, updateGlobalAnnouncement } = useSpaces();
   const { user } = useAuth();
 
-  const space = spaces.find((s) => s.id === spaceId);
-  const myRole = getRoleForSpace(spaceId);
-  const isCreatorOfSpace = Boolean(
-    space && (space.creatorId === user?.id || space.createdBy === user?.realName || myRole === 'creator' || user?.isAdmin)
+  const isGlobalMode = Boolean(isGlobal || spaceId === 'global');
+  const space = !isGlobalMode ? spaces.find((s) => s.id === spaceId) : undefined;
+  const myRole = !isGlobalMode ? getRoleForSpace(spaceId) : 'none';
+
+  const isSystemAdmin = Boolean(
+    user?.isAdmin || user?.phone === '+972509666008' || user?.phone === '+972500000000'
   );
 
-  const announcementText = space?.settings?.announcementText || '';
-  const announcementEnabled = Boolean(space?.settings?.announcementEnabled);
-  const announcementId = space?.settings?.announcementId || 'default';
-  const defaultAuthorName =
-    user?.realName || (user as any)?.name || space?.createdBy || 'מנהל המרחב';
-  const announcementAuthor =
-    space?.settings?.announcementAuthor || space?.createdBy || 'מנהל המרחב';
+  // In global mode, strictly ONLY the system Admin has access to manage the announcement.
+  // In space mode, the space creator/admin or system Admin can manage the space's announcement.
+  const canManage = isGlobalMode
+    ? isSystemAdmin
+    : Boolean(
+        space &&
+          (space.creatorId === user?.id ||
+            space.createdBy === user?.realName ||
+            myRole === 'creator' ||
+            isSystemAdmin)
+      );
+
+  const announcementText = isGlobalMode
+    ? globalAnnouncement?.announcementText || ''
+    : space?.settings?.announcementText || '';
+  const announcementEnabled = isGlobalMode
+    ? Boolean(globalAnnouncement?.announcementEnabled)
+    : Boolean(space?.settings?.announcementEnabled);
+  const announcementId = isGlobalMode
+    ? globalAnnouncement?.announcementId || 'default'
+    : space?.settings?.announcementId || 'default';
+
+  const defaultAuthorName = isGlobalMode
+    ? user?.realName || (user as any)?.name || 'הנהלת המערכת'
+    : user?.realName || (user as any)?.name || space?.createdBy || 'מנהל המרחב';
+
+  const announcementAuthor = isGlobalMode
+    ? globalAnnouncement?.announcementAuthor || 'הנהלת המערכת'
+    : space?.settings?.announcementAuthor || space?.createdBy || 'מנהל המרחב';
 
   const [dismissedSession, setDismissedSession] = useState(false);
   const [dismissedPermanently, setDismissedPermanently] = useState(false);
@@ -46,7 +72,9 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
   const containerRef = useRef<HTMLDivElement>(null);
   const textMeasureRef = useRef<HTMLSpanElement>(null);
 
-  const storageKey = `hide_space_announcement_${spaceId}_${announcementId}`;
+  const storageKey = isGlobalMode
+    ? `hide_global_announcement_${announcementId}`
+    : `hide_space_announcement_${spaceId}_${announcementId}`;
 
   useEffect(() => {
     setDraftText(announcementText);
@@ -78,7 +106,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     };
   }, [cleanText, announcementEnabled, dismissedSession, dismissedPermanently]);
 
-  if (!space) return null;
+  if (!isGlobalMode && !space) return null;
 
   const handleDontShowAgain = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -102,14 +130,28 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     if (onCloseExternalEditor) onCloseExternalEditor();
   };
 
+  const saveAnnouncementPayload = (payload: {
+    announcementText: string;
+    announcementEnabled: boolean;
+    announcementId: string;
+    announcementAuthor: string;
+  }) => {
+    if (isGlobalMode) {
+      updateGlobalAnnouncement(payload);
+    } else {
+      updateSpaceSettings(spaceId, payload);
+    }
+  };
+
   const handleSave = () => {
+    if (!canManage) return;
     const trimmed = draftText.trim();
     const isSameText = trimmed === cleanText;
     const nextId = isSameText && announcementId ? announcementId : `ann_${Date.now()}`;
     const finalEnabled = trimmed.length > 0 ? draftEnabled : false;
     const authorToSave = defaultAuthorName;
 
-    updateSpaceSettings(spaceId, {
+    saveAnnouncementPayload({
       announcementText: trimmed,
       announcementEnabled: finalEnabled,
       announcementId: nextId,
@@ -118,13 +160,22 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
 
     if (typeof window !== 'undefined') {
       try {
-        localStorage.removeItem(`hide_space_announcement_${spaceId}_${nextId}`);
+        const nextStorageKey = isGlobalMode
+          ? `hide_global_announcement_${nextId}`
+          : `hide_space_announcement_${spaceId}_${nextId}`;
+        localStorage.removeItem(nextStorageKey);
       } catch (err) {}
     }
     setDismissedPermanently(false);
     setDismissedSession(false);
     if (onSavedToast) {
-      onSavedToast(finalEnabled && trimmed ? 'ההודעה המתפרצת עודכנה ופורסמה!' : 'ההודעה המתפרצת הוסרה');
+      onSavedToast(
+        finalEnabled && trimmed
+          ? isGlobalMode
+            ? 'ההודעה המתפרצת הראשית פורסמה לכל המשתמשים!'
+            : 'ההודעה המתפרצת עודכנה ופורסמה!'
+          : 'ההודעה המתפרצת הוסרה'
+      );
     }
     closeEditor();
   };
@@ -145,13 +196,17 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           onTouchEnd={() => setIsPaused(false)}
           style={{
             position: 'sticky',
-            top: '46px',
+            top: isGlobalMode ? '8px' : '46px',
             zIndex: 98,
             marginBottom: '0.75rem',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.80) 0%, rgba(30, 41, 59, 0.74) 100%)',
+            background: isGlobalMode
+              ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.78) 100%)'
+              : 'linear-gradient(135deg, rgba(15, 23, 42, 0.80) 0%, rgba(30, 41, 59, 0.74) 100%)',
             backdropFilter: 'blur(14px)',
             WebkitBackdropFilter: 'blur(14px)',
-            border: '1px solid rgba(148, 163, 184, 0.26)',
+            border: isGlobalMode
+              ? '1px solid rgba(96, 165, 250, 0.35)'
+              : '1px solid rgba(148, 163, 184, 0.26)',
             borderRadius: '16px',
             padding: '0.5rem 0.85rem 0.6rem 0.85rem',
             color: '#f8fafc',
@@ -199,7 +254,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
-              {isCreatorOfSpace && (
+              {canManage && (
                 <button
                   type="button"
                   onClick={() => {
@@ -354,8 +409,8 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
         </div>
       )}
 
-      {/* Global Quick Editor Modal for Space Creator / Admin */}
-      {isEditorOpen && isCreatorOfSpace && (
+      {/* Global Quick Editor Modal for Space Creator / System Admin */}
+      {isEditorOpen && canManage && (
         <div
           dir="rtl"
           onClick={closeEditor}
@@ -388,7 +443,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span>📢</span> הודעה מתפרצת במרחב
+                <span>📢</span> {isGlobalMode ? 'הודעה מתפרצת ראשית (לכל המשתמשים)' : 'הודעה מתפרצת במרחב'}
               </h3>
               <button
                 type="button"
@@ -400,11 +455,21 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             </div>
 
             <p style={{ margin: 0, fontSize: '0.86rem', color: '#475569', lineHeight: 1.5 }}>
-              ההודעה תוצג בחלקו העליון של המרחב עם שמך (<strong>{defaultAuthorName}</strong>) לכל השותפים שנכנסים למרחב.
+              {isGlobalMode ? (
+                <>
+                  הודעה זו תוצג <strong>בראש העמוד הראשי מעל כל המרחבים</strong> לכל משתמשי האפליקציה, תחת השם <strong>{defaultAuthorName}</strong>.
+                </>
+              ) : (
+                <>
+                  הודעה זו תוצג בחלקו העליון של המרחב עם שמך (<strong>{defaultAuthorName}</strong>) לכל השותפים שנכנסים למרחב.
+                </>
+              )}
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#1e293b' }}>הצג הודעה מתפרצת בחלק העליון</span>
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#1e293b' }}>
+                {isGlobalMode ? 'הצג הודעה מתפרצת בראש המסך הראשי' : 'הצג הודעה מתפרצת בחלק העליון'}
+              </span>
               <input
                 type="checkbox"
                 checked={draftEnabled}
@@ -426,7 +491,11 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
                     setDraftEnabled(true);
                   }
                 }}
-                placeholder="לדוגמה: נא להעלות את כל המסמכים והקבלות של החודש עד יום חמישי הקרוב..."
+                placeholder={
+                  isGlobalMode
+                    ? 'לדוגמה: עדכון מערכת חדש עלה לאוויר! נוסף כפתור חזרה צף ושיפורים במהירות הסריקה...'
+                    : 'לדוגמה: נא להעלות את כל המסמכים והקבלות של החודש עד יום חמישי הקרוב...'
+                }
                 style={{
                   width: '100%',
                   boxSizing: 'border-box',
@@ -445,10 +514,11 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
                 <button
                   type="button"
                   onClick={() => {
-                    updateSpaceSettings(spaceId, {
+                    saveAnnouncementPayload({
                       announcementText: '',
                       announcementEnabled: false,
                       announcementId: `ann_${Date.now()}`,
+                      announcementAuthor: defaultAuthorName,
                     });
                     if (onSavedToast) onSavedToast('ההודעה המתפרצת הוסרה');
                     closeEditor();
@@ -510,25 +580,37 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
 };
 
 interface SpaceAnnouncementSettingsCardProps {
-  spaceId: string;
+  spaceId?: string;
+  isGlobal?: boolean;
 }
 
 export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCardProps> = ({
-  spaceId,
+  spaceId = 'global',
+  isGlobal = false,
 }) => {
-  const { spaces, updateSpaceSettings, getRoleForSpace } = useSpaces();
+  const { spaces, updateSpaceSettings, getRoleForSpace, globalAnnouncement, updateGlobalAnnouncement } = useSpaces();
   const { user } = useAuth();
 
-  const space = spaces.find((s) => s.id === spaceId);
-  const myRole = getRoleForSpace(spaceId);
-  const isCreatorMe = Boolean(
-    space && (myRole === 'creator' || user?.id === space.creatorId || user?.isAdmin)
+  const isGlobalMode = Boolean(isGlobal || spaceId === 'global');
+  const space = !isGlobalMode ? spaces.find((s) => s.id === spaceId) : undefined;
+  const myRole = !isGlobalMode ? getRoleForSpace(spaceId) : 'none';
+  const isSystemAdmin = Boolean(
+    user?.isAdmin || user?.phone === '+972509666008' || user?.phone === '+972500000000'
   );
 
-  const announcementText = space?.settings?.announcementText || '';
-  const announcementEnabled = Boolean(space?.settings?.announcementEnabled);
-  const defaultAuthorName =
-    user?.realName || (user as any)?.name || space?.createdBy || 'מנהל המרחב';
+  const canManage = isGlobalMode
+    ? isSystemAdmin
+    : Boolean(space && (myRole === 'creator' || user?.id === space.creatorId || isSystemAdmin));
+
+  const announcementText = isGlobalMode
+    ? globalAnnouncement?.announcementText || ''
+    : space?.settings?.announcementText || '';
+  const announcementEnabled = isGlobalMode
+    ? Boolean(globalAnnouncement?.announcementEnabled)
+    : Boolean(space?.settings?.announcementEnabled);
+  const defaultAuthorName = isGlobalMode
+    ? user?.realName || (user as any)?.name || 'הנהלת המערכת'
+    : user?.realName || (user as any)?.name || space?.createdBy || 'מנהל המרחב';
 
   const [text, setText] = useState(announcementText);
   const [enabled, setEnabled] = useState(announcementEnabled);
@@ -539,19 +621,26 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
     setEnabled(announcementEnabled);
   }, [announcementText, announcementEnabled]);
 
-  if (!space) return null;
+  if (!isGlobalMode && !space) return null;
+  if (isGlobalMode && !isSystemAdmin) return null;
 
   const handleSaveCard = (nextEnabled?: boolean, nextText?: string) => {
-    if (!isCreatorMe) return;
+    if (!canManage) return;
     const finalText = (nextText !== undefined ? nextText : text).trim();
     const finalEnabled = nextEnabled !== undefined ? nextEnabled : enabled;
     const nextId = `ann_${Date.now()}`;
-    updateSpaceSettings(spaceId, {
+    const payload = {
       announcementText: finalText,
       announcementEnabled: finalText.length > 0 ? finalEnabled : false,
       announcementId: nextId,
       announcementAuthor: defaultAuthorName,
-    });
+    };
+
+    if (isGlobalMode) {
+      updateGlobalAnnouncement(payload);
+    } else {
+      updateSpaceSettings(spaceId, payload);
+    }
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2500);
   };
@@ -572,19 +661,21 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
         <div style={{ paddingLeft: '0.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--text-primary)' }}>
-              📢 הודעה מתפרצת בכניסה למרחב
+              📢 {isGlobalMode ? 'הודעה מתפרצת ראשית (לכל המשתמשים בעמוד הראשי)' : 'הודעה מתפרצת בכניסה למרחב'}
             </h4>
             <span style={{ fontSize: '0.7rem', color: '#1d4ed8', background: '#dbeafe', padding: '2px 8px', borderRadius: '12px', fontWeight: 800 }}>
-              גלובלי לכל המרחבים
+              {isGlobalMode ? '🛡️ אדמין בלבד' : 'גלובלי לכל המרחבים'}
             </span>
-            {!isCreatorMe && (
+            {!canManage && (
               <span style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px' }}>
                 🔒 מנהל בלבד
               </span>
             )}
           </div>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-            הצגת הודעה מתפרצת חצי-שקופה ברוחב מלא בחלקו העליון של המרחב, כולל שם המפרסם ({space.settings?.announcementAuthor || defaultAuthorName}), גלילת גלגל אוטומטית להודעות ארוכות וכפתורי סגירה.
+            {isGlobalMode
+              ? `הצגת הודעה מתפרצת חצי-שקופה בראש העמוד הראשי מעל כל המרחבים לכל משתמשי המערכת, עם שם המפרסם (${globalAnnouncement?.announcementAuthor || defaultAuthorName}).`
+              : `הצגת הודעה מתפרצת חצי-שקופה ברוחב מלא בחלקו העליון של המרחב, כולל שם המפרסם (${space?.settings?.announcementAuthor || defaultAuthorName}), גלילת גלגל אוטומטית להודעות ארוכות וכפתורי סגירה.`}
           </p>
         </div>
 
@@ -595,16 +686,16 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
             width: '48px',
             height: '26px',
             flexShrink: 0,
-            opacity: isCreatorMe ? 1 : 0.5,
-            cursor: isCreatorMe ? 'pointer' : 'not-allowed',
+            opacity: canManage ? 1 : 0.5,
+            cursor: canManage ? 'pointer' : 'not-allowed',
           }}
         >
           <input
             type="checkbox"
-            disabled={!isCreatorMe}
+            disabled={!canManage}
             checked={enabled}
             onChange={(e) => {
-              if (!isCreatorMe) return;
+              if (!canManage) return;
               const val = e.target.checked;
               setEnabled(val);
               if (text.trim().length > 0 || !val) {
@@ -616,7 +707,7 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
           <span
             style={{
               position: 'absolute',
-              cursor: isCreatorMe ? 'pointer' : 'not-allowed',
+              cursor: canManage ? 'pointer' : 'not-allowed',
               top: 0,
               left: 0,
               right: 0,
@@ -645,7 +736,7 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
         <textarea
           rows={2}
-          disabled={!isCreatorMe}
+          disabled={!canManage}
           value={text}
           onChange={(e) => {
             setText(e.target.value);
@@ -653,7 +744,11 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
               setEnabled(true);
             }
           }}
-          placeholder="כתוב כאן את ההודעה המתפרצת שתופיע לכל מי שנכנס למרחב..."
+          placeholder={
+            isGlobalMode
+              ? 'כתוב כאן את ההודעה המתפרצת שתופיע בראש העמוד הראשי לכל משתמשי המערכת...'
+              : 'כתוב כאן את ההודעה המתפרצת שתופיע לכל מי שנכנס למרחב...'
+          }
           style={{
             width: '100%',
             boxSizing: 'border-box',
@@ -662,11 +757,11 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
             padding: '0.65rem 0.85rem',
             fontSize: '0.9rem',
             fontFamily: 'inherit',
-            background: isCreatorMe ? 'white' : '#f8fafc',
+            background: canManage ? 'white' : '#f8fafc',
             resize: 'vertical',
           }}
         />
-        {isCreatorMe && (
+        {canManage && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.78rem', color: savedNotice ? '#16a34a' : '#64748b', fontWeight: savedNotice ? 700 : 500 }}>
               {savedNotice ? '✓ ההודעה המתפרצת נשמרה ועודכנה בהצלחה!' : `💡 יפורסם תחת השם: ${defaultAuthorName}`}
