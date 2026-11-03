@@ -226,6 +226,35 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }, [activeShelfId, activeTab, showTimeline]);
 
   React.useEffect(() => {
+    const allFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelfId);
+    const activeFolder = currentFolderId ? allFolders.find(f => f.id === currentFolderId) : null;
+    window.dispatchEvent(new CustomEvent('smartshare:hierarchy_state', {
+      detail: {
+        shelfId: activeShelfId || null,
+        folderId: currentFolderId || null,
+        parentFolderId: activeFolder?.parentId || null
+      }
+    }));
+  }, [activeShelfId, currentFolderId, space.documentFolders]);
+
+  React.useEffect(() => {
+    const handleBackOneStep = (e: any) => {
+      if (currentFolderId) {
+        const allFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelfId);
+        const activeFolder = allFolders.find(f => f.id === currentFolderId);
+        setCurrentFolderId(activeFolder?.parentId || null);
+        if (e?.detail) e.detail.handled = true;
+      } else if (activeShelfId) {
+        setActiveShelfId(null);
+        setActiveTab(showTimeline ? 'timeline' : 'vault');
+        if (e?.detail) e.detail.handled = true;
+      }
+    };
+    window.addEventListener('smartshare:navigate_back_one_step', handleBackOneStep);
+    return () => window.removeEventListener('smartshare:navigate_back_one_step', handleBackOneStep);
+  }, [activeShelfId, currentFolderId, space.documentFolders, showTimeline]);
+
+  React.useEffect(() => {
     if (previewState) {
       window.dispatchEvent(new CustomEvent('smartshare:preview_open'));
     } else {
@@ -3589,7 +3618,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.03</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.04</span>
         </h2>
         <input 
           type="text" 

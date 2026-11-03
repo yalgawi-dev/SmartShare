@@ -39,6 +39,7 @@ export const viewport: Viewport = {
 import { Providers } from "./Providers";
 
 import GlobalPWAPrompt from "../components/GlobalPWAPrompt";
+import GlobalFloatingBackButton from "../components/common/GlobalFloatingBackButton";
 
 
 export default function RootLayout({
@@ -57,6 +58,7 @@ export default function RootLayout({
       <body>
         <Providers>
           {children}
+          <GlobalFloatingBackButton />
           <GlobalPWAPrompt />
         </Providers>
         <script
