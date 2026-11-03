@@ -58,15 +58,8 @@ export interface Invoice {
   sharesSnapshot?: Record<string, number>;
   /** All pages of a multi-page attachment (attachmentUrl is always the first page). */
   attachmentPages?: string[];
-  /** Snapshot taken before the last attach/edit of an already-approved expense, so a dispute can revert it. */
-  previousVersion?: {
-    at: string;
-    by: string;
-    hasAttachment: boolean;
-    attachmentUrl?: string;
-    attachmentPages?: string[];
-    amount: number | null;
-  };
+  /** Amount before the last invoice-driven correction (a single number – no files are kept, to save storage). */
+  previousAmount?: number | null;
 }
 
 export interface AttachFilePayload {
@@ -993,7 +986,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
    *  - Expense already approved → the change is applied immediately (assumed acceptable),
    *    the approval stamp is reset so previous approvers must re-approve, and the
    *    performer's own approval is kept. A partner who objects opens a dispute,
-   *    which sets the expense aside; `previousVersion` allows reverting.
+   *    which sets the expense aside. The initiator of the attachment handles the follow-up.
+   *  - Only one extra number is kept (`previousAmount`) – never files – to avoid storage bloat.
    *  - Solo space (no other active members) → no re-approval needed.
    */
   const attachFileToInvoice = (spaceId: string, invoiceId: string, payload: AttachFilePayload, performer: { id: string; name: string }) => {
@@ -1009,15 +1003,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         hasAttachment: true,
         attachmentUrl: payload.url,
         attachmentPages: payload.pages && payload.pages.length > 1 ? payload.pages : undefined,
-        ...(amountChanged ? { amount: payload.newAmount as number } : {}),
-        previousVersion: {
-          at: new Date().toISOString(),
-          by: performer.id,
-          hasAttachment: !!inv.hasAttachment,
-          attachmentUrl: inv.attachmentUrl,
-          attachmentPages: inv.attachmentPages,
-          amount: inv.amount
-        },
+        ...(amountChanged ? { amount: payload.newAmount as number, previousAmount: inv.amount } : {}),
         ...(needsReApproval
           ? { status: 'pending' as InvoiceStatus, approvedBy: [performer.id], approvalsReceived: 1 }
           : {})
