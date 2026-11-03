@@ -195,9 +195,9 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           onTouchStart={() => setIsPaused(true)}
           onTouchEnd={() => setIsPaused(false)}
           style={{
-            position: 'sticky',
-            top: isGlobalMode ? '8px' : '46px',
-            zIndex: 98,
+            position: isGlobalMode ? 'sticky' : 'relative',
+            top: isGlobalMode ? '8px' : undefined,
+            zIndex: 45,
             marginBottom: '0.75rem',
             background: isGlobalMode
               ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.78) 100%)'

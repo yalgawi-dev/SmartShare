@@ -157,6 +157,24 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     }
   }, [showVaultViewDropdown]);
 
+  // Global outside-click / touch listener for closing the 3-dots document menu anywhere on screen
+  React.useEffect(() => {
+    if (!activeDocMenuId) return;
+    const handleOutsideDocMenu = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest('[data-doc-menu-container="true"]')) {
+        return;
+      }
+      setActiveDocMenuId(null);
+    };
+    document.addEventListener('mousedown', handleOutsideDocMenu);
+    document.addEventListener('touchstart', handleOutsideDocMenu);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideDocMenu);
+      document.removeEventListener('touchstart', handleOutsideDocMenu);
+    };
+  }, [activeDocMenuId]);
+
   React.useEffect(() => {
     const folderHandler = () => {
       if (!activeShelfId) return;
@@ -931,6 +949,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           </div>
         </div>
       </div>
+    );
+  };
+
+  // Shared Document Note Modal (Single Source of Truth for both inner shelf view and outer shelves view)
+  const renderDocNoteModal = () => {
+    if (!noteDocId) return null;
+    const targetDoc = documents.find(d => d.id === noteDocId);
+    if (!targetDoc) return null;
+    return (
+      <DocNoteModal
+        docTitle={targetDoc.title}
+        initialNote={targetDoc.note}
+        onSave={(noteText) => {
+          updateDocument(space.id, targetDoc.id, { note: noteText });
+          setNoteDocId(null);
+        }}
+        onClose={() => setNoteDocId(null)}
+      />
     );
   };
 
@@ -2291,9 +2327,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   overflow: 'visible',
                                   border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0'),
                                   position: 'relative',
+                                  zIndex: activeDocMenuId === doc.id ? 60 : 1,
                                   opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1),
                                   transition: 'all 0.2s',
-                                  transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : 'scale(1)'),
+                                  transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : 'none'),
                                   boxShadow: isChecked ? '0 6px 16px rgba(37,99,235,0.2)' : '0 2px 4px rgba(0,0,0,0.03)',
                                   display: 'flex',
                                   flexDirection: 'column',
@@ -2475,7 +2512,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                       </div>
 
                                       {/* Dots Menu */}
-                                      <div style={{ position: 'relative' }}>
+                                      <div data-doc-menu-container="true" style={{ position: 'relative' }}>
                                         <button
                                           type="button"
                                           onClick={(e) => {
@@ -3552,6 +3589,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       )}
 
       {renderRecycleBinModal()}
+      {renderDocNoteModal()}
       </>
     );
   }
@@ -3561,7 +3599,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.09</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.10</span>
         </h2>
         <input 
           type="text" 
@@ -3913,21 +3951,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       )}
 
       {/* DOCUMENT NOTE MODAL */}
-      {noteDocId && (() => {
-        const targetDoc = documents.find(d => d.id === noteDocId);
-        if (!targetDoc) return null;
-        return (
-          <DocNoteModal
-            docTitle={targetDoc.title}
-            initialNote={targetDoc.note}
-            onSave={(noteText) => {
-              updateDocument(space.id, targetDoc.id, { note: noteText });
-              setNoteDocId(null);
-            }}
-            onClose={() => setNoteDocId(null)}
-          />
-        );
-      })()}
+      {renderDocNoteModal()}
     </div>
   );
 });
