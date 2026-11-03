@@ -555,7 +555,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.3.99</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.4.00</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -617,6 +617,40 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
+
+            {/* Direct Phone Notifications Section (Push Notifications) */}
+            <section style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '20px', padding: '1.25rem 1.4rem', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.08)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <h3 style={{ margin: '0 0 0.25rem 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 800 }}>
+                    <span>🔔</span> התראות ישירות לטלפון (Push)
+                  </h3>
+                  <p style={{ margin: 0, color: '#15803d', fontSize: '0.84rem', lineHeight: '1.45' }}>
+                    {pushSuccessMessage
+                      ? '✅ ההתראות הופעלו וסונכרנו בהצלחה למכשיר שלך!'
+                      : 'קבל התראה מיידית למכשיר כששותף מעלה הוצאה, שולח מסמך או מעביר כסף.'}
+                  </p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={handleEnablePush} 
+                  style={{ 
+                    background: isPushEnabled ? '#86efac' : '#22c55e', 
+                    color: isPushEnabled ? '#14532d' : 'white', 
+                    border: 'none', 
+                    padding: '0.65rem 1.25rem', 
+                    borderRadius: '12px', 
+                    fontWeight: 800, 
+                    cursor: 'pointer',
+                    fontSize: '0.88rem',
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 4px 10px rgba(34, 197, 94, 0.25)'
+                  }}
+                >
+                  {isPushEnabled ? 'פעיל ✔️ (רענן סנכרון)' : 'הפעל עכשיו 🔔'}
+                </button>
+              </div>
+            </section>
 
             {/* Profile Main Card */}
             <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>

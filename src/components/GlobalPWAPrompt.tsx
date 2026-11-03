@@ -14,11 +14,12 @@ import { useState, useEffect } from 'react';
 export default function GlobalPWAPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [platform, setPlatform] = useState<
-    'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-webview' | 'other' | null
+    'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-chrome' | 'ios-webview' | 'other' | null
   >(null);
   const [showGuide, setShowGuide] = useState(false);
   const [installing, setInstalling] = useState(false);
   const [menuOpened, setMenuOpened] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -28,19 +29,21 @@ export default function GlobalPWAPrompt() {
       || (window.navigator as any).standalone === true;
     if (isStandalone) return;
 
-    const detectPlatform = (): 'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-webview' | 'other' | null => {
+    const detectPlatform = (): 'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-chrome' | 'ios-webview' | 'other' | null => {
       const ua = navigator.userAgent;
       const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
       const isAndroid = /Android/.test(ua);
       const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV')
         || ua.includes('Instagram') || /wv\)/.test(ua);
-      const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua) && !/CriOS/.test(ua);
+      const isCriOS = /CriOS/.test(ua);
+      const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua) && !isCriOS;
 
       if (isAndroid && isWebView)      return 'android-webview';
       if (isAndroid)                   return 'android-chrome';
       if (isIOS && isWebView)          return 'ios-webview';
+      if (isIOS && isCriOS)            return 'ios-chrome';
       if (isIOS && isSafari)           return 'ios-safari';
-      if (isIOS)                       return 'ios-webview';
+      if (isIOS)                       return 'ios-safari';
       return 'other';
     };
 
@@ -54,10 +57,18 @@ export default function GlobalPWAPrompt() {
 
     const onTrigger = () => { 
       try { localStorage.removeItem('pwa_dismissed_at'); } catch (e) {}
-      setShowGuide(false);
       setMenuOpened(false);
-      const detected = detectPlatform();
-      setPlatform(detected || 'android-chrome');
+      setCopiedLink(false);
+      const detected = detectPlatform() || 'android-chrome';
+      setPlatform(detected);
+      // Scroll to top so mobile browsers (especially iOS Safari) expand and reveal their bottom toolbar!
+      try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+      // On iOS, open the step-by-step visual guide immediately on manual trigger so the user doesn't have to click twice
+      if (detected === 'ios-safari' || detected === 'ios-chrome') {
+        setShowGuide(true);
+      } else {
+        setShowGuide(false);
+      }
     };
     window.addEventListener('trigger-pwa-install', onTrigger);
 
@@ -175,41 +186,232 @@ export default function GlobalPWAPrompt() {
     );
   }
 
-  // ── iOS WebView (WhatsApp on iPhone): Open in Safari ─────────────────────────
+  const copyCurrentUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 4000);
+    } catch (e) {
+      const input = document.createElement('input');
+      input.value = window.location.href;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 4000);
+    }
+  };
+
+  // ── iOS WebView (WhatsApp/Instagram on iPhone): Open in Safari or Copy Link ──
   if (platform === 'ios-webview') {
     return (
       <Sheet>
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🧭</div>
-          <h3 style={titleStyle}>פתח ב-Safari</h3>
+        <div style={{ textAlign: 'center', marginBottom: '1rem', direction: 'rtl' }}>
+          <div style={{ fontSize: '2.4rem', marginBottom: '0.35rem' }}>🧭</div>
+          <h3 style={titleStyle}>פתיחה והתקנה באייפון</h3>
           <p style={subStyle}>
-            כדי להתקין את MySpace, לחץ על הכפתור — הוא יפתח Safari אוטומטית!
+            נכנסת מתוך וואטסאפ ולכן סרגל ההתקנה של האייפון מוסתר. כדי להתקין בקלות:
           </p>
         </div>
-        <button onClick={openInSafari} className="pulse-btn-v1" style={primaryBtnStyle}>
-          🧭 פתח ב-Safari ← התקן
-        </button>
-        <button onClick={dismiss} style={dismissBtnStyle}>סגור</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem', direction: 'rtl' }}>
+          <div style={{ background: '#eff6ff', border: '1.5px solid #93c5fd', borderRadius: '14px', padding: '0.85rem 1rem', fontSize: '0.88rem', color: '#1e3a8a', lineHeight: 1.45 }}>
+            <strong>אפשרות א׳ (הכי מהירה):</strong> לחץ על סמל המצפן <strong>🧭 (Safari)</strong> שנמצא בפינה התחתונה של המסך כדי לפתוח בדפדפן הרגיל.
+          </div>
+          <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '14px', padding: '0.85rem 1rem', fontSize: '0.88rem', color: '#334155', lineHeight: 1.45 }}>
+            <strong>אפשרות ב׳:</strong> העתק את הקישור בלחיצה כאן, פתח את דפדפן <strong>Safari</strong> באייפון והדבק בשורת הכתובת:
+            <button
+              onClick={copyCurrentUrl}
+              style={{
+                marginTop: '0.6rem',
+                width: '100%',
+                padding: '0.75rem',
+                borderRadius: '12px',
+                border: 'none',
+                background: copiedLink ? '#16a34a' : '#2563eb',
+                color: 'white',
+                fontWeight: 800,
+                fontSize: '0.92rem',
+                cursor: 'pointer'
+              }}
+            >
+              {copiedLink ? '✅ הקישור הועתק! כעת פתח את Safari והדבק' : '📋 העתק קישור להדבקה ב-Safari'}
+            </button>
+          </div>
+        </div>
+        <button onClick={dismiss} style={{ ...dismissBtnStyle, width: '100%' }}>סגור</button>
       </Sheet>
     );
   }
 
-  // ── iOS Safari: 2-step guide (Apple's limitation) ────────────────────────────
-  if (platform === 'ios-safari' && showGuide) {
+  // ── iOS Safari / iOS Chrome: Visual Step-by-Step Guide with Live Pointer ─────
+  if ((platform === 'ios-safari' || platform === 'ios-chrome') && showGuide) {
+    const isChromeIOS = platform === 'ios-chrome';
     return (
-      <Sheet>
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📱</div>
-          <h3 style={titleStyle}>הוסף למסך הבית</h3>
-          <p style={subStyle}>Apple מחייבת 2 שלבים — זה הכל!</p>
+      <>
+        <style>{`
+          @keyframes pwaBounceDown {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(7px); }
+          }
+          @keyframes pwaBounceUp {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-7px); }
+          }
+        `}</style>
+        <div
+          onClick={dismiss}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999998,
+            background: 'rgba(15, 23, 42, 0.65)', backdropFilter: 'blur(4px)'
+          }}
+        />
+        {/* Floating Guide Card positioned to leave the browser toolbar visible */}
+        <div
+          style={{
+            position: 'fixed',
+            bottom: isChromeIOS ? '16px' : '68px',
+            left: '12px',
+            right: '12px',
+            maxWidth: '430px',
+            margin: '0 auto',
+            maxHeight: 'calc(100vh - 96px)',
+            overflowY: 'auto',
+            zIndex: 9999999,
+            background: '#ffffff',
+            borderRadius: '24px',
+            padding: '1.15rem 1.15rem 1.25rem',
+            boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
+            direction: 'rtl',
+            fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <img src="/icons/icon-192x192.png" alt="MySpace" style={{ width: '36px', height: '36px', borderRadius: '10px' }} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 900, color: '#0f172a' }}>התקנת MySpace באייפון</h3>
+                <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748b' }}>3 לחיצות פשוטות והאפליקציה על מסך הבית שלך</p>
+              </div>
+            </div>
+            <button onClick={dismiss} style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '30px', height: '30px', fontSize: '0.95rem', cursor: 'pointer', color: '#475569', fontWeight: 'bold' }}>✕</button>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem', marginBottom: '0.85rem' }}>
+            {/* STEP 1: Real Apple Share Icon */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#eff6ff', border: '1.5px solid #bfdbfe', padding: '0.7rem 0.85rem', borderRadius: '14px' }}>
+              <div style={{ width: '44px', height: '44px', background: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(37,99,235,0.15)', flexShrink: 0, border: '1px solid #dbeafe' }}>
+                {/* Exact Apple iOS Share SVG (Square with arrow pointing UP) */}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#007AFF" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                  <polyline points="16 6 12 2 8 6" />
+                  <line x1="12" y1="2" x2="12" y2="15" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+                  1. לחץ על כפתור השיתוף {isChromeIOS ? 'למעלה בשורת הכתובת' : 'בתחתית המסך'}
+                </div>
+                <div style={{ fontSize: '0.76rem', color: '#334155', marginTop: '2px', lineHeight: 1.35 }}>
+                  חפש את הסמל הכחול של <strong>ריבוע עם חץ עולה למעלה</strong> {isChromeIOS ? 'בצד העליון של הדפדפן' : 'באמצע הסרגל התחתון של הדפדפן'}.
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 2: Scroll Down + Add to Home Screen */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.7rem 0.85rem', borderRadius: '14px' }}>
+              <div style={{ width: '44px', height: '44px', background: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flexShrink: 0, border: '1px solid #e2e8f0' }}>
+                {/* Exact Apple Add to Home Screen SVG (Rounded square with +) */}
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#0f172a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="4" ry="4" />
+                  <line x1="12" y1="8" x2="12" y2="16" />
+                  <line x1="8" y1="12" x2="16" y2="12" />
+                </svg>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+                  2. גלול למטה בתפריט ובחר &quot;הוסף למסך הבית&quot;
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#b45309', background: '#fef3c7', padding: '3px 7px', borderRadius: '6px', marginTop: '4px', fontWeight: 700, display: 'inline-block' }}>
+                  ⚠️ חשוב: יש לגלול את התפריט שנפתח כלפי מטה כדי לראות זאת!
+                </div>
+              </div>
+            </div>
+
+            {/* STEP 3: Tap Add in Top Corner */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '0.7rem 0.85rem', borderRadius: '14px' }}>
+              <div style={{ width: '44px', height: '44px', background: '#ffffff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flexShrink: 0, border: '1px solid #e2e8f0' }}>
+                <span style={{ color: '#007AFF', fontWeight: 900, fontSize: '0.85rem' }}>הוסף</span>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '0.88rem', fontWeight: 800, color: '#0f172a' }}>
+                  3. לחץ על &quot;הוסף&quot; (Add) בפינה העליונה
+                </div>
+                <div style={{ fontSize: '0.76rem', color: '#475569', marginTop: '2px' }}>
+                  האפליקציה תופיע מיד על מסך הבית של האייפון שלך! 🎉
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Troubleshooting Box for users who don't see the browser toolbar or opened from WhatsApp */}
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '14px', padding: '0.7rem 0.85rem', marginBottom: '0.75rem', fontSize: '0.76rem', color: '#92400e', lineHeight: 1.4 }}>
+            <div style={{ fontWeight: 800, marginBottom: '3px', color: '#78350f' }}>💡 לא רואה את סרגל הדפדפן או כפתור השיתוף?</div>
+            <div>• <strong>הסרגל הוסתר בגלילה:</strong> גע קלות בקצה התחתון של המסך (בשורת הכתובת) והכפתורים יופיעו.</div>
+            <div style={{ marginTop: '2px' }}>• <strong>נכנסת דרך וואטסאפ?</strong> לחץ על סמל המצפן <strong>🧭</strong> למטה בפינה, או העתק את הקישור והדבק ב-Safari:</div>
+            <button
+              type="button"
+              onClick={copyCurrentUrl}
+              style={{
+                marginTop: '0.45rem',
+                width: '100%',
+                padding: '0.5rem',
+                borderRadius: '10px',
+                border: '1px solid #f59e0b',
+                background: copiedLink ? '#16a34a' : '#ffffff',
+                color: copiedLink ? '#ffffff' : '#b45309',
+                fontWeight: 800,
+                fontSize: '0.78rem',
+                cursor: 'pointer'
+              }}
+            >
+              {copiedLink ? '✅ הקישור הועתק! פתח את דפדפן Safari והדבק' : '📋 העתק קישור (לפתיחה ב-Safari)'}
+            </button>
+          </div>
+
+          <button onClick={dismiss} style={{ ...primaryBtnStyle, marginBottom: 0, padding: '0.8rem' }}>הבנתי, תודה!</button>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
-          <Step icon="📤" text='לחץ על סמל השיתוף (מרובע עם חץ) בתחתית הדפדפן' />
-          <Step icon="➕" text='בחר "הוסף למסך הבית"' />
-          <Step icon="✅" text='לחץ "הוסף" — מותקן!' />
-        </div>
-        <button onClick={dismiss} style={primaryBtnStyle}>הבנתי, תודה!</button>
-      </Sheet>
+
+        {/* Live Animated Pointer pointing directly to the iPhone Safari Bottom Share Button */}
+        {!isChromeIOS && (
+          <div
+            onClick={dismiss}
+            style={{
+              position: 'fixed',
+              bottom: '8px',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              zIndex: 9999999,
+              background: '#2563eb',
+              color: '#ffffff',
+              padding: '6px 16px',
+              borderRadius: '999px',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 4px 16px rgba(37,99,235,0.5)',
+              whiteSpace: 'nowrap',
+              direction: 'rtl'
+            }}
+          >
+            <span style={{ display: 'inline-block', animation: 'pwaBounceDown 1s infinite' }}>⬇️</span>
+            <span>כפתור השיתוף נמצא ממש כאן למטה בדפדפן</span>
+            <span style={{ display: 'inline-block', animation: 'pwaBounceDown 1s infinite' }}>⬇️</span>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -256,7 +458,10 @@ export default function GlobalPWAPrompt() {
         <button onClick={dismiss} style={dismissBtnStyle}>לא עכשיו</button>
         <button
           className={!installing ? "pulse-btn-v1" : ""}
-          onClick={canOneTap ? handleInstall : () => setShowGuide(true)}
+          onClick={canOneTap ? handleInstall : () => {
+            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
+            setShowGuide(true);
+          }}
           disabled={installing}
           style={{ ...primaryBtnStyle, flex: 2, opacity: installing ? 0.7 : 1 }}
         >
