@@ -857,7 +857,73 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           />
         )}
 
-        {activeTab === 'timeline' ? (
+        {/* Timeline Discovery Banner (shown inside the shelf ONLY when timeline is disabled) */}
+        {!showTimeline && !isTimelineTipDismissed && (
+          <div style={{
+            position: 'relative',
+            margin: '0 1rem 1rem 1rem',
+            padding: '1.1rem 1.25rem',
+            borderRadius: '16px',
+            background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
+            border: '1.5px dashed #60a5fa',
+            boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
+          }}>
+            <button 
+              onClick={() => setIsTimelineTipDismissed(true)}
+              style={{ position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#64748b', padding: '4px' }}
+              title="סגור הודעה זו"
+            >
+              ✕
+            </button>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
+              <span style={{ fontSize: '1.75rem', flexShrink: 0 }}>💡</span>
+              <div>
+                <h4 style={{ margin: '0 0 0.25rem 0', color: '#1e293b', fontSize: '1rem', fontWeight: '800' }}>
+                  הידעת? ניתן להפעיל במרחב זה את &apos;ציר זמן ותחנות&apos;
+                </h4>
+                <p style={{ margin: 0, color: '#475569', fontSize: '0.88rem', lineHeight: '1.5' }}>
+                  ציר הזמן מאפשר לסדר מסמכים ואירועים לפי תחנות כרונולוגיות (כמו סיפור המרחב). ניתן להפעיל אותו בכל שלב בהגדרות המרחב.
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
+              <a 
+                href={`/space/${space.id}/settings?openFeature=vault`}
+                style={{ padding: '0.45rem 1.1rem', background: '#3b82f6', color: 'white', borderRadius: '50px', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+              >
+                <span>⚙️</span> להפעלת ציר הזמן
+              </a>
+              <button 
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    const snoozeUntil = Date.now() + 12 * 3600 * 1000; // 12 hours
+                    localStorage.setItem(timelineSnoozeKey, String(snoozeUntil));
+                  }
+                  setIsTimelineTipDismissed(true);
+                }}
+                style={{ padding: '0.45rem 1rem', background: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '50px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' }}
+              >
+                ⏰ הזכר לי בעוד 12 שעות
+              </button>
+              <button 
+                onClick={() => {
+                  if (typeof window !== 'undefined') {
+                    localStorage.setItem(timelineHideKey, '1');
+                  }
+                  setIsTimelineTipDismissed(true);
+                }}
+                style={{ padding: '0.45rem 0.9rem', background: 'transparent', color: '#64748b', border: 'none', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
+              >
+                הבנתי, אל תציג שוב
+              </button>
+            </div>
+          </div>
+        )}
+
+        {(activeTab === 'timeline' && showTimeline) ? (
           <ShelfTimeline 
             space={space} 
             activeShelfId={activeShelfId} 
@@ -3283,7 +3349,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.96</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.97</span>
         </h2>
         <input 
           type="text" 
@@ -3339,72 +3405,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           )}
         </div>
       </div>
-
-      {/* Timeline Discovery Banner */}
-      {!space.settings?.showVaultTimeline && !isTimelineTipDismissed && (
-        <div style={{
-          position: 'relative',
-          margin: '0 1rem 1.25rem 1rem',
-          padding: '1.25rem 1.5rem',
-          borderRadius: '16px',
-          background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(147, 51, 234, 0.08) 100%)',
-          border: '1.5px dashed #60a5fa',
-          boxShadow: '0 4px 15px rgba(59, 130, 246, 0.05)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem'
-        }}>
-          <button 
-            onClick={() => setIsTimelineTipDismissed(true)}
-            style={{ position: 'absolute', top: '10px', left: '10px', background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', color: '#64748b', padding: '4px' }}
-            title="סגור הודעה זו"
-          >
-            ✕
-          </button>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-            <span style={{ fontSize: '1.75rem', flexShrink: 0 }}>💡</span>
-            <div>
-              <h4 style={{ margin: '0 0 0.25rem 0', color: '#1e293b', fontSize: '1rem', fontWeight: '800' }}>
-                הידעת? ניתן להפעיל במרחב זה את 'ציר זמן ותחנות'
-              </h4>
-              <p style={{ margin: 0, color: '#475569', fontSize: '0.88rem', lineHeight: '1.5' }}>
-                ציר הזמן מאפשר לסדר מסמכים ואירועים לפי תחנות כרונולוגיות (כמו סיפור המרחב). ניתן להפעיל אותו בכל שלב בהגדרות המרחב.
-              </p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'center', marginTop: '0.25rem' }}>
-            <a 
-              href={`/space/${space.id}/settings?openFeature=vault`}
-              style={{ padding: '0.45rem 1.1rem', background: '#3b82f6', color: 'white', borderRadius: '50px', textDecoration: 'none', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
-            >
-              <span>⚙️</span> להפעלת ציר הזמן
-            </a>
-            <button 
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  const snoozeUntil = Date.now() + 12 * 3600 * 1000; // 12 hours
-                  localStorage.setItem(timelineSnoozeKey, String(snoozeUntil));
-                }
-                setIsTimelineTipDismissed(true);
-              }}
-              style={{ padding: '0.45rem 1rem', background: 'white', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '50px', fontSize: '0.82rem', fontWeight: 'bold', cursor: 'pointer' }}
-            >
-              ⏰ הזכר לי בעוד 12 שעות
-            </button>
-            <button 
-              onClick={() => {
-                if (typeof window !== 'undefined') {
-                  localStorage.setItem(timelineHideKey, '1');
-                }
-                setIsTimelineTipDismissed(true);
-              }}
-              style={{ padding: '0.45rem 0.9rem', background: 'transparent', color: '#64748b', border: 'none', fontSize: '0.82rem', cursor: 'pointer', textDecoration: 'underline' }}
-            >
-              הבנתי, אל תציג שוב
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Recycle Bin Modal with Backdrop (Click outside to close) */}
       {showRecycleBin && (

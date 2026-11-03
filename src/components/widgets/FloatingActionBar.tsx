@@ -9,6 +9,7 @@ export function FloatingActionBar({
   isAddingExpense,
   isScannerOpen,
   hasVault,
+  showVaultTimeline = false,
   hasPartners,
   hasActivePartners,
   partnersCount,
@@ -27,6 +28,7 @@ export function FloatingActionBar({
   isAddingExpense: boolean;
   isScannerOpen: boolean;
   hasVault?: boolean;
+  showVaultTimeline?: boolean;
   hasPartners?: boolean;
   hasActivePartners?: boolean;
   partnersCount?: number;
@@ -147,23 +149,25 @@ export function FloatingActionBar({
       <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
         {isInShelf ? (
           <>
-            {/* When INSIDE a Topic/Shelf: Toggle between Timeline and Warehouse */}
-            <button 
-              onClick={() => {
-                setShelfSubTab('timeline');
-                window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
-              }}
-              style={{
-                background: shelfSubTab === 'timeline' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
-                border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: shelfSubTab === 'timeline' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: shelfSubTab === 'timeline' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-              }}
-            >
-              <span style={{ fontSize: '1.2rem' }}>⏱️</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: shelfSubTab === 'timeline' ? '800' : '600' }}>ציר זמן</span>
-            </button>
+            {/* When INSIDE a Topic/Shelf: Toggle between Timeline (if enabled) and Warehouse */}
+            {showVaultTimeline && (
+              <button 
+                onClick={() => {
+                  setShelfSubTab('timeline');
+                  window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'timeline' }));
+                }}
+                style={{
+                  background: shelfSubTab === 'timeline' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                  border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
+                  display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
+                  color: shelfSubTab === 'timeline' ? '#2563eb' : '#64748b',
+                  minWidth: '45px', transition: 'all 0.2s', boxShadow: shelfSubTab === 'timeline' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                }}
+              >
+                <span style={{ fontSize: '1.2rem' }}>⏱️</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: shelfSubTab === 'timeline' ? '800' : '600' }}>ציר זמן</span>
+              </button>
+            )}
 
             <button 
               onClick={() => {
@@ -171,15 +175,15 @@ export function FloatingActionBar({
                 window.dispatchEvent(new CustomEvent('smartshare:switch_shelf_subtab', { detail: 'vault' }));
               }}
               style={{
-                background: shelfSubTab === 'vault' ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
+                background: (shelfSubTab === 'vault' || !showVaultTimeline) ? 'rgba(59, 130, 246, 0.15)' : 'transparent', 
                 border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px',
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer',
-                color: shelfSubTab === 'vault' ? '#2563eb' : '#64748b',
-                minWidth: '45px', transition: 'all 0.2s', boxShadow: shelfSubTab === 'vault' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+                color: (shelfSubTab === 'vault' || !showVaultTimeline) ? '#2563eb' : '#64748b',
+                minWidth: '45px', transition: 'all 0.2s', boxShadow: (shelfSubTab === 'vault' || !showVaultTimeline) ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
               }}
             >
               <span style={{ fontSize: '1.2rem' }}>📁</span>
-              <span style={{ fontSize: '0.65rem', fontWeight: shelfSubTab === 'vault' ? '800' : '600' }}>מחסן</span>
+              <span style={{ fontSize: '0.65rem', fontWeight: (shelfSubTab === 'vault' || !showVaultTimeline) ? '800' : '600' }}>מחסן</span>
             </button>
           </>
         ) : (
@@ -333,7 +337,7 @@ export function FloatingActionBar({
                     <span style={{ fontSize: '1.2rem' }}>📁<span style={{ fontSize: '0.6rem', verticalAlign: 'super' }}>+</span></span>
                     <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>נושא חדש</span>
                   </button>
-                ) : shelfSubTab === 'timeline' ? (
+                ) : (shelfSubTab === 'timeline' && showVaultTimeline) ? (
                   <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
                     <button 
                       onClick={() => { const e = new CustomEvent('smartshare:toggle_timeline_sort'); window.dispatchEvent(e); }} 
