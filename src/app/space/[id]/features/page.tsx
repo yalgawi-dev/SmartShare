@@ -2,7 +2,6 @@
 
 import { use } from 'react';
 import styles from './page.module.css';
-import Link from 'next/link';
 import { useSpaces } from '../../../context/SpacesContext';
 import { AVAILABLE_FEATURES } from '../../../data/features';
 
@@ -29,10 +28,6 @@ export default function ManageFeaturesPage({ params }: { params: Promise<{ id: s
 
   return (
     <div className={styles.container}>
-      <Link href={`/space/${id}`} className={styles.backBtn}>
-        <span>&rarr;</span> חזרה למרחב {space.title}
-      </Link>
-
       <header className={styles.header}>
         <h1 className={styles.title}>ניהול פיצ'רים</h1>
         <p className={styles.subtitle}>הוסף או הסר כלים מהמרחב "{space.title}"</p>

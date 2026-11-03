@@ -10,21 +10,6 @@
   border-bottom: 1px solid var(--border-light);
 }
 
-.backBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-  margin-bottom: 1.5rem;
-  font-size: 0.95rem;
-  background: none;
-}
-
-.backBtn:hover {
-  color: var(--primary);
-}
-
 .titleArea {
   display: flex;
   align-items: center;

@@ -1028,19 +1028,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     const activeShelfFolders: DocumentFolder[] = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === activeShelf.id);
     const currentActiveFolder = currentFolderId ? activeShelfFolders.find(f => f.id === currentFolderId) : null;
 
-    const handleHierarchicalBack = () => {
-      if (currentFolderId) {
-        if (currentActiveFolder?.parentId) {
-          setCurrentFolderId(currentActiveFolder.parentId);
-        } else {
-          setCurrentFolderId(null);
-        }
-      } else {
-        setActiveShelfId(null);
-        setActiveTab(showTimeline ? 'timeline' : 'vault');
-      }
-    };
-
     return (
       <>
         <div style={{ padding: '0', paddingBottom: '6rem' }}>
@@ -1463,31 +1450,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         );
                       })}
                     </div>
-
-                    {currentFolderId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const currentF = allFolders.find(f => f.id === currentFolderId);
-                          setCurrentFolderId(currentF?.parentId || null);
-                        }}
-                        style={{
-                          background: 'white',
-                          border: '1px solid #cbd5e1',
-                          color: '#475569',
-                          borderRadius: '8px',
-                          padding: '3px 10px',
-                          fontSize: '0.76rem',
-                          fontWeight: 700,
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem'
-                        }}
-                      >
-                        <span>⬆️</span> תיקייה אחת למעלה
-                      </button>
-                    )}
                   </div>
                 );
               })()}
@@ -3596,7 +3558,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.05</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.06</span>
         </h2>
         <input 
           type="text" 

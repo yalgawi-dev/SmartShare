@@ -32,6 +32,7 @@ import PartnerControlPanel from '../../../components/widgets/Partners/PartnerCon
 import { compressImage } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '@/lib/firebase';
 import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
+import { SpaceAnnouncementBanner } from '../../../components/widgets/SpaceAnnouncementBanner';
 
 function EmptyStateCarousel() {
   return (
@@ -72,7 +73,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -80,6 +81,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
   
   const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [isAnnouncementEditorOpen, setIsAnnouncementEditorOpen] = useState(false);
     const [isEditingDate, setIsEditingDate] = useState(false);
   const [editDateValue, setEditDateValue] = useState('');
   
@@ -739,6 +741,29 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       }}>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <InstallAppHeaderButton />
+          {(isCreatorOfSpace || myRole === 'creator' || user?.isAdmin) && (
+            <button
+              type="button"
+              onClick={() => setIsAnnouncementEditorOpen(true)}
+              style={{
+                background: space.settings?.announcementEnabled && space.settings?.announcementText ? '#dbeafe' : 'transparent',
+                color: space.settings?.announcementEnabled && space.settings?.announcementText ? '#1d4ed8' : 'var(--text-primary)',
+                border: space.settings?.announcementEnabled && space.settings?.announcementText ? '1.5px solid #93c5fd' : '1px solid var(--border-light)',
+                width: '40px',
+                height: '40px',
+                borderRadius: '50%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                boxShadow: 'var(--shadow-sm)',
+                fontSize: '1.15rem',
+              }}
+              title="הגדרת הודעה מתפרצת במרחב"
+            >
+              📢
+            </button>
+          )}
           <div style={{ position: 'relative' }}>
             <button onClick={() => {
               if (myMember && myMember.canEditSettings === false && !user?.isAdmin) {
@@ -848,6 +873,21 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           }
         `}</style>
 
+      {/* Space Breaking Announcement Banner (Semi-transparent Marquee Wheel at Top) */}
+      <SpaceAnnouncementBanner
+        spaceId={id}
+        announcementText={space.settings?.announcementText}
+        announcementEnabled={space.settings?.announcementEnabled}
+        announcementId={space.settings?.announcementId}
+        canManage={Boolean(isCreatorOfSpace || myRole === 'creator' || user?.isAdmin)}
+        externalOpenEditor={isAnnouncementEditorOpen}
+        onCloseExternalEditor={() => setIsAnnouncementEditorOpen(false)}
+        onSaveAnnouncement={(data) => {
+          updateSpaceSettings(id, data);
+          showToast(data.announcementEnabled && data.announcementText ? 'ההודעה המתפרצת עודכנה ופורסמה!' : 'ההודעה המתפרצת הוסרה');
+        }}
+      />
+
       {/* Project Title Row */}
       <header style={{ marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <div 
@@ -877,7 +917,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             title={!isRestricted ? "לחץ לעריכת שם המרחב" : ""}
             style={{ margin: 0, fontSize: '1.4rem', fontWeight: '800', color: 'var(--text-primary)', letterSpacing: '-0.01em', cursor: !isRestricted ? 'pointer' : 'default', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             {space.title}
-            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v3.4.05</span>
+            <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '10px', fontWeight: 'bold' }}>v3.4.06</span>
             {!isRestricted && <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.3 }}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>}
           </h1>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>

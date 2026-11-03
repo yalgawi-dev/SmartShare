@@ -194,7 +194,7 @@ export default function Dashboard() {
   }, [user?.id, (user as any)?.isAnonymous, myPendingInvites.length]);
 
   // Creator-side retroactive auto-approval: if any space has a pendingInvite for an already-registered user
-  // (e.g. invited before v3.4.05/v3.4.05, like "לינוי"), promote them to active member immediately!
+  // (e.g. invited before v3.4.06/v3.4.06, like "לינוי"), promote them to active member immediately!
   useEffect(() => {
     if (!isSpacesLoaded || !spaces.length) return;
     spaces.forEach((s: any) => {
@@ -326,7 +326,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.05</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.06</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>

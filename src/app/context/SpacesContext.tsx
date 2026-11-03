@@ -184,6 +184,9 @@ export interface SpaceSettings {
   sharedExpensesOnly?: boolean;
   disableSettlements?: boolean;
   monthlyRollingDefault?: boolean;
+  announcementText?: string;
+  announcementEnabled?: boolean;
+  announcementId?: string;
 }
 
 export interface SpaceMessage {
