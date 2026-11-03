@@ -44,7 +44,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const documents = space.documents || [];
   
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>(() => (space.settings?.showVaultTimeline ? 'timeline' : 'vault'));
+  const [activeTab, setActiveTab] = useState<'timeline' | 'vault'>('vault');
   const [filterLinked, setFilterLinked] = useState<'all' | 'linked' | 'unlinked'>('all');
   const [warehouseSortBy, setWarehouseSortBy] = useState<'station' | 'name' | 'date_desc' | 'date_asc'>('station');
   const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
@@ -208,11 +208,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   }, []);
 
   React.useEffect(() => {
-    setActiveTab(showTimeline ? 'timeline' : 'vault');
-  }, [showTimeline]);
+    if (!showTimeline && activeTab === 'timeline') {
+      setActiveTab('vault');
+    }
+  }, [showTimeline, activeTab]);
 
   React.useEffect(() => {
     setCurrentFolderId(null);
+    setActiveTab('vault');
   }, [activeShelfId]);
 
   React.useEffect(() => {
@@ -220,7 +223,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       window.dispatchEvent(new CustomEvent('smartshare:shelf_opened', { detail: { shelfId: activeShelfId, subTab: activeTab } }));
       window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: activeTab }));
     } else {
-      setActiveTab(showTimeline ? 'timeline' : 'vault');
+      setActiveTab('vault');
       window.dispatchEvent(new CustomEvent('smartshare:shelf_closed'));
     }
   }, [activeShelfId, activeTab, showTimeline]);
@@ -246,7 +249,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         if (e?.detail) e.detail.handled = true;
       } else if (activeShelfId) {
         setActiveShelfId(null);
-        setActiveTab(showTimeline ? 'timeline' : 'vault');
+        setActiveTab('vault');
         if (e?.detail) e.detail.handled = true;
       }
     };
@@ -3558,7 +3561,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.08</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.09</span>
         </h2>
         <input 
           type="text" 

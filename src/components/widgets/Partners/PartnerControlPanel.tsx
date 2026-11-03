@@ -98,7 +98,8 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
   }, [space?.members, space?.creatorId]);
 
   const { getPresenceColor } = usePresence(presenceUids);
-  const isSharedOnly = Boolean(space?.settings?.sharedExpensesOnly || space?.settings?.disableSettlements);
+  const hasFinance = Boolean((space?.features || []).includes('finance'));
+  const isSharedOnly = !hasFinance || Boolean(space?.settings?.sharedExpensesOnly || space?.settings?.disableSettlements);
 
   useEffect(() => {
     setMounted(true);
@@ -271,7 +272,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                   }
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.4.08</span>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.4.09</span>
                 
                 {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                   if (isInvite) return '#f59e0b';
@@ -788,7 +789,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                     ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
                   </div>
                 )}
-                {member?.isActive !== false && member?.shareChangeRequest && (
+                {!isSharedOnly && member?.isActive !== false && member?.shareChangeRequest && (
                   <div style={{ alignSelf: 'center', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', marginBottom: '1rem', maxWidth: '95%', textAlign: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
                     <strong>בקשה לשינוי אחוזים 📊</strong><br/>
                     {viewMode === 'creator'
@@ -828,7 +829,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 ⚠️ <strong>מחלוקת:</strong> {member.disputeMessage}
               </div>
             )}
-            {member?.isActive !== false && member?.shareChangeRequest && (
+            {!isSharedOnly && member?.isActive !== false && member?.shareChangeRequest && (
               <div style={{ margin: '1rem', background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: '12px', padding: '0.75rem 1rem', fontSize: '0.85rem', color: '#0369a1', textAlign: 'center' }}>
                 <strong>בקשה לשינוי אחוזים 📊</strong><br/>
                 {viewMode === 'creator'

@@ -73,7 +73,8 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === "creator";
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
-  const isSharedOnly = Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements);
+  const hasFinance = Boolean((space.features || []).includes('finance'));
+  const isSharedOnly = !hasFinance || Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements);
 
   const pendingGroupList: any[] = space.pendingGroupMembers || [];
   
@@ -533,7 +534,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
                     space={space} 
                     viewMode={isCreatorMe ? 'creator' : (m.role === 'creator' || m.userId === space.creatorId || m.userId === space.createdBy ? 'partner' : 'peer')} 
                     onClose={() => setExpandedMember(null)} 
-                    onEditShares={isCreatorMe ? () => setShowSharesModal(true) : undefined}
+                    onEditShares={isCreatorMe && !isSharedOnly ? () => setShowSharesModal(true) : undefined}
                   />
                 </div>
               )}
