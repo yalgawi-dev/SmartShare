@@ -459,7 +459,8 @@ export default function UniversalViewerModal({
                           <img
                             src={pageUrl}
                             alt={`עמוד ${pageIdx + 1}`}
-                            loading="eager"
+                            loading={pageIdx < 3 ? 'eager' : 'lazy'}
+                            decoding="async"
                             style={{
                               maxWidth: '100%',
                               maxHeight: '76vh',

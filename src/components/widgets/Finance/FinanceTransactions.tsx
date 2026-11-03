@@ -9,6 +9,8 @@ import { DOCUMENT_MAX_BYTES } from '../../../utils/imageOptimizer';
 import { convertImagesToPdfBlob } from '../../../utils/documentUtils';
 import PdfThumbnail from '../../shared/PdfThumbnail';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
+import InvoiceAttachMatchModal from './InvoiceAttachMatchModal';
+import UniversalViewerModal, { ViewerDocument } from '../../common/ViewerEngine/UniversalViewerModal';
 
 interface FinanceTransactionsProps {
   invoices: any[];
@@ -53,6 +55,8 @@ export function FinanceTransactions({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
     const [retroScanInvoice, setRetroScanInvoice] = useState<any>(null);
+  const [matchModalExpense, setMatchModalExpense] = useState<any>(null);
+  const [viewerDoc, setViewerDoc] = useState<ViewerDocument | null>(null);
   
   const formatDisplayDate = (d: string) => { if (!d) return '---'; if (d.includes('-')) return d.split('-').reverse().join('.'); return d; };
 
@@ -427,7 +431,14 @@ export function FinanceTransactions({
                         </div>
                         <div 
                           onClick={() => {
-                            if (inv.attachmentUrl.includes('.pdf') || inv.attachmentUrl.startsWith('data:application/pdf')) {
+                            if (inv.attachmentPages && inv.attachmentPages.length > 1) {
+                              setViewerDoc({
+                                id: inv.id,
+                                title: inv.supplier || 'חשבונית',
+                                url: inv.attachmentUrl,
+                                pages: inv.attachmentPages,
+                              });
+                            } else if (inv.attachmentUrl.includes('.pdf') || inv.attachmentUrl.startsWith('data:application/pdf')) {
                               window.open(inv.attachmentUrl, '_blank');
                             } else {
                               setPreviewImage(inv.attachmentUrl);
@@ -465,9 +476,14 @@ export function FinanceTransactions({
                         {false ? (null) : (
                           <>
                             <span style={{ fontWeight: 'bold' }}>לא צורפה קבלה או חשבונית.</span>
-                            <button onClick={(e) => { e.stopPropagation(); setRetroScanInvoice(inv); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 1rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)' }}>
-                              <span>📷 צלם או ייבא</span>
-                            </button>
+                            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                              <button onClick={(e) => { e.stopPropagation(); setRetroScanInvoice(inv); }} style={{ background: '#3b82f6', color: 'white', border: 'none', padding: '0.5rem 0.85rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)', fontSize: '0.82rem' }}>
+                                <span>📷 צלם או ייבא</span>
+                              </button>
+                              <button onClick={(e) => { e.stopPropagation(); setMatchModalExpense(inv); }} style={{ background: '#16a34a', color: 'white', border: 'none', padding: '0.5rem 0.85rem', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', boxShadow: '0 4px 12px rgba(22, 163, 74, 0.3)', fontSize: '0.82rem' }}>
+                                <span>🔗 התאם ממחסן</span>
+                              </button>
+                            </div>
                             {retroScanInvoice?.id === inv.id && typeof document !== 'undefined' && createPortal(<div onClick={(e) => e.stopPropagation()}><ScannerModal hasFinance maxBytes={DOCUMENT_MAX_BYTES} onClose={() => setRetroScanInvoice(null)} onComplete={handleRetroScanComplete} /></div>, document.body)}
                           </>
                         )}
@@ -797,6 +813,7 @@ export function FinanceTransactions({
         const hasArchive = relevantInvoices.some((i: any) => i.isActive === false);
         const pendingMeCount = relevantInvoices.filter((i: any) => calculateCanApprove(i)).length;
         const pendingPartnersCount = relevantInvoices.filter((i: any) => i.status === "pending" && (i.payerId === myEffectiveId || i.payerId === "me")).length;
+        const noReceiptCount = relevantInvoices.filter((i: any) => i.isActive !== false && !i.hasAttachment && i.type !== 'transfer' && i.type !== 'income').length;
         
         return (
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", overflowX: "auto", paddingBottom: "0.5rem", scrollbarWidth: "none" }}>
@@ -1193,6 +1210,23 @@ export function FinanceTransactions({
             </div>
           </div>
         </div>
+      )}
+
+      {matchModalExpense && space && (
+        <InvoiceAttachMatchModal
+          space={space}
+          targetExpense={matchModalExpense}
+          onClose={() => setMatchModalExpense(null)}
+          onScanNewForExpense={(exp) => setRetroScanInvoice(exp)}
+        />
+      )}
+
+      {viewerDoc && (
+        <UniversalViewerModal
+          docs={[viewerDoc]}
+          initialIndex={0}
+          onClose={() => setViewerDoc(null)}
+        />
       )}
     </div>
   );

@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
+import InvoiceAttachMatchModal from './Finance/InvoiceAttachMatchModal';
 
 export default function PersonalInboxRoutingModal({ item, onClose, preselectedSpaceId, isFromProjectInbox }: { item: any, onClose: () => void, preselectedSpaceId?: string, isFromProjectInbox?: boolean }) {
   const { spaces, addInboxItems, removeFromPersonalInbox, removeInboxItem, addInvoice, approveAndRouteInvoice } = useSpaces();
@@ -17,6 +18,7 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
   const [editedSupplier, setEditedSupplier] = useState(item.ocrData?.vendor || item.ocrData?.supplier || '');
   const [editedInvoiceNumber, setEditedInvoiceNumber] = useState(item.ocrData?.invoiceNumber || '');
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
+  const [showAttachExisting, setShowAttachExisting] = useState(false);
 
   const [duplicateWarning, setDuplicateWarning] = useState<any>(null);
   const [forceDuplicateApproval, setForceDuplicateApproval] = useState(false);
@@ -227,6 +229,15 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
           )}
         </div>
 
+        {selectedSpaceId && (
+          <button
+            type="button"
+            onClick={() => setShowAttachExisting(true)}
+            style={{ width: '100%', marginBottom: '0.6rem', padding: '0.65rem', borderRadius: '8px', border: '1.5px solid #16a34a', background: '#f0fdf4', color: '#15803d', fontWeight: 800, cursor: 'pointer', fontSize: '0.88rem' }}
+          >
+            🔗 צרף להוצאה קיימת (ללא הוספה לסה"כ)
+          </button>
+        )}
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button 
             onClick={onClose}
@@ -250,6 +261,28 @@ export default function PersonalInboxRoutingModal({ item, onClose, preselectedSp
           </button>
         </div>
       </div>
+
+      {showAttachExisting && selectedSpace && (
+        <InvoiceAttachMatchModal
+          space={selectedSpace}
+          receiptQueue={[{
+            url: item.imageUrl,
+            ocrData: {
+              amount: editedAmount ? Number(editedAmount) : item.ocrData?.amount,
+              vendor: editedSupplier || item.ocrData?.vendor || item.ocrData?.supplier,
+              date: item.ocrData?.date,
+              invoiceNumber: editedInvoiceNumber || item.ocrData?.invoiceNumber,
+              vatNumber: item.ocrData?.vatNumber,
+            },
+            inboxItemId: isFromProjectInbox ? item.id : undefined,
+          }]}
+          onClose={() => {
+            if (!isFromProjectInbox) removeFromPersonalInbox(item.id);
+            setShowAttachExisting(false);
+            onClose();
+          }}
+        />
+      )}
 
       {zoomedImage && (
         <div 

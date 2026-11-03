@@ -62,7 +62,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
       }
       runOcrPipeline(urls[0]);
     },
-    setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive') => {
+    setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive' | 'no_receipt') => {
       setActiveTab('transactions');
       setFilter(newFilter);
     },
@@ -71,7 +71,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     }
   }));
 
-  const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive'>('all');
+  const [filter, setFilter] = useState<'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive' | 'no_receipt'>('all');
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
   
   const [retroInvoiceToEdit, setRetroInvoiceToEdit] = useState<any>(null);
@@ -324,6 +324,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
   const filteredInvoices = invoices.filter((inv: any) => {
     if (filter === 'archive') return inv.isActive === false;
     if (inv.isActive === false) return false;
+    if (filter === 'no_receipt') return !inv.hasAttachment && inv.type !== 'transfer' && inv.type !== 'income';
     if (filter === 'all') return true;
     if (filter === 'pending_me') {
       // Invoices I need to approve

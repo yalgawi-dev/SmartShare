@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { uploadImageToStorage } from '../../lib/firebase';
 import { downscaleBase64, extractPdfPages } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
+import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf } = useSpaces();
@@ -25,7 +26,8 @@ export default function SharedFileHandler() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
-  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault'>('personal');
+  const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'attach_existing'>('personal');
+  const [attachQueueState, setAttachQueueState] = useState<{ spaceId: string; queue: ScannedReceiptInput[] } | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [showChromeUpdateModal, setShowChromeUpdateModal] = useState(false);
@@ -300,7 +302,7 @@ export default function SharedFileHandler() {
     if (spaceHasFinance && !spaceHasVault) {
       if (routeDestination === 'vault') setRouteDestination(sharedFiles.length > 1 ? 'inbox' : 'direct');
     } else if (!spaceHasFinance && spaceHasVault) {
-      if (routeDestination === 'direct' || routeDestination === 'inbox') setRouteDestination('vault');
+      if (routeDestination === 'direct' || routeDestination === 'inbox' || routeDestination === 'attach_existing') setRouteDestination('vault');
     }
   }, [selectedSpaceId, spaceHasFinance, spaceHasVault, routeDestination, sharedFiles.length]);
 
@@ -488,6 +490,15 @@ export default function SharedFileHandler() {
         setIsProcessing(false);
         setSharedFiles([]);
         router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId + (selectedFolderId ? '&folderId=' + selectedFolderId : ''));
+      } else if (routeDestination === 'attach_existing') {
+        const queue: ScannedReceiptInput[] = sharedFiles.map((uri, idx) => ({
+          url: uri.replace(/^"|"$/g, ''),
+          pages: idx === 0 && sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 1 ? sharedAllPages : undefined,
+        }));
+        setIsModalOpen(false);
+        setIsProcessing(false);
+        setSharedFiles([]);
+        setAttachQueueState({ spaceId: selectedSpaceId, queue });
       } else {
         // Direct route: save primary and allPages to IndexedDB for page-by-page review
         try {
@@ -891,6 +902,32 @@ export default function SharedFileHandler() {
                       </div>
                     </label>
                   )}
+
+                  {/* Option 4: Attach to Existing Expense (No duplicate total) */}
+                  {spaceHasFinance && (
+                    <label style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.75rem', padding: '0.75rem 0.85rem',
+                      borderRadius: '12px', cursor: 'pointer', transition: 'all 0.15s ease',
+                      border: routeDestination === 'attach_existing' ? '2px solid #16a34a' : '1px solid #e2e8f0',
+                      backgroundColor: routeDestination === 'attach_existing' ? '#f0fdf4' : '#ffffff'
+                    }}>
+                      <input 
+                        type="radio" 
+                        name="spaceAction" 
+                        checked={routeDestination === 'attach_existing'} 
+                        onChange={() => setRouteDestination('attach_existing')}
+                        style={{ marginTop: '0.2rem' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: '800', fontSize: '0.88rem', color: '#14532d' }}>
+                          🔗 צרף חשבונית להוצאה קיימת (ללא חשבונית)
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: '#475569', marginTop: '0.15rem' }}>
+                          מצליב אוטומטית מול הוצאות שהוזנו ידנית <strong>מבלי להוסיף לסה&quot;כ ההוצאות</strong>.
+                        </div>
+                      </div>
+                    </label>
+                  )}
                 </div>
               </div>
 
@@ -1000,12 +1037,45 @@ export default function SharedFileHandler() {
                     ? '🗂️ שמור במדף המסמכים'
                     : routeDestination === 'inbox'
                       ? '📥 העבר למחסן ההמתנה'
-                      : '🧾 פתח והפעל סריקה ⚡'}
+                      : routeDestination === 'attach_existing'
+                        ? '🔗 אתר הוצאה וצרף חשבונית'
+                        : '🧾 פתח והפעל סריקה ⚡'}
             </button>
           </div>
         </div>
       </div>
       )}
+
+      {attachQueueState && (() => {
+        const targetSpace = activeSpaces.find((s: any) => s.id === attachQueueState.spaceId);
+        if (!targetSpace) return null;
+        return (
+          <InvoiceAttachMatchModal
+            space={targetSpace}
+            receiptQueue={attachQueueState.queue}
+            onClose={() => {
+              const sid = attachQueueState.spaceId;
+              setAttachQueueState(null);
+              router.push('/space/' + sid + '?tab=transactions');
+            }}
+            onFallbackToNewExpense={(receipt) => {
+              const sid = attachQueueState.spaceId;
+              setAttachQueueState(null);
+              try {
+                const dbReq = indexedDB.open('MySpaceDB', 1);
+                dbReq.onsuccess = (e: any) => {
+                  const db = e.target.result;
+                  if (db.objectStoreNames.contains('sharedFiles')) {
+                    const tx = db.transaction('sharedFiles', 'readwrite');
+                    tx.objectStore('sharedFiles').put({ primary: receipt.url, allPages: receipt.pages || [receipt.url], files: [receipt.url] }, 'latest_shared');
+                  }
+                };
+              } catch {}
+              router.push('/space/' + sid + '?addExpense=true&triggerOcr=true&payerId=' + (user?.id || 'me'));
+            }}
+          />
+        );
+      })()}
       
       {zoomedIndex !== null && (
         <div 
