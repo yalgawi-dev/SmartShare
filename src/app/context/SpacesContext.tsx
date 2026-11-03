@@ -187,6 +187,7 @@ export interface SpaceSettings {
   announcementText?: string;
   announcementEnabled?: boolean;
   announcementId?: string;
+  announcementAuthor?: string;
 }
 
 export interface SpaceMessage {

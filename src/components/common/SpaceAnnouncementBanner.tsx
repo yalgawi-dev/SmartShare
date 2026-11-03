@@ -1,32 +1,39 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSpaces } from '../../app/context/SpacesContext';
+import { useAuth } from '../../app/context/AuthContext';
 
 interface SpaceAnnouncementBannerProps {
   spaceId: string;
-  announcementText?: string;
-  announcementEnabled?: boolean;
-  announcementId?: string;
-  canManage?: boolean;
-  onSaveAnnouncement?: (data: {
-    announcementText: string;
-    announcementEnabled: boolean;
-    announcementId: string;
-  }) => void;
   externalOpenEditor?: boolean;
   onCloseExternalEditor?: () => void;
+  onSavedToast?: (msg: string) => void;
 }
 
 export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = ({
   spaceId,
-  announcementText = '',
-  announcementEnabled = false,
-  announcementId = 'default',
-  canManage = false,
-  onSaveAnnouncement,
   externalOpenEditor = false,
   onCloseExternalEditor,
+  onSavedToast,
 }) => {
+  const { spaces, updateSpaceSettings, getRoleForSpace } = useSpaces();
+  const { user } = useAuth();
+
+  const space = spaces.find((s) => s.id === spaceId);
+  const myRole = getRoleForSpace(spaceId);
+  const isCreatorOfSpace = Boolean(
+    space && (space.creatorId === user?.id || space.createdBy === user?.realName || myRole === 'creator' || user?.isAdmin)
+  );
+
+  const announcementText = space?.settings?.announcementText || '';
+  const announcementEnabled = Boolean(space?.settings?.announcementEnabled);
+  const announcementId = space?.settings?.announcementId || 'default';
+  const defaultAuthorName =
+    user?.realName || (user as any)?.name || space?.createdBy || 'מנהל המרחב';
+  const announcementAuthor =
+    space?.settings?.announcementAuthor || space?.createdBy || 'מנהל המרחב';
+
   const [dismissedSession, setDismissedSession] = useState(false);
   const [dismissedPermanently, setDismissedPermanently] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -34,16 +41,16 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
   const [internalEditorOpen, setInternalEditorOpen] = useState(false);
 
   const [draftText, setDraftText] = useState(announcementText);
-  const [draftEnabled, setDraftEnabled] = useState(Boolean(announcementEnabled));
+  const [draftEnabled, setDraftEnabled] = useState(announcementEnabled);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const textMeasureRef = useRef<HTMLSpanElement>(null);
 
-  const storageKey = `hide_space_announcement_${spaceId}_${announcementId || 'default'}`;
+  const storageKey = `hide_space_announcement_${spaceId}_${announcementId}`;
 
   useEffect(() => {
-    setDraftText(announcementText || '');
-    setDraftEnabled(Boolean(announcementEnabled));
+    setDraftText(announcementText);
+    setDraftEnabled(announcementEnabled);
   }, [announcementText, announcementEnabled]);
 
   useEffect(() => {
@@ -53,17 +60,25 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     setDismissedSession(false);
   }, [storageKey]);
 
+  const cleanText = announcementText.trim();
+
   useEffect(() => {
     const checkOverflow = () => {
       if (!containerRef.current || !textMeasureRef.current) return;
       const textWidth = textMeasureRef.current.scrollWidth;
       const boxWidth = containerRef.current.clientWidth;
-      setShouldScroll(textWidth > boxWidth - 16 || (announcementText || '').trim().length > 38);
+      setShouldScroll(textWidth > boxWidth - 12 || cleanText.length > 42);
     };
     checkOverflow();
+    const timer = setTimeout(checkOverflow, 120);
     window.addEventListener('resize', checkOverflow);
-    return () => window.removeEventListener('resize', checkOverflow);
-  }, [announcementText, announcementEnabled, dismissedSession, dismissedPermanently]);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkOverflow);
+    };
+  }, [cleanText, announcementEnabled, dismissedSession, dismissedPermanently]);
+
+  if (!space) return null;
 
   const handleDontShowAgain = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -88,15 +103,19 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
   };
 
   const handleSave = () => {
-    if (!onSaveAnnouncement) return;
     const trimmed = draftText.trim();
-    const isSameText = trimmed === (announcementText || '').trim();
+    const isSameText = trimmed === cleanText;
     const nextId = isSameText && announcementId ? announcementId : `ann_${Date.now()}`;
-    onSaveAnnouncement({
+    const finalEnabled = trimmed.length > 0 ? draftEnabled : false;
+    const authorToSave = defaultAuthorName;
+
+    updateSpaceSettings(spaceId, {
       announcementText: trimmed,
-      announcementEnabled: trimmed.length > 0 ? draftEnabled : false,
+      announcementEnabled: finalEnabled,
       announcementId: nextId,
+      announcementAuthor: authorToSave,
     });
+
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem(`hide_space_announcement_${spaceId}_${nextId}`);
@@ -104,14 +123,16 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     }
     setDismissedPermanently(false);
     setDismissedSession(false);
+    if (onSavedToast) {
+      onSavedToast(finalEnabled && trimmed ? 'ההודעה המתפרצת עודכנה ופורסמה!' : 'ההודעה המתפרצת הוסרה');
+    }
     closeEditor();
   };
 
-  const cleanText = (announcementText || '').trim();
   const showBanner = Boolean(announcementEnabled && cleanText && !dismissedSession && !dismissedPermanently);
 
-  // Dynamic duration based on text length so speed feels natural like a news ticker
-  const durationSeconds = Math.max(12, Math.min(45, Math.round(cleanText.length * 0.22)));
+  // Smooth natural reading speed for the marquee wheel
+  const durationSeconds = Math.max(14, Math.min(48, Math.round(cleanText.length * 0.24)));
 
   return (
     <>
@@ -124,68 +145,146 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           onTouchEnd={() => setIsPaused(false)}
           style={{
             position: 'sticky',
-            top: '48px',
+            top: '46px',
             zIndex: 98,
-            marginBottom: '0.65rem',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.82) 0%, rgba(30, 41, 59, 0.76) 100%)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
-            border: '1px solid rgba(148, 163, 184, 0.28)',
-            borderRadius: '14px',
-            padding: '0.45rem 0.65rem',
+            marginBottom: '0.75rem',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.80) 0%, rgba(30, 41, 59, 0.74) 100%)',
+            backdropFilter: 'blur(14px)',
+            WebkitBackdropFilter: 'blur(14px)',
+            border: '1px solid rgba(148, 163, 184, 0.26)',
+            borderRadius: '16px',
+            padding: '0.5rem 0.85rem 0.6rem 0.85rem',
             color: '#f8fafc',
-            boxShadow: '0 8px 24px rgba(15, 23, 42, 0.18)',
+            boxShadow: '0 8px 26px rgba(15, 23, 42, 0.16)',
             display: 'flex',
-            alignItems: 'center',
-            gap: '0.5rem',
+            flexDirection: 'column',
+            gap: '0.3rem',
             overflow: 'hidden',
           }}
         >
-          {/* Live Indicator Badge */}
+          {/* Top Clean Meta Row: Megaphone Icon + Publisher Name on Right, Controls on Left */}
           <div
             style={{
-              display: 'inline-flex',
+              display: 'flex',
               alignItems: 'center',
-              gap: '0.3rem',
-              background: 'rgba(59, 130, 246, 0.28)',
-              border: '1px solid rgba(96, 165, 250, 0.45)',
-              color: '#bfdbfe',
-              padding: '0.2rem 0.5rem',
-              borderRadius: '999px',
-              fontSize: '0.72rem',
-              fontWeight: 800,
-              flexShrink: 0,
-              whiteSpace: 'nowrap',
+              justifyContent: 'space-between',
+              gap: '0.5rem',
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              paddingBottom: '0.28rem',
             }}
           >
-            <span
-              style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                background: '#38bdf8',
-                boxShadow: '0 0 8px #38bdf8',
-                display: 'inline-block',
-              }}
-            />
-            <span>הודעה</span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0 }}>
+              <span
+                style={{
+                  fontSize: '1.05rem',
+                  lineHeight: 1,
+                  filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.45))',
+                }}
+                title="הודעה מתפרצת"
+              >
+                📢
+              </span>
+              <span
+                style={{
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  color: '#93c5fd',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                }}
+              >
+                {announcementAuthor}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+              {isCreatorOfSpace && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraftText(announcementText);
+                    setDraftEnabled(announcementEnabled);
+                    setInternalEditorOpen(true);
+                  }}
+                  title="ערוך הודעה"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.1)',
+                    color: '#e2e8f0',
+                    border: '1px solid rgba(255, 255, 255, 0.18)',
+                    borderRadius: '6px',
+                    padding: '0.12rem 0.38rem',
+                    fontSize: '0.68rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  ✏️
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={handleDontShowAgain}
+                title="אל תציג שוב הודעה זו"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: '#cbd5e1',
+                  border: '1px solid rgba(255, 255, 255, 0.18)',
+                  borderRadius: '6px',
+                  padding: '0.12rem 0.48rem',
+                  fontSize: '0.68rem',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                אל תציג שוב
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCloseSession}
+                title="סגור הודעה"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.14)',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: 0,
+                }}
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
-          {/* Scrolling Marquee / Wheel Track */}
+          {/* Full-Width Unobstructed Scrolling Message Workspace */}
           <div
             ref={containerRef}
             style={{
-              flex: 1,
+              width: '100%',
               overflow: 'hidden',
               position: 'relative',
               whiteSpace: 'nowrap',
               display: 'flex',
               alignItems: 'center',
+              minHeight: '26px',
               maskImage: shouldScroll
-                ? 'linear-gradient(to left, transparent 0%, black 4%, black 96%, transparent 100%)'
+                ? 'linear-gradient(to left, transparent 0%, black 3%, black 97%, transparent 100%)'
                 : 'none',
               WebkitMaskImage: shouldScroll
-                ? 'linear-gradient(to left, transparent 0%, black 4%, black 96%, transparent 100%)'
+                ? 'linear-gradient(to left, transparent 0%, black 3%, black 97%, transparent 100%)'
                 : 'none',
             }}
           >
@@ -197,7 +296,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
                 visibility: 'hidden',
                 pointerEvents: 'none',
                 whiteSpace: 'nowrap',
-                fontSize: '0.88rem',
+                fontSize: '0.96rem',
                 fontWeight: 700,
               }}
             >
@@ -215,90 +314,31 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
                   animationPlayState: isPaused ? 'paused' : 'running',
                 }}
               >
-                <span style={{ fontSize: '0.88rem', fontWeight: 700, paddingLeft: '2.5rem' }}>
-                  {cleanText} &nbsp;&nbsp;•&nbsp;&nbsp; 📢
+                <span style={{ fontSize: '0.96rem', fontWeight: 700, color: '#ffffff', paddingLeft: '3.5rem', letterSpacing: '0.01em' }}>
+                  {cleanText} &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; 📢
                 </span>
-                <span style={{ fontSize: '0.88rem', fontWeight: 700, paddingLeft: '2.5rem' }} aria-hidden="true">
-                  {cleanText} &nbsp;&nbsp;•&nbsp;&nbsp; 📢
+                <span
+                  style={{ fontSize: '0.96rem', fontWeight: 700, color: '#ffffff', paddingLeft: '3.5rem', letterSpacing: '0.01em' }}
+                  aria-hidden="true"
+                >
+                  {cleanText} &nbsp;&nbsp;&nbsp;•&nbsp;&nbsp;&nbsp; 📢
                 </span>
               </div>
             ) : (
-              <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f8fafc', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div
+                style={{
+                  width: '100%',
+                  fontSize: '0.96rem',
+                  fontWeight: 700,
+                  color: '#ffffff',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  letterSpacing: '0.01em',
+                }}
+              >
                 {cleanText}
               </div>
             )}
-          </div>
-
-          {/* Action Controls: Quick Edit (Creator/Admin), Don't Show Again, Close X */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
-            {canManage && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDraftText(announcementText || '');
-                  setDraftEnabled(Boolean(announcementEnabled));
-                  setInternalEditorOpen(true);
-                }}
-                title="ערוך הודעה מתפרצת"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.12)',
-                  color: '#e2e8f0',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
-                  borderRadius: '8px',
-                  padding: '0.2rem 0.42rem',
-                  fontSize: '0.72rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                ✏️
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={handleDontShowAgain}
-              title="אל תציג שוב הודעה זו"
-              style={{
-                background: 'rgba(255, 255, 255, 0.12)',
-                color: '#cbd5e1',
-                border: '1px solid rgba(255, 255, 255, 0.22)',
-                borderRadius: '8px',
-                padding: '0.22rem 0.5rem',
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                transition: 'background 0.2s',
-              }}
-            >
-              אל תציג שוב
-            </button>
-
-            <button
-              type="button"
-              onClick={handleCloseSession}
-              title="סגור הודעה"
-              style={{
-                background: 'rgba(255, 255, 255, 0.14)',
-                color: '#ffffff',
-                border: '1px solid rgba(255, 255, 255, 0.22)',
-                width: '24px',
-                height: '24px',
-                borderRadius: '50%',
-                fontSize: '0.75rem',
-                fontWeight: 800,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 0,
-              }}
-            >
-              ✕
-            </button>
           </div>
 
           <style>{`
@@ -314,8 +354,8 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
         </div>
       )}
 
-      {/* Quick Editor Modal for Space Creator / Admin */}
-      {isEditorOpen && canManage && (
+      {/* Global Quick Editor Modal for Space Creator / Admin */}
+      {isEditorOpen && isCreatorOfSpace && (
         <div
           dir="rtl"
           onClick={closeEditor}
@@ -360,7 +400,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             </div>
 
             <p style={{ margin: 0, fontSize: '0.86rem', color: '#475569', lineHeight: 1.5 }}>
-              הודעה זו תוצג בחלקו העליון של המרחב (בעיצוב חצי-שקוף עם גלילת גלגל אוטומטית להודעות ארוכות) מיד עם הכניסה למרחב.
+              ההודעה תוצג בחלקו העליון של המרחב עם שמך (<strong>{defaultAuthorName}</strong>) לכל השותפים שנכנסים למרחב.
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
@@ -405,13 +445,12 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
                 <button
                   type="button"
                   onClick={() => {
-                    if (onSaveAnnouncement) {
-                      onSaveAnnouncement({
-                        announcementText: '',
-                        announcementEnabled: false,
-                        announcementId: `ann_${Date.now()}`,
-                      });
-                    }
+                    updateSpaceSettings(spaceId, {
+                      announcementText: '',
+                      announcementEnabled: false,
+                      announcementId: `ann_${Date.now()}`,
+                    });
+                    if (onSavedToast) onSavedToast('ההודעה המתפרצת הוסרה');
                     closeEditor();
                   }}
                   style={{
@@ -471,42 +510,47 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
 };
 
 interface SpaceAnnouncementSettingsCardProps {
-  announcementText?: string;
-  announcementEnabled?: boolean;
-  announcementId?: string;
-  isCreatorMe: boolean;
-  onSave: (data: {
-    announcementText: string;
-    announcementEnabled: boolean;
-    announcementId: string;
-  }) => void;
+  spaceId: string;
 }
 
 export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCardProps> = ({
-  announcementText = '',
-  announcementEnabled = false,
-  announcementId = 'default',
-  isCreatorMe,
-  onSave,
+  spaceId,
 }) => {
-  const [text, setText] = useState(announcementText || '');
-  const [enabled, setEnabled] = useState(Boolean(announcementEnabled));
+  const { spaces, updateSpaceSettings, getRoleForSpace } = useSpaces();
+  const { user } = useAuth();
+
+  const space = spaces.find((s) => s.id === spaceId);
+  const myRole = getRoleForSpace(spaceId);
+  const isCreatorMe = Boolean(
+    space && (myRole === 'creator' || user?.id === space.creatorId || user?.isAdmin)
+  );
+
+  const announcementText = space?.settings?.announcementText || '';
+  const announcementEnabled = Boolean(space?.settings?.announcementEnabled);
+  const defaultAuthorName =
+    user?.realName || (user as any)?.name || space?.createdBy || 'מנהל המרחב';
+
+  const [text, setText] = useState(announcementText);
+  const [enabled, setEnabled] = useState(announcementEnabled);
   const [savedNotice, setSavedNotice] = useState(false);
 
   useEffect(() => {
-    setText(announcementText || '');
-    setEnabled(Boolean(announcementEnabled));
+    setText(announcementText);
+    setEnabled(announcementEnabled);
   }, [announcementText, announcementEnabled]);
+
+  if (!space) return null;
 
   const handleSaveCard = (nextEnabled?: boolean, nextText?: string) => {
     if (!isCreatorMe) return;
     const finalText = (nextText !== undefined ? nextText : text).trim();
     const finalEnabled = nextEnabled !== undefined ? nextEnabled : enabled;
     const nextId = `ann_${Date.now()}`;
-    onSave({
+    updateSpaceSettings(spaceId, {
       announcementText: finalText,
       announcementEnabled: finalText.length > 0 ? finalEnabled : false,
       announcementId: nextId,
+      announcementAuthor: defaultAuthorName,
     });
     setSavedNotice(true);
     setTimeout(() => setSavedNotice(false), 2500);
@@ -531,7 +575,7 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
               📢 הודעה מתפרצת בכניסה למרחב
             </h4>
             <span style={{ fontSize: '0.7rem', color: '#1d4ed8', background: '#dbeafe', padding: '2px 8px', borderRadius: '12px', fontWeight: 800 }}>
-              נגלל כגלגל בראש המרחב
+              גלובלי לכל המרחבים
             </span>
             {!isCreatorMe && (
               <span style={{ fontSize: '0.7rem', color: '#94a3b8', background: '#f1f5f9', padding: '1px 6px', borderRadius: '4px' }}>
@@ -540,7 +584,7 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
             )}
           </div>
           <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
-            הצגת הודעה מתפרצת חצי-שקופה בחלקו העליון של המרחב מיד עם הכניסה אליו. הודעות ארוכות נגללות אוטומטית עד הסוף וחוזרות כגלגל, עם אפשרות למשתמש לסגור (✕) או לבחור &quot;אל תציג שוב&quot;.
+            הצגת הודעה מתפרצת חצי-שקופה ברוחב מלא בחלקו העליון של המרחב, כולל שם המפרסם ({space.settings?.announcementAuthor || defaultAuthorName}), גלילת גלגל אוטומטית להודעות ארוכות וכפתורי סגירה.
           </p>
         </div>
 
@@ -625,7 +669,7 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
         {isCreatorMe && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
             <span style={{ fontSize: '0.78rem', color: savedNotice ? '#16a34a' : '#64748b', fontWeight: savedNotice ? 700 : 500 }}>
-              {savedNotice ? '✓ ההודעה המתפרצת נשמרה ועודכנה בהצלחה!' : '💡 עדכון ההודעה יציג אותה מחדש גם למי שלחץ בעבר על "אל תציג שוב".'}
+              {savedNotice ? '✓ ההודעה המתפרצת נשמרה ועודכנה בהצלחה!' : `💡 יפורסם תחת השם: ${defaultAuthorName}`}
             </span>
             <button
               type="button"

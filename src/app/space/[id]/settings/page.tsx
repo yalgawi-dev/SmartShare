@@ -1,6 +1,6 @@
 'use client';
 import { PartnersDirectoryWidget } from '../../../../components/widgets/Partners/PartnersDirectoryWidget';
-import { SpaceAnnouncementSettingsCard } from '../../../../components/widgets/SpaceAnnouncementBanner';
+import { SpaceAnnouncementSettingsCard } from '../../../../components/common/SpaceAnnouncementBanner';
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -126,13 +126,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
             </div>
 
             {/* Space Breaking Announcement Setting (Global Space Feature) */}
-            <SpaceAnnouncementSettingsCard
-              announcementText={space.settings?.announcementText}
-              announcementEnabled={space.settings?.announcementEnabled}
-              announcementId={space.settings?.announcementId}
-              isCreatorMe={Boolean(isCreatorMe)}
-              onSave={(data) => updateSpaceSettings(id, data)}
-            />
+            <SpaceAnnouncementSettingsCard spaceId={id} />
 
             {/* Standalone Members Directory when Partners Feature is NOT enabled */}
             {!(space.features || []).includes('partners') && (
