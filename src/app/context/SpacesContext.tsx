@@ -157,6 +157,7 @@ export interface SpaceDocument {
   pages?: string[];
   storageTarget?: 'cloud' | 'local' | 'gdrive';
   deletedAt?: string;
+  note?: string;
 }
 
 export interface SpaceSettings {

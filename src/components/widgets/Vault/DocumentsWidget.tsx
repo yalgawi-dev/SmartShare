@@ -17,6 +17,7 @@ import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
 import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 import { saveLocalDeviceFile } from '../../../utils/localDeviceStorage';
 import MultiPageViewer from './MultiPageViewer';
+import DocNoteModal from './DocNoteModal';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
@@ -81,6 +82,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   // Custom modal states (replacing browser alert/prompt/confirm)
   const [activeDocMenuId, setActiveDocMenuId] = useState<string | null>(null);
+  const [noteDocId, setNoteDocId] = useState<string | null>(null);
   const hasFinance = (space.features || []).includes('finance');
   const showTimeline = !!space.settings?.showVaultTimeline;
   const [shelfToDelete, setShelfToDelete] = useState<{ id: string, name: string, count: number } | null>(null);
@@ -2125,7 +2127,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </div>
 
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
-                                    <span>{new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                      {new Date(doc.createdAt).toLocaleDateString('he-IL')}
+                                      {doc.note && (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setNoteDocId(doc.id); }}
+                                          title="יש הערה – לחץ לקריאה"
+                                          style={{ background: '#fef3c7', color: '#b45309', border: '1px solid #fcd34d', borderRadius: '6px', padding: '0 5px', fontSize: '0.7rem', cursor: 'pointer', lineHeight: 1.4 }}
+                                        >
+                                          📝
+                                        </button>
+                                      )}
+                                    </span>
                                     {linkedEvent && (
                                       <span
                                         onClick={(e) => {
@@ -2217,6 +2231,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                                               >
                                                 ✏️ ערוך כותרת
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => { setActiveDocMenuId(null); setNoteDocId(doc.id); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                📝 {doc.note ? 'הצג / ערוך הערה' : 'הכנס הערה'}
                                               </button>
                                               {showTimeline && (
                                                 <button
@@ -3254,7 +3275,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.92</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.93</span>
         </h2>
         <input 
           type="text" 
@@ -3862,6 +3883,23 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           </div>
         </div>
       )}
+
+      {/* DOCUMENT NOTE MODAL */}
+      {noteDocId && (() => {
+        const targetDoc = documents.find(d => d.id === noteDocId);
+        if (!targetDoc) return null;
+        return (
+          <DocNoteModal
+            docTitle={targetDoc.title}
+            initialNote={targetDoc.note}
+            onSave={(noteText) => {
+              updateDocument(space.id, targetDoc.id, { note: noteText });
+              setNoteDocId(null);
+            }}
+            onClose={() => setNoteDocId(null)}
+          />
+        );
+      })()}
     </div>
   );
 });
