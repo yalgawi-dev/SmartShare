@@ -50,7 +50,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [warehouseStationFilter, setWarehouseStationFilter] = useState<string>('all');
   const [pendingImport, setPendingImport] = useState<{ docId?: string, url?: string, type?: 'document' | 'image' | 'pdf', allPages?: string[] } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, url: string, title: string, type: string }[]>([]);
+  const [uploadingDocs, setUploadingDocs] = useState<{ id: string, shelfId: string, folderId?: string | null, url: string, title: string, type: string, thumbnailUrl?: string }[]>([]);
   const [previewState, setPreviewState] = useState<{ docs: any[], index: number } | null>(null);
   const [sharingDoc, setSharingDoc] = useState<ShareChoiceDoc | null>(null);
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
@@ -120,6 +120,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   // Folders management states
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
+  const currentFolderIdRef = useRef<string | null>(null);
+  currentFolderIdRef.current = currentFolderId;
   const [linkStationFolder, setLinkStationFolder] = useState<DocumentFolder | null>(null);
   const [folderPrivacyFolder, setFolderPrivacyFolder] = useState<DocumentFolder | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
@@ -211,6 +213,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   React.useEffect(() => {
     setCurrentFolderId(null);
+  }, [activeShelfId]);
+
+  React.useEffect(() => {
     if (activeShelfId) {
       window.dispatchEvent(new CustomEvent('smartshare:shelf_opened', { detail: { shelfId: activeShelfId, subTab: activeTab } }));
       window.dispatchEvent(new CustomEvent('smartshare:shelf_subtab_changed', { detail: activeTab }));
@@ -313,9 +318,10 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         }
       }
       
-      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId);
+      const targetFolderId = targetShelfId === activeShelfId ? (currentFolderIdRef.current ?? currentFolderId) : null;
+      return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId, targetFolderId);
     }
-  }), [activeShelfId, shelves, space.shelfEvents, space.id, addShelf]);
+  }), [activeShelfId, currentFolderId, shelves, space.shelfEvents, space.id, addShelf]);
 
   
 const shareMultipleDocuments = async (docIds: string[]) => {
@@ -474,12 +480,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     };
 
     const handleSaveDocument = async (shelfId: string, url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, folderId?: string | null) => {
+      // Determine effective folderId immediately (passed in or live currentFolderId if same shelf)
+      const liveFolderId = currentFolderIdRef.current ?? currentFolderId;
+      const effectiveFolderId = typeof folderId !== 'undefined' ? folderId : (shelfId === activeShelfId ? liveFolderId : null);
+
       // Optimistic UI update
       const tempId = 'temp-' + Date.now();
       const title = type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק';
       
       let previewUrl = (allPages && allPages.length > 0) ? allPages[0] : (url.startsWith('data:image') ? url : undefined);
-      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, url, title, type, thumbnailUrl: previewUrl }]);
+      setUploadingDocs(prev => [...prev, { id: tempId, shelfId, folderId: effectiveFolderId || null, url, title, type, thumbnailUrl: previewUrl }]);
       
       try {
         let finalUrl = url;
@@ -537,9 +547,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             console.warn("Failed saving document to local device OPFS:", localSaveErr);
           }
         }
-
-        // Determine effective folderId (passed in or currentFolderId if same shelf)
-        const effectiveFolderId = typeof folderId !== 'undefined' ? folderId : (shelfId === activeShelfId ? currentFolderId : null);
 
         // Station resolution: If targetEventId not specified, check if effective folder has linked station
         let effectiveTargetEventId = targetEventId;
@@ -3390,7 +3397,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.98</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.99</span>
         </h2>
         <input 
           type="text" 
