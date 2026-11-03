@@ -1046,28 +1046,6 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         <div style={{ padding: '0', paddingBottom: '6rem' }}>
         <div style={{ position: 'sticky', top: '56px', zIndex: 100, background: 'var(--bg-main, #f8fafc)', borderBottom: '1px solid #e2e8f0', margin: '0 -1rem 1rem -1rem', padding: '0.5rem 1rem 0' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <button 
-              onClick={handleHierarchicalBack} 
-              title={currentFolderId ? (currentActiveFolder?.parentId ? 'חזרה לתיקיית האב' : 'חזרה לראשי הנושא') : 'חזרה לכל הנושאים'}
-              style={{ 
-                background: currentFolderId ? '#eff6ff' : '#f8fafc', 
-                border: currentFolderId ? '1.5px solid #93c5fd' : '1px solid #cbd5e1', 
-                borderRadius: '12px',
-                padding: '6px 12px',
-                fontSize: '0.82rem', 
-                cursor: 'pointer', 
-                color: currentFolderId ? '#1d4ed8' : '#334155', 
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                fontWeight: 700,
-                boxShadow: currentFolderId ? '0 2px 6px rgba(37,99,235,0.12)' : '0 1px 3px rgba(0,0,0,0.04)',
-                transition: 'all 0.15s ease'
-              }}
-            >
-              <span style={{ fontSize: '1rem', fontWeight: 900, transform: 'translateY(-1px)' }}>↩</span>
-              <span>{currentFolderId ? (currentActiveFolder?.parentId ? 'לתיקיית האב' : 'לראשי') : 'לנושאים'}</span>
-            </button>
             <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h2 onClick={() => handleRenameShelf(activeShelf.id, activeShelf.name)} style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem', display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
                 {activeShelf.icon || '🗂️'} {activeShelf.name}
@@ -3618,7 +3596,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.04</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.05</span>
         </h2>
         <input 
           type="text" 

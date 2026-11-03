@@ -75,7 +75,7 @@ export default function GlobalFloatingBackButton() {
 
   const isSpaceSubPage = /^\/space\/[^/]+\/(settings|reports|features)/.test(pathname);
   const isSpaceMainPage = /^\/space\/[^/]+$/.test(pathname) && pathname !== '/space/new';
-  const hasBottomBar = isSpaceMainPage || pathname === '/settings';
+  const hasBottomBar = isSpaceMainPage || pathname === '/settings' || pathname === '/admin/users';
 
   const getStepBackLabel = (): string => {
     if (isSpaceMainPage) {

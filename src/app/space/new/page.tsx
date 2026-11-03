@@ -134,15 +134,22 @@ function CreateSpaceContent() {
     router.push(`/?highlight=${newId}`);
   };
 
+  useEffect(() => {
+    const handleBackStep = (e: any) => {
+      if (selectedTemplate) {
+        setSelectedTemplate(null);
+        if (e?.detail) e.detail.handled = true;
+      }
+    };
+    window.addEventListener('smartshare:navigate_back_one_step', handleBackStep);
+    return () => window.removeEventListener('smartshare:navigate_back_one_step', handleBackStep);
+  }, [selectedTemplate]);
+
   if (selectedTemplate) {
     const template = TEMPLATES.find(t => t.id === selectedTemplate);
     return (
       <div className={styles.container}>
-        <button className={styles.backBtn} onClick={() => setSelectedTemplate(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 0 }}>
-          <span>&rarr;</span> חזרה לבחירת תבנית
-        </button>
-
-        <header className={styles.header} style={{ marginTop: '2rem' }}>
+        <header className={styles.header} style={{ marginTop: '1rem' }}>
           <h1 className={styles.title}>הגדרת מרחב: {template?.icon} {template?.title}</h1>
         </header>
 
@@ -207,10 +214,6 @@ function CreateSpaceContent() {
 
   return (
     <div className={styles.container}>
-      <Link href="/" className={styles.backBtn}>
-        <span>&rarr;</span> חזרה ללוח הראשי
-      </Link>
-
       <header className={styles.header}>
         <h1 className={styles.title}>בחר תבנית למרחב החדש</h1>
         <p style={{ color: '#aaa', marginTop: '0.5rem' }}>הקיר המרכזי יבנה אוטומטית בהתאם לתבנית שתבחר</p>
