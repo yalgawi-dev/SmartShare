@@ -522,10 +522,25 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           return m;
         });
 
+        // Heal shelves where allowedPartners was accidentally initialized with [creatorId] or [''] when created before partners joined
+        const healedShelves = (data.shelves || []).map((sh: any) => {
+          if (sh && Array.isArray(sh.allowedPartners) && sh.allowedPartners.length > 0) {
+            const cleaned = sh.allowedPartners.filter(
+              (pid: string) => pid && pid.trim() !== '' && (!data.creatorId || pid !== data.creatorId)
+            );
+            if (cleaned.length !== sh.allowedPartners.length) {
+              needsDbHealing = true;
+              return { ...sh, allowedPartners: cleaned };
+            }
+          }
+          return sh;
+        });
+
         if (needsDbHealing) {
           updateDoc(doc.ref, {
             pendingInvites: healedPendingInvites,
-            members: healedMembers
+            members: healedMembers,
+            shelves: healedShelves
           }).catch(console.error);
         }
 
@@ -533,7 +548,8 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           id: doc.id, 
           ...data,
           pendingInvites: healedPendingInvites,
-          members: healedMembers
+          members: healedMembers,
+          shelves: healedShelves
         } as Omit<Space, 'mediaItems'>;
       }).filter(s => {
         // Auto-purge expired spaces in pending_deletion whose expiration date has passed

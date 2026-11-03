@@ -271,7 +271,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
           if (name.trim()) {
             addShelf(space.id, {
               name: name.trim(),
-              allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
+              allowedPartners: []
             });
           }
         }
@@ -279,7 +279,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
     };
     window.addEventListener('smartshare:add_shelf', handler);
     return () => window.removeEventListener('smartshare:add_shelf', handler);
-  }, [space.id, activePartnersCount, user?.id, addShelf]);
+  }, [space.id, addShelf]);
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
@@ -304,14 +304,14 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
            setPendingImport({ url, type: typeof type !== 'undefined' ? type : 'document', allPages: typeof allPages !== 'undefined' ? allPages : [] });
            return undefined;
         } else {
-           const newShelfId = addShelf(space.id, { name: 'כללי', allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : [] });
+           const newShelfId = addShelf(space.id, { name: 'כללי', allowedPartners: [] });
            targetShelfId = newShelfId;
         }
       }
       
       return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId);
     }
-  }), [activeShelfId, shelves, space.shelfEvents, space.id, activePartnersCount, user?.id, addShelf]);
+  }), [activeShelfId, shelves, space.shelfEvents, space.id, addShelf]);
 
   
 const shareMultipleDocuments = async (docIds: string[]) => {
@@ -594,7 +594,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     return documents.filter(d => !!d.deletedAt);
   }, [documents]);
 
-  const myRole = (useSpaces() as any).getRoleForSpace(space.id) || 'partner';
+  const spacesCtx = useSpaces() as any;
+  const myRole = spacesCtx.getRoleForSpace(space.id) || 'partner';
+  const myPartnerToken = spacesCtx.getTokenForSpace ? spacesCtx.getTokenForSpace(space.id) : null;
   const isManaged = Boolean(space.settings?.isManagedMode);
 
   const activeShelves = useMemo(() => {
@@ -603,11 +605,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       return canAccessItem({
         spaceRole: myRole,
         userId: user?.id,
+        partnerToken: myPartnerToken,
+        creatorId: space.creatorId,
         isManagedMode: isManaged,
         allowedPartners: s.allowedPartners
       });
     });
-  }, [shelves, myRole, user?.id, isManaged]);
+  }, [shelves, myRole, user?.id, myPartnerToken, space.creatorId, isManaged]);
 
   const deletedShelves = useMemo(() => {
     return shelves.filter(s => !!s.deletedAt);
@@ -681,7 +685,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   if (name.trim()) {
                     addShelf(space.id, {
                       name: name.trim(),
-                      allowedPartners: activePartnersCount === 0 ? [user?.id || ''] : []
+                      allowedPartners: []
                     });
                   }
                 }
@@ -1366,6 +1370,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               return canAccessItem({
                 spaceRole: myRole,
                 userId: user?.id,
+                partnerToken: myPartnerToken,
+                creatorId: space.creatorId,
                 isManagedMode: isManaged,
                 allowedPartners: f.allowedPartners
               });
@@ -2552,6 +2558,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           return canAccessItem({
             spaceRole: myRole,
             userId: user?.id,
+            partnerToken: myPartnerToken,
+            creatorId: space.creatorId,
             isManagedMode: isManaged,
             allowedPartners: f.allowedPartners
           });
@@ -3275,7 +3283,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.93</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.3.95</span>
         </h2>
         <input 
           type="text" 
@@ -3626,7 +3634,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
-            const isPrivate = shelf.allowedPartners && shelf.allowedPartners.length > 0;
+            const isPrivate = (shelf.allowedPartners || []).filter(pid => pid && pid.trim() !== '' && pid !== space.creatorId).length > 0;
             const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
             const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : {});
@@ -3717,7 +3725,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'flex-start', padding: '0 1rem' }}>
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
-            const isPrivate = shelf.allowedPartners && shelf.allowedPartners.length > 0;
+            const isPrivate = (shelf.allowedPartners || []).filter(pid => pid && pid.trim() !== '' && pid !== space.creatorId).length > 0;
             const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
             const highlightStyle = hasRecentDoc ? { border: '3px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '3px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '60' } : { border: '3px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' });
