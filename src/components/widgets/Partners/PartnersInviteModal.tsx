@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { createPortal } from 'react-dom';
 import ContactSelector, { SelectedContact } from '../../common/ContactSelector';
 import { useSpaces } from '../../../app/context/SpacesContext';
+import { useAuth } from '../../../app/context/AuthContext';
 
 export function PartnersInviteModal({ 
   space, 
@@ -14,7 +15,8 @@ export function PartnersInviteModal({
   space: any; 
   onClose: () => void;
 }) {
-  const { createPendingInvite } = useSpaces();
+  const { spaces, createPendingInvite } = useSpaces() as any;
+  const { allUsers } = useAuth();
   const [successData, setSuccessData] = useState<{name: string, phone: string, text: string} | null>(null);
   const [copied, setCopied] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
@@ -176,6 +178,36 @@ export function PartnersInviteModal({
       resolvedName = `${resolvedName} (חדש)`;
     }
 
+    // Resolve targetUserId automatically if the inviter typed a name of an existing authenticated partner/user
+    let effectiveTargetUserId = targetUserId;
+    if (!effectiveTargetUserId && resolvedName && !confirmAsNewPartner) {
+      const q = resolvedName.toLowerCase();
+      for (const s of (spaces || [])) {
+        const foundMember = (s.members || []).find((m: any) => {
+          if (!m.userId || String(m.userId).startsWith('guest_') || m.userId === space.creatorId) return false;
+          const mName = (m.name || '').trim().toLowerCase();
+          return mName === q || (q.length >= 3 && mName.split(' ')[0] === q);
+        });
+        if (foundMember) {
+          effectiveTargetUserId = foundMember.userId;
+          break;
+        }
+      }
+      if (!effectiveTargetUserId && Array.isArray(allUsers) && allUsers.length > 0) {
+        const foundUser = allUsers.find((u: any) => {
+          if (!u.id || u.isAnonymous || u.id === space.creatorId) return false;
+          const hasIdentity = Boolean(u.phone || u.email || (u.realName && u.realName !== 'אורח' && u.realName !== 'אורח אנונימי'));
+          if (!hasIdentity) return false;
+          const rName = (u.realName || '').trim().toLowerCase();
+          const nName = (u.nickname || '').trim().toLowerCase();
+          return rName === q || nName === q || (q.length >= 3 && rName.split(' ')[0] === q);
+        });
+        if (foundUser) {
+          effectiveTargetUserId = foundUser.id;
+        }
+      }
+    }
+
     await createPendingInvite(space.id, {
       token,
       name: resolvedName,
@@ -183,7 +215,7 @@ export function PartnersInviteModal({
       guestShare: plannedGuestShare,
       creatorShare: plannedCreatorShare,
       partnerShares: plannedPartnerShares, 
-      targetUserId
+      targetUserId: effectiveTargetUserId
     });
 
     const shareTitle = 'הזמנה להצטרפות למרחב ' + space.title;

@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSpaces } from '../../../app/context/SpacesContext';
 import { useAuth } from '../../../app/context/AuthContext';
 import { useChat } from '../../../app/context/ChatContext';
@@ -11,9 +11,64 @@ import { sanitizePartnerDisplayName } from '../../../utils/partnerUtils';
 import ConfirmModal from '../../common/ConfirmModal';
 
 export function PartnersDirectoryWidget({ space }: { space: any }) {
-  const { user } = useAuth();
-  const { getRoleForSpace, removeMember, updateMemberStatus, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite, updateSharesBulk } = useSpaces() as any;
+  const { user, allUsers } = useAuth();
+  const { spaces, getRoleForSpace, removeMember, updateMemberStatus, approveGroupMember, rejectGroupMember, approveAllGroupMembers, declinePendingInvite, updateSharesBulk, finalizeGuestJoin } = useSpaces() as any;
   const { openChat } = useChat();
+
+  // Retroactively auto-approve any pendingInvites that belong to a registered/authenticated user (WhatsApp style)
+  useEffect(() => {
+    const pendingList: any[] = space?.pendingInvites || [];
+    if (!space?.id || pendingList.length === 0 || !finalizeGuestJoin) return;
+
+    pendingList.forEach((inv: any) => {
+      let resolvedUid: string | undefined = (inv.targetUserId && !String(inv.targetUserId).startsWith('guest_'))
+        ? inv.targetUserId
+        : undefined;
+
+      const invName = (inv.name || '').trim().toLowerCase();
+      if (!resolvedUid && invName && invName !== 'שותף מוזמן') {
+        // 1. Check existing active members across all spaces
+        for (const s of (spaces || [])) {
+          const foundMember = (s.members || []).find((m: any) => {
+            if (!m.userId || String(m.userId).startsWith('guest_') || m.userId === space.creatorId) return false;
+            const mName = (m.name || '').trim().toLowerCase();
+            return mName === invName || (invName.length >= 3 && mName.split(' ')[0] === invName);
+          });
+          if (foundMember) {
+            resolvedUid = foundMember.userId;
+            break;
+          }
+        }
+
+        // 2. Check allUsers from AuthContext
+        if (!resolvedUid && Array.isArray(allUsers) && allUsers.length > 0) {
+          const foundUser = allUsers.find((u: any) => {
+            if (!u.id || u.isAnonymous || u.id === space.creatorId) return false;
+            const hasIdentity = Boolean(u.phone || u.email || (u.realName && u.realName !== 'אורח' && u.realName !== 'אורח אנונימי'));
+            if (!hasIdentity) return false;
+            const rName = (u.realName || '').trim().toLowerCase();
+            const nName = (u.nickname || '').trim().toLowerCase();
+            return rName === invName || nName === invName || (invName.length >= 3 && rName.split(' ')[0] === invName);
+          });
+          if (foundUser) {
+            resolvedUid = foundUser.id;
+          }
+        }
+      }
+
+      if (resolvedUid) {
+        finalizeGuestJoin(
+          space.id,
+          inv.name || 'שותף',
+          Boolean(inv.isRetroactive),
+          resolvedUid,
+          inv.token,
+          inv.guestShare,
+          inv.creatorShare !== undefined ? { creator: inv.creatorShare, partners: inv.partnerShares || undefined } : undefined
+        );
+      }
+    });
+  }, [space?.id, space?.pendingInvites, spaces, allUsers, finalizeGuestJoin]);
 
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === "creator";

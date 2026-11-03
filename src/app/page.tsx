@@ -27,7 +27,7 @@ import { sortSpacesByUsagePriority, recordSpaceVisit, getSpaceUsageMetrics } fro
 
 export default function Dashboard() {
   const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite, removeMember } = useSpaces();
-  const { user, isLoaded: isAuthLoaded, logout } = useAuth();
+  const { user, allUsers, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
   const [editTitleValue, setEditTitleValue] = useState('');
@@ -163,7 +163,16 @@ export default function Dashboard() {
 
   const myPendingInvites = user?.id ? spaces.flatMap(s => 
     (s.pendingInvites || [])
-      .filter((i: any) => i.targetUserId === user.id)
+      .filter((i: any) => {
+        if (i.targetUserId && i.targetUserId === user.id) return true;
+        if (!i.targetUserId && i.name && user.realName && user.realName !== 'אורח' && user.realName !== 'אורח אנונימי' && s.creatorId !== user.id) {
+          const invName = i.name.trim().toLowerCase();
+          const myName = user.realName.trim().toLowerCase();
+          const myFirst = myName.split(' ')[0];
+          if (invName === myName || (invName.length >= 3 && invName === myFirst)) return true;
+        }
+        return false;
+      })
       .map((i: any) => ({ spaceId: s.id, spaceTitle: s.title, invite: i }))
   ) : [];
 
@@ -183,6 +192,63 @@ export default function Dashboard() {
       );
     });
   }, [user?.id, (user as any)?.isAnonymous, myPendingInvites.length]);
+
+  // Creator-side retroactive auto-approval: if any space has a pendingInvite for an already-registered user
+  // (e.g. invited before v3.4.02/v3.4.02, like "לינוי"), promote them to active member immediately!
+  useEffect(() => {
+    if (!isSpacesLoaded || !spaces.length) return;
+    spaces.forEach((s: any) => {
+      const pendingList: any[] = s.pendingInvites || [];
+      if (pendingList.length === 0) return;
+
+      pendingList.forEach((inv: any) => {
+        let resolvedUid: string | undefined = (inv.targetUserId && !String(inv.targetUserId).startsWith('guest_'))
+          ? inv.targetUserId
+          : undefined;
+
+        const invName = (inv.name || '').trim().toLowerCase();
+        if (!resolvedUid && invName && invName !== 'שותף מוזמן') {
+          for (const otherSpace of spaces) {
+            const foundMember = (otherSpace.members || []).find((m: any) => {
+              if (!m.userId || String(m.userId).startsWith('guest_') || m.userId === s.creatorId) return false;
+              const mName = (m.name || '').trim().toLowerCase();
+              return mName === invName || (invName.length >= 3 && mName.split(' ')[0] === invName);
+            });
+            if (foundMember) {
+              resolvedUid = foundMember.userId;
+              break;
+            }
+          }
+
+          if (!resolvedUid && Array.isArray(allUsers) && allUsers.length > 0) {
+            const foundUser = allUsers.find((u: any) => {
+              if (!u.id || u.isAnonymous || u.id === s.creatorId) return false;
+              const hasIdentity = Boolean(u.phone || u.email || (u.realName && u.realName !== 'אורח' && u.realName !== 'אורח אנונימי'));
+              if (!hasIdentity) return false;
+              const rName = (u.realName || '').trim().toLowerCase();
+              const nName = (u.nickname || '').trim().toLowerCase();
+              return rName === invName || nName === invName || (invName.length >= 3 && rName.split(' ')[0] === invName);
+            });
+            if (foundUser) {
+              resolvedUid = foundUser.id;
+            }
+          }
+        }
+
+        if (resolvedUid) {
+          finalizeGuestJoin(
+            s.id,
+            inv.name || 'שותף',
+            Boolean(inv.isRetroactive),
+            resolvedUid,
+            inv.token,
+            inv.guestShare,
+            inv.creatorShare !== undefined ? { creator: inv.creatorShare, partners: inv.partnerShares || undefined } : undefined
+          );
+        }
+      });
+    });
+  }, [isSpacesLoaded, spaces, allUsers, finalizeGuestJoin]);
 
   // User space access helper
   const isUserMemberOfSpace = (s: any) => {
@@ -260,7 +326,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.01</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.02</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
