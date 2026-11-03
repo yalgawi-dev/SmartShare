@@ -58,17 +58,11 @@ export default function WelcomeGate({
     (user?.id && space?.members?.some((m: any) => m.userId === user.id && (m.status === 'active' || m.welcomed === true)))
   );
 
-  useEffect(() => {
-    if (isCreatorOfThisSpace || typeof window === 'undefined' || !resolvedToken) return;
-
-    if (isAlreadyWelcomedOrActive || submittedRef.current) {
-      setShowGate(false);
-    } else {
-      setShowGate(true);
-    }
-  }, [spaceId, isCreatorOfThisSpace, resolvedToken, isAlreadyWelcomedOrActive]);
-
-  if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || !resolvedToken) return null;
+  const isAuthenticatedUser = Boolean(
+    user?.id &&
+    !(user as any).isAnonymous &&
+    (user.phone || user.email || (user.realName && user.realName !== 'אורח' && user.realName !== 'אורח אנונימי'))
+  );
 
   const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
   const pendingInvite = resolvedToken ? (space?.pendingInvites || []).find((i: any) => i.token === resolvedToken) : undefined;
@@ -102,7 +96,7 @@ export default function WelcomeGate({
         }
       }
       
-      if (finalizeGuestJoin) {
+      if (finalizeGuestJoin && user?.id) {
         finalizeGuestJoin(
           spaceId, 
           finalName, 
@@ -150,6 +144,21 @@ export default function WelcomeGate({
       setShowGate(false);
     }
   };
+
+  useEffect(() => {
+    if (isCreatorOfThisSpace || typeof window === 'undefined' || !resolvedToken) return;
+
+    if (isAlreadyWelcomedOrActive || submittedRef.current) {
+      setShowGate(false);
+    } else if (isAuthenticatedUser) {
+      // WhatsApp-style auto-join: authenticated users are immediately approved without blocking modal
+      handleStart();
+    } else {
+      setShowGate(true);
+    }
+  }, [spaceId, isCreatorOfThisSpace, resolvedToken, isAlreadyWelcomedOrActive, isAuthenticatedUser]);
+
+  if (!mounted || !showGate || isCreatorOfThisSpace || isAlreadyWelcomedOrActive || isAuthenticatedUser || !resolvedToken) return null;
 
   const clearTokenAndClose = () => {
     try {

@@ -205,20 +205,23 @@ export function PartnersInviteModal({
       return;
     }
     
-    if (contact.isSystemPartner && contact.userId) {
+    if (contact.userId && !String(contact.userId).startsWith('guest_')) {
       let realPhone = contact.phone;
-      if (realPhone === 'משתמש פנימי') {
+      if (realPhone === 'משתמש פנימי' || realPhone === 'שותף קיים במערכת') {
         try {
           const userDoc = await getDoc(doc(db, 'users', contact.userId));
           if (userDoc.exists() && userDoc.data().phone) {
             realPhone = userDoc.data().phone;
+          } else {
+            realPhone = '';
           }
         } catch (e) {
           console.error("Failed to fetch user phone", e);
+          realPhone = '';
         }
       }
       
-      // In-app success state
+      // In-app success state (partner is now immediately active in space.members!)
       setSuccessData({
         name: contact.name,
         phone: realPhone,
@@ -336,8 +339,10 @@ export function PartnersInviteModal({
             <div style={{ width: '60px', height: '60px', background: '#22c55e', color: 'white', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 1rem' }}>
               <svg width="32" height="32" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path></svg>
             </div>
-            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>הזמנה נשלחה בהצלחה!</h3>
-            <p style={{ margin: '0 0 1rem', color: '#64748b' }}>ההזמנה נשלחה פנימית למשתמש <strong>{successData.name}</strong> והוא יקבל התראה באפליקציה מיד כשייכנס.</p>
+            <h3 style={{ margin: '0 0 0.5rem', fontSize: '1.25rem' }}>השותף צורף למרחב בהצלחה! 🎉</h3>
+            <p style={{ margin: '0 0 1rem', color: '#64748b', lineHeight: '1.5' }}>
+              המשתמש <strong>{successData.name}</strong> מאומת באפליקציה ולכן צורף מיידית כשותף פעיל במרחב. המרחב כבר מופיע ברשימת המרחבים שלו ללא צורך באישור נוסף!
+            </p>
             
             {successData.phone && (
               <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '12px', border: '1px dashed #cbd5e1', marginBottom: '1.5rem' }}>

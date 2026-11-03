@@ -51,12 +51,13 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
   const handleSelectExisting = async (contact: any) => {
     setIsSearching(true);
     try {
-      const foundUser = contact.phone ? await findUserByPhone(contact.phone) : null;
+      const foundUser = (contact.phone && !contact.phone.includes('שותף') && !contact.phone.includes('פנימי')) ? await findUserByPhone(contact.phone) : null;
+      const resolvedUid = foundUser ? foundUser.id : contact.userId;
       onSelect({
         name: contact.name,
         phone: contact.phone || '',
-        userId: foundUser ? foundUser.id : contact.userId,
-        isSystemPartner: contact.isSystemPartner
+        userId: resolvedUid,
+        isSystemPartner: Boolean(contact.isSystemPartner || (resolvedUid && !String(resolvedUid).startsWith('guest_')))
       });
     } finally {
       setIsSearching(false);
@@ -76,7 +77,8 @@ export default function ContactSelector({ onSelect, title = 'בחר איש קש�
       onSelect({
         name: newName.trim(),
         phone: newPhone.trim(),
-        userId: foundUser ? foundUser.id : undefined
+        userId: foundUser ? foundUser.id : undefined,
+        isSystemPartner: Boolean(foundUser?.id)
       });
     } finally {
       setIsSearching(false);

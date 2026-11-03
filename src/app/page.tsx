@@ -26,7 +26,7 @@ import { sortSpacesByUsagePriority, recordSpaceVisit, getSpaceUsageMetrics } fro
 
 
 export default function Dashboard() {
-  const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite } = useSpaces();
+  const { spaces, deleteSpace, updateSpaceTitle, updateSpaceLogo, getRoleForSpace, isLoaded: isSpacesLoaded, finalizeGuestJoin, declinePendingInvite, removeMember } = useSpaces();
   const { user, isLoaded: isAuthLoaded, logout } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [editingSpaceId, setEditingSpaceId] = useState<string | null>(null);
@@ -167,20 +167,40 @@ export default function Dashboard() {
       .map((i: any) => ({ spaceId: s.id, spaceTitle: s.title, invite: i }))
   ) : [];
 
+  // WhatsApp-style auto-join: if an authenticated user has any pending invites targeting their user.id,
+  // auto-finalize them immediately so the space appears directly in their spaces list without manual approval!
+  useEffect(() => {
+    if (!user?.id || (user as any).isAnonymous || myPendingInvites.length === 0) return;
+    myPendingInvites.forEach(({ spaceId, invite }) => {
+      finalizeGuestJoin(
+        spaceId,
+        user.realName || invite.name || 'שותף',
+        invite.isRetroactive,
+        user.id,
+        invite.token,
+        invite.guestShare,
+        invite.creatorShare !== undefined ? { creator: invite.creatorShare, partners: invite.partnerShares || undefined } : undefined
+      );
+    });
+  }, [user?.id, (user as any)?.isAnonymous, myPendingInvites.length]);
+
   // User space access helper
   const isUserMemberOfSpace = (s: any) => {
     if (user?.id && s.creatorId && user.id === s.creatorId) return true;
     if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
     if (clientKeys[s.id]?.role === 'creator') return true;
-    if (user?.spaceKeys?.[s.id]?.role === 'partner') return true;
-    if (clientKeys[s.id]?.role === 'partner') return true;
     const partnerToken = user?.spaceKeys?.[s.id]?.token || clientKeys[s.id]?.token;
-    return (s.members || []).some((m: any) => {
+    const matchedMember = (s.members || []).find((m: any) => {
       if (user?.id && m.userId === user.id) return true;
       if (partnerToken && m.userId === partnerToken) return true;
       if (guestTokens.includes(m.userId)) return true;
       return false;
     });
+    if (matchedMember) {
+      return matchedMember.isActive !== false && matchedMember.status !== 'removed';
+    }
+    if ((user?.spaceKeys?.[s.id]?.role === 'partner' || clientKeys[s.id]?.role === 'partner') && (s.members || []).length === 0) return true;
+    return false;
   };
 
   const visibleSpaces = spaces.filter(s => s.status !== 'pending_deletion' && isUserMemberOfSpace(s));
@@ -240,7 +260,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.00</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.4.01</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -769,26 +789,61 @@ export default function Dashboard() {
                   </Link>
                   {(() => {
                     const mySpaceRole = getRoleForSpace(space.id);
-                    const canDeleteSpace = mySpaceRole === 'creator' || mySpaceRole === 'admin' || user?.isAdmin;
-                    if (!canDeleteSpace) return null;
+                    const isCreator = mySpaceRole === 'creator' || (user?.id && space.creatorId === user.id);
+                    const canDeleteSpace = isCreator || mySpaceRole === 'admin' || user?.isAdmin;
+                    if (canDeleteSpace) {
+                      return (
+                        <button 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            const activePartners = (space.members || []).filter((m: any) => m.userId !== space.creatorId && m.isActive !== false);
+                            if (activePartners.length > 0) {
+                              alert(`לא ניתן למחוק את המרחב כיוון שיש בו ${activePartners.length} שותפים פעילים. על השותפים לעזוב או לאשר את סגירתו.`);
+                              return;
+                            }
+                            if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
+                              deleteSpace(space.id);
+                            }
+                          }}
+                          style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.8rem', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                          title="מחק מרחב"
+                        >
+                          🗑️
+                        </button>
+                      );
+                    }
 
+                    // Partner leave / disconnect button ("אם הם לא רוצים הם פשוט מתנתקים ממנה")
                     return (
-                      <button 
+                      <button
                         onClick={(e) => {
                           e.preventDefault();
-                          const activePartners = (space.members || []).filter((m: any) => m.userId !== space.creatorId && m.isActive !== false);
-                          if (activePartners.length > 0) {
-                            alert(`לא ניתן למחוק את המרחב כיוון שיש בו ${activePartners.length} שותפים פעילים. על השותפים לעזוב או לאשר את סגירתו.`);
-                            return;
-                          }
-                          if (confirm('למחוק את המרחב "' + space.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
-                            deleteSpace(space.id);
+                          if (confirm('האם אתה בטוח שברצונך להתנתק ולעזוב את המרחב "' + space.title + '"?')) {
+                            const partnerToken = user?.spaceKeys?.[space.id]?.token || clientKeys[space.id]?.token;
+                            const myMember = (space.members || []).find((m: any) =>
+                              (user?.id && m.userId === user.id) ||
+                              (partnerToken && m.userId === partnerToken) ||
+                              guestTokens.includes(m.userId)
+                            );
+                            const memberIdToRemove = myMember?.userId || user?.id;
+                            if (memberIdToRemove && removeMember) {
+                              removeMember(space.id, memberIdToRemove, user?.realName || user?.id || 'שותף');
+                            }
+                            try {
+                              const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+                              if (localKeys[space.id]) {
+                                delete localKeys[space.id];
+                                localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+                                setClientKeys({ ...localKeys });
+                              }
+                            } catch (err) {}
                           }
                         }}
-                        style={{ background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', borderRadius: '12px', padding: '0.8rem', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title="מחק מרחב"
+                        style={{ background: '#fff7ed', color: '#ea580c', border: '1px solid #fed7aa', borderRadius: '12px', padding: '0.8rem 0.9rem', cursor: 'pointer', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                        title="התנתק מהמרחב"
                       >
-                        🗑️
+                        <span>🚪</span>
+                        <span>התנתק</span>
                       </button>
                     );
                   })()}

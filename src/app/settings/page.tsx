@@ -16,7 +16,7 @@ import UniversalViewerModal from '../../components/common/ViewerEngine/Universal
 
 export default function SettingsPage() {
   const { user, allUsers, updateProfile, logout, deleteMyAccount } = useAuth();
-  const { spaces, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
+  const { spaces, deleteSpace, restoreSpace, permanentlyDeleteSpace, removeMember } = useSpaces() as any;
   
   const [activeTab, setActiveTab] = useState<'profile' | 'contacts' | 'spaces' | 'storage' | 'system'>(() => {
     if (typeof window !== 'undefined') {
@@ -484,9 +484,13 @@ export default function SettingsPage() {
 
     const mySpaces = spaces.filter((s: any) => {
       const isCreator = s.creatorId === user.id || user.spaceKeys?.[s.id]?.role === 'creator';
+      if (isCreator) return true;
+      const myMember = (s.members || []).find((m: any) => m.userId === user.id || (user.phone && m.phone === user.phone));
+      if (myMember) {
+        return myMember.isActive !== false && myMember.status !== 'removed';
+      }
       const isPartnerKey = user.spaceKeys?.[s.id]?.role === 'partner';
-      const isMember = (s.members || []).some((m: any) => m.userId === user.id || m.phone === user.phone);
-      return isCreator || isPartnerKey || isMember;
+      return isPartnerKey && (s.members || []).length === 0;
     });
 
     const active = mySpaces.filter((s: any) => s.status !== 'pending_deletion' && !s.isArchived);
@@ -555,7 +559,7 @@ export default function SettingsPage() {
           <span>→</span> חזרה למסך הראשי
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.4.00</span>
+          <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>v3.4.01</span>
           <button onClick={logout} style={{ background: '#fee2e2', color: '#991b1b', border: 'none', padding: '0.4rem 0.9rem', borderRadius: '20px', fontWeight: 700, cursor: 'pointer', fontSize: '0.82rem' }}>
             התנתק
           </button>
@@ -617,40 +621,6 @@ export default function SettingsPage() {
                 </button>
               </div>
             )}
-
-            {/* Direct Phone Notifications Section (Push Notifications) */}
-            <section style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '20px', padding: '1.25rem 1.4rem', boxShadow: '0 4px 12px rgba(34, 197, 94, 0.08)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <h3 style={{ margin: '0 0 0.25rem 0', color: '#166534', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.05rem', fontWeight: 800 }}>
-                    <span>🔔</span> התראות ישירות לטלפון (Push)
-                  </h3>
-                  <p style={{ margin: 0, color: '#15803d', fontSize: '0.84rem', lineHeight: '1.45' }}>
-                    {pushSuccessMessage
-                      ? '✅ ההתראות הופעלו וסונכרנו בהצלחה למכשיר שלך!'
-                      : 'קבל התראה מיידית למכשיר כששותף מעלה הוצאה, שולח מסמך או מעביר כסף.'}
-                  </p>
-                </div>
-                <button 
-                  type="button"
-                  onClick={handleEnablePush} 
-                  style={{ 
-                    background: isPushEnabled ? '#86efac' : '#22c55e', 
-                    color: isPushEnabled ? '#14532d' : 'white', 
-                    border: 'none', 
-                    padding: '0.65rem 1.25rem', 
-                    borderRadius: '12px', 
-                    fontWeight: 800, 
-                    cursor: 'pointer',
-                    fontSize: '0.88rem',
-                    whiteSpace: 'nowrap',
-                    boxShadow: '0 4px 10px rgba(34, 197, 94, 0.25)'
-                  }}
-                >
-                  {isPushEnabled ? 'פעיל ✔️ (רענן סנכרון)' : 'הפעל עכשיו 🔔'}
-                </button>
-              </div>
-            </section>
 
             {/* Profile Main Card */}
             <section style={{ background: '#ffffff', borderRadius: '20px', padding: '1.5rem', border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.03)' }}>
@@ -1084,27 +1054,59 @@ export default function SettingsPage() {
                               >
                                 כניסה למרחב <span>→</span>
                               </Link>
-                              <button 
-                                onClick={async (e) => {
-                                  e.preventDefault();
-                                  if (confirm('למחוק את המרחב "' + s.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
-                                    await permanentlyDeleteSpace(s.id);
-                                  }
-                                }}
-                                style={{ 
-                                  background: '#fef2f2', 
-                                  color: '#ef4444', 
-                                  border: '1px solid #fecaca', 
-                                  borderRadius: '8px', 
-                                  padding: '0.45rem 0.85rem', 
-                                  cursor: 'pointer', 
-                                  fontWeight: 700, 
-                                  fontSize: '0.8rem',
-                                  whiteSpace: 'nowrap'
-                                }}
-                              >
-                                🗑️ העבר לארכיון
-                              </button>
+                              {(s.creatorId === user?.id || s.createdBy === user?.realName) ? (
+                                <button 
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    if (confirm('למחוק את המרחב "' + s.title + '"? הפעולה תעביר אותו לארכיון המחיקה.')) {
+                                      await (deleteSpace ? deleteSpace(s.id) : permanentlyDeleteSpace(s.id));
+                                    }
+                                  }}
+                                  style={{ 
+                                    background: '#fef2f2', 
+                                    color: '#ef4444', 
+                                    border: '1px solid #fecaca', 
+                                    borderRadius: '8px', 
+                                    padding: '0.45rem 0.85rem', 
+                                    cursor: 'pointer', 
+                                    fontWeight: 700, 
+                                    fontSize: '0.8rem',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  🗑️ העבר לארכיון
+                                </button>
+                              ) : (
+                                <button 
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    if (confirm('האם אתה בטוח שברצונך להתנתק ולעזוב את המרחב "' + s.title + '"?')) {
+                                      const myMember = (s.members || []).find((m: any) => m.userId === user?.id || (user?.phone && m.phone === user.phone));
+                                      removeMember(s.id, myMember?.userId || user.id, user.realName || user.id);
+                                      try {
+                                        const localKeys = JSON.parse(localStorage.getItem('smartshare_keys') || '{}');
+                                        if (localKeys[s.id]) {
+                                          delete localKeys[s.id];
+                                          localStorage.setItem('smartshare_keys', JSON.stringify(localKeys));
+                                        }
+                                      } catch (err) {}
+                                    }
+                                  }}
+                                  style={{ 
+                                    background: '#fff7ed', 
+                                    color: '#ea580c', 
+                                    border: '1px solid #fed7aa', 
+                                    borderRadius: '8px', 
+                                    padding: '0.45rem 0.85rem', 
+                                    cursor: 'pointer', 
+                                    fontWeight: 700, 
+                                    fontSize: '0.8rem',
+                                    whiteSpace: 'nowrap'
+                                  }}
+                                >
+                                  🚪 התנתק מהמרחב
+                                </button>
+                              )}
                             </div>
                           </div>
                         )}

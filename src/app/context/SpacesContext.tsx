@@ -1205,7 +1205,75 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
     partnerShares?: Record<string, number>;
     targetUserId?: string;
   }) => {
+    let shouldNotifyDirectJoin = false;
+    let directSpaceTitle = 'מרחב';
+    let directCreatorName = 'מנהל המרחב';
+
     saveSpaceUpdate(spaceId, space => {
+      directSpaceTitle = space.title || 'מרחב';
+      directCreatorName = space.createdBy || 'מנהל המרחב';
+
+      // WhatsApp-style auto-join: If targetUserId is a known authenticated user in the system,
+      // add them immediately as an active member in space.members without requiring manual approval!
+      if (inviteData.targetUserId && !inviteData.targetUserId.startsWith('guest_')) {
+        shouldNotifyDirectJoin = true;
+        const targetUid = inviteData.targetUserId;
+        const existingMember = (space.members || []).find(m => m.userId === targetUid);
+        const hasCustomShare = inviteData.guestShare !== undefined && inviteData.guestShare !== null && !isNaN(inviteData.guestShare);
+
+        const newMember = {
+          userId: targetUid,
+          name: inviteData.name?.trim() || existingMember?.name || 'שותף מוזמן',
+          role: 'partner' as const,
+          joinedAt: existingMember?.joinedAt || new Date().toISOString(),
+          isActive: true,
+          canUpload: true,
+          canEdit: false,
+          canDelete: false,
+          status: 'active' as const,
+          welcomed: true,
+          sharePercentage: hasCustomShare ? inviteData.guestShare : (existingMember?.sharePercentage ?? 0),
+          isCustomShare: true
+        };
+
+        let updatedInvoices = space.invoices || [];
+        if (!inviteData.isRetroactive) {
+          updatedInvoices = updatedInvoices.map(inv => ({
+            ...inv,
+            excludedMembers: Array.from(new Set([...(inv.excludedMembers || []), targetUid]))
+          }));
+        }
+
+        const existingMembersWithoutThis = (space.members || []).filter(m => m.userId !== targetUid);
+        let finalCreatorShare = inviteData.creatorShare;
+        const finalMembersList = existingMembersWithoutThis.map(m => {
+          if (inviteData.partnerShares && inviteData.partnerShares[m.userId] !== undefined) {
+            return { ...m, sharePercentage: inviteData.partnerShares[m.userId], isCustomShare: true };
+          }
+          return m;
+        });
+        finalMembersList.push(newMember);
+
+        const totalPartners = finalMembersList.reduce((acc, m) => acc + (m.isActive !== false && typeof m.sharePercentage === 'number' ? m.sharePercentage : 0), 0);
+        if (Math.abs(finalCreatorShare + totalPartners - 100) > 0.01) {
+          finalCreatorShare = Math.max(0, 100 - totalPartners);
+        }
+
+        const newPendingInvites = (space.pendingInvites || []).filter((inv: any) =>
+          inv.token !== inviteData.token &&
+          inv.targetUserId !== targetUid &&
+          (!inv.name || !newMember.name || inv.name.trim().toLowerCase() !== newMember.name.trim().toLowerCase())
+        );
+
+        return {
+          ...space,
+          pendingInvites: newPendingInvites,
+          members: finalMembersList,
+          settings: { ...space.settings, mySharePercentage: finalCreatorShare, isCustomShare: true },
+          invoices: updatedInvoices
+        };
+      }
+
       const newInvite = {
         token: inviteData.token,
         name: inviteData.name?.trim() || 'שותף מוזמן',
@@ -1213,8 +1281,8 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         creatorShare: inviteData.creatorShare,
         partnerShares: inviteData.partnerShares || null,
         isRetroactive: inviteData.isRetroactive,
-          createdAt: new Date().toISOString(),
-          targetUserId: inviteData.targetUserId
+        createdAt: new Date().toISOString(),
+        targetUserId: inviteData.targetUserId
       };
 
       // Avoid duplicate pending invites for the same targetUserId, identical name, or duplicate anonymous/default invites
@@ -1230,6 +1298,18 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
         pendingInvites: [...existingInvites, newInvite]
       };
     });
+
+    if (shouldNotifyDirectJoin && inviteData.targetUserId) {
+      const targetUid = inviteData.targetUserId;
+      setTimeout(() => {
+        triggerPushNotification(
+          [targetUid],
+          `צורפת למרחב: ${directSpaceTitle}`,
+          `${directCreatorName} צירף אותך כשותף למרחב "${directSpaceTitle}". המרחב מופיע כעת ברשימת המרחבים שלך!`,
+          { url: `/space/${spaceId}`, tag: `invite-${spaceId}-${targetUid}` }
+        );
+      }, 0);
+    }
   };
 
   const togglePendingInviteRetroactive = (spaceId: string, token: string, isRetroactive: boolean) => {
