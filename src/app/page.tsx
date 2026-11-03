@@ -17,6 +17,7 @@ import AppShareModal from '../components/widgets/AppShareModal';
 import PersonalInboxWidget from '../components/widgets/PersonalInboxWidget';
 import ScannerModal from '../components/widgets/ScannerModal';
 import { PushNotificationReminder } from '../components/widgets/PushNotificationReminder';
+import InstallAppHeaderButton from '../components/InstallAppHeaderButton';
 import { universalSearch } from '../utils/searchEngine';
 import { uploadImageToStorage } from '@/lib/firebase';
 import { compressImage } from '../utils/imageOptimizer';
@@ -239,7 +240,7 @@ export default function Dashboard() {
             <img src="/myspace_logo.png" alt="MySpace Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.95</span></h1>
+            <h1 className={styles.title} style={{ margin: 0, fontSize: 'clamp(1rem, 3.8vw, 1.45rem)', whiteSpace: 'nowrap', lineHeight: '1.2' }}>MySpace <span style={{fontSize: '0.6em', opacity: 0.7, background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px'}}>v3.3.96</span></h1>
             <p className={styles.subtitle} style={{ margin: 0, fontSize: '0.75rem', whiteSpace: 'nowrap', opacity: 0.8 }}>פלטפורמת שיתוף</p>
           </div>
         </div>
@@ -253,6 +254,7 @@ export default function Dashboard() {
               התחבר
             </button>
           )}
+          <InstallAppHeaderButton />
           
           <div style={{ display: 'flex', alignItems: 'center', background: 'var(--bg-card)', borderRadius: '24px', border: '1px solid var(--border-light)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', padding: '0.15rem 0.25rem', gap: '0.15rem' }}>
             

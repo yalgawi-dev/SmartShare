@@ -28,54 +28,57 @@ export default function GlobalPWAPrompt() {
       || (window.navigator as any).standalone === true;
     if (isStandalone) return;
 
-    // Cooldown check (don't silence permanently, remind every 3 days if dismissed)
-    try {
-      const dismissedAt = localStorage.getItem('pwa_dismissed_at');
-      if (dismissedAt) {
-        const days = (Date.now() - new Date(dismissedAt).getTime()) / (1000 * 3600 * 24);
-        if (days < 3) return;
-      }
-    } catch (e) {}
+    const detectPlatform = (): 'android-chrome' | 'android-webview' | 'ios-safari' | 'ios-webview' | 'other' | null => {
+      const ua = navigator.userAgent;
+      const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
+      const isAndroid = /Android/.test(ua);
+      const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV')
+        || ua.includes('Instagram') || /wv\)/.test(ua);
+      const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua) && !/CriOS/.test(ua);
 
-    const ua = navigator.userAgent;
-    const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
-    const isAndroid = /Android/.test(ua);
-    const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV')
-      || ua.includes('Instagram') || /wv\)/.test(ua) || ua.includes('SamsungBrowser');
-    const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
+      if (isAndroid && isWebView)      return 'android-webview';
+      if (isAndroid)                   return 'android-chrome';
+      if (isIOS && isWebView)          return 'ios-webview';
+      if (isIOS && isSafari)           return 'ios-safari';
+      if (isIOS)                       return 'ios-webview';
+      return 'other';
+    };
 
-    if (!isIOS && !isAndroid) return;
-
-    if (isAndroid && isWebView)      setPlatform('android-webview');
-    else if (isAndroid)              setPlatform('android-chrome');
-    else if (isIOS && isWebView)     setPlatform('ios-webview');
-    else if (isIOS && isSafari)      setPlatform('ios-safari');
-    else                             setPlatform('other');
-
-    // Grab Chrome's native install prompt
+    // Always register trigger-pwa-install and beforeinstallprompt, even if auto-banner is on cooldown!
     const onPrompt = (e: any) => { 
       e.preventDefault(); 
       setDeferredPrompt(e); 
       setPlatform('android-chrome'); 
     };
     window.addEventListener('beforeinstallprompt', onPrompt);
+
     const onTrigger = () => { 
-      try { localStorage.removeItem('pwa_v5'); } catch (e) {}
+      try { localStorage.removeItem('pwa_dismissed_at'); } catch (e) {}
       setShowGuide(false);
-      
+      setMenuOpened(false);
+      const detected = detectPlatform();
+      setPlatform(detected || 'android-chrome');
+    };
+    window.addEventListener('trigger-pwa-install', onTrigger);
+
+    // Cooldown check for automatic popup only (remind every 3 days if dismissed)
+    let isOnCooldown = false;
+    try {
+      const dismissedAt = localStorage.getItem('pwa_dismissed_at');
+      if (dismissedAt) {
+        const days = (Date.now() - new Date(dismissedAt).getTime()) / (1000 * 3600 * 24);
+        if (days < 3) isOnCooldown = true;
+      }
+    } catch (e) {}
+
+    if (!isOnCooldown) {
       const ua = navigator.userAgent;
       const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
       const isAndroid = /Android/.test(ua);
-      const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV') || ua.includes('Instagram') || /wv\)/.test(ua) || ua.includes('SamsungBrowser');
-      const isSafari = /Safari/.test(ua) && !/Chrome/.test(ua);
-
-      if (isAndroid && isWebView)      setPlatform('android-webview');
-      else if (isAndroid)              setPlatform('android-chrome');
-      else if (isIOS && isWebView)     setPlatform('ios-webview');
-      else if (isIOS && isSafari)      setPlatform('ios-safari');
-      else                             setPlatform('other');
-    };
-    window.addEventListener('trigger-pwa-install', onTrigger);
+      if (isIOS || isAndroid) {
+        setPlatform(detectPlatform());
+      }
+    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt);
@@ -210,8 +213,8 @@ export default function GlobalPWAPrompt() {
     );
   }
 
-    // ── Android Chrome: Manual guide (if One-Tap fails or Incognito) ────────────────────────────
-  if (platform === 'android-chrome' && showGuide) {
+    // ── Android Chrome / Desktop: Manual guide (if One-Tap fails or Incognito) ────────────────────────────
+  if ((platform === 'android-chrome' || platform === 'other') && showGuide) {
     return (
       <Sheet>
         <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
@@ -220,9 +223,9 @@ export default function GlobalPWAPrompt() {
           <p style={{ fontSize: '0.95rem', color: '#475569', margin: 0, lineHeight: 1.4 }}>התקנה מהירה ופשוטה</p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
-          <Step icon="⋮" text='לחץ על תפריט ה-3 נקודות למעלה' />
-          <Step icon="➕" text='בחר "הוסף למסך הבית" או "התקן"' />
-          <Step icon="✅" text='לחץ "הוסף" — וזהו!' />
+          <Step icon="⋮" text='לחץ על תפריט ה-3 נקודות למעלה בדפדפן' />
+          <Step icon="➕" text='בחר "התקנת אפליקציה" או "הוסף למסך הבית"' />
+          <Step icon="✅" text='לחץ "התקן" / "הוסף" — וזהו!' />
         </div>
         <button onClick={dismiss} style={{ background: '#3b82f6', color: 'white', width: '100%', padding: '0.85rem', borderRadius: '14px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>הבנתי, תודה!</button>
       </Sheet>

@@ -22,8 +22,10 @@ export default function AuthWall() {
     // If user is logged in via social/secondary provider without phone, or missing realName
     if (user && !user.phone) {
       setStep(1);
+      setIsSubmitting(false);
     } else if (user && user.phone && !user.realName) {
       setStep(3);
+      setIsSubmitting(false);
     }
   }, [user]);
 
@@ -48,7 +50,9 @@ export default function AuthWall() {
               // Auto verify with the received code
               if (confirmationResult) {
                 setIsSubmitting(true);
-                confirmationResult.confirm(extractedCode).catch((err: any) => {
+                confirmationResult.confirm(extractedCode).then(() => {
+                  setIsSubmitting(false);
+                }).catch((err: any) => {
                   console.error('Auto OTP verify error:', err);
                   setIsSubmitting(false);
                 });
@@ -266,7 +270,7 @@ export default function AuthWall() {
       if (confirmationResult) {
         await confirmationResult.confirm(code.trim());
       }
-      
+      setIsSubmitting(false);
     } catch (err: any) {
       console.error('Verify OTP error:', err);
       const code = err.code || '';
