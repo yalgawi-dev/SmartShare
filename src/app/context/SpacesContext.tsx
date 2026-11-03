@@ -173,11 +173,30 @@ export interface SpaceDocument {
   note?: string;
 }
 
+export interface TargetedAnnouncementItem {
+  id: string;
+  text: string;
+  enabled: boolean;
+  author: string;
+  creatorId?: string;
+  targetUserIds: string[];
+  targetUserNames: string[];
+  expiresAt?: string | null;
+  durationHours?: number | null;
+  createdAt: string;
+}
+
 export interface GlobalAnnouncement {
   announcementText?: string;
   announcementEnabled?: boolean;
   announcementId?: string;
   announcementAuthor?: string;
+  announcementCreatorId?: string;
+  announcementExpiresAt?: string | null;
+  announcementDurationHours?: number | null;
+  announcementTargetUserIds?: string[];
+  announcementTargetUserNames?: string[];
+  targetedAnnouncements?: TargetedAnnouncementItem[];
 }
 
 export interface SpaceSettings {
@@ -195,6 +214,9 @@ export interface SpaceSettings {
   announcementEnabled?: boolean;
   announcementId?: string;
   announcementAuthor?: string;
+  announcementCreatorId?: string;
+  announcementExpiresAt?: string | null;
+  announcementDurationHours?: number | null;
 }
 
 export interface SpaceMessage {
