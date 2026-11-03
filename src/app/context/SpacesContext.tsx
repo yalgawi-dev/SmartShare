@@ -56,6 +56,26 @@ export interface Invoice {
     documentType?: string;
   invoiceNumber?: string;
   sharesSnapshot?: Record<string, number>;
+  /** All pages of a multi-page attachment (attachmentUrl is always the first page). */
+  attachmentPages?: string[];
+  /** Snapshot taken before the last attach/edit of an already-approved expense, so a dispute can revert it. */
+  previousVersion?: {
+    at: string;
+    by: string;
+    hasAttachment: boolean;
+    attachmentUrl?: string;
+    attachmentPages?: string[];
+    amount: number | null;
+  };
+}
+
+export interface AttachFilePayload {
+  /** First page / single file (already uploaded, e.g. WebP url). */
+  url: string;
+  /** All pages when the file has more than one. */
+  pages?: string[];
+  /** Optional correction of the expense amount to the invoice amount. */
+  newAmount?: number | null;
 }
 
 export interface Comment {
@@ -305,6 +325,7 @@ interface SpacesContextType {
   toggleFeature: (spaceId: string, featureId: FeatureId, performedBy?: string) => void;
   updateSpaceSettings: (spaceId: string, newSettings: Partial<SpaceSettings>) => void;
   updateInvoice: (spaceId: string, invoiceId: string, updates: Partial<Invoice>, performedBy?: string, actionDetail?: string) => void;
+  attachFileToInvoice: (spaceId: string, invoiceId: string, payload: AttachFilePayload, performer: { id: string; name: string }) => void;
 
   addInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>) => void;
   approveAndRouteInvoice: (spaceId: string, invoice: Omit<Invoice, 'id'>, inboxItemId: string) => Promise<boolean>;
@@ -961,6 +982,74 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
 
       return newSpace;
     });
+  };
+
+  /**
+   * Attaches a late invoice file to an existing expense WITHOUT creating a new expense
+   * (so the project's total is untouched unless the amount is explicitly corrected).
+   *
+   * Approval model (agreed with the product owner):
+   *  - Expense still pending → applied as-is; the pending approval already covers it.
+   *  - Expense already approved → the change is applied immediately (assumed acceptable),
+   *    the approval stamp is reset so previous approvers must re-approve, and the
+   *    performer's own approval is kept. A partner who objects opens a dispute,
+   *    which sets the expense aside; `previousVersion` allows reverting.
+   *  - Solo space (no other active members) → no re-approval needed.
+   */
+  const attachFileToInvoice = (spaceId: string, invoiceId: string, payload: AttachFilePayload, performer: { id: string; name: string }) => {
+    saveSpaceUpdate(spaceId, space => {
+      const inv = (space.invoices || []).find(i => i.id === invoiceId);
+      if (!inv) return space;
+
+      const othersActive = (space.members || []).filter(m => m.userId !== performer.id && (m as any).isActive !== false);
+      const needsReApproval = inv.status === 'approved' && othersActive.length > 0;
+      const amountChanged = payload.newAmount != null && payload.newAmount !== inv.amount;
+
+      const updates: Partial<Invoice> = {
+        hasAttachment: true,
+        attachmentUrl: payload.url,
+        attachmentPages: payload.pages && payload.pages.length > 1 ? payload.pages : undefined,
+        ...(amountChanged ? { amount: payload.newAmount as number } : {}),
+        previousVersion: {
+          at: new Date().toISOString(),
+          by: performer.id,
+          hasAttachment: !!inv.hasAttachment,
+          attachmentUrl: inv.attachmentUrl,
+          attachmentPages: inv.attachmentPages,
+          amount: inv.amount
+        },
+        ...(needsReApproval
+          ? { status: 'pending' as InvoiceStatus, approvedBy: [performer.id], approvalsReceived: 1 }
+          : {})
+      };
+
+      const detail = amountChanged
+        ? `צירף/ה חשבונית ותיקן/ה את הסכום מ-₪${inv.amount ?? 0} ל-₪${payload.newAmount}`
+        : 'צירף/ה חשבונית להוצאה קיימת';
+      const newLog = {
+        id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        timestamp: new Date().toISOString(),
+        actionType: 'EDIT_INVOICE' as any,
+        performedBy: performer.id,
+        details: `${performer.name} ${detail} מאת "${inv.supplier || 'ספק כללי'}"${needsReApproval ? ' – נדרש אישור מחדש מהשותפים' : ''}.`,
+        invoiceId
+      };
+
+      return {
+        ...space,
+        invoices: (space.invoices || []).map(i => (i.id === invoiceId ? { ...i, ...updates } : i)),
+        auditLogs: [newLog, ...(space.auditLogs || [])],
+        updatedAt: new Date().toISOString()
+      };
+    });
+
+    const spaceForPush = spacesBase.find(s => s.id === spaceId);
+    if (spaceForPush?.members) {
+      const others = spaceForPush.members.filter(m => m.userId !== performer.id).map(m => m.userId);
+      if (others.length > 0) {
+        triggerPushNotification(others, spaceForPush.title, `${performer.name} צירף/ה חשבונית להוצאה קיימת – נדרש אישור`, { url: `/space/${spaceId}` });
+      }
+    }
   };
 
 const joinSpace = (spaceId: string, userId: string, name: string) => {
@@ -2444,7 +2533,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,
