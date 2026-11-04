@@ -1636,50 +1636,242 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     if (onSavedToast) onSavedToast('ההודעה האישית המתפרצת נמחקה');
   };
 
+  // Prepare list of all active announcements to be rendered
+  const activeAnnouncementsList = useMemo(() => {
+    const list: Array<{
+      id: string;
+      storageKey: string;
+      text: string;
+      author: string;
+      expiresAt?: string | null;
+      isPersonalTargeted: boolean;
+      targetNamesLabel?: string;
+      showOnce: boolean;
+      canEditOrDelete: boolean;
+      onEdit: () => void;
+      onDelete: () => void;
+    }> = [];
+
+    // Personal targeted announcements
+    combinedTargetedAnnouncements.forEach(({ item, isSpaceTargeted }) => {
+      list.push({
+        id: item.id,
+        storageKey: `hide_targeted_announcement_${item.id}`,
+        text: item.text,
+        author: item.author || (isSpaceTargeted ? space?.createdBy || 'מנהל המרחב' : 'הנהלת המערכת'),
+        expiresAt: item.expiresAt,
+        isPersonalTargeted: true,
+        targetNamesLabel: canManage ? (item.targetUserNames || []).join(', ') : undefined,
+        showOnce: Boolean(item.showOnce),
+        canEditOrDelete: canManage,
+        onEdit: () => {
+          setEditingTargetedId(item.id);
+          setInternalEditorOpen(true);
+        },
+        onDelete: () => handleDirectDeleteTargeted(item.id, isSpaceTargeted),
+      });
+    });
+
+    // General announcement (if not hidden for creator)
+    if (shouldShowGeneralBanner) {
+      list.push({
+        id: announcementId,
+        storageKey,
+        text: announcementText,
+        author: announcementAuthor,
+        expiresAt: announcementExpiresAt,
+        isPersonalTargeted: false,
+        showOnce: announcementShowOnce,
+        canEditOrDelete: canManage,
+        onEdit: () => {
+          setEditingTargetedId(null);
+          setInternalEditorOpen(true);
+        },
+        onDelete: handleDirectDeleteBanner,
+      });
+    }
+
+    return list;
+  }, [
+    combinedTargetedAnnouncements,
+    space?.createdBy,
+    canManage,
+    shouldShowGeneralBanner,
+    announcementId,
+    storageKey,
+    announcementText,
+    announcementAuthor,
+    announcementExpiresAt,
+    announcementShowOnce,
+  ]);
+
+  const [activeSlideIndex, setActiveSlideIndex] = useState(0);
+
+  // Keep index within bounds if items dismiss
+  useEffect(() => {
+    if (activeSlideIndex >= activeAnnouncementsList.length && activeAnnouncementsList.length > 0) {
+      setActiveSlideIndex(activeAnnouncementsList.length - 1);
+    }
+  }, [activeAnnouncementsList.length, activeSlideIndex]);
+
+  // Touch gesture state for swipe carousel
+  const touchStartXRef = useRef<number | null>(null);
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartXRef.current = e.touches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (touchStartXRef.current === null) return;
+    const diffX = e.changedTouches[0].clientX - touchStartXRef.current;
+    if (Math.abs(diffX) > 40) {
+      if (diffX < 0) {
+        // Swipe left (next in RTL or standard carousel)
+        setActiveSlideIndex((prev) => (prev + 1) % activeAnnouncementsList.length);
+      } else {
+        // Swipe right (prev)
+        setActiveSlideIndex((prev) => (prev - 1 + activeAnnouncementsList.length) % activeAnnouncementsList.length);
+      }
+    }
+    touchStartXRef.current = null;
+  };
+
   return (
     <>
-      {/* 1. Stacked Personal Targeted Breaking Announcements (Sender Hidden, Distinct Private Glass) */}
-      {combinedTargetedAnnouncements.map(({ item, isSpaceTargeted }) => (
-        <SingleAnnouncementMarqueeStrip
-          key={item.id}
-          bannerId={item.id}
-          storageKey={`hide_targeted_announcement_${item.id}`}
-          text={item.text}
-          author={item.author || (isSpaceTargeted ? space?.createdBy || 'מנהל המרחב' : 'הנהלת המערכת')}
-          expiresAt={item.expiresAt}
-          isGlobalStyle={isGlobalMode}
-          isPersonalTargeted={true}
-          targetNamesLabel={canManage ? (item.targetUserNames || []).join(', ') : undefined}
-          showOnce={Boolean(item.showOnce)}
-          canEditOrDelete={canManage}
-          nowMs={nowMs}
-          onEditClick={() => {
-            setEditingTargetedId(item.id);
-            setInternalEditorOpen(true);
-          }}
-          onDeleteClick={() => handleDirectDeleteTargeted(item.id, isSpaceTargeted)}
-        />
-      ))}
+      {/* Announcements Area: Single marquee or Carousel swipe view when multiple announcements exist */}
+      {activeAnnouncementsList.length > 0 && (
+        <div style={{ position: 'relative', width: '100%' }}>
+          {activeAnnouncementsList.length === 1 ? (
+            // Single Announcement: Render directly
+            <SingleAnnouncementMarqueeStrip
+              key={activeAnnouncementsList[0].id}
+              bannerId={activeAnnouncementsList[0].id}
+              storageKey={activeAnnouncementsList[0].storageKey}
+              text={activeAnnouncementsList[0].text}
+              author={activeAnnouncementsList[0].author}
+              expiresAt={activeAnnouncementsList[0].expiresAt}
+              isGlobalStyle={isGlobalMode}
+              isPersonalTargeted={activeAnnouncementsList[0].isPersonalTargeted}
+              targetNamesLabel={activeAnnouncementsList[0].targetNamesLabel}
+              showOnce={activeAnnouncementsList[0].showOnce}
+              canEditOrDelete={activeAnnouncementsList[0].canEditOrDelete}
+              nowMs={nowMs}
+              onEditClick={activeAnnouncementsList[0].onEdit}
+              onDeleteClick={activeAnnouncementsList[0].onDelete}
+            />
+          ) : (
+            // Multiple Announcements: Swipeable carousel area with compact pills indicator
+            <div
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+              style={{ position: 'relative', width: '100%' }}
+            >
+              {/* Carousel Header / Pagination Indicator Bar */}
+              <div
+                dir="rtl"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0 0.4rem 0.25rem 0.4rem',
+                  fontSize: '0.72rem',
+                  color: '#64748b',
+                  fontWeight: 700,
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span>📢 הודעות פעילות ({activeSlideIndex + 1}/{activeAnnouncementsList.length})</span>
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    {activeAnnouncementsList.map((ann, idx) => (
+                      <button
+                        key={ann.id}
+                        type="button"
+                        onClick={() => setActiveSlideIndex(idx)}
+                        style={{
+                          width: idx === activeSlideIndex ? '16px' : '6px',
+                          height: '6px',
+                          borderRadius: '10px',
+                          background: idx === activeSlideIndex ? (ann.isPersonalTargeted ? '#8b5cf6' : '#3b82f6') : '#cbd5e1',
+                          border: 'none',
+                          padding: 0,
+                          cursor: 'pointer',
+                          transition: 'all 0.25s',
+                        }}
+                        title={`עבור להודעה ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                </div>
 
-      {/* 2. General Global or Space Breaking Announcement (Hidden for Creator) */}
-      {shouldShowGeneralBanner && (
-        <SingleAnnouncementMarqueeStrip
-          bannerId={announcementId}
-          storageKey={storageKey}
-          text={announcementText}
-          author={announcementAuthor}
-          expiresAt={announcementExpiresAt}
-          isGlobalStyle={isGlobalMode}
-          isPersonalTargeted={false}
-          showOnce={announcementShowOnce}
-          canEditOrDelete={canManage}
-          nowMs={nowMs}
-          onEditClick={() => {
-            setEditingTargetedId(null);
-            setInternalEditorOpen(true);
-          }}
-          onDeleteClick={handleDirectDeleteBanner}
-        />
+                {/* Arrow navigation buttons for easy clicking on PC & mobile */}
+                <div style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSlideIndex((prev) => (prev - 1 + activeAnnouncementsList.length) % activeAnnouncementsList.length)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      color: '#475569',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                    }}
+                    title="ההודעה הקודמת"
+                  >
+                    ›
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setActiveSlideIndex((prev) => (prev + 1) % activeAnnouncementsList.length)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.9)',
+                      border: '1px solid #cbd5e1',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      fontSize: '0.75rem',
+                      color: '#475569',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+                    }}
+                    title="ההודעה הבאה"
+                  >
+                    ‹
+                  </button>
+                </div>
+              </div>
+
+              {/* Current Active Announcement in Carousel */}
+              {activeAnnouncementsList[activeSlideIndex] && (
+                <SingleAnnouncementMarqueeStrip
+                  key={activeAnnouncementsList[activeSlideIndex].id}
+                  bannerId={activeAnnouncementsList[activeSlideIndex].id}
+                  storageKey={activeAnnouncementsList[activeSlideIndex].storageKey}
+                  text={activeAnnouncementsList[activeSlideIndex].text}
+                  author={activeAnnouncementsList[activeSlideIndex].author}
+                  expiresAt={activeAnnouncementsList[activeSlideIndex].expiresAt}
+                  isGlobalStyle={isGlobalMode}
+                  isPersonalTargeted={activeAnnouncementsList[activeSlideIndex].isPersonalTargeted}
+                  targetNamesLabel={activeAnnouncementsList[activeSlideIndex].targetNamesLabel}
+                  showOnce={activeAnnouncementsList[activeSlideIndex].showOnce}
+                  canEditOrDelete={activeAnnouncementsList[activeSlideIndex].canEditOrDelete}
+                  nowMs={nowMs}
+                  onEditClick={activeAnnouncementsList[activeSlideIndex].onEdit}
+                  onDeleteClick={activeAnnouncementsList[activeSlideIndex].onDelete}
+                />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* 3. Unified Modal Editor (Single Source of Truth Engine) */}
@@ -1751,13 +1943,17 @@ export interface SpaceAnnouncementSettingsCardProps {
 
 /**
  * Settings Card Wrapper that embeds the exact same Single Source of Truth <AnnouncementUnifiedEditorForm />
+ * Designed as a clean, compact collapsible accordion row with an arrow and full modal trigger.
  */
 export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCardProps> = ({
   spaceId = 'global',
   isGlobal = false,
 }) => {
-  const { spaces } = useSpaces();
+  const { spaces, globalAnnouncement } = useSpaces();
   const { user } = useAuth();
+
+  const [isOpen, setIsOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   const isGlobalMode = Boolean(isGlobal || spaceId === 'global');
   const space = !isGlobalMode ? spaces.find((s) => s.id === spaceId) : undefined;
@@ -1768,17 +1964,187 @@ export const SpaceAnnouncementSettingsCard: React.FC<SpaceAnnouncementSettingsCa
   if (!isGlobalMode && !space) return null;
   if (isGlobalMode && !isSystemAdmin) return null;
 
+  const isEnabled = isGlobalMode
+    ? Boolean(globalAnnouncement?.announcementEnabled && globalAnnouncement?.announcementText?.trim())
+    : Boolean(space?.settings?.announcementEnabled && space?.settings?.announcementText?.trim());
+
+  const targetedCount = isGlobalMode
+    ? (globalAnnouncement?.targetedAnnouncements || []).filter((t) => t.enabled).length
+    : (space?.settings?.targetedAnnouncements || []).filter((t) => t.enabled).length;
+
   return (
     <div
       dir="rtl"
       style={{
-        padding: '1rem',
-        background: 'rgba(37, 99, 235, 0.03)',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid #bfdbfe',
+        background: '#ffffff',
+        borderRadius: '16px',
+        border: '1px solid #cbd5e1',
+        boxShadow: '0 2px 8px rgba(15, 23, 42, 0.04)',
+        overflow: 'hidden',
+        transition: 'all 0.2s ease',
       }}
     >
-      <AnnouncementUnifiedEditorForm spaceId={spaceId} isGlobalMode={isGlobalMode} isModal={false} />
+      {/* Accordion Header Row */}
+      <div
+        onClick={() => setIsOpen(!isOpen)}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '0.85rem 1.1rem',
+          cursor: 'pointer',
+          background: isOpen ? 'rgba(37, 99, 235, 0.03)' : 'transparent',
+          borderBottom: isOpen ? '1px solid #e2e8f0' : 'none',
+          userSelect: 'none',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>📢</span>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#0f172a' }}>
+                {isGlobalMode ? 'הודעות מתפרצות מערכתיות' : 'הודעות מתפרצות במרחב'}
+              </span>
+              <span
+                style={{
+                  fontSize: '0.68rem',
+                  fontWeight: 800,
+                  padding: '1px 7px',
+                  borderRadius: '10px',
+                  background: isEnabled ? '#dcfce7' : '#f1f5f9',
+                  color: isEnabled ? '#15803d' : '#64748b',
+                  border: `1px solid ${isEnabled ? '#bbf7d0' : '#e2e8f0'}`,
+                }}
+              >
+                {isEnabled ? '🟢 פעיל' : '⚪ כבוי'}
+              </span>
+              {targetedCount > 0 && (
+                <span
+                  style={{
+                    fontSize: '0.68rem',
+                    fontWeight: 800,
+                    padding: '1px 7px',
+                    borderRadius: '10px',
+                    background: '#f5f3ff',
+                    color: '#6d28d9',
+                    border: '1px solid #ddd6fe',
+                  }}
+                >
+                  🔒 {targetedCount} אישיות
+                </span>
+              )}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+              {isGlobalMode
+                ? 'ניהול הכרזות ראשיות, הגבלת זמן, חד-פעמיות ושליחה אישית למשתמשים'
+                : 'ניהול הכרזות מתפרצות עליונות במרחב ושליחה אישית לשותפים'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {/* Quick full modal open button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsModalOpen(true);
+            }}
+            style={{
+              background: '#eff6ff',
+              color: '#1d4ed8',
+              border: '1px solid #bfdbfe',
+              padding: '0.35rem 0.75rem',
+              borderRadius: '9px',
+              fontSize: '0.78rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.3rem',
+            }}
+            title="פתח חלון עריכה מלא"
+          >
+            <span>↗️</span> פתח מודאל
+          </button>
+
+          {/* Accordion Arrow */}
+          <span
+            style={{
+              fontSize: '0.95rem',
+              color: '#64748b',
+              transition: 'transform 0.2s',
+              transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+              display: 'inline-block',
+            }}
+          >
+            ▼
+          </span>
+        </div>
+      </div>
+
+      {/* Accordion Collapsible Content */}
+      {isOpen && (
+        <div style={{ padding: '1rem', background: '#fafafa' }}>
+          <AnnouncementUnifiedEditorForm spaceId={spaceId} isGlobalMode={isGlobalMode} isModal={false} />
+        </div>
+      )}
+
+      {/* Modal View trigger from Accordion */}
+      {isModalOpen && (
+        <div
+          dir="rtl"
+          onClick={() => setIsModalOpen(false)}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
+            zIndex: 100000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 'max(0.75rem, env(safe-area-inset-top, 0.75rem)) max(0.75rem, env(safe-area-inset-right, 0.75rem)) max(1.25rem, env(safe-area-inset-bottom, 1.25rem)) max(0.75rem, env(safe-area-inset-left, 0.75rem))',
+            boxSizing: 'border-box',
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '24px',
+              padding: 'clamp(1rem, 3.5vw, 1.4rem)',
+              width: '100%',
+              maxWidth: 'min(480px, 94vw)',
+              maxHeight: 'min(80vh, calc(100dvh - 56px))',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(15, 23, 42, 0.35)',
+              border: '1px solid #cbd5e1',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                paddingRight: '4px',
+                paddingLeft: '4px',
+                maxHeight: '100%',
+              }}
+            >
+              <AnnouncementUnifiedEditorForm
+                spaceId={spaceId}
+                isGlobalMode={isGlobalMode}
+                isModal={true}
+                onClose={() => setIsModalOpen(false)}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
