@@ -44,23 +44,8 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
           });
         }
 
-        let bytes: Uint8Array;
-        if (targetPdf.startsWith('data:')) {
-          const base64Data = targetPdf.includes('base64,') ? targetPdf.split('base64,')[1] : targetPdf;
-          const binaryString = window.atob(base64Data);
-          bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-        } else {
-          const res = await fetch(targetPdf);
-          const arrayBuffer = await res.arrayBuffer();
-          bytes = new Uint8Array(arrayBuffer);
-        }
-
-        // Fast render: low scale (0.5 - 0.75) for tiny 70px thumbnail to prevent CPU lockups
         const loadingTask = window.pdfjsLib.getDocument({ 
-          data: bytes,
+          url: targetPdf,
           stopAtErrors: true,
           disableFontFace: true 
         });

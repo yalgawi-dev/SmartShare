@@ -164,30 +164,6 @@ export default function SharedFileHandler() {
     setRouteDestination(previewUrls.length > 1 ? 'personal' : 'direct');
     setIsReceivingShare(false);
     setIsModalOpen(true);
-
-    // Check if the single file is a PDF and run background page extraction asynchronously
-    const firstItem = blobItems[0];
-    const isPdf = firstItem?.type === 'application/pdf' || 
-                  (firstItem?.name && firstItem.name.toLowerCase().endsWith('.pdf')) ||
-                  (typeof previewUrls[0] === 'string' && previewUrls[0].includes('application/pdf'));
-
-    if (blobItems.length === 1 && isPdf && firstItem.blob) {
-      // Run asynchronously in background so modal stays responsive
-      setTimeout(async () => {
-        try {
-          const buffer = await firstItem.blob.arrayBuffer();
-          const analysis = await analyzePdfStructure(buffer);
-          console.log("PDF Dual-Check Analysis:", analysis);
-          
-          const extractedPages = await extractPdfPages(previewUrls[0], 1500, 0.85);
-          if (extractedPages && extractedPages.length > 1) {
-            setSharedAllPages(extractedPages);
-          }
-        } catch (err) {
-          console.warn("PDF extraction error:", err);
-        }
-      }, 50);
-    }
   }, []);
 
   const processFoundFiles = React.useCallback(async (rawResult: any, source: string) => {
@@ -1256,7 +1232,7 @@ export default function SharedFileHandler() {
       
       {zoomedIndex !== null && (
         <div 
-          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.9)', zIndex: 100000, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
+          style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', zIndex: 100010, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
           onTouchStart={e => setTouchStartX(e.changedTouches[0].screenX)}
           onTouchEnd={e => {
             const touchEndX = e.changedTouches[0].screenX;
@@ -1264,32 +1240,33 @@ export default function SharedFileHandler() {
             if (touchEndX - touchStartX > 50 && zoomedIndex > 0) setZoomedIndex(zoomedIndex - 1);
           }}
         >
-          <div style={{ position: 'relative', width: '100%', height: '80%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ position: 'relative', width: '100%', height: '82%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {sharedFiles[zoomedIndex]?.includes('.pdf') || sharedFiles[zoomedIndex]?.startsWith('data:application/pdf') ? (
-               <PdfThumbnail 
-                 base64Uri={sharedFiles[zoomedIndex]}
-                 style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
+               <iframe 
+                 src={sharedFiles[zoomedIndex]}
+                 style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px', background: '#ffffff' }}
+                 title="PDF Full Preview"
                />
             ) : (
-               <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+               <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
             )}
             {zoomedIndex > 0 && (
-              <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex - 1); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex - 1); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
                 &gt;
               </div>
             )}
             {zoomedIndex < sharedFiles.length - 1 && (
-              <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex + 1); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.2)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex + 1); }} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
                 &lt;
               </div>
             )}
           </div>
-          <div style={{ color: 'white', marginTop: '1rem', fontSize: '1.2rem', fontWeight: 'bold', direction: 'rtl' }}>
+          <div style={{ color: 'white', marginTop: '0.8rem', fontSize: '1.1rem', fontWeight: 'bold', direction: 'rtl' }}>
             {zoomedIndex + 1} מתוך {sharedFiles.length}
           </div>
           <div 
             onClick={() => setZoomedIndex(null)}
-            style={{ marginTop: '1rem', padding: '0.5rem 1.5rem', background: 'rgba(255,255,255,0.2)', color: 'white', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+            style={{ marginTop: '0.8rem', padding: '0.6rem 2rem', background: '#3b82f6', color: 'white', borderRadius: '12px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem', boxShadow: '0 4px 12px rgba(59,130,246,0.4)' }}
           >
             סגור תצוגה
           </div>
