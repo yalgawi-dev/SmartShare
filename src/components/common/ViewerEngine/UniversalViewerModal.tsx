@@ -100,14 +100,19 @@ export default function UniversalViewerModal({
   const currentDoc = docs[currentIndex] || docs[0];
   if (!currentDoc) return null;
 
-  const isMultiPage = currentDoc.type !== 'image' && Array.isArray(currentDoc.pages) && currentDoc.pages.length > 1;
-  const isPdf = Boolean(
+  const isDocPdf = Boolean(
     currentDoc.type === 'pdf' ||
     (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf')) ||
     currentDoc.url?.startsWith('data:application/pdf') ||
-    currentDoc.title?.toLowerCase().endsWith('.pdf') ||
     (currentDoc.url && currentDoc.url.startsWith('blob:') && currentDoc.type !== 'image')
   );
+
+  // Filter out any pages that might accidentally be PDF URLs
+  const validImagePages = Array.isArray(currentDoc.pages)
+    ? currentDoc.pages.filter(p => typeof p === 'string' && !p.toLowerCase().includes('.pdf') && !p.startsWith('data:application/pdf'))
+    : [];
+
+  const isMultiPage = currentDoc.type !== 'image' && validImagePages.length > 1;
 
   const handlePrev = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -244,7 +249,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.8.2
+            v3.4.24
           </span>
           <span
             style={{
@@ -383,9 +388,9 @@ export default function UniversalViewerModal({
         }}
       >
         {(() => {
-          // ── Case 1: Legacy Raw PDF without pre-rendered page images ───────────────
-          const hasRenderedPages = Array.isArray(currentDoc.pages) && currentDoc.pages.length > 0;
-          if (isPdf && !hasRenderedPages) {
+          // ── Case 1: Raw PDF without pre-rendered page images ───────────────
+          const hasRenderedPages = validImagePages.length > 0;
+          if (isDocPdf && !hasRenderedPages) {
             return (
               <div
                 style={{
@@ -401,7 +406,7 @@ export default function UniversalViewerModal({
                 <DynamicPdfScrollPreview
                   url={currentDoc.url}
                   title={currentDoc.title}
-                  thumbnailUrl={currentDoc.thumbnailUrl}
+                  thumbnailUrl={currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.toLowerCase().includes('.pdf') ? currentDoc.thumbnailUrl : undefined}
                   onPagesLoaded={(loadedPages) => {
                     currentDoc.pages = loadedPages;
                     if (onNormalizeDoc && currentDoc.id) {
@@ -414,7 +419,7 @@ export default function UniversalViewerModal({
           }
 
           // ── Case 2: Multi-Page Continuous Scroll ("Megilah") ───────────────
-          if (isMultiPage && currentDoc.pages) {
+          if (isMultiPage && validImagePages.length > 1) {
             return (
               <div
                 style={{
@@ -450,7 +455,7 @@ export default function UniversalViewerModal({
                         width: '100%'
                       }}
                     >
-                      {currentDoc.pages.map((pageUrl: string, pageIdx: number) => (
+                      {validImagePages.map((pageUrl: string, pageIdx: number) => (
                         <div
                           key={pageIdx}
                           style={{
@@ -494,7 +499,7 @@ export default function UniversalViewerModal({
                               zIndex: 10
                             }}
                           >
-                            עמוד {pageIdx + 1} מתוך {currentDoc.pages!.length}
+                            עמוד {pageIdx + 1} מתוך {validImagePages.length}
                           </div>
                         </div>
                       ))}
@@ -506,12 +511,14 @@ export default function UniversalViewerModal({
           }
 
           // ── Case 3: Single Page Document (JPEG / WebP / Image) ─────────────
-          const pageImage = (currentDoc.pages && currentDoc.pages[0]);
-          const imageTarget = pageImage || (!currentDoc.url?.toLowerCase().includes('.pdf') ? currentDoc.url : undefined) || currentDoc.thumbnailUrl;
-          const thumbUrl = currentDoc.thumbnailUrl;
+          const pageImage = validImagePages[0];
+          const validThumb = currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.toLowerCase().includes('.pdf') && !currentDoc.thumbnailUrl.startsWith('data:application/pdf') ? currentDoc.thumbnailUrl : undefined;
+          const validDirectUrl = currentDoc.url && !currentDoc.url.toLowerCase().includes('.pdf') && !currentDoc.url.startsWith('data:application/pdf') ? currentDoc.url : undefined;
 
-          // If no rendered image is available at all and target is raw PDF:
-          if (!imageTarget && currentDoc.url) {
+          const imageTarget = pageImage || validDirectUrl || validThumb;
+
+          // If no rendered image is available and target is PDF:
+          if (!imageTarget && isDocPdf) {
             return (
               <div
                 style={{
@@ -527,7 +534,7 @@ export default function UniversalViewerModal({
                 <DynamicPdfScrollPreview
                   url={currentDoc.url}
                   title={currentDoc.title}
-                  thumbnailUrl={thumbUrl}
+                  thumbnailUrl={validThumb}
                   onPagesLoaded={(loadedPages) => {
                     currentDoc.pages = loadedPages;
                     if (onNormalizeDoc && currentDoc.id) {
@@ -539,7 +546,36 @@ export default function UniversalViewerModal({
             );
           }
 
-          const fullUrl = imageTarget || thumbUrl || currentDoc.url;
+          const fullUrl = imageTarget || validThumb || currentDoc.url;
+
+          // Safe guard: If fullUrl is a PDF file, NEVER put it in <img>!
+          if (fullUrl && (fullUrl.toLowerCase().includes('.pdf') || fullUrl.startsWith('data:application/pdf'))) {
+            return (
+              <div
+                style={{
+                  width: '94%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative'
+                }}
+              >
+                <DynamicPdfScrollPreview
+                  url={fullUrl}
+                  title={currentDoc.title}
+                  thumbnailUrl={validThumb}
+                  onPagesLoaded={(loadedPages) => {
+                    currentDoc.pages = loadedPages;
+                    if (onNormalizeDoc && currentDoc.id) {
+                      onNormalizeDoc(currentDoc.id, loadedPages);
+                    }
+                  }}
+                />
+              </div>
+            );
+          }
           return (
             <div
               style={{
@@ -579,9 +615,9 @@ export default function UniversalViewerModal({
                   }}
                 >
                   <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {thumbUrl && thumbUrl !== fullUrl && (
+                    {validThumb && validThumb !== fullUrl && (
                       <img
-                        src={thumbUrl}
+                        src={validThumb}
                         alt=""
                         aria-hidden="true"
                         style={{
@@ -603,7 +639,7 @@ export default function UniversalViewerModal({
                       />
                     )}
                     <img
-                      src={fullUrl || thumbUrl}
+                      src={fullUrl || validThumb}
                       alt={currentDoc.title || 'מסמך'}
                       loading="eager"
                       decoding="sync"

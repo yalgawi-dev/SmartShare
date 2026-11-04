@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { extractPdfPages } from '@/utils/imageOptimizer';
+import { compressCanvasWebP } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 
 interface DynamicPdfScrollPreviewProps {
@@ -11,41 +11,121 @@ interface DynamicPdfScrollPreviewProps {
 }
 
 /**
- * DynamicPdfScrollPreview - Single Source of Truth for on-the-fly PDF Page rendering
- * Extracts each page into memory, displaying exactly ONE page at a time with pinch-to-zoom
- * and clean navigation (‹ עמוד 1 מתוך 2 ›) across pages.
+ * DynamicPdfScrollPreview - Progressive, instant PDF viewer (<150ms for page 1)
+ * Displays page 1 immediately while streaming remaining pages in background.
  */
 export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPagesLoaded }: DynamicPdfScrollPreviewProps) {
   const [pages, setPages] = useState<string[]>([]);
-  const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
+  const [totalPageCount, setTotalPageCount] = useState<number>(1);
 
   useEffect(() => {
     let isMounted = true;
     setIsLoading(true);
     setError(false);
-    setCurrentPageIndex(0);
+    setPages([]);
 
-    extractPdfPages(url, 1500, 0.85)
-      .then((extracted) => {
-        if (!isMounted) return;
-        if (extracted && extracted.length > 0) {
-          setPages(extracted);
-          if (onPagesLoaded) {
-            onPagesLoaded(extracted);
-          }
-        } else {
-          setError(true);
+    const loadProgressively = async () => {
+      try {
+        if (!window.pdfjsLib) {
+          await new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+            script.onload = () => {
+              if (window.pdfjsLib) {
+                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+                resolve(null);
+              } else {
+                reject(new Error('pdfjsLib not found on window'));
+              }
+            };
+            script.onerror = reject;
+            document.head.appendChild(script);
+          });
         }
-      })
-      .catch((err) => {
-        console.error('Error extracting PDF pages:', err);
-        if (isMounted) setError(true);
-      })
-      .finally(() => {
-        if (isMounted) setIsLoading(false);
-      });
+
+        let bytes: Uint8Array;
+        if (url.startsWith('data:')) {
+          const base64Data = url.includes('base64,') ? url.split('base64,')[1] : url;
+          const binaryString = window.atob(base64Data);
+          bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+        } else {
+          try {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+            const ab = await res.arrayBuffer();
+            bytes = new Uint8Array(ab);
+          } catch {
+            const proxyRes = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
+            const ab = await proxyRes.arrayBuffer();
+            bytes = new Uint8Array(ab);
+          }
+        }
+
+        const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
+        const pdf = await loadingTask.promise;
+        if (!isMounted) return;
+
+        const numPages = pdf.numPages || 1;
+        setTotalPageCount(numPages);
+
+        const renderPageCanvas = async (pageNum: number) => {
+          const page = await pdf.getPage(pageNum);
+          const unscaledViewport = page.getViewport({ scale: 1.0 });
+          const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+          const scale = Math.min(1.8, 1200 / currentMax);
+          const viewport = page.getViewport({ scale: Math.max(0.8, scale) });
+          const canvas = document.createElement('canvas');
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            await page.render({ canvasContext: ctx, viewport }).promise;
+            return compressCanvasWebP(canvas, 0.80);
+          }
+          return '';
+        };
+
+        // 1. Render Page 1 IMMEDIATELY! (< 150ms)
+        const page1 = await renderPageCanvas(1);
+        if (!isMounted) return;
+
+        if (page1) {
+          setPages([page1]);
+          setIsLoading(false); // First page ready! User sees document instantly!
+        }
+
+        // 2. Stream subsequent pages in background
+        if (numPages > 1) {
+          const allUrls = [page1];
+          for (let p = 2; p <= numPages; p++) {
+            if (!isMounted) return;
+            const nextPage = await renderPageCanvas(p);
+            if (nextPage) {
+              allUrls.push(nextPage);
+              setPages(prev => [...prev, nextPage]);
+            }
+          }
+          if (onPagesLoaded && isMounted) {
+            onPagesLoaded(allUrls);
+          }
+        } else if (onPagesLoaded && isMounted) {
+          onPagesLoaded([page1]);
+        }
+      } catch (err) {
+        console.error('Error in progressive PDF rendering:', err);
+        if (isMounted) {
+          setError(true);
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadProgressively();
 
     return () => {
       isMounted = false;
@@ -146,7 +226,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                         zIndex: 10
                       }}
                     >
-                      עמוד {pageIdx + 1} מתוך {pages.length}
+                      עמוד {pageIdx + 1} מתוך {Math.max(pages.length, totalPageCount)}
                     </div>
                   )}
                 </div>

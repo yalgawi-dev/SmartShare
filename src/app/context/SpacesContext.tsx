@@ -376,6 +376,7 @@ interface SpacesContextType {
   removeDocumentFolder: (spaceId: string, folderId: string) => void;
   restoreDocumentFolder: (spaceId: string, folderId: string) => void;
   permanentlyDeleteDocumentFolder: (spaceId: string, folderId: string) => void;
+  moveDocumentFolder: (spaceId: string, folderId: string, targetShelfId: string, targetParentFolderId?: string | null) => void;
   addShelf: (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => string;
   updateShelf: (spaceId: string, shelfId: string, updates: Partial<DocumentShelf>) => void;
   removeShelf: (spaceId: string, shelfId: string) => void;
@@ -2383,6 +2384,56 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
     });
   };
 
+  const moveDocumentFolder = (spaceId: string, folderId: string, targetShelfId: string, targetParentFolderId?: string | null) => {
+    saveSpaceUpdate(spaceId, space => {
+      // Find all subfolder IDs recursively
+      const getSubfolderIds = (parentId: string): string[] => {
+        const direct = (space.documentFolders || []).filter(f => f.parentId === parentId && !f.deletedAt).map(f => f.id);
+        let all = [...direct];
+        direct.forEach(subId => {
+          all = [...all, ...getSubfolderIds(subId)];
+        });
+        return all;
+      };
+      const allTargetFolderIds = [folderId, ...getSubfolderIds(folderId)];
+
+      // 1. Update folders: target folder gets new shelfId + new parentId; descendant folders get new shelfId
+      const updatedFolders = (space.documentFolders || []).map(f => {
+        if (f.id === folderId) {
+          return {
+            ...f,
+            shelfId: targetShelfId,
+            parentId: targetParentFolderId !== undefined ? targetParentFolderId : null
+          };
+        }
+        if (allTargetFolderIds.includes(f.id)) {
+          return {
+            ...f,
+            shelfId: targetShelfId
+          };
+        }
+        return f;
+      });
+
+      // 2. Update all documents inside these folders to targetShelfId
+      const updatedDocs = (space.documents || []).map(d => {
+        if (d.folderId && allTargetFolderIds.includes(d.folderId)) {
+          return {
+            ...d,
+            shelfId: targetShelfId
+          };
+        }
+        return d;
+      });
+
+      return {
+        ...space,
+        documentFolders: updatedFolders,
+        documents: updatedDocs
+      };
+    });
+  };
+
   const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
     const shelfId = `shelf-${Date.now()}`;
     saveSpaceUpdate(spaceId, space => ({
@@ -2670,7 +2721,7 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   };
 
   return (
-    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
+    <SpacesContext.Provider value={{ spaces, getRoleForSpace, getTokenForSpace, addSpace, deleteSpace, permanentlyDeleteSpace, restoreSpace, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceLogo, updateSpaceIcon, toggleFeature, updateSpaceSettings, updateInvoice, attachFileToInvoice, addInvoice, approveAndRouteInvoice, addInboxItems, updateInboxItem, removeInboxItem, addMediaItem, updateMediaItem, removeMediaItem, addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder, addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment, likeMediaItem, joinSpace, finalizeGuestJoin, declinePendingInvite, createPendingInvite, migrateGuestToRealUser,
       requestGroupJoin,
       approveGroupMember,
       rejectGroupMember,

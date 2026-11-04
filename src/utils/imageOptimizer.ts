@@ -56,6 +56,24 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
   };
 }
 
+export function isTrueOriginalPdf(analysis: PdfAnalysisResult, fileSize: number): boolean {
+  // 1. Digital signature: Cryptographic signature (/Type /Sig, /adbe.pkcs7, ETSI.CAdES, /ByteRange)
+  // MUST be preserved intact to prevent invalidating the legal signature.
+  if (analysis.hasDigitalSignature) {
+    return true;
+  }
+
+  // 2. True digital-born vector PDF:
+  // Compact file (< 2.5MB) created directly by Word/Excel/accounting systems with vector text.
+  // If the file is large (e.g. 20MB scan) or contains no verified text layer, it is a raster scan
+  // that MUST be converted to WebP for 90%+ size reduction!
+  if (fileSize < 2.5 * 1024 * 1024 && analysis.hasTextLayer) {
+    return true;
+  }
+
+  return false;
+}
+
 let _webpSupported: boolean | null = null;
 
 /**

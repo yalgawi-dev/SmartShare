@@ -36,7 +36,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const { 
     addShelf, updateShelf, removeShelf, restoreShelf, permanentlyDeleteShelf, 
     addDocument, addDocumentAndLinkToEvent, updateDocument, removeDocument, restoreDocument, permanentlyDeleteDocument, 
-    addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder,
+    addDocumentFolder, updateDocumentFolder, removeDocumentFolder, restoreDocumentFolder, permanentlyDeleteDocumentFolder, moveDocumentFolder,
     addShelfEvent, updateShelfEvent, removeShelfEvent, addShelfEventComment, removeShelfEventComment 
   } = useSpaces() as any;
   
@@ -125,6 +125,9 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [linkStationFolder, setLinkStationFolder] = useState<DocumentFolder | null>(null);
   const [folderPrivacyFolder, setFolderPrivacyFolder] = useState<DocumentFolder | null>(null);
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
+  const [folderToMove, setFolderToMove] = useState<DocumentFolder | null>(null);
+  const [targetMoveShelfId, setTargetMoveShelfId] = useState<string>('');
+  const [targetMoveParentFolderId, setTargetMoveParentFolderId] = useState<string | null>(null);
   const [moveDocToFolder, setMoveDocToFolder] = useState<{ docIds: string[], currentFolderId?: string | null } | null>(null);
   const [showSortFilterModal, setShowSortFilterModal] = useState(false);
   const [showVaultViewDropdown, setShowVaultViewDropdown] = useState(false);
@@ -1916,6 +1919,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   )}
                                   <button
                                     type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFolderToMove(folder);
+                                      setTargetMoveShelfId(folder.shelfId);
+                                      setTargetMoveParentFolderId(folder.parentId || null);
+                                    }}
+                                    style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
+                                    title="העבר תיקייה למדף/מיקום אחר"
+                                  >
+                                    📦
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => setFolderToDelete({ id: folder.id, name: folder.name })}
                                     style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
                                     title="מחק תיקייה"
@@ -1961,7 +1977,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                           {filteredDocs.map(doc => {
                             const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
                             const isChecked = selectedDocIds.includes(doc.id);
-                            const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.title?.toLowerCase().endsWith('.pdf');
+                            const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf');
 
                             return (
                               <div
@@ -2273,6 +2289,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   )}
                                   <button
                                     type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setFolderToMove(folder);
+                                      setTargetMoveShelfId(folder.shelfId);
+                                      setTargetMoveParentFolderId(folder.parentId || null);
+                                    }}
+                                    style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
+                                    title="העבר תיקייה למדף/מיקום אחר"
+                                  >
+                                    📦
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => setFolderToDelete({ id: folder.id, name: folder.name })}
                                     style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
                                     title="מחק תיקייה"
@@ -2301,7 +2330,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                           {filteredDocs.map(doc => {
                             const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
                             const isChecked = selectedDocIds.includes(doc.id);
-                            const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf') || doc.title?.toLowerCase().endsWith('.pdf');
+                            const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf');
 
                             return (
                               <div
@@ -3232,6 +3261,223 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
+      {/* MOVE ENTIRE FOLDER MODAL */}
+      {folderToMove && (() => {
+        // Collect all descendant folder IDs to prevent circular nesting
+        const getDescendantFolderIds = (parentId: string): string[] => {
+          const direct = (space.documentFolders || []).filter(f => f.parentId === parentId && !f.deletedAt).map(f => f.id);
+          let all = [...direct];
+          direct.forEach(subId => {
+            all = [...all, ...getDescendantFolderIds(subId)];
+          });
+          return all;
+        };
+        const invalidFolderIds = [folderToMove.id, ...getDescendantFolderIds(folderToMove.id)];
+
+        // Candidate folders in target shelf (excluding invalidFolderIds)
+        const targetShelfFolders = (space.documentFolders || []).filter(f => 
+          f.shelfId === targetMoveShelfId && 
+          !f.deletedAt && 
+          !invalidFolderIds.includes(f.id)
+        );
+
+        const handleConfirmFolderMove = () => {
+          moveDocumentFolder(space.id, folderToMove.id, targetMoveShelfId, targetMoveParentFolderId);
+          // If we are currently inside the moved folder or its hierarchy, reset currentFolderId
+          if (currentFolderId === folderToMove.id || invalidFolderIds.includes(currentFolderId || '')) {
+            setCurrentFolderId(null);
+          }
+          setFolderToMove(null);
+        };
+
+        return (
+          <div
+            onClick={() => setFolderToMove(null)}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(15, 23, 42, 0.75)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 100020,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+              direction: 'rtl'
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                background: '#ffffff',
+                borderRadius: '24px',
+                width: '100%',
+                maxWidth: '460px',
+                padding: '1.75rem',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.25rem'
+              }}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '1.6rem' }}>📦</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 800, color: '#0f172a' }}>
+                      העברת תיקייה שלמה
+                    </h3>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                      התיקייה "{folderToMove.name}" על כל מסמכיה
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFolderToMove(null)}
+                  style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', fontSize: '1rem', color: '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Step 1: Select Target Shelf */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
+                  1. בחר מדף יעד:
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.4rem' }}>
+                  {(space.shelves || []).map(sh => {
+                    const isSelected = sh.id === targetMoveShelfId;
+                    return (
+                      <button
+                        key={sh.id}
+                        type="button"
+                        onClick={() => {
+                          setTargetMoveShelfId(sh.id);
+                          setTargetMoveParentFolderId(null);
+                        }}
+                        style={{
+                          padding: '0.55rem 0.85rem',
+                          borderRadius: '12px',
+                          border: isSelected ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                          background: isSelected ? '#eff6ff' : '#f8fafc',
+                          color: isSelected ? '#1d4ed8' : '#475569',
+                          fontWeight: isSelected ? 800 : 600,
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        🗄️ {sh.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Step 2: Select Parent Folder inside shelf */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
+                  2. בחר מיקום בתוך המדף:
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
+                  {/* Root option */}
+                  <div
+                    onClick={() => setTargetMoveParentFolderId(null)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.6rem',
+                      padding: '0.65rem 0.85rem',
+                      borderRadius: '12px',
+                      border: targetMoveParentFolderId === null ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                      background: targetMoveParentFolderId === null ? '#eff6ff' : '#ffffff',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span style={{ fontSize: '1.1rem' }}>📁</span>
+                    <span style={{ fontSize: '0.88rem', fontWeight: targetMoveParentFolderId === null ? 800 : 500, color: '#1e293b' }}>
+                      רמה ראשית של המדף (ללא תיקיית אב)
+                    </span>
+                  </div>
+
+                  {/* Other folders */}
+                  {targetShelfFolders.map(tf => {
+                    const isSelected = tf.id === targetMoveParentFolderId;
+                    return (
+                      <div
+                        key={tf.id}
+                        onClick={() => setTargetMoveParentFolderId(tf.id)}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.6rem',
+                          padding: '0.65rem 0.85rem',
+                          borderRadius: '12px',
+                          border: isSelected ? '2px solid #3b82f6' : '1px solid #e2e8f0',
+                          background: isSelected ? '#eff6ff' : '#ffffff',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.1rem' }}>📂</span>
+                        <span style={{ fontSize: '0.88rem', fontWeight: isSelected ? 800 : 500, color: '#1e293b' }}>
+                          בתוך תיקיית "{tf.name}"
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <button
+                  type="button"
+                  onClick={handleConfirmFolderMove}
+                  style={{
+                    flex: 2,
+                    padding: '0.75rem',
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '14px',
+                    fontWeight: 700,
+                    fontSize: '0.92rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                  }}
+                >
+                  בצע העברה
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFolderToMove(null)}
+                  style={{
+                    flex: 1,
+                    padding: '0.75rem',
+                    background: '#f1f5f9',
+                    color: '#475569',
+                    border: 'none',
+                    borderRadius: '14px',
+                    fontWeight: 600,
+                    fontSize: '0.92rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ביטול
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* CONFIRM DELETE FOLDER MODAL */}
       <ConfirmModal
         isOpen={Boolean(folderToDelete)}
@@ -3599,7 +3845,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.23</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.24</span>
         </h2>
         <input 
           type="text" 
