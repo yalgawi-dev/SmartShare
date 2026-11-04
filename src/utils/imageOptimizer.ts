@@ -455,13 +455,15 @@ export async function generatePdfFirstPageThumbnail(source: Blob | string, maxDi
   return compressCanvasWebP(canvas, quality);
 }
 
-export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality = 0.85): Promise<string[]> {
+export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, quality = 0.80): Promise<string[]> {
   if (typeof window === 'undefined') return [];
 
-  // 1. Check in-memory & IndexedDB cache for instant 0ms reload
-  const cached = await getCachedPdfPages(pdfSource);
-  if (cached && cached.length > 0) {
-    return cached;
+  const cacheKey = typeof pdfSource === 'string' ? pdfSource : '';
+  if (cacheKey) {
+    const cached = await getCachedPdfPages(cacheKey);
+    if (cached && cached.length > 0) {
+      return cached;
+    }
   }
 
   try {
@@ -483,20 +485,36 @@ export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality 
     }
 
     let bytes: Uint8Array;
-    if (pdfSource.startsWith('data:')) {
-      const base64Data = pdfSource.includes('base64,') ? pdfSource.split('base64,')[1] : pdfSource;
-      const binaryString = window.atob(base64Data);
-      bytes = new Uint8Array(binaryString.length);
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i);
+    if (pdfSource instanceof Blob) {
+      const arrayBuffer = await pdfSource.arrayBuffer();
+      bytes = new Uint8Array(arrayBuffer);
+    } else if (typeof pdfSource === 'string') {
+      if (pdfSource.startsWith('data:')) {
+        const base64Data = pdfSource.includes('base64,') ? pdfSource.split('base64,')[1] : pdfSource;
+        const binaryString = window.atob(base64Data);
+        bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+      } else {
+        try {
+          const res = await fetch(pdfSource);
+          if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+          const arrayBuffer = await res.arrayBuffer();
+          bytes = new Uint8Array(arrayBuffer);
+        } catch (fetchErr) {
+          // Fallback to server proxy to bypass CORS
+          const proxyUrl = `/api/pdf-proxy?url=${encodeURIComponent(pdfSource)}`;
+          const proxyRes = await fetch(proxyUrl);
+          const arrayBuffer = await proxyRes.arrayBuffer();
+          bytes = new Uint8Array(arrayBuffer);
+        }
       }
     } else {
-      const res = await fetch(pdfSource);
-      const arrayBuffer = await res.arrayBuffer();
-      bytes = new Uint8Array(arrayBuffer);
+      return [];
     }
 
-    const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
+    const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
     const pdf = await loadingTask.promise;
     const numPages = pdf.numPages || 1;
     const pageUrls: string[] = [];
@@ -505,8 +523,8 @@ export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality 
       const page = await pdf.getPage(pageNum);
       const unscaledViewport = page.getViewport({ scale: 1.0 });
       const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-      const scale = Math.min(2.0, maxDim / currentMax);
-      const viewport = page.getViewport({ scale: Math.max(1.0, scale) });
+      const scale = Math.min(1.8, maxDim / currentMax);
+      const viewport = page.getViewport({ scale: Math.max(0.8, scale) });
 
       const pageCanvas = document.createElement('canvas');
       pageCanvas.width = viewport.width;
@@ -516,13 +534,13 @@ export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality 
         pageCtx.fillStyle = '#ffffff';
         pageCtx.fillRect(0, 0, pageCanvas.width, pageCanvas.height);
         await page.render({ canvasContext: pageCtx, viewport }).promise;
-        pageUrls.push(compressCanvas(pageCanvas, quality));
+        pageUrls.push(compressCanvasWebP(pageCanvas, quality));
       }
     }
 
     // 2. Save extracted pages to cache for instant future loads
-    if (pageUrls.length > 0) {
-      setCachedPdfPages(pdfSource, pageUrls);
+    if (cacheKey && pageUrls.length > 0) {
+      setCachedPdfPages(cacheKey, pageUrls).catch(() => {});
     }
 
     return pageUrls;

@@ -145,7 +145,9 @@ export default function SharedFileHandler() {
 
   const processFoundBlobs = React.useCallback(async (blobItems: any[]) => {
     if (!blobItems || blobItems.length === 0 || isCancelledRef.current || hasHandledShareRef.current) return;
-    setIsReceivingShare(true);
+    hasHandledShareRef.current = true;
+    clearAllShareStores();
+    setIsReceivingShare(false);
     setSharedBlobs(blobItems);
 
     // Convert blobs to Object URLs for instant, 0ms, zero-memory-cost previews
@@ -163,7 +165,6 @@ export default function SharedFileHandler() {
     // Immediately open the modal and display previews without blocking on heavy extraction!
     setSharedFiles(previewUrls);
     setRouteDestination(previewUrls.length > 1 ? 'personal' : 'direct');
-    setIsReceivingShare(false);
     setIsModalOpen(true);
   }, []);
 
@@ -538,38 +539,46 @@ export default function SharedFileHandler() {
           const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
 
           if (isPdf) {
-            // PDF document: Keep intact original file in Firebase Storage
             const blobToUpload = (correspondingBlob?.blob instanceof Blob)
               ? correspondingBlob.blob
               : await fetch(cleanUri).then(r => r.blob());
 
-            const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}.pdf`;
-            const rawPdfDownloadUrl = await uploadBlobToStorage(
-              blobToUpload,
-              `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
-            );
+            const buffer = await blobToUpload.arrayBuffer();
+            const analysis = await analyzePdfStructure(buffer);
+            const isOriginalSignedOrVector = analysis.hasDigitalSignature || analysis.hasTextLayer;
 
-            // Generate lightweight Page 1 WebP thumbnail so document cards and viewer load in <50ms
-            let docThumbnailUrl: string | undefined = undefined;
-            try {
-              const { generatePdfFirstPageThumbnail } = await import('@/utils/imageOptimizer');
-              const thumbBase64 = await generatePdfFirstPageThumbnail(blobToUpload, 800, 0.80);
-              docThumbnailUrl = await uploadImageToStorage(
-                thumbBase64,
-                `vault/${selectedSpaceId}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.webp`
-              );
-            } catch (thumbErr) {
-              console.warn("Failed generating PDF thumbnail:", thumbErr);
+            // Extract all pages as crisp, optimized WebP images (1200px) for instant viewing
+            const webpPages = await extractPdfPages(blobToUpload, 1200, 0.80);
+            const uploadedPages: string[] = [];
+            for (let p = 0; p < webpPages.length; p++) {
+              uploadedPages.push(await uploadImageToStorage(
+                webpPages[p],
+                `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.webp`
+              ));
             }
+
+            let rawPdfDownloadUrl: string | undefined = undefined;
+            if (isOriginalSignedOrVector) {
+              // Digitally signed or vector PDF: retain intact original file in Storage for legal validity & download
+              const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}.pdf`;
+              rawPdfDownloadUrl = await uploadBlobToStorage(
+                blobToUpload,
+                `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
+              );
+            }
+
+            const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}`;
+            const cleanTitle = fileName.replace(/\.pdf$/i, '');
+            const finalThumb = uploadedPages[0];
 
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
               folderId: selectedFolderId || undefined,
-              url: rawPdfDownloadUrl,
-              thumbnailUrl: docThumbnailUrl,
-              pages: docThumbnailUrl ? [docThumbnailUrl] : undefined,
-              title: fileName.replace(/\.pdf$/i, '') || 'מסמך PDF',
-              type: 'pdf',
+              url: rawPdfDownloadUrl || finalThumb,
+              thumbnailUrl: finalThumb,
+              pages: uploadedPages.length > 0 ? uploadedPages : (finalThumb ? [finalThumb] : undefined),
+              title: cleanTitle || (isOriginalSignedOrVector ? 'מסמך PDF מקורי' : 'מסמך ששותף'),
+              type: isOriginalSignedOrVector ? 'pdf' : 'document',
               addedBy: user?.id || 'me',
               storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
             });

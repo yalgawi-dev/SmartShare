@@ -244,7 +244,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.8.1
+            v2.8.2
           </span>
           <span
             style={{
@@ -383,8 +383,9 @@ export default function UniversalViewerModal({
         }}
       >
         {(() => {
-          // ── Case 1: Legacy Raw PDF without multi-page images ───────────────
-          if (isPdf && !isMultiPage) {
+          // ── Case 1: Legacy Raw PDF without pre-rendered page images ───────────────
+          const hasRenderedPages = Array.isArray(currentDoc.pages) && currentDoc.pages.length > 0;
+          if (isPdf && !hasRenderedPages) {
             return (
               <div
                 style={{
@@ -504,16 +505,13 @@ export default function UniversalViewerModal({
             );
           }
 
-          // ── Case 3: Single Page Document (JPEG / Image) ────────────────────
-          const fullUrl = currentDoc.url || (currentDoc.pages && currentDoc.pages[0]);
+          // ── Case 3: Single Page Document (JPEG / WebP / Image) ─────────────
+          const pageImage = (currentDoc.pages && currentDoc.pages[0]);
+          const imageTarget = pageImage || (!currentDoc.url?.toLowerCase().includes('.pdf') ? currentDoc.url : undefined) || currentDoc.thumbnailUrl;
           const thumbUrl = currentDoc.thumbnailUrl;
 
-          const isTargetPdf = isPdf ||
-            currentDoc.type === 'pdf' ||
-            (fullUrl && fullUrl.toLowerCase().includes('.pdf')) ||
-            (fullUrl && fullUrl.startsWith('data:application/pdf'));
-
-          if (isTargetPdf && fullUrl) {
+          // If no rendered image is available at all and target is raw PDF:
+          if (!imageTarget && currentDoc.url) {
             return (
               <div
                 style={{
@@ -527,7 +525,7 @@ export default function UniversalViewerModal({
                 }}
               >
                 <DynamicPdfScrollPreview
-                  url={fullUrl}
+                  url={currentDoc.url}
                   title={currentDoc.title}
                   thumbnailUrl={thumbUrl}
                   onPagesLoaded={(loadedPages) => {
@@ -540,6 +538,8 @@ export default function UniversalViewerModal({
               </div>
             );
           }
+
+          const fullUrl = imageTarget || thumbUrl || currentDoc.url;
           return (
             <div
               style={{
