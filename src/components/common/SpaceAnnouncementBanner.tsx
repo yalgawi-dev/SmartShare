@@ -1310,7 +1310,17 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
 
       {/* Action Buttons Row */}
       {canManage && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.35rem', paddingBottom: isModal ? '0.2rem' : '1.5rem' }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '0.5rem',
+            flexWrap: 'wrap',
+            marginTop: '0.35rem',
+            paddingBottom: isModal ? '1.75rem' : '1.5rem',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {((audienceMode === 'all' && existingText) || (audienceMode === 'specific' && editingTargetedId)) && (
               <button
@@ -1580,7 +1590,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: 'max(0.5rem, env(safe-area-inset-top, 0.5rem)) max(0.5rem, env(safe-area-inset-right, 0.5rem)) max(0.5rem, env(safe-area-inset-bottom, 0.5rem)) max(0.5rem, env(safe-area-inset-left, 0.5rem))',
+            padding: 'max(0.75rem, env(safe-area-inset-top, 0.75rem)) max(0.75rem, env(safe-area-inset-right, 0.75rem)) max(1.25rem, env(safe-area-inset-bottom, 1.25rem)) max(0.75rem, env(safe-area-inset-left, 0.75rem))',
             boxSizing: 'border-box',
           }}
         >
@@ -1588,14 +1598,14 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             onClick={(e) => e.stopPropagation()}
             style={{
               background: 'white',
-              borderRadius: '20px',
+              borderRadius: '24px',
               padding: 'clamp(1rem, 3.5vw, 1.4rem)',
               width: '100%',
-              maxWidth: 'min(480px, 96vw)',
-              maxHeight: 'min(86vh, calc(100dvh - 32px))',
+              maxWidth: 'min(480px, 94vw)',
+              maxHeight: 'min(80vh, calc(100dvh - 56px))',
               display: 'flex',
               flexDirection: 'column',
-              boxShadow: '0 25px 60px rgba(15, 23, 42, 0.3)',
+              boxShadow: '0 25px 60px rgba(15, 23, 42, 0.35)',
               border: '1px solid #cbd5e1',
               boxSizing: 'border-box',
               overflow: 'hidden',
@@ -1605,8 +1615,8 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
               style={{
                 overflowY: 'auto',
                 WebkitOverflowScrolling: 'touch',
-                paddingRight: '2px',
-                paddingLeft: '2px',
+                paddingRight: '4px',
+                paddingLeft: '4px',
                 maxHeight: '100%',
               }}
             >
