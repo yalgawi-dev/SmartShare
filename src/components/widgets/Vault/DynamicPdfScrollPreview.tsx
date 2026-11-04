@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { compressCanvasWebP } from '@/utils/imageOptimizer';
+import { compressCanvasWebP, ensurePdfJsLoaded } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 
 interface DynamicPdfScrollPreviewProps {
@@ -28,22 +28,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
     const loadProgressively = async () => {
       try {
-        if (!window.pdfjsLib) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            script.onload = () => {
-              if (window.pdfjsLib) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                resolve(null);
-              } else {
-                reject(new Error('pdfjsLib not found on window'));
-              }
-            };
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
+        await ensurePdfJsLoaded();
 
         let bytes: Uint8Array;
         if (url.startsWith('data:')) {
