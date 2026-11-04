@@ -272,7 +272,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                   }
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.4.15</span>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.4.16</span>
                 
                 {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                   if (isInvite) return '#f59e0b';
@@ -626,7 +626,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                 );
               })()}
 
-              <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                 {onTriggerTransfer && !isSharedOnly && (
                   <button
                     onClick={() => {
@@ -635,7 +635,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       }
                     }}
                     style={{
-                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                      flex: 1, minWidth: '95px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                       background: '#10b981', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
                       fontWeight: 'bold',
                       cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
@@ -654,7 +654,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       }
                     }}
                     style={{
-                      flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                      flex: 1, minWidth: '95px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
                       background: 'white', color: '#10b981', border: '1px solid #10b981', padding: '0.6rem', borderRadius: '12px',
                       fontWeight: 'bold',
                       cursor: (space?.features || []).includes('partners') ? 'pointer' : 'not-allowed',
@@ -664,6 +664,29 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                     <span style={{ fontSize: '1.1rem' }}>📊</span> שינוי אחוזים
                   </button>
                 )}
+                {/* Quick Targeted Announcement to this specific partner */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    if (typeof window !== 'undefined') {
+                      window.dispatchEvent(
+                        new CustomEvent('smartshare:open_space_announcement_editor', {
+                          detail: { spaceId: space?.id, targetUserId: member.userId },
+                        })
+                      );
+                    }
+                  }}
+                  style={{
+                    flex: 1, minWidth: '110px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)', color: 'white', border: 'none', padding: '0.6rem', borderRadius: '12px',
+                    fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 2px 6px rgba(124, 58, 237, 0.35)', fontSize: '0.85rem',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={`שלח הודעה מתפרצת אישית ודיסקרטית ל-${member.name}`}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>📢</span> הודעה מתפרצת
+                </button>
               </div>
             </div>
           )}

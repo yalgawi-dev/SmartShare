@@ -220,6 +220,7 @@ export interface SpaceSettings {
   announcementExpiresAt?: string | null;
   announcementDurationHours?: number | null;
   announcementShowOnce?: boolean;
+  targetedAnnouncements?: TargetedAnnouncementItem[];
 }
 
 export interface SpaceMessage {

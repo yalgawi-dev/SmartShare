@@ -8,6 +8,7 @@ export interface SpaceAnnouncementBannerProps {
   spaceId?: string;
   isGlobal?: boolean;
   externalOpenEditor?: boolean;
+  initialTargetUserId?: string | null;
   onCloseExternalEditor?: () => void;
   onSavedToast?: (msg: string) => void;
 }
@@ -125,18 +126,18 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
   const remainingLabel = formatRemainingTime(expiresAt, nowMs);
   const durationSeconds = Math.max(14, Math.min(48, Math.round(cleanText.length * 0.24)));
 
-  const handleDontShowAgain = (e: React.MouseEvent) => {
+  const handleCloseSessionOrPermanent = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (typeof window !== 'undefined') {
       try {
-        localStorage.setItem(storageKey, '1');
+        // If showOnce, clicking ✕ permanently dismisses it so it never shows again
+        if (showOnce) {
+          localStorage.setItem(storageKey, '1');
+          setDismissedPermanently(true);
+          return;
+        }
       } catch (err) {}
     }
-    setDismissedPermanently(true);
-  };
-
-  const handleCloseSession = (e: React.MouseEvent) => {
-    e.stopPropagation();
     setDismissedSession(true);
   };
 
@@ -153,45 +154,48 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
         zIndex: 45,
         marginBottom: '0.75rem',
         background: isPersonalTargeted
-          ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(88, 28, 135, 0.82) 100%)'
+          ? 'linear-gradient(135deg, rgba(30, 27, 75, 0.94) 0%, rgba(76, 29, 149, 0.90) 100%)'
           : isGlobalStyle
-          ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.85) 0%, rgba(30, 58, 138, 0.78) 100%)'
-          : 'linear-gradient(135deg, rgba(15, 23, 42, 0.80) 0%, rgba(30, 41, 59, 0.74) 100%)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+          ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.88) 0%, rgba(30, 58, 138, 0.82) 100%)'
+          : 'linear-gradient(135deg, rgba(15, 23, 42, 0.84) 0%, rgba(30, 41, 59, 0.80) 100%)',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
         border: isPersonalTargeted
-          ? '1px solid rgba(192, 132, 252, 0.45)'
+          ? '1.5px solid rgba(192, 132, 252, 0.55)'
           : isGlobalStyle
-          ? '1px solid rgba(96, 165, 250, 0.35)'
-          : '1px solid rgba(148, 163, 184, 0.26)',
+          ? '1px solid rgba(96, 165, 250, 0.40)'
+          : '1px solid rgba(148, 163, 184, 0.30)',
         borderRadius: '16px',
-        padding: '0.5rem 0.85rem 0.6rem 0.85rem',
+        padding: '0.45rem 0.85rem 0.55rem 0.85rem',
         color: '#f8fafc',
-        boxShadow: '0 8px 26px rgba(15, 23, 42, 0.16)',
+        boxShadow: isPersonalTargeted
+          ? '0 10px 30px rgba(88, 28, 135, 0.28), 0 0 16px rgba(168, 85, 247, 0.20)'
+          : '0 8px 26px rgba(15, 23, 42, 0.18)',
         display: 'flex',
         flexDirection: 'column',
-        gap: '0.3rem',
+        gap: '0.25rem',
         overflow: 'hidden',
       }}
     >
-      {/* Top Meta Row: Megaphone Icon + Publisher Name + Badges on Right, Controls on Left */}
+      {/* Top Meta Row: Clean Minimal Header (Megaphone, Author, Distinct Personal Lock badge if private, Eye symbol if show-once, and single X close button) */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '0.5rem',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-          paddingBottom: '0.28rem',
-          flexWrap: 'wrap',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+          paddingBottom: '0.25rem',
+          flexWrap: 'nowrap',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', minWidth: 0, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', minWidth: 0, flexWrap: 'nowrap', overflow: 'hidden' }}>
           <span
             style={{
-              fontSize: '1.05rem',
+              fontSize: '1.15rem',
               lineHeight: 1,
-              filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.45))',
+              filter: 'drop-shadow(0 0 6px rgba(56, 189, 248, 0.6))',
+              flexShrink: 0,
             }}
             title="הודעה מתפרצת"
           >
@@ -199,12 +203,13 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
           </span>
           <span
             style={{
-              fontSize: '0.74rem',
-              fontWeight: 700,
+              fontSize: '0.78rem',
+              fontWeight: 800,
               color: '#93c5fd',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
+              maxWidth: '130px',
             }}
           >
             {author}
@@ -213,49 +218,52 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
           {isPersonalTargeted && (
             <span
               style={{
-                fontSize: '0.66rem',
+                fontSize: '0.67rem',
                 fontWeight: 800,
-                background: 'rgba(168, 85, 247, 0.28)',
-                color: '#e9d5ff',
-                border: '1px solid rgba(192, 132, 252, 0.45)',
+                background: 'rgba(168, 85, 247, 0.35)',
+                color: '#f5d0fe',
+                border: '1px solid rgba(216, 180, 254, 0.6)',
                 borderRadius: '8px',
-                padding: '0.05rem 0.4rem',
+                padding: '0.1rem 0.45rem',
                 whiteSpace: 'nowrap',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                boxShadow: '0 0 8px rgba(168, 85, 247, 0.25)',
               }}
+              title="הודעה פרטית ודיסקרטית שנשלחה רק אליך - שאר השותפים במרחב אינם רואים אותה"
             >
-              👤 {targetNamesLabel ? `אישי עבור: ${targetNamesLabel}` : 'הודעה אישית עבורך'}
+              🔒 <span>{targetNamesLabel ? `רק ל${targetNamesLabel}` : 'רק עבורך (פרטי)'}</span>
             </span>
           )}
 
           {showOnce && (
             <span
               style={{
-                fontSize: '0.66rem',
-                fontWeight: 700,
-                background: 'rgba(236, 72, 153, 0.22)',
-                color: '#fbcfe8',
-                border: '1px solid rgba(244, 114, 182, 0.35)',
-                borderRadius: '8px',
-                padding: '0.05rem 0.4rem',
-                whiteSpace: 'nowrap',
+                fontSize: '0.85rem',
+                lineHeight: 1,
+                cursor: 'help',
+                opacity: 0.9,
+                flexShrink: 0,
               }}
-              title="הכרזה חד פעמית - תופיע פעם אחת בלבד בכניסה"
+              title="👁️ תצוגה חד-פעמית - תופיע פעם אחת בלבד בכניסה ולא תחזור"
             >
-              👁️ חד-פעמית
+              👁️
             </span>
           )}
 
           {remainingLabel && (
             <span
               style={{
-                fontSize: '0.66rem',
+                fontSize: '0.65rem',
                 fontWeight: 700,
                 background: 'rgba(245, 158, 11, 0.22)',
                 color: '#fde68a',
                 border: '1px solid rgba(251, 191, 36, 0.35)',
                 borderRadius: '8px',
-                padding: '0.05rem 0.4rem',
+                padding: '0.05rem 0.35rem',
                 whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
               title="זמן שנותר להצגת ההודעה"
             >
@@ -279,7 +287,7 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
                   color: '#e2e8f0',
                   border: '1px solid rgba(255, 255, 255, 0.2)',
                   borderRadius: '6px',
-                  padding: '0.12rem 0.38rem',
+                  padding: '0.12rem 0.35rem',
                   fontSize: '0.68rem',
                   cursor: 'pointer',
                   display: 'flex',
@@ -301,7 +309,7 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
                   color: '#fecaca',
                   border: '1px solid rgba(248, 113, 113, 0.35)',
                   borderRadius: '6px',
-                  padding: '0.12rem 0.38rem',
+                  padding: '0.12rem 0.35rem',
                   fontSize: '0.68rem',
                   cursor: 'pointer',
                   display: 'flex',
@@ -316,41 +324,23 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
 
           <button
             type="button"
-            onClick={handleDontShowAgain}
-            title="אל תציג שוב הודעה זו"
+            onClick={handleCloseSessionOrPermanent}
+            title={showOnce ? 'סגור (חד-פעמי - לא יוצג שוב)' : 'סגור הודעה'}
             style={{
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: '#cbd5e1',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              borderRadius: '6px',
-              padding: '0.12rem 0.48rem',
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            אל תציג שוב
-          </button>
-
-          <button
-            type="button"
-            onClick={handleCloseSession}
-            title="סגור הודעה"
-            style={{
-              background: 'rgba(255, 255, 255, 0.14)',
+              background: 'rgba(255, 255, 255, 0.15)',
               color: '#ffffff',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              width: '20px',
-              height: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              width: '22px',
+              height: '22px',
               borderRadius: '50%',
-              fontSize: '0.68rem',
+              fontSize: '0.72rem',
               fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               padding: 0,
+              transition: 'background 0.2s',
             }}
           >
             ✕
@@ -449,19 +439,21 @@ interface AnnouncementUnifiedEditorFormProps {
   isGlobalMode: boolean;
   isModal?: boolean;
   initialEditingTargetId?: string | null;
+  initialTargetUserId?: string | null;
   onClose?: () => void;
   onSavedToast?: (msg: string) => void;
 }
 
 /**
  * Single Source of Truth Form Engine for Creating, Editing, Time-Limiting, Deleting,
- * and Admin User-Targeting of Breaking Announcements (used in both Modal and Settings Card).
+ * and Admin/Space User-Targeting of Breaking Announcements (used in both Modal and Settings Card).
  */
 const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps> = ({
   spaceId,
   isGlobalMode,
   isModal = false,
   initialEditingTargetId = null,
+  initialTargetUserId = null,
   onClose,
   onSavedToast,
 }) => {
@@ -511,44 +503,65 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
     : Boolean(space?.settings?.announcementShowOnce);
 
   const targetedList: TargetedAnnouncementItem[] = useMemo(() => {
-    return Array.isArray(globalAnnouncement?.targetedAnnouncements)
-      ? globalAnnouncement.targetedAnnouncements
+    if (isGlobalMode) {
+      return Array.isArray(globalAnnouncement?.targetedAnnouncements)
+        ? globalAnnouncement.targetedAnnouncements
+        : [];
+    }
+    return Array.isArray(space?.settings?.targetedAnnouncements)
+      ? space.settings.targetedAnnouncements
       : [];
-  }, [globalAnnouncement?.targetedAnnouncements]);
+  }, [isGlobalMode, globalAnnouncement?.targetedAnnouncements, space?.settings?.targetedAnnouncements]);
 
-  // Build deduplicated directory of all system users for Admin targeting
+  // Build directory of targetable users:
+  // For Global Mode: all system users (Admin)
+  // For Space Mode: all members of this space
   const directoryUsers = useMemo(() => {
-    if (!isSystemAdmin) return [];
     const map = new Map<string, { id: string; name: string; phone?: string; email?: string }>();
-    (allUsers || []).forEach((u) => {
-      if (!u || !u.id) return;
-      const displayName = (u.realName || u.nickname || u.email || u.phone || 'משתמש').trim();
-      map.set(u.id, {
-        id: u.id,
-        name: displayName,
-        phone: u.phone,
-        email: u.email,
+    if (isGlobalMode) {
+      if (!isSystemAdmin) return [];
+      (allUsers || []).forEach((u) => {
+        if (!u || !u.id) return;
+        const displayName = (u.realName || u.nickname || u.email || u.phone || 'משתמש').trim();
+        map.set(u.id, {
+          id: u.id,
+          name: displayName,
+          phone: u.phone,
+          email: u.email,
+        });
       });
-    });
-    (spaces || []).forEach((sp) => {
-      if (sp.creatorId && sp.createdBy && !map.has(sp.creatorId)) {
-        map.set(sp.creatorId, { id: sp.creatorId, name: sp.createdBy });
+      (spaces || []).forEach((sp) => {
+        if (sp.creatorId && sp.createdBy && !map.has(sp.creatorId)) {
+          map.set(sp.creatorId, { id: sp.creatorId, name: sp.createdBy });
+        }
+        (sp.members || []).forEach((m: any) => {
+          if (m?.userId && m?.name && !map.has(m.userId)) {
+            map.set(m.userId, { id: m.userId, name: m.name });
+          }
+        });
+      });
+    } else if (space) {
+      // Space Mode: Creator + Space Members
+      if (space.creatorId && space.createdBy && space.creatorId !== user?.id) {
+        map.set(space.creatorId, { id: space.creatorId, name: `${space.createdBy} (מנהל)` });
       }
-      (sp.members || []).forEach((m: any) => {
-        if (m?.userId && m?.name && !map.has(m.userId)) {
-          map.set(m.userId, { id: m.userId, name: m.name });
+      (space.members || []).forEach((m: any) => {
+        if (m?.userId && m.userId !== user?.id && m.isActive !== false) {
+          map.set(m.userId, { id: m.userId, name: m.name || 'שותף במרחב', phone: m.phone, email: m.email });
         }
       });
-    });
+    }
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name, 'he'));
-  }, [isSystemAdmin, allUsers, spaces]);
+  }, [isGlobalMode, isSystemAdmin, allUsers, spaces, space, user?.id]);
 
-  // Target mode (only available for System Admin in Global Mode)
+  // Target mode: 'all' vs 'specific'
   const [audienceMode, setAudienceMode] = useState<'all' | 'specific'>(
-    initialEditingTargetId ? 'specific' : 'all'
+    initialEditingTargetId || initialTargetUserId ? 'specific' : 'all'
   );
   const [editingTargetedId, setEditingTargetedId] = useState<string | null>(initialEditingTargetId);
-  const [selectedUserIds, setSelectedUserIds] = useState<string[]>([]);
+  const [selectedUserIds, setSelectedUserIds] = useState<string[]>(
+    initialTargetUserId ? [initialTargetUserId] : []
+  );
   const [userSearchQuery, setUserSearchQuery] = useState('');
 
   const [draftText, setDraftText] = useState(existingText);
@@ -561,7 +574,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
 
   // Sync initial state when switching between 'all' and 'specific' or loading existing
   useEffect(() => {
-    if (isGlobalMode && audienceMode === 'specific') {
+    if (audienceMode === 'specific') {
       if (editingTargetedId) {
         const found = targetedList.find((item) => item.id === editingTargetedId);
         if (found) {
@@ -588,6 +601,9 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
       setDraftShowOnce(false);
       setSelectedDurationHours(24);
       setUseCustomHours(false);
+      if (initialTargetUserId && selectedUserIds.length === 0) {
+        setSelectedUserIds([initialTargetUserId]);
+      }
     } else {
       setDraftText(existingText);
       setDraftEnabled(existingEnabled);
@@ -602,7 +618,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         setSelectedDurationHours(existingDurationHours);
       }
     }
-  }, [audienceMode, editingTargetedId, existingText, existingEnabled, existingShowOnce, existingDurationHours, isGlobalMode, targetedList]);
+  }, [audienceMode, editingTargetedId, existingText, existingEnabled, existingShowOnce, existingDurationHours, targetedList, initialTargetUserId]);
 
   const effectiveDurationHours: number | null = useMemo(() => {
     if (useCustomHours) {
@@ -644,18 +660,18 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         ? new Date(Date.now() + effectiveDurationHours * 3600 * 1000).toISOString()
         : null;
 
-    // Case 1: Admin saving a targeted announcement to specific user(s)
-    if (isGlobalMode && isSystemAdmin && audienceMode === 'specific') {
+    // Case 1: Saving a targeted announcement to specific user(s) (Global Admin OR Space Creator/Admin)
+    if (audienceMode === 'specific') {
       if (!trimmed) {
         alert('נא להזין את תוכן ההודעה המתפרצת.');
         return;
       }
       if (selectedUserIds.length === 0) {
-        alert('נא לבחור לפחות משתמש אחד שאליו תישלח ההודעה המתפרצת.');
+        alert('נא לבחור לפחות שותף/משתמש אחד שאליו תישלח ההודעה המתפרצת.');
         return;
       }
       const targetNames = selectedUserIds.map(
-        (uid) => directoryUsers.find((u) => u.id === uid)?.name || 'משתמש'
+        (uid) => directoryUsers.find((u) => u.id === uid)?.name || 'שותף'
       );
       const itemId = editingTargetedId || `t_ann_${Date.now()}`;
       const newItem: TargetedAnnouncementItem = {
@@ -676,9 +692,15 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         ? targetedList.map((item) => (item.id === editingTargetedId ? newItem : item))
         : [newItem, ...targetedList];
 
-      updateGlobalAnnouncement({
-        targetedAnnouncements: nextList,
-      });
+      if (isGlobalMode) {
+        updateGlobalAnnouncement({
+          targetedAnnouncements: nextList,
+        });
+      } else {
+        updateSpaceSettings(spaceId, {
+          targetedAnnouncements: nextList,
+        });
+      }
 
       if (typeof window !== 'undefined') {
         try {
@@ -734,9 +756,13 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
   const handleDeleteCurrent = () => {
     if (!canManage) return;
 
-    if (isGlobalMode && isSystemAdmin && audienceMode === 'specific' && editingTargetedId) {
+    if (audienceMode === 'specific' && editingTargetedId) {
       const nextList = targetedList.filter((item) => item.id !== editingTargetedId);
-      updateGlobalAnnouncement({ targetedAnnouncements: nextList });
+      if (isGlobalMode) {
+        updateGlobalAnnouncement({ targetedAnnouncements: nextList });
+      } else {
+        updateSpaceSettings(spaceId, { targetedAnnouncements: nextList });
+      }
       setEditingTargetedId(null);
       setDraftText('');
       triggerFeedback('ההודעה האישית המתפרצת נמחקה');
@@ -768,9 +794,13 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
   };
 
   const handleDeleteTargetedById = (targetId: string) => {
-    if (!isSystemAdmin) return;
+    if (!canManage) return;
     const nextList = targetedList.filter((item) => item.id !== targetId);
-    updateGlobalAnnouncement({ targetedAnnouncements: nextList });
+    if (isGlobalMode) {
+      updateGlobalAnnouncement({ targetedAnnouncements: nextList });
+    } else {
+      updateSpaceSettings(spaceId, { targetedAnnouncements: nextList });
+    }
     if (editingTargetedId === targetId) {
       setEditingTargetedId(null);
       setDraftText('');
@@ -908,8 +938,8 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         </div>
       </div>
 
-      {/* Admin-Only Audience Selector: All Users vs Specific User(s) */}
-      {isGlobalMode && isSystemAdmin && (
+      {/* Audience Selector: All Users vs Specific User(s) */}
+      {(isGlobalMode ? isSystemAdmin : canManage) && (
         <div
           style={{
             background: '#f8fafc',
@@ -922,7 +952,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
           }}
         >
           <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b' }}>
-            🎯 קהל יעד להודעה המתפרצת (אדמין בלבד):
+            🎯 קהל יעד להודעה המתפרצת:
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <button
@@ -944,7 +974,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
                 cursor: 'pointer',
               }}
             >
-              🌐 לכל המשתמשים במערכת
+              {isGlobalMode ? '🌐 לכל המשתמשים במערכת' : '📢 לכל שותפי המרחב'}
             </button>
             <button
               type="button"
@@ -964,7 +994,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
                 cursor: 'pointer',
               }}
             >
-              👤 למשתמש מסוים בלבד
+              {isGlobalMode ? '👤 למשתמש מסוים בלבד' : '🔒 לשותף מסוים בלבד (פרטי)'}
             </button>
           </div>
 
@@ -974,7 +1004,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
                 type="text"
                 value={userSearchQuery}
                 onChange={(e) => setUserSearchQuery(e.target.value)}
-                placeholder="🔍 חפש משתמש לפי שם, טלפון או אימייל..."
+                placeholder={isGlobalMode ? "🔍 חפש משתמש לפי שם, טלפון או אימייל..." : "🔍 חפש שותף במרחב לפי שם..."}
                 style={{
                   width: '100%',
                   boxSizing: 'border-box',
@@ -1000,7 +1030,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
               >
                 {filteredDirectoryUsers.length === 0 ? (
                   <div style={{ fontSize: '0.78rem', color: '#94a3b8', textAlign: 'center', padding: '0.5rem' }}>
-                    לא נמצאו משתמשים תואמים
+                    לא נמצאו שותפים תואמים
                   </div>
                 ) : (
                   filteredDirectoryUsers.map((u) => {
@@ -1061,7 +1091,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
             </div>
           )}
 
-          {/* Active Targeted Announcements List for Admin Management */}
+          {/* Active Targeted Announcements List for Management */}
           {targetedList.length > 0 && (
             <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '0.55rem', marginTop: '0.2rem' }}>
               <div style={{ fontSize: '0.76rem', fontWeight: 800, color: '#475569', marginBottom: '0.35rem' }}>
@@ -1088,7 +1118,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
                     >
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontWeight: 800, color: '#5b21b6', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                          <span>👤 {(item.targetUserNames || []).join(', ') || 'משתמש'}</span>
+                          <span>🔒 {(item.targetUserNames || []).join(', ') || 'שותף'}</span>
                           {expired ? (
                             <span style={{ color: '#dc2626', fontSize: '0.68rem' }}>(פג תוקף)</span>
                           ) : rem ? (
@@ -1398,6 +1428,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
   spaceId = 'global',
   isGlobal = false,
   externalOpenEditor = false,
+  initialTargetUserId = null,
   onCloseExternalEditor,
   onSavedToast,
 }) => {
@@ -1429,7 +1460,31 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
 
   const [internalEditorOpen, setInternalEditorOpen] = useState(false);
   const [editingTargetedId, setEditingTargetedId] = useState<string | null>(null);
+  const [activeTargetUserId, setActiveTargetUserId] = useState<string | null>(initialTargetUserId);
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  // Listen to custom event so any component (e.g. PartnerControlPanel) can open the editor targeting a partner
+  useEffect(() => {
+    const handleOpenTargeted = (e: any) => {
+      const detail = e?.detail;
+      if (detail?.spaceId && detail.spaceId !== spaceId && !isGlobalMode) return;
+      if (detail?.targetUserId) {
+        setActiveTargetUserId(detail.targetUserId);
+        setEditingTargetedId(null);
+        setInternalEditorOpen(true);
+      }
+    };
+    window.addEventListener('smartshare:open_space_announcement_editor', handleOpenTargeted);
+    return () => {
+      window.removeEventListener('smartshare:open_space_announcement_editor', handleOpenTargeted);
+    };
+  }, [spaceId, isGlobalMode]);
+
+  useEffect(() => {
+    if (initialTargetUserId) {
+      setActiveTargetUserId(initialTargetUserId);
+    }
+  }, [initialTargetUserId]);
 
   // Tick every 30 seconds so time-limited announcements expire automatically in real time
   useEffect(() => {
@@ -1464,22 +1519,65 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     ? `hide_global_announcement_${announcementId}`
     : `hide_space_announcement_${spaceId}_${announcementId}`;
 
-  // Personal targeted announcements sent by the Admin to this user (or visible to Admin)
-  const matchingTargetedAnnouncements: TargetedAnnouncementItem[] = (
-    Array.isArray(globalAnnouncement?.targetedAnnouncements)
-      ? globalAnnouncement.targetedAnnouncements
-      : []
-  ).filter((item) => {
-    if (!item || !item.enabled || !item.text?.trim()) return false;
-    if (isTimestampExpired(item.expiresAt, nowMs)) return false;
-    const isTargetedToMe = Boolean(user?.id && Array.isArray(item.targetUserIds) && item.targetUserIds.includes(user.id));
-    // Show on Main Dashboard to the targeted user (and to System Admin so they can see/edit/delete it live),
-    // and also inside spaces if specifically targeted to this user.
-    if (isGlobalMode) {
-      return isTargetedToMe || isSystemAdmin;
+  // 1. Personal Targeted Breaking Announcements:
+  // - In Global Mode: from globalAnnouncement.targetedAnnouncements
+  // - In Space Mode: from space.settings.targetedAnnouncements (and also global ones targeted to me)
+  const combinedTargetedAnnouncements: Array<{ item: TargetedAnnouncementItem; isSpaceTargeted: boolean }> = useMemo(() => {
+    const list: Array<{ item: TargetedAnnouncementItem; isSpaceTargeted: boolean }> = [];
+    
+    // Space-level targeted announcements
+    if (!isGlobalMode && Array.isArray(space?.settings?.targetedAnnouncements)) {
+      space.settings.targetedAnnouncements.forEach((item) => {
+        if (!item || !item.enabled || !item.text?.trim()) return;
+        if (isTimestampExpired(item.expiresAt, nowMs)) return;
+        const isTargetedToMe = Boolean(user?.id && Array.isArray(item.targetUserIds) && item.targetUserIds.includes(user.id));
+        const isSender = Boolean(user?.id && item.creatorId === user.id);
+        
+        // Hide from sender during normal view! Show only to recipient (and to space creator in editor if needed)
+        if (isSender) return;
+        if (isTargetedToMe) {
+          list.push({ item, isSpaceTargeted: true });
+        }
+      });
     }
-    return isTargetedToMe;
-  });
+
+    // Global admin targeted announcements
+    const globalList = Array.isArray(globalAnnouncement?.targetedAnnouncements)
+      ? globalAnnouncement.targetedAnnouncements
+      : [];
+    globalList.forEach((item) => {
+      if (!item || !item.enabled || !item.text?.trim()) return;
+      if (isTimestampExpired(item.expiresAt, nowMs)) return;
+      const isTargetedToMe = Boolean(user?.id && Array.isArray(item.targetUserIds) && item.targetUserIds.includes(user.id));
+      const isSender = Boolean(user?.id && item.creatorId === user.id);
+
+      // Hide from sender during normal view
+      if (isSender) return;
+
+      if (isGlobalMode) {
+        if (isTargetedToMe || isSystemAdmin) {
+          list.push({ item, isSpaceTargeted: false });
+        }
+      } else if (isTargetedToMe) {
+        list.push({ item, isSpaceTargeted: false });
+      }
+    });
+
+    return list;
+  }, [isGlobalMode, space?.settings?.targetedAnnouncements, globalAnnouncement?.targetedAnnouncements, nowMs, user?.id, isSystemAdmin]);
+
+  // Is current logged in user the author/creator of the general announcement?
+  // User Rule: "ההודעה המתפרצת לא צריכה להופיע אצל מי ששולח אותה אלא אצל שאר השותפים"
+  const isSenderOfGeneral = Boolean(
+    user?.id &&
+      (announcementCreatorId === user.id ||
+        (!announcementCreatorId && !isGlobalMode && space?.creatorId === user.id))
+  );
+
+  const shouldShowGeneralBanner =
+    announcementEnabled &&
+    announcementText.trim() &&
+    !isSenderOfGeneral; // Creator doesn't see their own announcement banner in normal view!
 
   const isEditorOpen = internalEditorOpen || externalOpenEditor;
 
@@ -1518,44 +1616,53 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
     if (onSavedToast) onSavedToast('ההודעה המתפרצת נמחקה');
   };
 
-  const handleDirectDeleteTargeted = (targetId: string) => {
-    if (!isSystemAdmin) return;
-    const currentList = Array.isArray(globalAnnouncement?.targetedAnnouncements)
-      ? globalAnnouncement.targetedAnnouncements
-      : [];
-    updateGlobalAnnouncement({
-      targetedAnnouncements: currentList.filter((item) => item.id !== targetId),
-    });
+  const handleDirectDeleteTargeted = (targetId: string, isSpaceTargeted: boolean) => {
+    if (!canManage) return;
+    if (isSpaceTargeted) {
+      const currentList = Array.isArray(space?.settings?.targetedAnnouncements)
+        ? space.settings.targetedAnnouncements
+        : [];
+      updateSpaceSettings(spaceId, {
+        targetedAnnouncements: currentList.filter((item) => item.id !== targetId),
+      });
+    } else {
+      const currentList = Array.isArray(globalAnnouncement?.targetedAnnouncements)
+        ? globalAnnouncement.targetedAnnouncements
+        : [];
+      updateGlobalAnnouncement({
+        targetedAnnouncements: currentList.filter((item) => item.id !== targetId),
+      });
+    }
     if (onSavedToast) onSavedToast('ההודעה האישית המתפרצת נמחקה');
   };
 
   return (
     <>
-      {/* 1. Personal Targeted Breaking Announcements (Admin -> Specific User) */}
-      {matchingTargetedAnnouncements.map((item) => (
+      {/* 1. Stacked Personal Targeted Breaking Announcements (Sender Hidden, Distinct Private Glass) */}
+      {combinedTargetedAnnouncements.map(({ item, isSpaceTargeted }) => (
         <SingleAnnouncementMarqueeStrip
           key={item.id}
           bannerId={item.id}
           storageKey={`hide_targeted_announcement_${item.id}`}
           text={item.text}
-          author={item.author || 'הנהלת המערכת'}
+          author={item.author || (isSpaceTargeted ? space?.createdBy || 'מנהל המרחב' : 'הנהלת המערכת')}
           expiresAt={item.expiresAt}
           isGlobalStyle={isGlobalMode}
           isPersonalTargeted={true}
-          targetNamesLabel={isSystemAdmin ? (item.targetUserNames || []).join(', ') : undefined}
+          targetNamesLabel={canManage ? (item.targetUserNames || []).join(', ') : undefined}
           showOnce={Boolean(item.showOnce)}
-          canEditOrDelete={isSystemAdmin}
+          canEditOrDelete={canManage}
           nowMs={nowMs}
           onEditClick={() => {
             setEditingTargetedId(item.id);
             setInternalEditorOpen(true);
           }}
-          onDeleteClick={() => handleDirectDeleteTargeted(item.id)}
+          onDeleteClick={() => handleDirectDeleteTargeted(item.id, isSpaceTargeted)}
         />
       ))}
 
-      {/* 2. General Global or Space Breaking Announcement */}
-      {announcementEnabled && announcementText.trim() && (
+      {/* 2. General Global or Space Breaking Announcement (Hidden for Creator) */}
+      {shouldShowGeneralBanner && (
         <SingleAnnouncementMarqueeStrip
           bannerId={announcementId}
           storageKey={storageKey}
@@ -1625,6 +1732,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
                 isGlobalMode={isGlobalMode}
                 isModal={true}
                 initialEditingTargetId={editingTargetedId}
+                initialTargetUserId={activeTargetUserId}
                 onClose={closeEditor}
                 onSavedToast={onSavedToast}
               />
