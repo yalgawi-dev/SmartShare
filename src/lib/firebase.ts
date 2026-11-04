@@ -32,7 +32,17 @@ export const storage = getStorage(app);
 import { GoogleAuthProvider } from "firebase/auth";
 export const googleProvider = new GoogleAuthProvider();
 
-import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
+import { ref, uploadString, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+
+export const uploadBlobToStorage = async (blob: Blob, path: string): Promise<string> => {
+  const storageRef = ref(storage, path);
+  const metadata = {
+    contentType: blob.type || 'application/octet-stream',
+    cacheControl: 'public, max-age=31536000, immutable'
+  };
+  const snapshot = await uploadBytes(storageRef, blob, metadata);
+  return await getDownloadURL(snapshot.ref);
+};
 
 export const uploadImageToStorage = async (inputDataUrl: string, path: string): Promise<string> => {
   if (!inputDataUrl.startsWith('data:image') && !inputDataUrl.startsWith('data:application/pdf')) {
@@ -40,9 +50,10 @@ export const uploadImageToStorage = async (inputDataUrl: string, path: string): 
     return inputDataUrl;
   }
 
-  // Storage policy (single source of truth): raw PDFs are never stored – always optimized WebP.
+  // Storage policy: If target path explicitly requests retaining raw PDF (e.g. vault/ or documents/ with .pdf),
+  // retain raw PDF; otherwise for image pipelines / expenses, convert to optimized WebP.
   let dataUrl = inputDataUrl;
-  if (dataUrl.startsWith('data:application/pdf')) {
+  if (dataUrl.startsWith('data:application/pdf') && !path.endsWith('.pdf')) {
     const { convertPdfToOptimizedImage } = await import('../utils/imageOptimizer');
     dataUrl = await convertPdfToOptimizedImage(dataUrl, 1500, 0.85);
     path = path.replace(/\.pdf$/i, '.webp');

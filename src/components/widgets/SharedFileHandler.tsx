@@ -5,8 +5,8 @@ import PdfThumbnail from '../shared/PdfThumbnail';
 import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
-import { uploadImageToStorage } from '../../lib/firebase';
-import { downscaleBase64, extractPdfPages } from '../../utils/imageOptimizer';
+import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
+import { downscaleBase64, extractPdfPages, analyzePdfStructure } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 
@@ -17,7 +17,9 @@ export default function SharedFileHandler() {
   const [clientKeys, setClientKeys] = useState<any>({});
   const [guestTokens, setGuestTokens] = useState<string[]>([]);
   const [sharedFiles, setSharedFiles] = useState<string[]>([]);
+  const [sharedBlobs, setSharedBlobs] = useState<any[]>([]);
   const [sharedAllPages, setSharedAllPages] = useState<string[] | null>(null);
+  const [isReceivingShare, setIsReceivingShare] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('');
   const [selectedShelfId, setSelectedShelfId] = useState<string>('');
@@ -51,12 +53,21 @@ export default function SharedFileHandler() {
     }
 
     try {
-      const dbReq = indexedDB.open('MySpaceDB', 1);
+      const dbReq = indexedDB.open('MySpaceDB');
+      dbReq.onupgradeneeded = (e: any) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('sharedFiles')) db.createObjectStore('sharedFiles');
+        if (!db.objectStoreNames.contains('sharedBlobs')) db.createObjectStore('sharedBlobs');
+      };
       dbReq.onsuccess = (e: any) => {
         const db = e.target.result;
         if (db.objectStoreNames.contains('sharedFiles')) {
           const tx = db.transaction('sharedFiles', 'readwrite');
           tx.objectStore('sharedFiles').delete('latest_shared');
+        }
+        if (db.objectStoreNames.contains('sharedBlobs')) {
+          const txBlob = db.transaction('sharedBlobs', 'readwrite');
+          txBlob.objectStore('sharedBlobs').delete('latest_blobs');
         }
       };
     } catch(e) {}
@@ -124,6 +135,53 @@ export default function SharedFileHandler() {
     return activeSpaces.filter((s: any) => s.title?.toLowerCase().includes(lowerQuery));
   }, [activeSpaces, searchQuery]);
 
+  const processFoundBlobs = React.useCallback(async (blobItems: any[]) => {
+    if (!blobItems || blobItems.length === 0 || isCancelledRef.current || hasHandledShareRef.current) return;
+    setIsReceivingShare(true);
+    setSharedBlobs(blobItems);
+
+    // Convert blobs to Object URLs for instant, 0ms, zero-memory-cost previews
+    const previewUrls: string[] = [];
+    for (const item of blobItems) {
+      if (item.blob instanceof Blob) {
+        previewUrls.push(URL.createObjectURL(item.blob));
+      } else if (typeof item === 'string') {
+        previewUrls.push(item);
+      }
+    }
+
+    if (previewUrls.length === 0) return;
+
+    // Check if the single file is a PDF
+    const firstItem = blobItems[0];
+    const isPdf = firstItem?.type === 'application/pdf' || 
+                  (firstItem?.name && firstItem.name.toLowerCase().endsWith('.pdf')) ||
+                  (typeof previewUrls[0] === 'string' && previewUrls[0].includes('application/pdf'));
+
+    if (blobItems.length === 1 && isPdf && firstItem.blob) {
+      try {
+        const buffer = await firstItem.blob.arrayBuffer();
+        const analysis = await analyzePdfStructure(buffer);
+        console.log("PDF Dual-Check Analysis:", analysis);
+        
+        // Extract pages for quick canvas preview
+        const extractedPages = await extractPdfPages(previewUrls[0], 1500, 0.85);
+        if (extractedPages && extractedPages.length > 1) {
+          setSharedAllPages(extractedPages);
+        } else {
+          setSharedAllPages(null);
+        }
+      } catch (err) {
+        console.warn("PDF extraction error:", err);
+      }
+    }
+
+    setSharedFiles(previewUrls);
+    setRouteDestination(previewUrls.length > 1 ? 'personal' : 'direct');
+    setIsReceivingShare(false);
+    setIsModalOpen(true);
+  }, []);
+
   const processFoundFiles = React.useCallback(async (rawResult: any, source: string) => {
     if (!rawResult || isCancelledRef.current || hasHandledShareRef.current) return;
     const files = Array.isArray(rawResult) ? rawResult : [rawResult];
@@ -169,6 +227,9 @@ export default function SharedFileHandler() {
     if (hasSharedParam) {
       if (hasSharedParam === 'empty') {
         setShowChromeUpdateModal(true);
+      } else {
+        // Immediate visual HUD response (<50ms) so user never sees an empty screen
+        setIsReceivingShare(true);
       }
       window.history.replaceState({}, document.title, window.location.pathname);
     }
@@ -176,7 +237,41 @@ export default function SharedFileHandler() {
     const checkPendingFiles = async () => {
       if (isCancelledRef.current || hasHandledShareRef.current) return false;
 
-      // 1. Check Cache Storage directly first
+      // 1. Check IndexedDB binary sharedBlobs first (highest speed and memory efficiency)
+      try {
+        const req = indexedDB.open('MySpaceDB');
+        req.onupgradeneeded = (e: any) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('sharedFiles')) db.createObjectStore('sharedFiles');
+          if (!db.objectStoreNames.contains('sharedBlobs')) db.createObjectStore('sharedBlobs');
+        };
+        req.onsuccess = (e: any) => {
+          const db = e.target.result;
+          if (db.objectStoreNames.contains('sharedBlobs')) {
+            const tx = db.transaction('sharedBlobs', 'readonly');
+            const store = tx.objectStore('sharedBlobs');
+            const getBlobsReq = store.get('latest_blobs');
+            getBlobsReq.onsuccess = () => {
+              if (getBlobsReq.result && Array.isArray(getBlobsReq.result) && getBlobsReq.result.length > 0) {
+                processFoundBlobs(getBlobsReq.result);
+                return;
+              }
+            };
+          }
+          if (db.objectStoreNames.contains('sharedFiles')) {
+            const tx = db.transaction('sharedFiles', 'readonly');
+            const store = tx.objectStore('sharedFiles');
+            const getReq = store.get('latest_shared');
+            getReq.onsuccess = () => {
+              if (getReq.result && !isCancelledRef.current && !hasHandledShareRef.current) {
+                processFoundFiles(getReq.result, 'INDEXED_DB');
+              }
+            };
+          }
+        };
+      } catch (idbErr) {}
+
+      // 2. Check Cache Storage fallback
       if (typeof caches !== 'undefined') {
         try {
           const cache = await caches.open('smartshare-shared-cache');
@@ -232,7 +327,9 @@ export default function SharedFileHandler() {
     // Listen to messages from Service Worker
     const handleSwMessage = (event: MessageEvent) => {
       if (!event.data || isCancelledRef.current || hasHandledShareRef.current) return;
-      if (event.data.action === 'SHARE_FILES_PAYLOAD' && event.data.files && event.data.files.length > 0) {
+      if (event.data.action === 'SHARE_BLOBS_AVAILABLE') {
+        checkPendingFiles();
+      } else if (event.data.action === 'SHARE_FILES_PAYLOAD' && event.data.files && event.data.files.length > 0) {
         processFoundFiles(event.data.files, 'SW_POST_MESSAGE');
       } else if (event.data.action === 'NEW_SHARE_RECEIVED') {
         checkPendingFiles();
@@ -425,9 +522,28 @@ export default function SharedFileHandler() {
           const cleanUri = dataUri.replace(/^"|"$/g, '');
           const isPdf = cleanUri.includes('.pdf') || cleanUri.includes('application/pdf');
 
-          // Policy: never store raw PDFs – always optimized WebP pages
+          // Dual-check detection: If raw PDF has digital signature or vector text, retain original PDF in vault
+          let rawPdfDownloadUrl: string | undefined = undefined;
           let webpPages: string[] = [];
+
           if (isPdf) {
+            const correspondingBlob = sharedBlobs.find(b => b.blob && (b.type === 'application/pdf' || (b.name && b.name.toLowerCase().endsWith('.pdf'))));
+            if (correspondingBlob && correspondingBlob.blob) {
+              try {
+                const buffer = await correspondingBlob.blob.arrayBuffer();
+                const analysis = await analyzePdfStructure(buffer);
+                if (analysis.hasDigitalSignature || analysis.hasTextLayer) {
+                  // Upload intact original PDF to Firebase Storage
+                  rawPdfDownloadUrl = await uploadBlobToStorage(
+                    correspondingBlob.blob,
+                    `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
+                  );
+                }
+              } catch (e) {
+                console.warn("Dual-check upload error:", e);
+              }
+            }
+
             if (sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 0) {
               webpPages = sharedAllPages;
             } else {
@@ -462,7 +578,7 @@ export default function SharedFileHandler() {
             }
           }
 
-          const publicUrl = uploadedPages[0];
+          const publicUrl = rawPdfDownloadUrl || uploadedPages[0];
           const docThumbnailUrl: string | undefined = uploadedPages[0];
           const docPages: string[] | undefined = uploadedPages.length > 1 ? uploadedPages : undefined;
 
@@ -472,8 +588,8 @@ export default function SharedFileHandler() {
             url: publicUrl,
             thumbnailUrl: docThumbnailUrl,
             pages: docPages,
-            title: 'מסמך ששותף',
-            type: 'document',
+            title: rawPdfDownloadUrl ? 'מסמך PDF מקורי' : 'מסמך ששותף',
+            type: rawPdfDownloadUrl ? 'pdf' : 'document',
             addedBy: user?.id || 'me',
             storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
           });
@@ -528,6 +644,39 @@ export default function SharedFileHandler() {
 
   return (
     <>
+      {/* Instant HUD Banner when external share is receiving (<50ms feedback) */}
+      {isReceivingShare && !isModalOpen && (
+        <div style={{
+          position: 'fixed',
+          top: '16px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 100008,
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+          color: '#ffffff',
+          padding: '10px 20px',
+          borderRadius: '30px',
+          boxShadow: '0 10px 25px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.15)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          direction: 'rtl',
+          fontSize: '0.9rem',
+          fontWeight: 700,
+          animation: 'pulse 1.5s infinite ease-in-out'
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>📥</span>
+          <span>קולט קובץ ששותף... אנא המתן רגע</span>
+          <div style={{
+            width: '14px',
+            height: '14px',
+            border: '2px solid rgba(255,255,255,0.3)',
+            borderTopColor: '#38bdf8',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite'
+          }} />
+        </div>
+      )}
       {/* Chrome Version Assistance Modal when Android Chrome drops share payload */}
       {showChromeUpdateModal && (
         <div style={{

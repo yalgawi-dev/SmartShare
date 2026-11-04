@@ -8,7 +8,7 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-// Robust binary to base64 converter in worker context without memory/stack limits
+// Robust binary to base64 converter in worker context without memory/stack limits (fallback only for small thumbs)
 function arrayBufferToBase64(buffer) {
   const bytes = new Uint8Array(buffer);
   const CHUNK_SIZE = 0x8000; // 32KB chunks safe for JavaScript engines
@@ -23,6 +23,46 @@ function arrayBufferToBase64(buffer) {
 // In-memory stash of active share promises indexed by share ID or newest
 let latestSharedFilesPromise = null;
 
+// Helper to store binary Blob items directly in IndexedDB without Base64 memory inflation
+async function saveSharedBlobsToIndexedDB(fileItems) {
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open('MySpaceDB');
+      request.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('sharedFiles')) {
+          db.createObjectStore('sharedFiles');
+        }
+        if (!db.objectStoreNames.contains('sharedBlobs')) {
+          db.createObjectStore('sharedBlobs');
+        }
+      };
+      request.onsuccess = (e) => {
+        try {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains('sharedBlobs')) {
+            // Need upgrade or fallback
+            db.close();
+            resolve(false);
+            return;
+          }
+          const tx = db.transaction('sharedBlobs', 'readwrite');
+          const store = tx.objectStore('sharedBlobs');
+          store.put(fileItems, 'latest_blobs');
+          tx.oncomplete = () => { db.close(); resolve(true); };
+          tx.onerror = () => { db.close(); resolve(false); };
+        } catch (err) {
+          resolve(false);
+        }
+      };
+      request.onerror = () => resolve(false);
+      request.onblocked = () => resolve(false);
+    } catch (err) {
+      resolve(false);
+    }
+  });
+}
+
 // Intercept incoming Web Share Target POST requests locally on device
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
@@ -33,11 +73,8 @@ self.addEventListener('fetch', (event) => {
       return;
     }
 
-    // 1. Immediately create a clone of the request BEFORE reading its body,
-    // so that the server fallback can reliably receive the pristine unconsumed stream.
+    // Clone request before reading, in case fallback is needed
     const requestCloneForServer = event.request.clone();
-    
-    // Telemetry summary to capture field keys, types, sizes without personal data
     let swTelemetrySummary = '';
 
     const formDataPromise = event.request.formData().catch((err) => {
@@ -53,7 +90,6 @@ self.addEventListener('fetch', (event) => {
       const files = [];
       const fieldStats = [];
 
-      // Inspect every entry in FormData for accurate diagnosis
       for (const [key, val] of formData.entries()) {
         const isObj = val && typeof val === 'object';
         const hasBuffer = isObj && typeof val.arrayBuffer === 'function';
@@ -73,15 +109,13 @@ self.addEventListener('fetch', (event) => {
       return files;
     })();
 
-    // 2. Respond with redirect to app while keeping worker alive via waitUntil
+    // 2. Respond with immediate redirect to app while processing binary blobs in background
     event.respondWith((async () => {
       const files = await latestSharedFilesPromise;
 
       if (!files || files.length === 0) {
         console.warn('SW: No files in SW FormData. Telemetry:', swTelemetrySummary, '- forwarding unconsumed clone to server...');
-        // Fallback: Pass the PRISTINE unconsumed clone to the server API route
         try {
-          // Add custom header to prevent infinite recursion
           const fallbackHeaders = new Headers(requestCloneForServer.headers);
           fallbackHeaders.set('x-sw-fallback', 'true');
           fallbackHeaders.set('x-sw-telemetry', encodeURIComponent(swTelemetrySummary));
@@ -96,68 +130,62 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      // 3. Convert files to data URIs safely
-      const dataUris = await Promise.all(files.map(async (file) => {
-        const buffer = await file.arrayBuffer();
-        const base64 = arrayBufferToBase64(buffer);
-        const mimeType = file.type || 'image/jpeg';
-        return 'data:' + mimeType + ';base64,' + base64;
+      // 3. Save as pure binary Blobs (instant 0ms memory-friendly storage!)
+      const blobEntries = files.map((file, idx) => ({
+        id: `blob_${Date.now()}_${idx}`,
+        name: file.name || `shared_file_${idx}`,
+        type: file.type || 'application/octet-stream',
+        size: file.size,
+        blob: file // Storing the File/Blob directly into IndexedDB!
       }));
 
-      // 4. Save to Cache Storage immediately (synchronous to redirect flow)
-      try {
-        const cache = await caches.open('smartshare-shared-cache');
-        await cache.put('/api/last-shared-files', new Response(JSON.stringify(dataUris), {
-          headers: { 'Content-Type': 'application/json' }
-        }));
-      } catch (cErr) {
-        console.warn('SW Cache storage put failed:', cErr);
+      await saveSharedBlobsToIndexedDB(blobEntries);
+
+      // Also for backward-compatibility with small files under 3MB, generate dataUri fallback
+      const totalSize = files.reduce((acc, f) => acc + (f.size || 0), 0);
+      if (totalSize < 4 * 1024 * 1024) {
+        try {
+          const dataUris = await Promise.all(files.map(async (file) => {
+            const buffer = await file.arrayBuffer();
+            const base64 = arrayBufferToBase64(buffer);
+            const mimeType = file.type || 'image/jpeg';
+            return 'data:' + mimeType + ';base64,' + base64;
+          }));
+
+          const cache = await caches.open('smartshare-shared-cache');
+          await cache.put('/api/last-shared-files', new Response(JSON.stringify(dataUris), {
+            headers: { 'Content-Type': 'application/json' }
+          }));
+        } catch (e) {}
       }
 
-      // 5. Also save to IndexedDB safely
-      try {
-        await new Promise((resolve) => {
-          const request = indexedDB.open('MySpaceDB');
-          request.onupgradeneeded = (e) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains('sharedFiles')) {
-              db.createObjectStore('sharedFiles');
-            }
-          };
-          request.onsuccess = (e) => {
-            try {
-              const db = e.target.result;
-              if (!db.objectStoreNames.contains('sharedFiles')) {
-                db.close();
-                resolve(false);
-                return;
-              }
-              const tx = db.transaction('sharedFiles', 'readwrite');
-              const store = tx.objectStore('sharedFiles');
-              store.put(dataUris, 'latest_shared');
-              tx.oncomplete = () => { db.close(); resolve(true); };
-              tx.onerror = () => { db.close(); resolve(false); };
-            } catch (txErr) {
-              resolve(false);
-            }
-          };
-          request.onerror = () => resolve(false);
-          request.onblocked = () => resolve(false);
-        });
-      } catch (idbErr) {
-        console.warn('SW IndexedDB write failed:', idbErr);
-      }
-
-      // Redirect browser to main app with success query
+      // Redirect immediately!
       return Response.redirect(new URL('/?shared=true', event.request.url).href, 303);
     })());
 
-    // 6. Direct handshake via message (Squoosh pattern): wait for window to become ready and push
+    // 4. Notify active windows via message
     event.waitUntil((async () => {
       const files = await latestSharedFilesPromise;
       if (!files || files.length === 0) return;
 
-      const dataUris = await Promise.all(files.map(async (file) => {
+      const notifyClients = async () => {
+        const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
+        for (const client of allClients) {
+          client.postMessage({
+            action: 'SHARE_BLOBS_AVAILABLE',
+            count: files.length
+          });
+        }
+      };
+
+      await notifyClients();
+      setTimeout(notifyClients, 300);
+      setTimeout(notifyClients, 800);
+    })());
+
+    return;
+  }
+});
         const buffer = await file.arrayBuffer();
         const base64 = arrayBufferToBase64(buffer);
         const mimeType = file.type || 'image/jpeg';

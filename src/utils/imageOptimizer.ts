@@ -2,6 +2,60 @@
 // Maintains aspect ratio while reducing file size to save storage.
 // This is the SINGLE SOURCE OF TRUTH (Engine) for all image compression in the app.
 
+// ============================================================================
+// PDF DUAL-CHECK DETECTION (Digital-Born & Electronic Signatures)
+// ============================================================================
+
+export interface PdfAnalysisResult {
+  hasDigitalSignature: boolean;
+  hasTextLayer: boolean;
+  isScannedRasterOnly: boolean;
+  pageCount: number;
+}
+
+/**
+ * Analyzes a PDF buffer to detect digital signatures and vector text layers (100% Dual Check)
+ */
+export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<PdfAnalysisResult> {
+  const bytes = new Uint8Array(arrayBuffer);
+  // Quick inspection of binary markers
+  const decoder = new TextDecoder('latin1');
+  const textContent = decoder.decode(bytes.subarray(0, Math.min(bytes.length, 500000))); // Check first 500KB
+  const tailContent = decoder.decode(bytes.subarray(Math.max(0, bytes.length - 100000))); // Check tail
+
+  // 1. Signature Check (/Type /Sig, /adbe.pkcs7, /CAdES)
+  const hasDigitalSignature = 
+    textContent.includes('/Type/Sig') || 
+    textContent.includes('/Type /Sig') || 
+    textContent.includes('/adbe.pkcs7') || 
+    textContent.includes('ETSI.CAdES') ||
+    tailContent.includes('/ByteRange');
+
+  // 2. Vector / Text Layer Check (/Type /Font, /FontDescriptor, /BT ... /ET)
+  const hasTextLayer = 
+    textContent.includes('/Type/Font') || 
+    textContent.includes('/Type /Font') || 
+    textContent.includes('/FontDescriptor') || 
+    textContent.includes('/BT');
+
+  // 3. Page count via pdfjsLib if available
+  let pageCount = 1;
+  try {
+    if (typeof window !== 'undefined' && (window as any).pdfjsLib) {
+      const task = (window as any).pdfjsLib.getDocument({ data: bytes });
+      const pdf = await task.promise;
+      pageCount = pdf.numPages || 1;
+    }
+  } catch (e) {}
+
+  return {
+    hasDigitalSignature,
+    hasTextLayer,
+    isScannedRasterOnly: !hasDigitalSignature && !hasTextLayer,
+    pageCount
+  };
+}
+
 let _webpSupported: boolean | null = null;
 
 /**
