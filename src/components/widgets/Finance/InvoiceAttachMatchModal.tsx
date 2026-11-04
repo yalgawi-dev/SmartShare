@@ -453,100 +453,139 @@ export default function InvoiceAttachMatchModal({
           <div
             style={{
               display: 'flex',
-              gap: '0.75rem',
-              alignItems: 'center',
+              flexDirection: 'column',
+              gap: '0.65rem',
               background: '#f8fafc',
               border: '1px solid #e2e8f0',
               borderRadius: '14px',
-              padding: '0.75rem',
+              padding: '0.75rem 0.85rem',
             }}
           >
-            <div
-              onClick={() =>
-                setPreviewDoc({
-                  id: 'preview-receipt',
-                  title: extractedDoc.supplier || 'חשבונית שנסרקה',
-                  url: uploadedUrls?.url || currentReceipt.url,
-                  pages: uploadedUrls?.pages || currentReceipt.pages,
-                })
-              }
-              style={{
-                width: '64px',
-                height: '64px',
-                borderRadius: '10px',
-                overflow: 'hidden',
-                border: '1px solid #cbd5e1',
-                flexShrink: 0,
-                cursor: 'pointer',
-                position: 'relative',
-                background: '#e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              title="לחץ להגדלה (תצוגת מגילה)"
-            >
-              <img
-                src={uploadedUrls?.url || (currentReceipt.pages && currentReceipt.pages[0]) || currentReceipt.url}
-                alt="Receipt"
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
-              <span
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div
+                onClick={() =>
+                  setPreviewDoc({
+                    id: 'preview-receipt',
+                    title: extractedDoc.supplier || 'חשבונית שנסרקה',
+                    url: uploadedUrls?.url || currentReceipt.url,
+                    pages: uploadedUrls?.pages || currentReceipt.pages,
+                  })
+                }
                 style={{
-                  position: 'absolute',
-                  bottom: 2,
-                  right: 2,
-                  background: 'rgba(0,0,0,0.65)',
-                  color: '#fff',
-                  fontSize: '0.62rem',
-                  padding: '1px 4px',
-                  borderRadius: '4px',
+                  width: '56px',
+                  height: '56px',
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  border: '1.5px solid #94a3b8',
+                  flexShrink: 0,
+                  cursor: 'pointer',
+                  position: 'relative',
+                  background: '#e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
                 }}
+                title="לחץ להגדלת החשבונית"
               >
-                🔍
-              </span>
+                <img
+                  src={uploadedUrls?.url || (currentReceipt.pages && currentReceipt.pages[0]) || currentReceipt.url}
+                  alt="Receipt"
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
+                <span
+                  style={{
+                    position: 'absolute',
+                    bottom: 2,
+                    right: 2,
+                    background: 'rgba(0,0,0,0.7)',
+                    color: '#fff',
+                    fontSize: '0.62rem',
+                    padding: '1px 4px',
+                    borderRadius: '4px',
+                  }}
+                >
+                  🔍
+                </span>
+              </div>
+
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#1e293b' }}>
+                  {isScanningOcr ? '⏳ מנתח נתונים מהחשבונית להצלבה...' : '📄 נתוני החשבונית שזוהו:'}
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                  ניתן לדייק את שם הספק או הסכום אם יש צורך בהתאמה:
+                </div>
+              </div>
             </div>
 
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '4px' }}>
-                {isScanningOcr ? '⏳ מנתח נתונים מהחשבונית להצלבה...' : '📄 נתונים שזוהו בחשבונית (ניתן לדייק):'}
-              </div>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '0.5rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                  שם הספק:
+                </label>
                 <input
                   type="text"
                   placeholder="שם ספק..."
                   value={extractedDoc.supplier || ''}
                   onChange={(e) => setExtractedDoc((p) => ({ ...p, supplier: e.target.value }))}
                   style={{
-                    flex: 1.3,
-                    minWidth: 0,
-                    padding: '0.4rem 0.55rem',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.82rem',
+                    width: '100%',
+                    boxSizing: 'border-box',
+                    padding: '0.55rem 0.65rem',
+                    borderRadius: '9px',
+                    border: '1.5px solid #cbd5e1',
+                    fontSize: '0.9rem',
                     fontWeight: 700,
+                    color: '#0f172a',
+                    background: '#ffffff',
                   }}
                 />
-                <input
-                  type="number"
-                  placeholder="סכום ₪"
-                  value={extractedDoc.amount ?? ''}
-                  onChange={(e) =>
-                    setExtractedDoc((p) => ({
-                      ...p,
-                      amount: e.target.value ? Number(e.target.value) : null,
-                    }))
-                  }
-                  style={{
-                    flex: 0.8,
-                    minWidth: 0,
-                    padding: '0.4rem 0.55rem',
-                    borderRadius: '8px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                  }}
-                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: '3px' }}>
+                  סכום החשבונית:
+                </label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    value={extractedDoc.amount ?? ''}
+                    onChange={(e) =>
+                      setExtractedDoc((p) => ({
+                        ...p,
+                        amount: e.target.value ? Number(e.target.value) : null,
+                      }))
+                    }
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.55rem 2rem 0.55rem 0.65rem',
+                      borderRadius: '9px',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '0.94rem',
+                      fontWeight: 800,
+                      color: '#0f172a',
+                      background: '#ffffff',
+                      textAlign: 'left',
+                      direction: 'ltr',
+                    }}
+                  />
+                  <span
+                    style={{
+                      position: 'absolute',
+                      right: '0.65rem',
+                      fontSize: '0.9rem',
+                      fontWeight: 800,
+                      color: '#2563eb',
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    ₪
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -555,25 +594,30 @@ export default function InvoiceAttachMatchModal({
         {/* Direction 1: Candidate Expenses List */}
         {currentReceipt && (
           <div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-              <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#1e293b' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#1e293b' }}>
                 {expenseMatches.length > 0
-                  ? `נמצאו ${expenseMatches.length} התאמות אפשריות:`
+                  ? `נמצאו ${expenseMatches.length} התאמות מומלצות:`
                   : 'לא נמצאה התאמה אוטומטית מובהקת'}
               </span>
               <button
                 type="button"
                 onClick={() => setShowAllManual((v) => !v)}
                 style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#2563eb',
+                  background: showAllManual ? '#2563eb' : '#eff6ff',
+                  border: '1px solid #bfdbfe',
+                  color: showAllManual ? '#ffffff' : '#1d4ed8',
+                  padding: '0.28rem 0.65rem',
+                  borderRadius: '8px',
                   fontSize: '0.78rem',
-                  fontWeight: 700,
+                  fontWeight: 800,
                   cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.3rem',
                 }}
               >
-                {showAllManual ? 'הצג התאמות מומלצות' : `בחר ידנית (${unattachedExpenses.length})`}
+                <span>{showAllManual ? '🎯 חזור להתאמות מומלצות' : `🔍 בחר ידנית מכל ההוצאות (${unattachedExpenses.length})`}</span>
               </button>
             </div>
 
@@ -922,6 +966,32 @@ export default function InvoiceAttachMatchModal({
             ביטול
           </button>
 
+          {currentReceipt && (
+            <button
+              type="button"
+              onClick={() => {
+                if (showAllManual) {
+                  setShowAllManual(false);
+                } else {
+                  setShowAllManual(true);
+                }
+              }}
+              style={{
+                padding: '0.75rem 0.9rem',
+                borderRadius: '12px',
+                border: showAllManual ? '1.5px solid #2563eb' : '1px solid #bfdbfe',
+                background: showAllManual ? '#eff6ff' : '#ffffff',
+                color: '#1d4ed8',
+                fontWeight: 800,
+                fontSize: '0.82rem',
+                cursor: 'pointer',
+              }}
+              title="בחר ידנית הוצאה קיימת מתוך כל רשימת ההוצאות בפרויקט"
+            >
+              {showAllManual ? '🎯 התאמות מומלצות' : '🔍 צירוף ידני להוצאה'}
+            </button>
+          )}
+
           {currentReceipt && onFallbackToNewExpense && (
             <button
               type="button"
@@ -936,8 +1006,9 @@ export default function InvoiceAttachMatchModal({
                 fontSize: '0.82rem',
                 cursor: 'pointer',
               }}
+              title="צור מהמסמך הזה הוצאה חדשה לחלוטין (אם הוא אינו שייך להוצאה קיימת)"
             >
-              ➕ זו הוצאה חדשה
+              ➕ צור כהוצאה חדשה
             </button>
           )}
 

@@ -58,6 +58,7 @@ interface SingleAnnouncementMarqueeStripProps {
   isGlobalStyle?: boolean;
   isPersonalTargeted?: boolean;
   targetNamesLabel?: string;
+  showOnce?: boolean;
   canEditOrDelete: boolean;
   nowMs: number;
   onEditClick: () => void;
@@ -72,6 +73,7 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
   isGlobalStyle = false,
   isPersonalTargeted = false,
   targetNamesLabel,
+  showOnce = false,
   canEditOrDelete,
   nowMs,
   onEditClick,
@@ -92,7 +94,14 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
     const isHidden = localStorage.getItem(storageKey) === '1';
     setDismissedPermanently(isHidden);
     setDismissedSession(false);
-  }, [storageKey]);
+
+    // If marked as single-view (showOnce), record dismissal immediately upon mounting so that on next visit / reload it never appears again
+    if (showOnce && !isHidden && cleanText) {
+      try {
+        localStorage.setItem(storageKey, '1');
+      } catch (err) {}
+    }
+  }, [storageKey, showOnce, cleanText]);
 
   useEffect(() => {
     const checkOverflow = () => {
@@ -215,6 +224,24 @@ const SingleAnnouncementMarqueeStrip: React.FC<SingleAnnouncementMarqueeStripPro
               }}
             >
               👤 {targetNamesLabel ? `אישי עבור: ${targetNamesLabel}` : 'הודעה אישית עבורך'}
+            </span>
+          )}
+
+          {showOnce && (
+            <span
+              style={{
+                fontSize: '0.66rem',
+                fontWeight: 700,
+                background: 'rgba(236, 72, 153, 0.22)',
+                color: '#fbcfe8',
+                border: '1px solid rgba(244, 114, 182, 0.35)',
+                borderRadius: '8px',
+                padding: '0.05rem 0.4rem',
+                whiteSpace: 'nowrap',
+              }}
+              title="הכרזה חד פעמית - תופיע פעם אחת בלבד בכניסה"
+            >
+              👁️ חד-פעמית
             </span>
           )}
 
@@ -479,6 +506,9 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
   const existingDurationHours = isGlobalMode
     ? globalAnnouncement?.announcementDurationHours ?? null
     : space?.settings?.announcementDurationHours ?? null;
+  const existingShowOnce = isGlobalMode
+    ? Boolean(globalAnnouncement?.announcementShowOnce)
+    : Boolean(space?.settings?.announcementShowOnce);
 
   const targetedList: TargetedAnnouncementItem[] = useMemo(() => {
     return Array.isArray(globalAnnouncement?.targetedAnnouncements)
@@ -523,6 +553,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
 
   const [draftText, setDraftText] = useState(existingText);
   const [draftEnabled, setDraftEnabled] = useState(existingEnabled);
+  const [draftShowOnce, setDraftShowOnce] = useState(existingShowOnce);
   const [selectedDurationHours, setSelectedDurationHours] = useState<number | null>(existingDurationHours);
   const [customHoursInput, setCustomHoursInput] = useState<string>('');
   const [useCustomHours, setUseCustomHours] = useState<boolean>(false);
@@ -536,6 +567,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         if (found) {
           setDraftText(found.text);
           setDraftEnabled(found.enabled);
+          setDraftShowOnce(Boolean(found.showOnce));
           setSelectedUserIds(found.targetUserIds || []);
           const dur = found.durationHours ?? null;
           const isPreset = DURATION_PRESETS.some((p) => p.hours === dur);
@@ -553,11 +585,13 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
       // Creating a new specific-user announcement
       setDraftText('');
       setDraftEnabled(true);
+      setDraftShowOnce(false);
       setSelectedDurationHours(24);
       setUseCustomHours(false);
     } else {
       setDraftText(existingText);
       setDraftEnabled(existingEnabled);
+      setDraftShowOnce(existingShowOnce);
       const isPreset = DURATION_PRESETS.some((p) => p.hours === existingDurationHours);
       if (existingDurationHours !== null && !isPreset) {
         setUseCustomHours(true);
@@ -568,7 +602,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         setSelectedDurationHours(existingDurationHours);
       }
     }
-  }, [audienceMode, editingTargetedId, existingText, existingEnabled, existingDurationHours, isGlobalMode, targetedList]);
+  }, [audienceMode, editingTargetedId, existingText, existingEnabled, existingShowOnce, existingDurationHours, isGlobalMode, targetedList]);
 
   const effectiveDurationHours: number | null = useMemo(() => {
     if (useCustomHours) {
@@ -634,6 +668,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
         targetUserNames: targetNames,
         expiresAt: expiresAtIso,
         durationHours: effectiveDurationHours,
+        showOnce: draftShowOnce,
         createdAt: new Date().toISOString(),
       };
 
@@ -668,6 +703,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
       announcementCreatorId: user?.id || '',
       announcementExpiresAt: finalEnabled ? expiresAtIso : null,
       announcementDurationHours: finalEnabled ? effectiveDurationHours : null,
+      announcementShowOnce: finalEnabled ? draftShowOnce : false,
     };
 
     if (isGlobalMode) {
@@ -716,6 +752,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
       announcementCreatorId: user?.id || '',
       announcementExpiresAt: null,
       announcementDurationHours: null,
+      announcementShowOnce: false,
     };
 
     if (isGlobalMode) {
@@ -1213,6 +1250,34 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
               <span style={{ fontSize: '0.76rem', color: '#64748b' }}>שעות מרגע השמירה</span>
             </div>
           )}
+
+          {/* Show Once Toggle */}
+          <div
+            style={{
+              marginTop: '0.2rem',
+              paddingTop: '0.45rem',
+              borderTop: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '0.6rem',
+            }}
+          >
+            <div>
+              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e293b' }}>
+                👁️ הצגה חד-פעמית לכל שותף:
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
+                כל שותף יראה את ההודעה פעם אחת בלבד בכניסה, ולאחר מכן היא לא תופיע לו שוב
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={draftShowOnce}
+              onChange={(e) => setDraftShowOnce(e.target.checked)}
+              style={{ width: '18px', height: '18px', accentColor: '#ec4899', cursor: 'pointer' }}
+            />
+          </div>
         </div>
       )}
 
@@ -1354,6 +1419,9 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
   const announcementExpiresAt = isGlobalMode
     ? globalAnnouncement?.announcementExpiresAt || null
     : space?.settings?.announcementExpiresAt || null;
+  const announcementShowOnce = isGlobalMode
+    ? Boolean(globalAnnouncement?.announcementShowOnce)
+    : Boolean(space?.settings?.announcementShowOnce);
 
   const storageKey = isGlobalMode
     ? `hide_global_announcement_${announcementId}`
@@ -1426,6 +1494,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           isGlobalStyle={isGlobalMode}
           isPersonalTargeted={true}
           targetNamesLabel={isSystemAdmin ? (item.targetUserNames || []).join(', ') : undefined}
+          showOnce={Boolean(item.showOnce)}
           canEditOrDelete={isSystemAdmin}
           nowMs={nowMs}
           onEditClick={() => {
@@ -1446,6 +1515,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           expiresAt={announcementExpiresAt}
           isGlobalStyle={isGlobalMode}
           isPersonalTargeted={false}
+          showOnce={announcementShowOnce}
           canEditOrDelete={canManage}
           nowMs={nowMs}
           onEditClick={() => {

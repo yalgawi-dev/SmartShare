@@ -183,6 +183,7 @@ export interface TargetedAnnouncementItem {
   targetUserNames: string[];
   expiresAt?: string | null;
   durationHours?: number | null;
+  showOnce?: boolean;
   createdAt: string;
 }
 
@@ -194,6 +195,7 @@ export interface GlobalAnnouncement {
   announcementCreatorId?: string;
   announcementExpiresAt?: string | null;
   announcementDurationHours?: number | null;
+  announcementShowOnce?: boolean;
   announcementTargetUserIds?: string[];
   announcementTargetUserNames?: string[];
   targetedAnnouncements?: TargetedAnnouncementItem[];
@@ -217,6 +219,7 @@ export interface SpaceSettings {
   announcementCreatorId?: string;
   announcementExpiresAt?: string | null;
   announcementDurationHours?: number | null;
+  announcementShowOnce?: boolean;
 }
 
 export interface SpaceMessage {
