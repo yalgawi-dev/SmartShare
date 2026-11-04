@@ -784,11 +784,11 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.9rem' }}>
       {/* Header Description */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-        <div style={{ flex: 1, minWidth: '200px' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '180px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-            <h4 style={{ margin: 0, fontSize: isModal ? '1.12rem' : '1rem', fontWeight: 800, color: '#0f172a' }}>
-              📢 {isGlobalMode ? 'מנוע הודעות מתפרצות ראשי (אדמין)' : 'הודעה מתפרצת במרחב'}
+            <h4 style={{ margin: 0, fontSize: isModal ? '1.1rem' : '1rem', fontWeight: 800, color: '#0f172a' }}>
+              📢 {isGlobalMode ? 'מנוע הודעות מתפרצות ראשי' : 'הודעה מתפרצת במרחב'}
             </h4>
             <span
               style={{
@@ -815,70 +815,97 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
                 }}
               >
                 {isCurrentExpired
-                  ? '⏰ פג תוקף ההודעה'
+                  ? '⏰ פג תוקף'
                   : currentRemaining
-                  ? `⏳ פעיל (${currentRemaining})`
+                  ? `⏳ ${currentRemaining}`
                   : '🟢 פעיל כעת'}
               </span>
             )}
           </div>
-          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.82rem', color: '#475569', lineHeight: 1.45 }}>
+          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.78rem', color: '#475569', lineHeight: 1.4 }}>
             {isGlobalMode
-              ? `שליחת הודעה מתפרצת לכלל המשתמשים או למשתמש מסוים בלבד, כולל קביעת משך זמן תצוגה, עריכה ומחיקה (${defaultAuthorName}).`
-              : `הודעה מתפרצת ברוחב מלא בחלקו העליון של המרחב תחת השם ${defaultAuthorName}, עם אפשרות להגבלת זמן תצוגה, עריכה ומחיקה.`}
+              ? `שליחת הודעה מתפרצת לכלל המשתמשים או למשתמש מסוים, כולל משך זמן, חד-פעמיות ומחיקה (${defaultAuthorName}).`
+              : `הודעה מתפרצת ברוחב מלא בחלקו העליון של המרחב תחת השם ${defaultAuthorName}.`}
           </p>
         </div>
 
-        {/* Enable/Disable Switch */}
-        <label
-          style={{
-            position: 'relative',
-            display: 'inline-block',
-            width: '48px',
-            height: '26px',
-            flexShrink: 0,
-            opacity: canManage ? 1 : 0.5,
-            cursor: canManage ? 'pointer' : 'not-allowed',
-          }}
-          title="הפעל / כבה תצוגת הודעה מתפרצת"
-        >
-          <input
-            type="checkbox"
-            disabled={!canManage}
-            checked={draftEnabled}
-            onChange={(e) => {
-              if (!canManage) return;
-              setDraftEnabled(e.target.checked);
-            }}
-            style={{ opacity: 0, width: 0, height: 0 }}
-          />
-          <span
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexShrink: 0 }}>
+          {/* Enable/Disable Switch */}
+          <label
             style={{
-              position: 'absolute',
+              position: 'relative',
+              display: 'inline-block',
+              width: '46px',
+              height: '24px',
+              flexShrink: 0,
+              opacity: canManage ? 1 : 0.5,
               cursor: canManage ? 'pointer' : 'not-allowed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: draftEnabled ? '#2563eb' : '#cbd5e1',
-              borderRadius: '34px',
-              transition: '.3s',
             }}
+            title="הפעל / כבה תצוגת הודעה מתפרצת"
           >
+            <input
+              type="checkbox"
+              disabled={!canManage}
+              checked={draftEnabled}
+              onChange={(e) => {
+                if (!canManage) return;
+                setDraftEnabled(e.target.checked);
+              }}
+              style={{ opacity: 0, width: 0, height: 0 }}
+            />
             <span
               style={{
                 position: 'absolute',
-                height: '20px',
-                width: '20px',
-                left: draftEnabled ? '4px' : '24px',
-                bottom: '3px',
-                backgroundColor: 'white',
-                borderRadius: '50%',
+                cursor: canManage ? 'pointer' : 'not-allowed',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: draftEnabled ? '#2563eb' : '#cbd5e1',
+                borderRadius: '34px',
                 transition: '.3s',
               }}
-            />
-          </span>
-        </label>
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  height: '18px',
+                  width: '18px',
+                  left: draftEnabled ? '3px' : '25px',
+                  bottom: '3px',
+                  backgroundColor: 'white',
+                  borderRadius: '50%',
+                  transition: '.3s',
+                }}
+              />
+            </span>
+          </label>
+
+          {isModal && onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              title="סגור חלון"
+              style={{
+                background: '#f1f5f9',
+                border: '1px solid #e2e8f0',
+                color: '#64748b',
+                width: '30px',
+                height: '30px',
+                borderRadius: '50%',
+                fontSize: '1rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Admin-Only Audience Selector: All Users vs Specific User(s) */}
@@ -1546,13 +1573,15 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(15, 23, 42, 0.55)',
-            backdropFilter: 'blur(4px)',
+            background: 'rgba(15, 23, 42, 0.65)',
+            backdropFilter: 'blur(6px)',
+            WebkitBackdropFilter: 'blur(6px)',
             zIndex: 100000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '1rem',
+            padding: 'max(0.5rem, env(safe-area-inset-top, 0.5rem)) max(0.5rem, env(safe-area-inset-right, 0.5rem)) max(0.5rem, env(safe-area-inset-bottom, 0.5rem)) max(0.5rem, env(safe-area-inset-left, 0.5rem))',
+            boxSizing: 'border-box',
           }}
         >
           <div
@@ -1560,24 +1589,36 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             style={{
               background: 'white',
               borderRadius: '20px',
-              padding: '1.35rem',
+              padding: 'clamp(1rem, 3.5vw, 1.4rem)',
               width: '100%',
-              maxWidth: '500px',
-              maxHeight: 'calc(100vh - 40px)',
-              overflowY: 'auto',
-              boxShadow: '0 20px 50px rgba(15, 23, 42, 0.25)',
-              border: '1px solid #e2e8f0',
-              marginBottom: 'env(safe-area-inset-bottom, 20px)',
+              maxWidth: 'min(480px, 96vw)',
+              maxHeight: 'min(86vh, calc(100dvh - 32px))',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '0 25px 60px rgba(15, 23, 42, 0.3)',
+              border: '1px solid #cbd5e1',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
             }}
           >
-            <AnnouncementUnifiedEditorForm
-              spaceId={spaceId}
-              isGlobalMode={isGlobalMode}
-              isModal={true}
-              initialEditingTargetId={editingTargetedId}
-              onClose={closeEditor}
-              onSavedToast={onSavedToast}
-            />
+            <div
+              style={{
+                overflowY: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                paddingRight: '2px',
+                paddingLeft: '2px',
+                maxHeight: '100%',
+              }}
+            >
+              <AnnouncementUnifiedEditorForm
+                spaceId={spaceId}
+                isGlobalMode={isGlobalMode}
+                isModal={true}
+                initialEditingTargetId={editingTargetedId}
+                onClose={closeEditor}
+                onSavedToast={onSavedToast}
+              />
+            </div>
           </div>
         </div>
       )}
