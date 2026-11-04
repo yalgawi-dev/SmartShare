@@ -23,31 +23,26 @@ function arrayBufferToBase64(buffer) {
 // In-memory stash of active share promises indexed by share ID or newest
 let latestSharedFilesPromise = null;
 
+// Dedicated Database for binary shared blobs to prevent schema conflicts or lockups
+const SHARED_BLOB_DB = 'SmartShareSharedBlobsDB';
+const SHARED_BLOB_STORE = 'blobs';
+
 // Helper to store binary Blob items directly in IndexedDB without Base64 memory inflation
 async function saveSharedBlobsToIndexedDB(fileItems) {
   return new Promise((resolve) => {
     try {
-      const request = indexedDB.open('MySpaceDB');
+      const request = indexedDB.open(SHARED_BLOB_DB, 1);
       request.onupgradeneeded = (e) => {
         const db = e.target.result;
-        if (!db.objectStoreNames.contains('sharedFiles')) {
-          db.createObjectStore('sharedFiles');
-        }
-        if (!db.objectStoreNames.contains('sharedBlobs')) {
-          db.createObjectStore('sharedBlobs');
+        if (!db.objectStoreNames.contains(SHARED_BLOB_STORE)) {
+          db.createObjectStore(SHARED_BLOB_STORE);
         }
       };
       request.onsuccess = (e) => {
         try {
           const db = e.target.result;
-          if (!db.objectStoreNames.contains('sharedBlobs')) {
-            // Need upgrade or fallback
-            db.close();
-            resolve(false);
-            return;
-          }
-          const tx = db.transaction('sharedBlobs', 'readwrite');
-          const store = tx.objectStore('sharedBlobs');
+          const tx = db.transaction(SHARED_BLOB_STORE, 'readwrite');
+          const store = tx.objectStore(SHARED_BLOB_STORE);
           store.put(fileItems, 'latest_blobs');
           tx.oncomplete = () => { db.close(); resolve(true); };
           tx.onerror = () => { db.close(); resolve(false); };

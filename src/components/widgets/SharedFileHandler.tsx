@@ -53,21 +53,28 @@ export default function SharedFileHandler() {
     }
 
     try {
-      const dbReq = indexedDB.open('MySpaceDB');
-      dbReq.onupgradeneeded = (e: any) => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('sharedFiles')) db.createObjectStore('sharedFiles');
-        if (!db.objectStoreNames.contains('sharedBlobs')) db.createObjectStore('sharedBlobs');
+      const blobReq = indexedDB.open('SmartShareSharedBlobsDB', 1);
+      blobReq.onupgradeneeded = (e: any) => {
+        if (!e.target.result.objectStoreNames.contains('blobs')) {
+          e.target.result.createObjectStore('blobs');
+        }
       };
+      blobReq.onsuccess = (e: any) => {
+        const db = e.target.result;
+        if (db.objectStoreNames.contains('blobs')) {
+          const tx = db.transaction('blobs', 'readwrite');
+          tx.objectStore('blobs').delete('latest_blobs');
+        }
+      };
+    } catch(e) {}
+
+    try {
+      const dbReq = indexedDB.open('MySpaceDB', 1);
       dbReq.onsuccess = (e: any) => {
         const db = e.target.result;
         if (db.objectStoreNames.contains('sharedFiles')) {
           const tx = db.transaction('sharedFiles', 'readwrite');
           tx.objectStore('sharedFiles').delete('latest_shared');
-        }
-        if (db.objectStoreNames.contains('sharedBlobs')) {
-          const txBlob = db.transaction('sharedBlobs', 'readwrite');
-          txBlob.objectStore('sharedBlobs').delete('latest_blobs');
         }
       };
     } catch(e) {}
@@ -152,34 +159,35 @@ export default function SharedFileHandler() {
 
     if (previewUrls.length === 0) return;
 
-    // Check if the single file is a PDF
+    // Immediately open the modal and display previews without blocking on heavy extraction!
+    setSharedFiles(previewUrls);
+    setRouteDestination(previewUrls.length > 1 ? 'personal' : 'direct');
+    setIsReceivingShare(false);
+    setIsModalOpen(true);
+
+    // Check if the single file is a PDF and run background page extraction asynchronously
     const firstItem = blobItems[0];
     const isPdf = firstItem?.type === 'application/pdf' || 
                   (firstItem?.name && firstItem.name.toLowerCase().endsWith('.pdf')) ||
                   (typeof previewUrls[0] === 'string' && previewUrls[0].includes('application/pdf'));
 
     if (blobItems.length === 1 && isPdf && firstItem.blob) {
-      try {
-        const buffer = await firstItem.blob.arrayBuffer();
-        const analysis = await analyzePdfStructure(buffer);
-        console.log("PDF Dual-Check Analysis:", analysis);
-        
-        // Extract pages for quick canvas preview
-        const extractedPages = await extractPdfPages(previewUrls[0], 1500, 0.85);
-        if (extractedPages && extractedPages.length > 1) {
-          setSharedAllPages(extractedPages);
-        } else {
-          setSharedAllPages(null);
+      // Run asynchronously in background so modal stays responsive
+      setTimeout(async () => {
+        try {
+          const buffer = await firstItem.blob.arrayBuffer();
+          const analysis = await analyzePdfStructure(buffer);
+          console.log("PDF Dual-Check Analysis:", analysis);
+          
+          const extractedPages = await extractPdfPages(previewUrls[0], 1500, 0.85);
+          if (extractedPages && extractedPages.length > 1) {
+            setSharedAllPages(extractedPages);
+          }
+        } catch (err) {
+          console.warn("PDF extraction error:", err);
         }
-      } catch (err) {
-        console.warn("PDF extraction error:", err);
-      }
+      }, 50);
     }
-
-    setSharedFiles(previewUrls);
-    setRouteDestination(previewUrls.length > 1 ? 'personal' : 'direct');
-    setIsReceivingShare(false);
-    setIsModalOpen(true);
   }, []);
 
   const processFoundFiles = React.useCallback(async (rawResult: any, source: string) => {
@@ -237,19 +245,19 @@ export default function SharedFileHandler() {
     const checkPendingFiles = async () => {
       if (isCancelledRef.current || hasHandledShareRef.current) return false;
 
-      // 1. Check IndexedDB binary sharedBlobs first (highest speed and memory efficiency)
+      // 1. Check dedicated SharedBlobs DB first (instant binary read!)
       try {
-        const req = indexedDB.open('MySpaceDB');
-        req.onupgradeneeded = (e: any) => {
-          const db = e.target.result;
-          if (!db.objectStoreNames.contains('sharedFiles')) db.createObjectStore('sharedFiles');
-          if (!db.objectStoreNames.contains('sharedBlobs')) db.createObjectStore('sharedBlobs');
+        const blobReq = indexedDB.open('SmartShareSharedBlobsDB', 1);
+        blobReq.onupgradeneeded = (e: any) => {
+          if (!e.target.result.objectStoreNames.contains('blobs')) {
+            e.target.result.createObjectStore('blobs');
+          }
         };
-        req.onsuccess = (e: any) => {
+        blobReq.onsuccess = (e: any) => {
           const db = e.target.result;
-          if (db.objectStoreNames.contains('sharedBlobs')) {
-            const tx = db.transaction('sharedBlobs', 'readonly');
-            const store = tx.objectStore('sharedBlobs');
+          if (db.objectStoreNames.contains('blobs')) {
+            const tx = db.transaction('blobs', 'readonly');
+            const store = tx.objectStore('blobs');
             const getBlobsReq = store.get('latest_blobs');
             getBlobsReq.onsuccess = () => {
               if (getBlobsReq.result && Array.isArray(getBlobsReq.result) && getBlobsReq.result.length > 0) {
@@ -258,6 +266,14 @@ export default function SharedFileHandler() {
               }
             };
           }
+        };
+      } catch (blobErr) {}
+
+      // 2. Check MySpaceDB sharedFiles fallback
+      try {
+        const req = indexedDB.open('MySpaceDB', 1);
+        req.onsuccess = (e: any) => {
+          const db = e.target.result;
           if (db.objectStoreNames.contains('sharedFiles')) {
             const tx = db.transaction('sharedFiles', 'readonly');
             const store = tx.objectStore('sharedFiles');
