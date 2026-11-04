@@ -337,8 +337,20 @@ export default function SharedFileHandler() {
       return false;
     };
 
-    // Immediate check across storage layers
+    // Check immediately, then poll rapidly (every 250ms for 5 seconds) to catch the SW write reliably
     checkPendingFiles();
+    const pollInterval = setInterval(() => {
+      if (hasHandledShareRef.current || isCancelledRef.current) {
+        clearInterval(pollInterval);
+        return;
+      }
+      checkPendingFiles();
+    }, 250);
+
+    const safetyTimeout = setTimeout(() => {
+      clearInterval(pollInterval);
+      setIsReceivingShare(false);
+    }, 10000);
 
     // Listen to messages from Service Worker
     const handleSwMessage = (event: MessageEvent) => {

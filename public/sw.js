@@ -181,32 +181,6 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 });
-        const buffer = await file.arrayBuffer();
-        const base64 = arrayBufferToBase64(buffer);
-        const mimeType = file.type || 'image/jpeg';
-        return 'data:' + mimeType + ';base64,' + base64;
-      }));
-
-      // Attempt to broadcast to existing windows right away
-      const notifyClients = async () => {
-        const allClients = await self.clients.matchAll({ includeUncontrolled: true, type: 'window' });
-        for (const client of allClients) {
-          client.postMessage({
-            action: 'SHARE_FILES_PAYLOAD',
-            files: dataUris
-          });
-        }
-      };
-
-      // Broadcast now and retry after 500ms and 1200ms when page loads
-      await notifyClients();
-      setTimeout(notifyClients, 500);
-      setTimeout(notifyClients, 1200);
-    })());
-
-    return;
-  }
-});
 
 // Allow client windows to explicitly pull latest shared files via postMessage
 self.addEventListener('message', async (event) => {
@@ -214,17 +188,10 @@ self.addEventListener('message', async (event) => {
     if (latestSharedFilesPromise) {
       const files = await latestSharedFilesPromise;
       if (files && files.length > 0) {
-        const dataUris = await Promise.all(files.map(async (file) => {
-          const buffer = await file.arrayBuffer();
-          const base64 = arrayBufferToBase64(buffer);
-          const mimeType = file.type || 'image/jpeg';
-          return 'data:' + mimeType + ';base64,' + base64;
-        }));
-
         if (event.source && typeof event.source.postMessage === 'function') {
           event.source.postMessage({
-            action: 'SHARE_FILES_PAYLOAD',
-            files: dataUris
+            action: 'SHARE_BLOBS_AVAILABLE',
+            count: files.length
           });
         }
       }

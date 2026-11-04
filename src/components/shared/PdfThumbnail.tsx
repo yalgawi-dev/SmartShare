@@ -58,12 +58,18 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
           bytes = new Uint8Array(arrayBuffer);
         }
 
-        const loadingTask = window.pdfjsLib.getDocument({ data: bytes });
+        // Fast render: low scale (0.5 - 0.75) for tiny 70px thumbnail to prevent CPU lockups
+        const loadingTask = window.pdfjsLib.getDocument({ 
+          data: bytes,
+          stopAtErrors: true,
+          disableFontFace: true 
+        });
         const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
         
-        // Render at a decent resolution for preview
-        const viewport = page.getViewport({ scale: 1.5 });
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const scale = Math.min(1.0, 160 / Math.max(unscaledViewport.width, unscaledViewport.height));
+        const viewport = page.getViewport({ scale: Math.max(0.3, scale) });
         
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
