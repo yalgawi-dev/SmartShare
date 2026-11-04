@@ -6,6 +6,7 @@ import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 interface DynamicPdfScrollPreviewProps {
   url: string;
   title?: string;
+  thumbnailUrl?: string;
   onPagesLoaded?: (pages: string[]) => void;
 }
 
@@ -14,7 +15,7 @@ interface DynamicPdfScrollPreviewProps {
  * Extracts each page into memory, displaying exactly ONE page at a time with pinch-to-zoom
  * and clean navigation (‹ עמוד 1 מתוך 2 ›) across pages.
  */
-export default function DynamicPdfScrollPreview({ url, title, onPagesLoaded }: DynamicPdfScrollPreviewProps) {
+export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPagesLoaded }: DynamicPdfScrollPreviewProps) {
   const [pages, setPages] = useState<string[]>([]);
   const [currentPageIndex, setCurrentPageIndex] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -53,10 +54,25 @@ export default function DynamicPdfScrollPreview({ url, title, onPagesLoaded }: D
 
   if (isLoading) {
     return (
-      <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: '#38bdf8' }}>
-        <div style={{ width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
-        <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>מזהה ומעבד את דפי המסמך...</span>
-        <span style={{ fontSize: '0.8rem', color: '#94a3b8' }}>טעינת דפים בזיכרון המכשיר</span>
+      <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: '#38bdf8', position: 'relative' }}>
+        {thumbnailUrl && (
+          <img
+            src={thumbnailUrl}
+            alt=""
+            style={{
+              position: 'absolute',
+              maxWidth: '85%',
+              maxHeight: '85%',
+              objectFit: 'contain',
+              opacity: 0.35,
+              filter: 'blur(4px)',
+              borderRadius: '12px'
+            }}
+          />
+        )}
+        <div style={{ width: '48px', height: '48px', border: '4px solid rgba(255,255,255,0.2)', borderTopColor: '#38bdf8', borderRadius: '50%', animation: 'spin 1s linear infinite', zIndex: 10 }} />
+        <span style={{ fontSize: '1rem', fontWeight: 'bold', zIndex: 10, textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>טוען את דפי המסמך...</span>
+        <span style={{ fontSize: '0.8rem', color: '#94a3b8', zIndex: 10 }}>טעינת דפים באיכות גבוהה</span>
       </div>
     );
   }
@@ -142,7 +158,35 @@ export default function DynamicPdfScrollPreview({ url, title, onPagesLoaded }: D
     );
   }
 
-  // Fallback if client-side render fails (e.g. CORS block on external PDF)
+  // Fallback: If client-side extraction failed, check if we have a thumbnail
+  if (thumbnailUrl) {
+    return (
+      <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
+        <img
+          src={thumbnailUrl}
+          alt={title || 'עמוד ראשון'}
+          style={{ maxWidth: '92vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: '12px', boxShadow: '0 8px 30px rgba(0,0,0,0.6)' }}
+        />
+        <div style={{ marginTop: '0.8rem', background: 'rgba(15, 23, 42, 0.85)', color: '#38bdf8', padding: '4px 12px', borderRadius: '12px', fontSize: '0.8rem', fontWeight: 600 }}>
+          תצוגת עמוד ראשון (לחץ להורדה לצפייה מלאה)
+        </div>
+      </div>
+    );
+  }
+
+  // Fallback if client-side render fails and no thumbnail:
+  if (url.startsWith('blob:')) {
+    return (
+      <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', color: '#f8fafc', padding: '2rem', textAlign: 'center' }}>
+        <span style={{ fontSize: '3.5rem' }}>📑</span>
+        <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>תצוגת ה-PDF אינה זמינה כרגע</div>
+        <div style={{ fontSize: '0.85rem', color: '#94a3b8', maxWidth: '340px' }}>
+          הקובץ המקורי שמור. ניתן להוריד אותו ישירות כדי לצפות בו בכל מציג PDF במכשיר.
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ width: '100%', height: '78vh', position: 'relative', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 8px 30px rgba(0,0,0,0.5)', background: '#1e293b' }}>
       <iframe 

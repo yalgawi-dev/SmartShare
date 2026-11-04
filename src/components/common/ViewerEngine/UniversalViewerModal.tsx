@@ -102,9 +102,11 @@ export default function UniversalViewerModal({
 
   const isMultiPage = currentDoc.type !== 'image' && Array.isArray(currentDoc.pages) && currentDoc.pages.length > 1;
   const isPdf = Boolean(
-    (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf')) ||
     currentDoc.type === 'pdf' ||
-    currentDoc.url?.startsWith('data:application/pdf')
+    (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf')) ||
+    currentDoc.url?.startsWith('data:application/pdf') ||
+    currentDoc.title?.toLowerCase().endsWith('.pdf') ||
+    (currentDoc.url && currentDoc.url.startsWith('blob:') && currentDoc.type !== 'image')
   );
 
   const handlePrev = (e?: React.MouseEvent) => {
@@ -242,7 +244,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v2.8.0
+            v2.8.1
           </span>
           <span
             style={{
@@ -398,6 +400,7 @@ export default function UniversalViewerModal({
                 <DynamicPdfScrollPreview
                   url={currentDoc.url}
                   title={currentDoc.title}
+                  thumbnailUrl={currentDoc.thumbnailUrl}
                   onPagesLoaded={(loadedPages) => {
                     currentDoc.pages = loadedPages;
                     if (onNormalizeDoc && currentDoc.id) {
@@ -504,6 +507,39 @@ export default function UniversalViewerModal({
           // ── Case 3: Single Page Document (JPEG / Image) ────────────────────
           const fullUrl = currentDoc.url || (currentDoc.pages && currentDoc.pages[0]);
           const thumbUrl = currentDoc.thumbnailUrl;
+
+          const isTargetPdf = isPdf ||
+            currentDoc.type === 'pdf' ||
+            (fullUrl && fullUrl.toLowerCase().includes('.pdf')) ||
+            (fullUrl && fullUrl.startsWith('data:application/pdf'));
+
+          if (isTargetPdf && fullUrl) {
+            return (
+              <div
+                style={{
+                  width: '94%',
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  position: 'relative'
+                }}
+              >
+                <DynamicPdfScrollPreview
+                  url={fullUrl}
+                  title={currentDoc.title}
+                  thumbnailUrl={thumbUrl}
+                  onPagesLoaded={(loadedPages) => {
+                    currentDoc.pages = loadedPages;
+                    if (onNormalizeDoc && currentDoc.id) {
+                      onNormalizeDoc(currentDoc.id, loadedPages);
+                    }
+                  }}
+                />
+              </div>
+            );
+          }
           return (
             <div
               style={{
@@ -571,6 +607,17 @@ export default function UniversalViewerModal({
                       alt={currentDoc.title || 'מסמך'}
                       loading="eager"
                       decoding="sync"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                        const parent = e.currentTarget.parentElement;
+                        if (parent && !parent.querySelector('.doc-fallback-error')) {
+                          const errorDiv = document.createElement('div');
+                          errorDiv.className = 'doc-fallback-error';
+                          errorDiv.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:2rem;color:#f8fafc;text-align:center;';
+                          errorDiv.innerHTML = '<span style="font-size:3.5rem;">📑</span><div style="font-size:1.05rem;font-weight:700;">לא ניתן לטעון תצוגה מקדימה</div><div style="font-size:0.82rem;color:#94a3b8;max-width:320px;">הקובץ המקורי שמור. ניתן להוריד אותו לצפייה מלאה.</div>';
+                          parent.appendChild(errorDiv);
+                        }
+                      }}
                       style={{
                         maxWidth: '92vw',
                         maxHeight: '76vh',

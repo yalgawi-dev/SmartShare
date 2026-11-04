@@ -9,6 +9,7 @@ import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
 import { downscaleBase64, extractPdfPages, analyzePdfStructure } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
+import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
 
 export default function SharedFileHandler() {
   const { spaces, addInboxItems, addToPersonalInbox, setPersonalInbox, addDocument, addShelf } = useSpaces();
@@ -524,79 +525,104 @@ export default function SharedFileHandler() {
           currentIdx++;
           setUploadProgress({ current: currentIdx, total: sharedFiles.length });
           const cleanUri = dataUri.replace(/^"|"$/g, '');
-          const isPdf = cleanUri.includes('.pdf') || cleanUri.includes('application/pdf');
+          const correspondingBlob = sharedBlobs[currentIdx - 1];
+          const isPdf = Boolean(
+            (correspondingBlob?.blob && (correspondingBlob.blob.type === 'application/pdf' || correspondingBlob.blob.name?.toLowerCase().endsWith('.pdf'))) ||
+            correspondingBlob?.type === 'application/pdf' ||
+            correspondingBlob?.name?.toLowerCase().endsWith('.pdf') ||
+            cleanUri.toLowerCase().includes('.pdf') ||
+            cleanUri.startsWith('data:application/pdf')
+          );
 
-          // Dual-check detection: If raw PDF has digital signature or vector text, retain original PDF in vault
-          let rawPdfDownloadUrl: string | undefined = undefined;
-          let webpPages: string[] = [];
+          const spaceOverride = user?.storageConfig?.spaceOverrides?.[selectedSpaceId];
+          const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
 
           if (isPdf) {
-            const correspondingBlob = sharedBlobs.find(b => b.blob && (b.type === 'application/pdf' || (b.name && b.name.toLowerCase().endsWith('.pdf'))));
-            if (correspondingBlob && correspondingBlob.blob) {
-              try {
-                const buffer = await correspondingBlob.blob.arrayBuffer();
-                const analysis = await analyzePdfStructure(buffer);
-                if (analysis.hasDigitalSignature || analysis.hasTextLayer) {
-                  // Upload intact original PDF to Firebase Storage
-                  rawPdfDownloadUrl = await uploadBlobToStorage(
-                    correspondingBlob.blob,
-                    `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
-                  );
-                }
-              } catch (e) {
-                console.warn("Dual-check upload error:", e);
-              }
+            // PDF document: Keep intact original file in Firebase Storage
+            const blobToUpload = (correspondingBlob?.blob instanceof Blob)
+              ? correspondingBlob.blob
+              : await fetch(cleanUri).then(r => r.blob());
+
+            const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}.pdf`;
+            const rawPdfDownloadUrl = await uploadBlobToStorage(
+              blobToUpload,
+              `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
+            );
+
+            // Generate lightweight Page 1 WebP thumbnail so document cards and viewer load in <50ms
+            let docThumbnailUrl: string | undefined = undefined;
+            try {
+              const { generatePdfFirstPageThumbnail } = await import('@/utils/imageOptimizer');
+              const thumbBase64 = await generatePdfFirstPageThumbnail(blobToUpload, 800, 0.80);
+              docThumbnailUrl = await uploadImageToStorage(
+                thumbBase64,
+                `vault/${selectedSpaceId}/thumb_${Date.now()}-${Math.random().toString(36).substring(7)}.webp`
+              );
+            } catch (thumbErr) {
+              console.warn("Failed generating PDF thumbnail:", thumbErr);
             }
 
-            if (sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 0) {
-              webpPages = sharedAllPages;
-            } else {
-              webpPages = await extractPdfPages(cleanUri, 1500, 0.85);
+            addDocument(selectedSpaceId, {
+              shelfId: targetShelfId,
+              folderId: selectedFolderId || undefined,
+              url: rawPdfDownloadUrl,
+              thumbnailUrl: docThumbnailUrl,
+              pages: docThumbnailUrl ? [docThumbnailUrl] : undefined,
+              title: fileName.replace(/\.pdf$/i, '') || 'מסמך PDF',
+              type: 'pdf',
+              addedBy: user?.id || 'me',
+              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
+            });
+
+            if (effectiveTarget === 'local') {
+              try {
+                await saveLocalDeviceFile(currentSpace?.title || 'General', fileName, cleanUri);
+              } catch (err) {
+                console.warn("Local save failed in SharedFileHandler:", err);
+              }
             }
-          }
-          if (webpPages.length === 0) {
+          } else {
+            let webpPages: string[] = [];
             try {
               webpPages = [await downscaleBase64(cleanUri, 1500, 0.85)];
             } catch (err) {
               console.error('Downscale failed', err);
               webpPages = [cleanUri];
             }
-          }
 
-          const spaceOverride = user?.storageConfig?.spaceOverrides?.[selectedSpaceId];
-          const effectiveTarget = spaceOverride || user?.storageConfig?.defaultTarget || 'cloud';
-          const uploadedPages: string[] = [];
-          for (let p = 0; p < webpPages.length; p++) {
-            const pageUri = webpPages[p];
-            const ext = pageUri.startsWith('data:image/webp') ? 'webp' : 'jpg';
-            uploadedPages.push(await uploadImageToStorage(
-              pageUri,
-              `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.${ext}`
-            ));
-            if (effectiveTarget === 'local') {
-              try {
-                await saveLocalDeviceFile(currentSpace?.title || 'General', `shared_${Date.now()}_${currentIdx}_${p + 1}.${ext}`, pageUri);
-              } catch (err) {
-                console.warn("Local save failed in SharedFileHandler:", err);
+            const uploadedPages: string[] = [];
+            for (let p = 0; p < webpPages.length; p++) {
+              const pageUri = webpPages[p];
+              const ext = pageUri.startsWith('data:image/webp') ? 'webp' : 'jpg';
+              uploadedPages.push(await uploadImageToStorage(
+                pageUri,
+                `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.${ext}`
+              ));
+              if (effectiveTarget === 'local') {
+                try {
+                  await saveLocalDeviceFile(currentSpace?.title || 'General', `shared_${Date.now()}_${currentIdx}_${p + 1}.${ext}`, pageUri);
+                } catch (err) {
+                  console.warn("Local save failed in SharedFileHandler:", err);
+                }
               }
             }
+
+            const publicUrl = uploadedPages[0];
+            const docThumbnailUrl: string | undefined = uploadedPages[0];
+            const docPages: string[] | undefined = uploadedPages.length > 1 ? uploadedPages : undefined;
+
+            addDocument(selectedSpaceId, {
+              shelfId: targetShelfId,
+              folderId: selectedFolderId || undefined,
+              url: publicUrl,
+              thumbnailUrl: docThumbnailUrl,
+              pages: docPages,
+              title: 'מסמך ששותף',
+              type: 'image',
+              addedBy: user?.id || 'me',
+              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
+            });
           }
-
-          const publicUrl = rawPdfDownloadUrl || uploadedPages[0];
-          const docThumbnailUrl: string | undefined = uploadedPages[0];
-          const docPages: string[] | undefined = uploadedPages.length > 1 ? uploadedPages : undefined;
-
-          addDocument(selectedSpaceId, {
-            shelfId: targetShelfId,
-            folderId: selectedFolderId || undefined,
-            url: publicUrl,
-            thumbnailUrl: docThumbnailUrl,
-            pages: docPages,
-            title: rawPdfDownloadUrl ? 'מסמך PDF מקורי' : 'מסמך ששותף',
-            type: rawPdfDownloadUrl ? 'pdf' : 'document',
-            addedBy: user?.id || 'me',
-            storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
-          });
         }
 
         const request = indexedDB.open('MySpaceDB', 1);
@@ -850,11 +876,18 @@ export default function SharedFileHandler() {
               display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.5rem', overflowX: 'auto' 
             }}>
               {sharedFiles.slice(0, 3).map((uri, idx) => {
-                const isPdf = uri.includes('.pdf') || uri.startsWith('data:application/pdf');
+                const blobItem = sharedBlobs[idx];
+                const isPdf = Boolean(
+                  blobItem?.type === 'application/pdf' ||
+                  blobItem?.blob?.type === 'application/pdf' ||
+                  blobItem?.name?.toLowerCase().endsWith('.pdf') ||
+                  uri.toLowerCase().includes('.pdf') ||
+                  uri.startsWith('data:application/pdf')
+                );
                 return isPdf ? (
                   <PdfThumbnail 
                     key={idx}
-                    base64Uri={uri}
+                    url={uri}
                     onClick={() => setZoomedIndex(idx)}
                     style={{ height: '100%', width: '70px', flexShrink: 0, objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }}
                   />
@@ -1241,15 +1274,28 @@ export default function SharedFileHandler() {
           }}
         >
           <div style={{ position: 'relative', width: '100%', height: '82%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            {sharedFiles[zoomedIndex]?.includes('.pdf') || sharedFiles[zoomedIndex]?.startsWith('data:application/pdf') ? (
-               <iframe 
-                 src={sharedFiles[zoomedIndex]}
-                 style={{ width: '100%', height: '100%', border: 'none', borderRadius: '12px', background: '#ffffff' }}
-                 title="PDF Full Preview"
-               />
-            ) : (
-               <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
-            )}
+            {(() => {
+              const isPdf = Boolean(
+                (zoomedIndex !== null && sharedBlobs[zoomedIndex]?.type === 'application/pdf') ||
+                (zoomedIndex !== null && sharedBlobs[zoomedIndex]?.blob?.type === 'application/pdf') ||
+                (zoomedIndex !== null && sharedBlobs[zoomedIndex]?.name?.toLowerCase().endsWith('.pdf')) ||
+                sharedFiles[zoomedIndex]?.toLowerCase().includes('.pdf') ||
+                sharedFiles[zoomedIndex]?.startsWith('data:application/pdf')
+              );
+              if (isPdf) {
+                return (
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <DynamicPdfScrollPreview
+                      url={sharedFiles[zoomedIndex]}
+                      title={sharedBlobs[zoomedIndex]?.name || 'תצוגת מסמך'}
+                    />
+                  </div>
+                );
+              }
+              return (
+                <img src={sharedFiles[zoomedIndex]} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: '8px' }} />
+              );
+            })()}
             {zoomedIndex > 0 && (
               <div onClick={(e) => { e.stopPropagation(); setZoomedIndex(zoomedIndex - 1); }} style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(0,0,0,0.6)', padding: '1rem', borderRadius: '50%', cursor: 'pointer', color: 'white', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
                 &gt;

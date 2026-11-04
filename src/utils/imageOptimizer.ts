@@ -383,6 +383,78 @@ async function setCachedPdfPages(url: string, pages: string[]): Promise<void> {
   } catch {}
 }
 
+export async function generatePdfFirstPageThumbnail(source: Blob | string, maxDim = 800, quality = 0.80): Promise<string> {
+  if (typeof window === 'undefined') return '';
+
+  if (!window.pdfjsLib) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.onload = () => {
+        if (window.pdfjsLib) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          resolve(null);
+        } else {
+          reject(new Error('pdfjsLib not found on window'));
+        }
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  let loadingTask: any;
+  if (source instanceof Blob) {
+    const arrayBuffer = await source.arrayBuffer();
+    loadingTask = window.pdfjsLib.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      stopAtErrors: true,
+      disableFontFace: true
+    });
+  } else if (typeof source === 'string') {
+    if (source.startsWith('data:')) {
+      const base64Data = source.includes('base64,') ? source.split('base64,')[1] : source;
+      const binaryString = window.atob(base64Data);
+      const bytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+      }
+      loadingTask = window.pdfjsLib.getDocument({
+        data: bytes,
+        stopAtErrors: true,
+        disableFontFace: true
+      });
+    } else {
+      loadingTask = window.pdfjsLib.getDocument({
+        url: source,
+        stopAtErrors: true,
+        disableFontFace: true
+      });
+    }
+  } else {
+    throw new Error('Unsupported PDF source for thumbnail');
+  }
+
+  const pdf = await loadingTask.promise;
+  const page = await pdf.getPage(1);
+  const unscaledViewport = page.getViewport({ scale: 1.0 });
+  const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+  const scale = Math.min(1.5, maxDim / currentMax);
+  const viewport = page.getViewport({ scale: Math.max(0.3, scale) });
+
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Could not get 2d context for PDF thumbnail');
+
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  await page.render({ canvasContext: ctx, viewport }).promise;
+
+  return compressCanvasWebP(canvas, quality);
+}
+
 export async function extractPdfPages(pdfSource: string, maxDim = 1500, quality = 0.85): Promise<string[]> {
   if (typeof window === 'undefined') return [];
 

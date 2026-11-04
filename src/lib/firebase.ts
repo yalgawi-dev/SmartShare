@@ -45,6 +45,16 @@ export const uploadBlobToStorage = async (blob: Blob, path: string): Promise<str
 };
 
 export const uploadImageToStorage = async (inputDataUrl: string, path: string): Promise<string> => {
+  if (inputDataUrl.startsWith('blob:')) {
+    try {
+      const res = await fetch(inputDataUrl);
+      const blob = await res.blob();
+      return await uploadBlobToStorage(blob, path);
+    } catch (blobErr) {
+      console.warn("Failed uploading blob URL directly:", blobErr);
+    }
+  }
+
   if (!inputDataUrl.startsWith('data:image') && !inputDataUrl.startsWith('data:application/pdf')) {
     // If it's already a URL (e.g. from a previous upload or an external link), just return it
     return inputDataUrl;
