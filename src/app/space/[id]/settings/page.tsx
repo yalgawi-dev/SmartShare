@@ -50,7 +50,7 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
   };
 
   return (
-    <div className={styles.container} style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '4rem' }}>
+    <div className={styles.container} style={{ maxWidth: '800px', margin: '0 auto', paddingBottom: '7.5rem' }}>
       
       
       {/* Unified Sticky Header - Professional Premium UI */}

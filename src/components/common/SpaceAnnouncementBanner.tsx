@@ -1283,7 +1283,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
 
       {/* Action Buttons Row */}
       {canManage && (
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.1rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.35rem', paddingBottom: isModal ? '0.2rem' : '1.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             {((audienceMode === 'all' && existingText) || (audienceMode === 'specific' && editingTargetedId)) && (
               <button
@@ -1446,9 +1446,21 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
 
   const isEditorOpen = internalEditorOpen || externalOpenEditor;
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (isEditorOpen) {
+      window.dispatchEvent(new CustomEvent('smartshare:announcement_modal_open'));
+    } else {
+      window.dispatchEvent(new CustomEvent('smartshare:announcement_modal_closed'));
+    }
+  }, [isEditorOpen]);
+
   const closeEditor = () => {
     setInternalEditorOpen(false);
     setEditingTargetedId(null);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('smartshare:announcement_modal_closed'));
+    }
     if (onCloseExternalEditor) onCloseExternalEditor();
   };
 
@@ -1536,7 +1548,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
             inset: 0,
             background: 'rgba(15, 23, 42, 0.55)',
             backdropFilter: 'blur(4px)',
-            zIndex: 10000,
+            zIndex: 100000,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1551,10 +1563,11 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
               padding: '1.35rem',
               width: '100%',
               maxWidth: '500px',
-              maxHeight: '90vh',
+              maxHeight: 'calc(100vh - 40px)',
               overflowY: 'auto',
               boxShadow: '0 20px 50px rgba(15, 23, 42, 0.25)',
               border: '1px solid #e2e8f0',
+              marginBottom: 'env(safe-area-inset-bottom, 20px)',
             }}
           >
             <AnnouncementUnifiedEditorForm

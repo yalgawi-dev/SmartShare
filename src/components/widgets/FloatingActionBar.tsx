@@ -51,6 +51,7 @@ export function FloatingActionBar({
   const [isVaultTab, setIsVaultTab] = useState(false);
   const [timelineSortOrder, setTimelineSortOrder] = useState<'desc' | 'asc'>('desc');
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isAnnouncementOpen, setIsAnnouncementOpen] = useState(false);
   useEffect(() => {
     const handleOpen = (e?: any) => {
       setIsInShelf(true);
@@ -79,6 +80,8 @@ export function FloatingActionBar({
     const handleTriggerUpload = () => fileInputRef.current?.click();
     const handlePreviewOpen = () => setIsPreviewOpen(true);
     const handlePreviewClose = () => setIsPreviewOpen(false);
+    const handleAnnouncementOpen = () => setIsAnnouncementOpen(true);
+    const handleAnnouncementClose = () => setIsAnnouncementOpen(false);
     const handleSortChanged = (e: any) => {
       if (e?.detail?.sortOrder) setTimelineSortOrder(e.detail.sortOrder);
     };
@@ -91,6 +94,8 @@ export function FloatingActionBar({
     window.addEventListener("smartshare:vault_tab_inactive", handleVaultOff);
     window.addEventListener("smartshare:preview_open", handlePreviewOpen);
     window.addEventListener("smartshare:preview_closed", handlePreviewClose);
+    window.addEventListener("smartshare:announcement_modal_open", handleAnnouncementOpen);
+    window.addEventListener("smartshare:announcement_modal_closed", handleAnnouncementClose);
     window.addEventListener("smartshare:timeline_sort_changed", handleSortChanged);
     return () => {
       window.removeEventListener("smartshare:shelf_opened", handleOpen);
@@ -101,11 +106,13 @@ export function FloatingActionBar({
       window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
       window.removeEventListener("smartshare:preview_open", handlePreviewOpen);
       window.removeEventListener("smartshare:preview_closed", handlePreviewClose);
+      window.removeEventListener("smartshare:announcement_modal_open", handleAnnouncementOpen);
+      window.removeEventListener("smartshare:announcement_modal_closed", handleAnnouncementClose);
       window.removeEventListener("smartshare:timeline_sort_changed", handleSortChanged);
     };
   }, [setActiveTab, activeTab]);
 
-  if (isAddingExpense || isScannerOpen || isPreviewOpen || !mounted) return null;
+  if (isAddingExpense || isScannerOpen || isPreviewOpen || isAnnouncementOpen || !mounted) return null;
 
   // When outside a shelf:
   // 1. If space has no finance, or activeTab is 'documents' or empty/summary without finance, default to 'shelves'
