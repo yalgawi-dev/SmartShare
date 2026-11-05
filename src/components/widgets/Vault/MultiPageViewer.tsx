@@ -40,7 +40,7 @@ export default function MultiPageViewer({ pages, title }: MultiPageViewerProps) 
 
       {/* Single Page View with Pinch-to-Zoom */}
       <div style={{ width: '100%', height: '74vh', display: 'flex', alignItems: 'center', justifyContent: 'center', touchAction: 'none' }}>
-        <TransformWrapper key={currentPage} initialScale={1} minScale={0.8} maxScale={5} centerOnInit={true} wheel={{ step: 0.2 }}>
+        <TransformWrapper key={currentPage} initialScale={1} minScale={0.6} maxScale={30} limitToBounds={false} doubleClick={{ mode: 'zoomIn', step: 2.5 }} pinch={{ step: 5 }} centerOnInit={true} wheel={{ step: 0.2 }}>
           <TransformComponent wrapperStyle={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }} contentStyle={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <img 
               src={pages[currentPage]} 

@@ -147,11 +147,13 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <TransformWrapper
           initialScale={1}
-          minScale={0.7}
-          maxScale={5}
+          minScale={0.6}
+          maxScale={30}
           centerOnInit={true}
-          doubleClick={{ mode: 'reset' }}
+          limitToBounds={false}
+          doubleClick={{ mode: 'zoomIn', step: 2.5 }}
           wheel={{ step: 0.2 }}
+          pinch={{ step: 5 }}
         >
           <TransformComponent
             wrapperStyle={{ width: '100%', height: '100%', overflowY: 'auto' }}

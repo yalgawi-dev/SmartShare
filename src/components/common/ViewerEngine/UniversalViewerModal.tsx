@@ -259,7 +259,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.31
+            v3.4.32
           </span>
           <span
             style={{
@@ -485,78 +485,168 @@ export default function UniversalViewerModal({
                 <TransformWrapper
                   key={`multi-${currentIndex}`}
                   initialScale={1}
-                  minScale={0.7}
-                  maxScale={5}
+                  minScale={0.6}
+                  maxScale={30}
                   centerOnInit={true}
-                  doubleClick={{ mode: 'reset' }}
+                  limitToBounds={false}
+                  doubleClick={{ mode: 'zoomIn', step: 2.5 }}
                   wheel={{ step: 0.2 }}
+                  pinch={{ step: 5 }}
                   onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
                 >
-                  <TransformComponent
-                    wrapperStyle={{ width: '100%', height: '100%', overflowY: 'auto' }}
-                    contentStyle={{ width: '100%', minHeight: '100%', display: 'flex', justifyContent: 'center' }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '16px',
-                        padding: '1.5rem 1rem',
-                        maxWidth: '900px',
-                        width: '100%'
-                      }}
-                    >
-                      {validImagePages.map((pageUrl: string, pageIdx: number) => (
+                  {({ zoomIn, zoomOut, resetTransform }: any) => (
+                    <>
+                      <TransformComponent
+                        wrapperStyle={{ width: '100%', height: '100%', overflowY: 'auto' }}
+                        contentStyle={{ width: '100%', minHeight: '100%', display: 'flex', justifyContent: 'center' }}
+                      >
                         <div
-                          key={pageIdx}
                           style={{
-                            position: 'relative',
-                            width: '100%',
                             display: 'flex',
-                            justifyContent: 'center'
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            gap: '16px',
+                            padding: '1.5rem 1rem',
+                            maxWidth: '900px',
+                            width: '100%'
                           }}
                         >
-                          <img
-                            src={pageUrl}
-                            alt={`עמוד ${pageIdx + 1}`}
-                            loading={pageIdx < 3 ? 'eager' : 'lazy'}
-                            decoding="async"
+                          {validImagePages.map((pageUrl: string, pageIdx: number) => (
+                            <div
+                              key={pageIdx}
+                              style={{
+                                position: 'relative',
+                                width: '100%',
+                                display: 'flex',
+                                justifyContent: 'center'
+                              }}
+                            >
+                              <img
+                                src={pageUrl}
+                                alt={`עמוד ${pageIdx + 1}`}
+                                loading={pageIdx < 3 ? 'eager' : 'lazy'}
+                                decoding="async"
+                                style={{
+                                  maxWidth: '100%',
+                                  maxHeight: '76vh',
+                                  width: 'auto',
+                                  height: 'auto',
+                                  borderRadius: '10px',
+                                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
+                                  userSelect: 'none',
+                                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                                }}
+                              />
+                              {/* CamScanner Page Badge */}
+                              <div
+                                style={{
+                                  position: 'absolute',
+                                  bottom: '12px',
+                                  right: '16px',
+                                  background: 'rgba(15, 23, 42, 0.85)',
+                                  backdropFilter: 'blur(6px)',
+                                  color: '#f8fafc',
+                                  padding: '3px 10px',
+                                  borderRadius: '12px',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                                  boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                                  zIndex: 10
+                                }}
+                              >
+                                עמוד {pageIdx + 1} מתוך {validImagePages.length}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </TransformComponent>
+
+                      {/* Floating Quick-Zoom Action Controls */}
+                      <div
+                        onClick={(e) => e.stopPropagation()}
+                        style={{
+                          position: 'absolute',
+                          bottom: '90px',
+                          left: '16px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                          zIndex: 200020
+                        }}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => zoomIn(1.8)}
+                          title="הגדל זום"
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                            color: '#ffffff',
+                            fontSize: '1.3rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                          }}
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => zoomOut(1.8)}
+                          title="הקטן זום"
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: 'rgba(15, 23, 42, 0.75)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                            color: '#ffffff',
+                            fontSize: '1.3rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                          }}
+                        >
+                          −
+                        </button>
+                        {currentScale > 1.1 && (
+                          <button
+                            type="button"
+                            onClick={() => resetTransform()}
+                            title="איפוס תצוגה"
                             style={{
-                              maxWidth: '100%',
-                              maxHeight: '76vh',
-                              width: 'auto',
-                              height: 'auto',
-                              borderRadius: '10px',
-                              boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
-                              userSelect: 'none',
-                              border: '1px solid rgba(255, 255, 255, 0.08)'
-                            }}
-                          />
-                          {/* CamScanner Page Badge */}
-                          <div
-                            style={{
-                              position: 'absolute',
-                              bottom: '12px',
-                              right: '16px',
-                              background: 'rgba(15, 23, 42, 0.85)',
-                              backdropFilter: 'blur(6px)',
-                              color: '#f8fafc',
-                              padding: '3px 10px',
-                              borderRadius: '12px',
-                              fontSize: '0.75rem',
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              background: 'rgba(37, 99, 235, 0.85)',
+                              backdropFilter: 'blur(8px)',
+                              border: '1.5px solid rgba(255, 255, 255, 0.3)',
+                              color: '#ffffff',
+                              fontSize: '0.8rem',
                               fontWeight: 800,
-                              border: '1px solid rgba(255, 255, 255, 0.15)',
-                              boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                              zIndex: 10
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: 'pointer',
+                              boxShadow: '0 4px 12px rgba(37,99,235,0.5)'
                             }}
                           >
-                            עמוד {pageIdx + 1} מתוך {validImagePages.length}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </TransformComponent>
+                            1:1
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </TransformWrapper>
               </div>
             );
@@ -642,86 +732,176 @@ export default function UniversalViewerModal({
               <TransformWrapper
                 key={`single-${currentIndex}`}
                 initialScale={1}
-                minScale={0.8}
-                maxScale={5}
+                minScale={0.6}
+                maxScale={30}
                 centerOnInit={true}
-                doubleClick={{ mode: 'reset' }}
+                limitToBounds={false}
+                doubleClick={{ mode: 'zoomIn', step: 2.5 }}
                 wheel={{ step: 0.2 }}
+                pinch={{ step: 5 }}
                 onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
               >
-                <TransformComponent
-                  wrapperStyle={{
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  contentStyle={{
-                    width: '100%',
-                    height: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {validThumb && validThumb !== fullUrl && (
-                      <img
-                        src={validThumb}
-                        alt=""
-                        aria-hidden="true"
-                        style={{
-                          maxWidth: '92vw',
-                          maxHeight: '76vh',
-                          width: 'auto',
-                          height: 'auto',
-                          objectFit: 'contain',
-                          borderRadius: '10px',
-                          filter: 'blur(8px)',
-                          position: 'absolute',
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          margin: 'auto',
-                          opacity: 0.8
-                        }}
-                      />
-                    )}
-                    <img
-                      src={fullUrl || validThumb}
-                      alt={currentDoc.title || 'מסמך'}
-                      loading="eager"
-                      decoding="sync"
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                        const parent = e.currentTarget.parentElement;
-                        if (parent && !parent.querySelector('.doc-fallback-error')) {
-                          const errorDiv = document.createElement('div');
-                          errorDiv.className = 'doc-fallback-error';
-                          errorDiv.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:2rem;color:#f8fafc;text-align:center;';
-                          errorDiv.innerHTML = '<span style="font-size:3.5rem;">📑</span><div style="font-size:1.05rem;font-weight:700;">לא ניתן לטעון תצוגה מקדימה</div><div style="font-size:0.82rem;color:#94a3b8;max-width:320px;">הקובץ המקורי שמור. ניתן להוריד אותו לצפייה מלאה.</div>';
-                          parent.appendChild(errorDiv);
-                        }
+                {({ zoomIn, zoomOut, resetTransform }: any) => (
+                  <>
+                    <TransformComponent
+                      wrapperStyle={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                       }}
+                      contentStyle={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        position: 'relative'
+                      }}
+                    >
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        {validThumb && validThumb !== fullUrl && (
+                          <img
+                            src={validThumb}
+                            alt=""
+                            aria-hidden="true"
+                            style={{
+                              maxWidth: '92vw',
+                              maxHeight: '76vh',
+                              width: 'auto',
+                              height: 'auto',
+                              objectFit: 'contain',
+                              borderRadius: '10px',
+                              filter: 'blur(8px)',
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              right: 0,
+                              bottom: 0,
+                              margin: 'auto',
+                              opacity: 0.8
+                            }}
+                          />
+                        )}
+                        <img
+                          src={fullUrl || validThumb}
+                          alt={currentDoc.title || 'מסמך'}
+                          loading="eager"
+                          decoding="sync"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            const parent = e.currentTarget.parentElement;
+                            if (parent && !parent.querySelector('.doc-fallback-error')) {
+                              const errorDiv = document.createElement('div');
+                              errorDiv.className = 'doc-fallback-error';
+                              errorDiv.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:2rem;color:#f8fafc;text-align:center;';
+                              errorDiv.innerHTML = '<span style="font-size:3.5rem;">📑</span><div style="font-size:1.05rem;font-weight:700;">לא ניתן לטעון תצוגה מקדימה</div><div style="font-size:0.82rem;color:#94a3b8;max-width:320px;">הקובץ המקורי שמור. ניתן להוריד אותו לצפייה מלאה.</div>';
+                              parent.appendChild(errorDiv);
+                            }
+                          }}
+                          style={{
+                            maxWidth: '92vw',
+                            maxHeight: '76vh',
+                            width: 'auto',
+                            height: 'auto',
+                            objectFit: 'contain',
+                            borderRadius: '10px',
+                            boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
+                            userSelect: 'none',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            position: 'relative',
+                            zIndex: 2
+                          }}
+                        />
+                      </div>
+                    </TransformComponent>
+
+                    {/* Floating Quick-Zoom Action Controls */}
+                    <div
+                      onClick={(e) => e.stopPropagation()}
                       style={{
-                        maxWidth: '92vw',
-                        maxHeight: '76vh',
-                        width: 'auto',
-                        height: 'auto',
-                        objectFit: 'contain',
-                        borderRadius: '10px',
-                        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
-                        userSelect: 'none',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
-                        position: 'relative',
-                        zIndex: 2
+                        position: 'absolute',
+                        bottom: '90px',
+                        left: '16px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '8px',
+                        zIndex: 200020
                       }}
-                    />
-                  </div>
-                </TransformComponent>
+                    >
+                      <button
+                        type="button"
+                        onClick={() => zoomIn(1.8)}
+                        title="הגדל זום"
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '50%',
+                          background: 'rgba(15, 23, 42, 0.75)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                          color: '#ffffff',
+                          fontSize: '1.3rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                        }}
+                      >
+                        +
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => zoomOut(1.8)}
+                        title="הקטן זום"
+                        style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '50%',
+                          background: 'rgba(15, 23, 42, 0.75)',
+                          backdropFilter: 'blur(8px)',
+                          border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                          color: '#ffffff',
+                          fontSize: '1.3rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: 'pointer',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                        }}
+                      >
+                        −
+                      </button>
+                      {currentScale > 1.1 && (
+                        <button
+                          type="button"
+                          onClick={() => resetTransform()}
+                          title="איפוס תצוגה"
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: 'rgba(37, 99, 235, 0.85)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1.5px solid rgba(255, 255, 255, 0.3)',
+                            color: '#ffffff',
+                            fontSize: '0.8rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 12px rgba(37,99,235,0.5)'
+                          }}
+                        >
+                          1:1
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </TransformWrapper>
             </div>
           );
