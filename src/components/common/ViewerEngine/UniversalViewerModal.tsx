@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { downloadDocument } from '@/utils/documentUtils';
+import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
 
 export interface ViewerDocument {
@@ -249,7 +249,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.25
+            v3.4.26
           </span>
           <span
             style={{
@@ -283,6 +283,22 @@ export default function UniversalViewerModal({
             <span>{currentDoc.storageTarget === 'local' ? '📱' : currentDoc.storageTarget === 'gdrive' ? '📁' : '☁️'}</span>
             <span>{currentDoc.storageTarget === 'local' ? 'במכשיר' : currentDoc.storageTarget === 'gdrive' ? 'Google Drive' : 'ענן MySpace'}</span>
           </span>
+          {currentDoc.fileSize && (
+            <span
+              style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#f8fafc',
+                padding: '2px 8px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
+              title="גודל הקובץ"
+            >
+              ⚖️ {formatFileSize(currentDoc.fileSize)}
+            </span>
+          )}
           {docs.length > 1 && (
             <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
               ({currentIndex + 1}/{docs.length})

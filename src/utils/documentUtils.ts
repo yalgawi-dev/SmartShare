@@ -497,3 +497,13 @@ export function getDocumentPreviewUrl(url: string): string {
   }
   return url;
 }
+
+/**
+ * Formats file size in bytes to a human-readable string (e.g. 350 B, 1.2 KB, 4.5 MB)
+ */
+export function formatFileSize(bytes?: number): string {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}

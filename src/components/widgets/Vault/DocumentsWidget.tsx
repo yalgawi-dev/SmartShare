@@ -10,7 +10,7 @@ import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 import ConfirmModal from '../../common/ConfirmModal';
-import { downloadDocument, shareDocument, getDocumentPreviewUrl } from '../../../utils/documentUtils';
+import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize } from '../../../utils/documentUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
 import ShareChoiceModal, { ShareChoiceDoc } from './ShareChoiceModal';
@@ -610,6 +610,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }
         }
 
+        let detectedSize: number | undefined = undefined;
+        if (url.startsWith('data:')) {
+          detectedSize = Math.round((url.length * 3) / 4);
+        }
+
         const docPayload = {
           shelfId, 
           folderId: effectiveFolderId || null,
@@ -619,7 +624,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           addedBy: user?.id || '', 
           thumbnailUrl: finalThumbnailUrl,
           pages: finalPages,
-          storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
+          storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
+          fileSize: detectedSize
         };
 
         // Save to real database - atomically link if effectiveTargetEventId is present
@@ -2065,9 +2071,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </div>
                                 </div>
 
-                                {/* Date */}
-                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                  {new Date(doc.createdAt).toLocaleDateString('he-IL')}
+                                {/* Date & Size */}
+                                <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+                                  <span>{new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
+                                  {doc.fileSize ? (
+                                    <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }}>
+                                      ⚖️ {formatFileSize(doc.fileSize)}
+                                    </span>
+                                  ) : null}
                                 </div>
 
                                 {/* Quick Actions */}
@@ -2478,6 +2489,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                       {new Date(doc.createdAt).toLocaleDateString('he-IL')}
+                                      {doc.fileSize ? (
+                                        <span style={{ fontSize: '0.6rem', background: '#f1f5f9', color: '#334155', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }}>
+                                          ⚖️ {formatFileSize(doc.fileSize)}
+                                        </span>
+                                      ) : null}
                                       {doc.note && (
                                         <button
                                           type="button"
@@ -3845,7 +3861,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.25</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.26</span>
         </h2>
         <input 
           type="text" 

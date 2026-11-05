@@ -582,7 +582,8 @@ export default function SharedFileHandler() {
               title: cleanTitle || (isOriginalSignedOrVector ? 'מסמך PDF מקורי' : 'מסמך ששותף'),
               type: isOriginalSignedOrVector ? 'pdf' : 'document',
               addedBy: user?.id || 'me',
-              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
+              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
+              fileSize: blobToUpload.size
             });
 
             if (effectiveTarget === 'local') {
@@ -622,6 +623,8 @@ export default function SharedFileHandler() {
             const docThumbnailUrl: string | undefined = uploadedPages[0];
             const docPages: string[] | undefined = uploadedPages.length > 1 ? uploadedPages : undefined;
 
+            const imageFileSize = cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : undefined;
+
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
               folderId: selectedFolderId || undefined,
@@ -631,7 +634,8 @@ export default function SharedFileHandler() {
               title: 'מסמך ששותף',
               type: 'image',
               addedBy: user?.id || 'me',
-              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive'
+              storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
+              fileSize: imageFileSize
             });
           }
         }

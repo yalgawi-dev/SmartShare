@@ -37,6 +37,7 @@ export interface Invoice {
   isStoreCredit?: boolean;
   excludedMembers?: string[];
   deletionRequest?: InvoiceDeletionRequest;
+  createdAt?: string;
   id: string;
   amount: number | null;
   supplier: string | null;
@@ -171,6 +172,7 @@ export interface SpaceDocument {
   storageTarget?: 'cloud' | 'local' | 'gdrive';
   deletedAt?: string;
   note?: string;
+  fileSize?: number;
 }
 
 export interface TargetedAnnouncementItem {
@@ -258,6 +260,8 @@ export interface SpaceMember {
   isActive?: boolean;
   welcomed?: boolean;
   joinedAt?: string;
+  createdAt?: string;
+  isRetroactive?: boolean;
   role?: 'creator' | 'admin' | 'partner';
   shareChangeRequest?: { proposedShare: number; creatorShare: number; timestamp: string; };
 
@@ -1382,26 +1386,50 @@ const joinSpace = (spaceId: string, userId: string, name: string) => {
 
   const toggleMemberRetroactive = (spaceId: string, userId: string, isRetroactive: boolean) => {
     saveSpaceUpdate(spaceId, space => {
+      const targetMember = (space.members || []).find(m => m.userId === userId);
+      const joinedTimestamp = targetMember?.joinedAt ? new Date(targetMember.joinedAt).getTime() : (targetMember?.createdAt ? new Date(targetMember.createdAt).getTime() : Date.now());
+
       const updatedInvoices = (space.invoices || []).map(inv => {
         const curExcluded = inv.excludedMembers || [];
         if (isRetroactive) {
-          // Remove from excluded list so partner participates retroactively
+          // Remove from excluded list so partner participates in this invoice
           return {
             ...inv,
             excludedMembers: curExcluded.filter(id => id !== userId)
           };
         } else {
-          // Exclude partner from this past invoice if not already excluded
-          if (!curExcluded.includes(userId)) {
+          // "מכאן והלאה": Exclude partner ONLY from past invoices created BEFORE the partner joined!
+          // Invoices created/dated ON OR AFTER the partner joined MUST NEVER exclude the partner!
+          const invTimestamp = inv.createdAt ? new Date(inv.createdAt).getTime() : (inv.date ? new Date(inv.date).getTime() : 0);
+          const isBeforeJoining = invTimestamp < joinedTimestamp;
+
+          if (isBeforeJoining) {
+            if (!curExcluded.includes(userId)) {
+              return {
+                ...inv,
+                excludedMembers: [...curExcluded, userId]
+              };
+            }
+            return inv;
+          } else {
+            // Invoice created after joining: partner MUST participate!
             return {
               ...inv,
-              excludedMembers: [...curExcluded, userId]
+              excludedMembers: curExcluded.filter(id => id !== userId)
             };
           }
-          return inv;
         }
       });
-      return { ...space, invoices: updatedInvoices };
+
+      // Update member's isRetroactive flag for audit & UI state
+      const updatedMembers = (space.members || []).map(m => {
+        if (m.userId === userId) {
+          return { ...m, isRetroactive };
+        }
+        return m;
+      });
+
+      return { ...space, invoices: updatedInvoices, members: updatedMembers };
     });
   };
 

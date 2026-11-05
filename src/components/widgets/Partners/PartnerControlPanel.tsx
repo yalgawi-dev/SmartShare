@@ -272,7 +272,7 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
                       : (viewMode === 'creator' || viewMode === 'peer' ? `מרכז פעולות - ${memberName}` : `מרכז פעולות - ${space.createdBy || 'מנהל המרחב'}`))
                   }
                 </h3>
-                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.4.25</span>
+                <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '8px', fontWeight: 'bold' }}>v3.4.26</span>
                 
                 {!isGroup && <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: (() => {
                   if (isInvite) return '#f59e0b';
@@ -551,77 +551,117 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             </div>
           ) : viewMode === 'creator' && member?.isActive !== false && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginTop: '1.25rem' }}>
-              {/* Retroactive Toggle Button for Active Member */}
+              {/* Retroactive Toggle Button for Active Member - strictly with 3-day grace period */}
               {(() => {
                 const pastExpenses = (space.invoices || []).filter((inv: any) => inv.isActive !== false && inv.type !== 'transfer' && inv.type !== 'income');
                 if (pastExpenses.length === 0 || member.role === 'creator') return null;
-                const isExcludedFromPast = pastExpenses.every((inv: any) => (inv.excludedMembers || []).includes(member.userId));
-                const isRetro = !isExcludedFromPast;
+
+                const joinedTime = member.joinedAt ? new Date(member.joinedAt).getTime() : (member.createdAt ? new Date(member.createdAt).getTime() : 0);
+
+                // Only relevant if there are expenses created BEFORE the partner joined!
+                const expensesBeforeJoining = pastExpenses.filter((inv: any) => {
+                  const invTime = inv.createdAt ? new Date(inv.createdAt).getTime() : (inv.date ? new Date(inv.date).getTime() : 0);
+                  return joinedTime > 0 ? invTime < joinedTime : true;
+                });
+                if (expensesBeforeJoining.length === 0) return null;
+
+                const isExcludedFromPast = expensesBeforeJoining.every((inv: any) => (inv.excludedMembers || []).includes(member.userId));
+                const isRetro = member.isRetroactive !== undefined ? member.isRetroactive : !isExcludedFromPast;
+
+                // 3 days grace period (72 hours from joining)
+                const GRACE_PERIOD_MS = 3 * 24 * 60 * 60 * 1000;
+                const isWithinGracePeriod = joinedTime === 0 || (Date.now() - joinedTime <= GRACE_PERIOD_MS);
+                const isAdmin = Boolean(user?.isAdmin || (user as any)?.role === 'admin');
+                const canToggle = isWithinGracePeriod || isAdmin;
+
+                const remainingDays = joinedTime > 0 ? Math.max(1, Math.ceil((GRACE_PERIOD_MS - (Date.now() - joinedTime)) / (24 * 60 * 60 * 1000))) : 3;
 
                 return (
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem' }}>
-                    <div style={{ fontSize: '0.78rem', color: '#475569', fontWeight: 700 }}>
-                      תחולת שותפות בהוצאות:
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.35rem', background: '#f8fafc', padding: '0.6rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: '#475569', fontWeight: 700, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <span>תחולת שותפות בהוצאות עבר:</span>
+                      {!canToggle && (
+                        <span style={{ fontSize: '0.68rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                          🔒 נעול (מעל 3 ימים)
+                        </span>
+                      )}
+                      {canToggle && isWithinGracePeriod && (
+                        <span style={{ fontSize: '0.68rem', background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '6px', fontWeight: 700 }}>
+                          ⏱️ נותרו {remainingDays} ימים לעדכון
+                        </span>
+                      )}
+                      {isAdmin && !isWithinGracePeriod && (
+                        <span style={{ fontSize: '0.68rem', background: '#ede9fe', color: '#6d28d9', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                          👑 מנהל מערכת
+                        </span>
+                      )}
                     </div>
-                    <div style={{
-                      display: 'inline-flex',
-                      background: '#f1f5f9',
-                      padding: '3px',
-                      borderRadius: '24px',
-                      border: '1px solid #cbd5e1',
-                      boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.06)'
-                    }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isRetro && typeof toggleMemberRetroactive === 'function') {
-                            toggleMemberRetroactive(space.id, member.userId, false);
-                          }
-                        }}
-                        style={{
-                          padding: '0.35rem 0.8rem',
-                          borderRadius: '20px',
-                          border: 'none',
-                          background: !isRetro ? '#ffffff' : 'transparent',
-                          color: !isRetro ? '#1e293b' : '#64748b',
-                          fontWeight: !isRetro ? 800 : 600,
-                          fontSize: '0.78rem',
-                          cursor: 'pointer',
-                          boxShadow: !isRetro ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        <span>📅 מכאן והלאה</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (!isRetro && typeof toggleMemberRetroactive === 'function') {
-                            toggleMemberRetroactive(space.id, member.userId, true);
-                          }
-                        }}
-                        style={{
-                          padding: '0.35rem 0.8rem',
-                          borderRadius: '20px',
-                          border: 'none',
-                          background: isRetro ? '#10b981' : 'transparent',
-                          color: isRetro ? '#ffffff' : '#64748b',
-                          fontWeight: isRetro ? 800 : 600,
-                          fontSize: '0.78rem',
-                          cursor: 'pointer',
-                          boxShadow: isRetro ? '0 1px 4px rgba(16,185,129,0.3)' : 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.3rem',
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        <span>🛡️ רטרואקטיבי (כולל עבר)</span>
-                      </button>
-                    </div>
+
+                    {canToggle ? (
+                      <div style={{
+                        display: 'inline-flex',
+                        background: '#f1f5f9',
+                        padding: '3px',
+                        borderRadius: '24px',
+                        border: '1px solid #cbd5e1',
+                        boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.06)'
+                      }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isRetro && typeof toggleMemberRetroactive === 'function') {
+                              toggleMemberRetroactive(space.id, member.userId, false);
+                            }
+                          }}
+                          style={{
+                            padding: '0.35rem 0.8rem',
+                            borderRadius: '20px',
+                            border: 'none',
+                            background: !isRetro ? '#ffffff' : 'transparent',
+                            color: !isRetro ? '#1e293b' : '#64748b',
+                            fontWeight: !isRetro ? 800 : 600,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            boxShadow: !isRetro ? '0 1px 3px rgba(0,0,0,0.12)' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <span>📅 ממועד ההצטרפות</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!isRetro && typeof toggleMemberRetroactive === 'function') {
+                              toggleMemberRetroactive(space.id, member.userId, true);
+                            }
+                          }}
+                          style={{
+                            padding: '0.35rem 0.8rem',
+                            borderRadius: '20px',
+                            border: 'none',
+                            background: isRetro ? '#10b981' : 'transparent',
+                            color: isRetro ? '#ffffff' : '#64748b',
+                            fontWeight: isRetro ? 800 : 600,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            boxShadow: isRetro ? '0 1px 4px rgba(16,185,129,0.3)' : 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.3rem',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <span>🛡️ רטרואקטיבי (כולל עבר)</span>
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.74rem', color: '#64748b', textAlign: 'center' }}>
+                        סטטוס: <strong>{isRetro ? 'כולל עבר (רטרואקטיבי)' : 'ממועד ההצטרפות והלאה'}</strong>. לשינוי, פנה לאדמין.
+                      </div>
+                    )}
                   </div>
                 );
               })()}
