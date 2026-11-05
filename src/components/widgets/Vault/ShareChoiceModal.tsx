@@ -54,11 +54,13 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
   const handleShare = async (mode: ShareMode) => {
     setIsSharing(true);
     setReadyFile(null);
+    let capturedFile: File | null = null;
     try {
       await shareDocument(doc.url, doc.title, {
         mode,
         pages: doc.pages,
         onFileGenerated: (file: File) => {
+          capturedFile = file;
           setIsSharing(false);
           setReadyFile(file);
         },
@@ -67,7 +69,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
         }
       });
       // If completed without requiring manual click trigger, close
-      if (!readyFile) {
+      if (!capturedFile) {
         setIsSharing(false);
         onClose();
       }
@@ -126,7 +128,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v3.4.28
+            v3.4.29
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
@@ -191,14 +193,15 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
         </div>
 
         {readyFile ? (
-          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{ fontSize: '3rem' }}>📄</span>
-            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b' }}>
+          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.85rem' }}>
+            <span style={{ fontSize: '3.2rem' }}>📄</span>
+            <div style={{ fontWeight: 800, fontSize: '1.15rem', color: '#1e293b' }}>
               קובץ ה-PDF מוכן לשיתוף!
             </div>
-            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
-              משקל הקובץ: {formatFileSize(readyFile.size)}
+            <div style={{ fontSize: '0.85rem', color: '#64748b' }}>
+              משקל הקובץ: <strong>{formatFileSize(readyFile.size)}</strong>
             </div>
+
             <button
               type="button"
               onClick={async () => {
@@ -228,27 +231,63 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                 background: '#16a34a',
                 color: 'white',
                 border: 'none',
-                padding: '0.85rem 1.75rem',
+                padding: '0.9rem 1.8rem',
                 borderRadius: '50px',
                 fontWeight: 800,
-                fontSize: '1rem',
+                fontSize: '1.05rem',
                 cursor: 'pointer',
-                boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)',
+                boxShadow: '0 4px 14px rgba(22, 163, 74, 0.4)',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '0.5rem',
-                marginTop: '0.5rem'
+                width: '100%',
+                justifyContent: 'center',
+                marginTop: '0.25rem'
               }}
             >
               <span>🚀</span>
               <span>שתף עכשיו לוואטסאפ / יישומים</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                const objUrl = URL.createObjectURL(readyFile);
+                const a = document.createElement('a');
+                a.href = objUrl;
+                a.download = readyFile.name;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(objUrl);
+                onClose();
+              }}
+              style={{
+                background: '#f8fafc',
+                color: '#334155',
+                border: '1.5px solid #cbd5e1',
+                padding: '0.7rem 1.4rem',
+                borderRadius: '16px',
+                fontWeight: 700,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                width: '100%',
+                justifyContent: 'center'
+              }}
+            >
+              <span>⬇️</span>
+              <span>שמור עותק למכשיר (הורדה)</span>
+            </button>
+
             <button
               type="button"
               onClick={onClose}
               style={{
-                marginTop: '0.5rem',
-                padding: '0.5rem 1rem',
+                marginTop: '0.25rem',
+                padding: '0.4rem 1rem',
                 background: 'transparent',
                 border: 'none',
                 color: '#94a3b8',
@@ -256,7 +295,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                 cursor: 'pointer'
               }}
             >
-              סגור
+              ביטול
             </button>
           </div>
         ) : isSharing ? (

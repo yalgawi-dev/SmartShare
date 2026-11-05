@@ -52,7 +52,7 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(bitmap, 0, 0);
         bitmap.close(); // Release GPU texture memory
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
         return { dataUrl: jpegDataUrl, width: w, height: h };
       }
     } catch (bitmapErr) {
@@ -95,8 +95,8 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(img, 0, 0, w, h);
 
-  // High quality JPEG DataURL (0.95 quality)
-  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
+  // High quality JPEG DataURL (0.85 quality for fast processing and optimal size)
+  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
   return { dataUrl: jpegDataUrl, width: w, height: h };
 }
 
