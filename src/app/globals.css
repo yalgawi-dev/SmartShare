@@ -1,6 +1,8 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600;700&display=swap');
 
 :root {
+  color-scheme: light only !important;
+  supported-color-schemes: light !important;
   --font-sans: 'Rubik', 'Inter', system-ui, -apple-system, sans-serif;
   
   /* Color Palette */
@@ -47,6 +49,8 @@
 }
 
 html, body {
+  color-scheme: light only !important;
+  background-color: #ffffff !important;
   height: 100%;
   width: 100%;
 }

@@ -29,7 +29,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#4a5bf0",
+  themeColor: "#ffffff",
+  colorScheme: "light",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -50,6 +51,18 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl" className={`${geistSans.variable} ${geistMono.variable}`}>
       <head>
+        <meta name="color-scheme" content="light only" />
+        <meta name="supported-color-schemes" content="light" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.addEventListener('beforeinstallprompt', function(e) {
+                e.preventDefault();
+                window.deferredPWAInstallPrompt = e;
+              });
+            `
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Amatic+SC:wght@400;700&family=Kalam:wght@300;400;700&family=Caveat:wght@400;500;600;700&family=Karantina:wght@300;400;700&family=Heebo:wght@300;400;500;700&family=Rubik:wght@300;400;500;700&family=Secular+One&family=Frank+Ruhl+Libre:wght@300;400;500;700&display=swap" rel="stylesheet" />

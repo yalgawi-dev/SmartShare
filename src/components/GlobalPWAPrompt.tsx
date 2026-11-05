@@ -47,23 +47,49 @@ export default function GlobalPWAPrompt() {
       return 'other';
     };
 
-    // Always register trigger-pwa-install and beforeinstallprompt, even if auto-banner is on cooldown!
+    // Grab Chrome's / Galaxy native install prompt
     const onPrompt = (e: any) => { 
       e.preventDefault(); 
       setDeferredPrompt(e); 
+      (window as any).deferredPWAInstallPrompt = e;
       setPlatform('android-chrome'); 
     };
     window.addEventListener('beforeinstallprompt', onPrompt);
+
+    // If early listener on window already caught beforeinstallprompt:
+    if (typeof window !== 'undefined' && (window as any).deferredPWAInstallPrompt) {
+      setDeferredPrompt((window as any).deferredPWAInstallPrompt);
+      setPlatform('android-chrome');
+    }
 
     const onTrigger = () => { 
       try { localStorage.removeItem('pwa_dismissed_at'); } catch (e) {}
       setMenuOpened(false);
       setCopiedLink(false);
+      const promptEvent = deferredPrompt || (typeof window !== 'undefined' && (window as any).deferredPWAInstallPrompt);
       const detected = detectPlatform() || 'android-chrome';
+
+      // On Android (Galaxy), if promptEvent is ready, trigger native 1-tap install directly!
+      if (detected === 'android-chrome' && promptEvent) {
+        setPlatform('android-chrome');
+        setShowGuide(false);
+        try {
+          promptEvent.prompt();
+          promptEvent.userChoice.then(({ outcome }: any) => {
+            setDeferredPrompt(null);
+            if (typeof window !== 'undefined') (window as any).deferredPWAInstallPrompt = null;
+            if (outcome === 'accepted') dismiss();
+          });
+        } catch (err) {
+          console.error("Direct trigger install failed", err);
+        }
+        return;
+      }
+
       setPlatform(detected);
       // Scroll to top so mobile browsers (especially iOS Safari) expand and reveal their bottom toolbar!
       try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
-      // On iOS, open the step-by-step visual guide immediately on manual trigger so the user doesn't have to click twice
+      // ONLY on Apple (iOS Safari / iOS Chrome), open the visual iPhone guide immediately:
       if (detected === 'ios-safari' || detected === 'ios-chrome') {
         setShowGuide(true);
       } else {
@@ -86,9 +112,21 @@ export default function GlobalPWAPrompt() {
       const ua = navigator.userAgent;
       const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as any).MSStream;
       const isAndroid = /Android/.test(ua);
-      if (isIOS || isAndroid) {
+      const isWebView = ua.includes('WhatsApp') || ua.includes('FBAN') || ua.includes('FBAV')
+        || ua.includes('Instagram') || ua.includes('wv)');
+
+      if (isAndroid && isWebView) {
+        // Android inside WhatsApp/Social webview
+        setPlatform('android-webview');
+      } else if (isIOS) {
+        // Apple iOS devices: show iOS-specific flow
         setPlatform(detectPlatform());
       }
+      // CRITICAL FOR GALAXY / ANDROID CHROME:
+      // We do NOT setPlatform('android-chrome') immediately on mount if deferredPrompt is null!
+      // Instead, we wait for beforeinstallprompt (onPrompt), which sets deferredPrompt AND sets platform.
+      // That guarantees when the banner appears on Galaxy, deferredPrompt is 100% ready,
+      // showing "⬇️ התקן עכשיו" and installing natively in 1 tap without ever showing manual steps!
     }
 
     return () => {
@@ -112,18 +150,23 @@ export default function GlobalPWAPrompt() {
   };
 
   const handleInstall = async () => {
-    if (deferredPrompt) {
+    const promptEvent = deferredPrompt || (typeof window !== 'undefined' && (window as any).deferredPWAInstallPrompt);
+    if (promptEvent) {
       try {
         setInstalling(true);
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
+        promptEvent.prompt();
+        const { outcome } = await promptEvent.userChoice;
         setDeferredPrompt(null);
+        if (typeof window !== 'undefined') (window as any).deferredPWAInstallPrompt = null;
         setInstalling(false);
         if (outcome === 'accepted') dismiss();
       } catch (err) {
         console.error("Install prompt failed", err);
         setInstalling(false);
-        setShowGuide(true);
+        // Only fallback to guide if native prompt fails
+        if (platform === 'ios-safari' || platform === 'ios-chrome') {
+          setShowGuide(true);
+        }
       }
     } else {
       setShowGuide(true);
@@ -436,7 +479,8 @@ export default function GlobalPWAPrompt() {
 
 // ── Main banner (Android Chrome / iOS Safari) ─────────────────────────────────
   const isAndroidChrome = platform === 'android-chrome';
-  const canOneTap = isAndroidChrome && !!deferredPrompt;
+  const effectivePrompt = deferredPrompt || (typeof window !== 'undefined' && (window as any).deferredPWAInstallPrompt);
+  const canOneTap = isAndroidChrome && !!effectivePrompt;
 
   return (
     <Sheet>
@@ -458,14 +502,11 @@ export default function GlobalPWAPrompt() {
         <button onClick={dismiss} style={dismissBtnStyle}>לא עכשיו</button>
         <button
           className={!installing ? "pulse-btn-v1" : ""}
-          onClick={canOneTap ? handleInstall : () => {
-            try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {}
-            setShowGuide(true);
-          }}
+          onClick={handleInstall}
           disabled={installing}
           style={{ ...primaryBtnStyle, flex: 2, opacity: installing ? 0.7 : 1 }}
         >
-          {installing ? '⏳ מתקין...' : canOneTap ? '⬇️ התקן עכשיו' : '📱 איך מתקינים?'}
+          {installing ? '⏳ מתקין...' : (canOneTap || isAndroidChrome) ? '⬇️ התקן עכשיו' : '📱 התקן אפליקציה'}
         </button>
       </div>
     </Sheet>
@@ -488,6 +529,9 @@ function Sheet({ children }: { children: React.ReactNode }) {
           100% { transform: scale(1); box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4); } 
         }
         .pulse-btn-v1 { animation: pwaPulseBtn 2s infinite; }
+        .pwa-sheet-v4, .pwa-sheet-v4 * {
+          color-scheme: light only !important;
+        }
       `}</style>
       <div className="pwa-backdrop-v4" style={{
         position: 'fixed', inset: 0, zIndex: 9999998,
@@ -495,7 +539,11 @@ function Sheet({ children }: { children: React.ReactNode }) {
       }} />
       <div className="pwa-sheet-v4" style={{
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 9999999,
-        background: '#ffffff', borderRadius: '28px 28px 0 0',
+        background: '#ffffff',
+        backgroundColor: '#ffffff',
+        color: '#0f172a',
+        colorScheme: 'light only',
+        borderRadius: '28px 28px 0 0',
         padding: '1.25rem 1.5rem 2.5rem',
         boxShadow: '0 -12px 48px rgba(0,0,0,0.18)',
         fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif',
@@ -530,5 +578,5 @@ const primaryBtnStyle: React.CSSProperties = {
 };
 const dismissBtnStyle: React.CSSProperties = {
   flex: 1, padding: '0.85rem', border: '1.5px solid #e2e8f0', borderRadius: '14px',
-  background: 'white', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem',
+  background: '#ffffff', backgroundColor: '#ffffff', color: '#64748b', fontWeight: '600', cursor: 'pointer', fontSize: '0.9rem',
 };
