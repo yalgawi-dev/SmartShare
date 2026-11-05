@@ -40,14 +40,8 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
   if (blob && typeof createImageBitmap === 'function') {
     try {
       const bitmap = await createImageBitmap(blob);
-      const maxDim = 1600;
-      let w = bitmap.width;
-      let h = bitmap.height;
-      if (Math.max(w, h) > maxDim) {
-        const scale = maxDim / Math.max(w, h);
-        w = Math.round(w * scale);
-        h = Math.round(h * scale);
-      }
+      const w = bitmap.width;
+      const h = bitmap.height;
 
       const canvas = document.createElement('canvas');
       canvas.width = w;
@@ -58,7 +52,8 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
         ctx.fillRect(0, 0, w, h);
         ctx.drawImage(bitmap, 0, 0, w, h);
         bitmap.close(); // Release GPU texture memory
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+        // High fidelity uncompressed JPEG (0.95) to preserve fine lines, text and drawings
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
         return { dataUrl: jpegDataUrl, width: w, height: h };
       }
     } catch (bitmapErr) {
@@ -85,14 +80,8 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
     i.src = safeSrc;
   });
 
-  const maxDim = 1600;
-  let w = img.naturalWidth || img.width;
-  let h = img.naturalHeight || img.height;
-  if (Math.max(w, h) > maxDim) {
-    const scale = maxDim / Math.max(w, h);
-    w = Math.round(w * scale);
-    h = Math.round(h * scale);
-  }
+  const w = img.naturalWidth || img.width;
+  const h = img.naturalHeight || img.height;
 
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -107,25 +96,29 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(img, 0, 0, w, h);
 
-  // High quality JPEG DataURL (0.82 quality for ultra-fast processing and optimal size)
-  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+  // High fidelity uncompressed JPEG (0.95) to preserve fine lines, text and drawings
+  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.95);
   return { dataUrl: jpegDataUrl, width: w, height: h };
 }
 
 /**
  * Sanitizes a document title to create a safe, 100% compliant file name for Android & iOS sharing.
- * Crucial fix: Strips leading dots (which makes Android FileProvider reject files as hidden unix files),
- * removes illegal characters, and ensures valid .pdf extension.
+ * Crucial fix: Strips leading and trailing dots, prevents consecutive dots ('..' path traversal crash in Android FileProvider),
+ * removes illegal characters, and ensures a single valid extension.
  */
 export function getSafeShareFileName(rawTitle?: string, ext: 'pdf' | 'jpg' | 'webp' = 'pdf'): string {
   if (!rawTitle) return `document_${Date.now()}.${ext}`;
-  // 1. Remove existing extension temporarily to clean base
+  // 1. Remove existing known extensions
   let base = rawTitle.replace(/\.(pdf|jpe?g|webp|png)$/i, '').trim();
-  // 2. Strip leading dots (CRITICAL: prevents Android hidden file error), dashes, underscores, spaces
-  base = base.replace(/^[\s._-]+/, '');
-  // 3. Replace invalid filesystem/URI characters
+  // 2. Strip ALL leading and trailing dots, spaces, underscores, dashes
+  base = base.replace(/^[\s._-]+/, '').replace(/[\s._-]+$/, '');
+  // 3. Replace any sequence of dots with an underscore (CRITICAL: prevents Android FileProvider '..' crash)
+  base = base.replace(/\.+/g, '_');
+  // 4. Replace invalid filesystem/URI characters
   base = base.replace(/[/\\?%*:|"<>#]/g, '_').trim();
-  // 4. Fallback if empty
+  // 5. Clean up any trailing underscores or dashes
+  base = base.replace(/[._-]+$/, '');
+  // 6. Fallback if empty
   if (!base) base = `doc_${Date.now()}`;
   return `${base}.${ext}`;
 }
@@ -463,10 +456,6 @@ export async function shareDocument(url: string, title?: string, options: ShareO
         return;
       } catch (shareErr: any) {
         if (shareErr?.name === 'AbortError') return; // User dismissed share sheet
-        if (options.onFileGenerated && filesToShare[0]) {
-          options.onFileGenerated(filesToShare[0]);
-          return;
-        }
         throw shareErr;
       }
     } else if (typeof navigator !== 'undefined' && navigator.share && url) {
@@ -475,34 +464,15 @@ export async function shareDocument(url: string, title?: string, options: ShareO
         return;
       } catch (shareErr: any) {
         if (shareErr?.name === 'AbortError') return;
-        if (options.onFileGenerated && filesToShare[0]) {
-          options.onFileGenerated(filesToShare[0]);
-          return;
-        }
         throw shareErr;
       }
-    } else if (options.onFileGenerated && filesToShare[0]) {
-      options.onFileGenerated(filesToShare[0]);
-      return;
-    } else if (filesToShare.length > 0) {
-      // Fallback: download first file
-      const objUrl = URL.createObjectURL(filesToShare[0]);
-      const a = document.createElement('a');
-      a.href = objUrl;
-      a.download = filesToShare[0].name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(objUrl);
+    } else {
+      throw new Error('התקן זה אינו תומך בשיתוף קבצים ישיר.');
     }
   } catch (e: any) {
     if (e?.name !== 'AbortError') {
       console.error('Error sharing document', e);
-      if (options.onFileGenerated && filesToShare.length > 0) {
-        options.onFileGenerated(filesToShare[0]);
-      } else {
-        await downloadDocument(url, title, options);
-      }
+      throw e;
     }
   }
 }
