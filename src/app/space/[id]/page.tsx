@@ -211,10 +211,16 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     };
     window.addEventListener('smartshare:convert_doc_to_expense', handleConvertDocToExpense);
 
+    const handleOpenInvite = () => {
+      setShowInviteModal(true);
+    };
+    window.addEventListener('smartshare:open_invite', handleOpenInvite);
+
     return () => {
       window.removeEventListener('smartshare:open_scanner_event', handleScannerForEvent);
       window.removeEventListener('smartshare:open_scanner_for_doc', handleScannerForDoc);
       window.removeEventListener('smartshare:convert_doc_to_expense', handleConvertDocToExpense);
+      window.removeEventListener('smartshare:open_invite', handleOpenInvite);
     };
   }, []);
 

@@ -32,6 +32,21 @@ interface DocumentsWidgetProps {
 
 type ViewMode = 'feed' | 'grid' | 'circles';
 
+const getPrivacyInfo = (allowedPartners?: string[]) => {
+  const allowed = allowedPartners || [];
+  if (allowed.includes('__only_me__')) {
+    return { icon: '👤', text: 'רק לעצמי', bg: '#fef2f2', border: '#fca5a5', color: '#b91c1c' };
+  }
+  if (allowed.includes('__creator_vault_secret__')) {
+    return { icon: '🛡️', text: 'מנהלים', bg: '#f5f3ff', border: '#ddd6fe', color: '#6d28d9' };
+  }
+  if (allowed.length > 0) {
+    const partnerCount = allowed.filter(id => id && id !== '__only_me__' && id !== '__creator_vault_secret__').length;
+    return { icon: '🔒', text: `${partnerCount} מורשים`, bg: '#fef3c7', border: '#fde68a', color: '#b45309' };
+  }
+  return { icon: '🌐', text: 'פתוח לכולם', bg: '#f8fafc', border: '#cbd5e1', color: '#475569' };
+};
+
 export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetProps>(({ space, activePartnersCount }, ref) => {
   const { user } = useAuth();
   const { 
@@ -127,7 +142,25 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const currentFolderIdRef = useRef<string | null>(null);
   currentFolderIdRef.current = currentFolderId;
   const [linkStationFolder, setLinkStationFolder] = useState<DocumentFolder | null>(null);
-  const [folderPrivacyFolder, setFolderPrivacyFolder] = useState<DocumentFolder | null>(null);
+  const [privacyTarget, setPrivacyTarget] = useState<{
+    type: 'shelf' | 'folder' | 'document';
+    id: string;
+    name: string;
+    allowedPartners: string[];
+    ownerId?: string;
+  } | null>(null);
+
+  const handleSavePrivacy = (newAllowed: string[]) => {
+    if (!privacyTarget) return;
+    if (privacyTarget.type === 'shelf') {
+      updateShelf(space.id, privacyTarget.id, { allowedPartners: newAllowed });
+    } else if (privacyTarget.type === 'folder') {
+      updateDocumentFolder(space.id, privacyTarget.id, { allowedPartners: newAllowed });
+    } else if (privacyTarget.type === 'document') {
+      updateDocument(space.id, privacyTarget.id, { allowedPartners: newAllowed });
+    }
+    setPrivacyTarget(prev => prev ? { ...prev, allowedPartners: newAllowed } : null);
+  };
   const [folderToDelete, setFolderToDelete] = useState<{ id: string, name: string } | null>(null);
   const [folderToMove, setFolderToMove] = useState<DocumentFolder | null>(null);
   const [targetMoveShelfId, setTargetMoveShelfId] = useState<string>('');
@@ -727,18 +760,26 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       setPendingImport({ docId });
     };
 
-  const activeDocuments = useMemo(() => {
-    return documents.filter(d => !d.deletedAt);
-  }, [documents]);
-
-  const deletedDocuments = useMemo(() => {
-    return documents.filter(d => !!d.deletedAt);
-  }, [documents]);
-
   const spacesCtx = useSpaces() as any;
   const myRole = spacesCtx.getRoleForSpace(space.id) || 'partner';
   const myPartnerToken = spacesCtx.getTokenForSpace ? spacesCtx.getTokenForSpace(space.id) : null;
   const isManaged = Boolean(space.settings?.isManagedMode);
+
+  const activeDocuments = useMemo(() => {
+    return documents.filter(d => !d.deletedAt && canAccessItem({
+      spaceRole: myRole,
+      userId: user?.id,
+      partnerToken: myPartnerToken,
+      creatorId: space.creatorId,
+      isManagedMode: isManaged,
+      ownerId: d.ownerId || (d as any).addedBy,
+      allowedPartners: d.allowedPartners
+    }));
+  }, [documents, myRole, user?.id, myPartnerToken, space.creatorId, isManaged]);
+
+  const deletedDocuments = useMemo(() => {
+    return documents.filter(d => !!d.deletedAt);
+  }, [documents]);
 
   const activeShelves = useMemo(() => {
     return shelves.filter(s => {
@@ -1801,6 +1842,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               const matchesFolder = currentFolderId ? doc.folderId === currentFolderId : !doc.folderId;
               if (!matchesFolder) return false;
 
+              // Zero-Trust Permission Check:
+              if (!canAccessItem({
+                spaceRole: myRole,
+                userId: user?.id,
+                partnerToken: myPartnerToken,
+                creatorId: space.creatorId,
+                isManagedMode: isManaged,
+                ownerId: doc.ownerId || (doc as any).addedBy,
+                allowedPartners: doc.allowedPartners
+              })) {
+                return false;
+              }
+
               const linkedEv = getDocLinkedEvent(doc.id, doc.url);
               const isLinked = !!linkedEv;
               if (filterLinked === 'linked') return isLinked;
@@ -1977,23 +2031,34 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
                                 {/* Folder Action Buttons in List View */}
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setFolderPrivacyFolder(folder)}
-                                    style={{ 
-                                      background: (folder.allowedPartners && folder.allowedPartners.length > 0) ? '#fef3c7' : '#f8fafc', 
-                                      border: (folder.allowedPartners && folder.allowedPartners.length > 0) ? '1px solid #fde68a' : '1px solid #cbd5e1', 
-                                      padding: '3px 7px', 
-                                      borderRadius: '7px', 
-                                      fontSize: '0.72rem', 
-                                      fontWeight: 600, 
-                                      color: (folder.allowedPartners && folder.allowedPartners.length > 0) ? '#b45309' : '#475569', 
-                                      cursor: 'pointer' 
-                                    }}
-                                    title="פרטיות וגישה לתיקייה"
-                                  >
-                                    {(folder.allowedPartners && folder.allowedPartners.length > 0) ? '🔒' : '🌐'}
-                                  </button>
+                                  {(() => {
+                                    const folderPrivacy = getPrivacyInfo(folder.allowedPartners);
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPrivacyTarget({
+                                          type: 'folder',
+                                          id: folder.id,
+                                          name: folder.name,
+                                          allowedPartners: folder.allowedPartners || [],
+                                          ownerId: folder.ownerId
+                                        })}
+                                        style={{ 
+                                          background: folderPrivacy.bg, 
+                                          border: `1px solid ${folderPrivacy.border}`, 
+                                          padding: '3px 7px', 
+                                          borderRadius: '7px', 
+                                          fontSize: '0.72rem', 
+                                          fontWeight: 600, 
+                                          color: folderPrivacy.color, 
+                                          cursor: 'pointer' 
+                                        }}
+                                        title={`פרטיות וגישה לתיקייה: ${folderPrivacy.text}`}
+                                      >
+                                        {folderPrivacy.icon}
+                                      </button>
+                                    );
+                                  })()}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -2256,6 +2321,25 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
                                 {/* Quick Actions */}
                                 <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                  {(() => {
+                                    const docPrivacy = getPrivacyInfo(doc.allowedPartners);
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPrivacyTarget({
+                                          type: 'document',
+                                          id: doc.id,
+                                          name: doc.title,
+                                          allowedPartners: doc.allowedPartners || [],
+                                          ownerId: doc.ownerId || (doc as any).addedBy
+                                        })}
+                                        title={`פרטיות והרשאות מסמך: ${docPrivacy.text}`}
+                                        style={{ background: docPrivacy.bg, color: docPrivacy.color, border: `1px solid ${docPrivacy.border}`, borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+                                      >
+                                        {docPrivacy.icon}
+                                      </button>
+                                    );
+                                  })()}
                                   <button
                                     type="button"
                                     onClick={() => setSharingDoc(doc)}
@@ -2435,21 +2519,33 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
                                 {/* Folder card actions */}
                                 <div style={{ display: 'flex', gap: '3px', marginTop: '0.2rem', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setFolderPrivacyFolder(folder)}
-                                    style={{ 
-                                      background: (folder.allowedPartners && folder.allowedPartners.length > 0) ? '#fef3c7' : '#f8fafc', 
-                                      border: (folder.allowedPartners && folder.allowedPartners.length > 0) ? '1px solid #fde68a' : '1px solid #cbd5e1', 
-                                      borderRadius: '5px', 
-                                      padding: '1px 4px', 
-                                      fontSize: '0.68rem', 
-                                      cursor: 'pointer' 
-                                    }}
-                                    title="פרטיות וגישה לתיקייה"
-                                  >
-                                    {(folder.allowedPartners && folder.allowedPartners.length > 0) ? '🔒' : '🌐'}
-                                  </button>
+                                  {(() => {
+                                    const folderPrivacy = getPrivacyInfo(folder.allowedPartners);
+                                    return (
+                                      <button
+                                        type="button"
+                                        onClick={() => setPrivacyTarget({
+                                          type: 'folder',
+                                          id: folder.id,
+                                          name: folder.name,
+                                          allowedPartners: folder.allowedPartners || [],
+                                          ownerId: folder.ownerId
+                                        })}
+                                        style={{ 
+                                          background: folderPrivacy.bg, 
+                                          border: `1px solid ${folderPrivacy.border}`, 
+                                          borderRadius: '5px', 
+                                          padding: '1px 5px', 
+                                          fontSize: '0.68rem', 
+                                          color: folderPrivacy.color,
+                                          cursor: 'pointer' 
+                                        }}
+                                        title={`פרטיות וגישה לתיקייה: ${folderPrivacy.text}`}
+                                      >
+                                        {folderPrivacy.icon}
+                                      </button>
+                                    );
+                                  })()}
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -2847,6 +2943,28 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   {!isMultiSelect && (
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9' }}>
                                       <div style={{ display: 'flex', gap: '3px' }}>
+                                        {(() => {
+                                          const docPrivacy = getPrivacyInfo(doc.allowedPartners);
+                                          return (
+                                            <button
+                                              type="button"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setPrivacyTarget({
+                                                  type: 'document',
+                                                  id: doc.id,
+                                                  name: doc.title,
+                                                  allowedPartners: doc.allowedPartners || [],
+                                                  ownerId: doc.ownerId || (doc as any).addedBy
+                                                });
+                                              }}
+                                              style={{ background: docPrivacy.bg, color: docPrivacy.color, border: `1px solid ${docPrivacy.border}`, padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                              title={`פרטיות והרשאות מסמך: ${docPrivacy.text}`}
+                                            >
+                                              {docPrivacy.icon}
+                                            </button>
+                                          );
+                                        })()}
                                         <button
                                           type="button"
                                           onClick={(e) => { e.stopPropagation(); setSharingDoc(doc); }}
@@ -2940,6 +3058,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                                               >
                                                 📷 הוסף עמודים בסורק
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  setPrivacyTarget({
+                                                    type: 'document',
+                                                    id: doc.id,
+                                                    name: doc.title,
+                                                    allowedPartners: doc.allowedPartners || [],
+                                                    ownerId: doc.ownerId || (doc as any).addedBy
+                                                  });
+                                                }}
+                                                style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#1d4ed8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                🔐 הרשאות ופרטיות מסמך
                                               </button>
                                               <button
                                                   type="button"
@@ -3459,46 +3593,69 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
-      {/* FOLDER PRIVACY & ACCESS MODAL (GOOGLE DRIVE STYLE) */}
-      {folderPrivacyFolder && (() => {
+      {/* UNIFIED ZERO-TRUST PRIVACY & PERMISSIONS MODAL (SHELVES, FOLDERS, DOCUMENTS) */}
+      {privacyTarget && (() => {
         const activeMembers = (space.members || []).filter((m: any) => m.isActive !== false);
-        const currentAllowed = folderPrivacyFolder.allowedPartners || [];
-        const isRestricted = currentAllowed.length > 0;
+        const pendingInvites = (space.pendingInvites || []).filter((inv: any) => inv && inv.token);
+        const currentAllowed = privacyTarget.allowedPartners || [];
+        const isOnlyMe = currentAllowed.includes('__only_me__');
+        const isManagerVault = currentAllowed.includes('__creator_vault_secret__');
+        const isRestricted = !isOnlyMe && !isManagerVault && currentAllowed.length > 0;
+        const isPublic = !isOnlyMe && !isManagerVault && currentAllowed.length === 0;
+
+        const targetTitle =
+          privacyTarget.type === 'shelf' ? 'פרטיות והרשאות מדף ראשי' :
+          privacyTarget.type === 'folder' ? 'פרטיות והרשאות תיקייה' :
+          'פרטיות והרשאות מסמך';
+
+        const targetIcon =
+          privacyTarget.type === 'shelf' ? '🗂️' :
+          privacyTarget.type === 'folder' ? '📁' :
+          '📄';
+
+        const inheritanceNote =
+          privacyTarget.type === 'shelf'
+            ? '💡 חוק ירושה ראשי: כל תיקייה או מסמך שנוצרים תחת מדף זה יירשו הרשאה זו. משתמש ללא גישה לא יראה את המדף כלל.'
+            : privacyTarget.type === 'folder'
+            ? '💡 חוק הירושה: כל מסמך שמועבר לתיקייה זו יקבל אוטומטית את אותה רמת פרטיות. משתמש ללא גישה לא יראה את התיקייה כלל.'
+            : '💡 פרטיות מסמך ספציפי: קובץ זה יוגבל נקודתית גם אם הוא נמצא בתוך תיקייה פתוחה (Zero-Trust מלא).';
+
+        const currentUserId = user?.id || myPartnerToken || 'me';
 
         return (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.65)', backdropFilter: 'blur(6px)', zIndex: 10002, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '400px', borderRadius: '24px', padding: '1.5rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '1.5rem', maxHeight: '88vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 50px rgba(0,0,0,0.25)', direction: 'rtl' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
                 <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800 }}>פרטיות ושיתוף תיקייה</h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px' }}>
-                    📁 {folderPrivacyFolder.name}
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800 }}>{targetTitle}</h3>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '320px' }}>
+                    {targetIcon} {privacyTarget.name}
                   </div>
                 </div>
-                <button onClick={() => setFolderPrivacyFolder(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+                <button onClick={() => setPrivacyTarget(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
               </div>
 
-              <div style={{ fontSize: '0.82rem', color: '#475569', marginBottom: '1rem', background: '#f8fafc', padding: '0.75rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-                💡 <strong>חוק הירושה:</strong> כל מסמך שמועבר לתיקייה זו יקבל אוטומטית את אותה רמת פרטיות. מנהלים רואים תמיד את כל התיקיות.
+              <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '0.85rem', background: '#f8fafc', padding: '0.65rem', borderRadius: '12px', border: '1px solid #e2e8f0', lineHeight: 1.4 }}>
+                {inheritanceNote}
               </div>
 
-              {/* Mode Selection */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', marginBottom: '1rem' }}>
+              {/* 4 Mode Selection Tiles */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem', marginBottom: '1rem' }}>
+                {/* 1. Public */}
                 <button
                   type="button"
                   onClick={() => {
-                    updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: [] });
-                    setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: [] } : null);
-                    showFeedbackToast('התיקייה הוגדרה כפתוחה לכל חברי המרחב');
+                    handleSavePrivacy([]);
+                    showFeedbackToast('הוגדר כפתוח לכל חברי המרחב');
                   }}
                   style={{
-                    padding: '0.6rem 0.3rem',
+                    padding: '0.55rem 0.2rem',
                     borderRadius: '12px',
-                    border: (!isRestricted && currentAllowed.length === 0) ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    background: (!isRestricted && currentAllowed.length === 0) ? '#eff6ff' : '#ffffff',
-                    color: (!isRestricted && currentAllowed.length === 0) ? '#1d4ed8' : '#475569',
+                    border: isPublic ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: isPublic ? '#eff6ff' : '#ffffff',
+                    color: isPublic ? '#1d4ed8' : '#475569',
                     fontWeight: 700,
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
@@ -3507,26 +3664,25 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   }}
                 >
                   <span style={{ fontSize: '1.1rem' }}>🌐</span>
-                  <span>פתוחה לכולם</span>
+                  <span>פתוח לכולם</span>
                 </button>
+
+                {/* 2. Restricted Partners */}
                 <button
                   type="button"
                   onClick={() => {
-                    if (!isRestricted && activeMembers.length > 0) {
-                      const firstMemberId = activeMembers[0].userId;
-                      updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: [firstMemberId] });
-                      setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: [firstMemberId] } : null);
-                      showFeedbackToast('הוגדרה גישה מוגבלת לשותפים ספציפיים');
-                    }
+                    const fallbackTarget = activeMembers[0]?.userId || 'partner';
+                    handleSavePrivacy([fallbackTarget]);
+                    showFeedbackToast('הוגדרה גישה מוגבלת לשותפים ספציפיים');
                   }}
                   style={{
-                    padding: '0.6rem 0.3rem',
+                    padding: '0.55rem 0.2rem',
                     borderRadius: '12px',
-                    border: (isRestricted && !currentAllowed.includes('__creator_vault_secret__')) ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    background: (isRestricted && !currentAllowed.includes('__creator_vault_secret__')) ? '#eff6ff' : '#ffffff',
-                    color: (isRestricted && !currentAllowed.includes('__creator_vault_secret__')) ? '#1d4ed8' : '#475569',
+                    border: isRestricted ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: isRestricted ? '#eff6ff' : '#ffffff',
+                    color: isRestricted ? '#1d4ed8' : '#475569',
                     fontWeight: 700,
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
@@ -3535,25 +3691,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   }}
                 >
                   <span style={{ fontSize: '1.1rem' }}>🔒</span>
-                  <span>גישה מוגבלת</span>
+                  <span>שותפים</span>
                 </button>
+
+                {/* 3. Managers Only */}
                 <button
                   type="button"
                   onClick={() => {
-                    // Hidden vault: restricted to creator only
-                    const creatorTarget = space.creatorId || user?.id || '__creator_vault_secret__';
-                    updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: [creatorTarget, '__creator_vault_secret__'] });
-                    setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: [creatorTarget, '__creator_vault_secret__'] } : null);
-                    showFeedbackToast('התיקייה הוגדרה ככספת סודית מוסתרת מכולם!');
+                    handleSavePrivacy(['__creator_vault_secret__']);
+                    showFeedbackToast('הוגדר לכספת מנהלים ויוצר בלבד!');
                   }}
                   style={{
-                    padding: '0.6rem 0.3rem',
+                    padding: '0.55rem 0.2rem',
                     borderRadius: '12px',
-                    border: currentAllowed.includes('__creator_vault_secret__') ? '2px solid #7c3aed' : '1px solid #cbd5e1',
-                    background: currentAllowed.includes('__creator_vault_secret__') ? '#f5f3ff' : '#ffffff',
-                    color: currentAllowed.includes('__creator_vault_secret__') ? '#6d28d9' : '#475569',
+                    border: isManagerVault ? '2px solid #7c3aed' : '1px solid #cbd5e1',
+                    background: isManagerVault ? '#f5f3ff' : '#ffffff',
+                    color: isManagerVault ? '#6d28d9' : '#475569',
                     fontWeight: 700,
-                    fontSize: '0.75rem',
+                    fontSize: '0.72rem',
                     cursor: 'pointer',
                     display: 'flex',
                     flexDirection: 'column',
@@ -3561,88 +3716,195 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     gap: '2px'
                   }}
                 >
-                  <span style={{ fontSize: '1.1rem' }}>🙈</span>
-                  <span>כספת מוסתרת</span>
+                  <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+                  <span>מנהלים</span>
+                </button>
+
+                {/* 4. Only Me (Exclusive Personal Vault) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSavePrivacy([currentUserId, '__only_me__']);
+                    showFeedbackToast('הוגדר ככספת אישית: רק אתה יכול לראות!');
+                  }}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '12px',
+                    border: isOnlyMe ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                    background: isOnlyMe ? '#fef2f2' : '#ffffff',
+                    color: isOnlyMe ? '#b91c1c' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>👤</span>
+                  <span>רק לעצמי</span>
                 </button>
               </div>
 
-              {/* Partners Checklist when Restricted */}
-              {isRestricted && (
-                <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0 1rem 0' }}>
-                  {currentAllowed.includes('__creator_vault_secret__') ? (
-                    <div style={{ textAlign: 'center', padding: '1rem', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '12px', color: '#6d28d9' }}>
-                      <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>🛡️</div>
-                      <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>כספת סודית מוסתרת לחלוטין</div>
-                      <div style={{ fontSize: '0.76rem', color: '#5b21b6', marginTop: '4px', lineHeight: 1.4 }}>
-                        התיקייה אינה נראית לאף שותף במרחב (אפס חשיפה). רק יוצר המרחב ומנהליו רואים אותה.
-                      </div>
+              {/* Body Content based on Mode */}
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0 0.75rem 0' }}>
+                {isOnlyMe && (
+                  <div style={{ textAlign: 'center', padding: '1.2rem', background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '16px', color: '#991b1b' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>👤</div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>כספת אישית בלעדית (רק עבורך!)</div>
+                    <div style={{ fontSize: '0.78rem', color: '#b91c1c', marginTop: '6px', lineHeight: 1.45 }}>
+                      פריט זה מוסתר לחלוטין מכל חברי המרחב ומכל שאר המנהלים. <strong>אף אחד מלבדך לא רואה אותו</strong>, לא יודע על קיומו ולא יכול לגשת אליו.
                     </div>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>בחר שותפים מורשים (סטטוס חשיפה):</span>
-                        <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 600 }}>{currentAllowed.length} מורשים</span>
-                      </div>
-                      {activeMembers.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-                          אין שותפים נוספים במרחב זה
-                        </div>
-                      ) : (
-                        activeMembers.map((m: any) => {
-                          const isChecked = currentAllowed.includes(m.userId);
-                          return (
-                            <label
-                              key={m.userId}
-                              style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '0.65rem 0.85rem',
-                                background: isChecked ? '#eff6ff' : '#f8fafc',
-                                border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-                                borderRadius: '12px',
-                                cursor: 'pointer',
-                                transition: 'all 0.15s'
-                              }}
-                            >
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{ fontSize: '1.1rem' }}>👤</span>
-                                <div>
-                                  <div style={{ fontSize: '0.88rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
-                                    {m.name || 'שותף'} {m.role === 'admin' ? '(מנהל)' : ''}
-                                  </div>
-                                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
-                                    {isChecked ? '👁️ מורשה צפייה (גלויה עבורו)' : '🙈 מוסתר לחלוטין (אינו יודע על קיומה)'}
-                                  </div>
+                  </div>
+                )}
+
+                {isManagerVault && (
+                  <div style={{ textAlign: 'center', padding: '1.2rem', background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '16px', color: '#6d28d9' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>🛡️</div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>כספת סודית למנהלים</div>
+                    <div style={{ fontSize: '0.78rem', color: '#5b21b6', marginTop: '6px', lineHeight: 1.45 }}>
+                      פריט זה גלוי אך ורק ליוצר המרחב ולמנהלי המרחב (Admins). שאר השותפים הרגילים אינם רואים אותו כלל (אפס חשיפה).
+                    </div>
+                  </div>
+                )}
+
+                {isRestricted && (
+                  <>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>בחר שותפים מורשים לצפייה:</span>
+                      <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 700 }}>
+                        {currentAllowed.filter(id => id && id !== '__only_me__' && id !== '__creator_vault_secret__').length} מורשים
+                      </span>
+                    </div>
+
+                    {/* Active Space Members */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {activeMembers.map((m: any) => {
+                        const isChecked = currentAllowed.includes(m.userId);
+                        return (
+                          <label
+                            key={m.userId}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.6rem 0.8rem',
+                              background: isChecked ? '#eff6ff' : '#f8fafc',
+                              border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.1rem' }}>👤</span>
+                              <div>
+                                <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
+                                  {m.name || 'שותף'} {m.role === 'admin' ? '(מנהל)' : ''}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
+                                  {isChecked ? '👁️ מורשה צפייה (גלוי עבורו)' : '🙈 מוסתר לחלוטין (אפס חשיפה)'}
                                 </div>
                               </div>
-                              <input
-                                type="checkbox"
-                                checked={isChecked}
-                                onChange={() => {
-                                  const newAllowed = isChecked
-                                    ? currentAllowed.filter((id: string) => id !== m.userId && id !== '__creator_vault_secret__')
-                                    : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__'), m.userId];
-                                  updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: newAllowed });
-                                  setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: newAllowed } : null);
-                                }}
-                                style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
-                              />
-                            </label>
-                          );
-                        })
-                      )}
-                      <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', lineHeight: 1.4, marginTop: '0.2rem' }}>
-                        🔒 <strong>עיקרון אפס חשיפה (Zero-Trust):</strong> מי שאינו מסומן ברשימה לא יראה את התיקייה כלל — היא תהיה מוסתרת לחלוטין עבורו (ללא מנעול).
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                const newAllowed = isChecked
+                                  ? currentAllowed.filter((id: string) => id !== m.userId && id !== '__creator_vault_secret__' && id !== '__only_me__')
+                                  : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__' && id !== '__only_me__'), m.userId];
+                                handleSavePrivacy(newAllowed);
+                              }}
+                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                            />
+                          </label>
+                        );
+                      })}
+
+                      {/* Pending Invited Partners */}
+                      {pendingInvites.map((inv: any) => {
+                        const targetKey = inv.targetUserId || inv.token;
+                        const isChecked = currentAllowed.includes(targetKey) || currentAllowed.includes(inv.token);
+                        return (
+                          <label
+                            key={inv.token}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.6rem 0.8rem',
+                              background: isChecked ? '#eff6ff' : '#f8fafc',
+                              border: isChecked ? '1.5px solid #3b82f6' : '1px dashed #cbd5e1',
+                              borderRadius: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.1rem' }}>⏳</span>
+                              <div>
+                                <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
+                                  {inv.name || 'שותף מוזמן'} <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600 }}>(בהמתנה להצטרפות)</span>
+                                </div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
+                                  {isChecked ? '👁️ מורשה מראש (ייפתח כשיצטרף)' : '🙈 מוסתר לחלוטין'}
+                                </div>
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                const newAllowed = isChecked
+                                  ? currentAllowed.filter((id: string) => id !== targetKey && id !== inv.token && id !== '__creator_vault_secret__' && id !== '__only_me__')
+                                  : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__' && id !== '__only_me__'), targetKey];
+                                handleSavePrivacy(newAllowed);
+                              }}
+                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Invite Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('smartshare:open_invite'));
+                        }
+                      }}
+                      style={{
+                        padding: '0.6rem',
+                        background: '#f0fdf4',
+                        border: '1.5px dashed #86efac',
+                        borderRadius: '12px',
+                        color: '#16a34a',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        marginTop: '0.35rem'
+                      }}
+                    >
+                      <span>➕ הזמן שותף חדש למרחב</span>
+                    </button>
+
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', lineHeight: 1.4, marginTop: '0.2rem' }}>
+                      🔒 <strong>עיקרון אפס חשיפה (Zero-Trust):</strong> מי שאינו מסומן לא יראה את הפריט כלל ברשימה — הוא מוסתר לחלוטין (ללא מנעול, ללא כרטיס חסום).
+                    </div>
+                  </>
+                )}
+              </div>
 
               <button
                 type="button"
-                onClick={() => setFolderPrivacyFolder(null)}
+                onClick={() => setPrivacyTarget(null)}
                 style={{
                   width: '100%',
                   padding: '0.75rem',
@@ -3653,7 +3915,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   fontWeight: 700,
                   fontSize: '0.9rem',
                   cursor: 'pointer',
-                  marginTop: 'auto'
+                  boxShadow: '0 4px 12px rgba(37,99,235,0.25)'
                 }}
               >
                 סיום ושמירה
@@ -4333,7 +4595,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.38</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.39</span>
         </h2>
         <input 
           type="text" 
@@ -4437,7 +4699,40 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    {isPrivate && <span style={{ background: '#fef2f2', color: '#ef4444', fontSize: '0.7rem', padding: '0.2rem 0.6rem', borderRadius: '12px', fontWeight: 'bold' }}>🔒</span>}
+                    {(() => {
+                      const pInfo = getPrivacyInfo(shelf.allowedPartners);
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPrivacyTarget({
+                              type: 'shelf',
+                              id: shelf.id,
+                              name: shelf.name,
+                              allowedPartners: shelf.allowedPartners || []
+                            });
+                          }}
+                          style={{
+                            background: pInfo.bg,
+                            border: `1px solid ${pInfo.border}`,
+                            color: pInfo.color,
+                            fontSize: '0.72rem',
+                            padding: '0.2rem 0.6rem',
+                            borderRadius: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}
+                          title={`הרשאות ופרטיות מדף: ${pInfo.text}`}
+                        >
+                          <span>{pInfo.icon}</span>
+                          <span>{pInfo.text}</span>
+                        </button>
+                      );
+                    })()}
                     <button onClick={() => setEditingShelfCoverId(shelf.id)} style={{ background: 'transparent', border: 'none', fontSize: '1.1rem', cursor: 'pointer', padding: 0 }} title="עיצוב מדף">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -4483,6 +4778,39 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#94a3b8', fontSize: '0.75rem' }}>{shelfDocs.length} מסמכים</div>
                   <div onClick={() => setActiveShelfId(shelf.id)} style={{ color: '#cbd5e1', fontSize: '0.65rem', marginTop: '0.25rem' }}>נוצר: {new Date(shelf.createdAt).toLocaleDateString('he-IL')}</div>
                   <div style={{ position: 'absolute', bottom: '0.5rem', left: '0.5rem', display: 'flex', gap: '0.3rem' }}>
+                    {(() => {
+                      const shelfPrivacy = getPrivacyInfo(shelf.allowedPartners);
+                      return (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPrivacyTarget({
+                              type: 'shelf',
+                              id: shelf.id,
+                              name: shelf.name,
+                              allowedPartners: shelf.allowedPartners || []
+                            });
+                          }}
+                          style={{
+                            background: shelfPrivacy.bg,
+                            border: `1px solid ${shelfPrivacy.border}`,
+                            color: shelfPrivacy.color,
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '0.85rem'
+                          }}
+                          title={`הרשאות ופרטיות מדף: ${shelfPrivacy.text}`}
+                        >
+                          {shelfPrivacy.icon}
+                        </button>
+                      );
+                    })()}
                     <button onClick={(e) => { e.stopPropagation(); setEditingShelfCoverId(shelf.id); }} style={{ background: '#f1f5f9', border: 'none', width: '28px', height: '28px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} title="עיצוב">🎨</button>
                     <button onClick={(e) => {
                       e.stopPropagation();
@@ -4518,7 +4846,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', ...highlightStyle, position: 'relative' }}>
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
-                  {isPrivate && <div style={{ position: 'absolute', bottom: '-4px', right: '-4px', background: '#ef4444', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', border: '2px solid white' }}>🔒</div>}
+                  {(() => {
+                    const pInfo = getPrivacyInfo(shelf.allowedPartners);
+                    return (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPrivacyTarget({
+                            type: 'shelf',
+                            id: shelf.id,
+                            name: shelf.name,
+                            allowedPartners: shelf.allowedPartners || []
+                          });
+                        }}
+                        style={{
+                          position: 'absolute',
+                          bottom: '-4px',
+                          right: '-4px',
+                          background: pInfo.bg,
+                          border: `1px solid ${pInfo.border}`,
+                          color: pInfo.color,
+                          borderRadius: '50%',
+                          width: '24px',
+                          height: '24px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                          zIndex: 11
+                        }}
+                        title={`הרשאות מדף: ${pInfo.text}`}
+                      >
+                        {pInfo.icon}
+                      </button>
+                    );
+                  })()}
                   <div style={{ position: 'absolute', bottom: '-4px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.9)', color: '#334155', fontSize: '0.7rem', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>{shelfDocs.length}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.2rem', width: '100%' }}>

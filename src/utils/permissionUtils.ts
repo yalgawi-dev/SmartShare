@@ -28,14 +28,31 @@ export function isSpaceManager(spaceRole: 'creator' | 'admin' | 'partner'): bool
 export function canAccessItem(params: AccessCheckParams): boolean {
   const { spaceRole, userId, partnerToken, creatorId, isManagedMode, ownerId, allowedPartners } = params;
 
-  // 1. Managers (creator and admin) have full visibility across the space
+  // 1. Strict Personal Vault ("Only Me" / רק לעצמי)
+  // When an item is marked as '__only_me__', NO ONE ELSE can see it, NOT EVEN other managers or group members!
+  const isOnlyMe = allowedPartners && allowedPartners.includes('__only_me__');
+  if (isOnlyMe) {
+    const isOwner = Boolean(
+      (userId && ownerId && userId === ownerId) ||
+      (userId && allowedPartners.includes(userId)) ||
+      (partnerToken && allowedPartners.includes(partnerToken))
+    );
+    return isOwner;
+  }
+
+  // 2. Managers (creator and admin) have full visibility across normal space items
   if (isSpaceManager(spaceRole)) {
     return true;
   }
 
-  // 2. Filter out legacy/creator IDs from allowedPartners (empty array = public to all partners)
+  // If item is marked as manager-only stealth vault and current user is NOT a manager:
+  if (allowedPartners && allowedPartners.includes('__creator_vault_secret__')) {
+    return false;
+  }
+
+  // 3. Filter out special tags and creator IDs from allowedPartners (empty array = public to all partners)
   const effectiveAllowedPartners = (allowedPartners || []).filter(
-    id => id && id.trim() !== '' && (!creatorId || id !== creatorId)
+    id => id && id.trim() !== '' && (!creatorId || id !== creatorId) && id !== '__creator_vault_secret__' && id !== '__only_me__'
   );
 
   // If item is restricted to specific partners
@@ -45,12 +62,12 @@ export function canAccessItem(params: AccessCheckParams): boolean {
     return matchesUser || matchesToken;
   }
 
-  // 3. If space is in Managed (Hierarchical) Mode, standard partners only see their own items
+  // 4. If space is in Managed (Hierarchical) Mode, standard partners only see their own items
   if (isManagedMode) {
     if (!ownerId) return true; // General public items in managed mode
     return Boolean((userId && userId === ownerId) || (partnerToken && partnerToken === ownerId));
   }
 
-  // 4. Default open collaboration mode
+  // 5. Default open collaboration mode
   return true;
 }

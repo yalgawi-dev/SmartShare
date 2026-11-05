@@ -124,6 +124,8 @@ export interface DocumentShelf {
   icon?: string;
   highlightColor?: string;
   deletedAt?: string;
+  ownerId?: string;
+  createdBy?: string;
 }
 
 export interface ShelfEventComment {
@@ -155,6 +157,8 @@ export interface DocumentFolder {
   allowedPartners?: string[];
   createdAt: string;
   deletedAt?: string;
+  ownerId?: string;
+  createdBy?: string;
 }
 
 export interface SpaceDocument {
@@ -177,6 +181,8 @@ export interface SpaceDocument {
   docNumber?: number;
   linkedDocIds?: string[];
   linkType?: 'payment' | 'related' | 'appendix';
+  allowedPartners?: string[];
+  ownerId?: string;
 }
 
 export interface TargetedAnnouncementItem {
