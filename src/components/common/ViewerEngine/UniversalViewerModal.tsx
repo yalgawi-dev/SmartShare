@@ -259,7 +259,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.34
+            v3.4.35
           </span>
           <span
             style={{
@@ -487,9 +487,13 @@ export default function UniversalViewerModal({
                   initialScale={1}
                   minScale={0.8}
                   maxScale={30}
-                  centerOnInit={true}
+                  centerOnInit={false}
+                  initialPositionX={0}
+                  initialPositionY={0}
+                  centerZoomedOut={false}
                   limitToBounds={true}
-                  panning={{ disabled: currentScale <= 1.05, velocityDisabled: true }}
+                  panning={{ velocityDisabled: true }}
+                  trackPadPanning={{ velocityDisabled: true }}
                   doubleClick={{ mode: 'zoomIn', step: 2.5 }}
                   wheel={{ step: 0.2 }}
                   pinch={{ step: 5 }}
@@ -498,8 +502,14 @@ export default function UniversalViewerModal({
                   {({ zoomIn, zoomOut, resetTransform }: any) => (
                     <>
                       <TransformComponent
-                        wrapperStyle={{ width: '100%', height: '100%', overflowY: 'auto' }}
-                        contentStyle={{ width: '100%', minHeight: '100%', display: 'flex', justifyContent: 'center' }}
+                        wrapperStyle={{ width: '100%', height: '100%' }}
+                        contentStyle={{
+                          width: '100%',
+                          minHeight: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center'
+                        }}
                       >
                         <div
                           style={{
@@ -507,7 +517,7 @@ export default function UniversalViewerModal({
                             flexDirection: 'column',
                             alignItems: 'center',
                             gap: '16px',
-                            padding: '1.5rem 1rem',
+                            padding: '1rem 0.5rem 6rem 0.5rem',
                             maxWidth: '900px',
                             width: '100%'
                           }}
