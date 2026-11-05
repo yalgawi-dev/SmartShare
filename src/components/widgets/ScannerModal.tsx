@@ -1097,14 +1097,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
 
       {/* Header */}
-      <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
+      <div style={{ padding: '0.6rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
         <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flex: 1, justifyContent: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים v3.4.36' : 'סורק מסמכים v3.4.36'}</span>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', flex: 1, justifyContent: 'center' }}>
+          <h2 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
+            <span style={{ fontSize: '0.65rem', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.4.37</span>
           </h2>
-
-
+          {editingDocTitle && (
+            <div style={{ fontSize: '0.74rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
+              <span>📄 הוספה ל: &quot;{editingDocTitle}&quot;</span>
+              <span style={{ color: '#fbbf24' }}>({scannedPages.length} עמודים במדף)</span>
+            </div>
+          )}
         </div>
         
         <div style={{ minWidth: '95px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem' }}>
@@ -1211,53 +1216,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                    <div style={{ position: 'absolute', bottom: '-2px', left: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderLeft: '4px solid #FFD700' }} />
                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
                 </div>
-
-                {/* Editing Document Banner */}
-                {editingDocTitle && (
-                  <div
-                    onClick={() => {
-                      if (scannedPages.length > 0) {
-                        const last = scannedPages[scannedPages.length - 1];
-                        setScannedPages(prev => prev.slice(0, -1));
-                        setActiveDocId(last.id);
-                        setActiveSource(last.source || 'camera');
-                        setScannerMode(last.source || 'camera');
-                        setMode(last.mode || 'smart_plus');
-                        setSelectedCategory(last.category || 'document');
-                        setImageCache({ [last.mode || 'smart_plus']: last.imageUrl });
-                        setRawSnapshot(last.rawImageUrl || last.imageUrl);
-                        if (last.cropPoints) setCropPoints(last.cropPoints);
-                        setStep('review');
-                      }
-                    }}
-                    style={{
-                      position: 'absolute',
-                      top: '16px',
-                      left: '50%',
-                      transform: 'translateX(-50%)',
-                      background: 'rgba(15, 23, 42, 0.88)',
-                      backdropFilter: 'blur(8px)',
-                      border: '1.5px solid #3b82f6',
-                      color: '#ffffff',
-                      padding: '0.4rem 1rem',
-                      borderRadius: '20px',
-                      fontSize: '0.82rem',
-                      fontWeight: 800,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      whiteSpace: 'nowrap',
-                      zIndex: 105,
-                      boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
-                      direction: 'rtl',
-                      cursor: 'pointer'
-                    }}
-                    title="לחץ לצפייה בעמודים הקיימים ושמירה"
-                  >
-                    <span>📄 עריכת מגילה: "{editingDocTitle}"</span>
-                    <span style={{ color: '#93c5fd', fontSize: '0.74rem' }}>• {scannedPages.length} עמודים במדף (צפה/סיים)</span>
-                  </div>
-                )}
 
                 {/* Smart Lens Smudge / Blur Alert Banner */}
                 {qualityMetrics.isSmudgedOrBlurry && (
