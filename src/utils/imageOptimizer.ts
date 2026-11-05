@@ -703,17 +703,27 @@ export const dataUrlBytes = (u: string) => Math.round((u.length - u.indexOf(',')
  * Connected directly to WebP engine with seamless fallback to legacy JPEG engine.
  */
 export async function compressToBudget(src: string, maxBytes = DOCUMENT_MAX_BYTES): Promise<string> {
+  // If it's already an HTTP/HTTPS or local static URL, it is already hosted on cloud storage — keep as-is!
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('/')) {
+    return src;
+  }
+
   // If already within budget in WebP or JPEG, keep as-is
   if ((src.startsWith('data:image/webp') || src.startsWith('data:image/jpeg')) && dataUrlBytes(src) <= maxBytes) {
     return src;
   }
 
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+  const img = await new Promise<HTMLImageElement>((resolve) => {
     const i = new Image();
+    i.crossOrigin = 'anonymous';
     i.onload = () => resolve(i);
-    i.onerror = reject;
+    i.onerror = () => resolve(i); // Never crash on load error, resolve and fallback gracefully
     i.src = src;
   });
+
+  if (!img.width || !img.height) {
+    return src;
+  }
 
   let scale = Math.min(1, 2000 / Math.max(img.width, img.height));
   let best = src;

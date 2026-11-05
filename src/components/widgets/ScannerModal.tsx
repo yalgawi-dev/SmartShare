@@ -964,131 +964,159 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleDone = async (routingType?: 'receipt' | 'document' | 'image') => {
     setIsProcessing(true);
-    const currentImg = imageCache[mode];
-    
-    let allPageUrls: string[] = [];
-    
-    // Process everything in sorted order
-    // If we only have 1 item and we are sharing as an image, giving 100% to WhatsApp avoids double compression!
-    // But if we have multiple items, we will generate a PDF, which WhatsApp/Email DO NOT compress, so we MUST compress to 0.82!
-    const needsCompression = false; // We now compress to 0.85 at the OpenCV source to prevent double-compression!
-    for (const item of sortedTrayItems) {
-      if (item.type === 'scanned' || item.type === 'active') {
-        const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
-        allPageUrls.push(urlToUse);
-      } else if (item.type === 'pending') {
-         try {
-           const img = new Image();
-           img.src = item.url;
-           await new Promise((res, rej) => { 
-              img.onload = res; 
-              img.onerror = () => rej(new Error('Failed to load pending image'));
-           });
-           let w = img.width; let h = img.height;
-           if (w === 0 || h === 0) {
-              console.warn("Invalid image dimensions", w, h);
-              continue;
-           }
-           
-           if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
-           const canvas = document.createElement('canvas');
-           canvas.width = w; canvas.height = h;
-           const ctx = canvas.getContext('2d');
-           if (ctx) {
-              ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, w, h);
-              
-              // Auto-crop magic for batch imports!
-              const pts = detectDocument(canvas) || [
-                {x: w * 0.1, y: h * 0.1},
-                {x: w * 0.9, y: h * 0.1},
-                {x: w * 0.9, y: h * 0.9},
-                {x: w * 0.1, y: h * 0.9}
-              ];
-              const snapshotUrl = compressCanvas(canvas, 1.0);
-              
-              try {
-                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, defaultBatchEngine);
-                  
-                  // Now compress the processed smart_plus image
-                  const imgProcessed = new Image();
-                  imgProcessed.src = result.filtered;
-                  await new Promise((r) => { imgProcessed.onload = r; imgProcessed.onerror = r; });
-                  
-                  const processedCanvas = document.createElement('canvas');
-                  processedCanvas.width = imgProcessed.width; processedCanvas.height = imgProcessed.height;
-                  const pCtx = processedCanvas.getContext('2d');
-                  if (pCtx) {
-                      pCtx.drawImage(imgProcessed, 0, 0);
-                      const data = compressCanvas(processedCanvas, 0.90);
-                      if (data && data !== 'data:,') {
-                          allPageUrls.push(data);
-                      }
-                  }
-              } catch (e) {
-                  // Fallback to raw if OpenCV fails
-                  console.error("Batch crop failed", e);
-                  const data = compressCanvas(canvas, 0.90);
-                  if (data && data !== 'data:,') {
-                      allPageUrls.push(data);
-                  }
-              }
-           }
+    try {
+      const currentImg = imageCache[mode];
+      
+      let allPageUrls: string[] = [];
+      
+      // Process everything in sorted order
+      const needsCompression = false;
+      for (const item of sortedTrayItems) {
+        if (item.type === 'scanned' || item.type === 'active') {
+          const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
+          allPageUrls.push(urlToUse);
+        } else if (item.type === 'pending') {
+           try {
+             const img = new Image();
+             img.src = item.url;
+             await new Promise((res, rej) => { 
+                img.onload = res; 
+                img.onerror = () => rej(new Error('Failed to load pending image'));
+             });
+             let w = img.width; let h = img.height;
+             if (w === 0 || h === 0) {
+                console.warn('Invalid image dimensions', w, h);
+                continue;
+             }
+             
+             if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
+             const canvas = document.createElement('canvas');
+             canvas.width = w; canvas.height = h;
+             const ctx = canvas.getContext('2d');
+             if (ctx) {
+                ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+                ctx.drawImage(img, 0, 0, w, h);
+                
+                const pts = detectDocument(canvas) || [
+                  {x: w * 0.1, y: h * 0.1},
+                  {x: w * 0.9, y: h * 0.1},
+                  {x: w * 0.9, y: h * 0.9},
+                  {x: w * 0.1, y: h * 0.9}
+                ];
+                const snapshotUrl = compressCanvas(canvas, 1.0);
+                
+                try {
+                    const result = await applyPerspectiveAndFilters(snapshotUrl, pts, defaultBatchEngine);
+                    const imgProcessed = new Image();
+                    imgProcessed.src = result.filtered;
+                    await new Promise((r) => { imgProcessed.onload = r; imgProcessed.onerror = r; });
+                    
+                    const processedCanvas = document.createElement('canvas');
+                    processedCanvas.width = imgProcessed.width; processedCanvas.height = imgProcessed.height;
+                    const pCtx = processedCanvas.getContext('2d');
+                    if (pCtx) {
+                        pCtx.drawImage(imgProcessed, 0, 0);
+                        const data = compressCanvas(processedCanvas, 0.90);
+                        if (data && data !== 'data:,') {
+                            allPageUrls.push(data);
+                        }
+                    }
+                } catch (e) {
+                    console.error('Batch crop failed', e);
+                    const data = compressCanvas(canvas, 0.90);
+                    if (data && data !== 'data:,') {
+                        allPageUrls.push(data);
+                    }
+                }
+             }
 
-         } catch (e) {
-           console.error("Error processing pending image:", e);
-         }
+           } catch (e) {
+             console.error('Error processing pending image:', e);
+           }
+        }
       }
-    }
-    setPendingImports([]);
-    
-    if (maxBytes && allPageUrls.length > 0) {
-      const perPage = maxBytes; // Apply full budget PER PAGE so multi-page quality does not degrade
-      allPageUrls = await Promise.all(allPageUrls.map(u => compressToBudget(u, perPage)));
-    }
-    
-    if (allPageUrls.length === 0) {
-      setIsProcessing(false);
-      return;
-    }
-    
-    let finalRouting = routingType || defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
-    
-    // Batch OCR Logic for Invoices
-    if (finalRouting === 'receipt' && allPageUrls.length > 1) {
+      setPendingImports([]);
+      
+      if (maxBytes && allPageUrls.length > 0) {
+        const perPage = maxBytes;
+        allPageUrls = await Promise.all(
+          allPageUrls.map(async u => {
+            try {
+              if (u.startsWith('data:')) {
+                return await compressToBudget(u, perPage);
+              }
+              return u;
+            } catch {
+              return u;
+            }
+          })
+        );
+      }
+      
+      if (allPageUrls.length === 0) {
+        setIsProcessing(false);
+        return;
+      }
+      
+      let finalRouting = routingType || defaultCategory || (hasFinance && !hasVault ? 'receipt' : 'document');
+
+      // When editing/adding pages to an existing document/scroll in Space, save directly!
+      if (editingDocId) {
+        if (!isClosingRef.current) {
+          isClosingRef.current = true;
+          window.history.back();
+        }
+        setTimeout(() => {
+          onComplete(allPageUrls[0], (maxBytes ? allPageUrls[0] : currentImg) || allPageUrls[0], allPageUrls, finalRouting as any);
+          setIsProcessing(false);
+        }, 50);
+        return;
+      }
+      
+      // Batch OCR Logic for Invoices
+      if (finalRouting === 'receipt' && allPageUrls.length > 1) {
+        if (!isClosingRef.current) {
+          isClosingRef.current = true;
+          window.history.back();
+        }
+        setTimeout(() => {
+          onComplete(allPageUrls[0], undefined, allPageUrls, 'receipt_batch');
+          setIsProcessing(false);
+        }, 50);
+        return;
+      }
+      let primary = allPageUrls[0];
+      
+      if (allPageUrls.length > 1) {
+        setExportOptions({ type: 'save', urls: allPageUrls, routingType });
+        return;
+      }
+
       if (!isClosingRef.current) {
-        isClosingRef.current = true;
-        window.history.back();
+          isClosingRef.current = true;
+          window.history.back();
       }
+        
       setTimeout(() => {
-        onComplete(allPageUrls[0], undefined, allPageUrls, 'receipt_batch');
+        onComplete(primary, (maxBytes ? allPageUrls[0] : currentImg) || primary, allPageUrls, finalRouting as any);
         setIsProcessing(false);
       }, 50);
-      return;
+    } catch (globalErr) {
+      console.error('Fatal error in handleDone, applying graceful fallback save:', globalErr);
+      const fallbackUrls = sortedTrayItems.map(i => i.url).filter(Boolean);
+      if (fallbackUrls.length > 0) {
+        if (!isClosingRef.current) {
+          isClosingRef.current = true;
+          window.history.back();
+        }
+        setTimeout(() => {
+          onComplete(fallbackUrls[0], fallbackUrls[0], fallbackUrls, (routingType || defaultCategory || 'document') as any);
+          setIsProcessing(false);
+        }, 50);
+      } else {
+        setIsProcessing(false);
+      }
     }
-    let primary = allPageUrls[0];
-    
-    if (allPageUrls.length > 1) {
-      setExportOptions({ type: 'save', urls: allPageUrls, routingType });
-      return; // Don't process further, modal will handle it via executeExport
-    }
-
-    
-    // Single page stays a JPEG (like CamScanner): ~5-10x smaller than a PDF wrapper,
-    // instantly previewable, and OCR-ready. PDF is created only for multi-page (see export dialog above).
-
-    
-
-
-    if (!isClosingRef.current) {
-        isClosingRef.current = true;
-        window.history.back();
-    }
-      
-    setTimeout(() => {
-      onComplete(primary, (maxBytes ? allPageUrls[0] : currentImg) || primary, allPageUrls, finalRouting as any);
-      setIsProcessing(false);
-    }, 50);
   };
 
   return (
@@ -1102,7 +1130,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
-            <span style={{ fontSize: '0.65rem', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.4.37</span>
+            <span style={{ fontSize: '0.65rem', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.4.38</span>
           </h2>
           {editingDocTitle && (
             <div style={{ fontSize: '0.74rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
