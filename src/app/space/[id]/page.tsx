@@ -73,7 +73,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -161,6 +161,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }, [activeChatId, space?.features]);
 
   const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string } | null>(null);
+  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[] } | null>(null);
   const [isScannerBannerDismissed, setIsScannerBannerDismissed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('hide_scanner_banner_' + id) === '1';
@@ -180,6 +181,23 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     };
     window.addEventListener('smartshare:open_scanner_event', handleScannerForEvent);
 
+    const handleScannerForDoc = (e: any) => {
+      const { doc } = e.detail || {};
+      if (doc) {
+        const docPages = (doc.pages && doc.pages.length > 0) ? doc.pages : (doc.url ? [doc.url] : []);
+        setEditingDocumentInfo({
+          docId: doc.id,
+          title: doc.title || 'מסמך',
+          pages: docPages
+        });
+        setPendingEventScan(null);
+        setScannerMode('camera');
+        setScannerCategory('document');
+        setIsScannerOpen(true);
+      }
+    };
+    window.addEventListener('smartshare:open_scanner_for_doc', handleScannerForDoc);
+
     const handleConvertDocToExpense = (e: any) => {
       const { url, allPages } = e.detail || {};
       if (url) {
@@ -195,6 +213,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
 
     return () => {
       window.removeEventListener('smartshare:open_scanner_event', handleScannerForEvent);
+      window.removeEventListener('smartshare:open_scanner_for_doc', handleScannerForDoc);
       window.removeEventListener('smartshare:convert_doc_to_expense', handleConvertDocToExpense);
     };
   }, []);
@@ -1214,15 +1233,33 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       
       {isScannerOpen && (
         <ScannerModal 
-            onClose={() => { setIsScannerOpen(false); setPendingEventScan(null); }}
+            onClose={() => { setIsScannerOpen(false); setPendingEventScan(null); setEditingDocumentInfo(null); }}
             hasVault={hasVault}
             hasFinance={hasFinance}
             standalone={!hasVault && !hasFinance}
             maxBytes={DOCUMENT_MAX_BYTES}
             defaultMode={scannerMode}
             defaultCategory={scannerCategory}
+            initialPages={editingDocumentInfo?.pages}
+            editingDocId={editingDocumentInfo?.docId}
+            editingDocTitle={editingDocumentInfo?.title}
             onComplete={(url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
+                if (editingDocumentInfo) {
+                  const currentEditing = editingDocumentInfo;
+                  setEditingDocumentInfo(null);
+                  const updatedPages = allPages && allPages.length > 0 ? allPages : [url];
+                  if (updateDocument) {
+                    updateDocument(space.id, currentEditing.docId, {
+                      pages: updatedPages,
+                      url: updatedPages[0],
+                      thumbnailUrl: updatedPages[0]
+                    });
+                  }
+                  setToastMessage(`המגילה עודכנה בהצלחה! מכילה כעת ${updatedPages.length} עמודים.`);
+                  setTimeout(() => setToastMessage(null), 3500);
+                  return;
+                }
                 if (!hasVault && !hasFinance) return; // Standalone handled inside ScannerModal
                 const targetEventInfo = pendingEventScan;
                 setPendingEventScan(null);

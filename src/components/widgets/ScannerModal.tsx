@@ -39,9 +39,13 @@ interface ScannerModalProps {
   maxBytes?: number;
   defaultMode?: 'camera' | 'upload';
   defaultCategory?: 'receipt' | 'document' | 'image';
+  /** Pre-loaded pages to append to / edit in scanner */
+  initialPages?: string[];
+  editingDocId?: string;
+  editingDocTitle?: string;
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt' }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt', initialPages, editingDocId, editingDocTitle }: ScannerModalProps) {
   
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
@@ -151,11 +155,24 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
 
   // Multi-page scanning
-  const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
-  
-  
+  const [scannedPages, setScannedPages] = useState<ScannedPage[]>(() => {
+    if (initialPages && initialPages.length > 0) {
+      return initialPages.map((url, idx) => ({
+        id: `init-page-${idx}`,
+        imageUrl: url,
+        pageNum: idx + 1,
+        source: 'upload' as const
+      }));
+    }
+    return [];
+  });
 
-  const [trayOrder, setTrayOrder] = React.useState<string[]>([]);
+  const [trayOrder, setTrayOrder] = React.useState<string[]>(() => {
+    if (initialPages && initialPages.length > 0) {
+      return initialPages.map((_, idx) => `init-page-${idx}`);
+    }
+    return [];
+  });
   const generateDocId = () => 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
   const [activeDocId, setActiveDocId] = React.useState<string>(generateDocId());
   const [activeOriginalUrl, setActiveOriginalUrl] = React.useState<string | null>(null);
@@ -1195,6 +1212,34 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                    <div style={{ position: 'absolute', bottom: '-2px', right: '-2px', width: '20px', height: '20px', borderBottom: '4px solid #FFD700', borderRight: '4px solid #FFD700' }} />
                 </div>
 
+                {/* Editing Document Banner */}
+                {editingDocTitle && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '16px',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    background: 'rgba(15, 23, 42, 0.88)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1.5px solid #3b82f6',
+                    color: '#ffffff',
+                    padding: '0.4rem 1rem',
+                    borderRadius: '20px',
+                    fontSize: '0.82rem',
+                    fontWeight: 800,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    whiteSpace: 'nowrap',
+                    zIndex: 105,
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                    direction: 'rtl'
+                  }}>
+                    <span>📄 עריכת מגילה: "{editingDocTitle}"</span>
+                    <span style={{ color: '#93c5fd', fontSize: '0.74rem' }}>• {scannedPages.length} עמודים במדף</span>
+                  </div>
+                )}
+
                 {/* Smart Lens Smudge / Blur Alert Banner */}
                 {qualityMetrics.isSmudgedOrBlurry && (
                   <div style={{
@@ -1662,7 +1707,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           </>
         )}
         {/* GLOBAL TRAYS */}
-             {(step !== 'scanning' ? (scannedPages.length > 0 || pendingImports.length > 0 || (rawSnapshot || imageCache[mode])) : (pendingImports.length > 0 && scannerMode === 'upload')) && (
+             {(scannedPages.length > 0 || pendingImports.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
                <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                  <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', direction: 'ltr', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
                     <SortableTray 

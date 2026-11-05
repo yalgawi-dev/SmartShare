@@ -259,7 +259,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.33
+            v3.4.34
           </span>
           <span
             style={{
@@ -485,10 +485,11 @@ export default function UniversalViewerModal({
                 <TransformWrapper
                   key={`multi-${currentIndex}`}
                   initialScale={1}
-                  minScale={0.6}
+                  minScale={0.8}
                   maxScale={30}
                   centerOnInit={true}
-                  limitToBounds={false}
+                  limitToBounds={true}
+                  panning={{ disabled: currentScale <= 1.05, velocityDisabled: true }}
                   doubleClick={{ mode: 'zoomIn', step: 2.5 }}
                   wheel={{ step: 0.2 }}
                   pinch={{ step: 5 }}
@@ -732,10 +733,11 @@ export default function UniversalViewerModal({
               <TransformWrapper
                 key={`single-${currentIndex}`}
                 initialScale={1}
-                minScale={0.6}
+                minScale={0.8}
                 maxScale={30}
                 centerOnInit={true}
-                limitToBounds={false}
+                limitToBounds={true}
+                panning={{ velocityDisabled: true }}
                 doubleClick={{ mode: 'zoomIn', step: 2.5 }}
                 wheel={{ step: 0.2 }}
                 pinch={{ step: 5 }}
@@ -945,6 +947,37 @@ export default function UniversalViewerModal({
           }}
         >
           <span>⬇️ הורדה</span>
+        </button>
+
+        <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />
+
+        <button
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+                detail: { doc: currentDoc }
+              }));
+              onClose();
+            }
+          }}
+          style={{
+            background: 'rgba(59, 130, 246, 0.25)',
+            color: '#93c5fd',
+            border: '1px solid rgba(59, 130, 246, 0.5)',
+            padding: '0.4rem 0.85rem',
+            borderRadius: '20px',
+            fontWeight: 750,
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.4rem',
+            transition: 'background 0.2s',
+            whiteSpace: 'nowrap'
+          }}
+          title="פתח את הסורק עם עמודי המגילה כדי להוסיף עמודים נוספים"
+        >
+          <span>📷 הוסף עמוד</span>
         </button>
 
         <div style={{ width: '1px', height: '18px', background: 'rgba(255,255,255,0.2)' }} />

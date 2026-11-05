@@ -2930,6 +2930,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 💳 קשר לחשבוניות / מסמכים מקושרים
                                               </button>
                                               <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  if (typeof window !== 'undefined') {
+                                                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', { detail: { doc } }));
+                                                  }
+                                                }}
+                                                style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                📷 הוסף עמודים בסורק
+                                              </button>
+                                              <button
                                                   type="button"
                                                   onClick={() => { setActiveDocMenuId(null); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
                                                   style={{ background: '#f0f9ff', border: '1px solid #bae6fd', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0284c7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
@@ -4321,7 +4333,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.33</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.34</span>
         </h2>
         <input 
           type="text" 

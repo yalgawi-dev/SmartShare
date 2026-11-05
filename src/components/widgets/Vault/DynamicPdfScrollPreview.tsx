@@ -19,6 +19,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<boolean>(false);
   const [totalPageCount, setTotalPageCount] = useState<number>(1);
+  const [pdfScale, setPdfScale] = useState<number>(1);
 
   useEffect(() => {
     let isMounted = true;
@@ -147,13 +148,15 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <TransformWrapper
           initialScale={1}
-          minScale={0.6}
+          minScale={0.8}
           maxScale={30}
           centerOnInit={true}
-          limitToBounds={false}
+          limitToBounds={true}
+          panning={{ disabled: pdfScale <= 1.05, velocityDisabled: true }}
           doubleClick={{ mode: 'zoomIn', step: 2.5 }}
           wheel={{ step: 0.2 }}
           pinch={{ step: 5 }}
+          onTransform={(ref: any) => setPdfScale(ref.state.scale)}
         >
           <TransformComponent
             wrapperStyle={{ width: '100%', height: '100%', overflowY: 'auto' }}
