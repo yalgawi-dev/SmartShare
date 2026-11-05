@@ -2,10 +2,10 @@
 import { canAccessItem } from '../../../utils/permissionUtils';
 import { recordTelemetryAction } from '../../../utils/telemetryTracker';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
-import React, { useState, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
 import { universalSearch, universalSort } from '../../../utils/searchEngine';
 import { useAuth } from '../../../app/context/AuthContext';
-import { Space, useSpaces, DocumentFolder } from '../../../app/context/SpacesContext';
+import { Space, useSpaces, DocumentFolder, SpaceDocument } from '../../../app/context/SpacesContext';
 import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
@@ -18,6 +18,7 @@ import DynamicPdfScrollPreview from './DynamicPdfScrollPreview';
 import { saveLocalDeviceFile } from '../../../utils/localDeviceStorage';
 import MultiPageViewer from './MultiPageViewer';
 import DocNoteModal from './DocNoteModal';
+import { LinkDocumentsModal, LinkedDocsPreviewModal } from './DocumentLinkModals';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
@@ -131,6 +132,22 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [folderToMove, setFolderToMove] = useState<DocumentFolder | null>(null);
   const [targetMoveShelfId, setTargetMoveShelfId] = useState<string>('');
   const [targetMoveParentFolderId, setTargetMoveParentFolderId] = useState<string | null>(null);
+  const [linkingDoc, setLinkingDoc] = useState<SpaceDocument | null>(null);
+  const [viewLinkedDocsFor, setViewLinkedDocsFor] = useState<SpaceDocument | null>(null);
+  const [feedbackToast, setFeedbackToast] = useState<{ message: string; type?: 'success' | 'info' } | null>(null);
+
+  const showFeedbackToast = (message: string, type: 'success' | 'info' = 'success') => {
+    setFeedbackToast({ message, type });
+  };
+
+  useEffect(() => {
+    if (!feedbackToast) return;
+    const timer = setTimeout(() => {
+      setFeedbackToast(null);
+    }, 3800);
+    return () => clearTimeout(timer);
+  }, [feedbackToast]);
+
   const [moveDocToFolder, setMoveDocToFolder] = useState<{ docIds: string[], currentFolderId?: string | null } | null>(null);
   const [showSortFilterModal, setShowSortFilterModal] = useState(false);
   const [showVaultViewDropdown, setShowVaultViewDropdown] = useState(false);
@@ -2199,6 +2216,30 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         📍 {linkedEvent.title}
                                       </span>
                                     )}
+                                    {doc.linkedDocIds && doc.linkedDocIds.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(doc); }}
+                                        style={{ fontSize: '0.66rem', color: '#047857', background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                        title="לחץ לצפייה בחשבוניות / מסמכים מקושרים"
+                                      >
+                                        💳 {doc.linkedDocIds.length} מקושרים
+                                      </button>
+                                    )}
+                                    {(() => {
+                                      const payingParents = activeDocuments.filter(d => d.linkedDocIds?.includes(doc.id));
+                                      if (payingParents.length === 0) return null;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setViewLinkedDocsFor(payingParents[0]); }}
+                                          style={{ fontSize: '0.66rem', color: '#b45309', background: '#fef3c7', border: '1px solid #fde68a', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+                                          title={`משולם ע"י / מקושר ל: ${payingParents.map(p => p.title).join(', ')}`}
+                                        >
+                                          ✅ משולם ע"י {payingParents[0].title.slice(0, 10)}...
+                                        </button>
+                                      );
+                                    })()}
                                     <span style={{ fontSize: '0.64rem', color: '#64748b' }}>
                                       {doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'}
                                     </span>
@@ -2250,6 +2291,14 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                          >
                                            📁
                                          </button>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); setLinkingDoc(doc); }}
+                                    title="קשר לחשבוניות / מסמכים מקושרים"
+                                    style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+                                  >
+                                    💳
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => handleDeleteDocument(doc.id, doc.title)}
@@ -2690,6 +2739,62 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         👁️ נצפה לאחרונה
                                       </span>
                                     )}
+                                    {doc.linkedDocIds && doc.linkedDocIds.length > 0 && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          if (isMultiSelect) return;
+                                          e.stopPropagation();
+                                          setViewLinkedDocsFor(doc);
+                                        }}
+                                        style={{
+                                          background: '#ecfdf5',
+                                          color: '#047857',
+                                          border: '1px solid #a7f3d0',
+                                          padding: '1px 6px',
+                                          borderRadius: '4px',
+                                          fontWeight: 800,
+                                          fontSize: '0.62rem',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '3px'
+                                        }}
+                                        title="לחץ לצפייה במסמכים / חשבוניות המקושרים"
+                                      >
+                                        💳 {doc.linkedDocIds.length} מקושרים
+                                      </button>
+                                    )}
+                                    {(() => {
+                                      const payingParents = activeDocuments.filter(d => d.linkedDocIds?.includes(doc.id));
+                                      if (payingParents.length === 0) return null;
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            if (isMultiSelect) return;
+                                            e.stopPropagation();
+                                            setViewLinkedDocsFor(payingParents[0]);
+                                          }}
+                                          style={{
+                                            background: '#fef3c7',
+                                            color: '#b45309',
+                                            border: '1px solid #fde68a',
+                                            padding: '1px 6px',
+                                            borderRadius: '4px',
+                                            fontWeight: 800,
+                                            fontSize: '0.62rem',
+                                            cursor: 'pointer',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            gap: '3px'
+                                          }}
+                                          title={`משולם ע"י / מקושר ל: ${payingParents.map(p => p.title).join(', ')}`}
+                                        >
+                                          ✅ משולם ע"י {payingParents[0].title.slice(0, 8)}...
+                                        </button>
+                                      );
+                                    })()}
                                   </div>
 
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
@@ -2817,6 +2922,13 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                   🔗 {linkedEvent ? 'שנה תחנה' : 'קשר לתחנה'}
                                                 </button>
                                               )}
+                                              <button
+                                                type="button"
+                                                onClick={() => { setActiveDocMenuId(null); setLinkingDoc(doc); }}
+                                                style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                              >
+                                                💳 קשר לחשבוניות / מסמכים מקושרים
+                                              </button>
                                               <button
                                                   type="button"
                                                   onClick={() => { setActiveDocMenuId(null); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
@@ -3359,26 +3471,31 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               </div>
 
               {/* Mode Selection */}
-              <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', marginBottom: '1rem' }}>
                 <button
                   type="button"
                   onClick={() => {
                     updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: [] });
                     setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: [] } : null);
+                    showFeedbackToast('התיקייה הוגדרה כפתוחה לכל חברי המרחב');
                   }}
                   style={{
-                    flex: 1,
-                    padding: '0.65rem',
+                    padding: '0.6rem 0.3rem',
                     borderRadius: '12px',
-                    border: !isRestricted ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    background: !isRestricted ? '#eff6ff' : '#ffffff',
-                    color: !isRestricted ? '#1d4ed8' : '#475569',
+                    border: (!isRestricted && currentAllowed.length === 0) ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: (!isRestricted && currentAllowed.length === 0) ? '#eff6ff' : '#ffffff',
+                    color: (!isRestricted && currentAllowed.length === 0) ? '#1d4ed8' : '#475569',
                     fontWeight: 700,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer'
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
                   }}
                 >
-                  🌐 פתוחה לכולם
+                  <span style={{ fontSize: '1.1rem' }}>🌐</span>
+                  <span>פתוחה לכולם</span>
                 </button>
                 <button
                   type="button"
@@ -3387,73 +3504,126 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       const firstMemberId = activeMembers[0].userId;
                       updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: [firstMemberId] });
                       setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: [firstMemberId] } : null);
+                      showFeedbackToast('הוגדרה גישה מוגבלת לשותפים ספציפיים');
                     }
                   }}
                   style={{
-                    flex: 1,
-                    padding: '0.65rem',
+                    padding: '0.6rem 0.3rem',
                     borderRadius: '12px',
-                    border: isRestricted ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    background: isRestricted ? '#eff6ff' : '#ffffff',
-                    color: isRestricted ? '#1d4ed8' : '#475569',
+                    border: (isRestricted && !currentAllowed.includes('__creator_vault_secret__')) ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: (isRestricted && !currentAllowed.includes('__creator_vault_secret__')) ? '#eff6ff' : '#ffffff',
+                    color: (isRestricted && !currentAllowed.includes('__creator_vault_secret__')) ? '#1d4ed8' : '#475569',
                     fontWeight: 700,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer'
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
                   }}
                 >
-                  🔒 גישה מוגבלת
+                  <span style={{ fontSize: '1.1rem' }}>🔒</span>
+                  <span>גישה מוגבלת</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Hidden vault: restricted to creator only
+                    const creatorTarget = space.creatorId || user?.id || '__creator_vault_secret__';
+                    updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: [creatorTarget, '__creator_vault_secret__'] });
+                    setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: [creatorTarget, '__creator_vault_secret__'] } : null);
+                    showFeedbackToast('התיקייה הוגדרה ככספת סודית מוסתרת מכולם!');
+                  }}
+                  style={{
+                    padding: '0.6rem 0.3rem',
+                    borderRadius: '12px',
+                    border: currentAllowed.includes('__creator_vault_secret__') ? '2px solid #7c3aed' : '1px solid #cbd5e1',
+                    background: currentAllowed.includes('__creator_vault_secret__') ? '#f5f3ff' : '#ffffff',
+                    color: currentAllowed.includes('__creator_vault_secret__') ? '#6d28d9' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.75rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>🙈</span>
+                  <span>כספת מוסתרת</span>
                 </button>
               </div>
 
               {/* Partners Checklist when Restricted */}
               {isRestricted && (
                 <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0 1rem 0' }}>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.2rem' }}>
-                    בחר למי מותר לגשת לתיקייה זו:
-                  </div>
-                  {activeMembers.length === 0 ? (
-                    <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
-                      אין שותפים נוספים במרחב זה
+                  {currentAllowed.includes('__creator_vault_secret__') ? (
+                    <div style={{ textAlign: 'center', padding: '1rem', background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: '12px', color: '#6d28d9' }}>
+                      <div style={{ fontSize: '1.5rem', marginBottom: '0.3rem' }}>🛡️</div>
+                      <div style={{ fontWeight: 800, fontSize: '0.88rem' }}>כספת סודית מוסתרת לחלוטין</div>
+                      <div style={{ fontSize: '0.76rem', color: '#5b21b6', marginTop: '4px', lineHeight: 1.4 }}>
+                        התיקייה אינה נראית לאף שותף במרחב (אפס חשיפה). רק יוצר המרחב ומנהליו רואים אותה.
+                      </div>
                     </div>
                   ) : (
-                    activeMembers.map((m: any) => {
-                      const isChecked = currentAllowed.includes(m.userId);
-                      return (
-                        <label
-                          key={m.userId}
-                          style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '0.65rem 0.85rem',
-                            background: isChecked ? '#eff6ff' : '#f8fafc',
-                            border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-                            borderRadius: '12px',
-                            cursor: 'pointer',
-                            transition: 'all 0.15s'
-                          }}
-                        >
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '1.1rem' }}>👤</span>
-                            <span style={{ fontSize: '0.88rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
-                              {m.name || 'שותף'} {m.role === 'admin' ? '(מנהל)' : ''}
-                            </span>
-                          </div>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => {
-                              const newAllowed = isChecked
-                                ? currentAllowed.filter((id: string) => id !== m.userId)
-                                : [...currentAllowed, m.userId];
-                              updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: newAllowed });
-                              setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: newAllowed } : null);
-                            }}
-                            style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
-                          />
-                        </label>
-                      );
-                    })
+                    <>
+                      <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', marginBottom: '0.2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span>בחר שותפים מורשים (סטטוס חשיפה):</span>
+                        <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 600 }}>{currentAllowed.length} מורשים</span>
+                      </div>
+                      {activeMembers.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '1rem', color: '#94a3b8', fontSize: '0.85rem' }}>
+                          אין שותפים נוספים במרחב זה
+                        </div>
+                      ) : (
+                        activeMembers.map((m: any) => {
+                          const isChecked = currentAllowed.includes(m.userId);
+                          return (
+                            <label
+                              key={m.userId}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '0.65rem 0.85rem',
+                                background: isChecked ? '#eff6ff' : '#f8fafc',
+                                border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                                borderRadius: '12px',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '1.1rem' }}>👤</span>
+                                <div>
+                                  <div style={{ fontSize: '0.88rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
+                                    {m.name || 'שותף'} {m.role === 'admin' ? '(מנהל)' : ''}
+                                  </div>
+                                  <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
+                                    {isChecked ? '👁️ מורשה צפייה (גלויה עבורו)' : '🙈 מוסתר לחלוטין (אינו יודע על קיומה)'}
+                                  </div>
+                                </div>
+                              </div>
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  const newAllowed = isChecked
+                                    ? currentAllowed.filter((id: string) => id !== m.userId && id !== '__creator_vault_secret__')
+                                    : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__'), m.userId];
+                                  updateDocumentFolder(space.id, folderPrivacyFolder.id, { allowedPartners: newAllowed });
+                                  setFolderPrivacyFolder(prev => prev ? { ...prev, allowedPartners: newAllowed } : null);
+                                }}
+                                style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                              />
+                            </label>
+                          );
+                        })
+                      )}
+                      <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', lineHeight: 1.4, marginTop: '0.2rem' }}>
+                        🔒 <strong>עיקרון אפס חשיפה (Zero-Trust):</strong> מי שאינו מסומן ברשימה לא יראה את התיקייה כלל — היא תהיה מוסתרת לחלוטין עבורו (ללא מנעול).
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -3501,13 +3671,23 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           !invalidFolderIds.includes(f.id)
         );
 
+        const isSameLocation = targetMoveShelfId === folderToMove.shelfId && (targetMoveParentFolderId || null) === (folderToMove.parentId || null);
+
         const handleConfirmFolderMove = () => {
+          if (isSameLocation) return;
+          const targetShelf = (space.shelves || []).find(s => s.id === targetMoveShelfId);
           moveDocumentFolder(space.id, folderToMove.id, targetMoveShelfId, targetMoveParentFolderId);
-          // If we are currently inside the moved folder or its hierarchy, reset currentFolderId
-          if (currentFolderId === folderToMove.id || invalidFolderIds.includes(currentFolderId || '')) {
-            setCurrentFolderId(null);
+          
+          // Switch active shelf if moved to another shelf
+          if (targetMoveShelfId && targetMoveShelfId !== activeShelfId) {
+            setActiveShelfId(targetMoveShelfId);
           }
+          // Set current folder to target parent (or root) so the user immediately lands where the folder was moved
+          setCurrentFolderId(targetMoveParentFolderId || null);
           setFolderToMove(null);
+
+          // Show rich feedback toast
+          showFeedbackToast(`התיקייה "${folderToMove.name}" וכל מסמכיה הועברו בהצלחה ${targetShelf ? 'למדף "' + targetShelf.name + '"' : ''}!`);
         };
 
         return (
@@ -3655,22 +3835,31 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 </div>
               </div>
 
+              {/* Same Location notice */}
+              {isSameLocation && (
+                <div style={{ fontSize: '0.78rem', color: '#b45309', background: '#fffbeb', border: '1px solid #fef3c7', padding: '0.45rem 0.75rem', borderRadius: '10px', textAlign: 'center', fontWeight: 600 }}>
+                  📍 התיקייה כבר נמצאת במיקום זה. בחר מדף או תיקיית יעד אחרת להעברה.
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
                 <button
                   type="button"
+                  disabled={isSameLocation}
                   onClick={handleConfirmFolderMove}
                   style={{
                     flex: 2,
                     padding: '0.75rem',
-                    background: '#2563eb',
+                    background: isSameLocation ? '#94a3b8' : '#2563eb',
                     color: 'white',
                     border: 'none',
                     borderRadius: '14px',
                     fontWeight: 700,
                     fontSize: '0.92rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 12px rgba(37, 99, 235, 0.3)'
+                    cursor: isSameLocation ? 'not-allowed' : 'pointer',
+                    opacity: isSameLocation ? 0.65 : 1,
+                    boxShadow: isSameLocation ? 'none' : '0 4px 12px rgba(37, 99, 235, 0.3)'
                   }}
                 >
                   בצע העברה
@@ -3748,6 +3937,64 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         doc={sharingDoc} 
         onClose={() => setSharingDoc(null)} 
       />
+
+      {/* DOCUMENT TO DOCUMENT RELATIONAL LINKING MODAL */}
+      <LinkDocumentsModal
+        isOpen={Boolean(linkingDoc)}
+        doc={linkingDoc}
+        allDocs={activeDocuments}
+        onClose={() => setLinkingDoc(null)}
+        onSave={(docId, linkedDocIds) => {
+          updateDocument(space.id, docId, { linkedDocIds });
+          showFeedbackToast(`קושרו בהצלחה ${linkedDocIds.length} מסמכים!`);
+        }}
+      />
+
+      {/* VIEW LINKED DOCUMENTS MODAL */}
+      <LinkedDocsPreviewModal
+        isOpen={Boolean(viewLinkedDocsFor)}
+        parentDoc={viewLinkedDocsFor}
+        allDocs={activeDocuments}
+        onClose={() => setViewLinkedDocsFor(null)}
+        onOpenDoc={(targetDoc, allLinked) => {
+          const idx = allLinked.findIndex(d => d.id === targetDoc.id);
+          setPreviewState({ docs: allLinked, index: idx >= 0 ? idx : 0 });
+          setViewLinkedDocsFor(null);
+        }}
+        onEditLinks={(doc) => {
+          setLinkingDoc(doc);
+          setViewLinkedDocsFor(null);
+        }}
+      />
+
+      {/* FLOATING ACTION FEEDBACK TOAST */}
+      {feedbackToast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '88px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 100060,
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+            color: '#ffffff',
+            padding: '0.75rem 1.4rem',
+            borderRadius: '9999px',
+            boxShadow: '0 12px 28px -4px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.6rem',
+            fontSize: '0.85rem',
+            fontWeight: 700,
+            direction: 'rtl',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <span style={{ fontSize: '1.05rem' }}>✨</span>
+          <span>{feedbackToast.message}</span>
+        </div>
+      )}
 
       {/* CONFIRM DELETE SHELF MODAL */}
       <ConfirmModal
@@ -4074,7 +4321,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.32</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.33</span>
         </h2>
         <input 
           type="text" 

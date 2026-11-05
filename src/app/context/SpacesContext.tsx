@@ -175,6 +175,8 @@ export interface SpaceDocument {
   fileSize?: number;
   isFavorite?: boolean;
   docNumber?: number;
+  linkedDocIds?: string[];
+  linkType?: 'payment' | 'related' | 'appendix';
 }
 
 export interface TargetedAnnouncementItem {
@@ -2456,10 +2458,20 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
         return d;
       });
 
+      // 3. Update any shelfEvent linked to the moving folder or its descendant subfolders
+      // so the station moves along with the folder to targetShelfId, preserving the timeline station link 100%!
+      const allMovedFolders = (space.documentFolders || []).filter(f => allTargetFolderIds.includes(f.id));
+      const stationIdsToMove = allMovedFolders.map(f => f.stationId).filter(Boolean) as string[];
+
+      const updatedShelfEvents = stationIdsToMove.length > 0 
+        ? (space.shelfEvents || []).map(e => stationIdsToMove.includes(e.id) ? { ...e, shelfId: targetShelfId } : e)
+        : space.shelfEvents;
+
       return {
         ...space,
         documentFolders: updatedFolders,
-        documents: updatedDocs
+        documents: updatedDocs,
+        shelfEvents: updatedShelfEvents
       };
     });
   };
