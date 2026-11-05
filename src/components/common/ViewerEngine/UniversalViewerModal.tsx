@@ -31,6 +31,8 @@ export interface UniversalViewerModalProps {
   onNormalizeDoc?: (docId: string, pages: string[]) => void;
   /** Optional handler to toggle document favorite / relevant status */
   onToggleFavorite?: (docId: string, currentVal: boolean) => void;
+  /** Optional handler when current document index changes */
+  onIndexChange?: (newIndex: number) => void;
 }
 
 /**
@@ -50,11 +52,16 @@ export default function UniversalViewerModal({
   onShare,
   onDownload,
   onNormalizeDoc,
-  onToggleFavorite
+  onToggleFavorite,
+  onIndexChange
 }: UniversalViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
   const [mounted, setMounted] = useState(() => typeof window !== 'undefined');
   const [currentScale, setCurrentScale] = useState<number>(1);
+
+  useEffect(() => {
+    if (onIndexChange) onIndexChange(currentIndex);
+  }, [currentIndex, onIndexChange]);
 
   // Touch swipe handling
   const touchStartXRef = useRef<number | null>(null);
@@ -252,7 +259,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.27
+            v3.4.28
           </span>
           <span
             style={{

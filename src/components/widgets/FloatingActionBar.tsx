@@ -156,6 +156,35 @@ export function FloatingActionBar({
       <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
         {isInShelf ? (
           <>
+            {/* Back Button (Icon Only - Single Step Back) */}
+            <button 
+              type="button"
+              onClick={() => {
+                const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
+                  detail: { handled: false },
+                });
+                window.dispatchEvent(stepEvent);
+              }}
+              style={{
+                background: 'rgba(59, 130, 246, 0.08)', 
+                border: '1px solid #bfdbfe', 
+                padding: '0.5rem 0.1rem', 
+                borderRadius: '16px',
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                cursor: 'pointer',
+                color: '#1d4ed8',
+                minWidth: '36px', 
+                transition: 'all 0.2s', 
+                boxShadow: '0 1px 3px rgba(59, 130, 246, 0.1)'
+              }}
+              title="חזור אחורה"
+            >
+              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>↩️</span>
+            </button>
+
             {/* When INSIDE a Topic/Shelf: Toggle between Timeline (if enabled) and Warehouse */}
             {showVaultTimeline && (
               <button 

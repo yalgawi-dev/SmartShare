@@ -58,6 +58,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
   const [measuredSizes, setMeasuredSizes] = useState<Record<string, number>>({});
   const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
+  const [lastViewedDocId, setLastViewedDocId] = useState<string | null>(null);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const viewModeStorageKey = `myspace_vault_view_${space.id}_${user?.id || 'guest'}`;
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -285,8 +286,17 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       window.dispatchEvent(new CustomEvent('smartshare:preview_open'));
     } else {
       window.dispatchEvent(new CustomEvent('smartshare:preview_closed'));
+      if (lastViewedDocId) {
+        // Smoothly scroll last viewed card into view with slight delay for modal exit animation
+        setTimeout(() => {
+          const el = document.querySelector(`[data-doc-id="${lastViewedDocId}"]`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 120);
+      }
     }
-  }, [previewState]);
+  }, [previewState, lastViewedDocId]);
 
   // Proactively measure file sizes for all documents without a saved fileSize
   React.useEffect(() => {
@@ -2060,6 +2070,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                             const isChecked = selectedDocIds.includes(doc.id);
                             const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf');
                             const effectiveSize = doc.fileSize || measuredSizes[doc.id];
+                            const isLastViewed = lastViewedDocId === doc.id;
 
                             return (
                               <div
@@ -2078,6 +2089,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   if (isMultiSelect) {
                                     setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
                                   } else {
+                                    setLastViewedDocId(doc.id);
                                     setPreviewState({ docs: filteredDocs, index: docIdx });
                                   }
                                 }}
@@ -2087,15 +2099,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   alignItems: 'center',
                                   gap: '0.45rem',
                                   padding: '0.4rem 0.6rem',
-                                  background: isChecked ? '#eff6ff' : (doc.isFavorite ? '#fffbeb' : '#ffffff'),
-                                  border: isChecked ? '1.5px solid #3b82f6' : (doc.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
+                                  background: isChecked ? '#eff6ff' : (isLastViewed ? '#ecfeff' : (doc.isFavorite ? '#fffbeb' : '#ffffff')),
+                                  border: isChecked ? '1.5px solid #3b82f6' : (isLastViewed ? '2px solid #06b6d4' : (doc.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0')),
                                   borderRadius: '10px',
                                   cursor: 'pointer',
-                                  transition: 'background 0.15s ease',
-                                  boxShadow: doc.isFavorite ? '0 2px 6px rgba(245,158,11,0.15)' : '0 1px 2px rgba(0,0,0,0.02)'
+                                  transition: 'background 0.15s ease, box-shadow 0.2s ease',
+                                  boxShadow: isLastViewed 
+                                    ? '0 0 12px rgba(6, 182, 212, 0.45)' 
+                                    : (doc.isFavorite ? '0 2px 6px rgba(245,158,11,0.15)' : '0 1px 2px rgba(0,0,0,0.02)')
                                 }}
-                                onMouseEnter={(e) => { if (!isChecked && !doc.isFavorite) e.currentTarget.style.background = '#f8fafc'; }}
-                                onMouseLeave={(e) => { if (!isChecked && !doc.isFavorite) e.currentTarget.style.background = '#ffffff'; }}
+                                onMouseEnter={(e) => { if (!isChecked && !doc.isFavorite && !isLastViewed) e.currentTarget.style.background = '#f8fafc'; }}
+                                onMouseLeave={(e) => { if (!isChecked && !doc.isFavorite && !isLastViewed) e.currentTarget.style.background = '#ffffff'; }}
                               >
                                 {isMultiSelect && (
                                   <div style={{ textAlign: 'center' }}>
@@ -2171,6 +2185,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     {doc.isFavorite && (
                                       <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, flexShrink: 0 }}>
                                         מועדף
+                                      </span>
+                                    )}
+                                    {isLastViewed && (
+                                      <span style={{ fontSize: '0.62rem', background: '#cffafe', color: '#0891b2', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, border: '1px solid #a5f3fc', flexShrink: 0 }}>
+                                        נצפה
                                       </span>
                                     )}
                                   </div>
@@ -2456,6 +2475,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                             const isChecked = selectedDocIds.includes(doc.id);
                             const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf');
                             const effectiveSize = doc.fileSize || measuredSizes[doc.id];
+                            const isLastViewed = lastViewedDocId === doc.id;
 
                             return (
                               <div
@@ -2476,16 +2496,26 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   }
                                 }}
                                 style={{
-                                  background: doc.isFavorite ? '#fffdf7' : '#ffffff',
+                                  background: isLastViewed ? '#f0fdfa' : (doc.isFavorite ? '#fffdf7' : '#ffffff'),
                                   borderRadius: '14px',
                                   overflow: 'visible',
-                                  border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : (doc.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0')),
+                                  border: isChecked 
+                                    ? '2px solid #2563eb' 
+                                    : (dragOverDocId === doc.id 
+                                        ? '2px dashed #3b82f6' 
+                                        : (isLastViewed 
+                                            ? '2.5px solid #06b6d4' 
+                                            : (doc.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'))),
                                   position: 'relative',
-                                  zIndex: activeDocMenuId === doc.id ? 60 : 1,
+                                  zIndex: activeDocMenuId === doc.id ? 60 : (isLastViewed ? 5 : 1),
                                   opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1),
-                                  transition: 'all 0.2s',
-                                  transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : 'none'),
-                                  boxShadow: isChecked ? '0 6px 16px rgba(37,99,235,0.2)' : (doc.isFavorite ? '0 4px 14px rgba(245,158,11,0.22)' : '0 2px 4px rgba(0,0,0,0.03)'),
+                                  transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
+                                  transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : (isLastViewed ? 'scale(1.015)' : 'none')),
+                                  boxShadow: isChecked 
+                                    ? '0 6px 16px rgba(37,99,235,0.2)' 
+                                    : (isLastViewed 
+                                        ? '0 0 0 1.5px #06b6d4, 0 0 20px rgba(6, 182, 212, 0.55), 0 6px 16px rgba(0,0,0,0.08)' 
+                                        : (doc.isFavorite ? '0 4px 14px rgba(245,158,11,0.22)' : '0 2px 4px rgba(0,0,0,0.03)')),
                                   display: 'flex',
                                   flexDirection: 'column',
                                   cursor: isMultiSelect ? 'pointer' : 'default'
@@ -2530,6 +2560,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     }
                                     if (isMultiSelect) return;
                                     e.stopPropagation();
+                                    setLastViewedDocId(doc.id);
                                     setPreviewState({ docs: filteredDocs, index: docIdx });
                                   }}
                                   style={{
@@ -2648,11 +2679,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     {doc.title}
                                   </div>
 
-                                  {doc.isFavorite && (
-                                    <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fcd34d', alignSelf: 'flex-start' }}>
-                                      ⭐ הצעה מועדפת
-                                    </span>
-                                  )}
+                                  <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {doc.isFavorite && (
+                                      <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fcd34d' }}>
+                                        ⭐ הצעה מועדפת
+                                      </span>
+                                    )}
+                                    {isLastViewed && (
+                                      <span style={{ fontSize: '0.62rem', background: '#ecfeff', color: '#0891b2', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #a5f3fc', boxShadow: '0 0 8px rgba(6, 182, 212, 0.35)' }}>
+                                        👁️ נצפה לאחרונה
+                                      </span>
+                                    )}
+                                  </div>
 
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
@@ -3697,6 +3735,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               updateDocument(space.id, docId, { isFavorite: !currentVal });
             }
           }}
+          onIndexChange={(newIndex) => {
+            const targetDoc = previewState?.docs?.[newIndex];
+            if (targetDoc?.id) setLastViewedDocId(targetDoc.id);
+          }}
         />
       )}
 
@@ -4032,7 +4074,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.27</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.28</span>
         </h2>
         <input 
           type="text" 

@@ -361,6 +361,7 @@ export interface ShareOptions {
   pages?: string[];
   pdfOptions?: ExportPdfOptions;
   onReady?: () => void;
+  onFileGenerated?: (file: File) => void;
 }
 
 /**
@@ -371,11 +372,11 @@ export interface ShareOptions {
  * - 'pdf_pages' / 'pdf_scroll': Official PDF document attachment for printing and downloads.
  */
 export async function shareDocument(url: string, title?: string, options: ShareOptions = {}): Promise<void> {
+  let filesToShare: File[] = [];
   try {
     const cleanTitle = (title || 'document').replace(/[/\\?%*:|"<>]/g, '-');
     const isPdf = url.includes('.pdf') || url.startsWith('data:application/pdf');
     const pages = options.pages && options.pages.length > 0 ? options.pages : [url];
-    let filesToShare: File[] = [];
 
     // Default mode: Standard ISO 32000 A4 PDF (with first-page preview)
     let mode: ShareMode = options.mode || (
@@ -423,9 +424,32 @@ export async function shareDocument(url: string, title?: string, options: ShareO
     }
 
     if (filesToShare.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: filesToShare })) {
-      await navigator.share({ files: filesToShare, title: title || 'מסמך' });
+      try {
+        await navigator.share({ files: filesToShare, title: title || 'מסמך' });
+        return;
+      } catch (shareErr: any) {
+        if (shareErr?.name === 'AbortError') return; // User dismissed share sheet
+        if (options.onFileGenerated && filesToShare[0]) {
+          options.onFileGenerated(filesToShare[0]);
+          return;
+        }
+        throw shareErr;
+      }
     } else if (typeof navigator !== 'undefined' && navigator.share && url) {
-      await navigator.share({ title: title || 'מסמך', url: url });
+      try {
+        await navigator.share({ title: title || 'מסמך', url: url });
+        return;
+      } catch (shareErr: any) {
+        if (shareErr?.name === 'AbortError') return;
+        if (options.onFileGenerated && filesToShare[0]) {
+          options.onFileGenerated(filesToShare[0]);
+          return;
+        }
+        throw shareErr;
+      }
+    } else if (options.onFileGenerated && filesToShare[0]) {
+      options.onFileGenerated(filesToShare[0]);
+      return;
     } else if (filesToShare.length > 0) {
       // Fallback: download first file
       const objUrl = URL.createObjectURL(filesToShare[0]);
@@ -440,7 +464,11 @@ export async function shareDocument(url: string, title?: string, options: ShareO
   } catch (e: any) {
     if (e?.name !== 'AbortError') {
       console.error('Error sharing document', e);
-      await downloadDocument(url, title, options);
+      if (options.onFileGenerated && filesToShare.length > 0) {
+        options.onFileGenerated(filesToShare[0]);
+      } else {
+        await downloadDocument(url, title, options);
+      }
     }
   }
 }

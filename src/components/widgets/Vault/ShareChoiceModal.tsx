@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { shareDocument, ExportPdfOptions, ShareMode } from '@/utils/documentUtils';
+import { shareDocument, ExportPdfOptions, ShareMode, formatFileSize } from '@/utils/documentUtils';
 
 export interface ShareChoiceDoc {
   url: string;
@@ -24,6 +24,7 @@ interface ShareChoiceModalProps {
 export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceModalProps) {
   // All React Hooks MUST be called unconditionally at the top of the component (Rules of Hooks)
   const [isSharing, setIsSharing] = useState(false);
+  const [readyFile, setReadyFile] = useState<File | null>(null);
   const [imgError, setImgError] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -35,6 +36,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
     if (isOpen) {
       setImgError(false);
       setIsSharing(false);
+      setReadyFile(null);
     }
   }, [isOpen, doc?.url]);
 
@@ -51,22 +53,27 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
 
   const handleShare = async (mode: ShareMode) => {
     setIsSharing(true);
-    // Dismiss the share choice modal immediately so the user doesn't see it hanging behind the OS share sheet
-    onClose();
+    setReadyFile(null);
     try {
       await shareDocument(doc.url, doc.title, {
         mode,
         pages: doc.pages,
-        onReady: () => {
+        onFileGenerated: (file: File) => {
           setIsSharing(false);
-          onClose();
+          setReadyFile(file);
+        },
+        onReady: () => {
+          // If already shared natively without fallback, will close
         }
       });
-    } catch (err) {
+      // If completed without requiring manual click trigger, close
+      if (!readyFile) {
+        setIsSharing(false);
+        onClose();
+      }
+    } catch (err: any) {
       console.error('Share failed', err);
-    } finally {
       setIsSharing(false);
-      onClose();
     }
   };
 
@@ -119,7 +126,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v3.4.27
+            v3.4.28
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
@@ -183,7 +190,76 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
           </div>
         </div>
 
-        {isSharing ? (
+        {readyFile ? (
+          <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '3rem' }}>📄</span>
+            <div style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b' }}>
+              קובץ ה-PDF מוכן לשיתוף!
+            </div>
+            <div style={{ fontSize: '0.82rem', color: '#64748b' }}>
+              משקל הקובץ: {formatFileSize(readyFile.size)}
+            </div>
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
+                    await navigator.share({ files: [readyFile], title: doc.title || 'מסמך' });
+                    onClose();
+                  } else if (typeof navigator !== 'undefined' && navigator.share) {
+                    await navigator.share({ title: doc.title || 'מסמך', url: doc.url });
+                    onClose();
+                  } else {
+                    const objUrl = URL.createObjectURL(readyFile);
+                    const a = document.createElement('a');
+                    a.href = objUrl;
+                    a.download = readyFile.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(objUrl);
+                    onClose();
+                  }
+                } catch (e: any) {
+                  if (e?.name !== 'AbortError') console.error('Direct share error:', e);
+                }
+              }}
+              style={{
+                background: '#16a34a',
+                color: 'white',
+                border: 'none',
+                padding: '0.85rem 1.75rem',
+                borderRadius: '50px',
+                fontWeight: 800,
+                fontSize: '1rem',
+                cursor: 'pointer',
+                boxShadow: '0 4px 14px rgba(22, 163, 74, 0.35)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginTop: '0.5rem'
+              }}
+            >
+              <span>🚀</span>
+              <span>שתף עכשיו לוואטסאפ / יישומים</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                marginTop: '0.5rem',
+                padding: '0.5rem 1rem',
+                background: 'transparent',
+                border: 'none',
+                color: '#94a3b8',
+                fontSize: '0.82rem',
+                cursor: 'pointer'
+              }}
+            >
+              סגור
+            </button>
+          </div>
+        ) : isSharing ? (
           <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem' }}>
             <div style={{ width: '36px', height: '36px', border: '3.5px solid #e2e8f0', borderTopColor: '#2563eb', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
             <span style={{ fontSize: '0.9rem', color: '#2563eb', fontWeight: 'bold' }}>מפיק קובץ PDF תקני לשיתוף...</span>
