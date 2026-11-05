@@ -40,8 +40,14 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
   if (blob && typeof createImageBitmap === 'function') {
     try {
       const bitmap = await createImageBitmap(blob);
-      const w = bitmap.width;
-      const h = bitmap.height;
+      const maxDim = 1600;
+      let w = bitmap.width;
+      let h = bitmap.height;
+      if (Math.max(w, h) > maxDim) {
+        const scale = maxDim / Math.max(w, h);
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
 
       const canvas = document.createElement('canvas');
       canvas.width = w;
@@ -50,9 +56,9 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
       if (ctx) {
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, w, h);
-        ctx.drawImage(bitmap, 0, 0);
+        ctx.drawImage(bitmap, 0, 0, w, h);
         bitmap.close(); // Release GPU texture memory
-        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.82);
         return { dataUrl: jpegDataUrl, width: w, height: h };
       }
     } catch (bitmapErr) {
@@ -79,8 +85,14 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
     i.src = safeSrc;
   });
 
-  const w = img.naturalWidth || img.width;
-  const h = img.naturalHeight || img.height;
+  const maxDim = 1600;
+  let w = img.naturalWidth || img.width;
+  let h = img.naturalHeight || img.height;
+  if (Math.max(w, h) > maxDim) {
+    const scale = maxDim / Math.max(w, h);
+    w = Math.round(w * scale);
+    h = Math.round(h * scale);
+  }
 
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -95,9 +107,27 @@ async function loadAndConvertImageToJpeg(url: string): Promise<{ dataUrl: string
   ctx.fillRect(0, 0, w, h);
   ctx.drawImage(img, 0, 0, w, h);
 
-  // High quality JPEG DataURL (0.85 quality for fast processing and optimal size)
-  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+  // High quality JPEG DataURL (0.82 quality for ultra-fast processing and optimal size)
+  const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.82);
   return { dataUrl: jpegDataUrl, width: w, height: h };
+}
+
+/**
+ * Sanitizes a document title to create a safe, 100% compliant file name for Android & iOS sharing.
+ * Crucial fix: Strips leading dots (which makes Android FileProvider reject files as hidden unix files),
+ * removes illegal characters, and ensures valid .pdf extension.
+ */
+export function getSafeShareFileName(rawTitle?: string, ext: 'pdf' | 'jpg' | 'webp' = 'pdf'): string {
+  if (!rawTitle) return `document_${Date.now()}.${ext}`;
+  // 1. Remove existing extension temporarily to clean base
+  let base = rawTitle.replace(/\.(pdf|jpe?g|webp|png)$/i, '').trim();
+  // 2. Strip leading dots (CRITICAL: prevents Android hidden file error), dashes, underscores, spaces
+  base = base.replace(/^[\s._-]+/, '');
+  // 3. Replace invalid filesystem/URI characters
+  base = base.replace(/[/\\?%*:|"<>#]/g, '_').trim();
+  // 4. Fallback if empty
+  if (!base) base = `doc_${Date.now()}`;
+  return `${base}.${ext}`;
 }
 
 const A4_PT_WIDTH = 595.28;
@@ -388,33 +418,37 @@ export async function shareDocument(url: string, title?: string, options: ShareO
     if (mode === 'open_scroll') {
       // Stitched continuous vertical JPEG image for WhatsApp open preview
       const scrollBlob = await convertImagesToScrollJpegBlob(pages);
-      filesToShare = [new File([scrollBlob], `${cleanTitle}-מגילה.jpg`, { type: 'image/jpeg' })];
+      const fileName = getSafeShareFileName(title, 'jpg');
+      filesToShare = [new File([scrollBlob], fileName, { type: 'image/jpeg' })];
     } else if (mode === 'open_album') {
       // Multiple open photo images for WhatsApp photo album
       const blobs = await Promise.all(pages.map(pUrl => convertImageToJpegBlob(pUrl)));
-      filesToShare = blobs.map((b, idx) => new File([b], `${cleanTitle}-עמוד-${idx + 1}.jpg`, { type: 'image/jpeg' }));
+      filesToShare = blobs.map((b, idx) => new File([b], getSafeShareFileName(`${title || 'page'}_${idx + 1}`, 'jpg'), { type: 'image/jpeg' }));
     } else if (mode === 'open_image') {
       // Single open photo for WhatsApp (first page or single document)
       const targetUrl = pages[0] || url;
       if (!isPdf) {
         // Guaranteed standard JPEG for native WhatsApp photo bubble
         const jpegBlob = await convertImageToJpegBlob(targetUrl);
-        filesToShare = [new File([jpegBlob], `${cleanTitle}.jpg`, { type: 'image/jpeg' })];
+        const fileName = getSafeShareFileName(title, 'jpg');
+        filesToShare = [new File([jpegBlob], fileName, { type: 'image/jpeg' })];
       } else {
         // If already a PDF, share as document
         const res = await fetch(url);
         const blob = await res.blob();
-        filesToShare = [new File([blob], `${cleanTitle}.pdf`, { type: 'application/pdf' })];
+        const fileName = getSafeShareFileName(title, 'pdf');
+        filesToShare = [new File([blob], fileName, { type: 'application/pdf' })];
       }
     } else if (mode === 'pdf_pages' || mode === 'pdf_scroll') {
       // Official PDF document file (for printing/filing)
+      const fileName = getSafeShareFileName(title, 'pdf');
       if (!isPdf) {
         const pdfBlob = await convertImagesToPdfBlob(pages, { format: mode === 'pdf_scroll' ? 'scroll' : 'pages' });
-        filesToShare = [new File([pdfBlob], `${cleanTitle}.pdf`, { type: 'application/pdf' })];
+        filesToShare = [new File([pdfBlob], fileName, { type: 'application/pdf' })];
       } else {
         const res = await fetch(url);
         const blob = await res.blob();
-        filesToShare = [new File([blob], `${cleanTitle}.pdf`, { type: 'application/pdf' })];
+        filesToShare = [new File([blob], fileName, { type: 'application/pdf' })];
       }
     }
 
@@ -425,7 +459,7 @@ export async function shareDocument(url: string, title?: string, options: ShareO
 
     if (filesToShare.length > 0 && typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: filesToShare })) {
       try {
-        await navigator.share({ files: filesToShare, title: title || 'מסמך' });
+        await navigator.share({ files: filesToShare, title: filesToShare[0].name });
         return;
       } catch (shareErr: any) {
         if (shareErr?.name === 'AbortError') return; // User dismissed share sheet

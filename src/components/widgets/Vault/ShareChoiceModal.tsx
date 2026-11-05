@@ -128,7 +128,7 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
             boxShadow: '0 2px 6px rgba(37, 99, 235, 0.4)',
             letterSpacing: '0.5px'
           }}>
-            v3.4.29
+            v3.4.30
           </span>
         </div>
         <p style={{ margin: '0 0 1rem 0', fontSize: '0.82rem', color: '#64748b' }}>
@@ -207,10 +207,10 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
               onClick={async () => {
                 try {
                   if (typeof navigator !== 'undefined' && navigator.canShare && navigator.canShare({ files: [readyFile] })) {
-                    await navigator.share({ files: [readyFile], title: doc.title || 'מסמך' });
+                    await navigator.share({ files: [readyFile], title: readyFile.name });
                     onClose();
-                  } else if (typeof navigator !== 'undefined' && navigator.share) {
-                    await navigator.share({ title: doc.title || 'מסמך', url: doc.url });
+                  } else if (typeof navigator !== 'undefined' && navigator.share && doc.url) {
+                    await navigator.share({ title: readyFile.name, url: doc.url });
                     onClose();
                   } else {
                     const objUrl = URL.createObjectURL(readyFile);
@@ -224,7 +224,18 @@ export default function ShareChoiceModal({ isOpen, doc, onClose }: ShareChoiceMo
                     onClose();
                   }
                 } catch (e: any) {
-                  if (e?.name !== 'AbortError') console.error('Direct share error:', e);
+                  if (e?.name !== 'AbortError') {
+                    console.error('Direct share fallback to download:', e);
+                    const objUrl = URL.createObjectURL(readyFile);
+                    const a = document.createElement('a');
+                    a.href = objUrl;
+                    a.download = readyFile.name;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(objUrl);
+                    onClose();
+                  }
                 }
               }}
               style={{
