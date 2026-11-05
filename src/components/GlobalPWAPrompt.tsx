@@ -163,13 +163,18 @@ export default function GlobalPWAPrompt() {
       } catch (err) {
         console.error("Install prompt failed", err);
         setInstalling(false);
-        // Only fallback to guide if native prompt fails
+        // Only fallback to guide on Apple iOS
         if (platform === 'ios-safari' || platform === 'ios-chrome') {
           setShowGuide(true);
         }
       }
     } else {
-      setShowGuide(true);
+      if (platform === 'android-chrome') {
+        dismiss();
+        alert('האפליקציה זמינה להתקנה מתפריט הדפדפן, או שכבר מותקנת במכשירך.');
+      } else if (platform === 'ios-safari' || platform === 'ios-chrome') {
+        setShowGuide(true);
+      }
     }
   };
 
@@ -458,24 +463,7 @@ export default function GlobalPWAPrompt() {
     );
   }
 
-    // ── Android Chrome / Desktop: Manual guide (if One-Tap fails or Incognito) ────────────────────────────
-  if ((platform === 'android-chrome' || platform === 'other') && showGuide) {
-    return (
-      <Sheet>
-        <div style={{ textAlign: 'center', marginBottom: '1.25rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📱</div>
-          <h3 style={{ fontSize: '1.4rem', fontWeight: '900', color: '#0f172a', margin: '0 0 0.5rem 0' }}>הוסף למסך הבית</h3>
-          <p style={{ fontSize: '0.95rem', color: '#475569', margin: 0, lineHeight: 1.4 }}>התקנה מהירה ופשוטה</p>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem', marginBottom: '1.5rem' }}>
-          <Step icon="⋮" text='לחץ על תפריט ה-3 נקודות למעלה בדפדפן' />
-          <Step icon="➕" text='בחר "התקנת אפליקציה" או "הוסף למסך הבית"' />
-          <Step icon="✅" text='לחץ "התקן" / "הוסף" — וזהו!' />
-        </div>
-        <button onClick={dismiss} style={{ background: '#3b82f6', color: 'white', width: '100%', padding: '0.85rem', borderRadius: '14px', border: 'none', fontWeight: 'bold', fontSize: '1.1rem', cursor: 'pointer', boxShadow: '0 4px 12px rgba(59,130,246,0.3)' }}>הבנתי, תודה!</button>
-      </Sheet>
-    );
-  }
+
 
 // ── Main banner (Android Chrome / iOS Safari) ─────────────────────────────────
   const isAndroidChrome = platform === 'android-chrome';

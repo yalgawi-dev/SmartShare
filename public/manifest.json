@@ -1,11 +1,12 @@
 {
+  "id": "/",
   "name": "MySpace",
   "short_name": "MySpace",
   "description": "Smart project and expense management for partners.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#4a5bf0",
+  "theme_color": "#ffffff",
   "orientation": "portrait",
   "lang": "he",
   "dir": "rtl",

@@ -443,8 +443,36 @@ export default function SettingsPage() {
     }
   };
 
-  const handleTriggerInstall = () => {
+  const handleTriggerInstall = async () => {
     if (typeof window !== 'undefined') {
+      let promptEvent = (window as any).deferredPWAInstallPrompt;
+      if (!promptEvent) {
+        // Gracefully wait up to 600ms in case prompt event is firing
+        for (let i = 0; i < 3; i++) {
+          await new Promise(r => setTimeout(r, 200));
+          promptEvent = (window as any).deferredPWAInstallPrompt;
+          if (promptEvent) break;
+        }
+      }
+      if (promptEvent) {
+        try {
+          promptEvent.prompt();
+          promptEvent.userChoice.then(({ outcome }: any) => {
+            if (outcome === 'accepted') {
+              (window as any).deferredPWAInstallPrompt = null;
+            }
+          });
+          return;
+        } catch (e) {
+          console.error("Direct install prompt error", e);
+        }
+      }
+      const ua = navigator.userAgent;
+      const isAndroid = /Android/.test(ua);
+      if (isAndroid) {
+        alert('האפליקציה זמינה להתקנה ישירה מתפריט הדפדפן (3 נקודות ← התקנת אפליקציה), או שהיא כבר מותקנת במכשירך.');
+        return;
+      }
       window.dispatchEvent(new Event('trigger-pwa-install'));
     }
   };

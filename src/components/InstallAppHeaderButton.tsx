@@ -21,7 +21,29 @@ export default function InstallAppHeaderButton() {
 
   return (
     <button 
-      onClick={() => window.dispatchEvent(new Event('trigger-pwa-install'))}
+      onClick={() => {
+        if (typeof window !== 'undefined') {
+          const promptEvent = (window as any).deferredPWAInstallPrompt;
+          if (promptEvent) {
+            try {
+              promptEvent.prompt();
+              promptEvent.userChoice.then(({ outcome }: any) => {
+                if (outcome === 'accepted') (window as any).deferredPWAInstallPrompt = null;
+              });
+              return;
+            } catch (e) {
+              console.error("Install prompt error", e);
+            }
+          }
+          const ua = navigator.userAgent;
+          const isAndroid = /Android/.test(ua);
+          if (isAndroid) {
+            alert('האפליקציה זמינה להתקנה ישירה מתפריט הדפדפן (3 נקודות ← התקנת אפליקציה), או שהיא כבר מותקנת במכשירך.');
+            return;
+          }
+          window.dispatchEvent(new Event('trigger-pwa-install'));
+        }
+      }}
       style={{ 
         background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', 
         color: 'white', 
