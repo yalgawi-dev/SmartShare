@@ -173,6 +173,8 @@ export interface SpaceDocument {
   deletedAt?: string;
   note?: string;
   fileSize?: number;
+  isFavorite?: boolean;
+  docNumber?: number;
 }
 
 export interface TargetedAnnouncementItem {

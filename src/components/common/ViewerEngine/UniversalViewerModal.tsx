@@ -29,6 +29,8 @@ export interface UniversalViewerModalProps {
   onDownload?: (url: string, title?: string) => void;
   /** Optional handler to normalize legacy document to pages array in storage */
   onNormalizeDoc?: (docId: string, pages: string[]) => void;
+  /** Optional handler to toggle document favorite / relevant status */
+  onToggleFavorite?: (docId: string, currentVal: boolean) => void;
 }
 
 /**
@@ -47,7 +49,8 @@ export default function UniversalViewerModal({
   onClose,
   onShare,
   onDownload,
-  onNormalizeDoc
+  onNormalizeDoc,
+  onToggleFavorite
 }: UniversalViewerModalProps) {
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
   const [mounted, setMounted] = useState(() => typeof window !== 'undefined');
@@ -249,7 +252,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.26
+            v3.4.27
           </span>
           <span
             style={{
@@ -263,8 +266,34 @@ export default function UniversalViewerModal({
               whiteSpace: 'nowrap'
             }}
           >
-            {currentDoc.title || 'מסמך'}
+            #{currentIndex + 1} • {currentDoc.title || 'מסמך'}
           </span>
+          {/* Favorite Toggle Button */}
+          {onToggleFavorite && currentDoc.id && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(currentDoc.id!, Boolean(currentDoc.isFavorite))}
+              style={{
+                background: currentDoc.isFavorite ? '#fef3c7' : 'rgba(255, 255, 255, 0.15)',
+                border: currentDoc.isFavorite ? '1.5px solid #f59e0b' : '1px solid rgba(255, 255, 255, 0.25)',
+                color: currentDoc.isFavorite ? '#b45309' : '#f8fafc',
+                padding: '2px 8px',
+                borderRadius: '8px',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                flexShrink: 0,
+                transition: 'all 0.15s ease'
+              }}
+              title={currentDoc.isFavorite ? 'הסר ממועדפים' : 'סמן כהצעה מועדפת / רלוונטית'}
+            >
+              <span>{currentDoc.isFavorite ? '⭐' : '☆'}</span>
+              <span>{currentDoc.isFavorite ? 'מועדף' : 'סמן'}</span>
+            </button>
+          )}
           {/* Storage Target Badge */}
           <span
             style={{
@@ -529,12 +558,12 @@ export default function UniversalViewerModal({
           // ── Case 3: Single Page Document (JPEG / WebP / Image) ─────────────
           const pageImage = validImagePages[0];
           const validThumb = currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.toLowerCase().includes('.pdf') && !currentDoc.thumbnailUrl.startsWith('data:application/pdf') ? currentDoc.thumbnailUrl : undefined;
-          const validDirectUrl = currentDoc.url && !currentDoc.url.toLowerCase().includes('.pdf') && !currentDoc.url.startsWith('data:application/pdf') ? currentDoc.url : undefined;
+          const validDirectUrl = !isDocPdf && currentDoc.url && !currentDoc.url.toLowerCase().includes('.pdf') && !currentDoc.url.startsWith('data:application/pdf') ? currentDoc.url : undefined;
 
           const imageTarget = pageImage || validDirectUrl || validThumb;
 
-          // If no rendered image is available and target is PDF:
-          if (!imageTarget && isDocPdf) {
+          // If document is a PDF and we don't have a pre-rendered image page, ALWAYS render DynamicPdfScrollPreview!
+          if (isDocPdf && !pageImage) {
             return (
               <div
                 style={{
@@ -565,7 +594,7 @@ export default function UniversalViewerModal({
           const fullUrl = imageTarget || validThumb || currentDoc.url;
 
           // Safe guard: If fullUrl is a PDF file, NEVER put it in <img>!
-          if (fullUrl && (fullUrl.toLowerCase().includes('.pdf') || fullUrl.startsWith('data:application/pdf'))) {
+          if (isDocPdf || (fullUrl && (fullUrl.toLowerCase().includes('.pdf') || fullUrl.startsWith('data:application/pdf')))) {
             return (
               <div
                 style={{

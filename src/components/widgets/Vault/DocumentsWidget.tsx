@@ -56,6 +56,8 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   const [linkStationDoc, setLinkStationDoc] = useState<{ docId: string, title: string, url: string } | null>(null);
   const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
   const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+  const [measuredSizes, setMeasuredSizes] = useState<Record<string, number>>({});
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
   const [draggedDocId, setDraggedDocId] = useState<string | null>(null);
   const viewModeStorageKey = `myspace_vault_view_${space.id}_${user?.id || 'guest'}`;
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -285,6 +287,48 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       window.dispatchEvent(new CustomEvent('smartshare:preview_closed'));
     }
   }, [previewState]);
+
+  // Proactively measure file sizes for all documents without a saved fileSize
+  React.useEffect(() => {
+    if (!documents || documents.length === 0) return;
+    const unmeasured = documents.filter(d => !d.fileSize && !measuredSizes[d.id] && d.url);
+    if (unmeasured.length === 0) return;
+
+    unmeasured.slice(0, 15).forEach(doc => {
+      if (doc.url.startsWith('data:')) {
+        const sz = Math.round((doc.url.length * 3) / 4);
+        setMeasuredSizes(prev => ({ ...prev, [doc.id]: sz }));
+        if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: sz });
+      } else {
+        fetch(doc.url, { method: 'HEAD' })
+          .then(res => {
+            const cl = res.headers.get('content-length');
+            if (cl) {
+              const sz = parseInt(cl, 10);
+              if (sz > 0) {
+                setMeasuredSizes(prev => ({ ...prev, [doc.id]: sz }));
+                if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: sz });
+                return;
+              }
+            }
+            return fetch(doc.url).then(r => r.blob()).then(b => {
+              if (b.size > 0) {
+                setMeasuredSizes(prev => ({ ...prev, [doc.id]: b.size }));
+                if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: b.size });
+              }
+            });
+          })
+          .catch(() => {
+            fetch(doc.url).then(r => r.blob()).then(b => {
+              if (b.size > 0) {
+                setMeasuredSizes(prev => ({ ...prev, [doc.id]: b.size }));
+                if (typeof updateDocument === 'function') updateDocument(space.id, doc.id, { fileSize: b.size });
+              }
+            }).catch(() => {});
+          });
+      }
+    });
+  }, [documents, space.id, measuredSizes]);
 
   // Silent background preloader for active shelf documents (0ms perceived load time)
   React.useEffect(() => {
@@ -1271,6 +1315,31 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     )}
                   </button>
 
+                  {/* Favorite / Relevant Filter Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowFavoritesOnly(prev => !prev)}
+                    style={{
+                      background: showFavoritesOnly ? '#fef3c7' : '#f8fafc',
+                      border: showFavoritesOnly ? '1.5px solid #f59e0b' : '1px solid #cbd5e1',
+                      color: showFavoritesOnly ? '#b45309' : '#475569',
+                      padding: '6px 12px',
+                      borderRadius: '12px',
+                      fontSize: '0.82rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: showFavoritesOnly ? '0 2px 6px rgba(245,158,11,0.2)' : 'none',
+                      transition: 'all 0.15s ease'
+                    }}
+                    title="הצג רק הצעות מחיר ומסמכים מועדפים / רלוונטיים"
+                  >
+                    <span>{showFavoritesOnly ? '⭐' : '☆'}</span>
+                    <span>{showFavoritesOnly ? 'מועדפים בלבד' : 'מועדפים'}</span>
+                  </button>
+
                   {/* Explorer View Mode Dropdown Button (Compact, Space-Saving) */}
                   <div ref={vaultViewDropdownRef} style={{ position: 'relative' }}>
                     <button
@@ -1723,6 +1792,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               }
             }
 
+            if (showFavoritesOnly) {
+              filteredDocs = filteredDocs.filter(doc => doc.isFavorite);
+            }
+
             // Apply Warehouse Sorting
             filteredDocs = [...filteredDocs].sort((a, b) => {
               if (warehouseSortBy === 'station') {
@@ -1963,9 +2036,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                           {/* List Table Header */}
                           <div style={{
                             display: 'grid',
-                            gridTemplateColumns: isMultiSelect ? '30px 42px 1fr 85px 105px' : '42px 1fr 85px 105px',
+                            gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px 1fr 90px 105px' : '36px 30px 38px 1fr 90px 105px',
                             alignItems: 'center',
-                            gap: '0.5rem',
+                            gap: '0.45rem',
                             padding: '0.35rem 0.6rem',
                             background: '#f1f5f9',
                             borderRadius: '8px',
@@ -1974,16 +2047,19 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                             color: '#475569'
                           }}>
                             {isMultiSelect && <span style={{ textAlign: 'center' }}>בחר</span>}
+                            <span style={{ textAlign: 'center' }}>מס'</span>
+                            <span style={{ textAlign: 'center' }} title="מועדף / רלוונטי">⭐</span>
                             <span>תצוגה</span>
                             <span>שם המסמך ושיוך</span>
-                            <span>תאריך</span>
+                            <span style={{ textAlign: 'right' }}>תאריך / משקל</span>
                             <span style={{ textAlign: 'center' }}>פעולות</span>
                           </div>
 
-                          {filteredDocs.map(doc => {
+                          {filteredDocs.map((doc, docIdx) => {
                             const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
                             const isChecked = selectedDocIds.includes(doc.id);
                             const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf');
+                            const effectiveSize = doc.fileSize || measuredSizes[doc.id];
 
                             return (
                               <div
@@ -2002,24 +2078,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   if (isMultiSelect) {
                                     setSelectedDocIds(prev => isChecked ? prev.filter(id => id !== doc.id) : [...prev, doc.id]);
                                   } else {
-                                    setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) });
+                                    setPreviewState({ docs: filteredDocs, index: docIdx });
                                   }
                                 }}
                                 style={{
                                   display: 'grid',
-                                  gridTemplateColumns: isMultiSelect ? '30px 42px 1fr 85px 105px' : '42px 1fr 85px 105px',
+                                  gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px 1fr 90px 105px' : '36px 30px 38px 1fr 90px 105px',
                                   alignItems: 'center',
-                                  gap: '0.5rem',
+                                  gap: '0.45rem',
                                   padding: '0.4rem 0.6rem',
-                                  background: isChecked ? '#eff6ff' : '#ffffff',
-                                  border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                                  background: isChecked ? '#eff6ff' : (doc.isFavorite ? '#fffbeb' : '#ffffff'),
+                                  border: isChecked ? '1.5px solid #3b82f6' : (doc.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
                                   borderRadius: '10px',
                                   cursor: 'pointer',
                                   transition: 'background 0.15s ease',
-                                  boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
+                                  boxShadow: doc.isFavorite ? '0 2px 6px rgba(245,158,11,0.15)' : '0 1px 2px rgba(0,0,0,0.02)'
                                 }}
-                                onMouseEnter={(e) => { if (!isChecked) e.currentTarget.style.background = '#f8fafc'; }}
-                                onMouseLeave={(e) => { if (!isChecked) e.currentTarget.style.background = '#ffffff'; }}
+                                onMouseEnter={(e) => { if (!isChecked && !doc.isFavorite) e.currentTarget.style.background = '#f8fafc'; }}
+                                onMouseLeave={(e) => { if (!isChecked && !doc.isFavorite) e.currentTarget.style.background = '#ffffff'; }}
                               >
                                 {isMultiSelect && (
                                   <div style={{ textAlign: 'center' }}>
@@ -2031,6 +2107,38 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     />
                                   </div>
                                 )}
+
+                                {/* Document Index Number */}
+                                <div style={{
+                                  fontSize: '0.75rem',
+                                  fontWeight: 800,
+                                  color: '#64748b',
+                                  textAlign: 'center',
+                                  background: '#f1f5f9',
+                                  padding: '2px 0',
+                                  borderRadius: '6px'
+                                }}>
+                                  #{docIdx + 1}
+                                </div>
+
+                                {/* Favorite Star Toggle */}
+                                <div style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                                  <button
+                                    type="button"
+                                    onClick={() => updateDocument(space.id, doc.id, { isFavorite: !doc.isFavorite })}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      cursor: 'pointer',
+                                      fontSize: '1rem',
+                                      padding: '2px',
+                                      lineHeight: 1
+                                    }}
+                                    title={doc.isFavorite ? 'הסר ממועדפים / רלוונטיים' : 'סמן כהצעה מועדפת / רלוונטית'}
+                                  >
+                                    {doc.isFavorite ? '⭐' : '☆'}
+                                  </button>
+                                </div>
 
                                 {/* Thumbnail */}
                                 <div style={{
@@ -2056,8 +2164,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
                                 {/* Title & Station */}
                                 <div style={{ minWidth: 0 }}>
-                                  <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                    {doc.title}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                      {doc.title}
+                                    </span>
+                                    {doc.isFavorite && (
+                                      <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, flexShrink: 0 }}>
+                                        מועדף
+                                      </span>
+                                    )}
                                   </div>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px', flexWrap: 'wrap' }}>
                                     {linkedEvent && (
@@ -2074,11 +2189,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                 {/* Date & Size */}
                                 <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
                                   <span>{new Date(doc.createdAt).toLocaleDateString('he-IL')}</span>
-                                  {doc.fileSize ? (
-                                    <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }}>
-                                      ⚖️ {formatFileSize(doc.fileSize)}
-                                    </span>
-                                  ) : null}
+                                  <span style={{ fontSize: '0.62rem', background: effectiveSize ? '#f1f5f9' : '#fef2f2', color: effectiveSize ? '#334155' : '#ea580c', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
+                                    {effectiveSize ? `⚖️ ${formatFileSize(effectiveSize)}` : '⚖️ מודד...'}
+                                  </span>
                                 </div>
 
                                 {/* Quick Actions */}
@@ -2338,10 +2451,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         )}
 
                         <div onTouchMove={handleTouchDragMove} onTouchEnd={handleTouchDragEnd} onMouseUp={handleTouchDragEnd} style={{ display: 'grid', gridTemplateColumns: `repeat(auto-fill, minmax(${minFolderCardWidth}, 1fr))`, gap: '0.75rem' }}>
-                          {filteredDocs.map(doc => {
+                          {filteredDocs.map((doc, docIdx) => {
                             const linkedEvent = getDocLinkedEvent(doc.id, doc.url);
                             const isChecked = selectedDocIds.includes(doc.id);
                             const isPdf = doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')) || doc.url?.startsWith('data:application/pdf');
+                            const effectiveSize = doc.fileSize || measuredSizes[doc.id];
 
                             return (
                               <div
@@ -2362,16 +2476,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   }
                                 }}
                                 style={{
-                                  background: '#ffffff',
+                                  background: doc.isFavorite ? '#fffdf7' : '#ffffff',
                                   borderRadius: '14px',
                                   overflow: 'visible',
-                                  border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : '1px solid #e2e8f0'),
+                                  border: isChecked ? '2px solid #2563eb' : (dragOverDocId === doc.id ? '2px dashed #3b82f6' : (doc.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0')),
                                   position: 'relative',
                                   zIndex: activeDocMenuId === doc.id ? 60 : 1,
                                   opacity: draggedDocId === doc.id ? 0.4 : (doc.id.startsWith('temp-') ? 0.6 : 1),
                                   transition: 'all 0.2s',
                                   transform: isChecked ? 'scale(1.02)' : (dragOverDocId === doc.id ? 'scale(1.02)' : 'none'),
-                                  boxShadow: isChecked ? '0 6px 16px rgba(37,99,235,0.2)' : '0 2px 4px rgba(0,0,0,0.03)',
+                                  boxShadow: isChecked ? '0 6px 16px rgba(37,99,235,0.2)' : (doc.isFavorite ? '0 4px 14px rgba(245,158,11,0.22)' : '0 2px 4px rgba(0,0,0,0.03)'),
                                   display: 'flex',
                                   flexDirection: 'column',
                                   cursor: isMultiSelect ? 'pointer' : 'default'
@@ -2416,7 +2530,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     }
                                     if (isMultiSelect) return;
                                     e.stopPropagation();
-                                    setPreviewState({ docs: filteredDocs, index: filteredDocs.findIndex(d => d.id === doc.id) });
+                                    setPreviewState({ docs: filteredDocs, index: docIdx });
                                   }}
                                   style={{
                                     height: docCardHeight,
@@ -2436,6 +2550,54 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     overflow: 'hidden'
                                   }}
                                 >
+                                  {/* Document Index Badge */}
+                                  <div style={{
+                                    position: 'absolute',
+                                    top: '6px',
+                                    right: '6px',
+                                    background: 'rgba(15, 23, 42, 0.82)',
+                                    backdropFilter: 'blur(4px)',
+                                    color: '#ffffff',
+                                    padding: '1px 7px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 800,
+                                    zIndex: 15,
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                  }}>
+                                    #{docIdx + 1}
+                                  </div>
+
+                                  {/* Favorite Star Button */}
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      updateDocument(space.id, doc.id, { isFavorite: !doc.isFavorite });
+                                    }}
+                                    style={{
+                                      position: 'absolute',
+                                      top: '6px',
+                                      left: isMultiSelect ? '32px' : '6px',
+                                      zIndex: 26,
+                                      background: doc.isFavorite ? '#fef3c7' : 'rgba(255,255,255,0.9)',
+                                      border: doc.isFavorite ? '1.5px solid #f59e0b' : '1px solid #cbd5e1',
+                                      borderRadius: '50%',
+                                      width: '26px',
+                                      height: '26px',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      justifyContent: 'center',
+                                      cursor: 'pointer',
+                                      fontSize: '0.85rem',
+                                      boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                      transition: 'all 0.15s ease'
+                                    }}
+                                    title={doc.isFavorite ? 'הסר ממועדפים / רלוונטיים' : 'סמן כהצעה מועדפת / רלוונטית'}
+                                  >
+                                    <span>{doc.isFavorite ? '⭐' : '☆'}</span>
+                                  </button>
+
                                   {isPdf && !doc.thumbnailUrl && <span style={{ fontSize: '2.5rem' }}>📑</span>}
                                   {isPdf && (
                                     <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>
@@ -2486,14 +2648,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     {doc.title}
                                   </div>
 
+                                  {doc.isFavorite && (
+                                    <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fcd34d', alignSelf: 'flex-start' }}>
+                                      ⭐ הצעה מועדפת
+                                    </span>
+                                  )}
+
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
                                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                                       {new Date(doc.createdAt).toLocaleDateString('he-IL')}
-                                      {doc.fileSize ? (
-                                        <span style={{ fontSize: '0.6rem', background: '#f1f5f9', color: '#334155', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }}>
-                                          ⚖️ {formatFileSize(doc.fileSize)}
-                                        </span>
-                                      ) : null}
+                                      <span style={{ fontSize: '0.6rem', background: effectiveSize ? '#f1f5f9' : '#fef2f2', color: effectiveSize ? '#334155' : '#ea580c', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
+                                        {effectiveSize ? `⚖️ ${formatFileSize(effectiveSize)}` : '⚖️ מודד...'}
+                                      </span>
                                       {doc.note && (
                                         <button
                                           type="button"
@@ -3526,6 +3692,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
               updateDocument(space.id, docId, { pages });
             }
           }}
+          onToggleFavorite={(docId, currentVal) => {
+            if (typeof updateDocument === 'function') {
+              updateDocument(space.id, docId, { isFavorite: !currentVal });
+            }
+          }}
         />
       )}
 
@@ -3861,7 +4032,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.26</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.27</span>
         </h2>
         <input 
           type="text" 
