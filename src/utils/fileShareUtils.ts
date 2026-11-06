@@ -20,6 +20,7 @@ export interface FileShareItem {
   type: 'file' | 'folder';
   parentId: string | null; // null = root level
   url?: string;
+  thumbnailUrl?: string;
   pages?: string[];        // for multi-page documents
   fileType?: 'pdf' | 'image' | 'doc' | 'sheet' | 'other';
   size?: number;           // bytes
@@ -38,6 +39,7 @@ export interface PublicSharedData {
   itemType: 'file' | 'folder';
   name: string;
   url?: string;
+  thumbnailUrl?: string;
   pages?: string[];
   fileType?: string;
   size?: number;
@@ -102,6 +104,7 @@ export async function createOrUpdatePublicShare(
     itemType: item.type,
     name: item.name,
     url: item.url || '',
+    thumbnailUrl: item.thumbnailUrl || (Array.isArray(item.pages) && item.pages.length > 0 ? item.pages[0] : (item.url && !item.url.includes('.pdf') ? item.url : undefined)),
     pages: item.pages || [],
     fileType: item.fileType || 'other',
     size: item.size || 0,

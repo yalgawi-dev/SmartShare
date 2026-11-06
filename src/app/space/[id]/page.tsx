@@ -792,7 +792,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             🏠
           </button>
           <InstallAppHeaderButton />
-          {(isCreatorOfSpace || myRole === 'creator' || user?.isAdmin) && (
+          {(isCreatorOfSpace || myRole === 'creator' || myRole === 'admin' || user?.isAdmin) && (
             <button
               type="button"
               onClick={() => setIsAnnouncementEditorOpen(true)}

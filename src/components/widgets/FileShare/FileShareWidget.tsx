@@ -199,6 +199,7 @@ export function FileShareWidget({
           type: 'file',
           parentId: currentFolderId,
           url: downloadUrl,
+          thumbnailUrl: fileType === 'image' ? downloadUrl : undefined,
           fileType,
           size: file.size,
           createdAt: Date.now(),
@@ -219,6 +220,13 @@ export function FileShareWidget({
       setUploadProgress('');
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  // Rename item (file or folder)
+  const handleRenameItem = async (item: FileShareItem, newName: string) => {
+    if (!newName.trim() || newName.trim() === item.name) return;
+    const next = allItems.map(i => (i.id === item.id ? { ...i, name: newName.trim() } : i));
+    await saveItems(next);
   };
 
   // Delete item
@@ -484,6 +492,7 @@ export function FileShareWidget({
               setPrivacyItem(item);
               setSelectedAllowedPartners(item.allowedPartners || []);
             }}
+            onRename={handleRenameItem}
             onDelete={handleDeleteItem}
           />
         ))}
@@ -499,6 +508,7 @@ export function FileShareWidget({
               setPrivacyItem(item);
               setSelectedAllowedPartners(item.allowedPartners || []);
             }}
+            onRename={handleRenameItem}
             onDelete={handleDeleteItem}
           />
         ))}

@@ -478,6 +478,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
           (space.creatorId === user?.id ||
             space.createdBy === user?.realName ||
             myRole === 'creator' ||
+            myRole === 'admin' ||
             (user?.id && currentCreatorId === user.id) ||
             isSystemAdmin)
       );
@@ -1454,6 +1455,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
           (space.creatorId === user?.id ||
             space.createdBy === user?.realName ||
             myRole === 'creator' ||
+            myRole === 'admin' ||
             (user?.id && announcementCreatorId === user.id) ||
             isSystemAdmin)
       );

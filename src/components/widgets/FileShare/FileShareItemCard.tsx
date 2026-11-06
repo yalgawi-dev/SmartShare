@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileShareItem, formatFileSize } from '@/utils/fileShareUtils';
 
 interface FileShareItemCardProps {
@@ -8,6 +8,7 @@ interface FileShareItemCardProps {
   onOpen: (item: FileShareItem) => void;
   onManageLink: (item: FileShareItem) => void;
   onManagePermissions?: (item: FileShareItem) => void;
+  onRename?: (item: FileShareItem, newName: string) => void;
   onDelete: (item: FileShareItem) => void;
 }
 
@@ -16,6 +17,7 @@ export function FileShareItemCard({
   onOpen,
   onManageLink,
   onManagePermissions,
+  onRename,
   onDelete
 }: FileShareItemCardProps) {
   const isFolder = item.type === 'folder';
@@ -23,6 +25,25 @@ export function FileShareItemCard({
   const isOnlyMe = Array.isArray(item.allowedPartners) && item.allowedPartners.includes('__only_me__');
   const isOnlyAdmins = Array.isArray(item.allowedPartners) && item.allowedPartners.includes('__creator_vault_secret__');
   const isRestricted = Array.isArray(item.allowedPartners) && item.allowedPartners.length > 0;
+
+  // Inline rename state
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState(item.name);
+
+  useEffect(() => {
+    setEditNameValue(item.name);
+  }, [item.name]);
+
+  const handleRenameSubmit = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (editNameValue.trim() && editNameValue.trim() !== item.name && onRename) {
+      onRename(item, editNameValue.trim());
+    }
+    setIsEditingName(false);
+  };
 
   const getPrivacyBadge = () => {
     if (isOnlyMe) {
@@ -38,6 +59,9 @@ export function FileShareItemCard({
   };
 
   const privacyBadge = getPrivacyBadge();
+
+  // Preview thumbnail detection
+  const previewUrl = item.thumbnailUrl || (Array.isArray(item.pages) && item.pages.length > 0 ? item.pages[0] : (item.url && !item.url.includes('.pdf') ? item.url : ''));
 
   const getItemIcon = () => {
     if (isFolder) return '📁';
@@ -64,60 +88,176 @@ export function FileShareItemCard({
       }}
       onClick={() => onOpen(item)}
     >
-      {/* Right side: Icon + Name + Metadata */}
+      {/* Right side: Thumbnail / Icon + Name + Metadata */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
         <div style={{
-          width: '42px',
-          height: '42px',
+          width: '44px',
+          height: '44px',
           borderRadius: '12px',
-          background: isFolder ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.1)',
+          background: isFolder ? 'rgba(245, 158, 11, 0.12)' : 'rgba(99, 102, 241, 0.08)',
+          border: '1px solid var(--border-light, #e2e8f0)',
+          overflow: 'hidden',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           fontSize: '1.4rem',
-          flexShrink: 0
+          flexShrink: 0,
+          position: 'relative'
         }}>
-          {getItemIcon()}
+          {!isFolder && previewUrl ? (
+            <img
+              src={previewUrl}
+              alt={item.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              loading="lazy"
+            />
+          ) : (
+            getItemIcon()
+          )}
+          {!isFolder && item.pages && item.pages.length > 1 && (
+            <span style={{
+              position: 'absolute',
+              bottom: '2px',
+              right: '2px',
+              background: 'rgba(15,23,42,0.85)',
+              color: 'white',
+              fontSize: '0.55rem',
+              padding: '1px 3px',
+              borderRadius: '4px',
+              fontWeight: 800
+            }}>
+              {item.pages.length}p
+            </span>
+          )}
         </div>
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
-            <h4 style={{
-              margin: 0,
-              fontSize: '0.95rem',
-              fontWeight: 800,
-              color: 'var(--text-primary)',
-              wordBreak: 'break-word',
-              lineHeight: 1.3
-            }}>
-              {item.name}
-            </h4>
-
-            {/* Privacy Badge (Rule 20) */}
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                if (onManagePermissions) onManagePermissions(item);
-              }}
-              style={{
-                fontSize: '0.68rem',
-                padding: '2px 7px',
-                borderRadius: '6px',
-                background: privacyBadge.bg,
-                color: privacyBadge.color,
-                fontWeight: 700,
-                cursor: onManagePermissions ? 'pointer' : 'default',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '2px'
-              }}
-              title={privacyBadge.title}
+          {isEditingName ? (
+            <form
+              onSubmit={handleRenameSubmit}
+              onClick={e => e.stopPropagation()}
+              style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', width: '100%' }}
             >
-              {privacyBadge.text}
-            </span>
-          </div>
+              <input
+                type="text"
+                value={editNameValue}
+                onChange={e => setEditNameValue(e.target.value)}
+                autoFocus
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: '8px',
+                  border: '1.5px solid var(--primary, #4f46e5)',
+                  fontSize: '0.88rem',
+                  fontWeight: 700,
+                  outline: 'none',
+                  width: '100%',
+                  maxWidth: '180px'
+                }}
+              />
+              <button
+                type="submit"
+                style={{
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '3px 7px',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 800
+                }}
+                title="שמור שם"
+              >
+                ✓
+              </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsEditingName(false);
+                  setEditNameValue(item.name);
+                }}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '3px 7px',
+                  cursor: 'pointer',
+                  fontSize: '0.8rem',
+                  fontWeight: 800
+                }}
+                title="בטל"
+              >
+                ✕
+              </button>
+            </form>
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', minWidth: 0, maxWidth: '100%' }}>
+                <h4 style={{
+                  margin: 0,
+                  fontSize: '0.92rem',
+                  fontWeight: 800,
+                  color: 'var(--text-primary)',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: '100%'
+                }}
+                title={item.name}
+                >
+                  {item.name}
+                </h4>
+                {onRename && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditingName(true);
+                    }}
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '2px',
+                      fontSize: '0.75rem',
+                      opacity: 0.5,
+                      lineHeight: 1
+                    }}
+                    title="ערוך שם"
+                  >
+                    ✏️
+                  </button>
+                )}
+              </div>
+
+              {/* Privacy Badge (Rule 20) */}
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onManagePermissions) onManagePermissions(item);
+                }}
+                style={{
+                  fontSize: '0.68rem',
+                  padding: '2px 7px',
+                  borderRadius: '6px',
+                  background: privacyBadge.bg,
+                  color: privacyBadge.color,
+                  fontWeight: 700,
+                  cursor: onManagePermissions ? 'pointer' : 'default',
+                  whiteSpace: 'nowrap',
+                  transition: 'all 0.2s',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '2px'
+                }}
+                title={privacyBadge.title}
+              >
+                {privacyBadge.text}
+              </span>
+            </div>
+          )}
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '4px', fontSize: '0.74rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
             {!isFolder && item.size ? <span>{formatFileSize(item.size)}</span> : null}
