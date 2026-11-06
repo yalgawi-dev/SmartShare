@@ -2,6 +2,7 @@
 
 import React, { use, useState, useEffect } from 'react';
 import Head from 'next/head';
+import Link from 'next/link';
 import { getPublicShare, recordPublicShareView, isShareExpired, PublicSharedData, formatFileSize } from '@/utils/fileShareUtils';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 
@@ -49,6 +50,9 @@ export default function PublicSharePage({ params }: SharePageProps) {
       if (!data.requirePin || !data.pin) {
         setIsUnlocked(true);
         recordPublicShareView(token);
+        if (data.itemType !== 'folder') {
+          openViewerForFile(data as any);
+        }
       }
       setLoading(false);
     }
@@ -64,6 +68,9 @@ export default function PublicSharePage({ params }: SharePageProps) {
       setIsUnlocked(true);
       setPinError(false);
       recordPublicShareView(token);
+      if (shareData.itemType !== 'folder') {
+        openViewerForFile(shareData as any);
+      }
     } else {
       setPinError(true);
     }
@@ -257,35 +264,80 @@ export default function PublicSharePage({ params }: SharePageProps) {
             </div>
           </div>
 
-          {/* Download button for single file */}
-          {!isFolder && shareData.allowDownload && shareData.url && (
-            <button
-              type="button"
-              onClick={() => handleDownload(shareData.url, shareData.name)}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {/* Direct Open Viewer Button */}
+            {!isFolder && (
+              <button
+                type="button"
+                onClick={() => openViewerForFile(shareData as any)}
+                style={{
+                  background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                  color: '#ffffff',
+                  border: 'none',
+                  padding: '0.45rem 0.85rem',
+                  borderRadius: '12px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)'
+                }}
+              >
+                <span>🔍</span> צפייה במסמך
+              </button>
+            )}
+
+            {/* Download button for single file */}
+            {!isFolder && shareData.allowDownload && shareData.url && (
+              <button
+                type="button"
+                onClick={() => handleDownload(shareData.url, shareData.name)}
+                style={{
+                  background: '#f1f5f9',
+                  color: '#334155',
+                  border: '1px solid #cbd5e1',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: '12px',
+                  fontSize: '0.82rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.35rem'
+                }}
+              >
+                <span>📥</span> הורד
+              </button>
+            )}
+
+            {/* Open in App Button */}
+            <Link
+              href={`/space/${shareData.spaceId}`}
               style={{
-                background: '#4f46e5',
-                color: '#ffffff',
-                border: 'none',
-                padding: '0.5rem 0.9rem',
+                background: '#eff6ff',
+                color: '#2563eb',
+                border: '1px solid #bfdbfe',
+                padding: '0.45rem 0.75rem',
                 borderRadius: '12px',
                 fontSize: '0.82rem',
                 fontWeight: 800,
-                cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '0.35rem',
-                boxShadow: '0 2px 8px rgba(79, 70, 229, 0.3)'
+                gap: '0.35rem'
               }}
+              title="פתח במרחב האפליקציה"
             >
-              <span>📥</span> הורד
-            </button>
-          )}
+              <span>🚀</span> לאפליקציה
+            </Link>
 
-          {!isFolder && !shareData.allowDownload && (
-            <span style={{ fontSize: '0.74rem', background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: '8px', fontWeight: 700 }}>
-              🛡️ צפייה בלבד
-            </span>
-          )}
+            {!isFolder && !shareData.allowDownload && (
+              <span style={{ fontSize: '0.74rem', background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: '8px', fontWeight: 700 }}>
+                🛡️ צפייה בלבד
+              </span>
+            )}
+          </div>
         </header>
 
         {/* Main Content Area */}
@@ -438,6 +490,30 @@ export default function PublicSharePage({ params }: SharePageProps) {
                     <span>🔍</span> לחץ לתצוגה מלאה וזום
                   </div>
                 </div>
+
+                {/* Prominent Open Viewer CTA Button */}
+                <button
+                  type="button"
+                  onClick={() => openViewerForFile(shareData as any)}
+                  style={{
+                    width: '100%',
+                    padding: '0.85rem',
+                    borderRadius: '14px',
+                    background: 'linear-gradient(135deg, #4f46e5 0%, #4338ca 100%)',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <span>🔍</span> פתח בצפיין המלא (מגילה רציפה וזום עמוק עד 3000%)
+                </button>
               </div>
             </div>
           )}
