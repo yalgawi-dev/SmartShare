@@ -9,6 +9,7 @@ import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/o
 import { convertImagesToPdfBlob } from '@/utils/documentUtils';
 import SortableTray from './SortableTray';
 import type { TrayItem } from './SortableTray';
+import VersionBadge from '@/components/common/VersionBadge';
 
 
 
@@ -1130,7 +1131,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', flex: 1, justifyContent: 'center' }}>
           <h2 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
-            <span style={{ fontSize: '0.65rem', background: '#3b82f6', color: '#fff', padding: '1px 6px', borderRadius: '4px', fontWeight: 'bold' }}>v3.4.65</span>
+            <VersionBadge style={{ background: '#3b82f6', color: '#fff' }} />
           </h2>
           {editingDocTitle && (
             <div style={{ fontSize: '0.74rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>

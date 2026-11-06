@@ -19,6 +19,7 @@ import { FinanceTransferModal } from './Finance/FinanceTransferModal';
 import { isCashboxEnabled, createVirtualTreasury } from './Cashbox/CashboxEngine';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { shareDocument } from '@/utils/documentUtils';
+import VersionBadge from '@/components/common/VersionBadge';
 
 const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab, onOpenPartnersModal }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions'|'inbox', setActiveTab: (tab: 'summary'|'transactions'|'inbox') => void, onOpenPartnersModal?: () => void }, ref) => {
   const { user } = useAuth();
@@ -556,7 +557,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                ניהול הוצאות <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>v3.4.65</span>
+                ניהול הוצאות <VersionBadge />
               </h2>
               
             </div>

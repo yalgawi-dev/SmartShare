@@ -28,6 +28,7 @@ function formatDurationHe(totalSeconds?: number): string {
 
 import { useState, useMemo, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import VersionBadge from '@/components/common/VersionBadge';
 import { SpaceAnnouncementSettingsCard } from '../../../components/common/SpaceAnnouncementBanner';
 import { useSpaces } from '../../context/SpacesContext';
 import { getSharedContactsForUser } from '../../../utils/partnerUtils';
@@ -619,7 +620,7 @@ export default function AdminUsersPage() {
             </Link>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
               <h1 style={{ margin: 0, fontSize: '1.25rem', color: '#0f172a', fontWeight: 800 }}>מרכז בקרה וניהול</h1>
-              <span style={{ fontSize: '0.7rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>v3.4.61</span>
+              <VersionBadge />
             </div>
           </div>
         </div>

@@ -41,6 +41,7 @@ import { Providers } from "./Providers";
 
 import GlobalPWAPrompt from "../components/GlobalPWAPrompt";
 import GlobalFloatingBackButton from "../components/common/GlobalFloatingBackButton";
+import VersionUpdateBanner from "../components/common/VersionUpdateBanner";
 
 
 export default function RootLayout({
@@ -70,6 +71,7 @@ export default function RootLayout({
       </head>
       <body>
         <Providers>
+          <VersionUpdateBanner />
           {children}
           <GlobalFloatingBackButton />
           <GlobalPWAPrompt />

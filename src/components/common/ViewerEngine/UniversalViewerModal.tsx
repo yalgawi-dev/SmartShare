@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
+import { APP_VERSION } from '@/constants/version';
 
 export interface ViewerDocument {
   id?: string;
@@ -259,7 +260,7 @@ export default function UniversalViewerModal({
               boxShadow: '0 2px 6px rgba(79, 70, 229, 0.4)'
             }}
           >
-            v3.4.61
+            {APP_VERSION}
           </span>
           <span
             style={{

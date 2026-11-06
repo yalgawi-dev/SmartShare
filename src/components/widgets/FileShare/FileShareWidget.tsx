@@ -9,6 +9,7 @@ import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
+import VersionBadge from '@/components/common/VersionBadge';
 
 interface FileShareWidgetProps {
   space: any;
@@ -347,9 +348,7 @@ export function FileShareWidget({
               <h2 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-primary)', fontWeight: 900 }}>
                 שיתוף קבצים
               </h2>
-              <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.65
-              </span>
+              <VersionBadge />
             </div>
             <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
               פורטל שיתוף תיקיות ומסמכים מאובטח בקישורים חיצוניים

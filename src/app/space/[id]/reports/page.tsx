@@ -14,6 +14,7 @@ import { ZipExportModal } from '../../../../components/widgets/Finance/ZipExport
 import { downloadCSV, generateInvoicesCSV } from '@/utils/csvExportUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
+import VersionBadge from '../../../../components/common/VersionBadge';
 
 export default function SpaceReportsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -77,9 +78,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
               <h1 style={{ margin: 0, fontSize: 'clamp(1.1rem, 3.5vw, 1.4rem)', color: 'var(--text-primary)', fontWeight: 800 }}>
                 דוחות: {space.title}
               </h1>
-              <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.61
-              </span>
+              <VersionBadge />
             </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
               פילוח הוצאות, התחשבנות וגרפים

@@ -19,6 +19,7 @@ import { saveLocalDeviceFile } from '../../../utils/localDeviceStorage';
 import MultiPageViewer from './MultiPageViewer';
 import DocNoteModal from './DocNoteModal';
 import { LinkDocumentsModal, LinkedDocsPreviewModal } from './DocumentLinkModals';
+import { APP_VERSION } from '@/constants/version';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
@@ -4741,7 +4742,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.61</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>{APP_VERSION}</span>
         </h2>
         <input 
           type="text" 
