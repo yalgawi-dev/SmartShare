@@ -24,6 +24,7 @@ export function ReportsFloatingDock({
   onOpenZip,
   zipCount = 0
 }: ReportsFloatingDockProps) {
+  const [exportStatus, setExportStatus] = React.useState<'idle' | 'exporting' | 'success'>('idle');
 
   const handleFilterClick = () => {
     if (onOpenFilter) {
@@ -33,11 +34,23 @@ export function ReportsFloatingDock({
     }
   };
 
-  const handleExportCSVClick = () => {
-    if (onExportCSV) {
-      onExportCSV();
-    } else {
-      window.dispatchEvent(new CustomEvent('smartshare:reports_export_csv'));
+  const handleExportCSVClick = async () => {
+    if (exportStatus !== 'idle') return;
+    setExportStatus('exporting');
+    try {
+      if (onExportCSV) {
+        await onExportCSV();
+      } else {
+        window.dispatchEvent(new CustomEvent('smartshare:reports_export_csv'));
+      }
+      setExportStatus('success');
+    } catch (err) {
+      console.error('Export CSV error:', err);
+      setExportStatus('idle');
+    } finally {
+      setTimeout(() => {
+        setExportStatus('idle');
+      }, 2000);
     }
   };
 
@@ -213,24 +226,34 @@ export function ReportsFloatingDock({
         <button
           type="button"
           onClick={handleExportCSVClick}
+          disabled={exportStatus === 'exporting'}
           style={{
-            background: 'transparent',
-            border: 'none',
-            padding: '0.4rem 0.25rem',
+            background: exportStatus === 'success' 
+              ? 'rgba(16, 185, 129, 0.15)' 
+              : exportStatus === 'exporting' 
+              ? 'rgba(5, 150, 105, 0.1)' 
+              : 'transparent',
+            border: exportStatus === 'success' ? '1px solid #10b981' : 'none',
+            padding: '0.4rem 0.3rem',
             borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '0.15rem',
-            cursor: 'pointer',
-            color: '#059669',
-            minWidth: '32px',
-            transition: 'all 0.2s'
+            cursor: exportStatus === 'exporting' ? 'wait' : 'pointer',
+            color: exportStatus === 'success' ? '#047857' : '#059669',
+            minWidth: '36px',
+            transition: 'all 0.2s',
+            transform: exportStatus === 'success' ? 'scale(1.05)' : 'none'
           }}
           title="ייצא נתונים לקובץ CSV"
         >
-          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>📊</span>
-          <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>אקסל</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>
+            {exportStatus === 'exporting' ? '⏳' : exportStatus === 'success' ? '✅' : '📊'}
+          </span>
+          <span style={{ fontSize: '0.62rem', fontWeight: '700', whiteSpace: 'nowrap' }}>
+            {exportStatus === 'exporting' ? 'מייצא...' : exportStatus === 'success' ? 'נשמר!' : 'אקסל'}
+          </span>
         </button>
 
         {/* EXPORT ZIP (Available across all tabs when files exist - NEVER CLIPPED) */}

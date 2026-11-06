@@ -3,6 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { AuditRecord } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
+import { downloadCSV } from '@/utils/csvExportUtils';
 
 interface AuditLogReportProps {
   space: any;
@@ -105,7 +106,7 @@ export function AuditLogReport({ space }: AuditLogReportProps) {
   }, [rawLogs, filterType, performerFilter, searchQuery]);
 
   // Export Audit CSV
-  const exportAuditCSV = () => {
+  const exportAuditCSV = async () => {
     const rows: string[][] = [
       ['דוח יומן שינויים ופעולות (Audit Trail)', `מרחב: ${space?.title || ''}`, `תאריך הפקה: ${new Date().toLocaleDateString('he-IL')}`],
       [],
@@ -131,16 +132,8 @@ export function AuditLogReport({ space }: AuditLogReportProps) {
       ]);
     });
 
-    const csvContent = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `audit_log_${space?.title || 'space'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    await downloadCSV(`audit_log_${space?.title || 'space'}_${new Date().toISOString().slice(0, 10)}.csv`, csvContent);
   };
 
   // Listen to external dock export event

@@ -11,6 +11,7 @@ import { PartnerSettlementReport } from '../../../../components/widgets/Finance/
 import { AuditLogReport } from '../../../../components/widgets/Finance/AuditLogReport';
 import { ReportsFloatingDock, ReportType } from '../../../../components/widgets/Finance/ReportsFloatingDock';
 import { ZipExportModal } from '../../../../components/widgets/Finance/ZipExportModal';
+import { downloadCSV, generateInvoicesCSV } from '@/utils/csvExportUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
 
@@ -77,7 +78,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
                 דוחות: {space.title}
               </h1>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.53
+                v3.4.54
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
@@ -153,6 +154,14 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
             window.dispatchEvent(new CustomEvent('smartshare:reports_open_zip'));
           } else {
             setShowZipModal(true);
+          }
+        }}
+        onExportCSV={async () => {
+          if (activeTab === 'analytics') {
+            const csv = generateInvoicesCSV(invoices, space?.title || 'פרויקט');
+            await downloadCSV(`דוח_הוצאות_${space?.title || 'פרויקט'}_all.csv`, csv);
+          } else {
+            window.dispatchEvent(new CustomEvent('smartshare:reports_export_csv'));
           }
         }}
       />

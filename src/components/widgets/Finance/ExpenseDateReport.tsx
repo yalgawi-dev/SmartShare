@@ -10,6 +10,7 @@ interface ExpenseDateReportProps {
 }
 
 import { HEBREW_MONTHS, formatYMD, getDaysInMonth, normalizeToYMD } from '@/utils/dateUtils';
+import { downloadCSV, generateInvoicesCSV } from '@/utils/csvExportUtils';
 
 export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImage }: ExpenseDateReportProps) {
   const [preset, setPreset] = useState<string>('all');
@@ -171,75 +172,10 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
     return monthlyGroups.every(g => expandedMonths[g.key]);
   }, [monthlyGroups, expandedMonths]);
 
-  const handleExportCSV = () => {
-    const escapeCSV = (val: any) => {
-      if (val === null || val === undefined) return '';
-      const str = String(val);
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return `"${str.replace(/"/g, '""')}"`;
-      }
-      return str;
-    };
-
-    // Columns re-ordered and pruned per user specification:
-    // 1: ספק, 2: משלם, 3: תאריך, 4: סכום, 5: קטגוריה, 6: מסמך מצורף, 7: סטטוס
-    // (Removed: 'מזהה', 'מע"מ (%)')
-    const headers = ['ספק', 'משלם', 'תאריך', 'סכום', 'קטגוריה', 'מסמך מצורף', 'סטטוס'];
-
-    const formatStatus = (status: string) => {
-      if (status === 'approved') return 'מאושר';
-      if (status === 'rejected') return 'נדחה';
-      return 'ממתין לאישור';
-    };
-
-    const formatDate = (dateStr?: string) => {
-      if (!dateStr) return '';
-      const ymd = normalizeToYMD(dateStr);
-      if (ymd) return ymd.split('-').reverse().join('.');
-      return dateStr;
-    };
-
-    const rows = filteredInvoices.map(inv => [
-      inv.supplier || '',
-      inv.payerName || '',
-      formatDate(inv.date),
-      Number(inv.amount || 0),
-      inv.category || 'כללי',
-      inv.hasAttachment ? 'כן' : 'לא',
-      formatStatus(inv.status)
-    ]);
-
-    const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
-
-    // Empty separator row
-    rows.push(['', '', '', '', '', '', '']);
-
-    // Prominent bold summary row:
-    // - Column 1 (ספק): Formatted total summary title and expense count
-    // - Column 4 (סכום): Numeric sum totalAmount positioned directly under the 'סכום' column for Excel calculations
-    rows.push([
-      `סה"כ סכום כולל: ₪${totalAmount.toLocaleString('he-IL')} (${filteredInvoices.length} הוצאות)`,
-      '',
-      '',
-      totalAmount,
-      '',
-      '',
-      ''
-    ]);
-
+  const handleExportCSV = async () => {
     const rangeTitle = startDate && endDate ? `${startDate}_to_${endDate}` : 'all';
-    const csvContent = '\uFEFF' + 
-      [headers, ...rows].map(r => r.map(c => escapeCSV(c)).join(',')).join('\n');
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `דוח_הוצאות_${spaceTitle}_${rangeTitle}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const csvContent = generateInvoicesCSV(filteredInvoices, spaceTitle, rangeTitle);
+    await downloadCSV(`דוח_הוצאות_${spaceTitle}_${rangeTitle}.csv`, csvContent);
   };
 
   const handleExportZIP = () => {

@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { computeSettlementReport, PartnerSettlementSummary, SettlementTransactionRow } from '@/utils/settlementReportUtils';
+import { downloadCSV } from '@/utils/csvExportUtils';
 
 interface PartnerSettlementReportProps {
   space: any;
@@ -78,7 +79,7 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
   const filteredBalanced = useMemo(() => filteredPartners.filter(p => p.isBalanced), [filteredPartners]);
 
   // Export CSV
-  const exportSettlementCSV = () => {
+  const exportSettlementCSV = async () => {
     const rows: string[][] = [
       ['דוח התחשבנות שותפים מפורט', `מרחב: ${space?.title || ''}`, `תאריך הפקה: ${new Date().toLocaleDateString('he-IL')}`],
       [],
@@ -122,15 +123,8 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
       });
     });
 
-    const csvContent = '\uFEFF' + rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `settlement_report_${space?.title || 'space'}_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const csvContent = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    await downloadCSV(`settlement_report_${space?.title || 'space'}_${new Date().toISOString().slice(0, 10)}.csv`, csvContent);
   };
 
   const debtorsCount = reportData.partners.filter(p => p.isDebtor).length;
