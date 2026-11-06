@@ -78,7 +78,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
                 דוחות: {space.title}
               </h1>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.56
+                v3.4.57
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>

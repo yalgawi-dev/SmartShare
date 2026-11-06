@@ -116,8 +116,8 @@ export default function GlobalPWAPrompt() {
         || ua.includes('Instagram') || ua.includes('wv)');
 
       if (isAndroid && isWebView) {
-        // Android inside WhatsApp/Social webview
-        setPlatform('android-webview');
+        // On Android inside WhatsApp / WebViews: NEVER show an automatic takeover popup!
+        // All app features, reports, and file downloads work directly and smoothly inside WhatsApp.
       } else if (isIOS) {
         // Apple iOS devices: show iOS-specific flow
         setPlatform(detectPlatform());
