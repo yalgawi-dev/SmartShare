@@ -11,6 +11,13 @@ export interface Feature {
 }
 
 export const AVAILABLE_FEATURES: Feature[] = [
+  { 
+    id: 'fileshare', 
+    name: 'שיתוף קבצים', 
+    desc: 'פורטל שיתוף קבצים ותיקיות מאובטח עם קישורים חיצוניים, קוד גישה, הגבלת הורדה ומעקב צפיות', 
+    icon: '📤',
+    recommends: ['partners', 'scanner']
+  },
   {
     id: 'chat',
     name: 'צ\'אט מרחב',
