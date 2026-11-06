@@ -139,6 +139,60 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   // Multi-select & Batch sharing states
   const [isMultiSelect, setIsMultiSelect] = useState(false);
 
+  // Local read documents state to immediately clear red indicator in UI
+  const [locallyReadDocIds, setLocallyReadDocIds] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      return JSON.parse(localStorage.getItem(`read_docs_${space.id}`) || '[]');
+    } catch {
+      return [];
+    }
+  });
+
+  const markDocAsRead = React.useCallback((docId: string) => {
+    if (!docId) return;
+    setLocallyReadDocIds(prev => {
+      if (prev.includes(docId)) return prev;
+      const updated = [...prev, docId];
+      try {
+        localStorage.setItem(`read_docs_${space.id}`, JSON.stringify(updated.slice(-200)));
+      } catch {}
+      return updated;
+    });
+
+    // Also persist to document in Firestore if user is authenticated
+    if (user?.id) {
+      const docItem = documents.find(d => d.id === docId);
+      if (docItem) {
+        const existingReadBy = Array.isArray(docItem.readBy) ? docItem.readBy : [];
+        if (!existingReadBy.includes(user.id)) {
+          updateDocument(space.id, docId, {
+            readBy: [...existingReadBy, user.id]
+          });
+        }
+      }
+    }
+  }, [space.id, user?.id, documents, updateDocument]);
+
+  const isDocUnread = React.useCallback((doc: any) => {
+    if (!doc || doc.addedBy === user?.id) return false;
+    const isRecent = Date.now() - new Date(doc.createdAt).getTime() < 86400000;
+    if (!isRecent) return false;
+    if (locallyReadDocIds.includes(doc.id)) return false;
+    if (user?.id && Array.isArray(doc.readBy) && doc.readBy.includes(user.id)) return false;
+    return true;
+  }, [user?.id, locallyReadDocIds]);
+
+  // Automatically mark current viewing doc as read when viewer is open
+  useEffect(() => {
+    if (previewState && previewState.docs && previewState.docs[previewState.index]) {
+      const currentDoc = previewState.docs[previewState.index];
+      if (currentDoc?.id) {
+        markDocAsRead(currentDoc.id);
+      }
+    }
+  }, [previewState, markDocAsRead]);
+
   // Duplicate document prevention state
   const [duplicateMatchState, setDuplicateMatchState] = useState<{
     match: DuplicateMatch;
@@ -2759,7 +2813,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {doc.title}
                                     </span>
-                                    {doc.addedBy !== user?.id && (Date.now() - new Date(doc.createdAt).getTime() < 86400000) && (
+                                    {isDocUnread(doc) && (
                                       <span
                                         style={{
                                           fontSize: '0.62rem',
@@ -3390,7 +3444,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </div>
 
                                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                                    {doc.addedBy !== user?.id && (Date.now() - new Date(doc.createdAt).getTime() < 86400000) && (
+                                    {isDocUnread(doc) && (
                                       <span style={{ fontSize: '0.62rem', background: '#fef2f2', color: '#ef4444', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fecaca' }}>
                                         🔴 חדש
                                       </span>
@@ -4450,7 +4504,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           }}
           onIndexChange={(newIndex) => {
             const targetDoc = previewState?.docs?.[newIndex];
-            if (targetDoc?.id) setLastViewedDocId(targetDoc.id);
+            if (targetDoc?.id) {
+              setLastViewedDocId(targetDoc.id);
+              markDocAsRead(targetDoc.id);
+            }
           }}
         />
       )}
@@ -4923,7 +4980,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const isPrivate = (shelf.allowedPartners || []).filter(pid => pid && pid.trim() !== '' && pid !== space.creatorId).length > 0;
-            const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
+            const hasNewRemoteDoc = shelfDocs.some(d => isDocUnread(d));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
             const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : {});
 
@@ -5007,7 +5064,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', padding: '0 1rem' }}>
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
-            const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
+            const hasNewRemoteDoc = shelfDocs.some(d => isDocUnread(d));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
             const highlightStyle = hasRecentDoc ? { border: '2px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '2px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '40' } : { border: '1px solid #f1f5f9' });
 
@@ -5090,7 +5147,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           {filteredShelves.map(shelf => {
             const shelfDocs = documents.filter(d => d.shelfId === shelf.id);
             const isPrivate = (shelf.allowedPartners || []).filter(pid => pid && pid.trim() !== '' && pid !== space.creatorId).length > 0;
-            const hasNewRemoteDoc = shelfDocs.some(d => d.addedBy !== user?.id && (Date.now() - new Date(d.createdAt).getTime() < 86400000));
+            const hasNewRemoteDoc = shelfDocs.some(d => isDocUnread(d));
             const hasRecentDoc = shelfDocs.some(d => (Date.now() - new Date(d.createdAt).getTime() < 60000)); // Just added (1 min)
             const highlightStyle = hasRecentDoc ? { border: '3px solid #3b82f6', boxShadow: '0 0 20px rgba(59,130,246,0.6)' } : (shelf.highlightColor ? { border: '3px solid ' + shelf.highlightColor, boxShadow: '0 0 15px ' + shelf.highlightColor + '60' } : { border: '3px solid #fff', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' });
 

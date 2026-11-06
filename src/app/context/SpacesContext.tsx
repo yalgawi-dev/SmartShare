@@ -186,6 +186,7 @@ export interface SpaceDocument {
   linkType?: 'payment' | 'related' | 'appendix';
   linkedShelfIds?: string[];
   dHash?: string;
+  readBy?: string[];
   allowedPartners?: string[];
   ownerId?: string;
 }
