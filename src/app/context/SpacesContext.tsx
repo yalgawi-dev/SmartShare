@@ -61,6 +61,8 @@ export interface Invoice {
   attachmentPages?: string[];
   /** Amount before the last invoice-driven correction (a single number – no files are kept, to save storage). */
   previousAmount?: number | null;
+  ocrData?: any;
+  isOcrMismatched?: boolean;
 }
 
 export interface AttachFilePayload {

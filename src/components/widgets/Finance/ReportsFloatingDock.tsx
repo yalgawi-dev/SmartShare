@@ -3,7 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 
-export type ReportType = 'date_range' | 'settlement' | 'analytics';
+export type ReportType = 'date_range' | 'settlement' | 'audit' | 'analytics';
 
 interface ReportsFloatingDockProps {
   spaceId: string;
@@ -145,6 +145,31 @@ export function ReportsFloatingDock({
         >
           <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>🤝</span>
           <span style={{ fontSize: '0.62rem', fontWeight: activeReport === 'settlement' ? '800' : '600' }}>התחשבנות</span>
+        </button>
+
+        {/* TAB: AUDIT LOG (שינויים ופעולות) */}
+        <button
+          type="button"
+          onClick={() => onSwitchReport('audit')}
+          style={{
+            background: activeReport === 'audit' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+            border: 'none',
+            padding: '0.45rem 0.2rem',
+            borderRadius: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.15rem',
+            cursor: 'pointer',
+            color: activeReport === 'audit' ? '#2563eb' : '#64748b',
+            minWidth: '40px',
+            transition: 'all 0.2s',
+            boxShadow: activeReport === 'audit' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
+          }}
+          title="יומן שינויים ופעולות"
+        >
+          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📜</span>
+          <span style={{ fontSize: '0.62rem', fontWeight: activeReport === 'audit' ? '800' : '600' }}>שינויים</span>
         </button>
 
         {/* TAB 3: ANALYTICS & CHARTS */}

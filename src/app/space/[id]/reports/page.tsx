@@ -8,6 +8,7 @@ import { useAuth } from '../../../context/AuthContext';
 import { ExpenseDateReport } from '../../../../components/widgets/Finance/ExpenseDateReport';
 import { ExpenseAnalyticsCharts } from '../../../../components/widgets/Finance/ExpenseAnalyticsCharts';
 import { PartnerSettlementReport } from '../../../../components/widgets/Finance/PartnerSettlementReport';
+import { AuditLogReport } from '../../../../components/widgets/Finance/AuditLogReport';
 import { ReportsFloatingDock, ReportType } from '../../../../components/widgets/Finance/ReportsFloatingDock';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
@@ -132,6 +133,28 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
 
           <button
             type="button"
+            onClick={() => setActiveTab('audit')}
+            style={{
+              padding: '0.4rem 0.65rem',
+              borderRadius: '9px',
+              border: 'none',
+              background: activeTab === 'audit' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'audit' ? '#ffffff' : 'var(--text-secondary)',
+              fontWeight: 'bold',
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span>📜</span>
+            <span>יומן שינויים</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('analytics')}
             style={{
               padding: '0.4rem 0.65rem',
@@ -169,6 +192,12 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
           space={space}
           invoices={invoices}
           currentUserId={user?.id}
+        />
+      )}
+
+      {activeTab === 'audit' && (
+        <AuditLogReport
+          space={space}
         />
       )}
 

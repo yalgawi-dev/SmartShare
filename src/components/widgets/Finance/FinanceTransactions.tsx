@@ -222,17 +222,25 @@ export function FinanceTransactions({
     let approvalUpdates: Partial<any> = {};
     let logReason = `עודכנו פרטי הוצאה. קטגוריה: ${finalCategory}, ספק: ${editForm.supplier}`;
 
+    // Check if new amount contradicts original OCR extracted amount
+    const ocrExtractedAmount = editingInvoice.ocrData?.amount ? Number(editingInvoice.ocrData.amount) : null;
+    const isContradictingOcr = ocrExtractedAmount !== null && !isNaN(ocrExtractedAmount) && Math.abs(newAmount - ocrExtractedAmount) >= 0.01;
+
     // Financial integrity check: If amount or date is changed in a shared space, reset approvals
-    if (isAmountChanged || isDateChanged) {
+    if (isAmountChanged || isDateChanged || isContradictingOcr) {
       logReason = `שונה סכום מ-₪${oldAmount} ל-₪${newAmount}, ספק: ${editForm.supplier}, תאריך מ-${editingInvoice.date} ל-${editForm.date}, קטגוריה: ${finalCategory}`;
+      if (isContradictingOcr) {
+        logReason += ` [⚠️ סתירה מול סריקת OCR: ${ocrExtractedAmount}₪]`;
+      }
       if (activePartnersCount > 0) {
         approvalUpdates = {
           status: 'pending',
           approvalsReceived: 0,
           approvedBy: [],
-          previousAmount: oldAmount
+          previousAmount: oldAmount,
+          isOcrMismatched: isContradictingOcr
         };
-        logReason += ' | ⚠️ נדרש אישור שותפים מחדש עקב שינוי פיננסי';
+        logReason += ' | ⚠️ נדרש אימות ואישור שותפים מחדש מול החשבונית המקורית';
       }
     }
     
@@ -244,6 +252,7 @@ export function FinanceTransactions({
         supplier: editForm.supplier,
         date: editForm.date,
         category: finalCategory,
+        isOcrMismatched: isContradictingOcr,
         ...approvalUpdates
       },
       user?.realName || user?.id || 'me',
@@ -835,11 +844,37 @@ export function FinanceTransactions({
                             <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
                           </label>
 
-                          {inv.hasAttachment && (
-                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#1e40af' }}>
-                              📎 <strong>לתשומת לבך:</strong> להוצאה זו מצורפת חשבונית. שינוי סכום או תאריך ידרוש אישור שותפים מחדש כדי להבטיח התאמה מלאה למסמך.
-                            </div>
-                          )}
+                          {(() => {
+                            const ocrAmt = inv.ocrData?.amount ? Number(inv.ocrData.amount) : null;
+                            const currentInputAmt = Number(editForm.amount || 0);
+                            const hasOcrConflict = ocrAmt !== null && !isNaN(ocrAmt) && Math.abs(currentInputAmt - ocrAmt) >= 0.01;
+
+                            if (hasOcrConflict) {
+                              return (
+                                <div style={{ background: '#fef2f2', border: '1.5px solid #fecaca', borderRadius: '10px', padding: '0.65rem 0.85rem', fontSize: '0.8rem', color: '#991b1b', lineHeight: 1.45 }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontWeight: 800, marginBottom: '0.2rem' }}>
+                                    <span>⚠️</span>
+                                    <span>סתירה בין הסכום שהזנת לסריקת ה-OCR המקורית:</span>
+                                  </div>
+                                  <div>סכום שפוענח בחשבונית: <strong>₪${ocrAmt?.toLocaleString()}</strong></div>
+                                  <div>סכום שהזנת כעת: <strong>₪${currentInputAmt.toLocaleString()}</strong></div>
+                                  <div style={{ fontSize: '0.74rem', color: '#b91c1c', marginTop: '0.25rem' }}>
+                                    ההוצאה תסומן בחריגה, אישורי השותפים יאופסו, והם יידרשו לבדוק את צילום החשבונית לפני אישור מחדש.
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            if (inv.hasAttachment) {
+                              return (
+                                <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#1e40af' }}>
+                                  📎 <strong>לתשומת לבך:</strong> להוצאה זו מצורפת חשבונית. שינוי סכום או תאריך ידרוש אישור שותפים מחדש כדי להבטיח התאמה מלאה למסמך.
+                                </div>
+                              );
+                            }
+
+                            return null;
+                          })()}
 
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                             <button type="button" onClick={() => setEditingInvoice(null)} style={{ flex: 1, padding: '0.6rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)' }}>ביטול</button>
@@ -1173,9 +1208,21 @@ export function FinanceTransactions({
                           </span>
                         </div>
                       ) : (
-                        <h3 style={{ margin: '0 0 0.25rem 0', fontSize: '1.1rem', color: 'var(--text-primary)' }}>
-                          ₪{inv.amount?.toLocaleString()}
-                        </h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', margin: '0 0 0.25rem 0' }}>
+                          <h3 style={{ margin: 0, fontSize: '1.1rem', color: 'var(--text-primary)' }}>
+                            ₪{inv.amount?.toLocaleString()}
+                          </h3>
+                          {inv.previousAmount && inv.previousAmount !== inv.amount && (
+                            <span style={{ fontSize: '0.72rem', color: '#94a3b8', textDecoration: 'line-through' }}>
+                              ₪{inv.previousAmount?.toLocaleString()}
+                            </span>
+                          )}
+                          {inv.isOcrMismatched && (
+                            <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#991b1b', border: '1px solid #fecdd3', padding: '1px 5px', borderRadius: '4px', fontWeight: 'bold', marginTop: '2px' }} title="סכום ההוצאה שונה מסריקת ה-OCR">
+                              ⚠️ שונה מ-OCR
+                            </span>
+                          )}
+                        </div>
                       )}
 
                     {(() => {
