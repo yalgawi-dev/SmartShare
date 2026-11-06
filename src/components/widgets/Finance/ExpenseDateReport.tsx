@@ -181,31 +181,65 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
       return str;
     };
 
-    const headers = ['מזהה', 'תאריך', 'ספק', 'קטגוריה', 'משלם', 'סכום', 'מע"מ (%)', 'סטטוס', 'מסמך מצורף'];
+    // Columns re-ordered and pruned per user specification:
+    // 1: ספק, 2: משלם, 3: תאריך, 4: סכום, 5: קטגוריה, 6: מסמך מצורף, 7: סטטוס
+    // (Removed: 'מזהה', 'מע"מ (%)')
+    const headers = ['ספק', 'משלם', 'תאריך', 'סכום', 'קטגוריה', 'מסמך מצורף', 'סטטוס'];
+
+    const formatStatus = (status: string) => {
+      if (status === 'approved') return 'מאושר';
+      if (status === 'rejected') return 'נדחה';
+      return 'ממתין לאישור';
+    };
+
+    const formatDate = (dateStr?: string) => {
+      if (!dateStr) return '';
+      const ymd = normalizeToYMD(dateStr);
+      if (ymd) return ymd.split('-').reverse().join('.');
+      return dateStr;
+    };
+
     const rows = filteredInvoices.map(inv => [
-      escapeCSV(inv.id),
-      escapeCSV(inv.date),
-      escapeCSV(inv.supplier || ''),
-      escapeCSV(inv.category || ''),
-      escapeCSV(inv.payerName || ''),
-      escapeCSV(inv.amount || 0),
-      escapeCSV(inv.vatRate || 0),
-      escapeCSV(inv.status),
-      escapeCSV(inv.hasAttachment ? 'כן' : 'לא')
+      inv.supplier || '',
+      inv.payerName || '',
+      formatDate(inv.date),
+      Number(inv.amount || 0),
+      inv.category || 'כללי',
+      inv.hasAttachment ? 'כן' : 'לא',
+      formatStatus(inv.status)
+    ]);
+
+    const totalAmount = filteredInvoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+
+    // Empty separator row
+    rows.push(['', '', '', '', '', '', '']);
+
+    // Prominent bold summary row:
+    // - Column 1 (ספק): Formatted total summary title and expense count
+    // - Column 4 (סכום): Numeric sum totalAmount positioned directly under the 'סכום' column for Excel calculations
+    rows.push([
+      `סה"כ סכום כולל: ₪${totalAmount.toLocaleString('he-IL')} (${filteredInvoices.length} הוצאות)`,
+      '',
+      '',
+      totalAmount,
+      '',
+      '',
+      ''
     ]);
 
     const rangeTitle = startDate && endDate ? `${startDate}_to_${endDate}` : 'all';
-    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + 
-      headers.join(',') + '\n' + 
-      rows.map(e => e.join(',')).join('\n');
+    const csvContent = '\uFEFF' + 
+      [headers, ...rows].map(r => r.map(c => escapeCSV(c)).join(',')).join('\n');
 
-    const encodedUri = encodeURI(csvContent);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.href = url;
     link.setAttribute('download', `דוח_הוצאות_${spaceTitle}_${rangeTitle}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const handleExportZIP = () => {
@@ -476,11 +510,11 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.88rem' }}>
                         <thead>
                           <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                            <th style={{ padding: '0.75rem 1rem' }}>תאריך</th>
                             <th style={{ padding: '0.75rem 1rem' }}>ספק</th>
-                            <th style={{ padding: '0.75rem 1rem' }}>קטגוריה</th>
                             <th style={{ padding: '0.75rem 1rem' }}>משלם</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>תאריך</th>
                             <th style={{ padding: '0.75rem 1rem' }}>סכום</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>קטגוריה</th>
                             <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>מסמך</th>
                           </tr>
                         </thead>
@@ -494,11 +528,17 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                                 key={inv.id || idx}
                                 style={{ borderBottom: '1px solid var(--border-light)', background: 'var(--bg-card)' }}
                               >
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                                  {inv.supplier || 'ספק כללי'}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>
+                                  {inv.payerName || '---'}
+                                </td>
                                 <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', fontWeight: '500' }}>
                                   {displayDate}
                                 </td>
-                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                  {inv.supplier || 'ספק כללי'}
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                  ₪{(Number(inv.amount) || 0).toLocaleString()}
                                 </td>
                                 <td style={{ padding: '0.75rem 1rem' }}>
                                   <span style={{
@@ -511,12 +551,6 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                                   }}>
                                     {inv.category || 'כללי'}
                                   </span>
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>
-                                  {inv.payerName || '---'}
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
-                                  ₪{(Number(inv.amount) || 0).toLocaleString()}
                                 </td>
                                 <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
                                   {inv.hasAttachment && inv.attachmentUrl ? (
@@ -548,6 +582,20 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                             );
                           })}
                         </tbody>
+                        <tfoot>
+                          <tr style={{ background: 'rgba(99, 102, 241, 0.06)', borderTop: '2px solid var(--border-light)', fontWeight: 'bold' }}>
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)' }}>
+                              סה"כ לחודש זה ({group.invoices.length} הוצאות):
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}></td>
+                            <td style={{ padding: '0.85rem 1rem' }}></td>
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--primary)', fontSize: '1rem', whiteSpace: 'nowrap' }}>
+                              ₪{group.totalAmount.toLocaleString()}
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}></td>
+                            <td style={{ padding: '0.85rem 1rem' }}></td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   </div>
