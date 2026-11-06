@@ -20,6 +20,8 @@ import MultiPageViewer from './MultiPageViewer';
 import DocNoteModal from './DocNoteModal';
 import { LinkDocumentsModal, LinkedDocsPreviewModal } from './DocumentLinkModals';
 import { APP_VERSION } from '@/constants/version';
+import { findDuplicateInSpace, computeImageDHash, DuplicateMatch } from '@/utils/duplicateDetection';
+import { DuplicateWarningModal } from './DuplicateWarningModal';
 
 export interface DocumentsWidgetRef {
   addDocument: (url: string, type: 'document' | 'image' | 'pdf', allPages?: string[], targetEventId?: string, explicitShelfId?: string) => Promise<string | undefined>;
@@ -136,6 +138,18 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
 
   // Multi-select & Batch sharing states
   const [isMultiSelect, setIsMultiSelect] = useState(false);
+
+  // Duplicate document prevention state
+  const [duplicateMatchState, setDuplicateMatchState] = useState<{
+    match: DuplicateMatch;
+    incomingTitle: string;
+    shelfId: string;
+    url: string;
+    type: 'document' | 'image' | 'pdf';
+    allPages?: string[];
+    targetEventId?: string;
+    folderId?: string | null;
+  } | null>(null);
   const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [isSharingBatch, setIsSharingBatch] = useState(false);
 
@@ -452,7 +466,7 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
   
   const [editingShelfCoverId, setEditingShelfCoverId] = useState<string | null>(null);
   useImperativeHandle(ref, () => ({
-    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string) => {
+    addDocument: async (url, type, allPages, targetEventId, explicitShelfId?: string, bypassDuplicateCheck?: boolean) => {
       let targetShelfId: string | null = explicitShelfId || null;
       
       if (!targetShelfId && targetEventId && targetEventId !== '__new_station__') {
@@ -479,9 +493,38 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
       }
       
       const targetFolderId = targetShelfId === activeShelfId ? (currentFolderIdRef.current ?? currentFolderId) : null;
+
+      // Smart Duplicate Detection (Interception across WhatsApp, camera scans, recompressed images)
+      if (!bypassDuplicateCheck) {
+        const sampleUrl = (allPages && allPages.length > 0) ? allPages[0] : url;
+        const incomingSize = sampleUrl.startsWith('data:') ? Math.round((sampleUrl.length * 3) / 4) : undefined;
+        const duplicateMatch = await findDuplicateInSpace({
+          incomingUrl: sampleUrl,
+          incomingTitle: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק',
+          incomingSize,
+          existingDocuments: documents,
+          shelves,
+          members: space.members || []
+        });
+
+        if (duplicateMatch) {
+          setDuplicateMatchState({
+            match: duplicateMatch,
+            incomingTitle: type === 'image' ? 'תמונה סרוקה' : 'מסמך סרוק',
+            shelfId: targetShelfId,
+            url,
+            type: typeof type !== 'undefined' ? type : 'document',
+            allPages,
+            targetEventId,
+            folderId: targetFolderId
+          });
+          return undefined;
+        }
+      }
+
       return await handleSaveDocument(targetShelfId, url, typeof type !== 'undefined' ? type : 'document', allPages, targetEventId, targetFolderId);
     }
-  }), [activeShelfId, currentFolderId, shelves, space.shelfEvents, space.id, addShelf]);
+  }), [activeShelfId, currentFolderId, shelves, space.shelfEvents, space.id, addShelf, documents, space.members]);
 
   
 const shareMultipleDocuments = async (docIds: string[]) => {
@@ -722,6 +765,17 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           detectedSize = Math.round((url.length * 3) / 4);
         }
 
+        // Compute perceptual dHash for fast future duplicate interception
+        let computedDHash: string | undefined = undefined;
+        try {
+          const sampleForHash = (finalPages && finalPages.length > 0) ? finalPages[0] : (finalThumbnailUrl || finalUrl);
+          if (sampleForHash && (sampleForHash.startsWith('data:image') || sampleForHash.includes('.jpg') || sampleForHash.includes('.png') || sampleForHash.includes('.webp'))) {
+            computedDHash = await computeImageDHash(sampleForHash);
+          }
+        } catch (hashErr) {
+          console.warn('Failed computing dHash', hashErr);
+        }
+
         const docPayload = {
           shelfId, 
           folderId: effectiveFolderId || null,
@@ -733,6 +787,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           pages: finalPages,
           storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
           fileSize: detectedSize,
+          dHash: computedDHash,
           allowedPartners: []
         };
 
@@ -2701,6 +2756,26 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {doc.title}
                                     </span>
+                                    {doc.addedBy !== user?.id && (Date.now() - new Date(doc.createdAt).getTime() < 86400000) && (
+                                      <span
+                                        style={{
+                                          fontSize: '0.62rem',
+                                          background: '#fef2f2',
+                                          color: '#ef4444',
+                                          padding: '1px 5px',
+                                          borderRadius: '4px',
+                                          fontWeight: 800,
+                                          border: '1px solid #fecaca',
+                                          flexShrink: 0,
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '2px'
+                                        }}
+                                        title="מסמך חדש שהועלה על ידי שותף ביממה האחרונה"
+                                      >
+                                        🔴 חדש
+                                      </span>
+                                    )}
                                     {doc.isFavorite && (
                                       <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, flexShrink: 0 }}>
                                         מועדף
@@ -3302,6 +3377,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </div>
 
                                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                    {doc.addedBy !== user?.id && (Date.now() - new Date(doc.createdAt).getTime() < 86400000) && (
+                                      <span style={{ fontSize: '0.62rem', background: '#fef2f2', color: '#ef4444', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fecaca' }}>
+                                        🔴 חדש
+                                      </span>
+                                    )}
                                     {doc.isFavorite && (
                                       <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 6px', borderRadius: '4px', fontWeight: 800, border: '1px solid #fcd34d' }}>
                                         ⭐ הצעה מועדפת
@@ -4826,7 +4906,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
             return (
               <div key={shelf.id} style={{ background: '#ffffff', borderRadius: '16px', padding: '1rem', boxShadow: '0 2px 10px rgba(0,0,0,0.02)', border: '1px solid #f1f5f9', position: 'relative', ...highlightStyle }}>
-                {hasNewRemoteDoc && <div style={{ position: 'absolute', top: '-6px', right: '-6px', width: '16px', height: '16px', background: '#ef4444', borderRadius: '50%', border: '2px solid white' }} />}
+                {hasNewRemoteDoc && (
+                  <div
+                    style={{ position: 'absolute', top: '-6px', right: '-6px', width: '16px', height: '16px', background: '#ef4444', borderRadius: '50%', border: '2px solid white' }}
+                    title="נוספו מסמכים חדשים ביממה האחרונה על ידי שותף"
+                  />
+                )}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', borderBottom: '2px solid #f1f5f9', paddingBottom: '0.5rem' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '32px', height: '32px', borderRadius: '8px', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', cursor: 'pointer' }}>
@@ -4905,7 +4990,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
             return (
               <div key={shelf.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', cursor: 'pointer', display: 'flex', flexDirection: 'column', position: 'relative', ...highlightStyle }}>
-                {hasNewRemoteDoc && <div style={{ position: 'absolute', top: '8px', right: '8px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }} />}
+                {hasNewRemoteDoc && (
+                  <div
+                    style={{ position: 'absolute', top: '8px', right: '8px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }}
+                    title="נוספו מסמכים חדשים ביממה האחרונה על ידי שותף"
+                  />
+                )}
 
                 
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ height: '100px', background: '#e2e8f0', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
@@ -4989,7 +5079,12 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   const docCount = documents.filter(d => d.shelfId === shelf.id).length;
                   setShelfToDelete({ id: shelf.id, name: shelf.name, count: docCount });
                 }} style={{ position: 'absolute', top: 0, right: 0, background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.7rem', zIndex: 10, cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }} title="מחק מדף">🗑️</button>
-                {hasNewRemoteDoc && <div style={{ position: 'absolute', top: '4px', right: '4px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }} />}
+                {hasNewRemoteDoc && (
+                  <div
+                    style={{ position: 'absolute', top: '4px', right: '4px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }}
+                    title="נוספו מסמכים חדשים ביממה האחרונה על ידי שותף"
+                  />
+                )}
                 
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#f8fafc', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem', ...highlightStyle, position: 'relative' }}>
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
@@ -5199,6 +5294,50 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       {renderDocNoteModal()}
       {/* PRIVACY MODAL IN OUTER GALLERY VIEW */}
       {renderPrivacyModal()}
+
+      {/* SMART DUPLICATE PREVENTION INTERCEPTION MODAL */}
+      {duplicateMatchState && (
+        <DuplicateWarningModal
+          isOpen={Boolean(duplicateMatchState)}
+          match={duplicateMatchState.match}
+          incomingTitle={duplicateMatchState.incomingTitle}
+          onViewExisting={() => {
+            const targetDoc = documents.find(d => d.id === duplicateMatchState.match.existingDocId);
+            if (targetDoc) {
+              setPreviewState({ docs: [targetDoc], index: 0 });
+            }
+            setDuplicateMatchState(null);
+          }}
+          onLinkToCurrentShelf={() => {
+            // Link existing document to current shelf without copying bytes
+            const targetDoc = documents.find(d => d.id === duplicateMatchState.match.existingDocId);
+            if (targetDoc) {
+              const currentLinked = Array.isArray(targetDoc.linkedShelfIds) ? targetDoc.linkedShelfIds : [];
+              if (!currentLinked.includes(duplicateMatchState.shelfId)) {
+                updateDocument(space.id, targetDoc.id, {
+                  linkedShelfIds: [...currentLinked, duplicateMatchState.shelfId]
+                });
+              }
+            }
+            setDuplicateMatchState(null);
+          }}
+          onUploadAnyway={async () => {
+            const state = duplicateMatchState;
+            setDuplicateMatchState(null);
+            if (state) {
+              await handleSaveDocument(
+                state.shelfId,
+                state.url,
+                state.type,
+                state.allPages,
+                state.targetEventId,
+                state.folderId
+              );
+            }
+          }}
+          onCancel={() => setDuplicateMatchState(null)}
+        />
+      )}
     </div>
   );
 });

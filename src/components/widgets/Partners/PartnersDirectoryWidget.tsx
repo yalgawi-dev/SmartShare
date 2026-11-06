@@ -72,6 +72,7 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
 
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === "creator";
+  const canInvitePartners = isCreatorMe || myRole === "admin" || Boolean(space.settings?.allowPartnersToInvite);
   const creatorId = isCreatorMe ? user?.id || "me" : space.creatorId || space.createdBy || "creator_unknown";
   const hasFinance = Boolean((space.features || []).includes('finance'));
   const isSharedOnly = !hasFinance || Boolean(space.settings?.sharedExpensesOnly || space.settings?.disableSettlements);
@@ -199,9 +200,9 @@ export function PartnersDirectoryWidget({ space }: { space: any }) {
             🏠 {space.title || 'מרחב'}
           </span>
         </div>
-        {isCreatorMe && (
+        {canInvitePartners && (
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {activeSpaceMembers.length > 0 && !isSharedOnly && (
+            {isCreatorMe && activeSpaceMembers.length > 0 && !isSharedOnly && (
               <button 
                 type="button"
                 onClick={() => setShowSharesModal(true)} 

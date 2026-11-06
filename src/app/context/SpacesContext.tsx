@@ -183,6 +183,8 @@ export interface SpaceDocument {
   docNumber?: number;
   linkedDocIds?: string[];
   linkType?: 'payment' | 'related' | 'appendix';
+  linkedShelfIds?: string[];
+  dHash?: string;
   allowedPartners?: string[];
   ownerId?: string;
 }
