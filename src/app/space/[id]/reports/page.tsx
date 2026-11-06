@@ -7,6 +7,8 @@ import { useSpaces } from '../../../context/SpacesContext';
 import { useAuth } from '../../../context/AuthContext';
 import { ExpenseDateReport } from '../../../../components/widgets/Finance/ExpenseDateReport';
 import { ExpenseAnalyticsCharts } from '../../../../components/widgets/Finance/ExpenseAnalyticsCharts';
+import { PartnerSettlementReport } from '../../../../components/widgets/Finance/PartnerSettlementReport';
+import { ReportsFloatingDock, ReportType } from '../../../../components/widgets/Finance/ReportsFloatingDock';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
 
@@ -17,7 +19,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   const { user } = useAuth();
   
   // Navigation tabs within Reports: 'date_range' | 'analytics'
-  const [activeTab, setActiveTab] = useState<'date_range' | 'analytics'>('date_range');
+  const [activeTab, setActiveTab] = useState<ReportType>('date_range');
 
   const space = spaces.find(s => s.id === id);
 
@@ -75,7 +77,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        {/* Tab Switcher Pills (Compact) */}
+        {/* Tab Switcher Pills (Top Header Sync) */}
         <div style={{
           display: 'flex',
           background: 'var(--bg-main, #f1f5f9)',
@@ -85,15 +87,16 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
           flexShrink: 0
         }}>
           <button
+            type="button"
             onClick={() => setActiveTab('date_range')}
             style={{
-              padding: '0.4rem 0.75rem',
+              padding: '0.4rem 0.65rem',
               borderRadius: '9px',
               border: 'none',
               background: activeTab === 'date_range' ? 'var(--primary)' : 'transparent',
               color: activeTab === 'date_range' ? '#ffffff' : 'var(--text-secondary)',
               fontWeight: 'bold',
-              fontSize: '0.8rem',
+              fontSize: '0.78rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -102,19 +105,42 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
             }}
           >
             <span>📅</span>
-            <span>תאריכים</span>
+            <span>פירוט הוצאות</span>
           </button>
 
           <button
+            type="button"
+            onClick={() => setActiveTab('settlement')}
+            style={{
+              padding: '0.4rem 0.65rem',
+              borderRadius: '9px',
+              border: 'none',
+              background: activeTab === 'settlement' ? 'var(--primary)' : 'transparent',
+              color: activeTab === 'settlement' ? '#ffffff' : 'var(--text-secondary)',
+              fontWeight: 'bold',
+              fontSize: '0.78rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span>🤝</span>
+            <span>התחשבנות שותפים</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('analytics')}
             style={{
-              padding: '0.4rem 0.75rem',
+              padding: '0.4rem 0.65rem',
               borderRadius: '9px',
               border: 'none',
               background: activeTab === 'analytics' ? 'var(--primary)' : 'transparent',
               color: activeTab === 'analytics' ? '#ffffff' : 'var(--text-secondary)',
               fontWeight: 'bold',
-              fontSize: '0.8rem',
+              fontSize: '0.78rem',
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -138,11 +164,27 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
         />
       )}
 
+      {activeTab === 'settlement' && (
+        <PartnerSettlementReport
+          space={space}
+          invoices={invoices}
+          currentUserId={user?.id}
+        />
+      )}
+
       {activeTab === 'analytics' && (
         <ExpenseAnalyticsCharts
           invoices={invoices}
         />
       )}
+
+      {/* FLOATING ACTION DOCK (MATCHING APP FLAGSHIP DOCK DESIGN) */}
+      <ReportsFloatingDock
+        spaceId={id}
+        activeReport={activeTab}
+        onSwitchReport={(tab) => setActiveTab(tab)}
+        zipCount={invoices.filter((i: any) => i.hasAttachment || i.attachmentUrl).length}
+      />
 
       {/* Full Screen Image Preview Modal */}
       {previewImage && (
