@@ -219,6 +219,23 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
     setShowZipModal(true);
   };
 
+  // Listen to floating dock events (Filter, Export CSV, ZIP)
+  React.useEffect(() => {
+    const handleFilter = () => setShowFilterModal(true);
+    const handleExport = () => handleExportCSV();
+    const handleZip = () => handleExportZIP();
+
+    window.addEventListener('smartshare:reports_open_filter', handleFilter);
+    window.addEventListener('smartshare:reports_export_csv', handleExport);
+    window.addEventListener('smartshare:reports_open_zip', handleZip);
+
+    return () => {
+      window.removeEventListener('smartshare:reports_open_filter', handleFilter);
+      window.removeEventListener('smartshare:reports_export_csv', handleExport);
+      window.removeEventListener('smartshare:reports_open_zip', handleZip);
+    };
+  }, [filteredInvoices, spaceTitle, startDate, endDate]);
+
   const executeExportZIP = async () => {
     setShowZipModal(false);
     const invoicesWithFiles = filteredInvoices.filter(inv => inv.hasAttachment && inv.attachmentUrl);

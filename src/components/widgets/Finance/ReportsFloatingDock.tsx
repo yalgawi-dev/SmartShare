@@ -252,8 +252,8 @@ export function ReportsFloatingDock({
           <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>אקסל</span>
         </button>
 
-        {/* EXPORT ZIP (Only shown when on date_range) */}
-        {activeReport === 'date_range' && (
+        {/* EXPORT ZIP (Available across all tabs when files exist) */}
+        {zipCount > 0 && (
           <button
             type="button"
             onClick={handleZipClick}
@@ -274,7 +274,7 @@ export function ReportsFloatingDock({
             title="ייצוא כל הצרופות בקובץ ZIP"
           >
             <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📦</span>
-            <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>ZIP{zipCount > 0 ? ` (${zipCount})` : ''}</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>ZIP ({zipCount})</span>
           </button>
         )}
 

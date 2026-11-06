@@ -10,6 +10,7 @@ import { ExpenseAnalyticsCharts } from '../../../../components/widgets/Finance/E
 import { PartnerSettlementReport } from '../../../../components/widgets/Finance/PartnerSettlementReport';
 import { AuditLogReport } from '../../../../components/widgets/Finance/AuditLogReport';
 import { ReportsFloatingDock, ReportType } from '../../../../components/widgets/Finance/ReportsFloatingDock';
+import { ZipExportModal } from '../../../../components/widgets/Finance/ZipExportModal';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import styles from '../page.module.css';
 
@@ -17,9 +18,10 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   const { id } = use(params);
   const { spaces } = useSpaces();
   const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const [showZipModal, setShowZipModal] = useState<boolean>(false);
   const { user } = useAuth();
   
-  // Navigation tabs within Reports: 'date_range' | 'analytics'
+  // Navigation tabs within Reports: 'date_range' | 'settlement' | 'audit' | 'analytics'
   const [activeTab, setActiveTab] = useState<ReportType>('date_range');
 
   const space = spaces.find(s => s.id === id);
@@ -31,8 +33,8 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
   const invoices = (space.invoices || []).filter(inv => inv.isActive !== false);
 
   return (
-    <div className={styles.container} style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', paddingBottom: '5rem' }}>
-      {/* Top Compact Navigation & Title Bar */}
+    <div className={styles.container} style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem', paddingBottom: '6rem' }}>
+      {/* Top Compact Clean Header Bar (Single Source of Truth - Navigation is via Bottom Dock) */}
       <div style={{
         position: 'sticky',
         top: 0,
@@ -49,131 +51,39 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <Link
-            href={`/space/${id}`}
+            href="/"
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: '38px',
-              height: '38px',
-              borderRadius: '12px',
-              background: 'var(--bg-main, #f1f5f9)',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: '#ffffff',
               border: '1px solid var(--border-light)',
               color: 'var(--text-primary)',
-              fontSize: '1.2rem',
+              fontSize: '1.25rem',
               textDecoration: 'none',
-              boxShadow: 'var(--shadow-sm)'
+              boxShadow: 'var(--shadow-sm)',
+              transition: 'all 0.15s ease'
             }}
-            title="חזרה למרחב"
+            title="חזרה ללוח הראשי"
           >
-            ↩️
+            🏠
           </Link>
           <div>
-            <h1 style={{ margin: 0, fontSize: 'clamp(1.1rem, 3.5vw, 1.4rem)', color: 'var(--text-primary)', fontWeight: 800 }}>
-              דוחות: {space.title}
-            </h1>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <h1 style={{ margin: 0, fontSize: 'clamp(1.1rem, 3.5vw, 1.4rem)', color: 'var(--text-primary)', fontWeight: 800 }}>
+                דוחות: {space.title}
+              </h1>
+              <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                v3.4.48
+              </span>
+            </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              פילוח הוצאות וגרפים
+              פילוח הוצאות, התחשבנות וגרפים
             </p>
           </div>
-        </div>
-
-        {/* Tab Switcher Pills (Top Header Sync) */}
-        <div style={{
-          display: 'flex',
-          background: 'var(--bg-main, #f1f5f9)',
-          padding: '0.2rem',
-          borderRadius: '12px',
-          border: '1px solid var(--border-light)',
-          flexShrink: 0
-        }}>
-          <button
-            type="button"
-            onClick={() => setActiveTab('date_range')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: '9px',
-              border: 'none',
-              background: activeTab === 'date_range' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'date_range' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 'bold',
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>📅</span>
-            <span>פירוט הוצאות</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('settlement')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: '9px',
-              border: 'none',
-              background: activeTab === 'settlement' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'settlement' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 'bold',
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>🤝</span>
-            <span>התחשבנות שותפים</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('audit')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: '9px',
-              border: 'none',
-              background: activeTab === 'audit' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'audit' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 'bold',
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>📜</span>
-            <span>יומן שינויים</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTab('analytics')}
-            style={{
-              padding: '0.4rem 0.65rem',
-              borderRadius: '9px',
-              border: 'none',
-              background: activeTab === 'analytics' ? 'var(--primary)' : 'transparent',
-              color: activeTab === 'analytics' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 'bold',
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>📈</span>
-            <span>גרפים</span>
-          </button>
         </div>
       </div>
 
@@ -213,6 +123,21 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
         activeReport={activeTab}
         onSwitchReport={(tab) => setActiveTab(tab)}
         zipCount={invoices.filter((i: any) => i.hasAttachment || i.attachmentUrl).length}
+        onOpenZip={() => {
+          if (activeTab === 'date_range') {
+            window.dispatchEvent(new CustomEvent('smartshare:reports_open_zip'));
+          } else {
+            setShowZipModal(true);
+          }
+        }}
+      />
+
+      {/* Global Space ZIP Export Modal */}
+      <ZipExportModal
+        isOpen={showZipModal}
+        onClose={() => setShowZipModal(false)}
+        invoices={invoices}
+        spaceTitle={space.title || 'מרחב'}
       />
 
       {/* Full Screen Image Preview Modal */}
