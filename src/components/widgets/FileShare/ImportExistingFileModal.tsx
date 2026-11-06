@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useSpaces } from '@/app/context/SpacesContext';
 import { useAuth } from '@/app/context/AuthContext';
 import { FileShareItem, formatFileSize } from '@/utils/fileShareUtils';
+import { canAccessItem } from '@/utils/permissionUtils';
 import UniversalViewerModal, { ViewerDocument } from '@/components/common/ViewerEngine/UniversalViewerModal';
 
 interface CandidateFile {
@@ -34,7 +35,7 @@ export function ImportExistingFileModal({
   onClose,
   onImport
 }: ImportExistingFileModalProps) {
-  const { spaces } = useSpaces();
+  const { spaces, getRoleForSpace, getTokenForSpace } = useSpaces();
   const { user } = useAuth();
 
   const [selectedSpaceId, setSelectedSpaceId] = useState<string>('all');
@@ -42,22 +43,67 @@ export function ImportExistingFileModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [previewState, setPreviewState] = useState<{ docs: ViewerDocument[]; index: number } | null>(null);
 
-  // Extract all existing files across other spaces
-  const otherSpacesFiles = useMemo(() => {
-    if (!Array.isArray(spaces)) return [];
+  // Check if current user is an authorized member of a space (Rule 20 / Strict Access Control)
+  const isAuthorizedMemberOfSpace = useMemo(() => {
+    return (s: any): boolean => {
+      if (!s || s.status === 'pending_deletion') return false;
 
+      // 1. Direct creator
+      if (user?.id && s.creatorId && user.id === s.creatorId) return true;
+      if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
+
+      // 2. Verified role in space (creator, admin, partner)
+      const role = getRoleForSpace(s.id);
+      if (role === 'creator' || role === 'admin' || role === 'partner') {
+        // Ensure not marked as removed/inactive in members list
+        if (Array.isArray(s.members) && user?.id) {
+          const m = s.members.find((mem: any) => mem.userId === user.id);
+          if (m && (m.status === 'removed' || m.isActive === false)) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      return false;
+    };
+  }, [user?.id, user?.spaceKeys, getRoleForSpace]);
+
+  // List of other spaces the user is strictly authorized to access
+  const authorizedOtherSpaces = useMemo(() => {
+    if (!Array.isArray(spaces)) return [];
+    return spaces.filter(s => s.id !== currentSpaceId && isAuthorizedMemberOfSpace(s));
+  }, [spaces, currentSpaceId, isAuthorizedMemberOfSpace]);
+
+  // Extract all permitted files across authorized other spaces
+  const otherSpacesFiles = useMemo(() => {
     const result: CandidateFile[] = [];
 
-    spaces.forEach(s => {
-      // Exclude current space
-      if (s.id === currentSpaceId) return;
-
+    authorizedOtherSpaces.forEach(s => {
       const spaceTitle = s.title || 'מרחב';
+      const spaceRole = getRoleForSpace(s.id);
+      const partnerToken = getTokenForSpace(s.id);
+      const isCreatorOrAdmin = spaceRole === 'creator' || spaceRole === 'admin';
+      const isManagedMode = Boolean(s.settings?.isManagedMode);
 
       // 1. Files from FileShare feature in other spaces
       if (Array.isArray(s.fileShareItems)) {
         s.fileShareItems.forEach((f: any) => {
           if (f.type === 'file' && f.url) {
+            // Strict Item-Level Permission Check
+            if (Array.isArray(f.allowedPartners) && f.allowedPartners.length > 0) {
+              if (f.allowedPartners.includes('__creator_vault_secret__')) {
+                if (!isCreatorOrAdmin) return;
+              } else if (f.allowedPartners.includes('__only_me__')) {
+                if (f.createdBy !== user?.id && !isCreatorOrAdmin) return;
+              } else {
+                const userMatch = Boolean(user?.id && f.allowedPartners.includes(user.id));
+                const tokenMatch = Boolean(partnerToken && f.allowedPartners.includes(partnerToken));
+                const isOwner = Boolean(user?.id && f.createdBy === user.id);
+                if (!isCreatorOrAdmin && !userMatch && !tokenMatch && !isOwner) return;
+              }
+            }
+
             result.push({
               id: `fileshare_${s.id}_${f.id}`,
               sourceSpaceId: s.id,
@@ -78,6 +124,18 @@ export function ImportExistingFileModal({
       if (Array.isArray(s.documents)) {
         s.documents.forEach((d: any) => {
           if (!d.deletedAt && d.url) {
+            // Strict canAccessItem Check (Handles __only_me__, __creator_vault_secret__, partner lists, and managed mode)
+            const hasAccess = canAccessItem({
+              spaceRole: spaceRole as any,
+              userId: user?.id,
+              partnerToken,
+              creatorId: s.creatorId,
+              isManagedMode,
+              ownerId: d.addedBy || d.userId,
+              allowedPartners: d.allowedPartners || d.permissions || []
+            });
+            if (!hasAccess) return;
+
             result.push({
               id: `vault_${s.id}_${d.id}`,
               sourceSpaceId: s.id,
@@ -99,6 +157,15 @@ export function ImportExistingFileModal({
       if (invoiceList.length > 0) {
         invoiceList.forEach((e: any) => {
           if (e.hasAttachment && (e.attachmentUrl || (e.pages && e.pages.length > 0))) {
+            // Check exclusion
+            if (Array.isArray(e.excludedMembers)) {
+              if (user?.id && e.excludedMembers.includes(user.id)) return;
+              if (partnerToken && e.excludedMembers.includes(partnerToken)) return;
+            }
+            if (isManagedMode && !isCreatorOrAdmin && e.payerId !== user?.id && e.payerId !== partnerToken) {
+              return;
+            }
+
             const fileUrl = e.attachmentUrl || (e.pages && e.pages[0]);
             if (fileUrl) {
               const expenseTitle = e.supplier 
@@ -123,13 +190,7 @@ export function ImportExistingFileModal({
     });
 
     return result.sort((a, b) => b.createdAt - a.createdAt);
-  }, [spaces, currentSpaceId]);
-
-  // List of other spaces available
-  const availableOtherSpaces = useMemo(() => {
-    if (!Array.isArray(spaces)) return [];
-    return spaces.filter(s => s.id !== currentSpaceId);
-  }, [spaces, currentSpaceId]);
+  }, [authorizedOtherSpaces, getRoleForSpace, getTokenForSpace, user?.id]);
 
   // Filtered files
   const filteredFiles = useMemo(() => {
@@ -306,7 +367,7 @@ export function ImportExistingFileModal({
               }}
             >
               <option value="all">🌐 כל המרחבים שלי ({otherSpacesFiles.length} קבצים)</option>
-              {availableOtherSpaces.map(s => {
+              {authorizedOtherSpaces.map(s => {
                 const count = otherSpacesFiles.filter(f => f.sourceSpaceId === s.id).length;
                 return (
                   <option key={s.id} value={s.id}>

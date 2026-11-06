@@ -348,7 +348,7 @@ export function FileShareWidget({
                 שיתוף קבצים
               </h2>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.64
+                v3.4.65
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
