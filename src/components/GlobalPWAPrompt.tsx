@@ -140,15 +140,6 @@ export default function GlobalPWAPrompt() {
     setPlatform(null);
   };
 
-  // Open current page in Chrome (Android WebView → Chrome)
-  
-
-  // Open in Safari (iOS WebView → Safari)
-  const openInSafari = () => {
-    // On iOS, _blank inside WebView opens Safari
-    window.open(window.location.href, '_blank');
-  };
-
   const handleInstall = async () => {
     const promptEvent = deferredPrompt || (typeof window !== 'undefined' && (window as any).deferredPWAInstallPrompt);
     if (promptEvent) {
@@ -540,15 +531,6 @@ function Sheet({ children }: { children: React.ReactNode }) {
         {children}
       </div>
     </>
-  );
-}
-
-function Step({ icon, text }: { icon: string; text: string }) {
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#f8fafc', padding: '0.85rem 1rem', borderRadius: '12px' }}>
-      <span style={{ fontSize: '1.3rem', width: '40px', height: '40px', background: 'white', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', flexShrink: 0 }}>{icon}</span>
-      <span style={{ fontSize: '0.9rem', color: '#334155', lineHeight: 1.4 }}>{text}</span>
-    </div>
   );
 }
 
