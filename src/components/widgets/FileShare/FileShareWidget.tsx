@@ -7,6 +7,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
+import { ImportExistingFileModal } from './ImportExistingFileModal';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 
 interface FileShareWidgetProps {
@@ -38,6 +39,9 @@ export function FileShareWidget({
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
 
+  // Import existing file modal state
+  const [showImportModal, setShowImportModal] = useState(false);
+
   // Partner Permission Modal state
   const [privacyItem, setPrivacyItem] = useState<FileShareItem | null>(null);
   const [selectedAllowedPartners, setSelectedAllowedPartners] = useState<string[]>([]);
@@ -59,15 +63,20 @@ export function FileShareWidget({
     const handleUpload = () => {
       fileInputRef.current?.click();
     };
+    const handleImport = () => {
+      setShowImportModal(true);
+    };
 
     window.addEventListener('smartshare:add_folder', handleAddFolder);
     window.addEventListener('smartshare:fileshare_add_folder', handleAddFolder);
     window.addEventListener('smartshare:fileshare_upload', handleUpload);
+    window.addEventListener('smartshare:fileshare_import', handleImport);
 
     return () => {
       window.removeEventListener('smartshare:add_folder', handleAddFolder);
       window.removeEventListener('smartshare:fileshare_add_folder', handleAddFolder);
       window.removeEventListener('smartshare:fileshare_upload', handleUpload);
+      window.removeEventListener('smartshare:fileshare_import', handleImport);
     };
   }, []);
 
@@ -339,7 +348,7 @@ export function FileShareWidget({
                 שיתוף קבצים
               </h2>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.63
+                v3.4.64
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
@@ -509,9 +518,30 @@ export function FileShareWidget({
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
               התיקייה ריקה
             </h3>
-            <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.8rem' }}>
-              לחץ על &quot;העלאת קבצים&quot; או &quot;תיקייה חדשה&quot; כדי להתחיל לשתף.
+            <p style={{ margin: '0.35rem 0 1rem 0', fontSize: '0.8rem' }}>
+              העלה קבצים מהמכשיר, צור תיקייה או ייבא ישירות קבצים ממרחבים אחרים (ללא שכפול נפח).
             </p>
+            <button
+              type="button"
+              onClick={() => setShowImportModal(true)}
+              style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                color: 'var(--primary)',
+                border: '1.5px solid var(--primary)',
+                borderRadius: '12px',
+                padding: '0.5rem 1rem',
+                fontSize: '0.82rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '0.4rem',
+                transition: 'all 0.2s',
+                boxShadow: 'var(--shadow-xs)'
+              }}
+            >
+              <span>📥</span> ייבא קובץ קיים ממרחב אחר
+            </button>
           </div>
         )}
       </div>
@@ -794,7 +824,19 @@ export function FileShareWidget({
         </div>
       )}
 
-      {/* 8. UNIVERSAL VIEWER FOR IN-APP PREVIEW */}
+      {/* 8. IMPORT EXISTING FILE MODAL (Zero Storage Duplication) */}
+      <ImportExistingFileModal
+        isOpen={showImportModal}
+        currentSpaceId={space.id}
+        currentFolderId={currentFolderId}
+        onClose={() => setShowImportModal(false)}
+        onImport={async (importedItem) => {
+          const next = [...allItems, importedItem];
+          await saveItems(next);
+        }}
+      />
+
+      {/* 9. UNIVERSAL VIEWER FOR IN-APP PREVIEW */}
       {previewState && (
         <UniversalViewerModal
           docs={previewState.docs}

@@ -323,6 +323,7 @@ export interface Space {
   shelves?: DocumentShelf[];
   shelfEvents?: ShelfEvent[];
   mediaItems: MediaItem[];
+  fileShareItems?: any[];
   members: SpaceMember[];
   auditLogs?: AuditRecord[];
   date?: string;
