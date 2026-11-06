@@ -11,39 +11,15 @@ interface PartnerSettlementReportProps {
 }
 
 export function PartnerSettlementReport({ space, invoices, currentUserId }: PartnerSettlementReportProps) {
-  const [selectedPartnerId, setSelectedPartnerId] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'debtors' | 'creditors' | 'balanced'>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedPartners, setExpandedPartners] = useState<Record<string, boolean>>({});
   const [isSummaryExpanded, setIsSummaryExpanded] = useState<boolean>(false);
-  const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState<boolean>(false);
 
   // Compute all settlement data
   const reportData = useMemo(() => {
     return computeSettlementReport(space, invoices, currentUserId);
   }, [space, invoices, currentUserId]);
-
-  // Collapsed by default - user requirement: "בברירת המחדל יהיה מקופל מי שרוצה פירוט ילחץ ויקבל"
-  useEffect(() => {
-    if (selectedPartnerId !== 'all') {
-      setExpandedPartners({ [selectedPartnerId]: true });
-    } else {
-      setExpandedPartners({});
-    }
-  }, [selectedPartnerId]);
-
-  // Listen to external dock filter events
-  useEffect(() => {
-    const handleFilter = () => {
-      setShowFilterModal(true);
-    };
-
-    window.addEventListener('smartshare:reports_open_filter', handleFilter);
-
-    return () => {
-      window.removeEventListener('smartshare:reports_open_filter', handleFilter);
-    };
-  }, [reportData, selectedPartnerId, statusFilter, searchQuery]);
 
   const toggleExpand = (uid: string) => {
     setExpandedPartners(prev => ({ ...prev, [uid]: !prev[uid] }));
@@ -60,13 +36,12 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
   // Filter partners
   const filteredPartners = useMemo(() => {
     return reportData.partners.filter(p => {
-      if (selectedPartnerId !== 'all' && p.userId !== selectedPartnerId) return false;
       if (statusFilter === 'debtors' && !p.isDebtor) return false;
       if (statusFilter === 'creditors' && !p.isCreditor) return false;
       if (statusFilter === 'balanced' && !p.isBalanced) return false;
       return true;
     });
-  }, [reportData.partners, selectedPartnerId, statusFilter]);
+  }, [reportData.partners, statusFilter]);
 
   // Split into distinct categories: Debtors (חייבים), Creditors (זכאים), Balanced (מאוזנים)
   const filteredDebtors = useMemo(() => filteredPartners.filter(p => p.isDebtor), [filteredPartners]);
@@ -128,12 +103,7 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
   const renderPartnerCard = (p: PartnerSettlementSummary, roleTitle: string, index: number, groupType: 'debtor' | 'creditor' | 'balanced') => {
     const isExpanded = !!expandedPartners[p.userId];
     
-    // Filter transactions by search query
-    const txs = p.transactions.filter(t => {
-      if (!searchQuery) return true;
-      const q = searchQuery.toLowerCase();
-      return (t.supplier || '').toLowerCase().includes(q) || (t.category || '').toLowerCase().includes(q);
-    });
+    const txs = p.transactions;
 
     const isDebtor = groupType === 'debtor';
     const isCreditor = groupType === 'creditor';
@@ -474,10 +444,26 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
         {/* ACCORDION CONTENT: 3 KPI SUMMARY BOXES & SETTLEMENT INSTRUCTIONS */}
         {isSummaryExpanded && (
           <>
-            {/* 3 DISTINCT KPI SUMMARY BOXES */}
+            {/* 3 DISTINCT KPI SUMMARY BOXES (CLICKABLE FOR DIRECT FILTERING) */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-              <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', fontWeight: 'bold' }}>
+              <div 
+                onClick={() => {
+                  setStatusFilter('all');
+                  setIsDetailsExpanded(true);
+                }}
+                style={{ 
+                  background: statusFilter === 'all' ? '#eff6ff' : '#ffffff', 
+                  border: statusFilter === 'all' ? '2px solid var(--primary)' : '1px solid #cbd5e1', 
+                  borderRadius: '14px', 
+                  padding: '0.65rem 0.75rem', 
+                  textAlign: 'center', 
+                  boxShadow: statusFilter === 'all' ? '0 2px 8px rgba(99,102,241,0.2)' : '0 1px 3px rgba(0,0,0,0.04)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                title="הצג את כל השותפים"
+              >
+                <span style={{ fontSize: '0.7rem', color: statusFilter === 'all' ? 'var(--primary)' : 'var(--text-secondary)', display: 'block', fontWeight: 'bold' }}>
                   היקף סגירת חשבון
                 </span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)', lineHeight: '1.2', marginTop: '2px' }}>
@@ -485,18 +471,50 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
                 </div>
               </div>
 
-              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+              <div 
+                onClick={() => {
+                  setStatusFilter(prev => prev === 'debtors' ? 'all' : 'debtors');
+                  setIsDetailsExpanded(true);
+                }}
+                style={{ 
+                  background: statusFilter === 'debtors' ? '#fee2e2' : '#fef2f2', 
+                  border: statusFilter === 'debtors' ? '2px solid #dc2626' : '1px solid #fecaca', 
+                  borderRadius: '14px', 
+                  padding: '0.65rem 0.75rem', 
+                  textAlign: 'center',
+                  boxShadow: statusFilter === 'debtors' ? '0 2px 8px rgba(220,38,38,0.2)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                title="סנן חייבים בתשלום בלבד"
+              >
                 <span style={{ fontSize: '0.7rem', color: '#b91c1c', display: 'block', fontWeight: 'bold' }}>
-                  חייבים בתשלום
+                  חייבים בתשלום {statusFilter === 'debtors' ? '✓' : ''}
                 </span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#dc2626', lineHeight: '1.2', marginTop: '2px' }}>
                   {debtorsCount} {debtorsCount === 1 ? 'שותף' : 'שותפים'}
                 </div>
               </div>
 
-              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+              <div 
+                onClick={() => {
+                  setStatusFilter(prev => prev === 'creditors' ? 'all' : 'creditors');
+                  setIsDetailsExpanded(true);
+                }}
+                style={{ 
+                  background: statusFilter === 'creditors' ? '#dcfce7' : '#f0fdf4', 
+                  border: statusFilter === 'creditors' ? '2px solid #059669' : '1px solid #bbf7d0', 
+                  borderRadius: '14px', 
+                  padding: '0.65rem 0.75rem', 
+                  textAlign: 'center',
+                  boxShadow: statusFilter === 'creditors' ? '0 2px 8px rgba(5,150,105,0.2)' : 'none',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+                title="סנן זכאים להחזר בלבד"
+              >
                 <span style={{ fontSize: '0.7rem', color: '#047857', display: 'block', fontWeight: 'bold' }}>
-                  זכאים להחזר
+                  זכאים להחזר {statusFilter === 'creditors' ? '✓' : ''}
                 </span>
                 <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', lineHeight: '1.2', marginTop: '2px' }}>
                   {creditorsCount} {creditorsCount === 1 ? 'שותף' : 'שותפים'}
@@ -548,367 +566,142 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
         )}
       </div>
 
-      {/* 2. SECTION HEADER & COMPACT FILTER CONTROLS (מחובר ישירות לפירוט למטה) */}
+      {/* 2. ACCORDION: PARTNER TRANSACTIONS BREAKDOWN */}
       <div 
         style={{
           background: 'var(--bg-card, #ffffff)',
           borderRadius: '16px',
-          border: '1px solid var(--border-light, #e2e8f0)',
+          border: '1.5px solid var(--border-light, #e2e8f0)',
           padding: '0.85rem 1rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.75rem',
-          boxShadow: 'var(--shadow-sm)'
+          gap: isDetailsExpanded ? '1rem' : '0',
+          boxShadow: 'var(--shadow-sm)',
+          transition: 'all 0.25s ease'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ fontSize: '1.15rem' }}>📑</span>
-            <div>
-              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                פירוט עסקאות וחשבונות לפי שותף
-              </h3>
-            </div>
-          </div>
-        </div>
-
-        {/* Compact Controls: Segmented Status Toggle + Partner Dropdown Select */}
-        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-          {/* Segmented Status Filter */}
-          <div style={{ display: 'inline-flex', background: 'var(--bg-main, #f1f5f9)', padding: '3px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('all')}
-              style={{
-                padding: '0.35rem 0.65rem',
-                borderRadius: '9px',
-                border: 'none',
-                background: statusFilter === 'all' ? '#ffffff' : 'transparent',
-                color: statusFilter === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
-                fontWeight: statusFilter === 'all' ? 800 : 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                boxShadow: statusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-              }}
-            >
-              הכל ({reportData.partners.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('debtors')}
-              style={{
-                padding: '0.35rem 0.65rem',
-                borderRadius: '9px',
-                border: 'none',
-                background: statusFilter === 'debtors' ? '#ffffff' : 'transparent',
-                color: statusFilter === 'debtors' ? '#b91c1c' : 'var(--text-secondary)',
-                fontWeight: statusFilter === 'debtors' ? 800 : 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                boxShadow: statusFilter === 'debtors' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-              }}
-            >
-              חייבים ({debtorsCount})
-            </button>
-            <button
-              type="button"
-              onClick={() => setStatusFilter('creditors')}
-              style={{
-                padding: '0.35rem 0.65rem',
-                borderRadius: '9px',
-                border: 'none',
-                background: statusFilter === 'creditors' ? '#ffffff' : 'transparent',
-                color: statusFilter === 'creditors' ? '#047857' : 'var(--text-secondary)',
-                fontWeight: statusFilter === 'creditors' ? 800 : 600,
-                fontSize: '0.78rem',
-                cursor: 'pointer',
-                boxShadow: statusFilter === 'creditors' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
-              }}
-            >
-              זכאים ({creditorsCount})
-            </button>
-          </div>
-
-          {/* Dedicated Partner Select Dropdown (Handles 2 to 100+ partners cleanly without pill overflow) */}
-          <select
-            value={selectedPartnerId}
-            onChange={e => setSelectedPartnerId(e.target.value)}
-            style={{
-              flex: 1,
-              minWidth: '140px',
-              padding: '0.45rem 0.65rem',
-              borderRadius: '10px',
-              border: '1px solid var(--border-light)',
-              background: 'var(--bg-main, #f8fafc)',
-              color: 'var(--text-primary)',
-              fontSize: '0.8rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            <option value="all">כל השותפים ({reportData.partners.length})</option>
-            {reportData.partners.map(p => (
-              <option key={p.userId} value={p.userId}>
-                {p.name} ({p.sharePercent}%) {p.isDebtor ? '— חייב' : p.isCreditor ? '— זכאי' : '— מאוזן'}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* 3. PARTNER BREAKDOWN CARDS (GROUPED BY DEBTORS & CREDITORS) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        {/* SECTION 1: DEBTORS (חייבים בתשלום) */}
-        {filteredDebtors.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRight: '4px solid #ef4444', paddingRight: '0.5rem' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#b91c1c', fontWeight: 900 }}>
-                🔴 שותפים חייבים בתשלום ({filteredDebtors.length})
-              </h4>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                - צריכים להעביר כספים לשותפים הזכאים
-              </span>
-            </div>
-
-            {filteredDebtors.map((p, idx) => {
-              const roleTitle = filteredDebtors.length > 1 ? `חייב ${idx + 1}: ${p.name}` : `חייב בתשלום: ${p.name}`;
-              return renderPartnerCard(p, roleTitle, idx, 'debtor');
-            })}
-          </div>
-        )}
-
-        {/* SECTION 2: CREDITORS (זכאים להחזר) */}
-        {filteredCreditors.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRight: '4px solid #10b981', paddingRight: '0.5rem' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#047857', fontWeight: 900 }}>
-                🟢 שותפים זכאים להחזר ({filteredCreditors.length})
-              </h4>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                - שילמו מעבר לחלקם וזכאים לקבל החזר
-              </span>
-            </div>
-
-            {filteredCreditors.map((p, idx) => {
-              const roleTitle = filteredCreditors.length > 1 ? `זכאי ${idx + 1}: ${p.name}` : `זכאי להחזר: ${p.name}`;
-              return renderPartnerCard(p, roleTitle, idx, 'creditor');
-            })}
-          </div>
-        )}
-
-        {/* SECTION 3: BALANCED (מאוזנים) */}
-        {filteredBalanced.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRight: '4px solid #64748b', paddingRight: '0.5rem' }}>
-              <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#475569', fontWeight: 900 }}>
-                ⚖️ שותפים מאוזנים ({filteredBalanced.length})
-              </h4>
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                - חשבון מאוזן לחלוטין (₪0)
-              </span>
-            </div>
-
-            {filteredBalanced.map((p, idx) => {
-              return renderPartnerCard(p, `שותף מאוזן: ${p.name}`, idx, 'balanced');
-            })}
-          </div>
-        )}
-
-        {filteredPartners.length === 0 && (
-          <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-card)', borderRadius: '16px' }}>
-            לא נמצאו שותפים התואמים לסינון הנבחר.
-          </div>
-        )}
-      </div>
-
-      {/* 4. FILTER BOTTOM SHEET MODAL (TRIGGERED BY DOCK FILTER BUTTON) */}
-      {showFilterModal && (
+        {/* ACCORDION HEADER */}
         <div 
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.6)',
-            zIndex: 100000,
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            direction: 'rtl'
+          onClick={() => setIsDetailsExpanded(prev => !prev)}
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            cursor: 'pointer',
+            userSelect: 'none',
+            borderBottom: isDetailsExpanded ? '1.5px solid #e2e8f0' : 'none', 
+            paddingBottom: isDetailsExpanded ? '0.75rem' : '0' 
           }}
-          onClick={() => setShowFilterModal(false)}
         >
-          <div 
-            style={{
-              background: 'var(--bg-card, #ffffff)',
-              width: '100%',
-              maxWidth: '560px',
-              borderTopLeftRadius: '24px',
-              borderTopRightRadius: '24px',
-              padding: '1.75rem',
-              maxHeight: '85vh',
-              overflowY: 'auto',
-              boxShadow: '0 -10px 40px rgba(0,0,0,0.25)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '1.25rem'
-            }}
-            onClick={e => e.stopPropagation()}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0, fontSize: '1.2rem', color: 'var(--text-primary)', fontWeight: 800 }}>
-                🔍 סינון דוח התחשבנות שותפים
-              </h3>
-              <button 
-                type="button"
-                onClick={() => setShowFilterModal(false)}
-                style={{ background: 'var(--bg-hover, #f1f5f9)', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* STATUS FILTER PILLS */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.35rem' }}>📄</span>
             <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                סינון לפי סטטוס מאזן:
-              </label>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {[
-                  { id: 'all', label: `הכל (${reportData.partners.length})` },
-                  { id: 'debtors', label: `חייבים בתשלום בלבד (${debtorsCount})` },
-                  { id: 'creditors', label: `זכאים להחזר בלבד (${creditorsCount})` },
-                  { id: 'balanced', label: 'מאוזנים' }
-                ].map(item => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setStatusFilter(item.id as any)}
-                    style={{
-                      padding: '0.5rem 0.9rem',
-                      borderRadius: '16px',
-                      border: statusFilter === item.id ? '2px solid var(--primary)' : '1px solid var(--border-light)',
-                      background: statusFilter === item.id ? 'rgba(99,102,241,0.1)' : 'var(--bg-main)',
-                      color: statusFilter === item.id ? 'var(--primary)' : 'var(--text-primary)',
-                      fontWeight: 'bold',
-                      fontSize: '0.85rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* PARTNER FILTER PILLS */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                בחירת שותף ספציפי:
-              </label>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button
-                  type="button"
-                  onClick={() => setSelectedPartnerId('all')}
-                  style={{
-                    padding: '0.45rem 0.85rem',
-                    borderRadius: '14px',
-                    border: selectedPartnerId === 'all' ? '2px solid var(--text-primary)' : '1px solid var(--border-light)',
-                    background: selectedPartnerId === 'all' ? 'var(--text-primary)' : 'var(--bg-main)',
-                    color: selectedPartnerId === 'all' ? '#ffffff' : 'var(--text-secondary)',
-                    fontWeight: 'bold',
-                    fontSize: '0.82rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  כל השותפים
-                </button>
-                {reportData.partners.map(p => (
-                  <button
-                    key={p.userId}
-                    type="button"
-                    onClick={() => setSelectedPartnerId(p.userId)}
-                    style={{
-                      padding: '0.45rem 0.85rem',
-                      borderRadius: '14px',
-                      border: selectedPartnerId === p.userId ? '2px solid var(--primary)' : '1px solid var(--border-light)',
-                      background: selectedPartnerId === p.userId ? 'rgba(99,102,241,0.15)' : 'var(--bg-main)',
-                      color: selectedPartnerId === p.userId ? 'var(--primary)' : 'var(--text-primary)',
-                      fontWeight: 'bold',
-                      fontSize: '0.82rem',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    {p.name} ({p.sharePercent}%)
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* SEARCH */}
-            <div>
-              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                חיפוש חופשי בעסקאות (ספק / קטגוריה):
-              </label>
-              <input
-                type="text"
-                placeholder="הקלד שם ספק או קטגוריה..."
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.75rem',
-                  borderRadius: '12px',
-                  border: '1px solid var(--border-light)',
-                  background: 'var(--bg-main)',
-                  color: 'var(--text-primary)',
-                  fontSize: '0.9rem',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            {/* ACTION BUTTONS */}
-            <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
-              <button
-                type="button"
-                onClick={() => {
-                  setStatusFilter('all');
-                  setSelectedPartnerId('all');
-                  setSearchQuery('');
-                }}
-                style={{
-                  flex: 1,
-                  padding: '0.85rem',
-                  borderRadius: '14px',
-                  border: '1px solid var(--border-light)',
-                  background: 'transparent',
-                  color: 'var(--text-secondary)',
-                  fontWeight: 'bold',
-                  cursor: 'pointer'
-                }}
-              >
-                איפוס סינונים
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowFilterModal(false)}
-                style={{
-                  flex: 1.5,
-                  padding: '0.85rem',
-                  borderRadius: '14px',
-                  border: 'none',
-                  background: 'var(--primary)',
-                  color: '#ffffff',
-                  fontWeight: 'bold',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
-                }}
-              >
-                החל סינון ({filteredPartners.length} שותפים)
-              </button>
+              <h2 style={{ margin: 0, fontSize: '1.02rem', color: '#0f172a', fontWeight: 900 }}>
+                פירוט עסקאות וחשבונות לפי שותף
+              </h2>
+              {isDetailsExpanded && (
+                <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
+                  פירוט מלא של כל ההוצאות וההתחשבנות שורה-אחר-שורה
+                </p>
+              )}
             </div>
           </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {statusFilter !== 'all' && (
+              <span style={{ 
+                fontSize: '0.72rem', 
+                fontWeight: 800, 
+                color: statusFilter === 'debtors' ? '#dc2626' : '#059669', 
+                background: statusFilter === 'debtors' ? '#fee2e2' : '#dcfce7', 
+                padding: '2px 8px', 
+                borderRadius: '8px' 
+              }}>
+                {statusFilter === 'debtors' ? 'חייבים בלבד' : 'זכאים בלבד'}
+              </span>
+            )}
+            <span style={{ fontSize: '0.72rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>
+              {filteredPartners.length} שותפים
+            </span>
+            <span style={{
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              transform: isDetailsExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+              marginRight: '2px'
+            }}>
+              ▼
+            </span>
+          </div>
         </div>
-      )}
+
+        {/* ACCORDION CONTENT: PARTNER BREAKDOWN CARDS */}
+        {isDetailsExpanded && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            {/* SECTION 1: DEBTORS (חייבים בתשלום) */}
+            {filteredDebtors.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRight: '4px solid #ef4444', paddingRight: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#b91c1c', fontWeight: 900 }}>
+                    🔴 שותפים חייבים בתשלום ({filteredDebtors.length})
+                  </h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    - צריכים להעביר כספים לשותפים הזכאים
+                  </span>
+                </div>
+
+                {filteredDebtors.map((p, idx) => {
+                  const roleTitle = filteredDebtors.length > 1 ? `חייב ${idx + 1}: ${p.name}` : `חייב בתשלום: ${p.name}`;
+                  return renderPartnerCard(p, roleTitle, idx, 'debtor');
+                })}
+              </div>
+            )}
+
+            {/* SECTION 2: CREDITORS (זכאים להחזר) */}
+            {filteredCreditors.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRight: '4px solid #10b981', paddingRight: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#047857', fontWeight: 900 }}>
+                    🟢 שותפים זכאים להחזר ({filteredCreditors.length})
+                  </h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    - שילמו מעבר לחלקם וזכאים לקבל החזר
+                  </span>
+                </div>
+
+                {filteredCreditors.map((p, idx) => {
+                  const roleTitle = filteredCreditors.length > 1 ? `זכאי ${idx + 1}: ${p.name}` : `זכאי להחזר: ${p.name}`;
+                  return renderPartnerCard(p, roleTitle, idx, 'creditor');
+                })}
+              </div>
+            )}
+
+            {/* SECTION 3: BALANCED (מאוזנים) */}
+            {filteredBalanced.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', borderRight: '4px solid #64748b', paddingRight: '0.5rem' }}>
+                  <h4 style={{ margin: 0, fontSize: '0.95rem', color: '#475569', fontWeight: 900 }}>
+                    ⚖️ שותפים מאוזנים ({filteredBalanced.length})
+                  </h4>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                    - חשבון מאוזן לחלוטין (₪0)
+                  </span>
+                </div>
+
+                {filteredBalanced.map((p, idx) => {
+                  return renderPartnerCard(p, `שותף מאוזן: ${p.name}`, idx, 'balanced');
+                })}
+              </div>
+            )}
+
+            {filteredPartners.length === 0 && (
+              <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)', background: 'var(--bg-card)', borderRadius: '16px' }}>
+                לא נמצאו שותפים התואמים לסינון הנבחר.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
     </div>
   );
