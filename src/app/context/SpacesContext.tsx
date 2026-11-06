@@ -594,7 +594,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           return m;
         });
 
-        // Heal shelves where allowedPartners was accidentally initialized with [creatorId] or [''] when created before partners joined
+        // Heal shelves, folders, and documents where allowedPartners was accidentally initialized with [creatorId] or [''] when created before partners joined
         const healedShelves = (data.shelves || []).map((sh: any) => {
           if (sh && Array.isArray(sh.allowedPartners) && sh.allowedPartners.length > 0) {
             const cleaned = sh.allowedPartners.filter(
@@ -608,11 +608,39 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           return sh;
         });
 
+        const healedDocumentFolders = (data.documentFolders || []).map((df: any) => {
+          if (df && Array.isArray(df.allowedPartners) && df.allowedPartners.length > 0) {
+            const cleaned = df.allowedPartners.filter(
+              (pid: string) => pid && pid.trim() !== '' && (!data.creatorId || pid !== data.creatorId)
+            );
+            if (cleaned.length !== df.allowedPartners.length) {
+              needsDbHealing = true;
+              return { ...df, allowedPartners: cleaned };
+            }
+          }
+          return df;
+        });
+
+        const healedDocuments = (data.documents || []).map((d: any) => {
+          if (d && Array.isArray(d.allowedPartners) && d.allowedPartners.length > 0) {
+            const cleaned = d.allowedPartners.filter(
+              (pid: string) => pid && pid.trim() !== '' && (!data.creatorId || pid !== data.creatorId)
+            );
+            if (cleaned.length !== d.allowedPartners.length) {
+              needsDbHealing = true;
+              return { ...d, allowedPartners: cleaned };
+            }
+          }
+          return d;
+        });
+
         if (needsDbHealing) {
           updateDoc(doc.ref, {
             pendingInvites: healedPendingInvites,
             members: healedMembers,
-            shelves: healedShelves
+            shelves: healedShelves,
+            documentFolders: healedDocumentFolders,
+            documents: healedDocuments
           }).catch(console.error);
         }
 
@@ -621,7 +649,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           ...data,
           pendingInvites: healedPendingInvites,
           members: healedMembers,
-          shelves: healedShelves
+          shelves: healedShelves,
+          documentFolders: healedDocumentFolders,
+          documents: healedDocuments
         } as Omit<Space, 'mediaItems'>;
       }).filter(s => {
         // Auto-purge expired spaces in pending_deletion whose expiration date has passed
@@ -2256,9 +2286,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   
   const addDocument = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>) => {
     const docId = `doc-${Date.now()}`;
+    const cleanAllowed = Array.isArray(doc.allowedPartners) ? doc.allowedPartners : [];
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      documents: [{ ...doc, id: docId, createdAt: new Date().toISOString() }, ...(space.documents || [])]
+      documents: [{ ...doc, allowedPartners: cleanAllowed, id: docId, createdAt: new Date().toISOString() }, ...(space.documents || [])]
     }));
     return docId;
   };
@@ -2266,11 +2297,13 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
   const addDocumentAndLinkToEvent = (spaceId: string, doc: Omit<SpaceDocument, 'id' | 'createdAt'>, eventId: string) => {
     const docId = `doc-${Date.now()}`;
     const cleanEventId = String(eventId || '').trim();
+    const cleanAllowed = Array.isArray(doc.allowedPartners) ? doc.allowedPartners : [];
     saveSpaceUpdate(spaceId, space => {
       const targetEvent = (space.shelfEvents || []).find(ev => ev.id === cleanEventId);
       const alignedShelfId = targetEvent?.shelfId || doc.shelfId;
       const newDoc: SpaceDocument = { 
         ...doc, 
+        allowedPartners: cleanAllowed,
         shelfId: alignedShelfId,
         id: docId, 
         createdAt: new Date().toISOString() 
@@ -2332,9 +2365,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   const addDocumentFolder = (spaceId: string, folder: Omit<DocumentFolder, 'id' | 'createdAt'>) => {
     const folderId = `folder-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+    const cleanAllowed = Array.isArray(folder.allowedPartners) ? folder.allowedPartners : [];
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      documentFolders: [...(space.documentFolders || []), { ...folder, id: folderId, createdAt: new Date().toISOString() }]
+      documentFolders: [...(space.documentFolders || []), { ...folder, allowedPartners: cleanAllowed, id: folderId, createdAt: new Date().toISOString() }]
     }));
     return folderId;
   };
@@ -2486,9 +2520,10 @@ const autoBalanceShares = (spaceId: string, performedBy: string) => {
 
   const addShelf = (spaceId: string, shelf: Omit<DocumentShelf, 'id' | 'createdAt'>) => {
     const shelfId = `shelf-${Date.now()}`;
+    const cleanAllowed = Array.isArray(shelf.allowedPartners) ? shelf.allowedPartners : [];
     saveSpaceUpdate(spaceId, space => ({
       ...space,
-      shelves: [...(space.shelves || []), { ...shelf, id: shelfId, createdAt: new Date().toISOString() }]
+      shelves: [...(space.shelves || []), { ...shelf, allowedPartners: cleanAllowed, id: shelfId, createdAt: new Date().toISOString() }]
     }));
     return shelfId;
   };

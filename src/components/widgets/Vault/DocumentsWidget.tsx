@@ -32,8 +32,9 @@ interface DocumentsWidgetProps {
 
 type ViewMode = 'feed' | 'grid' | 'circles';
 
-const getPrivacyInfo = (allowedPartners?: string[]) => {
-  const allowed = allowedPartners || [];
+const getPrivacyInfo = (allowedPartners?: string[], creatorId?: string) => {
+  const raw = allowedPartners || [];
+  const allowed = raw.filter(id => id && id.trim() !== '' && (!creatorId || id !== creatorId));
   if (allowed.includes('__only_me__')) {
     return { icon: '👤', text: 'רק לעצמי', bg: '#fef2f2', border: '#fca5a5', color: '#b91c1c' };
   }
@@ -244,14 +245,11 @@ export const DocumentsWidget = forwardRef<DocumentsWidgetRef, DocumentsWidgetPro
         defaultValue: '',
         onSave: (folderName: string) => {
           if (folderName.trim()) {
-            const allFolders: DocumentFolder[] = (space.documentFolders || []).filter((f: any) => !f.deletedAt && f.shelfId === targetShelf.id);
-            const parentFolder = currentFolderId ? allFolders.find(f => f.id === currentFolderId) : null;
-            const inheritedAllowed = parentFolder?.allowedPartners || targetShelf.allowedPartners || [];
             addDocumentFolder(space.id, {
               shelfId: targetShelf.id,
               parentId: currentFolderId || null,
               name: folderName.trim(),
-              allowedPartners: inheritedAllowed
+              allowedPartners: []
             });
           }
         }
@@ -733,7 +731,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           thumbnailUrl: finalThumbnailUrl,
           pages: finalPages,
           storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
-          fileSize: detectedSize
+          fileSize: detectedSize,
+          allowedPartners: []
         };
 
         // Save to real database - atomically link if effectiveTargetEventId is present
@@ -1100,7 +1099,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     if (!privacyTarget) return null;
         const activeMembers = (space.members || []).filter((m: any) => m.isActive !== false);
         const pendingInvites = (space.pendingInvites || []).filter((inv: any) => inv && inv.token);
-        const currentAllowed = privacyTarget.allowedPartners || [];
+        const rawAllowed = privacyTarget.allowedPartners || [];
+        const currentAllowed = rawAllowed.filter(pid => pid && pid.trim() !== '' && (!space.creatorId || pid !== space.creatorId));
         const isOnlyMe = currentAllowed.includes('__only_me__');
         const isManagerVault = currentAllowed.includes('__creator_vault_secret__');
         const isRestricted = !isOnlyMe && !isManagerVault && currentAllowed.length > 0;
@@ -1118,10 +1118,10 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
         const inheritanceNote =
           privacyTarget.type === 'shelf'
-            ? '💡 חוק ירושה ראשי: כל תיקייה או מסמך שנוצרים תחת מדף זה יירשו הרשאה זו. משתמש ללא גישה לא יראה את המדף כלל.'
+            ? '💡 ברירת מחדל: כל הנושאים, התיקיות והמסמכים נוצרים פתוחים לכולם (🌐). שינוי הרשאה כאן יחול על מדף זה בלבד.'
             : privacyTarget.type === 'folder'
-            ? '💡 חוק הירושה: כל מסמך שמועבר לתיקייה זו יקבל אוטומטית את אותה רמת פרטיות. משתמש ללא גישה לא יראה את התיקייה כלל.'
-            : '💡 פרטיות מסמך ספציפי: קובץ זה יוגבל נקודתית גם אם הוא נמצא בתוך תיקייה פתוחה (Zero-Trust מלא).';
+            ? '💡 ברירת מחדל: כל התיקיות והמסמכים נוצרים פתוחים לכולם (🌐). שינוי הרשאה כאן יחול על תיקייה זו בלבד.'
+            : '💡 ברירת מחדל: כל מסמך נוצר פתוח לכולם (🌐). שינוי הרשאה כאן יגביל את המסמך הספציפי בלבד.';
 
         const currentUserId = user?.id || myPartnerToken || 'me';
 
@@ -4741,7 +4741,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
       <div style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(248, 250, 252, 0.95)', backdropFilter: 'blur(10px)', padding: '0.75rem 1rem', borderBottom: '1px solid #e2e8f0', display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, color: '#1e293b', fontSize: '1.15rem', display: 'flex', flexDirection: 'column', lineHeight: '1', flexShrink: 0 }}>
           נושאים
-          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.48</span>
+          <span style={{ fontSize: '0.6rem', color: '#3b82f6', marginTop: '2px' }}>v3.4.49</span>
         </h2>
         <input 
           type="text" 

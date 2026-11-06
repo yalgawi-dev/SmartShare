@@ -418,57 +418,84 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '6rem' }}>
       
-      {/* 1. TOP KPI DASHBOARD */}
+      {/* 1. TOP EXECUTIVE SUMMARY CARD (תמונת מצב מנהלים מובחנת וממוסגרת) */}
       <div 
         className="card glass-panel"
         style={{
-          background: 'var(--bg-card)',
-          borderRadius: '20px',
+          background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+          borderRadius: '22px',
           padding: '1.25rem',
-          border: '1px solid var(--border-light)',
-          boxShadow: 'var(--shadow-sm)',
+          border: '2px solid #cbd5e1',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
           display: 'flex',
           flexDirection: 'column',
           gap: '1rem'
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'bold' }}>
-              היקף התחשבנות כולל
+        {/* EXECUTIVE SUMMARY HEADER BANNER */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.35rem' }}>📊</span>
+            <div>
+              <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#0f172a', fontWeight: 900 }}>
+                סיכום כללי – תמונת מצב וסגירת חשבון
+              </h2>
+              <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
+                שקלול כולל של כל ההוצאות וההעברות הנדרשות לאיזון מלא בין השותפים
+              </p>
+            </div>
+          </div>
+          <span style={{ fontSize: '0.68rem', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>
+            תמצית מנהלים
+          </span>
+        </div>
+
+        {/* 3 DISTINCT KPI SUMMARY BOXES */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
+          <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', fontWeight: 'bold' }}>
+              היקף סגירת חשבון
             </span>
-            <div style={{ fontSize: '1.85rem', fontWeight: '900', color: 'var(--primary)', lineHeight: '1.2' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)', lineHeight: '1.2', marginTop: '2px' }}>
               ₪{reportData.totalSettlementDebt.toLocaleString()}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <div style={{ textAlign: 'center', background: 'rgba(239, 68, 68, 0.08)', padding: '0.4rem 0.8rem', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
-              <span style={{ fontSize: '0.7rem', color: '#b91c1c', display: 'block', fontWeight: 'bold' }}>חייבים</span>
-              <span style={{ fontSize: '1.1rem', fontWeight: '800', color: '#dc2626' }}>{debtorsCount}</span>
+
+          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.7rem', color: '#b91c1c', display: 'block', fontWeight: 'bold' }}>
+              חייבים בתשלום
+            </span>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#dc2626', lineHeight: '1.2', marginTop: '2px' }}>
+              {debtorsCount} {debtorsCount === 1 ? 'שותף' : 'שותפים'}
             </div>
-            <div style={{ textAlign: 'center', background: 'rgba(16, 185, 129, 0.08)', padding: '0.4rem 0.8rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-              <span style={{ fontSize: '0.7rem', color: '#047857', display: 'block', fontWeight: 'bold' }}>זכאים</span>
-              <span style={{ fontSize: '1.1rem', fontWeight: '800', color: '#059669' }}>{creditorsCount}</span>
+          </div>
+
+          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+            <span style={{ fontSize: '0.7rem', color: '#047857', display: 'block', fontWeight: 'bold' }}>
+              זכאים להחזר
+            </span>
+            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', lineHeight: '1.2', marginTop: '2px' }}>
+              {creditorsCount} {creditorsCount === 1 ? 'שותף' : 'שותפים'}
             </div>
           </div>
         </div>
 
-        {/* SETTLEMENT INSTRUCTIONS BOX (מי משלם למי) */}
+        {/* SETTLEMENT INSTRUCTIONS BOX (הוראות סגירת חשבון) */}
         {reportData.settlements.length > 0 ? (
-          <div style={{ background: '#f8fafc', border: '1.5px solid #e2e8f0', borderRadius: '14px', padding: '0.85rem' }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          <div style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: '14px', padding: '0.85rem' }}>
+            <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
               <span>🤝</span>
-              <span>העברות נדרשות לסגירת חשבון בין השותפים:</span>
+              <span>העברות כספיות נדרשות לסגירת חובות בין השותפים:</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
               {reportData.settlements.map((s, idx) => (
                 <div 
                   key={idx}
                   style={{
-                    background: '#ffffff',
-                    border: '1px solid #cbd5e1',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
                     borderRadius: '10px',
-                    padding: '0.5rem 0.75rem',
+                    padding: '0.6rem 0.85rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -480,7 +507,7 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
                     <span style={{ color: '#64748b' }}>מעביר אל</span>
                     <span style={{ fontWeight: '800', color: '#047857' }}>{s.toName}</span>
                   </div>
-                  <div style={{ fontWeight: '900', color: '#2563eb', fontSize: '0.95rem' }}>
+                  <div style={{ fontWeight: '900', color: '#2563eb', fontSize: '1rem' }}>
                     ₪{s.amount.toLocaleString()}
                   </div>
                 </div>
@@ -488,176 +515,126 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
             </div>
           </div>
         ) : (
-          <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '0.65rem 0.85rem', color: '#065f46', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+          <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '0.75rem 0.9rem', color: '#065f46', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
             <span>✅</span>
             <span>כל החשבונות בין השותפים מאוזנים לחלוטין! אין חובות פתוחים.</span>
           </div>
         )}
       </div>
 
-      {/* 2. FILTER CONTROLS */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        {/* Status Filter Buttons */}
-        <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.2rem', scrollbarWidth: 'none' }}>
-          <button
-            type="button"
-            onClick={() => setStatusFilter('all')}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: '20px',
-              border: statusFilter === 'all' ? '1.5px solid var(--primary)' : '1px solid var(--border-light)',
-              background: statusFilter === 'all' ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-card)',
-              color: statusFilter === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
-              fontWeight: statusFilter === 'all' ? '800' : '600',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            הכל ({reportData.partners.length})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter('debtors')}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: '20px',
-              border: statusFilter === 'debtors' ? '1.5px solid #ef4444' : '1px solid var(--border-light)',
-              background: statusFilter === 'debtors' ? 'rgba(239, 68, 68, 0.1)' : 'var(--bg-card)',
-              color: statusFilter === 'debtors' ? '#b91c1c' : 'var(--text-secondary)',
-              fontWeight: statusFilter === 'debtors' ? '800' : '600',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            חייבים בתשלום ({debtorsCount})
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStatusFilter('creditors')}
-            style={{
-              padding: '0.4rem 0.85rem',
-              borderRadius: '20px',
-              border: statusFilter === 'creditors' ? '1.5px solid #10b981' : '1px solid var(--border-light)',
-              background: statusFilter === 'creditors' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-card)',
-              color: statusFilter === 'creditors' ? '#047857' : 'var(--text-secondary)',
-              fontWeight: statusFilter === 'creditors' ? '800' : '600',
-              fontSize: '0.8rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            זכאים להחזר ({creditorsCount})
-          </button>
+      {/* 2. SECTION HEADER & COMPACT FILTER CONTROLS (מחובר ישירות לפירוט למטה) */}
+      <div 
+        style={{
+          background: 'var(--bg-card, #ffffff)',
+          borderRadius: '16px',
+          border: '1px solid var(--border-light, #e2e8f0)',
+          padding: '0.85rem 1rem',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.75rem',
+          boxShadow: 'var(--shadow-sm)'
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '1.15rem' }}>📑</span>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                פירוט עסקאות וחשבונות לפי שותף
+              </h3>
+              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                לחץ על שותף להצגת פירוט כל העסקאות שלו שורה-אחר-שורה
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* Partner Specific Filter Pills */}
-        <div style={{ display: 'flex', gap: '0.4rem', overflowX: 'auto', paddingBottom: '0.2rem', scrollbarWidth: 'none' }}>
-          <button
-            type="button"
-            onClick={() => setSelectedPartnerId('all')}
-            style={{
-              padding: '0.35rem 0.75rem',
-              borderRadius: '12px',
-              border: 'none',
-              background: selectedPartnerId === 'all' ? 'var(--text-primary)' : 'rgba(0,0,0,0.05)',
-              color: selectedPartnerId === 'all' ? '#ffffff' : 'var(--text-secondary)',
-              fontWeight: 'bold',
-              fontSize: '0.78rem',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            כל השותפים
-          </button>
-          {reportData.partners.map(p => (
+        {/* Compact Controls: Segmented Status Toggle + Partner Dropdown Select */}
+        <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Segmented Status Filter */}
+          <div style={{ display: 'inline-flex', background: 'var(--bg-main, #f1f5f9)', padding: '3px', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
             <button
-              key={p.userId}
               type="button"
-              onClick={() => setSelectedPartnerId(p.userId)}
+              onClick={() => setStatusFilter('all')}
               style={{
-                padding: '0.35rem 0.75rem',
-                borderRadius: '12px',
+                padding: '0.35rem 0.65rem',
+                borderRadius: '9px',
                 border: 'none',
-                background: selectedPartnerId === p.userId ? 'var(--primary)' : 'rgba(0,0,0,0.05)',
-                color: selectedPartnerId === p.userId ? '#ffffff' : 'var(--text-secondary)',
-                fontWeight: 'bold',
+                background: statusFilter === 'all' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'all' ? 'var(--primary)' : 'var(--text-secondary)',
+                fontWeight: statusFilter === 'all' ? 800 : 600,
                 fontSize: '0.78rem',
                 cursor: 'pointer',
-                whiteSpace: 'nowrap'
+                boxShadow: statusFilter === 'all' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
               }}
             >
-              {p.name} ({p.sharePercent}%)
+              הכל ({reportData.partners.length})
             </button>
-          ))}
-        </div>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('debtors')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '9px',
+                border: 'none',
+                background: statusFilter === 'debtors' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'debtors' ? '#b91c1c' : 'var(--text-secondary)',
+                fontWeight: statusFilter === 'debtors' ? 800 : 600,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                boxShadow: statusFilter === 'debtors' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              חייבים ({debtorsCount})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('creditors')}
+              style={{
+                padding: '0.35rem 0.65rem',
+                borderRadius: '9px',
+                border: 'none',
+                background: statusFilter === 'creditors' ? '#ffffff' : 'transparent',
+                color: statusFilter === 'creditors' ? '#047857' : 'var(--text-secondary)',
+                fontWeight: statusFilter === 'creditors' ? 800 : 600,
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                boxShadow: statusFilter === 'creditors' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none'
+              }}
+            >
+              זכאים ({creditorsCount})
+            </button>
+          </div>
 
-        {/* Search Input for Transactions */}
-        <input
-          type="text"
-          placeholder="חפש לפי ספק או הוצאה..."
-          value={searchQuery}
-          onChange={e => setSearchQuery(e.target.value)}
-          style={{
-            padding: '0.65rem 0.85rem',
-            borderRadius: '12px',
-            border: '1px solid var(--border-light)',
-            background: 'var(--bg-card)',
-            color: 'var(--text-primary)',
-            fontSize: '0.85rem',
-            width: '100%',
-            boxSizing: 'border-box'
-          }}
-        />
+          {/* Dedicated Partner Select Dropdown (Handles 2 to 100+ partners cleanly without pill overflow) */}
+          <select
+            value={selectedPartnerId}
+            onChange={e => setSelectedPartnerId(e.target.value)}
+            style={{
+              flex: 1,
+              minWidth: '140px',
+              padding: '0.45rem 0.65rem',
+              borderRadius: '10px',
+              border: '1px solid var(--border-light)',
+              background: 'var(--bg-main, #f8fafc)',
+              color: 'var(--text-primary)',
+              fontSize: '0.8rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            <option value="all">כל השותפים ({reportData.partners.length})</option>
+            {reportData.partners.map(p => (
+              <option key={p.userId} value={p.userId}>
+                {p.name} ({p.sharePercent}%) {p.isDebtor ? '— חייב' : p.isCreditor ? '— זכאי' : '— מאוזן'}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* 3. PARTNER BREAKDOWN CARDS (GROUPED BY DEBTORS & CREDITORS) */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-        
-        {/* Quick Expand / Collapse All Controls */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 0.25rem' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-            פירוט התחשבנות אישי לפי שותף:
-          </span>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              type="button"
-              onClick={() => handleExpandAll(false)}
-              style={{
-                background: 'rgba(0,0,0,0.04)',
-                border: '1px solid var(--border-light)',
-                borderRadius: '8px',
-                padding: '0.25rem 0.6rem',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                color: 'var(--text-secondary)',
-                fontWeight: 600
-              }}
-            >
-              📁 קפל הכל
-            </button>
-            <button
-              type="button"
-              onClick={() => handleExpandAll(true)}
-              style={{
-                background: 'rgba(99,102,241,0.08)',
-                border: '1px solid rgba(99,102,241,0.2)',
-                borderRadius: '8px',
-                padding: '0.25rem 0.6rem',
-                fontSize: '0.75rem',
-                cursor: 'pointer',
-                color: 'var(--primary)',
-                fontWeight: 600
-              }}
-            >
-              📂 פתח הכל
-            </button>
-          </div>
-        </div>
-
         {/* SECTION 1: DEBTORS (חייבים בתשלום) */}
         {filteredDebtors.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

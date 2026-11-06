@@ -53,15 +53,15 @@ export function ReportsFloatingDock({
     <div
       style={{
         position: 'fixed',
-        bottom: '1.5rem',
+        bottom: '1.25rem',
         left: '50%',
         transform: 'translateX(-50%)',
-        width: '98%',
+        width: 'calc(100% - 1.25rem)',
         maxWidth: '460px',
         background: '#ffffff',
         border: '1px solid rgba(0,0,0,0.08)',
         borderRadius: '24px',
-        padding: '0.4rem 0.6rem',
+        padding: '0.35rem 0.45rem',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
@@ -72,8 +72,8 @@ export function ReportsFloatingDock({
         boxSizing: 'border-box'
       }}
     >
-      {/* 1. RIGHT SIDE: BACK BUTTON & REPORT TABS */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', flex: 1, justifyContent: 'space-evenly' }}>
+      {/* 1. RIGHT SIDE: BACK BUTTON & REPORT TABS (ORIGINAL UNCONGESTED 4 BUTTONS) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.15rem', flex: 1, justifyContent: 'space-evenly' }}>
         
         {/* BACK TO SPACE */}
         <Link
@@ -81,21 +81,22 @@ export function ReportsFloatingDock({
           style={{
             background: 'rgba(59, 130, 246, 0.08)',
             border: '1px solid #bfdbfe',
-            padding: '0.45rem 0.25rem',
-            borderRadius: '16px',
+            padding: '0.4rem 0.25rem',
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             justifyContent: 'center',
             textDecoration: 'none',
             color: '#1d4ed8',
-            minWidth: '40px',
+            flex: 1,
+            minWidth: 0,
             transition: 'all 0.2s',
             cursor: 'pointer'
           }}
           title="חזרה למרחב"
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>↩️</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>↩️</span>
           <span style={{ fontSize: '0.62rem', fontWeight: '800' }}>חזרה</span>
         </Link>
 
@@ -106,20 +107,21 @@ export function ReportsFloatingDock({
           style={{
             background: activeReport === 'date_range' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
             border: 'none',
-            padding: '0.45rem 0.2rem',
-            borderRadius: '16px',
+            padding: '0.4rem 0.2rem',
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '0.15rem',
             cursor: 'pointer',
             color: activeReport === 'date_range' ? '#2563eb' : '#64748b',
-            minWidth: '44px',
+            flex: 1,
+            minWidth: 0,
             transition: 'all 0.2s',
             boxShadow: activeReport === 'date_range' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
           }}
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📅</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>📅</span>
           <span style={{ fontSize: '0.62rem', fontWeight: activeReport === 'date_range' ? '800' : '600' }}>פירוט</span>
         </button>
 
@@ -130,46 +132,22 @@ export function ReportsFloatingDock({
           style={{
             background: activeReport === 'settlement' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
             border: 'none',
-            padding: '0.45rem 0.2rem',
-            borderRadius: '16px',
+            padding: '0.4rem 0.2rem',
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '0.15rem',
             cursor: 'pointer',
             color: activeReport === 'settlement' ? '#2563eb' : '#64748b',
-            minWidth: '48px',
+            flex: 1.15,
+            minWidth: 0,
             transition: 'all 0.2s',
             boxShadow: activeReport === 'settlement' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
           }}
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>🤝</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>🤝</span>
           <span style={{ fontSize: '0.62rem', fontWeight: activeReport === 'settlement' ? '800' : '600' }}>התחשבנות</span>
-        </button>
-
-        {/* TAB: AUDIT LOG (שינויים ופעולות) */}
-        <button
-          type="button"
-          onClick={() => onSwitchReport('audit')}
-          style={{
-            background: activeReport === 'audit' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-            border: 'none',
-            padding: '0.45rem 0.2rem',
-            borderRadius: '16px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.15rem',
-            cursor: 'pointer',
-            color: activeReport === 'audit' ? '#2563eb' : '#64748b',
-            minWidth: '40px',
-            transition: 'all 0.2s',
-            boxShadow: activeReport === 'audit' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
-          }}
-          title="יומן שינויים ופעולות"
-        >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📜</span>
-          <span style={{ fontSize: '0.62rem', fontWeight: activeReport === 'audit' ? '800' : '600' }}>שינויים</span>
         </button>
 
         {/* TAB 3: ANALYTICS & CHARTS */}
@@ -179,29 +157,30 @@ export function ReportsFloatingDock({
           style={{
             background: activeReport === 'analytics' ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
             border: 'none',
-            padding: '0.45rem 0.2rem',
-            borderRadius: '16px',
+            padding: '0.4rem 0.2rem',
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '0.15rem',
             cursor: 'pointer',
             color: activeReport === 'analytics' ? '#2563eb' : '#64748b',
-            minWidth: '44px',
+            flex: 1,
+            minWidth: 0,
             transition: 'all 0.2s',
             boxShadow: activeReport === 'analytics' ? '0 2px 8px rgba(59,130,246,0.1)' : 'none'
           }}
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📈</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>📈</span>
           <span style={{ fontSize: '0.62rem', fontWeight: activeReport === 'analytics' ? '800' : '600' }}>גרפים</span>
         </button>
 
       </div>
 
       {/* 2. SUBTLE VERTICAL DIVIDER */}
-      <div style={{ width: '1px', height: '26px', background: 'rgba(0,0,0,0.1)', margin: '0 0.3rem' }} />
+      <div style={{ width: '1px', height: '24px', background: 'rgba(0,0,0,0.1)', margin: '0 0.25rem' }} />
 
-      {/* 3. LEFT SIDE: REPORT ACTIONS */}
+      {/* 3. LEFT SIDE: REPORT ACTIONS (ZIP IS 100% VISIBLE & NEVER CLIPPED) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
         
         {/* FILTER BUTTON */}
@@ -211,20 +190,20 @@ export function ReportsFloatingDock({
           style={{
             background: 'transparent',
             border: 'none',
-            padding: '0.45rem 0.25rem',
-            borderRadius: '16px',
+            padding: '0.4rem 0.25rem',
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '0.15rem',
             cursor: 'pointer',
             color: '#475569',
-            minWidth: '38px',
+            minWidth: '32px',
             transition: 'all 0.2s'
           }}
           title="פתח סינון נתונים"
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>🔍</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>🔍</span>
           <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>סינון</span>
         </button>
 
@@ -235,33 +214,33 @@ export function ReportsFloatingDock({
           style={{
             background: 'transparent',
             border: 'none',
-            padding: '0.45rem 0.25rem',
-            borderRadius: '16px',
+            padding: '0.4rem 0.25rem',
+            borderRadius: '14px',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
             gap: '0.15rem',
             cursor: 'pointer',
             color: '#059669',
-            minWidth: '38px',
+            minWidth: '32px',
             transition: 'all 0.2s'
           }}
           title="ייצא נתונים לקובץ CSV"
         >
-          <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📊</span>
+          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>📊</span>
           <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>אקסל</span>
         </button>
 
-        {/* EXPORT ZIP (Available across all tabs when files exist) */}
+        {/* EXPORT ZIP (Available across all tabs when files exist - NEVER CLIPPED) */}
         {zipCount > 0 && (
           <button
             type="button"
             onClick={handleZipClick}
             style={{
-              background: 'transparent',
-              border: 'none',
-              padding: '0.45rem 0.25rem',
-              borderRadius: '16px',
+              background: 'rgba(217, 119, 6, 0.08)',
+              border: '1px solid rgba(217, 119, 6, 0.25)',
+              padding: '0.4rem 0.35rem',
+              borderRadius: '14px',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -273,8 +252,8 @@ export function ReportsFloatingDock({
             }}
             title="ייצוא כל הצרופות בקובץ ZIP"
           >
-            <span style={{ fontSize: '1.15rem', lineHeight: '1' }}>📦</span>
-            <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>ZIP ({zipCount})</span>
+            <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>📦</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: '800', whiteSpace: 'nowrap' }}>ZIP ({zipCount})</span>
           </button>
         )}
 

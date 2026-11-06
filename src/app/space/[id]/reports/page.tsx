@@ -77,7 +77,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
                 דוחות: {space.title}
               </h1>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.48
+                v3.4.49
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
@@ -85,6 +85,31 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
             </p>
           </div>
         </div>
+
+        {/* Audit Log Switcher Button (Preserves capability without dock congestion) */}
+        <button
+          type="button"
+          onClick={() => setActiveTab(activeTab === 'audit' ? 'date_range' : 'audit')}
+          style={{
+            background: activeTab === 'audit' ? 'var(--primary)' : 'rgba(59, 130, 246, 0.08)',
+            border: activeTab === 'audit' ? 'none' : '1px solid #bfdbfe',
+            color: activeTab === 'audit' ? '#ffffff' : '#1d4ed8',
+            padding: '0.4rem 0.75rem',
+            borderRadius: '12px',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            boxShadow: 'var(--shadow-sm)',
+            flexShrink: 0
+          }}
+          title="יומן שינויים ופעולות"
+        >
+          <span>📜</span>
+          <span style={{ whiteSpace: 'nowrap' }}>{activeTab === 'audit' ? 'חזרה לדוחות' : 'יומן שינויים'}</span>
+        </button>
       </div>
 
       {/* Active Tab Content */}
