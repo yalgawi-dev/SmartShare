@@ -776,6 +776,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           console.warn('Failed computing dHash', hashErr);
         }
 
+        const uploaderDisplayName = user?.realName || user?.nickname || (space.members || []).find((m: any) => m.userId === user?.id)?.name || 'שותף במרחב';
+
         const docPayload = {
           shelfId, 
           folderId: effectiveFolderId || null,
@@ -783,6 +785,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
           type, 
           title, 
           addedBy: user?.id || '', 
+          addedByName: uploaderDisplayName,
           thumbnailUrl: finalThumbnailUrl,
           pages: finalPages,
           storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
@@ -2820,6 +2823,16 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     <span style={{ fontSize: '0.64rem', color: '#64748b' }}>
                                       {doc.storageTarget === 'local' ? '📱 מקומי' : doc.storageTarget === 'gdrive' ? '📁 Drive' : '☁️ ענן'}
                                     </span>
+                                    {(() => {
+                                      const uploader = (space.members || []).find((m: any) => m.userId === doc.addedBy);
+                                      const uploaderName = doc.addedByName || uploader?.name || (doc.addedBy === user?.id ? 'אני' : (doc.addedBy === space.creatorId ? 'יוצר המרחב' : ''));
+                                      if (!uploaderName) return null;
+                                      return (
+                                        <span style={{ fontSize: '0.64rem', color: '#475569', background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }} title={`הועלה ע"י: ${uploaderName}`}>
+                                          👤 {uploaderName}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
                                 </div>
 
@@ -3451,11 +3464,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </div>
 
                                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b' }}>
-                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                                       {new Date(doc.createdAt).toLocaleDateString('he-IL')}
                                       <span style={{ fontSize: '0.6rem', background: effectiveSize ? '#f1f5f9' : '#fef2f2', color: effectiveSize ? '#334155' : '#ea580c', padding: '1px 4px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
                                         {effectiveSize ? `⚖️ ${formatFileSize(effectiveSize)}` : '⚖️ מודד...'}
                                       </span>
+                                      {(() => {
+                                        const uploader = (space.members || []).find((m: any) => m.userId === doc.addedBy);
+                                        const uploaderName = doc.addedByName || uploader?.name || (doc.addedBy === user?.id ? 'אני' : (doc.addedBy === space.creatorId ? 'יוצר המרחב' : ''));
+                                        if (!uploaderName) return null;
+                                        return (
+                                          <span style={{ fontSize: '0.6rem', color: '#475569', background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }} title={`הועלה ע"י: ${uploaderName}`}>
+                                            👤 {uploaderName}
+                                          </span>
+                                        );
+                                      })()}
                                       {doc.note && (
                                         <button
                                           type="button"

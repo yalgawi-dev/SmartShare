@@ -336,6 +336,22 @@ export default function UniversalViewerModal({
               ⚖️ {formatFileSize(currentDoc.fileSize)}
             </span>
           )}
+          {currentDoc.addedByName && (
+            <span
+              style={{
+                background: 'rgba(255, 255, 255, 0.15)',
+                color: '#f8fafc',
+                padding: '2px 8px',
+                borderRadius: '8px',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                border: '1px solid rgba(255, 255, 255, 0.2)'
+              }}
+              title="השותף שהעלה את המסמך"
+            >
+              👤 {currentDoc.addedByName}
+            </span>
+          )}
           {docs.length > 1 && (
             <span style={{ color: '#94a3b8', fontSize: '0.8rem', fontWeight: 600 }}>
               ({currentIndex + 1}/{docs.length})

@@ -172,6 +172,7 @@ export interface SpaceDocument {
   title: string;
   type: 'document' | 'image' | 'pdf';
   addedBy: string;
+  addedByName?: string;
   createdAt: string;
   thumbnailUrl?: string;
   pages?: string[];
