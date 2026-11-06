@@ -56,9 +56,9 @@ export async function downloadCSV(filename: string, csvContent: string): Promise
 }
 
 /**
- * Generates formatted CSV content for invoices conforming to the flagship standard:
- * Columns: 1: ספק, 2: משלם, 3: תאריך, 4: סכום, 5: קטגוריה, 6: מסמך מצורף, 7: סטטוס
- * Followed by an empty line and a prominent total summary row.
+ * Generates formatted CSV content for invoices conforming to user-specified order:
+ * Columns: 1: משלם, 2: סכום, 3: ספק, 4: תאריך, 5: קטגוריה, 6: מסמך מצורף, 7: סטטוס
+ * Followed by an empty line, prominent framed summary row with clean 'סה"כ כולל:' and numeric sum.
  */
 export function generateInvoicesCSV(invoices: any[], spaceTitle: string, rangeTitle: string = 'all'): string {
   const escapeCSV = (val: any) => {
@@ -70,7 +70,8 @@ export function generateInvoicesCSV(invoices: any[], spaceTitle: string, rangeTi
     return str;
   };
 
-  const headers = ['ספק', 'משלם', 'תאריך', 'סכום', 'קטגוריה', 'מסמך מצורף', 'סטטוס'];
+  // 1: משלם, 2: סכום, 3: ספק, 4: תאריך, 5: קטגוריה, 6: מסמך מצורף, 7: סטטוס
+  const headers = ['משלם', 'סכום', 'ספק', 'תאריך', 'קטגוריה', 'מסמך מצורף', 'סטטוס'];
 
   const formatStatus = (status: string) => {
     if (status === 'approved') return 'מאושר';
@@ -86,10 +87,10 @@ export function generateInvoicesCSV(invoices: any[], spaceTitle: string, rangeTi
   };
 
   const rows = (invoices || []).map(inv => [
-    inv.supplier || '',
     inv.payerName || '',
-    formatDate(inv.date),
     Number(inv.amount || 0),
+    inv.supplier || '',
+    formatDate(inv.date),
     inv.category || 'כללי',
     inv.hasAttachment ? 'כן' : 'לא',
     formatStatus(inv.status)
@@ -100,18 +101,27 @@ export function generateInvoicesCSV(invoices: any[], spaceTitle: string, rangeTi
   // Empty separator row
   rows.push(['', '', '', '', '', '', '']);
 
+  // Distinct visual framing line (simulating border / neon highlight in spreadsheets)
+  const borderLine = ['════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════', '════════════════'];
+  rows.push(borderLine);
+
   // Prominent bold summary row:
-  // - Column 1 (ספק): Formatted total summary title and expense count
-  // - Column 4 (סכום): Numeric sum totalAmount positioned directly under the 'סכום' column for Excel calculations
+  // - Column 1 (משלם): 'סה"כ כולל:' (Clean text without any garbled numbers or trailing 0)
+  // - Column 2 (סכום): totalAmount (Numeric sum positioned directly under the 'סכום' column for calculations)
+  // - Column 3 (ספק): Formatted currency display
+  // - Column 4 (תאריך): Expense count
   rows.push([
-    `סה"כ סכום כולל: ₪${totalAmount.toLocaleString('he-IL')} (${invoices.length} הוצאות)`,
-    '',
-    '',
+    'סה"כ כולל:',
     totalAmount,
+    `₪${totalAmount.toLocaleString('he-IL')}`,
+    `סה"כ הוצאות: ${invoices.length}`,
     '',
     '',
     ''
   ]);
+
+  // Bottom framing line
+  rows.push(borderLine);
 
   return '\uFEFF' + [headers, ...rows].map(r => r.map(c => escapeCSV(c)).join(',')).join('\n');
 }

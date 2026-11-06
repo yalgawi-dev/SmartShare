@@ -136,13 +136,6 @@ export function AuditLogReport({ space }: AuditLogReportProps) {
     await downloadCSV(`audit_log_${space?.title || 'space'}_${new Date().toISOString().slice(0, 10)}.csv`, csvContent);
   };
 
-  // Listen to external dock export event
-  useEffect(() => {
-    const handleExport = () => exportAuditCSV();
-    window.addEventListener('smartshare:reports_export_csv', handleExport);
-    return () => window.removeEventListener('smartshare:reports_export_csv', handleExport);
-  }, [filteredLogs]);
-
   const editsCount = rawLogs.filter(l => l.actionType === 'EDIT_INVOICE').length;
   const deletionsCount = rawLogs.filter(l => l.actionType === 'DELETE_INVOICE').length;
   const partnerActionsCount = rawLogs.filter(l => ['SHARES_UPDATED', 'MEMBER_LEFT', 'MEMBER_REMOVED'].includes(l.actionType)).length;

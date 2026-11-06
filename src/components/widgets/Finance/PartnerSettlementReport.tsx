@@ -32,20 +32,15 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
     }
   }, [selectedPartnerId]);
 
-  // Listen to external dock export & filter events
+  // Listen to external dock filter events
   useEffect(() => {
-    const handleExport = () => {
-      exportSettlementCSV();
-    };
     const handleFilter = () => {
       setShowFilterModal(true);
     };
 
-    window.addEventListener('smartshare:reports_export_csv', handleExport);
     window.addEventListener('smartshare:reports_open_filter', handleFilter);
 
     return () => {
-      window.removeEventListener('smartshare:reports_export_csv', handleExport);
       window.removeEventListener('smartshare:reports_open_filter', handleFilter);
     };
   }, [reportData, selectedPartnerId, statusFilter, searchQuery]);

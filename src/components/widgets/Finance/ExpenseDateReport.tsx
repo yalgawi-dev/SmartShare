@@ -446,10 +446,10 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.88rem' }}>
                         <thead>
                           <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                            <th style={{ padding: '0.75rem 1rem' }}>ספק</th>
                             <th style={{ padding: '0.75rem 1rem' }}>משלם</th>
-                            <th style={{ padding: '0.75rem 1rem' }}>תאריך</th>
                             <th style={{ padding: '0.75rem 1rem' }}>סכום</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>ספק</th>
+                            <th style={{ padding: '0.75rem 1rem' }}>תאריך</th>
                             <th style={{ padding: '0.75rem 1rem' }}>קטגוריה</th>
                             <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>מסמך</th>
                           </tr>
@@ -464,17 +464,17 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                                 key={inv.id || idx}
                                 style={{ borderBottom: '1px solid var(--border-light)', background: 'var(--bg-card)' }}
                               >
-                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                  {inv.supplier || 'ספק כללי'}
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)' }}>
+                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)', fontWeight: 'bold' }}>
                                   {inv.payerName || '---'}
                                 </td>
-                                <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', fontWeight: '500' }}>
-                                  {displayDate}
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--primary)', whiteSpace: 'nowrap' }}>
                                   ₪{(Number(inv.amount) || 0).toLocaleString()}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)' }}>
+                                  {inv.supplier || 'ספק כללי'}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', fontWeight: '500', color: 'var(--text-secondary)' }}>
+                                  {displayDate}
                                 </td>
                                 <td style={{ padding: '0.75rem 1rem' }}>
                                   <span style={{
@@ -521,13 +521,15 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                         <tfoot>
                           <tr style={{ background: 'rgba(99, 102, 241, 0.06)', borderTop: '2px solid var(--border-light)', fontWeight: 'bold' }}>
                             <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)' }}>
-                              סה"כ לחודש זה ({group.invoices.length} הוצאות):
+                              סה"כ לחודש זה:
                             </td>
-                            <td style={{ padding: '0.85rem 1rem' }}></td>
-                            <td style={{ padding: '0.85rem 1rem' }}></td>
                             <td style={{ padding: '0.85rem 1rem', color: 'var(--primary)', fontSize: '1rem', whiteSpace: 'nowrap' }}>
                               ₪{group.totalAmount.toLocaleString()}
                             </td>
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                              ({group.invoices.length} הוצאות)
+                            </td>
+                            <td style={{ padding: '0.85rem 1rem' }}></td>
                             <td style={{ padding: '0.85rem 1rem' }}></td>
                             <td style={{ padding: '0.85rem 1rem' }}></td>
                           </tr>
