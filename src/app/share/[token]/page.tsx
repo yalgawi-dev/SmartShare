@@ -517,6 +517,81 @@ export default function PublicSharePage({ params }: SharePageProps) {
               </div>
             </div>
           )}
+
+          {/* Viral Conversion / Invite Guest to SmartShare */}
+          <div style={{
+            marginTop: '2rem',
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+            borderRadius: '24px',
+            padding: '1.75rem 1.5rem',
+            color: '#ffffff',
+            textAlign: 'center',
+            boxShadow: '0 10px 30px rgba(15, 23, 42, 0.15)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '0.85rem'
+          }}>
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '16px',
+              background: 'rgba(255,255,255,0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.6rem'
+            }}>
+              🚀
+            </div>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#ffffff' }}>
+                אהבת את שיתוף המסמכים?
+              </h3>
+              <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.82rem', color: '#cbd5e1', maxWidth: '420px', lineHeight: 1.5 }}>
+                צור מרחב אישי או עסקי בחינם ב-SmartShare: שיתוף קבצים מאובטח, סורק חכם באיכות מלאה, וניהול הוצאות עם שותפים.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '380px', marginTop: '0.25rem' }}>
+              <Link
+                href="/"
+                style={{
+                  flex: 1,
+                  minWidth: '150px',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '14px',
+                  background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  textAlign: 'center',
+                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+                }}
+              >
+                הצטרף חינם ל-SmartShare ✨
+              </Link>
+
+              <Link
+                href={`/space/${shareData.spaceId}`}
+                style={{
+                  flex: 1,
+                  minWidth: '150px',
+                  padding: '0.75rem 1.25rem',
+                  borderRadius: '14px',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  fontWeight: 800,
+                  fontSize: '0.88rem',
+                  textAlign: 'center'
+                }}
+              >
+                כניסה כחבר מרחב 🔑
+              </Link>
+            </div>
+          </div>
         </main>
 
         {/* Universal Viewer Modal */}

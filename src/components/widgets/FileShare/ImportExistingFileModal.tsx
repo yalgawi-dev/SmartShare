@@ -15,6 +15,7 @@ interface CandidateFile {
   name: string;
   url: string;
   pages?: string[];
+  thumbnailUrl?: string;
   fileType: 'pdf' | 'image' | 'sheet' | 'doc' | 'other';
   size?: number;
   createdAt: number;
@@ -43,31 +44,32 @@ export function ImportExistingFileModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [previewState, setPreviewState] = useState<{ docs: ViewerDocument[]; index: number } | null>(null);
 
-  // Check if current user is an authorized member of a space (Rule 20 / Strict Access Control)
+  // Check if current user is strictly an authorized creator/member of a space (Rule 20 / Strict Access Control)
   const isAuthorizedMemberOfSpace = useMemo(() => {
     return (s: any): boolean => {
       if (!s || s.status === 'pending_deletion') return false;
+      if (!user?.id) return false;
 
       // 1. Direct creator
-      if (user?.id && s.creatorId && user.id === s.creatorId) return true;
-      if (user?.spaceKeys?.[s.id]?.role === 'creator') return true;
+      if (s.creatorId && user.id === s.creatorId) return true;
+      if (user.spaceKeys?.[s.id]?.role === 'creator') return true;
 
-      // 2. Verified role in space (creator, admin, partner)
-      const role = getRoleForSpace(s.id);
-      if (role === 'creator' || role === 'admin' || role === 'partner') {
-        // Ensure not marked as removed/inactive in members list
-        if (Array.isArray(s.members) && user?.id) {
-          const m = s.members.find((mem: any) => mem.userId === user.id);
-          if (m && (m.status === 'removed' || m.isActive === false)) {
-            return false;
-          }
+      // 2. Explicit active member in space.members
+      if (Array.isArray(s.members)) {
+        const m = s.members.find((mem: any) => mem.userId === user.id);
+        if (m && m.status !== 'removed' && m.isActive !== false) {
+          return true;
         }
+      }
+
+      // 3. Authenticated partner key
+      if (user.spaceKeys?.[s.id] && (user.spaceKeys[s.id].role === 'creator' || user.spaceKeys[s.id].role === 'partner')) {
         return true;
       }
 
       return false;
     };
-  }, [user?.id, user?.spaceKeys, getRoleForSpace]);
+  }, [user?.id, user?.spaceKeys]);
 
   // List of other spaces the user is strictly authorized to access
   const authorizedOtherSpaces = useMemo(() => {
@@ -104,6 +106,9 @@ export function ImportExistingFileModal({
               }
             }
 
+            const isPdf = f.fileType === 'pdf' || f.url.toLowerCase().endsWith('.pdf');
+            const thumb = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (!isPdf ? f.url : undefined));
+
             result.push({
               id: `fileshare_${s.id}_${f.id}`,
               sourceSpaceId: s.id,
@@ -112,7 +117,8 @@ export function ImportExistingFileModal({
               name: f.name || 'קובץ שיתוף',
               url: f.url,
               pages: f.pages || (f.url ? [f.url] : []),
-              fileType: f.fileType || (f.url.endsWith('.pdf') ? 'pdf' : 'image'),
+              thumbnailUrl: thumb,
+              fileType: f.fileType || (isPdf ? 'pdf' : 'image'),
               size: f.size,
               createdAt: f.createdAt || Date.now()
             });
@@ -136,6 +142,9 @@ export function ImportExistingFileModal({
             });
             if (!hasAccess) return;
 
+            const isPdf = d.type === 'pdf' || d.url.toLowerCase().includes('.pdf');
+            const thumb = d.thumbnailUrl || (Array.isArray(d.pages) && d.pages.length > 0 ? d.pages[0] : (!isPdf ? d.url : undefined));
+
             result.push({
               id: `vault_${s.id}_${d.id}`,
               sourceSpaceId: s.id,
@@ -144,7 +153,8 @@ export function ImportExistingFileModal({
               name: d.name || d.title || 'מסמך מחסן',
               url: d.url,
               pages: d.pages || (d.url ? [d.url] : []),
-              fileType: d.url.includes('.pdf') ? 'pdf' : 'image',
+              thumbnailUrl: thumb,
+              fileType: isPdf ? 'pdf' : 'image',
               size: d.fileSize || d.size,
               createdAt: typeof d.createdAt === 'string' ? new Date(d.createdAt).getTime() : (d.createdAt || Date.now())
             });
@@ -171,6 +181,8 @@ export function ImportExistingFileModal({
               const expenseTitle = e.supplier 
                 ? `חשבונית: ${e.supplier}${e.amount ? ` (${e.amount} ₪)` : ''}`
                 : (e.note || 'קבלה מצורפת');
+              const isPdf = fileUrl.toLowerCase().includes('.pdf');
+              const thumb = e.thumbnailUrl || (Array.isArray(e.pages) && e.pages.length > 0 ? e.pages[0] : (!isPdf ? fileUrl : undefined));
 
               result.push({
                 id: `expense_${s.id}_${e.id}`,
@@ -180,7 +192,8 @@ export function ImportExistingFileModal({
                 name: expenseTitle,
                 url: fileUrl,
                 pages: e.pages || [fileUrl],
-                fileType: fileUrl.includes('.pdf') ? 'pdf' : 'image',
+                thumbnailUrl: thumb,
+                fileType: isPdf ? 'pdf' : 'image',
                 createdAt: typeof e.date === 'string' ? new Date(e.date).getTime() : Date.now()
               });
             }
@@ -366,12 +379,12 @@ export function ImportExistingFileModal({
                 color: 'var(--text-primary)'
               }}
             >
-              <option value="all">🌐 כל המרחבים שלי ({otherSpacesFiles.length} קבצים)</option>
+              <option value="all">🌐 כל המרחבים שלי ({authorizedOtherSpaces.length} מרחבים • {otherSpacesFiles.length} קבצים)</option>
               {authorizedOtherSpaces.map(s => {
                 const count = otherSpacesFiles.filter(f => f.sourceSpaceId === s.id).length;
                 return (
                   <option key={s.id} value={s.id}>
-                    {s.icon || '📁'} {s.title} ({count})
+                    {s.icon || '📁'} {s.title} ({count} קבצים)
                   </option>
                 );
               })}
@@ -430,93 +443,157 @@ export function ImportExistingFileModal({
                   background: 'var(--bg-card, #ffffff)',
                   border: '1px solid var(--border-light, #e2e8f0)',
                   borderRadius: '16px',
-                  padding: '0.75rem 0.9rem',
+                  padding: '0.85rem 1rem',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
+                  flexDirection: 'column',
+                  gap: '0.65rem',
                   boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                   transition: 'all 0.2s'
                 }}
               >
-                {/* File Info */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
-                  <div style={{
-                    width: '38px',
-                    height: '38px',
-                    borderRadius: '10px',
-                    background: 'rgba(99, 102, 241, 0.08)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '1.25rem',
-                    flexShrink: 0
-                  }}>
-                    {getItemIcon(candidate)}
+                {/* Top Row: Thumbnail + Title & Metadata */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%' }}>
+                  {/* Real Image Thumbnail or PDF Badge */}
+                  <div
+                    onClick={() => handleOpenPreview(candidate)}
+                    style={{
+                      width: '46px',
+                      height: '46px',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      flexShrink: 0,
+                      background: '#f1f5f9',
+                      border: '1px solid #e2e8f0',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                      position: 'relative'
+                    }}
+                    title="לחץ לתצוגה מקדימה מלאה"
+                  >
+                    {candidate.thumbnailUrl ? (
+                      <img
+                        src={candidate.thumbnailUrl}
+                        alt={candidate.name}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span style={{ fontSize: '1.4rem' }}>{getItemIcon(candidate)}</span>
+                    )}
+                    {candidate.pages && candidate.pages.length > 1 && (
+                      <span style={{
+                        position: 'absolute',
+                        bottom: '2px',
+                        right: '2px',
+                        background: 'rgba(15,23,42,0.85)',
+                        color: 'white',
+                        fontSize: '0.55rem',
+                        padding: '1px 4px',
+                        borderRadius: '4px',
+                        fontWeight: 800
+                      }}>
+                        {candidate.pages.length}p
+                      </span>
+                    )}
                   </div>
 
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{
-                      fontWeight: 800,
-                      fontSize: '0.88rem',
-                      color: 'var(--text-primary)',
-                      wordBreak: 'break-word',
-                      lineHeight: 1.25
-                    }}>
+                  {/* Title & Metadata */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: '0.92rem',
+                        color: 'var(--text-primary)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        lineHeight: 1.3
+                      }}
+                      title={candidate.name}
+                    >
                       {candidate.name}
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '3px', fontSize: '0.72rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
-                      <span style={{ color: 'var(--primary)', fontWeight: 700 }}>{candidate.sourceSpaceTitle}</span>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      marginTop: '4px',
+                      fontSize: '0.74rem',
+                      color: 'var(--text-secondary)',
+                      flexWrap: 'wrap'
+                    }}>
+                      <span style={{
+                        background: '#e0e7ff',
+                        color: '#4338ca',
+                        padding: '1px 6px',
+                        borderRadius: '6px',
+                        fontWeight: 700
+                      }}>
+                        {candidate.sourceSpaceTitle}
+                      </span>
                       <span>• {getSourceTypeHeb(candidate.sourceType)}</span>
                       {candidate.size ? <span>• {formatFileSize(candidate.size)}</span> : null}
-                      {candidate.pages && candidate.pages.length > 1 ? <span>• {candidate.pages.length} עמ׳</span> : null}
+                      {candidate.pages && candidate.pages.length > 1 ? <span>• {candidate.pages.length} עמודים</span> : null}
                     </div>
                   </div>
                 </div>
 
-                {/* Actions (Preview with 30x Zoom Engine & Import Button) */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }}>
+                {/* Bottom Row: Actions Bar */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  width: '100%',
+                  paddingTop: '0.45rem',
+                  borderTop: '1px solid rgba(226, 232, 240, 0.6)'
+                }}>
                   <button
                     type="button"
                     onClick={() => handleOpenPreview(candidate)}
                     style={{
-                      padding: '0.4rem 0.65rem',
+                      flex: 1,
+                      padding: '0.45rem 0.6rem',
                       borderRadius: '10px',
-                      border: '1px solid var(--border-light)',
+                      border: '1px solid var(--border-light, #cbd5e1)',
                       background: 'var(--bg-main, #f8fafc)',
                       color: 'var(--text-primary)',
-                      fontSize: '0.76rem',
+                      fontSize: '0.78rem',
                       fontWeight: 700,
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.25rem'
+                      justifyContent: 'center',
+                      gap: '0.35rem'
                     }}
-                    title="תצוגה מקדימה מלאה (זום עד פי 30, סיבוב ומעבר עמודים)"
                   >
-                    <span>👁️</span> תצוגה
+                    <span>👁️</span> תצוגה מקדימה (זום פי 30)
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleSelectFile(candidate)}
                     style={{
-                      padding: '0.4rem 0.75rem',
+                      flex: 1,
+                      padding: '0.45rem 0.75rem',
                       borderRadius: '10px',
                       border: 'none',
-                      background: 'var(--primary)',
+                      background: 'var(--primary, #4f46e5)',
                       color: '#ffffff',
-                      fontSize: '0.78rem',
+                      fontSize: '0.8rem',
                       fontWeight: 800,
                       cursor: 'pointer',
                       display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '0.3rem',
-                      boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)'
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      boxShadow: '0 2px 6px rgba(79, 70, 229, 0.25)'
                     }}
                   >
-                    <span>📥</span> ייבא לכאן
+                    <span>📥</span> ייבא למרחב
                   </button>
                 </div>
               </div>
