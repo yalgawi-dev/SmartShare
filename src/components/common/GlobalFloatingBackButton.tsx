@@ -70,15 +70,15 @@ export default function GlobalFloatingBackButton() {
 
   if (!mounted || isPreviewOpen) return null;
 
-  // Hide on the root dashboard ('/') and on Space Main Page (where Back is integrated inside FloatingActionBar dock)
-  if (!pathname || pathname === '/' || pathname.includes('/reports')) return null;
+  // Hide on the root dashboard ('/'), on reports, and on admin control panel
+  if (!pathname || pathname === '/' || pathname.includes('/reports') || pathname.startsWith('/admin')) return null;
 
   const isSpaceSubPage = /^\/space\/[^/]+\/(settings|reports|features)/.test(pathname);
   const isSpaceMainPage = /^\/space\/[^/]+$/.test(pathname) && pathname !== '/space/new';
   
   if (isSpaceMainPage) return null;
 
-  const hasBottomBar = pathname === '/settings' || pathname === '/admin/users';
+  const hasBottomBar = pathname === '/settings';
 
   const getStepBackLabel = (): string => {
     return 'חזרה';
