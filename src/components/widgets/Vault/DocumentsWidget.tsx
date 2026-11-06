@@ -2227,8 +2227,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   </button>
                 </div>
 
-                {/* Bottom Row: 3 Symmetrical, Balanced Action Buttons (Move, Share, Delete) */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr 1fr', gap: '0.5rem', alignItems: 'center' }}>
+                {/* Bottom Row: Symmetrical Action Buttons (Merge & Edit, Move, Share, Delete) */}
+                <div style={{ display: 'grid', gridTemplateColumns: selectedDocIds.length > 1 ? '1.4fr 1.1fr 0.9fr 0.9fr' : '1.2fr 1fr 1fr', gap: '0.45rem', alignItems: 'center' }}>
+                  {selectedDocIds.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetDocs = documents.filter(d => selectedDocIds.includes(d.id));
+                        if (targetDocs.length > 0 && typeof window !== 'undefined') {
+                          setIsMultiSelect(false);
+                          setSelectedDocIds([]);
+                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+                            detail: { docs: targetDocs }
+                          }));
+                        }
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.55rem 0.4rem',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.3rem',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 8px rgba(99,102,241,0.35)'
+                      }}
+                      title="עריכה, יישור ואיחוד המסמכים הנבחרים בסורק"
+                    >
+                      <span>📜</span> איחוד ועריכה
+                    </button>
+                  )}
+
                   <button
                     type="button"
                     disabled={selectedDocIds.length === 0}
@@ -2251,7 +2286,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                     }}
                     title="העבר מסמכים נבחרים לתיקייה"
                   >
-                    <span>📁</span> העבר לתיקייה
+                    <span>📁</span> תיקייה
                   </button>
 
                   <button
@@ -3691,7 +3726,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                 }}
                                                 style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
                                               >
-                                                📷 הוסף עמודים בסורק
+                                                ✂️ ערוך, פלטר והוסף בסורק
                                               </button>
                                               <button
                                                 type="button"

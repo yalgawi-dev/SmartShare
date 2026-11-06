@@ -75,7 +75,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument, deleteDocument } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -163,7 +163,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }, [activeChatId, space?.features]);
 
   const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string } | null>(null);
-  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[] } | null>(null);
+  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[]; sourceDocIds?: string[] } | null>(null);
   const [isScannerBannerDismissed, setIsScannerBannerDismissed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('hide_scanner_banner_' + id) === '1';
@@ -184,8 +184,29 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     window.addEventListener('smartshare:open_scanner_event', handleScannerForEvent);
 
     const handleScannerForDoc = (e: any) => {
-      const { doc } = e.detail || {};
-      if (doc) {
+      const { doc, docs } = e.detail || {};
+      if (Array.isArray(docs) && docs.length > 0) {
+        // Multi-document merge & reverse-engineering into scanner
+        const allPages: string[] = [];
+        docs.forEach((d: any) => {
+          if (Array.isArray(d.pages) && d.pages.length > 0) {
+            allPages.push(...d.pages);
+          } else if (d.url) {
+            allPages.push(d.url);
+          }
+        });
+        const primaryDoc = docs[0];
+        setEditingDocumentInfo({
+          docId: primaryDoc.id,
+          title: primaryDoc.title || 'מסמך מאוחד',
+          pages: allPages,
+          sourceDocIds: docs.map((d: any) => d.id)
+        });
+        setPendingEventScan(null);
+        setScannerMode('camera');
+        setScannerCategory('document');
+        setIsScannerOpen(true);
+      } else if (doc) {
         const docPages = (doc.pages && doc.pages.length > 0) ? doc.pages : (doc.url ? [doc.url] : []);
         setEditingDocumentInfo({
           docId: doc.id,
@@ -1292,7 +1313,20 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                       thumbnailUrl: updatedPages[0]
                     });
                   }
-                  setToastMessage(`המגילה עודכנה בהצלחה! מכילה כעת ${updatedPages.length} עמודים.`);
+
+                  // If this was a multi-document merge, clean up the other source documents
+                  if (Array.isArray(currentEditing.sourceDocIds) && currentEditing.sourceDocIds.length > 1 && deleteDocument) {
+                    const secondaryIds = currentEditing.sourceDocIds.filter(id => id !== currentEditing.docId);
+                    secondaryIds.forEach(secId => {
+                      try {
+                        deleteDocument(space.id, secId);
+                      } catch (err) {
+                        console.error('Failed to clean up merged doc:', secId, err);
+                      }
+                    });
+                  }
+
+                  setToastMessage(`המסמך עודכן בהצלחה! מכיל כעת ${updatedPages.length} עמודים.`);
                   setTimeout(() => setToastMessage(null), 3500);
                   return;
                 }
