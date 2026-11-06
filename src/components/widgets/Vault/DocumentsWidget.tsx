@@ -1095,6 +1095,341 @@ const handleDeleteDocument = (docId: string, title?: string) => {
     );
   };
 
+        // Shared Privacy & Permissions Modal (Single Source of Truth for both inner shelf view and outer shelves gallery)
+  const renderPrivacyModal = () => {
+    if (!privacyTarget) return null;
+        const activeMembers = (space.members || []).filter((m: any) => m.isActive !== false);
+        const pendingInvites = (space.pendingInvites || []).filter((inv: any) => inv && inv.token);
+        const currentAllowed = privacyTarget.allowedPartners || [];
+        const isOnlyMe = currentAllowed.includes('__only_me__');
+        const isManagerVault = currentAllowed.includes('__creator_vault_secret__');
+        const isRestricted = !isOnlyMe && !isManagerVault && currentAllowed.length > 0;
+        const isPublic = !isOnlyMe && !isManagerVault && currentAllowed.length === 0;
+
+        const targetTitle =
+          privacyTarget.type === 'shelf' ? 'פרטיות והרשאות מדף ראשי' :
+          privacyTarget.type === 'folder' ? 'פרטיות והרשאות תיקייה' :
+          'פרטיות והרשאות מסמך';
+
+        const targetIcon =
+          privacyTarget.type === 'shelf' ? '🗂️' :
+          privacyTarget.type === 'folder' ? '📁' :
+          '📄';
+
+        const inheritanceNote =
+          privacyTarget.type === 'shelf'
+            ? '💡 חוק ירושה ראשי: כל תיקייה או מסמך שנוצרים תחת מדף זה יירשו הרשאה זו. משתמש ללא גישה לא יראה את המדף כלל.'
+            : privacyTarget.type === 'folder'
+            ? '💡 חוק הירושה: כל מסמך שמועבר לתיקייה זו יקבל אוטומטית את אותה רמת פרטיות. משתמש ללא גישה לא יראה את התיקייה כלל.'
+            : '💡 פרטיות מסמך ספציפי: קובץ זה יוגבל נקודתית גם אם הוא נמצא בתוך תיקייה פתוחה (Zero-Trust מלא).';
+
+        const currentUserId = user?.id || myPartnerToken || 'me';
+
+        return (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', zIndex: 100060, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '1.25rem', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.35)', direction: 'rtl', border: '1px solid #e2e8f0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800 }}>{targetTitle}</h3>
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '320px' }}>
+                    {targetIcon} {privacyTarget.name}
+                  </div>
+                </div>
+                <button onClick={() => setPrivacyTarget(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
+
+              <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '0.85rem', background: '#f8fafc', padding: '0.65rem', borderRadius: '12px', border: '1px solid #e2e8f0', lineHeight: 1.4 }}>
+                {inheritanceNote}
+              </div>
+
+              {/* 4 Mode Selection Tiles */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem', marginBottom: '1rem' }}>
+                {/* 1. Public */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSavePrivacy([]);
+                    showFeedbackToast('הוגדר כפתוח לכל חברי המרחב');
+                  }}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '12px',
+                    border: isPublic ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: isPublic ? '#eff6ff' : '#ffffff',
+                    color: isPublic ? '#1d4ed8' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>🌐</span>
+                  <span>פתוח לכולם</span>
+                </button>
+
+                {/* 2. Restricted Partners */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const fallbackTarget = activeMembers[0]?.userId || 'partner';
+                    handleSavePrivacy([fallbackTarget]);
+                    showFeedbackToast('הוגדרה גישה מוגבלת לשותפים ספציפיים');
+                  }}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '12px',
+                    border: isRestricted ? '2px solid #2563eb' : '1px solid #cbd5e1',
+                    background: isRestricted ? '#eff6ff' : '#ffffff',
+                    color: isRestricted ? '#1d4ed8' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>🔒</span>
+                  <span>שותפים</span>
+                </button>
+
+                {/* 3. Managers Only */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSavePrivacy(['__creator_vault_secret__']);
+                    showFeedbackToast('הוגדר לכספת מנהלים ויוצר בלבד!');
+                  }}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '12px',
+                    border: isManagerVault ? '2px solid #7c3aed' : '1px solid #cbd5e1',
+                    background: isManagerVault ? '#f5f3ff' : '#ffffff',
+                    color: isManagerVault ? '#6d28d9' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>🛡️</span>
+                  <span>מנהלים</span>
+                </button>
+
+                {/* 4. Only Me (Exclusive Personal Vault) */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSavePrivacy([currentUserId, '__only_me__']);
+                    showFeedbackToast('הוגדר ככספת אישית: רק אתה יכול לראות!');
+                  }}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '12px',
+                    border: isOnlyMe ? '2px solid #dc2626' : '1px solid #cbd5e1',
+                    background: isOnlyMe ? '#fef2f2' : '#ffffff',
+                    color: isOnlyMe ? '#b91c1c' : '#475569',
+                    fontWeight: 700,
+                    fontSize: '0.72rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '2px'
+                  }}
+                >
+                  <span style={{ fontSize: '1.1rem' }}>👤</span>
+                  <span>רק לעצמי</span>
+                </button>
+              </div>
+
+              {/* Body Content based on Mode */}
+              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0 0.75rem 0' }}>
+                {isOnlyMe && (
+                  <div style={{ textAlign: 'center', padding: '1.2rem', background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '16px', color: '#991b1b' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>👤</div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>כספת אישית בלעדית (רק עבורך!)</div>
+                    <div style={{ fontSize: '0.78rem', color: '#b91c1c', marginTop: '6px', lineHeight: 1.45 }}>
+                      פריט זה מוסתר לחלוטין מכל חברי המרחב ומכל שאר המנהלים. <strong>אף אחד מלבדך לא רואה אותו</strong>, לא יודע על קיומו ולא יכול לגשת אליו.
+                    </div>
+                  </div>
+                )}
+
+                {isManagerVault && (
+                  <div style={{ textAlign: 'center', padding: '1.2rem', background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '16px', color: '#6d28d9' }}>
+                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>🛡️</div>
+                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>כספת סודית למנהלים</div>
+                    <div style={{ fontSize: '0.78rem', color: '#5b21b6', marginTop: '6px', lineHeight: 1.45 }}>
+                      פריט זה גלוי אך ורק ליוצר המרחב ולמנהלי המרחב (Admins). שאר השותפים הרגילים אינם רואים אותו כלל (אפס חשיפה).
+                    </div>
+                  </div>
+                )}
+
+                {isRestricted && (
+                  <>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span>בחר שותפים מורשים לצפייה:</span>
+                      <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 700 }}>
+                        {currentAllowed.filter(id => id && id !== '__only_me__' && id !== '__creator_vault_secret__').length} מורשים
+                      </span>
+                    </div>
+
+                    {/* Active Space Members */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                      {activeMembers.map((m: any) => {
+                        const isChecked = currentAllowed.includes(m.userId);
+                        return (
+                          <label
+                            key={m.userId}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.6rem 0.8rem',
+                              background: isChecked ? '#eff6ff' : '#f8fafc',
+                              border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                              borderRadius: '12px',
+                              cursor: 'pointer',
+                              transition: 'all 0.15s'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.1rem' }}>👤</span>
+                              <div>
+                                <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
+                                  {m.name || 'שותף'} {m.role === 'admin' ? '(מנהל)' : ''}
+                                </div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
+                                  {isChecked ? '👁️ מורשה צפייה (גלוי עבורו)' : '🙈 מוסתר לחלוטין (אפס חשיפה)'}
+                                </div>
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                const newAllowed = isChecked
+                                  ? currentAllowed.filter((id: string) => id !== m.userId && id !== '__creator_vault_secret__' && id !== '__only_me__')
+                                  : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__' && id !== '__only_me__'), m.userId];
+                                handleSavePrivacy(newAllowed);
+                              }}
+                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                            />
+                          </label>
+                        );
+                      })}
+
+                      {/* Pending Invited Partners */}
+                      {pendingInvites.map((inv: any) => {
+                        const targetKey = inv.targetUserId || inv.token;
+                        const isChecked = currentAllowed.includes(targetKey) || currentAllowed.includes(inv.token);
+                        return (
+                          <label
+                            key={inv.token}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '0.6rem 0.8rem',
+                              background: isChecked ? '#eff6ff' : '#f8fafc',
+                              border: isChecked ? '1.5px solid #3b82f6' : '1px dashed #cbd5e1',
+                              borderRadius: '12px',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span style={{ fontSize: '1.1rem' }}>⏳</span>
+                              <div>
+                                <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
+                                  {inv.name || 'שותף מוזמן'} <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600 }}>(בהמתנה להצטרפות)</span>
+                                </div>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
+                                  {isChecked ? '👁️ מורשה מראש (ייפתח כשיצטרף)' : '🙈 מוסתר לחלוטין'}
+                                </div>
+                              </div>
+                            </div>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {
+                                const newAllowed = isChecked
+                                  ? currentAllowed.filter((id: string) => id !== targetKey && id !== inv.token && id !== '__creator_vault_secret__' && id !== '__only_me__')
+                                  : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__' && id !== '__only_me__'), targetKey];
+                                handleSavePrivacy(newAllowed);
+                              }}
+                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+
+                    {/* Quick Invite Button */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (typeof window !== 'undefined') {
+                          window.dispatchEvent(new CustomEvent('smartshare:open_invite'));
+                        }
+                      }}
+                      style={{
+                        padding: '0.6rem',
+                        background: '#f0fdf4',
+                        border: '1.5px dashed #86efac',
+                        borderRadius: '12px',
+                        color: '#16a34a',
+                        fontWeight: 700,
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        marginTop: '0.35rem'
+                      }}
+                    >
+                      <span>➕ הזמן שותף חדש למרחב</span>
+                    </button>
+
+                    <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', lineHeight: 1.4, marginTop: '0.2rem' }}>
+                      🔒 <strong>עיקרון אפס חשיפה (Zero-Trust):</strong> מי שאינו מסומן לא יראה את הפריט כלל ברשימה — הוא מוסתר לחלוטין (ללא מנעול, ללא כרטיס חסום).
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9', background: 'white', flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyTarget(null)}
+                  style={{
+                    width: '100%',
+                    padding: '0.85rem',
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '14px',
+                    fontWeight: 800,
+                    fontSize: '0.95rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(37,99,235,0.3)'
+                  }}
+                >
+                  סיום ושמירה
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+  };
+
   if (activeShelves.length === 0 && !showRecycleBin) {
     return (
       <>
@@ -3734,339 +4069,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         );
       })()}
 
-      {/* UNIFIED ZERO-TRUST PRIVACY & PERMISSIONS MODAL (SHELVES, FOLDERS, DOCUMENTS) */}
-      {privacyTarget && (() => {
-        const activeMembers = (space.members || []).filter((m: any) => m.isActive !== false);
-        const pendingInvites = (space.pendingInvites || []).filter((inv: any) => inv && inv.token);
-        const currentAllowed = privacyTarget.allowedPartners || [];
-        const isOnlyMe = currentAllowed.includes('__only_me__');
-        const isManagerVault = currentAllowed.includes('__creator_vault_secret__');
-        const isRestricted = !isOnlyMe && !isManagerVault && currentAllowed.length > 0;
-        const isPublic = !isOnlyMe && !isManagerVault && currentAllowed.length === 0;
-
-        const targetTitle =
-          privacyTarget.type === 'shelf' ? 'פרטיות והרשאות מדף ראשי' :
-          privacyTarget.type === 'folder' ? 'פרטיות והרשאות תיקייה' :
-          'פרטיות והרשאות מסמך';
-
-        const targetIcon =
-          privacyTarget.type === 'shelf' ? '🗂️' :
-          privacyTarget.type === 'folder' ? '📁' :
-          '📄';
-
-        const inheritanceNote =
-          privacyTarget.type === 'shelf'
-            ? '💡 חוק ירושה ראשי: כל תיקייה או מסמך שנוצרים תחת מדף זה יירשו הרשאה זו. משתמש ללא גישה לא יראה את המדף כלל.'
-            : privacyTarget.type === 'folder'
-            ? '💡 חוק הירושה: כל מסמך שמועבר לתיקייה זו יקבל אוטומטית את אותה רמת פרטיות. משתמש ללא גישה לא יראה את התיקייה כלל.'
-            : '💡 פרטיות מסמך ספציפי: קובץ זה יוגבל נקודתית גם אם הוא נמצא בתוך תיקייה פתוחה (Zero-Trust מלא).';
-
-        const currentUserId = user?.id || myPartnerToken || 'me';
-
-        return (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.7)', backdropFilter: 'blur(8px)', zIndex: 100060, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', paddingBottom: 'calc(1.5rem + env(safe-area-inset-bottom, 0px))' }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '420px', borderRadius: '24px', padding: '1.25rem', maxHeight: '82vh', display: 'flex', flexDirection: 'column', boxShadow: '0 25px 60px rgba(0,0,0,0.35)', direction: 'rtl', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#0f172a', fontWeight: 800 }}>{targetTitle}</h3>
-                  <div style={{ fontSize: '0.8rem', color: '#64748b', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '320px' }}>
-                    {targetIcon} {privacyTarget.name}
-                  </div>
-                </div>
-                <button onClick={() => setPrivacyTarget(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
-              </div>
-
-              <div style={{ fontSize: '0.78rem', color: '#475569', marginBottom: '0.85rem', background: '#f8fafc', padding: '0.65rem', borderRadius: '12px', border: '1px solid #e2e8f0', lineHeight: 1.4 }}>
-                {inheritanceNote}
-              </div>
-
-              {/* 4 Mode Selection Tiles */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem', marginBottom: '1rem' }}>
-                {/* 1. Public */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSavePrivacy([]);
-                    showFeedbackToast('הוגדר כפתוח לכל חברי המרחב');
-                  }}
-                  style={{
-                    padding: '0.55rem 0.2rem',
-                    borderRadius: '12px',
-                    border: isPublic ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    background: isPublic ? '#eff6ff' : '#ffffff',
-                    color: isPublic ? '#1d4ed8' : '#475569',
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>🌐</span>
-                  <span>פתוח לכולם</span>
-                </button>
-
-                {/* 2. Restricted Partners */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    const fallbackTarget = activeMembers[0]?.userId || 'partner';
-                    handleSavePrivacy([fallbackTarget]);
-                    showFeedbackToast('הוגדרה גישה מוגבלת לשותפים ספציפיים');
-                  }}
-                  style={{
-                    padding: '0.55rem 0.2rem',
-                    borderRadius: '12px',
-                    border: isRestricted ? '2px solid #2563eb' : '1px solid #cbd5e1',
-                    background: isRestricted ? '#eff6ff' : '#ffffff',
-                    color: isRestricted ? '#1d4ed8' : '#475569',
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>🔒</span>
-                  <span>שותפים</span>
-                </button>
-
-                {/* 3. Managers Only */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSavePrivacy(['__creator_vault_secret__']);
-                    showFeedbackToast('הוגדר לכספת מנהלים ויוצר בלבד!');
-                  }}
-                  style={{
-                    padding: '0.55rem 0.2rem',
-                    borderRadius: '12px',
-                    border: isManagerVault ? '2px solid #7c3aed' : '1px solid #cbd5e1',
-                    background: isManagerVault ? '#f5f3ff' : '#ffffff',
-                    color: isManagerVault ? '#6d28d9' : '#475569',
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>🛡️</span>
-                  <span>מנהלים</span>
-                </button>
-
-                {/* 4. Only Me (Exclusive Personal Vault) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    handleSavePrivacy([currentUserId, '__only_me__']);
-                    showFeedbackToast('הוגדר ככספת אישית: רק אתה יכול לראות!');
-                  }}
-                  style={{
-                    padding: '0.55rem 0.2rem',
-                    borderRadius: '12px',
-                    border: isOnlyMe ? '2px solid #dc2626' : '1px solid #cbd5e1',
-                    background: isOnlyMe ? '#fef2f2' : '#ffffff',
-                    color: isOnlyMe ? '#b91c1c' : '#475569',
-                    fontWeight: 700,
-                    fontSize: '0.72rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '2px'
-                  }}
-                >
-                  <span style={{ fontSize: '1.1rem' }}>👤</span>
-                  <span>רק לעצמי</span>
-                </button>
-              </div>
-
-              {/* Body Content based on Mode */}
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '0.25rem 0 0.75rem 0' }}>
-                {isOnlyMe && (
-                  <div style={{ textAlign: 'center', padding: '1.2rem', background: '#fef2f2', border: '1.5px solid #fca5a5', borderRadius: '16px', color: '#991b1b' }}>
-                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>👤</div>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>כספת אישית בלעדית (רק עבורך!)</div>
-                    <div style={{ fontSize: '0.78rem', color: '#b91c1c', marginTop: '6px', lineHeight: 1.45 }}>
-                      פריט זה מוסתר לחלוטין מכל חברי המרחב ומכל שאר המנהלים. <strong>אף אחד מלבדך לא רואה אותו</strong>, לא יודע על קיומו ולא יכול לגשת אליו.
-                    </div>
-                  </div>
-                )}
-
-                {isManagerVault && (
-                  <div style={{ textAlign: 'center', padding: '1.2rem', background: '#f5f3ff', border: '1.5px solid #ddd6fe', borderRadius: '16px', color: '#6d28d9' }}>
-                    <div style={{ fontSize: '1.8rem', marginBottom: '0.35rem' }}>🛡️</div>
-                    <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>כספת סודית למנהלים</div>
-                    <div style={{ fontSize: '0.78rem', color: '#5b21b6', marginTop: '6px', lineHeight: 1.45 }}>
-                      פריט זה גלוי אך ורק ליוצר המרחב ולמנהלי המרחב (Admins). שאר השותפים הרגילים אינם רואים אותו כלל (אפס חשיפה).
-                    </div>
-                  </div>
-                )}
-
-                {isRestricted && (
-                  <>
-                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span>בחר שותפים מורשים לצפייה:</span>
-                      <span style={{ fontSize: '0.72rem', color: '#2563eb', fontWeight: 700 }}>
-                        {currentAllowed.filter(id => id && id !== '__only_me__' && id !== '__creator_vault_secret__').length} מורשים
-                      </span>
-                    </div>
-
-                    {/* Active Space Members */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                      {activeMembers.map((m: any) => {
-                        const isChecked = currentAllowed.includes(m.userId);
-                        return (
-                          <label
-                            key={m.userId}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '0.6rem 0.8rem',
-                              background: isChecked ? '#eff6ff' : '#f8fafc',
-                              border: isChecked ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
-                              borderRadius: '12px',
-                              cursor: 'pointer',
-                              transition: 'all 0.15s'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ fontSize: '1.1rem' }}>👤</span>
-                              <div>
-                                <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
-                                  {m.name || 'שותף'} {m.role === 'admin' ? '(מנהל)' : ''}
-                                </div>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
-                                  {isChecked ? '👁️ מורשה צפייה (גלוי עבורו)' : '🙈 מוסתר לחלוטין (אפס חשיפה)'}
-                                </div>
-                              </div>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                const newAllowed = isChecked
-                                  ? currentAllowed.filter((id: string) => id !== m.userId && id !== '__creator_vault_secret__' && id !== '__only_me__')
-                                  : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__' && id !== '__only_me__'), m.userId];
-                                handleSavePrivacy(newAllowed);
-                              }}
-                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
-                            />
-                          </label>
-                        );
-                      })}
-
-                      {/* Pending Invited Partners */}
-                      {pendingInvites.map((inv: any) => {
-                        const targetKey = inv.targetUserId || inv.token;
-                        const isChecked = currentAllowed.includes(targetKey) || currentAllowed.includes(inv.token);
-                        return (
-                          <label
-                            key={inv.token}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '0.6rem 0.8rem',
-                              background: isChecked ? '#eff6ff' : '#f8fafc',
-                              border: isChecked ? '1.5px solid #3b82f6' : '1px dashed #cbd5e1',
-                              borderRadius: '12px',
-                              cursor: 'pointer'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span style={{ fontSize: '1.1rem' }}>⏳</span>
-                              <div>
-                                <div style={{ fontSize: '0.86rem', fontWeight: isChecked ? 700 : 500, color: '#1e293b' }}>
-                                  {inv.name || 'שותף מוזמן'} <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 600 }}>(בהמתנה להצטרפות)</span>
-                                </div>
-                                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: isChecked ? '#16a34a' : '#94a3b8' }}>
-                                  {isChecked ? '👁️ מורשה מראש (ייפתח כשיצטרף)' : '🙈 מוסתר לחלוטין'}
-                                </div>
-                              </div>
-                            </div>
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => {
-                                const newAllowed = isChecked
-                                  ? currentAllowed.filter((id: string) => id !== targetKey && id !== inv.token && id !== '__creator_vault_secret__' && id !== '__only_me__')
-                                  : [...currentAllowed.filter((id: string) => id !== '__creator_vault_secret__' && id !== '__only_me__'), targetKey];
-                                handleSavePrivacy(newAllowed);
-                              }}
-                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
-                            />
-                          </label>
-                        );
-                      })}
-                    </div>
-
-                    {/* Quick Invite Button */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (typeof window !== 'undefined') {
-                          window.dispatchEvent(new CustomEvent('smartshare:open_invite'));
-                        }
-                      }}
-                      style={{
-                        padding: '0.6rem',
-                        background: '#f0fdf4',
-                        border: '1.5px dashed #86efac',
-                        borderRadius: '12px',
-                        color: '#16a34a',
-                        fontWeight: 700,
-                        fontSize: '0.82rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        marginTop: '0.35rem'
-                      }}
-                    >
-                      <span>➕ הזמן שותף חדש למרחב</span>
-                    </button>
-
-                    <div style={{ fontSize: '0.72rem', color: '#64748b', background: '#f8fafc', padding: '0.5rem', borderRadius: '8px', border: '1px solid #e2e8f0', lineHeight: 1.4, marginTop: '0.2rem' }}>
-                      🔒 <strong>עיקרון אפס חשיפה (Zero-Trust):</strong> מי שאינו מסומן לא יראה את הפריט כלל ברשימה — הוא מוסתר לחלוטין (ללא מנעול, ללא כרטיס חסום).
-                    </div>
-                  </>
-                )}
-              </div>
-
-              <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid #f1f5f9', background: 'white', flexShrink: 0 }}>
-                <button
-                  type="button"
-                  onClick={() => setPrivacyTarget(null)}
-                  style={{
-                    width: '100%',
-                    padding: '0.85rem',
-                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '14px',
-                    fontWeight: 800,
-                    fontSize: '0.95rem',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(37,99,235,0.3)'
-                  }}
-                >
-                  סיום ושמירה
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+      {renderPrivacyModal()}
 
       {/* MOVE ENTIRE FOLDER MODAL */}
       {folderToMove && (() => {
@@ -4860,19 +4863,18 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                             background: pInfo.bg,
                             border: `1px solid ${pInfo.border}`,
                             color: pInfo.color,
-                            fontSize: '0.72rem',
-                            padding: '0.2rem 0.6rem',
-                            borderRadius: '12px',
-                            fontWeight: 'bold',
+                            width: '28px',
+                            height: '28px',
+                            borderRadius: '50%',
                             cursor: 'pointer',
-                            display: 'inline-flex',
+                            display: 'flex',
                             alignItems: 'center',
-                            gap: '3px'
+                            justifyContent: 'center',
+                            fontSize: '0.85rem'
                           }}
                           title={`הרשאות ופרטיות מדף: ${pInfo.text}`}
                         >
-                          <span>{pInfo.icon}</span>
-                          <span>{pInfo.text}</span>
+                          {pInfo.icon}
                         </button>
                       );
                     })()}
@@ -4903,45 +4905,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             return (
               <div key={shelf.id} style={{ background: '#fff', borderRadius: '16px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', cursor: 'pointer', display: 'flex', flexDirection: 'column', position: 'relative', ...highlightStyle }}>
                 {hasNewRemoteDoc && <div style={{ position: 'absolute', top: '8px', right: '8px', width: '14px', height: '14px', background: '#ef4444', borderRadius: '50%', border: '2px solid white', zIndex: 10 }} />}
-                {(() => {
-                  const shelfPrivacy = getPrivacyInfo(shelf.allowedPartners);
-                  return (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPrivacyTarget({
-                          type: 'shelf',
-                          id: shelf.id,
-                          name: shelf.name,
-                          allowedPartners: shelf.allowedPartners || []
-                        });
-                      }}
-                      style={{
-                        position: 'absolute',
-                        top: '8px',
-                        left: '8px',
-                        zIndex: 15,
-                        background: shelfPrivacy.bg,
-                        border: `1.5px solid ${shelfPrivacy.border}`,
-                        color: shelfPrivacy.color,
-                        padding: '2px 8px',
-                        borderRadius: '20px',
-                        fontWeight: 800,
-                        fontSize: '0.7rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
-                      }}
-                      title={`הרשאות מדף ראשי: ${shelfPrivacy.text} (לחץ לעריכה)`}
-                    >
-                      <span>{shelfPrivacy.icon}</span>
-                      <span>{shelfPrivacy.text}</span>
-                    </button>
-                  );
-                })()}
+
                 
                 <div onClick={() => setActiveShelfId(shelf.id)} style={{ height: '100px', background: '#e2e8f0', backgroundImage: shelf.coverImage ? 'url(' + shelf.coverImage + ')' : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2rem' }}>
                   {!shelf.coverImage && (shelf.icon || '🗂️')}
@@ -5232,6 +5196,8 @@ const handleDeleteDocument = (docId: string, title?: string) => {
 
       {/* DOCUMENT NOTE MODAL */}
       {renderDocNoteModal()}
+      {/* PRIVACY MODAL IN OUTER GALLERY VIEW */}
+      {renderPrivacyModal()}
     </div>
   );
 });
