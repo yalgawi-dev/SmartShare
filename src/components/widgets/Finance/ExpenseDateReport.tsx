@@ -446,12 +446,12 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '0.88rem' }}>
                         <thead>
                           <tr style={{ background: 'rgba(0,0,0,0.02)', borderBottom: '1px solid var(--border-light)', color: 'var(--text-secondary)' }}>
-                            <th style={{ padding: '0.75rem 1rem' }}>משלם</th>
-                            <th style={{ padding: '0.75rem 1rem' }}>סכום</th>
-                            <th style={{ padding: '0.75rem 1rem' }}>ספק</th>
-                            <th style={{ padding: '0.75rem 1rem' }}>תאריך</th>
-                            <th style={{ padding: '0.75rem 1rem' }}>קטגוריה</th>
-                            <th style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>מסמך</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>ספק</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>סכום</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>משלם</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>תאריך</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>קטגוריה</th>
+                            <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>מסמך</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -464,19 +464,19 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                                 key={inv.id || idx}
                                 style={{ borderBottom: '1px solid var(--border-light)', background: 'var(--bg-card)' }}
                               >
-                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)', fontWeight: 'bold' }}>
-                                  {inv.payerName || '---'}
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--primary)', whiteSpace: 'nowrap' }}>
-                                  ₪{(Number(inv.amount) || 0).toLocaleString()}
-                                </td>
-                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)' }}>
+                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-primary)', fontWeight: 'bold', textAlign: 'right' }}>
                                   {inv.supplier || 'ספק כללי'}
                                 </td>
-                                <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', fontWeight: '500', color: 'var(--text-secondary)' }}>
+                                <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold', color: 'var(--primary)', whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                  ₪{(Number(inv.amount) || 0).toLocaleString()}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', color: 'var(--text-secondary)', textAlign: 'right' }}>
+                                  {inv.payerName || '---'}
+                                </td>
+                                <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap', fontWeight: '500', color: 'var(--text-secondary)', textAlign: 'right' }}>
                                   {displayDate}
                                 </td>
-                                <td style={{ padding: '0.75rem 1rem' }}>
+                                <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                   <span style={{
                                     background: 'rgba(99, 102, 241, 0.08)',
                                     color: 'var(--primary)',
@@ -488,7 +488,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                                     {inv.category || 'כללי'}
                                   </span>
                                 </td>
-                                <td style={{ padding: '0.75rem 1rem', textAlign: 'center' }}>
+                                <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                   {inv.hasAttachment && inv.attachmentUrl ? (
                                     <button
                                       type="button"
@@ -520,18 +520,18 @@ export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImag
                         </tbody>
                         <tfoot>
                           <tr style={{ background: 'rgba(99, 102, 241, 0.06)', borderTop: '2px solid var(--border-light)', fontWeight: 'bold' }}>
-                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)' }}>
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-primary)', textAlign: 'right' }}>
                               סה"כ לחודש זה:
                             </td>
-                            <td style={{ padding: '0.85rem 1rem', color: 'var(--primary)', fontSize: '1rem', whiteSpace: 'nowrap' }}>
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--primary)', fontSize: '1rem', whiteSpace: 'nowrap', textAlign: 'right' }}>
                               ₪{group.totalAmount.toLocaleString()}
                             </td>
-                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                            <td style={{ padding: '0.85rem 1rem', color: 'var(--text-secondary)', fontSize: '0.82rem', textAlign: 'right' }}>
                               ({group.invoices.length} הוצאות)
                             </td>
-                            <td style={{ padding: '0.85rem 1rem' }}></td>
-                            <td style={{ padding: '0.85rem 1rem' }}></td>
-                            <td style={{ padding: '0.85rem 1rem' }}></td>
+                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}></td>
+                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}></td>
+                            <td style={{ padding: '0.85rem 1rem', textAlign: 'right' }}></td>
                           </tr>
                         </tfoot>
                       </table>
