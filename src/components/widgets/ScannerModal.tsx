@@ -94,9 +94,13 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [cvLoaded, setCvLoaded] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>(defaultCategory);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
-  const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>('scanning');
+  const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>(() => {
+    return (initialPages && initialPages.length > 0) ? 'review' : 'scanning';
+  });
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>(defaultMode);
-  const [activeSource, setActiveSource] = useState<'camera' | 'upload'>(defaultMode);
+  const [activeSource, setActiveSource] = useState<'camera' | 'upload'>(() => {
+    return (initialPages && initialPages.length > 0) ? 'upload' : defaultMode;
+  });
   const [isEditingFromReview, setIsEditingFromReview] = useState(false);
 
   const hasContentRef = useRef(false);
@@ -138,17 +142,29 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     triggerFlashPulse
   } = useCamera(videoRef, isCameraActive);
   
-  const [rawSnapshot, setRawSnapshot] = useState<string | null>(null);
+  const [rawSnapshot, setRawSnapshot] = useState<string | null>(() => {
+    if (initialPages && initialPages.length > 0) {
+      return initialPages[0];
+    }
+    return null;
+  });
   const [cropPoints, setCropPoints] = useState<Point[]>([]);
   const [croppedSnapshot, setCroppedSnapshot] = useState<string | null>(null);
   const [bwSnapshot, setBwSnapshot] = useState<string | null>(null);
   const [pureColorSnapshot, setPureColorSnapshot] = useState<string | null>(null);
   const [smartPlusSnapshot, setSmartPlusSnapshot] = useState<string | null>(null);
   const [hybridColorSnapshot, setHybridColorSnapshot] = useState<string | null>(null);
-  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow'>('smart_plus');
+  const [mode, setMode] = useState<'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow'>(() => {
+    return (initialPages && initialPages.length > 0) ? 'original' : 'smart_plus';
+  });
   const defaultBatchEngine = 'smart_plus' as const;
 
-  const [imageCache, setImageCache] = useState<Record<string, string>>({});
+  const [imageCache, setImageCache] = useState<Record<string, string>>(() => {
+    if (initialPages && initialPages.length > 0) {
+      return { original: initialPages[0] };
+    }
+    return {};
+  });
   const [timingCache, setTimingCache] = useState<Record<string, any>>({});
   const [exportOptions, setExportOptions] = useState<{ type: 'share' | 'save', urls: string[], routingType?: 'receipt' | 'document' | 'image' } | null>(null);
   const [exportFormat, setExportFormat] = useState<'pdf' | 'scroll_pdf'>('pdf');
@@ -157,11 +173,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   // Multi-page scanning
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>(() => {
-    if (initialPages && initialPages.length > 0) {
-      return initialPages.map((url, idx) => ({
-        id: `init-page-${idx}`,
+    if (initialPages && initialPages.length > 1) {
+      return initialPages.slice(1).map((url, idx) => ({
+        id: `init-page-${idx + 1}`,
         imageUrl: url,
-        pageNum: idx + 1,
+        rawImageUrl: url,
+        pageNum: idx + 2,
         source: 'upload' as const
       }));
     }
@@ -170,13 +187,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const [trayOrder, setTrayOrder] = React.useState<string[]>(() => {
     if (initialPages && initialPages.length > 0) {
-      return initialPages.map((_, idx) => `init-page-${idx}`);
+      return initialPages.map((_, idx) => idx === 0 ? 'init-page-0' : `init-page-${idx}`);
     }
     return [];
   });
   const generateDocId = () => 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
-  const [activeDocId, setActiveDocId] = React.useState<string>(generateDocId());
-  const [activeOriginalUrl, setActiveOriginalUrl] = React.useState<string | null>(null);
+  const [activeDocId, setActiveDocId] = React.useState<string>(() => {
+    return (initialPages && initialPages.length > 0) ? 'init-page-0' : 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5);
+  });
+  const [activeOriginalUrl, setActiveOriginalUrl] = React.useState<string | null>(() => {
+    return (initialPages && initialPages.length > 0) ? initialPages[0] : null;
+  });
   
   // Derived state for sorting tray
   const derivedTrayItems = React.useMemo(() => {
@@ -1696,7 +1717,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   <span style={{ fontSize: '1rem' }}>{(activeSource === 'upload' || scannerMode === 'upload') ? '📁' : '📷'}</span>
                   {(activeSource === 'upload' || scannerMode === 'upload') ? 'החלף קובץ' : 'צלם שוב'}
                 </button>
-                <button onClick={() => { setIsEditingFromReview(true); setStep('cropping'); }} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
+                <button onClick={() => {
+                  const targetImg = rawSnapshot || imageCache[mode] || activeOriginalUrl;
+                  if (targetImg && !rawSnapshot) {
+                    setRawSnapshot(targetImg);
+                  }
+                  setIsEditingFromReview(true);
+                  setStep('cropping');
+                }} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
                   <span style={{ fontSize: '1rem' }}>✂️</span>
                   עריכה
                 </button>
@@ -1819,8 +1847,21 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
 
   const handleImgLoad = () => {
     if (imgRef.current) {
+      const w = imgRef.current.naturalWidth;
+      const h = imgRef.current.naturalHeight;
       setTick(t => t + 1);
-      setNaturalSize({ w: imgRef.current.naturalWidth, h: imgRef.current.naturalHeight });
+      setNaturalSize({ w, h });
+      // If points are empty or invalid, initialize to the 4 corners so yellow boundaries always display
+      if (!points || points.length !== 4) {
+        const fallbackCorners: Point[] = [
+          { x: Math.round(w * 0.05), y: Math.round(h * 0.05) },
+          { x: Math.round(w * 0.95), y: Math.round(h * 0.05) },
+          { x: Math.round(w * 0.95), y: Math.round(h * 0.95) },
+          { x: Math.round(w * 0.05), y: Math.round(h * 0.95) }
+        ];
+        setPoints(fallbackCorners);
+        onChange(fallbackCorners);
+      }
     }
   };
 

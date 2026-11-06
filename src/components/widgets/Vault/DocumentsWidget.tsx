@@ -2228,7 +2228,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 </div>
 
                 {/* Bottom Row: Symmetrical Action Buttons (Merge & Edit, Move, Share, Delete) */}
-                <div style={{ display: 'grid', gridTemplateColumns: selectedDocIds.length > 1 ? '1.4fr 1.1fr 0.9fr 0.9fr' : '1.2fr 1fr 1fr', gap: '0.45rem', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: selectedDocIds.length > 1 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '0.35rem', alignItems: 'center' }}>
                   {selectedDocIds.length > 1 && (
                     <button
                       type="button"
@@ -2246,21 +2246,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                         background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
                         color: 'white',
                         border: 'none',
-                        padding: '0.55rem 0.4rem',
+                        padding: '0.55rem 0.25rem',
                         borderRadius: '10px',
                         fontWeight: 700,
-                        fontSize: '0.8rem',
+                        fontSize: '0.76rem',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        gap: '0.3rem',
+                        gap: '0.2rem',
                         whiteSpace: 'nowrap',
-                        boxShadow: '0 2px 8px rgba(99,102,241,0.35)'
+                        boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
+                        minWidth: 0
                       }}
                       title="עריכה, יישור ואיחוד המסמכים הנבחרים בסורק"
                     >
-                      <span>📜</span> איחוד ועריכה
+                      <span style={{ fontSize: '0.88rem' }}>📜</span> איחוד
                     </button>
                   )}
 
@@ -2272,21 +2273,22 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       background: '#0284c7',
                       color: 'white',
                       border: 'none',
-                      padding: '0.55rem 0.5rem',
+                      padding: '0.55rem 0.25rem',
                       borderRadius: '10px',
                       fontWeight: 700,
-                      fontSize: '0.82rem',
+                      fontSize: '0.76rem',
                       cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
                       opacity: selectedDocIds.length === 0 ? 0.5 : 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '0.3rem',
-                      whiteSpace: 'nowrap'
+                      gap: '0.2rem',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0
                     }}
                     title="העבר מסמכים נבחרים לתיקייה"
                   >
-                    <span>📁</span> תיקייה
+                    <span style={{ fontSize: '0.88rem' }}>📁</span> תיקייה
                   </button>
 
                   <button
@@ -2297,20 +2299,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       background: '#10b981',
                       color: 'white',
                       border: 'none',
-                      padding: '0.55rem 0.5rem',
+                      padding: '0.55rem 0.25rem',
                       borderRadius: '10px',
                       fontWeight: 700,
-                      fontSize: '0.82rem',
+                      fontSize: '0.76rem',
                       cursor: selectedDocIds.length === 0 || isSharingBatch ? 'not-allowed' : 'pointer',
                       opacity: selectedDocIds.length === 0 || isSharingBatch ? 0.5 : 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '0.3rem',
-                      whiteSpace: 'nowrap'
+                      gap: '0.2rem',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0
                     }}
                   >
-                    <span>📤</span> {isSharingBatch ? 'מכין...' : 'שתף'}
+                    <span style={{ fontSize: '0.88rem' }}>📤</span> {isSharingBatch ? 'מכין...' : 'שתף'}
                   </button>
 
                   <button
@@ -2321,20 +2324,21 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                       background: 'rgba(239, 68, 68, 0.2)',
                       color: '#fca5a5',
                       border: '1px solid #ef4444',
-                      padding: '0.55rem 0.5rem',
+                      padding: '0.55rem 0.25rem',
                       borderRadius: '10px',
                       fontWeight: 700,
-                      fontSize: '0.82rem',
+                      fontSize: '0.76rem',
                       cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
                       opacity: selectedDocIds.length === 0 ? 0.5 : 1,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '0.3rem',
-                      whiteSpace: 'nowrap'
+                      gap: '0.2rem',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0
                     }}
                   >
-                    <span>🗑️</span> מחק
+                    <span style={{ fontSize: '0.88rem' }}>🗑️</span> מחק
                   </button>
                 </div>
               </div>
