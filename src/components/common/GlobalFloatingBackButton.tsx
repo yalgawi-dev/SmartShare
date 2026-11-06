@@ -71,7 +71,7 @@ export default function GlobalFloatingBackButton() {
   if (!mounted || isPreviewOpen) return null;
 
   // Hide on the root dashboard ('/') and on Space Main Page (where Back is integrated inside FloatingActionBar dock)
-  if (!pathname || pathname === '/') return null;
+  if (!pathname || pathname === '/' || pathname.includes('/reports')) return null;
 
   const isSpaceSubPage = /^\/space\/[^/]+\/(settings|reports|features)/.test(pathname);
   const isSpaceMainPage = /^\/space\/[^/]+$/.test(pathname) && pathname !== '/space/new';
@@ -81,25 +81,7 @@ export default function GlobalFloatingBackButton() {
   const hasBottomBar = pathname === '/settings' || pathname === '/admin/users';
 
   const getStepBackLabel = (): string => {
-    if (isSpaceMainPage) {
-      if (hierarchy.folderId) {
-        return hierarchy.parentFolderId ? 'לתיקיית האב' : 'לראשי הנושא';
-      }
-      if (hierarchy.shelfId) {
-        return 'לנושאים';
-      }
-      if (typeof window !== 'undefined') {
-        const fromParam = new URLSearchParams(window.location.search).get('from');
-        if (fromParam === 'settings_active' || fromParam === 'settings_archived') {
-          return 'להגדרות';
-        }
-      }
-      return 'ללוח הראשי';
-    }
-    if (isSpaceSubPage) {
-      return 'חזרה למרחב';
-    }
-    return 'חזור אחורה';
+    return 'חזרה';
   };
 
   const handleBackClick = () => {

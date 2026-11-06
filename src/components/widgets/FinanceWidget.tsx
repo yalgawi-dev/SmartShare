@@ -323,20 +323,13 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
 
   const filteredInvoices = invoices.filter((inv: any) => {
     if (filter === 'archive') return inv.isActive === false;
-    if (inv.isActive === false) return false;
-    if (filter === 'no_receipt') return !inv.hasAttachment && inv.type !== 'transfer' && inv.type !== 'income';
-    if (filter === 'all') return true;
-    if (filter === 'pending_me') {
-      // Invoices I need to approve
-      if (inv.type === 'transfer') {
-        return inv.status === 'pending' && (inv.targetId === myEffectiveId || inv.targetId === 'me' || inv.targetId === user?.id);
-      }
-      if ((inv.excludedMembers || []).includes(myEffectiveId) || (inv.excludedMembers || []).includes(user?.id)) return false;
-        if ((inv.approvedBy || []).includes(myEffectiveId) || (inv.approvedBy || []).includes(user?.id)) return false;
-        return inv.status === 'pending' && inv.payerId !== myEffectiveId && inv.payerId !== 'me';
-    }
+
+    // Invoices with pending deletion requests submitted by me belong in pending_partners
     if (filter === 'pending_partners') {
-      // Invoices I submitted that await partner approval
+      if (inv.deletionRequest && inv.deletionRequest.status === 'pending' && (inv.deletionRequest.requestedById === myEffectiveId || inv.deletionRequest.requestedById === 'me')) {
+        return true;
+      }
+      if (inv.isActive === false) return false;
       if (inv.status !== 'pending' || (inv.payerId !== myEffectiveId && inv.payerId !== 'me')) return false;
       if (activePartnersCount === 0 && inv.type !== 'transfer') return false;
       const excluded = inv.excludedMembers || [];
@@ -355,6 +348,27 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
       if (waitingFor.length === 0 && (excluded.length > 0 || participating.length <= 1)) return false;
       return true;
     }
+
+    if (filter === 'pending_me') {
+      // Deletion request needing my approval
+      if (inv.deletionRequest && inv.deletionRequest.status === 'pending') {
+        const req = inv.deletionRequest;
+        const needsMyApproval = (req.approversNeeded || []).includes(myEffectiveId) && !(req.approversAgreed || []).includes(myEffectiveId);
+        if (needsMyApproval) return true;
+      }
+      if (inv.isActive === false) return false;
+      // Invoices I need to approve
+      if (inv.type === 'transfer') {
+        return inv.status === 'pending' && (inv.targetId === myEffectiveId || inv.targetId === 'me' || inv.targetId === user?.id);
+      }
+      if ((inv.excludedMembers || []).includes(myEffectiveId) || (inv.excludedMembers || []).includes(user?.id)) return false;
+      if ((inv.approvedBy || []).includes(myEffectiveId) || (inv.approvedBy || []).includes(user?.id)) return false;
+      return inv.status === 'pending' && inv.payerId !== myEffectiveId && inv.payerId !== 'me';
+    }
+
+    if (inv.isActive === false) return false;
+    if (filter === 'no_receipt') return !inv.hasAttachment && inv.type !== 'transfer' && inv.type !== 'income';
+    if (filter === 'all') return true;
     return inv.status === filter;
   });
 
@@ -542,7 +556,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <div>
               <h2 style={{ fontSize: '1.25rem', margin: 0, color: 'var(--text-primary)', fontWeight: '800', letterSpacing: '-0.02em' }}>
-                ניהול הוצאות <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>v0.88</span>
+                ניהול הוצאות <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', fontWeight: 'normal' }}>v3.4.44</span>
               </h2>
               
             </div>

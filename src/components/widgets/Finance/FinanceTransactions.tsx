@@ -48,7 +48,7 @@ export function FinanceTransactions({
   const myEffectiveId = user?.id || 'me';
   const [deletionRequestModal, setDeletionRequestModal] = useState<{ isOpen: boolean; invoice: any; reason: string }>({ isOpen: false, invoice: null, reason: '' });
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
-  const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '' });
+  const [editForm, setEditForm] = useState({ amount: '', supplier: '', date: '', category: 'כללי', customCategory: '' });
   const [typeFilter, setTypeFilter] = useState<'expense' | 'income' | 'transfer'>('expense');
   const [memberFilter, setMemberFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -146,8 +146,14 @@ export function FinanceTransactions({
     setTouchEndY(e.targetTouches[0].clientY);
   };
   const calculateCanApprove = (inv: any) => {
-      if ((inv.excludedMembers || []).includes(user?.id) || (inv.excludedMembers || []).includes(myEffectiveId)) return false;
-      if ((inv.approvedBy || []).includes(user?.id) || (inv.approvedBy || []).includes(myEffectiveId)) return false;
+    if (inv.deletionRequest && inv.deletionRequest.status === 'pending') {
+      const req = inv.deletionRequest;
+      const needsMyApproval = (req.approversNeeded || []).includes(myEffectiveId) && !(req.approversAgreed || []).includes(myEffectiveId);
+      if (needsMyApproval) return true;
+    }
+    if (inv.isActive === false) return false;
+    if ((inv.excludedMembers || []).includes(user?.id) || (inv.excludedMembers || []).includes(myEffectiveId)) return false;
+    if ((inv.approvedBy || []).includes(user?.id) || (inv.approvedBy || []).includes(myEffectiveId)) return false;
     if (inv.status !== 'pending') return false;
     if (inv.type === 'transfer') {
       if (inv.targetId === user?.id || inv.targetId === myEffectiveId) return true;
@@ -196,17 +202,52 @@ export function FinanceTransactions({
   const handleEditSave = (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingInvoice || !space || !updateInvoice) return;
+
+    const newAmount = Number(editForm.amount);
+    const oldAmount = editingInvoice.amount;
+    const isAmountChanged = newAmount !== oldAmount;
+    const isDateChanged = editForm.date !== editingInvoice.date;
+    const finalCategory = editForm.category === 'other' 
+      ? (editForm.customCategory?.trim() || 'כללי') 
+      : (editForm.category || 'כללי');
+
+    // If new custom category, save to space customCategories
+    if (editForm.category === 'other' && editForm.customCategory?.trim()) {
+      const existing = space.settings?.customCategories || [];
+      if (!existing.includes(editForm.customCategory.trim()) && updateSpaceSettings) {
+        updateSpaceSettings(space.id, { customCategories: [...existing, editForm.customCategory.trim()] });
+      }
+    }
+
+    let approvalUpdates: Partial<any> = {};
+    let logReason = `עודכנו פרטי הוצאה. קטגוריה: ${finalCategory}, ספק: ${editForm.supplier}`;
+
+    // Financial integrity check: If amount or date is changed in a shared space, reset approvals
+    if (isAmountChanged || isDateChanged) {
+      logReason = `שונה סכום מ-₪${oldAmount} ל-₪${newAmount}, ספק: ${editForm.supplier}, תאריך מ-${editingInvoice.date} ל-${editForm.date}, קטגוריה: ${finalCategory}`;
+      if (activePartnersCount > 0) {
+        approvalUpdates = {
+          status: 'pending',
+          approvalsReceived: 0,
+          approvedBy: [],
+          previousAmount: oldAmount
+        };
+        logReason += ' | ⚠️ נדרש אישור שותפים מחדש עקב שינוי פיננסי';
+      }
+    }
     
     updateInvoice(
       space.id, 
       editingInvoice.id, 
       { 
-        amount: Number(editForm.amount), 
+        amount: newAmount, 
         supplier: editForm.supplier,
-        date: editForm.date
+        date: editForm.date,
+        category: finalCategory,
+        ...approvalUpdates
       },
       user?.realName || user?.id || 'me',
-      `שונה סכום ל-${editForm.amount}, ספק: ${editForm.supplier}, תאריך: ${editForm.date}`
+      logReason
     );
     setEditingInvoice(null);
   };
@@ -649,7 +690,15 @@ export function FinanceTransactions({
                                       const parts = d.split('/');
                                       if (parts.length === 3) d = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
                                     }
-                                    setEditForm({ amount: inv.amount || '', supplier: inv.supplier || '', date: d });
+                                    const standardCategories = ['כללי', 'רכבים ותחבורה', 'תקשורת', 'חומרים', 'הנהלת חשבונות', ...(space.settings?.customCategories || [])];
+                                    const isStandard = standardCategories.includes(inv.category || '');
+                                    setEditForm({
+                                      amount: inv.amount !== null && inv.amount !== undefined ? String(inv.amount) : '',
+                                      supplier: inv.supplier || '',
+                                      date: d,
+                                      category: isStandard ? (inv.category || 'כללי') : (inv.category ? 'other' : 'כללי'),
+                                      customCategory: !isStandard && inv.category ? inv.category : ''
+                                    });
                                   }
                                 }} style={{ flex: 1, padding: '0.75rem', background: 'var(--bg-card)', color: 'var(--text-primary)', border: '1px solid var(--border-light)', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>
                                   ✏️ {editingInvoice?.id === inv.id ? 'סגור עריכה' : 'עריכה'}
@@ -734,26 +783,67 @@ export function FinanceTransactions({
                     {editingInvoice?.id === inv.id && (
                       <div style={{ padding: '1rem', borderTop: '1px solid var(--border-light)', background: 'var(--bg-main)', borderBottomLeftRadius: '16px', borderBottomRightRadius: '16px' }}>
                         <form onSubmit={handleEditSave} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                          <h4 style={{ margin: '0 0 0.5rem 0' }}>עריכת הוצאה</h4>
+                          <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span>✏️ עריכת הוצאה</span>
+                          </h4>
                           
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            קטגוריית הוצאה
+                            <select 
+                              value={editForm.category} 
+                              onChange={e => setEditForm({ ...editForm, category: e.target.value })}
+                              style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '0.95rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }}
+                            >
+                              <option value="כללי">כללי</option>
+                              <option value="רכבים ותחבורה">רכבים ותחבורה</option>
+                              <option value="תקשורת">תקשורת</option>
+                              <option value="חומרים">חומרים</option>
+                              <option value="הנהלת חשבונות">הנהלת חשבונות</option>
+                              {(space.settings?.customCategories || []).map((cat: string) => (
+                                <option key={cat} value={cat}>{cat}</option>
+                              ))}
+                              <option value="other">אחר (הקלד קטגוריה חדשה)...</option>
+                            </select>
+                          </label>
+
+                          {editForm.category === 'other' && (
+                            <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                              שם הקטגוריה החדשה
+                              <input 
+                                type="text" 
+                                placeholder="לדוגמה: ביטוחים, ציוד משרדי..." 
+                                value={editForm.customCategory} 
+                                onChange={e => setEditForm({ ...editForm, customCategory: e.target.value })} 
+                                style={{ padding: '0.6rem', borderRadius: '8px', border: '1px solid var(--primary)', fontSize: '0.95rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} 
+                                required 
+                              />
+                            </label>
+                          )}
+
+                          <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             תאריך ההוצאה
-                            <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem' }} required />
+                            <input type="date" value={editForm.date} onChange={e => setEditForm({...editForm, date: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
                           </label>
 
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             ספק / שם החנות
-                            <input type="text" placeholder="לדוגמה: שופרסל" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem' }} required />
+                            <input type="text" placeholder="לדוגמה: שופרסל" value={editForm.supplier} onChange={e => setEditForm({...editForm, supplier: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
                           </label>
 
                           <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                             סכום (₪)
-                            <input type="number" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem' }} required />
+                            <input type="number" step="0.01" placeholder="0.00" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border-light)', fontSize: '1rem', background: 'var(--bg-card)', color: 'var(--text-primary)' }} required />
                           </label>
 
+                          {inv.hasAttachment && (
+                            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '0.5rem 0.75rem', fontSize: '0.78rem', color: '#1e40af' }}>
+                              📎 <strong>לתשומת לבך:</strong> להוצאה זו מצורפת חשבונית. שינוי סכום או תאריך ידרוש אישור שותפים מחדש כדי להבטיח התאמה מלאה למסמך.
+                            </div>
+                          )}
+
                           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                            <button type="button" onClick={() => setEditingInvoice(null)} style={{ flex: 1, padding: '0.5rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer' }}>ביטול</button>
-                            <button type="submit" style={{ flex: 1, padding: '0.5rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>שמור שינויים</button>
+                            <button type="button" onClick={() => setEditingInvoice(null)} style={{ flex: 1, padding: '0.6rem', background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, color: 'var(--text-primary)' }}>ביטול</button>
+                            <button type="submit" style={{ flex: 1, padding: '0.6rem', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>שמור שינויים</button>
                           </div>
                         </form>
                       </div>

@@ -45,6 +45,26 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
         gap: '0.5rem'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <Link
+            href={`/space/${id}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '38px',
+              height: '38px',
+              borderRadius: '12px',
+              background: 'var(--bg-main, #f1f5f9)',
+              border: '1px solid var(--border-light)',
+              color: 'var(--text-primary)',
+              fontSize: '1.2rem',
+              textDecoration: 'none',
+              boxShadow: 'var(--shadow-sm)'
+            }}
+            title="חזרה למרחב"
+          >
+            ↩️
+          </Link>
           <div>
             <h1 style={{ margin: 0, fontSize: 'clamp(1.1rem, 3.5vw, 1.4rem)', color: 'var(--text-primary)', fontWeight: 800 }}>
               דוחות: {space.title}
@@ -113,6 +133,7 @@ export default function SpaceReportsPage({ params }: { params: Promise<{ id: str
         <ExpenseDateReport
           invoices={invoices}
           spaceTitle={space.title || 'פרויקט'}
+          spaceId={id}
           onPreviewImage={(url) => setPreviewImage(url)}
         />
       )}

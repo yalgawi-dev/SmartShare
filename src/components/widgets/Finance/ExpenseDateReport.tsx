@@ -5,12 +5,13 @@ import { convertImagesToPdfBlob } from '@/utils/documentUtils';
 interface ExpenseDateReportProps {
   invoices: any[];
   spaceTitle: string;
+  spaceId?: string;
   onPreviewImage: (url: string) => void;
 }
 
 import { HEBREW_MONTHS, formatYMD, getDaysInMonth, normalizeToYMD } from '@/utils/dateUtils';
 
-export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: ExpenseDateReportProps) {
+export function ExpenseDateReport({ invoices, spaceTitle, spaceId, onPreviewImage }: ExpenseDateReportProps) {
   const [preset, setPreset] = useState<string>('all');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
@@ -331,7 +332,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
 
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>חשבוניות</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>הוצאות</span>
             <span style={{ fontSize: '1.15rem', fontWeight: '800', color: 'var(--text-primary)' }}>{invoicesCount}</span>
           </div>
           <div style={{ width: '1px', height: '24px', background: 'var(--border-light)' }} />
@@ -341,7 +342,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
           </div>
           <div style={{ width: '1px', height: '24px', background: 'var(--border-light)' }} />
           <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>קבצים</span>
+            <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block' }}>צרופות</span>
             <span style={{ fontSize: '1.15rem', fontWeight: '800', color: '#10b981' }}>{filesCount}</span>
           </div>
         </div>
@@ -375,7 +376,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
       {monthlyGroups.length === 0 ? (
         <div style={{ padding: '3rem 1rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '18px', border: '1px solid var(--border-light)' }}>
           <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>📭</span>
-          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem' }}>לא נמצאו חשבוניות</h3>
+          <h3 style={{ margin: 0, color: 'var(--text-primary)', fontSize: '1.1rem' }}>לא נמצאו הוצאות</h3>
           <p style={{ margin: '0.4rem 0 0', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>נסה לשנות את טווח התאריכים או להסיר את מילת החיפוש.</p>
         </div>
       ) : (
@@ -430,7 +431,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                         {group.monthName}
                       </h4>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                        {group.invoices.length} חשבוניות {group.filesCount > 0 ? `• 📎 ${group.filesCount} קבלות` : ''}
+                        {group.invoices.length} הוצאות {group.filesCount > 0 ? `• 📎 ${group.filesCount} צרופות` : ''}
                       </span>
                     </div>
                   </div>
@@ -562,6 +563,40 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
         maxWidth: '460px',
         boxSizing: 'border-box'
       }}>
+        {/* BACK BUTTON INTEGRATED IN DOCK */}
+        <button
+          type="button"
+          onClick={() => {
+            if (typeof window !== 'undefined') {
+              if (spaceId) {
+                window.location.href = `/space/${spaceId}`;
+              } else {
+                window.history.back();
+              }
+            }
+          }}
+          style={{
+            flex: '0.8 1 0',
+            background: 'var(--bg-main, #f8fafc)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-light)',
+            padding: '0.65rem 0.5rem',
+            borderRadius: '20px',
+            fontWeight: 'bold',
+            fontSize: '0.85rem',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.3rem',
+            whiteSpace: 'nowrap'
+          }}
+          title="חזרה למרחב"
+        >
+          <span>↩️</span>
+          <span>חזרה</span>
+        </button>
+
         {/* FILTER BUTTON */}
         <button
           type="button"
@@ -814,7 +849,7 @@ export function ExpenseDateReport({ invoices, spaceTitle, onPreviewImage }: Expe
                 boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
               }}
             >
-              החל סינון ({invoicesCount} חשבוניות)
+              החל סינון ({invoicesCount} הוצאות)
             </button>
           </div>
         </div>
