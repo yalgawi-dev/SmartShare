@@ -1064,14 +1064,24 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         const amt = oldInvoice.amount ? ` ע"ס ₪${oldInvoice.amount}` : "";
         const supplier = oldInvoice.supplier || "ספק כללי";
         
-        const performer = performedBy === "me" || !performedBy ? "משתמש" : performedBy;
+        let resolvedPerformerName = performedBy;
+        if (performedBy === user?.id || performedBy === "me") {
+          resolvedPerformerName = user?.realName || user?.nickname || space.createdBy || "אני";
+        } else {
+          const foundMem = (space.members || []).find((m: any) => m.userId === performedBy);
+          if (foundMem?.name) {
+            resolvedPerformerName = foundMem.name;
+          } else if (space.creatorId === performedBy) {
+            resolvedPerformerName = (space as any).creatorName || space.createdBy || "יוצר המרחב";
+          }
+        }
         
         const newLog = {
           id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
           timestamp: new Date().toISOString(),
           actionType: (isDelete ? "DELETE_INVOICE" : "EDIT_INVOICE") as any,
-          performedBy,
-          details: `${performer} ${actionLabel}${amt} מאת "${supplier}". פירוט: ${actionDetail}`,
+          performedBy: resolvedPerformerName,
+          details: `${resolvedPerformerName} ${actionLabel}${amt} מאת "${supplier}". פירוט: ${actionDetail}`,
           invoiceId
         };
         newSpace.auditLogs = [newLog, ...(space.auditLogs || [])];
@@ -1134,7 +1144,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         id: `audit-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
         timestamp: new Date().toISOString(),
         actionType: 'EDIT_INVOICE' as any,
-        performedBy: performer.id,
+        performedBy: performer.name || performer.id,
         details: `${performer.name} ${detail} מאת "${inv.supplier || 'ספק כללי'}"${needsReApproval ? ' – נדרש אישור מחדש מהשותפים' : ''}.`,
         invoiceId
       };
