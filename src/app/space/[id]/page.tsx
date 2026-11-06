@@ -474,7 +474,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const hasGuestbook = spaceFeatures.includes('guestbook');
   const hasGallery = spaceFeatures.includes('gallery');
   
-  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault', 'chat'];
+  const explicitFeatures = ['finance', 'scanner', 'partners', 'guestbook', 'gallery', 'cashbox', 'vault', 'chat', 'fileshare'];
   const genericFeatures = spaceFeatures
     .filter(f => !explicitFeatures.includes(f))
     .map(f => getFeatureById(f))
@@ -1222,6 +1222,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             hasFinance={hasFinance}
             hasScanner={hasScanner}
             hasVault={hasVault}
+            hasFileShare={hasFileShare}
             showVaultTimeline={!!space.settings?.showVaultTimeline}
             hasPartners={hasPartners}
             hasActivePartners={hasActivePartners}

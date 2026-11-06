@@ -20,7 +20,24 @@ export function FileShareItemCard({
 }: FileShareItemCardProps) {
   const isFolder = item.type === 'folder';
   const isPublicLinkActive = Boolean(item.shareLink?.enabled && item.shareLink?.token);
+  const isOnlyMe = Array.isArray(item.allowedPartners) && item.allowedPartners.includes('__only_me__');
+  const isOnlyAdmins = Array.isArray(item.allowedPartners) && item.allowedPartners.includes('__creator_vault_secret__');
   const isRestricted = Array.isArray(item.allowedPartners) && item.allowedPartners.length > 0;
+
+  const getPrivacyBadge = () => {
+    if (isOnlyMe) {
+      return { text: '👤 רק לעצמי', bg: '#fef3c7', color: '#92400e', title: 'גלוי רק לעצמך ולמנהל המרחב' };
+    }
+    if (isOnlyAdmins) {
+      return { text: '🛡️ מנהלים', bg: '#fee2e2', color: '#991b1b', title: 'גלוי למנהלי המרחב בלבד' };
+    }
+    if (isRestricted) {
+      return { text: '🔒 מוגבל', bg: '#ede9fe', color: '#6d28d9', title: 'גלוי לשותפים נבחרים בלבד' };
+    }
+    return { text: '🌐 פתוח', bg: 'rgba(99, 102, 241, 0.08)', color: 'var(--primary)', title: 'פתוח לכל חברי המרחב (לחץ לעריכת הרשאות)' };
+  };
+
+  const privacyBadge = getPrivacyBadge();
 
   const getItemIcon = () => {
     if (isFolder) return '📁';
@@ -85,17 +102,18 @@ export function FileShareItemCard({
               }}
               style={{
                 fontSize: '0.68rem',
-                padding: '1px 6px',
+                padding: '2px 7px',
                 borderRadius: '6px',
-                background: isRestricted ? '#fee2e2' : 'rgba(99, 102, 241, 0.08)',
-                color: isRestricted ? '#b91c1c' : 'var(--primary)',
+                background: privacyBadge.bg,
+                color: privacyBadge.color,
                 fontWeight: 700,
                 cursor: onManagePermissions ? 'pointer' : 'default',
-                whiteSpace: 'nowrap'
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s'
               }}
-              title={isRestricted ? 'הרשאה מוגבלת לשותפים נבחרים' : 'פתוח לכל חברי המרחב'}
+              title={privacyBadge.title}
             >
-              {isRestricted ? '🔒 מוגבל' : '🌐 פתוח'}
+              {privacyBadge.text}
             </span>
           </div>
 

@@ -12,6 +12,7 @@ export function FloatingActionBar({
   showVaultTimeline = false,
   hasPartners,
   hasActivePartners,
+  hasFileShare,
   partnersCount,
   activeTab,
   setActiveTab,
@@ -28,6 +29,7 @@ export function FloatingActionBar({
   isAddingExpense: boolean;
   isScannerOpen: boolean;
   hasVault?: boolean;
+  hasFileShare?: boolean;
   showVaultTimeline?: boolean;
   hasPartners?: boolean;
   hasActivePartners?: boolean;
@@ -440,6 +442,43 @@ export function FloatingActionBar({
                 <span style={{ fontSize: '1.2rem' }}>📤</span>
                 <span style={{ fontSize: '0.6rem', fontWeight: '600', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '60px' }}>העלאה</span>
               </button>
+            )}
+
+            {/* When hasFileShare is active - Dedicate floating buttons to FileShare */}
+            {hasFileShare && !hasFinance && (!hasVault || !isInShelf) && (
+              <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
+                <button 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('smartshare:fileshare_add_folder'));
+                    window.dispatchEvent(new CustomEvent('smartshare:add_folder'));
+                  }} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#0284c7', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  title="צור תיקייה חדשה"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📁⁺</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>תיקייה</span>
+                </button>
+
+                <button 
+                  onClick={() => window.dispatchEvent(new CustomEvent('smartshare:fileshare_upload'))} 
+                  style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#2563eb', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                  title="העלה קובץ"
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📤</span>
+                  <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>העלאה</span>
+                </button>
+
+                {hasScanner && (
+                  <button 
+                    onClick={() => onOpenScanner('camera', 'document')} 
+                    style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#059669', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
+                    title="סרוק מסמך"
+                  >
+                    <span style={{ fontSize: '1.2rem' }}>🖨️</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>סריקה</span>
+                  </button>
+                )}
+              </div>
             )}
 
             {hasPartners && (

@@ -150,6 +150,31 @@ export function CreateShareLinkModal({
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
+  const handleEmailShare = () => {
+    if (!shareUrl) return;
+    const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';
+    const pinText = requirePin && pin ? `\nקוד גישה סודי: ${pin}` : '';
+    const subject = encodeURIComponent(`שיתוף ${itemTypeHeb}: ${item.name} מתוך ${spaceTitle}`);
+    const body = encodeURIComponent(`שלום,\n\nמצורף קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}:${pinText}\n\nלצפייה ישירה לחץ על הקישור הבא:\n${shareUrl}\n\nבברכה`);
+    window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+  };
+
+  const handleNativeShare = async () => {
+    if (!shareUrl) return;
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';
+        await navigator.share({
+          title: `${itemTypeHeb}: ${item.name}`,
+          text: `קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}${requirePin && pin ? ` (קוד גישה: ${pin})` : ''}`,
+          url: shareUrl
+        });
+      } catch (err) {
+        // User dismissed
+      }
+    }
+  };
+
   return (
     <div 
       style={{
@@ -395,29 +420,73 @@ export function CreateShareLinkModal({
                   </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.6rem' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))', gap: '0.45rem', marginTop: '0.65rem' }}>
                   <button
                     type="button"
                     onClick={handleWhatsAppShare}
                     style={{
-                      flex: 1,
-                      padding: '0.6rem',
+                      padding: '0.6rem 0.4rem',
                       borderRadius: '12px',
                       border: 'none',
                       background: '#25D366',
                       color: '#ffffff',
                       fontWeight: 800,
-                      fontSize: '0.84rem',
+                      fontSize: '0.8rem',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      gap: '0.4rem',
-                      boxShadow: '0 2px 8px rgba(37, 211, 102, 0.3)'
+                      gap: '0.35rem',
+                      boxShadow: '0 2px 6px rgba(37, 211, 102, 0.25)'
                     }}
                   >
-                    <span>💬</span> שתף בוואטסאפ
+                    <span>💬</span> וואטסאפ
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={handleEmailShare}
+                    style={{
+                      padding: '0.6rem 0.4rem',
+                      borderRadius: '12px',
+                      border: 'none',
+                      background: '#0284c7',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.8rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.35rem',
+                      boxShadow: '0 2px 6px rgba(2, 132, 199, 0.25)'
+                    }}
+                  >
+                    <span>✉️</span> אימייל
+                  </button>
+
+                  {typeof navigator !== 'undefined' && typeof navigator.share === 'function' && (
+                    <button
+                      type="button"
+                      onClick={handleNativeShare}
+                      style={{
+                        padding: '0.6rem 0.4rem',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border-light)',
+                        background: 'var(--bg-main)',
+                        color: 'var(--text-primary)',
+                        fontWeight: 800,
+                        fontSize: '0.8rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.35rem'
+                      }}
+                    >
+                      <span>🧭</span> שיתוף נוסף
+                    </button>
+                  )}
                 </div>
 
                 {/* Audit stats */}

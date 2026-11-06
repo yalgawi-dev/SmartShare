@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useRef } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
@@ -42,13 +42,34 @@ export function FileShareWidget({
   const [privacyItem, setPrivacyItem] = useState<FileShareItem | null>(null);
   const [selectedAllowedPartners, setSelectedAllowedPartners] = useState<string[]>([]);
 
-  // Raw items from space
+  // raw items from space
   const allItems: FileShareItem[] = useMemo(() => {
     return Array.isArray(space?.fileShareItems) ? space.fileShareItems : [];
   }, [space?.fileShareItems]);
 
   const isCreator = space.creatorId === user?.id || (user?.email && space.creatorEmail === user.email);
   const currentUserId = user?.id || '';
+
+  // Listen to floating dock events (Rule DRY / Single Source of Action)
+  useEffect(() => {
+    const handleAddFolder = () => {
+      setNewFolderName('');
+      setShowNewFolderModal(true);
+    };
+    const handleUpload = () => {
+      fileInputRef.current?.click();
+    };
+
+    window.addEventListener('smartshare:add_folder', handleAddFolder);
+    window.addEventListener('smartshare:fileshare_add_folder', handleAddFolder);
+    window.addEventListener('smartshare:fileshare_upload', handleUpload);
+
+    return () => {
+      window.removeEventListener('smartshare:add_folder', handleAddFolder);
+      window.removeEventListener('smartshare:fileshare_add_folder', handleAddFolder);
+      window.removeEventListener('smartshare:fileshare_upload', handleUpload);
+    };
+  }, []);
 
   // Breadcrumbs path computation
   const breadcrumbTrail = useMemo(() => {
@@ -76,10 +97,17 @@ export function FileShareWidget({
       // 1. Must match current folder
       if (item.parentId !== currentFolderId) return false;
 
-      // 2. Permission check (Rule 20: default open to all members, unless restricted to specific partners)
+      // 2. Permission check (Rule 20: default open to all members, unless restricted)
       if (Array.isArray(item.allowedPartners) && item.allowedPartners.length > 0) {
-        if (!isCreator && currentUserId && !item.allowedPartners.includes(currentUserId)) {
-          return false;
+        if (item.allowedPartners.includes('__creator_vault_secret__')) {
+          if (!isCreator) return false;
+        } else if (item.allowedPartners.includes('__only_me__')) {
+          if (item.createdBy !== currentUserId && !isCreator) return false;
+        } else {
+          // Specific partners list
+          if (!isCreator && currentUserId && !item.allowedPartners.includes(currentUserId) && item.createdBy !== currentUserId) {
+            return false;
+          }
         }
       }
 
@@ -311,7 +339,7 @@ export function FileShareWidget({
                 שיתוף קבצים
               </h2>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.61
+                v3.4.62
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
@@ -362,32 +390,8 @@ export function FileShareWidget({
         })}
       </div>
 
-      {/* 3. ACTION CONTROLS & SEARCH BAR */}
-      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Upload Files Button */}
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isUploading}
-          style={{
-            background: 'var(--primary)',
-            color: '#ffffff',
-            border: 'none',
-            padding: '0.5rem 0.9rem',
-            borderRadius: '12px',
-            fontSize: '0.82rem',
-            fontWeight: 800,
-            cursor: isUploading ? 'wait' : 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.35rem',
-            boxShadow: '0 2px 6px rgba(99, 102, 241, 0.25)'
-          }}
-        >
-          <span>📤</span>
-          <span>{isUploading ? 'מעלה...' : 'העלאת קבצים'}</span>
-        </button>
-
+      {/* 3. SEARCH BAR & HIDDEN UPLOAD INPUT (Actions reside in Floating Dock per Rule DRY) */}
+      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
         <input 
           ref={fileInputRef}
           type="file" 
@@ -397,55 +401,8 @@ export function FileShareWidget({
           style={{ display: 'none' }}
         />
 
-        {/* New Folder Button */}
-        <button
-          type="button"
-          onClick={() => setShowNewFolderModal(true)}
-          style={{
-            background: 'var(--bg-card, #ffffff)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-light)',
-            padding: '0.5rem 0.85rem',
-            borderRadius: '12px',
-            fontSize: '0.82rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: '0.35rem'
-          }}
-        >
-          <span>📁</span>
-          <span>תיקייה חדשה</span>
-        </button>
-
-        {/* Smart Scanner (Puzzle connection: only shown if scanner feature is active in space) */}
-        {hasScanner && onOpenScanner && (
-          <button
-            type="button"
-            onClick={onOpenScanner}
-            style={{
-              background: 'rgba(16, 185, 129, 0.1)',
-              color: '#047857',
-              border: '1px solid #10b981',
-              padding: '0.5rem 0.85rem',
-              borderRadius: '12px',
-              fontSize: '0.82rem',
-              fontWeight: 800,
-              cursor: 'pointer',
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem'
-            }}
-            title="סרוק מסמך ישירות לתיקייה זו"
-          >
-            <span>🖨️</span>
-            <span>סורק חכם</span>
-          </button>
-        )}
-
         {/* Search input */}
-        <div style={{ flex: 1, minWidth: '150px' }}>
+        <div style={{ flex: 1, width: '100%' }}>
           <input
             type="text"
             placeholder="🔍 חפש קובץ או תיקייה..."
@@ -453,11 +410,11 @@ export function FileShareWidget({
             onChange={e => setSearchQuery(e.target.value)}
             style={{
               width: '100%',
-              padding: '0.5rem 0.75rem',
+              padding: '0.65rem 0.85rem',
               borderRadius: '12px',
               border: '1px solid var(--border-light)',
               background: 'var(--bg-card, #ffffff)',
-              fontSize: '0.82rem',
+              fontSize: '0.85rem',
               color: 'var(--text-primary)',
               boxSizing: 'border-box'
             }}
@@ -493,10 +450,10 @@ export function FileShareWidget({
             item={folder}
             onOpen={handleOpenItem}
             onManageLink={item => setActiveShareItem(item)}
-            onManagePermissions={hasPartners ? item => {
+            onManagePermissions={item => {
               setPrivacyItem(item);
               setSelectedAllowedPartners(item.allowedPartners || []);
-            } : undefined}
+            }}
             onDelete={handleDeleteItem}
           />
         ))}
@@ -508,10 +465,10 @@ export function FileShareWidget({
             item={file}
             onOpen={handleOpenItem}
             onManageLink={item => setActiveShareItem(item)}
-            onManagePermissions={hasPartners ? item => {
+            onManagePermissions={item => {
               setPrivacyItem(item);
               setSelectedAllowedPartners(item.allowedPartners || []);
-            } : undefined}
+            }}
             onDelete={handleDeleteItem}
           />
         ))}
@@ -547,7 +504,7 @@ export function FileShareWidget({
         onSaved={handleSaveShareLink}
       />
 
-      {/* 6. PARTNER PRIVACY MODAL (PUZZLE CONNECTION IF PARTNERS ACTIVE) */}
+      {/* 6. GLOBAL PRIVACY & ACCESS MODAL (Rule 20) */}
       {privacyItem && (
         <div 
           style={{
@@ -573,13 +530,14 @@ export function FileShareWidget({
               padding: '1.5rem',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1rem'
+              gap: '1rem',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)'
             }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                🔒 הגדרת הרשאות שותפים
+                🔒 הגדרת הרשאות ופרטיות (גלובאלי)
               </h3>
               <button 
                 type="button" 
@@ -590,65 +548,134 @@ export function FileShareWidget({
               </button>
             </div>
 
-            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-              בחר אילו שותפים מתוך המרחב יקבלו גישה לפריט: <strong>{privacyItem.name}</strong>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+              קבע מי יכול לצפות בפריט: <strong>{privacyItem.name}</strong>
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '250px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '280px', overflowY: 'auto' }}>
+              {/* Option 1: 🌐 Open to everyone in space (Rule 20 default) */}
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.5rem',
-                padding: '0.6rem 0.8rem',
-                background: selectedAllowedPartners.length === 0 ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-main)',
+                gap: '0.6rem',
+                padding: '0.7rem 0.85rem',
+                background: selectedAllowedPartners.length === 0 ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                border: selectedAllowedPartners.length === 0 ? '1.5px solid var(--primary)' : '1px solid transparent',
                 borderRadius: '12px',
                 cursor: 'pointer',
                 fontWeight: 700,
                 fontSize: '0.84rem'
               }}>
                 <input 
-                  type="checkbox"
+                  type="radio"
+                  name="privacyScope"
                   checked={selectedAllowedPartners.length === 0}
                   onChange={() => setSelectedAllowedPartners([])}
                   style={{ accentColor: 'var(--primary)' }}
                 />
-                <span>🌐 פתוח לכל שותפי המרחב (ברירת מחדל)</span>
+                <div>
+                  <div style={{ color: 'var(--text-primary)' }}>🌐 פתוח לכל חברי המרחב (ברירת מחדל)</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>כל מי שיש לו גישה למרחב יכול לצפות בפריט זה</div>
+                </div>
               </label>
 
-              {activePartners.map((m: any) => {
-                const partnerId = m.userId || m.id;
-                const isChecked = selectedAllowedPartners.includes(partnerId);
-                return (
-                  <label 
-                    key={partnerId}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.5rem',
-                      padding: '0.6rem 0.8rem',
-                      background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-main)',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontSize: '0.84rem',
-                      color: 'var(--text-primary)'
-                    }}
-                  >
-                    <input 
-                      type="checkbox"
-                      checked={isChecked}
-                      onChange={() => {
-                        if (isChecked) {
-                          setSelectedAllowedPartners(prev => prev.filter(id => id !== partnerId));
-                        } else {
-                          setSelectedAllowedPartners(prev => [...prev.filter(id => id !== '__only_me__'), partnerId]);
-                        }
-                      }}
-                      style={{ accentColor: 'var(--primary)' }}
-                    />
-                    <span>{m.name || m.email || 'שותף'} {m.role === 'creator' ? '(יוצר המרחב)' : ''}</span>
-                  </label>
-                );
-              })}
+              {/* Option 2: 👤 Only Me */}
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.7rem 0.85rem',
+                background: selectedAllowedPartners.includes('__only_me__') ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                border: selectedAllowedPartners.includes('__only_me__') ? '1.5px solid var(--primary)' : '1px solid transparent',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.84rem'
+              }}>
+                <input 
+                  type="radio"
+                  name="privacyScope"
+                  checked={selectedAllowedPartners.includes('__only_me__')}
+                  onChange={() => setSelectedAllowedPartners(['__only_me__'])}
+                  style={{ accentColor: 'var(--primary)' }}
+                />
+                <div>
+                  <div style={{ color: 'var(--text-primary)' }}>👤 רק לעצמי (פרטי לחלוטין)</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>רק אתה תוכל לצפות בפריט זה</div>
+                </div>
+              </label>
+
+              {/* Option 3: 🛡️ Admins Only */}
+              <label style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.6rem',
+                padding: '0.7rem 0.85rem',
+                background: selectedAllowedPartners.includes('__creator_vault_secret__') ? 'rgba(99, 102, 241, 0.1)' : 'var(--bg-main)',
+                border: selectedAllowedPartners.includes('__creator_vault_secret__') ? '1.5px solid var(--primary)' : '1px solid transparent',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontWeight: 700,
+                fontSize: '0.84rem'
+              }}>
+                <input 
+                  type="radio"
+                  name="privacyScope"
+                  checked={selectedAllowedPartners.includes('__creator_vault_secret__')}
+                  onChange={() => setSelectedAllowedPartners(['__creator_vault_secret__'])}
+                  style={{ accentColor: 'var(--primary)' }}
+                />
+                <div>
+                  <div style={{ color: 'var(--text-primary)' }}>🛡️ מנהלי המרחב בלבד</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>גישה ליוצר ומנהלי המרחב בלבד</div>
+                </div>
+              </label>
+
+              {/* Option 4: Specific Members / Partners (if any exist) */}
+              {activePartners.length > 0 && (
+                <div style={{ marginTop: '0.4rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.5rem' }}>
+                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
+                    🔒 או הגבל לחברים / שותפים ספציפיים:
+                  </div>
+                  {activePartners.map((m: any) => {
+                    const partnerId = m.userId || m.id;
+                    const isChecked = selectedAllowedPartners.includes(partnerId);
+                    return (
+                      <label 
+                        key={partnerId}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.5rem 0.8rem',
+                          background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                          borderRadius: '10px',
+                          cursor: 'pointer',
+                          fontSize: '0.82rem',
+                          color: 'var(--text-primary)'
+                        }}
+                      >
+                        <input 
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {
+                            if (isChecked) {
+                              setSelectedAllowedPartners(prev => prev.filter(id => id !== partnerId));
+                            } else {
+                              setSelectedAllowedPartners(prev => [
+                                ...prev.filter(id => id !== '__only_me__' && id !== '__creator_vault_secret__'),
+                                partnerId
+                              ]);
+                            }
+                          }}
+                          style={{ accentColor: 'var(--primary)' }}
+                        />
+                        <span>{m.name || m.email || 'חבר מרחב'} {m.role === 'creator' ? '(יוצר המרחב)' : ''}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
