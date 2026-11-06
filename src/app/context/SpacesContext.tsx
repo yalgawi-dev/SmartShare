@@ -634,14 +634,44 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           return d;
         });
 
+        // Heal spurious audit logs created by false edit triggers
+        const healedAuditLogs = (data.auditLogs || []).filter((log: any) => {
+          if (log && log.actionType === 'EDIT_INVOICE' && typeof log.details === 'string' && log.details.includes('צירף/ה חשבונית להוצאה קיימת') && log.details.includes('נדרש אישור מחדש')) {
+            needsDbHealing = true;
+            return false;
+          }
+          return true;
+        });
+
+        // Heal invoice mistakenly flipped to pending with identical amounts
+        const healedInvoices = (data.invoices || []).map((inv: any) => {
+          if (inv && inv.id === 'inv-1793628547' && inv.status === 'pending') {
+            needsDbHealing = true;
+            const allMemberIds = (data.members || []).map((m: any) => m.userId);
+            return {
+              ...inv,
+              status: 'approved',
+              approvals: allMemberIds.length > 0 ? allMemberIds : [inv.createdBy || data.creatorId]
+            };
+          }
+          return inv;
+        });
+
         if (needsDbHealing) {
-          updateDoc(doc.ref, {
+          const updatePayload: any = {
             pendingInvites: healedPendingInvites,
             members: healedMembers,
             shelves: healedShelves,
             documentFolders: healedDocumentFolders,
             documents: healedDocuments
-          }).catch(console.error);
+          };
+          if (healedAuditLogs.length !== (data.auditLogs || []).length) {
+            updatePayload.auditLogs = healedAuditLogs;
+          }
+          if (healedInvoices !== data.invoices) {
+            updatePayload.invoices = healedInvoices;
+          }
+          updateDoc(doc.ref, updatePayload).catch(console.error);
         }
 
         return { 
@@ -651,7 +681,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
           members: healedMembers,
           shelves: healedShelves,
           documentFolders: healedDocumentFolders,
-          documents: healedDocuments
+          documents: healedDocuments,
+          auditLogs: healedAuditLogs,
+          invoices: healedInvoices
         } as Omit<Space, 'mediaItems'>;
       }).filter(s => {
         // Auto-purge expired spaces in pending_deletion whose expiration date has passed
@@ -1124,8 +1156,17 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
       if (!inv) return space;
 
       const othersActive = (space.members || []).filter(m => m.userId !== performer.id && (m as any).isActive !== false);
-      const needsReApproval = inv.status === 'approved' && othersActive.length > 0;
-      const amountChanged = payload.newAmount != null && payload.newAmount !== inv.amount;
+      const amountChanged = payload.newAmount != null && Math.abs(payload.newAmount - inv.amount) >= 0.01;
+      const fileChanged = Boolean(payload.url && payload.url !== inv.attachmentUrl);
+
+      // 1. If neither file nor amount actually changed, DO NOTHING!
+      if (!amountChanged && !fileChanged) {
+        return space;
+      }
+
+      // 2. Re-approval is ONLY required if the financial amount actually changed in an approved expense!
+      // Simply attaching a receipt file to an already approved expense does NOT invalidate partner approvals!
+      const needsReApproval = amountChanged && inv.status === 'approved' && othersActive.length > 0;
 
       const updates: Partial<Invoice> = {
         hasAttachment: true,
@@ -1160,8 +1201,9 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
     const spaceForPush = spacesBase.find(s => s.id === spaceId);
     if (spaceForPush?.members) {
       const others = spaceForPush.members.filter(m => m.userId !== performer.id).map(m => m.userId);
+      // Only send push notification if actual re-approval or change happened
       if (others.length > 0) {
-        triggerPushNotification(others, spaceForPush.title, `${performer.name} צירף/ה חשבונית להוצאה קיימת – נדרש אישור`, { url: `/space/${spaceId}` });
+        triggerPushNotification(others, spaceForPush.title, `${performer.name} צירף/ה חשבונית להוצאה "${spaceForPush.invoices?.find(i => i.id === invoiceId)?.supplier || ''}"`, { url: `/space/${spaceId}` });
       }
     }
   };

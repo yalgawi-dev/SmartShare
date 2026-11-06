@@ -204,15 +204,34 @@ export function FinanceTransactions({
     if (!editingInvoice || !space || !updateInvoice) return;
 
     const newAmount = Number(editForm.amount);
-    const oldAmount = editingInvoice.amount;
-    const isAmountChanged = newAmount !== oldAmount;
-    const isDateChanged = editForm.date !== editingInvoice.date;
+    const oldAmount = Number(editingInvoice.amount) || 0;
+    const isAmountChanged = Math.abs(newAmount - oldAmount) >= 0.01;
+
+    // Normalize both dates to YYYY-MM-DD for accurate comparison (prevents '2.11.2026' !== '2026-11-02' false trigger)
+    const normEditDate = normalizeToYMD(editForm.date) || editForm.date || '';
+    const normOldDate = normalizeToYMD(editingInvoice.date) || editingInvoice.date || '';
+    const isDateChanged = normEditDate !== normOldDate;
+
     const finalCategory = editForm.category === 'other' 
       ? (editForm.customCategory?.trim() || 'כללי') 
       : (editForm.category || 'כללי');
+    const oldCategory = editingInvoice.category || 'כללי';
+    const isCategoryChanged = finalCategory.trim() !== oldCategory.trim();
+
+    const newSupplier = (editForm.supplier || '').trim();
+    const oldSupplier = (editingInvoice.supplier || '').trim();
+    const isSupplierChanged = newSupplier !== oldSupplier;
+
+    // 1. ABSOLUTE ZERO-ACTION GUARD:
+    // If user clicked 'עריכה' and saved with identical values (no field was modified):
+    if (!isAmountChanged && !isDateChanged && !isCategoryChanged && !isSupplierChanged) {
+      // Zero changes occurred! DO NOT reset approvals, DO NOT write audit logs, DO NOT notify partners!
+      setEditingInvoice(null);
+      return;
+    }
 
     // If new custom category, save to space customCategories
-    if (editForm.category === 'other' && editForm.customCategory?.trim()) {
+    if (isCategoryChanged && editForm.category === 'other' && editForm.customCategory?.trim()) {
       const existing = space.settings?.customCategories || [];
       if (!existing.includes(editForm.customCategory.trim()) && updateSpaceSettings) {
         updateSpaceSettings(space.id, { customCategories: [...existing, editForm.customCategory.trim()] });
@@ -220,17 +239,17 @@ export function FinanceTransactions({
     }
 
     let approvalUpdates: Partial<any> = {};
-    let logReason = `עודכנו פרטי הוצאה. קטגוריה: ${finalCategory}, ספק: ${editForm.supplier}`;
+    let logReason = '';
 
-    // Check if new amount contradicts original OCR extracted amount
+    // Check OCR contradiction ONLY if the user ACTUALLY changed the amount
     const ocrExtractedAmount = editingInvoice.ocrData?.amount ? Number(editingInvoice.ocrData.amount) : null;
-    const isContradictingOcr = ocrExtractedAmount !== null && !isNaN(ocrExtractedAmount) && Math.abs(newAmount - ocrExtractedAmount) >= 0.01;
+    const isContradictingOcr = isAmountChanged && ocrExtractedAmount !== null && !isNaN(ocrExtractedAmount) && Math.abs(newAmount - ocrExtractedAmount) >= 0.01;
 
-    // Financial integrity check: If amount or date is changed in a shared space, reset approvals
-    if (isAmountChanged || isDateChanged || isContradictingOcr) {
-      logReason = `שונה סכום מ-₪${oldAmount} ל-₪${newAmount}, ספק: ${editForm.supplier}, תאריך מ-${editingInvoice.date} ל-${editForm.date}, קטגוריה: ${finalCategory}`;
+    // Financial integrity check: ONLY if the amount or date was ACTUALLY changed in a shared space, reset approvals!
+    if (isAmountChanged || isDateChanged) {
+      logReason = `שינוי פיננסי: ${isAmountChanged ? `סכום שונה מ-₪${oldAmount} ל-₪${newAmount}` : ''}${isDateChanged ? ` | תאריך שונה מ-${normOldDate} ל-${normEditDate}` : ''}`;
       if (isContradictingOcr) {
-        logReason += ` [⚠️ סתירה מול סריקת OCR: ${ocrExtractedAmount}₪]`;
+        logReason += ` [⚠️ סתירה מול סריקת OCR: ₪${ocrExtractedAmount}]`;
       }
       if (activePartnersCount > 0) {
         approvalUpdates = {
@@ -240,8 +259,12 @@ export function FinanceTransactions({
           previousAmount: oldAmount,
           isOcrMismatched: isContradictingOcr
         };
-        logReason += ' | ⚠️ נדרש אימות ואישור שותפים מחדש מול החשבונית המקורית';
+        logReason += ' | ⚠️ נדרש אימות ואישור שותפים מחדש עקב שינוי נתונים מהותי';
       }
+    } else {
+      // Cosmetic change only (supplier spelling or category changed, but amount and date are untouched):
+      // Keep existing approvals intact! DO NOT reset status!
+      logReason = `עודכנו פרטים כלליים: ${isSupplierChanged ? `ספק: "${newSupplier}" (היה "${oldSupplier}")` : ''}${isCategoryChanged ? ` | קטגוריה: "${finalCategory}"` : ''}`;
     }
     
     updateInvoice(
@@ -249,7 +272,7 @@ export function FinanceTransactions({
       editingInvoice.id, 
       { 
         amount: newAmount, 
-        supplier: editForm.supplier,
+        supplier: newSupplier,
         date: editForm.date,
         category: finalCategory,
         isOcrMismatched: isContradictingOcr,

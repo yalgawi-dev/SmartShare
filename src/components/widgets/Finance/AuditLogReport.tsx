@@ -14,22 +14,58 @@ export function AuditLogReport({ space }: AuditLogReportProps) {
   const [performerFilter, setPerformerFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Human-readable performer name resolver
-  const getPerformerName = (userId: string): string => {
+  // Human-readable performer name resolver (Never leak raw UIDs into UI!)
+  const getPerformerName = (userId: string, sampleDetails?: string): string => {
     if (!userId) return 'משתמש';
-    if (user && (userId === user.id || userId === 'me')) {
+    if (user && (userId === user.id || userId === (user as any).uid || userId === 'me')) {
       return user.realName || user.nickname || space?.createdBy || 'אני';
     }
-    const member = (space?.members || []).find((m: any) => m.userId === userId || m.name === userId);
+    const member = (space?.members || []).find((m: any) => 
+      m.userId === userId || m.id === userId || (m as any).uid === userId || (m as any).key === userId || m.name === userId
+    );
     if (member?.name) return member.name;
+
     if (space?.creatorId === userId) {
       return space.creatorName || (space.createdBy && space.createdBy !== 'אורח' && space.createdBy !== 'אני' ? space.createdBy : 'יוצר המרחב');
     }
-    const fromAllUsers = (allUsers || []).find((u: any) => u.id === userId);
+
+    // Match against invoices createdBy / paidBy
+    const invMatch = (space?.invoices || []).find((i: any) => i.createdBy === userId || (i as any).userId === userId);
+    if (invMatch?.paidBy) return invMatch.paidBy;
+
+    const fromAllUsers = (allUsers || []).find((u: any) => u.id === userId || (u as any).uid === userId);
     if (fromAllUsers?.realName || fromAllUsers?.nickname) {
       return fromAllUsers.realName || fromAllUsers.nickname;
     }
-    return userId;
+
+    // If userId itself is already a human name (contains Hebrew, spaces or isn't a hash token)
+    if (!/^[A-Za-z0-9_-]{20,}$/.test(userId)) {
+      return userId;
+    }
+
+    // Try to extract name from details if this log has text like "Yehuda ערך/ה..." or "Yehuda צירף/ה..."
+    if (sampleDetails) {
+      const match = sampleDetails.match(/^([\u0590-\u05FF\w\s]+?)\s+(ערך\/ה|צירף\/ה|מחק\/ה|שחזר\/ה|הסיר\/ה|יצא\/ה|עדכן\/ה|ביטל\/ה)/);
+      if (match && match[1] && !/^[A-Za-z0-9_-]{20,}$/.test(match[1])) {
+        return match[1].trim();
+      }
+    }
+
+    // Try finding across all logs for this performer if any detail has the name
+    const logWithDetails = (space?.auditLogs || []).find((l: any) => l.performedBy === userId && l.details);
+    if (logWithDetails?.details) {
+      const match = logWithDetails.details.match(/^([\u0590-\u05FF\w\s]+?)\s+(ערך\/ה|צירף\/ה|מחק\/ה|שחזר\/ה|הסיר\/ה|יצא\/ה|עדכן\/ה|ביטל\/ה)/);
+      if (match && match[1] && !/^[A-Za-z0-9_-]{20,}$/.test(match[1])) {
+        return match[1].trim();
+      }
+    }
+
+    // If space only has one member / creator, use that name
+    if (space?.createdBy && space.createdBy !== 'אורח') {
+      return space.createdBy;
+    }
+
+    return 'שותף במרחב';
   };
 
   const rawLogs: AuditRecord[] = useMemo(() => {
@@ -338,7 +374,7 @@ export function AuditLogReport({ space }: AuditLogReportProps) {
             const badge = getActionBadge(log.actionType);
             const formattedDate = log.timestamp ? new Date(log.timestamp).toLocaleDateString('he-IL') : '';
             const formattedTime = log.timestamp ? new Date(log.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '';
-            const performerDisplayName = getPerformerName(log.performedBy);
+            const performerDisplayName = getPerformerName(log.performedBy, log.details);
             
             // Clean details string if it contains raw userId
             let cleanDetails = log.details || '';
