@@ -81,15 +81,14 @@ export function FileShareItemCard({
         </div>
 
         <div style={{ minWidth: 0, flex: 1 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
             <h4 style={{
               margin: 0,
-              fontSize: '0.92rem',
+              fontSize: '0.95rem',
               fontWeight: 800,
               color: 'var(--text-primary)',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis'
+              wordBreak: 'break-word',
+              lineHeight: 1.3
             }}>
               {item.name}
             </h4>
@@ -109,7 +108,10 @@ export function FileShareItemCard({
                 fontWeight: 700,
                 cursor: onManagePermissions ? 'pointer' : 'default',
                 whiteSpace: 'nowrap',
-                transition: 'all 0.2s'
+                transition: 'all 0.2s',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px'
               }}
               title={privacyBadge.title}
             >
@@ -117,7 +119,7 @@ export function FileShareItemCard({
             </span>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '3px', fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '4px', fontSize: '0.74rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
             {!isFolder && item.size ? <span>{formatFileSize(item.size)}</span> : null}
             {!isFolder && item.pages && item.pages.length > 1 ? <span>• {item.pages.length} עמודים</span> : null}
             <span>• {new Date(item.createdAt).toLocaleDateString('he-IL')}</span>
@@ -132,18 +134,18 @@ export function FileShareItemCard({
                 style={{
                   background: 'rgba(16, 185, 129, 0.12)',
                   color: '#047857',
-                  padding: '1px 6px',
+                  padding: '2px 7px',
                   borderRadius: '6px',
                   fontWeight: 700,
                   fontSize: '0.68rem',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '2px',
+                  gap: '3px',
                   cursor: 'pointer'
                 }}
-                title="לחץ לעריכת קישור השיתוף או שיתוף בוואטסאפ"
+                title="לחץ לעריכת קישור השיתוף או שיתוף בוואטסאפ / אימייל"
               >
-                🔗 קישור פעיל {item.shareLink?.viewCount ? `• 👁️ ${item.shareLink.viewCount}` : ''}
+                🔗 קישור חיצוני פעיל {item.shareLink?.viewCount ? `• 👁️ ${item.shareLink.viewCount}` : ''}
               </span>
             )}
           </div>
@@ -151,28 +153,30 @@ export function FileShareItemCard({
       </div>
 
       {/* Left side: Action Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }} onClick={e => e.stopPropagation()}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
         {/* Share Link Button */}
         <button
           type="button"
           onClick={() => onManageLink(item)}
           style={{
             background: isPublicLinkActive ? 'rgba(16, 185, 129, 0.15)' : 'var(--bg-main, #f1f5f9)',
-            border: isPublicLinkActive ? '1px solid #10b981' : '1px solid var(--border-light, #e2e8f0)',
-            color: isPublicLinkActive ? '#047857' : 'var(--text-primary)',
-            padding: '0.35rem 0.6rem',
-            borderRadius: '10px',
-            fontSize: '0.78rem',
-            fontWeight: 700,
+            border: isPublicLinkActive ? '1.5px solid #10b981' : '1px solid var(--border-light, #cbd5e1)',
+            color: isPublicLinkActive ? '#047857' : 'var(--primary, #4f46e5)',
+            padding: '0.4rem 0.75rem',
+            borderRadius: '12px',
+            fontSize: '0.8rem',
+            fontWeight: 800,
             cursor: 'pointer',
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '0.25rem'
+            gap: '0.35rem',
+            transition: 'all 0.2s',
+            boxShadow: 'var(--shadow-sm)'
           }}
-          title="צור או נהל קישור שיתוף חיצוני"
+          title="צור קישור כניסה / שיתוף לצפייה חיצונית (וואטסאפ, אימייל)"
         >
           <span>🔗</span>
-          <span>{isPublicLinkActive ? 'קישור' : 'שתף'}</span>
+          <span>{isPublicLinkActive ? 'ניהול לינק' : 'שלח לינק'}</span>
         </button>
 
         {/* Delete Button */}

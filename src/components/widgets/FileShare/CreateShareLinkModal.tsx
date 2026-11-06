@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileShareItem, ShareLinkConfig, createOrUpdatePublicShare, revokePublicShare } from '@/utils/fileShareUtils';
+import { FileShareItem, ShareLinkConfig, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
@@ -48,8 +48,9 @@ export function CreateShareLinkModal({
           else setExpiryOption('30days');
         }
       } else {
-        setIsEnabled(false);
-        setToken('');
+        // Auto-enable and generate token so link is immediately usable
+        setIsEnabled(true);
+        setToken(generateShareToken());
         setRequirePin(false);
         setPin('');
         setExpiryOption('never');
@@ -72,6 +73,37 @@ export function CreateShareLinkModal({
     return null;
   };
 
+  const ensurePersisted = async (tokenToUse: string): Promise<boolean> => {
+    if (!item) return false;
+    try {
+      const expiresAt = calculateExpiryTimestamp(expiryOption);
+      const newConfig: ShareLinkConfig = {
+        enabled: true,
+        token: tokenToUse,
+        requirePin,
+        pin: requirePin ? pin.trim() : undefined,
+        expiresAt,
+        allowDownload,
+        viewCount: item.shareLink?.viewCount || 0,
+        lastViewedAt: item.shareLink?.lastViewedAt || null,
+        createdAt: item.shareLink?.createdAt || Date.now()
+      };
+
+      await createOrUpdatePublicShare(
+        item.spaceId,
+        spaceTitle,
+        item,
+        newConfig,
+        folderFiles
+      );
+      onSaved(newConfig);
+      return true;
+    } catch (err) {
+      console.error('Failed to auto-persist share link:', err);
+      return false;
+    }
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
@@ -90,30 +122,8 @@ export function CreateShareLinkModal({
         return;
       }
 
-      const expiresAt = calculateExpiryTimestamp(expiryOption);
-      const newConfig: ShareLinkConfig = {
-        enabled: true,
-        token: token || undefined,
-        requirePin,
-        pin: requirePin ? pin.trim() : undefined,
-        expiresAt,
-        allowDownload,
-        viewCount: item.shareLink?.viewCount || 0,
-        lastViewedAt: item.shareLink?.lastViewedAt || null,
-        createdAt: item.shareLink?.createdAt || Date.now()
-      };
-
-      const finalToken = await createOrUpdatePublicShare(
-        item.spaceId,
-        spaceTitle,
-        item,
-        newConfig,
-        folderFiles
-      );
-
-      newConfig.token = finalToken;
-      setToken(finalToken);
-      onSaved(newConfig);
+      const activeToken = token || generateShareToken();
+      await ensurePersisted(activeToken);
       onClose();
     } catch (err) {
       console.error('Error saving share link:', err);
@@ -125,6 +135,7 @@ export function CreateShareLinkModal({
 
   const handleCopy = async () => {
     if (!shareUrl) return;
+    if (token) await ensurePersisted(token);
     try {
       await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
@@ -142,16 +153,18 @@ export function CreateShareLinkModal({
     }
   };
 
-  const handleWhatsAppShare = () => {
+  const handleWhatsAppShare = async () => {
     if (!shareUrl) return;
+    if (token) await ensurePersisted(token);
     const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
     const text = encodeURIComponent(`שלום, מצורף קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}:${pinText}\n${shareUrl}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
-  const handleEmailShare = () => {
+  const handleEmailShare = async () => {
     if (!shareUrl) return;
+    if (token) await ensurePersisted(token);
     const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';
     const pinText = requirePin && pin ? `\nקוד גישה סודי: ${pin}` : '';
     const subject = encodeURIComponent(`שיתוף ${itemTypeHeb}: ${item.name} מתוך ${spaceTitle}`);
@@ -161,6 +174,7 @@ export function CreateShareLinkModal({
 
   const handleNativeShare = async () => {
     if (!shareUrl) return;
+    if (token) await ensurePersisted(token);
     if (typeof navigator !== 'undefined' && navigator.share) {
       try {
         const itemTypeHeb = item.type === 'folder' ? 'תיקייה' : 'מסמך';

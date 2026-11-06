@@ -339,7 +339,7 @@ export function FileShareWidget({
                 שיתוף קבצים
               </h2>
               <span style={{ fontSize: '0.65rem', background: '#e0e7ff', color: '#4338ca', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                v3.4.62
+                v3.4.63
               </span>
             </div>
             <p style={{ margin: 0, fontSize: '0.74rem', color: 'var(--text-secondary)' }}>
@@ -356,39 +356,61 @@ export function FileShareWidget({
         </div>
       </div>
 
-      {/* 2. BREADCRUMBS BAR */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.4rem',
-        background: 'var(--bg-card, #ffffff)',
-        padding: '0.5rem 0.85rem',
-        borderRadius: '12px',
-        border: '1px solid var(--border-light)',
-        fontSize: '0.82rem',
-        overflowX: 'auto',
-        whiteSpace: 'nowrap'
-      }}>
-        {breadcrumbTrail.map((crumb, idx) => {
-          const isLast = idx === breadcrumbTrail.length - 1;
-          return (
-            <React.Fragment key={crumb.id || 'root'}>
-              {idx > 0 && <span style={{ color: 'var(--text-secondary)' }}>/</span>}
-              <span
-                onClick={() => !isLast && setCurrentFolderId(crumb.id)}
-                style={{
-                  color: isLast ? 'var(--text-primary)' : 'var(--primary)',
-                  fontWeight: isLast ? 800 : 600,
-                  cursor: isLast ? 'default' : 'pointer',
-                  textDecoration: isLast ? 'none' : 'underline'
-                }}
-              >
-                {crumb.name}
-              </span>
-            </React.Fragment>
-          );
-        })}
-      </div>
+      {/* 2. BREADCRUMBS BAR (Shown when navigating inside folders) */}
+      {breadcrumbTrail.length > 1 && (
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.45rem',
+          background: 'rgba(99, 102, 241, 0.06)',
+          padding: '0.5rem 0.85rem',
+          borderRadius: '12px',
+          border: '1px solid rgba(99, 102, 241, 0.18)',
+          fontSize: '0.84rem',
+          overflowX: 'auto',
+          whiteSpace: 'nowrap'
+        }}>
+          <button
+            type="button"
+            onClick={() => {
+              const parentCrumb = breadcrumbTrail[breadcrumbTrail.length - 2];
+              setCurrentFolderId(parentCrumb?.id || null);
+            }}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.95rem',
+              display: 'flex',
+              alignItems: 'center',
+              padding: '0 0.2rem',
+              color: 'var(--primary)'
+            }}
+            title="חזרה לתיקייה קודמת"
+          >
+            ↩️
+          </button>
+          {breadcrumbTrail.map((crumb, idx) => {
+            const isLast = idx === breadcrumbTrail.length - 1;
+            return (
+              <React.Fragment key={crumb.id || 'root'}>
+                {idx > 0 && <span style={{ color: 'var(--text-secondary)' }}>/</span>}
+                <span
+                  onClick={() => !isLast && setCurrentFolderId(crumb.id)}
+                  style={{
+                    color: isLast ? 'var(--text-primary)' : 'var(--primary)',
+                    fontWeight: isLast ? 800 : 600,
+                    cursor: isLast ? 'default' : 'pointer',
+                    textDecoration: isLast ? 'none' : 'underline'
+                  }}
+                >
+                  {crumb.id === null ? '🏠 ראשי' : `📁 ${crumb.name}`}
+                </span>
+              </React.Fragment>
+            );
+          })}
+        </div>
+      )}
 
       {/* 3. SEARCH BAR & HIDDEN UPLOAD INPUT (Actions reside in Floating Dock per Rule DRY) */}
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>

@@ -117,10 +117,10 @@ export function FloatingActionBar({
   if (isAddingExpense || isScannerOpen || isPreviewOpen || isAnnouncementOpen || !mounted) return null;
 
   // When outside a shelf:
-  // 1. If space has no finance, or activeTab is 'documents' or empty/summary without finance, default to 'shelves'
-  // 2. Even in a space with finance, if outside a shelf and activeTab was left as 'documents', resolve to 'shelves'
+  // 1. If space has no finance, or activeTab is 'documents' or empty/summary without finance, default to 'shelves' only if hasVault is active
+  // 2. If hasFileShare and no finance, resolve to 'fileshare'
   const effectiveTab = !isInShelf && (activeTab === 'documents' || (!hasFinance && (activeTab === 'summary' || !activeTab)))
-    ? 'shelves'
+    ? (hasVault ? 'shelves' : hasFileShare ? 'fileshare' : (activeTab || 'summary'))
     : activeTab;
   const isShelvesActive = isInShelf ? shelfSubTab === 'timeline' : effectiveTab === 'shelves';
   const isDocsActive = isInShelf ? shelfSubTab === 'vault' : effectiveTab === 'documents';
@@ -367,8 +367,8 @@ export function FloatingActionBar({
           </>
         ) : (
           <>
-            {/* When in Shelves / Vault mode */}
-            {(effectiveTab === 'shelves' || isInShelf) && (
+            {/* When in Shelves / Vault mode (Strictly requires hasVault) */}
+            {hasVault && (effectiveTab === 'shelves' || isInShelf) && (
               <>
                 {!isInShelf ? (
                   <button onClick={() => { const e = new CustomEvent('smartshare:add_shelf'); window.dispatchEvent(e); }} style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#64748b', minWidth: '45px', transition: 'all 0.2s', flex: 1 }}>
@@ -428,7 +428,7 @@ export function FloatingActionBar({
             )}
             
             {/* Direct Upload button - show in shelves mode when outside shelf */}
-            {effectiveTab === 'shelves' && !isInShelf && (
+            {hasVault && effectiveTab === 'shelves' && !isInShelf && (
               <button 
                 onClick={() => onOpenScanner('upload', 'document')}
                 style={{
