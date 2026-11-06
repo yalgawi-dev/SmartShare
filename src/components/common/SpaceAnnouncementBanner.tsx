@@ -457,7 +457,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
   onClose,
   onSavedToast,
 }) => {
-  const { spaces, updateSpaceSettings, getRoleForSpace, globalAnnouncement, updateGlobalAnnouncement } = useSpaces();
+  const { spaces, updateSpaceSettings, getRoleForSpace, getTokenForSpace, globalAnnouncement, updateGlobalAnnouncement } = useSpaces();
   const { user, allUsers } = useAuth();
 
   const space = !isGlobalMode ? spaces.find((s) => s.id === spaceId) : undefined;
@@ -723,7 +723,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
       announcementEnabled: finalEnabled,
       announcementId: nextId,
       announcementAuthor: defaultAuthorName,
-      announcementCreatorId: user?.id || '',
+      announcementCreatorId: user?.id || (!isGlobalMode && spaceId ? getTokenForSpace(spaceId) : '') || '',
       announcementExpiresAt: finalEnabled ? expiresAtIso : null,
       announcementDurationHours: finalEnabled ? effectiveDurationHours : null,
       announcementShowOnce: finalEnabled ? draftShowOnce : false,
@@ -776,7 +776,7 @@ const AnnouncementUnifiedEditorForm: React.FC<AnnouncementUnifiedEditorFormProps
       announcementEnabled: false,
       announcementId: `ann_${Date.now()}`,
       announcementAuthor: defaultAuthorName,
-      announcementCreatorId: user?.id || '',
+      announcementCreatorId: user?.id || (!isGlobalMode && spaceId ? getTokenForSpace(spaceId) : '') || '',
       announcementExpiresAt: null,
       announcementDurationHours: null,
       announcementShowOnce: false,
@@ -1433,7 +1433,7 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
   onCloseExternalEditor,
   onSavedToast,
 }) => {
-  const { spaces, updateSpaceSettings, getRoleForSpace, globalAnnouncement, updateGlobalAnnouncement } = useSpaces();
+  const { spaces, updateSpaceSettings, getRoleForSpace, getTokenForSpace, globalAnnouncement, updateGlobalAnnouncement } = useSpaces();
   const { user } = useAuth();
 
   const isGlobalMode = Boolean(isGlobal || spaceId === 'global');
@@ -1570,10 +1570,13 @@ export const SpaceAnnouncementBanner: React.FC<SpaceAnnouncementBannerProps> = (
 
   // Is current logged in user the author/creator of the general announcement?
   // User Rule: "ההודעה המתפרצת לא צריכה להופיע אצל מי ששולח אותה אלא אצל שאר השותפים"
+  const partnerToken = !isGlobalMode && spaceId ? getTokenForSpace(spaceId) : null;
   const isSenderOfGeneral = Boolean(
-    user?.id &&
-      (announcementCreatorId === user.id ||
-        (!announcementCreatorId && !isGlobalMode && space?.creatorId === user.id))
+    (announcementCreatorId && (
+      (user?.id && announcementCreatorId === user.id) ||
+      (partnerToken && announcementCreatorId === partnerToken)
+    )) ||
+    (!announcementCreatorId && !isGlobalMode && space?.creatorId && user?.id === space.creatorId)
   );
 
   const shouldShowGeneralBanner =

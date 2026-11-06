@@ -6,6 +6,7 @@ import { useAuth } from '@/app/context/AuthContext';
 import { FileShareItem, formatFileSize } from '@/utils/fileShareUtils';
 import { canAccessItem } from '@/utils/permissionUtils';
 import UniversalViewerModal, { ViewerDocument } from '@/components/common/ViewerEngine/UniversalViewerModal';
+import PdfThumbnail from '@/components/shared/PdfThumbnail';
 
 interface CandidateFile {
   id: string;
@@ -47,7 +48,7 @@ export function ImportExistingFileModal({
   // Check if current user is strictly an authorized creator/member of a space (Rule 20 / Strict Access Control)
   const isAuthorizedMemberOfSpace = useMemo(() => {
     return (s: any): boolean => {
-      if (!s || s.status === 'pending_deletion') return false;
+      if (!s || s.status === 'pending_deletion' || s.id === '__global_announcement__') return false;
       if (!user?.id) return false;
 
       // 1. Direct creator
@@ -55,15 +56,20 @@ export function ImportExistingFileModal({
       if (user.spaceKeys?.[s.id]?.role === 'creator') return true;
 
       // 2. Explicit active member in space.members
-      if (Array.isArray(s.members)) {
-        const m = s.members.find((mem: any) => mem.userId === user.id);
+      if (Array.isArray(s.members) && s.members.length > 0) {
+        const m = s.members.find((mem: any) => mem && (mem.userId === user.id || (mem.userId && user.spaceKeys?.[s.id]?.token === mem.userId)));
         if (m && m.status !== 'removed' && m.isActive !== false) {
           return true;
         }
       }
 
       // 3. Authenticated partner key
-      if (user.spaceKeys?.[s.id] && (user.spaceKeys[s.id].role === 'creator' || user.spaceKeys[s.id].role === 'partner')) {
+      const partnerKey = user.spaceKeys?.[s.id];
+      if (partnerKey && (partnerKey.role === 'creator' || partnerKey.role === 'partner' || partnerKey.role === 'admin')) {
+        if (Array.isArray(s.members)) {
+          const m = s.members.find((mem: any) => mem && (mem.userId === user.id || mem.userId === partnerKey.token));
+          if (m && (m.status === 'removed' || m.isActive === false)) return false;
+        }
         return true;
       }
 
@@ -325,7 +331,7 @@ export function ImportExistingFileModal({
               </h3>
             </div>
             <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.76rem', color: '#059669', fontWeight: 700 }}>
-              ⚡ חיסכון מקסימלי: הקובץ יקושר ישירות ללא שכפול נפח בענן (0 בייטים כפולים)
+              ⚡ חיסכון מקסימלי: קבצים מ-{authorizedOtherSpaces.length} המרחבים האישיים שלך יקושרו ישירות (0 בייטים כפולים)
             </p>
           </div>
           <button
@@ -379,7 +385,7 @@ export function ImportExistingFileModal({
                 color: 'var(--text-primary)'
               }}
             >
-              <option value="all">🌐 כל המרחבים שלי ({authorizedOtherSpaces.length} מרחבים • {otherSpacesFiles.length} קבצים)</option>
+              <option value="all">🌐 כל {authorizedOtherSpaces.length} המרחבים שלי (סה״כ {otherSpacesFiles.length} קבצים זמינים)</option>
               {authorizedOtherSpaces.map(s => {
                 const count = otherSpacesFiles.filter(f => f.sourceSpaceId === s.id).length;
                 return (
@@ -479,7 +485,12 @@ export function ImportExistingFileModal({
                         alt={candidate.name}
                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         loading="lazy"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = 'none';
+                        }}
                       />
+                    ) : (candidate.fileType === 'pdf' || candidate.url.toLowerCase().includes('.pdf')) ? (
+                      <PdfThumbnail url={candidate.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <span style={{ fontSize: '1.4rem' }}>{getItemIcon(candidate)}</span>
                     )}
@@ -611,7 +622,7 @@ export function ImportExistingFileModal({
           background: 'var(--bg-main, #f8fafc)'
         }}>
           <span style={{ fontSize: '0.76rem', color: 'var(--text-secondary)' }}>
-            נמצאו <strong>{filteredFiles.length}</strong> קבצים זמינים לייבוא ישיר
+            נמצאו <strong>{filteredFiles.length}</strong> קבצים ב-<strong>{authorizedOtherSpaces.length}</strong> מרחבים אישיים שלך בלבד 🔒
           </span>
           <button
             type="button"
