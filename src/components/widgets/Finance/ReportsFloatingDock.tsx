@@ -183,29 +183,31 @@ export function ReportsFloatingDock({
       {/* 3. LEFT SIDE: REPORT ACTIONS (ZIP IS 100% VISIBLE & NEVER CLIPPED) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
         
-        {/* FILTER BUTTON */}
-        <button
-          type="button"
-          onClick={handleFilterClick}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            padding: '0.4rem 0.25rem',
-            borderRadius: '14px',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '0.15rem',
-            cursor: 'pointer',
-            color: '#475569',
-            minWidth: '32px',
-            transition: 'all 0.2s'
-          }}
-          title="פתח סינון נתונים"
-        >
-          <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>🔍</span>
-          <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>סינון</span>
-        </button>
+        {/* FILTER BUTTON - Only relevant and shown in date_range expense report */}
+        {activeReport === 'date_range' && (
+          <button
+            type="button"
+            onClick={handleFilterClick}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '0.4rem 0.25rem',
+              borderRadius: '14px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '0.15rem',
+              cursor: 'pointer',
+              color: '#475569',
+              minWidth: '32px',
+              transition: 'all 0.2s'
+            }}
+            title="פתח סינון נתונים"
+          >
+            <span style={{ fontSize: '1.1rem', lineHeight: '1' }}>🔍</span>
+            <span style={{ fontSize: '0.62rem', fontWeight: '700' }}>סינון</span>
+          </button>
+        )}
 
         {/* EXPORT EXCEL */}
         <button

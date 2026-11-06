@@ -14,6 +14,7 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
   const [statusFilter, setStatusFilter] = useState<'all' | 'debtors' | 'creditors' | 'balanced'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [expandedPartners, setExpandedPartners] = useState<Record<string, boolean>>({});
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState<boolean>(false);
   const [showFilterModal, setShowFilterModal] = useState<boolean>(false);
 
   // Compute all settlement data
@@ -418,107 +419,143 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '6rem' }}>
       
-      {/* 1. TOP EXECUTIVE SUMMARY CARD (תמונת מצב מנהלים מובחנת וממוסגרת) */}
+      {/* 1. TOP EXECUTIVE SUMMARY CARD (תמונת מצב מנהלים מובחנת וממוסגרת - אקורדיון) */}
       <div 
         className="card glass-panel"
         style={{
           background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
-          borderRadius: '22px',
-          padding: '1.25rem',
+          borderRadius: '20px',
+          padding: isSummaryExpanded ? '1.15rem' : '0.85rem 1.15rem',
           border: '2px solid #cbd5e1',
           boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1rem'
+          gap: isSummaryExpanded ? '1rem' : '0',
+          transition: 'all 0.25s ease'
         }}
       >
-        {/* EXECUTIVE SUMMARY HEADER BANNER */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1.5px solid #e2e8f0', paddingBottom: '0.75rem' }}>
+        {/* EXECUTIVE SUMMARY ACCORDION HEADER */}
+        <div 
+          onClick={() => setIsSummaryExpanded(prev => !prev)}
+          style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            cursor: 'pointer',
+            userSelect: 'none',
+            borderBottom: isSummaryExpanded ? '1.5px solid #e2e8f0' : 'none', 
+            paddingBottom: isSummaryExpanded ? '0.75rem' : '0' 
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.35rem' }}>📊</span>
             <div>
-              <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#0f172a', fontWeight: 900 }}>
+              <h2 style={{ margin: 0, fontSize: '1.02rem', color: '#0f172a', fontWeight: 900 }}>
                 סיכום כללי – תמונת מצב וסגירת חשבון
               </h2>
-              <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
-                שקלול כולל של כל ההוצאות וההעברות הנדרשות לאיזון מלא בין השותפים
-              </p>
-            </div>
-          </div>
-          <span style={{ fontSize: '0.68rem', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>
-            תמצית מנהלים
-          </span>
-        </div>
-
-        {/* 3 DISTINCT KPI SUMMARY BOXES */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
-          <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', fontWeight: 'bold' }}>
-              היקף סגירת חשבון
-            </span>
-            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)', lineHeight: '1.2', marginTop: '2px' }}>
-              ₪{reportData.totalSettlementDebt.toLocaleString()}
+              {isSummaryExpanded && (
+                <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
+                  שקלול כולל של כל ההוצאות וההעברות הנדרשות לאיזון מלא בין השותפים
+                </p>
+              )}
             </div>
           </div>
 
-          <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
-            <span style={{ fontSize: '0.7rem', color: '#b91c1c', display: 'block', fontWeight: 'bold' }}>
-              חייבים בתשלום
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            {!isSummaryExpanded && (
+              <span style={{ fontSize: '0.75rem', fontWeight: 900, color: '#2563eb', background: '#eff6ff', border: '1px solid #bfdbfe', padding: '2px 8px', borderRadius: '10px' }}>
+                ₪{reportData.totalSettlementDebt.toLocaleString()}
+              </span>
+            )}
+            <span style={{ fontSize: '0.68rem', background: '#dbeafe', color: '#1e40af', padding: '2px 8px', borderRadius: '8px', fontWeight: 800 }}>
+              תמצית מנהלים
             </span>
-            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#dc2626', lineHeight: '1.2', marginTop: '2px' }}>
-              {debtorsCount} {debtorsCount === 1 ? 'שותף' : 'שותפים'}
-            </div>
-          </div>
-
-          <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
-            <span style={{ fontSize: '0.7rem', color: '#047857', display: 'block', fontWeight: 'bold' }}>
-              זכאים להחזר
+            <span style={{
+              fontSize: '0.8rem',
+              color: 'var(--text-secondary)',
+              transform: isSummaryExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.2s ease',
+              marginRight: '2px'
+            }}>
+              ▼
             </span>
-            <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', lineHeight: '1.2', marginTop: '2px' }}>
-              {creditorsCount} {creditorsCount === 1 ? 'שותף' : 'שותפים'}
-            </div>
           </div>
         </div>
 
-        {/* SETTLEMENT INSTRUCTIONS BOX (הוראות סגירת חשבון) */}
-        {reportData.settlements.length > 0 ? (
-          <div style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: '14px', padding: '0.85rem' }}>
-            <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              <span>🤝</span>
-              <span>העברות כספיות נדרשות לסגירת חובות בין השותפים:</span>
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-              {reportData.settlements.map((s, idx) => (
-                <div 
-                  key={idx}
-                  style={{
-                    background: '#f8fafc',
-                    border: '1px solid #e2e8f0',
-                    borderRadius: '10px',
-                    padding: '0.6rem 0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    fontSize: '0.85rem'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <span style={{ fontWeight: '800', color: '#b91c1c' }}>{s.fromName}</span>
-                    <span style={{ color: '#64748b' }}>מעביר אל</span>
-                    <span style={{ fontWeight: '800', color: '#047857' }}>{s.toName}</span>
-                  </div>
-                  <div style={{ fontWeight: '900', color: '#2563eb', fontSize: '1rem' }}>
-                    ₪{s.amount.toLocaleString()}
-                  </div>
+        {/* ACCORDION CONTENT: 3 KPI SUMMARY BOXES & SETTLEMENT INSTRUCTIONS */}
+        {isSummaryExpanded && (
+          <>
+            {/* 3 DISTINCT KPI SUMMARY BOXES */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.6rem' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #cbd5e1', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', display: 'block', fontWeight: 'bold' }}>
+                  היקף סגירת חשבון
+                </span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: 'var(--primary)', lineHeight: '1.2', marginTop: '2px' }}>
+                  ₪{reportData.totalSettlementDebt.toLocaleString()}
                 </div>
-              ))}
+              </div>
+
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: '#b91c1c', display: 'block', fontWeight: 'bold' }}>
+                  חייבים בתשלום
+                </span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#dc2626', lineHeight: '1.2', marginTop: '2px' }}>
+                  {debtorsCount} {debtorsCount === 1 ? 'שותף' : 'שותפים'}
+                </div>
+              </div>
+
+              <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: '14px', padding: '0.65rem 0.75rem', textAlign: 'center' }}>
+                <span style={{ fontSize: '0.7rem', color: '#047857', display: 'block', fontWeight: 'bold' }}>
+                  זכאים להחזר
+                </span>
+                <div style={{ fontSize: '1.25rem', fontWeight: 900, color: '#059669', lineHeight: '1.2', marginTop: '2px' }}>
+                  {creditorsCount} {creditorsCount === 1 ? 'שותף' : 'שותפים'}
+                </div>
+              </div>
             </div>
-          </div>
-        ) : (
-          <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '0.75rem 0.9rem', color: '#065f46', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span>✅</span>
-            <span>כל החשבונות בין השותפים מאוזנים לחלוטין! אין חובות פתוחים.</span>
-          </div>
+
+            {/* SETTLEMENT INSTRUCTIONS BOX (הוראות סגירת חשבון) */}
+            {reportData.settlements.length > 0 ? (
+              <div style={{ background: '#ffffff', border: '1.5px solid #cbd5e1', borderRadius: '14px', padding: '0.85rem' }}>
+                <div style={{ fontSize: '0.82rem', fontWeight: '800', color: '#1e293b', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span>🤝</span>
+                  <span>העברות כספיות נדרשות לסגירת חובות בין השותפים:</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                  {reportData.settlements.map((s, idx) => (
+                    <div 
+                      key={idx}
+                      style={{
+                        background: '#f8fafc',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '10px',
+                        padding: '0.6rem 0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        fontSize: '0.85rem'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{ fontWeight: '800', color: '#b91c1c' }}>{s.fromName}</span>
+                        <span style={{ color: '#64748b' }}>מעביר אל</span>
+                        <span style={{ fontWeight: '800', color: '#047857' }}>{s.toName}</span>
+                      </div>
+                      <div style={{ fontWeight: '900', color: '#2563eb', fontSize: '1rem' }}>
+                        ₪{s.amount.toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: '12px', padding: '0.75rem 0.9rem', color: '#065f46', fontSize: '0.85rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span>✅</span>
+                <span>כל החשבונות בין השותפים מאוזנים לחלוטין! אין חובות פתוחים.</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -542,9 +579,6 @@ export function PartnerSettlementReport({ space, invoices, currentUserId }: Part
               <h3 style={{ margin: 0, fontSize: '0.98rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 פירוט עסקאות וחשבונות לפי שותף
               </h3>
-              <p style={{ margin: 0, fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                לחץ על שותף להצגת פירוט כל העסקאות שלו שורה-אחר-שורה
-              </p>
             </div>
           </div>
         </div>
