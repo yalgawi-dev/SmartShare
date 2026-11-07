@@ -399,20 +399,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
         // Mode behavior:
         // In MANUAL mode -> go directly to cropping screen so user sees & adjusts the 4 boundary corners!
-        // In AUTO mode -> if confident, auto-crop & enhance to review; otherwise go to cropping with full image
+        // In AUTO mode -> Always auto-crop & enhance to review directly! (Uses detectedPts if good, or full frame if unclear)
         if (!isAutoEngine) {
           setIsEditingFromReview(false);
           setStep('cropping');
-        } else if (autoConfidence) {
+        } else {
           setIsProcessing(true);
           setTimeout(async () => {
             await performCrop(snapshotUrl, pts, 'smart_plus');
             setIsProcessing(false);
             setStep('review');
           }, 40);
-        } else {
-          // Auto mode but low confidence -> show crop boundary for safety
-          setStep('cropping');
         }
       }
     };
@@ -603,8 +600,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setIsEditingFromReview(false);
     setRawSnapshot(snapshotUrl);
 
-    // If Auto Engine is ON and detection is confident, auto-crop & apply smart_plus directly
-    if (isAutoEngine && autoConfidence) {
+    // If Auto Engine is ON, auto-crop & apply smart_plus directly to review (uses detected boundary or safe full frame)
+    if (isAutoEngine) {
       setIsProcessing(true);
       setTimeout(async () => {
         await performCrop(snapshotUrl, initialPts, 'smart_plus');
@@ -1132,27 +1129,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
       {/* Header */}
       <div style={{ padding: '0.5rem 0.75rem', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)', gap: '0.4rem' }}>
-        {/* Left: Close button */}
-        <button onClick={handleManualClose} style={{ background: 'transparent', color: '#e2e8f0', border: 'none', fontSize: '0.9rem', cursor: 'pointer', padding: '0.3rem 0.4rem', whiteSpace: 'nowrap' }}>✕ סגור</button>
-        
-        {/* Center: Title & Version */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', justifyContent: 'center', textAlign: 'center', minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
-            <VersionBadge style={{ background: '#3b82f6', color: '#fff', fontSize: '0.65rem', padding: '1px 5px' }} />
-          </h2>
-          {editingDocTitle && (
-            <div style={{ fontSize: '0.7rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-              <span>{isMultiDocMerge ? '📜 איחוד מסמכים למגילה' : `📄 הוספה ל: "${editingDocTitle}"`}</span>
-              <span style={{ color: '#fbbf24' }}>
-                ({sortedTrayItems.length} במגש)
-              </span>
-            </div>
-          )}
-        </div>
-        
-        {/* Right: Controls (Mode Toggle & Torch) */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.35rem' }}>
+        {/* Left: Controls (Mode Toggle & Torch) - placed on left for natural flow */}
+        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '0.35rem' }}>
           {/* Toggle Auto/Manual Crop Engine */}
           <button
             onClick={() => {
@@ -1167,25 +1145,25 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 return nextVal;
               });
             }}
-            title={isAutoEngine ? "מצב אוטומטי: מזהה, חותך ומשפר אוטומטית" : "מצב ידני: פותח גבולות לכיוונון ידני מדויק"}
+            title={isAutoEngine ? "מצב אוטומטי: מזהה, חותך ומשפר אוטומטית ללא עצירה" : "מצב ידני: מציג גבולות לכיוונון ידני"}
             style={{
               background: isAutoEngine ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)',
               color: isAutoEngine ? '#34d399' : '#fbbf24',
               border: isAutoEngine ? '1px solid #10b981' : '1px solid #f59e0b',
-              padding: '0.25rem 0.5rem',
+              padding: '0.25rem 0.55rem',
               borderRadius: '14px',
               fontSize: '0.72rem',
               fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.2rem',
+              gap: '0.25rem',
               transition: 'all 0.2s ease',
               whiteSpace: 'nowrap'
             }}
           >
             <span>{isAutoEngine ? '⚡' : '🖐️'}</span>
-            <span>{isAutoEngine ? 'חיתוך: אוטו' : 'חיתוך: ידני'}</span>
+            <span>{isAutoEngine ? 'אוטו' : 'ידני'}</span>
           </button>
 
           {step === 'scanning' && stream && (
@@ -1217,6 +1195,30 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             </button>
           )}
           {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.72rem', color: '#94a3b8'}}>טוען...</span>}
+        </div>
+
+        {/* Center: Title & Small Version */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', justifyContent: 'center', textAlign: 'center', minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap' }}>
+            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
+            <VersionBadge style={{ background: '#3b82f6', color: '#fff', fontSize: '0.62rem', padding: '1px 5px' }} />
+          </h2>
+          {editingDocTitle && (
+            <div style={{ fontSize: '0.7rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
+              <span>{isMultiDocMerge ? '📜 איחוד מסמכים למגילה' : `📄 הוספה ל: "${editingDocTitle}"`}</span>
+              <span style={{ color: '#fbbf24' }}>
+                ({sortedTrayItems.length} במגש)
+              </span>
+            </div>
+          )}
+        </div>
+
+        {/* Right: Close button */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
+          <button onClick={handleManualClose} style={{ background: 'transparent', color: '#e2e8f0', border: 'none', fontSize: '0.95rem', cursor: 'pointer', padding: '0.3rem 0.5rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+            <span>✕</span>
+            <span>סגור</span>
+          </button>
         </div>
       </div>
 
@@ -1684,14 +1686,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         )}
 
         {step === 'cropping' && (
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.5rem', width: '100%' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.4rem', width: '100%' }}>
             {isEditingFromReview ? (
               <button 
                 onClick={() => {
                   setIsEditingFromReview(false);
                   setStep('review');
                 }} 
-                style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.6rem 0.2rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
               >
                 <span>↩️</span>
                 <span>ביטול</span>
@@ -1699,7 +1701,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             ) : (
               <button 
                 onClick={handleRetake} 
-                style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
+                style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.6rem 0.2rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
               >
                 <span>{(activeSource === 'upload' || scannerMode === 'upload') ? '📁' : '📷'}</span>
                 <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'קובץ אחר' : 'צלם שוב'}</span>
@@ -1709,16 +1711,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               onClick={handleSkipCrop} 
               disabled={isProcessing} 
               title="שומר את כל התמונה המקורית ללא חיתוך גבולות"
-              style={{ flex: 1.2, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+              style={{ background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.6rem 0.2rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
             >
               <span>🖼️</span>
-              <span>תמונה מלאה (ללא חיתוך)</span>
+              <span>ללא חיתוך</span>
             </button>
             <button 
               onClick={handleCropComplete} 
               disabled={isProcessing} 
               title="מיישר את המסמך לפי 4 הפינות שנבחרו"
-              style={{ flex: 1.3, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.65rem 0.5rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+              style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0.6rem 0.2rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.82rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', whiteSpace: 'nowrap' }}
             >
               <span>✨</span>
               <span>{isProcessing ? 'מעבד...' : 'אשר חיתוך'}</span>
