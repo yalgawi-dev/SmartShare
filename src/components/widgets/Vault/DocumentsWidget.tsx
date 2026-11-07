@@ -3713,7 +3713,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                             <div onClick={(e) => { e.stopPropagation(); setActiveDocMenuId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
                                             <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '14px', boxShadow: '0 12px 30px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0', padding: '0.45rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '175px', direction: 'rtl' }}>
                                               {/* קבוצה 1: פעולות ועריכה */}
-                                              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', padding: '0.2rem 0.4rem 0.1rem', letterSpacing: '0.3px' }}>
+                                              <div style={{ fontSize: '0.72rem', fontWeight: 900, color: '#475569', padding: '0.2rem 0.4rem 0.1rem', letterSpacing: '0.3px' }}>
                                                 עריכה ותצוגה
                                               </div>
                                               <button
@@ -3724,7 +3724,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                     window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', { detail: { doc } }));
                                                   }
                                                 }}
-                                                style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.4rem 0.6rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.8rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
                                                 ✂️ עריכה בסורק
                                               </button>
@@ -3764,7 +3764,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               <div style={{ height: '1px', background: '#f1f5f9', margin: '0.2rem 0' }} />
 
                                               {/* קבוצה 2: ארגון ופרטיות */}
-                                              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
+                                              <div style={{ fontSize: '0.72rem', fontWeight: 900, color: '#475569', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
                                                 ארגון ופרטיות
                                               </div>
                                               <button
@@ -3793,7 +3793,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                     ownerId: doc.ownerId || (doc as any).addedBy
                                                   });
                                                 }}
-                                                style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#15803d', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#15803d', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
                                                 🔐 הרשאות ופרטיות
                                               </button>
@@ -3802,7 +3802,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                               <div style={{ height: '1px', background: '#f1f5f9', margin: '0.2rem 0' }} />
 
                                               {/* קבוצה 3: קישור */}
-                                              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
+                                              <div style={{ fontSize: '0.72rem', fontWeight: 900, color: '#475569', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
                                                 קישורים
                                               </div>
                                               <button
