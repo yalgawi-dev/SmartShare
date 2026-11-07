@@ -330,7 +330,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               if (isAutoEngine) {
                 // Document from vault is already displayed in review via imageCache['original'].
                 // If user desires auto-enhancement, performCrop will run safely without blocking or loop-freezing
-                if (window.cv && window.cv.Mat && window.cv.imread) {
+                const cv = (window as any).cv;
+                if (cv && cv.Mat && cv.imread) {
                   performCrop(cleanActive, pts, 'smart_plus').catch(e => console.warn("Auto enhance vault doc error:", e));
                 }
               }
