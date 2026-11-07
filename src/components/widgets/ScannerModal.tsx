@@ -93,6 +93,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const missedFramesRef = useRef<number>(0);
   
   const [cvLoaded, setCvLoaded] = useState(false);
+  const [isAutoEngine, setIsAutoEngine] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('smartshare_scanner_auto_engine');
+      return saved !== null ? saved === 'true' : true; // Default: Auto
+    } catch {
+      return true;
+    }
+  });
   const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>(defaultCategory);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>(() => {
@@ -362,18 +370,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
-        const pts = detectDocument(canvas) || [
-          {x: w * 0.1, y: h * 0.1},
-          {x: w * 0.9, y: h * 0.1},
-          {x: w * 0.9, y: h * 0.9},
-          {x: w * 0.1, y: h * 0.9}
+        let detectedPts = detectDocument(canvas);
+        let pts = [
+          {x: w * 0.02, y: h * 0.02},
+          {x: w * 0.98, y: h * 0.02},
+          {x: w * 0.98, y: h * 0.98},
+          {x: w * 0.02, y: h * 0.98}
         ];
+        if (detectedPts && detectedPts.length === 4) {
+          const p1 = detectedPts[0], p2 = detectedPts[1], p3 = detectedPts[2], p4 = detectedPts[3];
+          const polyArea = 0.5 * Math.abs(
+            (p1.x * p2.y - p2.x * p1.y) +
+            (p2.x * p3.y - p3.x * p1.y) +
+            (p3.x * p4.y - p4.x * p3.y) +
+            (p4.x * p1.y - p1.x * p4.y)
+          );
+          const ratio = polyArea / (w * h);
+          if (ratio >= 0.35 && ratio <= 0.98) {
+            pts = detectedPts;
+          }
+        }
         setCropPoints(pts);
         const snapshotUrl = compressCanvas(canvas, 0.88, 'image/webp');
         setRawSnapshot(snapshotUrl);
         if (!preserveId) setActiveDocId(generateDocId());
-        // Imported files are usually already clean: skip forced crop (same as "דלג חיתוך").
-        // The ✂️ "עריכה" button in review remains available for manual editing.
+        // Imported files default to original, with manual crop available
         setImageCache({ original: snapshotUrl });
         setMode('original');
         setStep('review');
@@ -523,10 +544,36 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
     // Compute document boundaries directly using fast thumbnail (runs in ~20ms)
     let initialPts = defaultPts;
+    let autoConfidence = false;
     try {
       const detectedPts = detectDocument(canvas);
       if (detectedPts && detectedPts.length === 4) {
-        initialPts = detectedPts;
+        // Safe Boundary Verification: calculate area of detected polygon
+        const p1 = detectedPts[0], p2 = detectedPts[1], p3 = detectedPts[2], p4 = detectedPts[3];
+        const polyArea = 0.5 * Math.abs(
+          (p1.x * p2.y - p2.x * p1.y) +
+          (p2.x * p3.y - p3.x * p1.y) +
+          (p3.x * p4.y - p4.x * p3.y) +
+          (p4.x * p1.y - p1.x * p4.y)
+        );
+        const canvasArea = canvas.width * canvas.height;
+        const coverageRatio = polyArea / canvasArea;
+
+        // If detected area is robust (> 35% and < 98% of frame), accept it
+        if (coverageRatio >= 0.35 && coverageRatio <= 0.98) {
+          initialPts = detectedPts;
+          if (coverageRatio >= 0.55) {
+            autoConfidence = true;
+          }
+        } else {
+          // Dangerous / small triangle detected: safe fallback to full frame
+          initialPts = [
+            { x: canvas.width * 0.02, y: canvas.height * 0.02 },
+            { x: canvas.width * 0.98, y: canvas.height * 0.02 },
+            { x: canvas.width * 0.98, y: canvas.height * 0.98 },
+            { x: canvas.width * 0.02, y: canvas.height * 0.98 }
+          ];
+        }
       }
     } catch (err) {
       console.warn("Boundary detection warning:", err);
@@ -539,7 +586,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setScannerMode('camera');
     setIsEditingFromReview(false);
     setRawSnapshot(snapshotUrl);
-    setStep('cropping');
+
+    // If Auto Engine is ON and detection is confident, auto-crop & apply smart_plus directly
+    if (isAutoEngine && autoConfidence) {
+      setIsProcessing(true);
+      setTimeout(async () => {
+        await performCrop(snapshotUrl, initialPts, 'smart_plus');
+        setIsProcessing(false);
+        setStep('review');
+      }, 50);
+    } else {
+      setStep('cropping');
+    }
 
     // Release camera stream non-blockingly so UI transitions instantly
     setTimeout(() => {
@@ -1075,6 +1133,36 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         </div>
         
         <div style={{ minWidth: '95px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem' }}>
+          {/* Toggle Auto/Manual Engine */}
+          <button
+            onClick={() => {
+              setIsAutoEngine(prev => {
+                const nextVal = !prev;
+                try { localStorage.setItem('smartshare_scanner_auto_engine', String(nextVal)); } catch {}
+                return nextVal;
+              });
+            }}
+            title={isAutoEngine ? "מצב אוטומטי (Auto-Magic): חיתוך ופילטר חכמים אוטומטית" : "מצב ידני (Manual): שליטה ובחירה ידנית בכל שלב"}
+            style={{
+              background: isAutoEngine ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)',
+              color: isAutoEngine ? '#34d399' : '#fbbf24',
+              border: isAutoEngine ? '1px solid #10b981' : '1px solid #f59e0b',
+              padding: '0.35rem 0.65rem',
+              borderRadius: '16px',
+              fontSize: '0.75rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              transition: 'all 0.2s ease',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            <span>{isAutoEngine ? '⚡' : '🖐️'}</span>
+            <span>{isAutoEngine ? 'אוטומט' : 'ידני'}</span>
+          </button>
+
           {step === 'scanning' && stream && (
             <button
               onClick={() => {
@@ -1580,7 +1668,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
               >
                 <span>↩️</span>
-                <span>ביטול עריכה</span>
+                <span>ביטול</span>
               </button>
             ) : (
               <button 
@@ -1588,60 +1676,147 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 style={{ flex: 1, background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap' }}
               >
                 <span>{(activeSource === 'upload' || scannerMode === 'upload') ? '📁' : '📷'}</span>
-                <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'בחר קובץ אחר' : 'צלם שוב'}</span>
+                <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'קובץ אחר' : 'צלם שוב'}</span>
               </button>
             )}
             <button 
               onClick={handleSkipCrop} 
               disabled={isProcessing} 
-              style={{ flex: 1, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
+              title="שומר את כל התמונה המקורית ללא חיתוך גבולות"
+              style={{ flex: 1.2, background: 'rgba(255, 255, 255, 0.15)', color: '#ffffff', border: '1px solid rgba(255, 255, 255, 0.3)', padding: '0.65rem 0.5rem', borderRadius: '12px', cursor: isProcessing ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
             >
-              <span>⚡</span>
-              <span>דלג חיתוך</span>
+              <span>🖼️</span>
+              <span>תמונה מלאה (ללא חיתוך)</span>
             </button>
             <button 
               onClick={handleCropComplete} 
               disabled={isProcessing} 
-              style={{ flex: 1.2, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.65rem 0.5rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', whiteSpace: 'nowrap' }}
+              title="מיישר את המסמך לפי 4 הפינות שנבחרו"
+              style={{ flex: 1.3, background: 'var(--primary)', color: 'white', border: 'none', padding: '0.65rem 0.5rem', borderRadius: '12px', fontWeight: 'bold', cursor: isProcessing ? 'not-allowed' : 'pointer', opacity: isProcessing ? 0.7 : 1, fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.3rem', whiteSpace: 'nowrap' }}
             >
-              {isProcessing ? 'מעבד...' : 'אשר חיתוך ✓'}
+              <span>✨</span>
+              <span>{isProcessing ? 'מעבד...' : 'אשר חיתוך'}</span>
             </button>
           </div>
         )}
 
         {step === 'review' && (
           <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginTop: '0.3rem' }}>
-              <div style={{ display: 'flex', gap: '0.4rem' }}>
-                <button 
-                  onClick={() => handleCategorySelect('document')} 
-                  style={{ flex: 1, padding: '0.5rem', borderRadius: '10px', background: (selectedCategory === 'document' || selectedCategory === 'receipt') ? '#3b82f6' : 'rgba(255,255,255,0.08)', color: (selectedCategory === 'document' || selectedCategory === 'receipt') ? 'white' : '#94a3b8', border: (selectedCategory === 'document' || selectedCategory === 'receipt') ? 'none' : '1px solid rgba(255,255,255,0.15)', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', transition: 'all 0.2s', cursor: 'pointer' }}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.3rem' }}>
+              {/* Primary 4-Filter Control Bar: Single Source of Truth, all 4 immediately visible */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.35rem', width: '100%' }}>
+                {/* 1. חשבוניות פלוס */}
+                <button
+                  onClick={() => handleFilterSwitch('smart_plus')}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '10px',
+                    background: mode === 'smart_plus' ? '#3b82f6' : 'rgba(255,255,255,0.08)',
+                    color: mode === 'smart_plus' ? '#ffffff' : '#94a3b8',
+                    border: mode === 'smart_plus' ? '1px solid #60a5fa' : '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.2rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="חשבוניות פלוס - ניקוי רקע, חידוד טקסט ושמירת צבע חותמות/לוגו"
                 >
-                  <span style={{ fontSize: '1.15rem' }}>📄</span>
-                  <span>מסמך+</span>
+                  <span style={{ fontSize: '1.05rem' }}>✨</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.74rem' }}>חשבוניות+</span>
                 </button>
-                <button 
-                  onClick={() => handleCategorySelect('image')} 
-                  style={{ flex: 1, padding: '0.5rem', borderRadius: '10px', background: selectedCategory === 'image' ? '#f59e0b' : 'rgba(255,255,255,0.08)', color: selectedCategory === 'image' ? 'white' : '#94a3b8', border: selectedCategory === 'image' ? 'none' : '1px solid rgba(255,255,255,0.15)', fontSize: '0.9rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', transition: 'all 0.2s', cursor: 'pointer' }}
+
+                {/* 2. שחור-לבן */}
+                <button
+                  onClick={() => handleFilterSwitch('bw')}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '10px',
+                    background: mode === 'bw' ? '#ffffff' : 'rgba(255,255,255,0.08)',
+                    color: mode === 'bw' ? '#000000' : '#94a3b8',
+                    border: mode === 'bw' ? '1px solid #ffffff' : '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.2rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="שחור-לבן - סריקת מסמכים קלאסית נקייה ללא צבעים"
                 >
-                  <span style={{ fontSize: '1.15rem' }}>🖼️</span>
-                  <span>תמונה</span>
+                  <span style={{ fontSize: '1.05rem' }}>📄</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.74rem' }}>שחור-לבן</span>
+                </button>
+
+                {/* 3. תמונה (צבע משופר) */}
+                <button
+                  onClick={() => handleFilterSwitch('pure_color')}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '10px',
+                    background: mode === 'pure_color' ? '#f59e0b' : 'rgba(255,255,255,0.08)',
+                    color: mode === 'pure_color' ? '#ffffff' : '#94a3b8',
+                    border: mode === 'pure_color' ? '1px solid #fbbf24' : '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.2rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="תמונה - שיפור רוויית צבעים, ניגודיות וחדות"
+                >
+                  <span style={{ fontSize: '1.05rem' }}>🖼️</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.74rem' }}>תמונה</span>
+                </button>
+
+                {/* 4. מקור (הצילום הגולמי ללא עיבוד) */}
+                <button
+                  onClick={() => handleFilterSwitch('original')}
+                  style={{
+                    padding: '0.55rem 0.2rem',
+                    borderRadius: '10px',
+                    background: mode === 'original' ? '#10b981' : 'rgba(255,255,255,0.08)',
+                    color: mode === 'original' ? '#ffffff' : '#94a3b8',
+                    border: mode === 'original' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.15)',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.2rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s ease'
+                  }}
+                  title="מקור - הקובץ המקורי כפי שצולם/יובא ללא עיבוד צבע"
+                >
+                  <span style={{ fontSize: '1.05rem' }}>📷</span>
+                  <span style={{ whiteSpace: 'nowrap', fontSize: '0.74rem' }}>מקור</span>
                 </button>
               </div>
 
-              {/* Advanced Filters Toggle */}
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.25rem' }}>
-                <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+              {/* Advanced / Experimental Filters Toggle */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '0.1rem' }}>
+                <button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} style={{ background: 'transparent', border: 'none', color: '#64748b', fontSize: '0.72rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                   <span>{showAdvancedFilters ? '▲' : '▼'}</span>
-                  <span>עיבוד מתקדם (ש/ל ומקור)</span>
+                  <span>פילטרים ניסיוניים נוספים</span>
                 </button>
               </div>
               {showAdvancedFilters && (
-                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.25rem', flexWrap: 'wrap' }}>
-                  <button onClick={() => handleFilterSwitch('hybrid_shadow')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'hybrid_shadow' ? '#8b5cf6' : 'transparent', color: mode === 'hybrid_shadow' ? '#fff' : '#8b5cf6', border: '1px solid #8b5cf6', fontSize: '0.8rem', cursor: 'pointer' }}>ניסיוני 2 (היברידי)</button>
-                  <button onClick={() => handleFilterSwitch('experimental')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'experimental' ? '#3b82f6' : 'transparent', color: mode === 'experimental' ? '#fff' : '#3b82f6', border: '1px solid #3b82f6', fontSize: '0.8rem', cursor: 'pointer' }}>ניסיוני (חדש)</button>
-                  <button onClick={() => handleFilterSwitch('bw')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'bw' ? '#fff' : 'transparent', color: mode === 'bw' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>שחור-לבן</button>
-                  <button onClick={() => handleFilterSwitch('original')} style={{ padding: '0.4rem 0.8rem', borderRadius: '20px', background: mode === 'original' ? '#fff' : 'transparent', color: mode === 'original' ? '#000' : '#fff', border: '1px solid #fff', fontSize: '0.8rem', cursor: 'pointer' }}>מקור</button>
+                <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '0.1rem', flexWrap: 'wrap' }}>
+                  <button onClick={() => handleFilterSwitch('hybrid_shadow')} style={{ padding: '0.35rem 0.75rem', borderRadius: '20px', background: mode === 'hybrid_shadow' ? '#8b5cf6' : 'transparent', color: mode === 'hybrid_shadow' ? '#fff' : '#8b5cf6', border: '1px solid #8b5cf6', fontSize: '0.75rem', cursor: 'pointer' }}>ניסיוני 2 (היברידי)</button>
+                  <button onClick={() => handleFilterSwitch('experimental')} style={{ padding: '0.35rem 0.75rem', borderRadius: '20px', background: mode === 'experimental' ? '#3b82f6' : 'transparent', color: mode === 'experimental' ? '#fff' : '#3b82f6', border: '1px solid #3b82f6', fontSize: '0.75rem', cursor: 'pointer' }}>ניסיוני (חדש)</button>
                 </div>
               )}
 
