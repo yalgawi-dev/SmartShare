@@ -527,20 +527,36 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
       if (!ctx) return reject(new Error('Canvas context failed'));
       ctx.drawImage(img, 0, 0);
 
+      // Safe Points Fallback: if pts is empty, undefined, or malformed, default safely to full frame (2% margin)
+      let safePts = pts;
+      if (!safePts || safePts.length < 4 || !safePts[0] || typeof safePts[0].x !== 'number') {
+        const detected = detectDocument(canvas);
+        if (detected && detected.length === 4) {
+          safePts = detected;
+        } else {
+          safePts = [
+            { x: img.width * 0.02, y: img.height * 0.02 },
+            { x: img.width * 0.98, y: img.height * 0.02 },
+            { x: img.width * 0.98, y: img.height * 0.98 },
+            { x: img.width * 0.02, y: img.height * 0.98 }
+          ];
+        }
+      }
+
       try {
         let finalHybrid: any;
         const cv = (window as any).cv;
         const t0_math = performance.now();
         let t_warp = 0, t_bw = 0, t_hsv = 0, t_hull = 0, t_engine = 0;
         let mark = performance.now();
-          let src = cv.imread(canvas);
+        let src = cv.imread(canvas);
         
-        const widthA = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
-        const widthB = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        const widthA = Math.hypot(safePts[2].x - safePts[3].x, safePts[2].y - safePts[3].y);
+        const widthB = Math.hypot(safePts[1].x - safePts[0].x, safePts[1].y - safePts[0].y);
         let maxWidth = Math.round(Math.max(widthA, widthB));
 
-        const heightA = Math.hypot(pts[1].x - pts[2].x, pts[1].y - pts[2].y);
-        const heightB = Math.hypot(pts[0].x - pts[3].x, pts[0].y - pts[3].y);
+        const heightA = Math.hypot(safePts[1].x - safePts[2].x, safePts[1].y - safePts[2].y);
+        const heightB = Math.hypot(safePts[0].x - safePts[3].x, safePts[0].y - safePts[3].y);
         let maxHeight = Math.round(Math.max(heightA, heightB));
         
         let scaleRatio = 1.0;
@@ -562,10 +578,10 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
         let dsize = new cv.Size(maxWidth, maxHeight);
         
         let srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
-          pts[0].x, pts[0].y,
-          pts[1].x, pts[1].y,
-          pts[2].x, pts[2].y,
-          pts[3].x, pts[3].y
+          safePts[0].x, safePts[0].y,
+          safePts[1].x, safePts[1].y,
+          safePts[2].x, safePts[2].y,
+          safePts[3].x, safePts[3].y
         ]);
         
         let dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [

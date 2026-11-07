@@ -1160,16 +1160,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               try { localStorage.setItem('smartshare_scanner_auto_engine', String(nextVal)); } catch {}
 
               // Live response to mode switch:
-              if (rawSnapshot) {
+              const targetSnapshot = rawSnapshot || imageCache[mode] || activeOriginalUrl;
+              if (targetSnapshot) {
                 if (!nextVal) {
-                  // Switching to MANUAL 🖐️ -> show the crop screen with the 4 yellow corners!
+                  // Switching to MANUAL ✂️ -> show the crop screen with the 4 yellow corners!
+                  if (!rawSnapshot) setRawSnapshot(targetSnapshot);
                   setIsEditingFromReview(true);
                   setStep('cropping');
                 } else {
-                  // Switching to AUTO ⚡ -> auto-crop and enhance with detected boundary, straight to review!
+                  // Switching to AUTO ✨ -> auto-crop and enhance with detected boundary, straight to review!
                   setIsProcessing(true);
                   setTimeout(async () => {
-                    await performCrop(rawSnapshot, cropPoints, mode === 'original' ? 'smart_plus' : mode);
+                    await performCrop(targetSnapshot, cropPoints, mode === 'original' ? 'smart_plus' : mode);
                     setIsProcessing(false);
                     setStep('review');
                   }, 30);
@@ -1193,7 +1195,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               whiteSpace: 'nowrap'
             }}
           >
-            <span>{isAutoEngine ? '⚡' : '🖐️'}</span>
+            <span>{isAutoEngine ? '✨' : '✂️'}</span>
             <span>{isAutoEngine ? 'אוטו' : 'ידני'}</span>
           </button>
 
@@ -1204,25 +1206,25 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 else if (flashMode === 'on') setFlashMode('off');
                 else setFlashMode('auto');
               }}
-              title={`פלאש מצלמה: ${flashMode === 'auto' ? 'אוטומטי לפי תאורה' : flashMode === 'on' ? 'פועל רציף' : 'כבוי'}`}
+              title={`פלאש: ${flashMode === 'auto' ? 'אוטומטי' : flashMode === 'on' ? 'פועל' : 'כבוי'}`}
               style={{
                 background: flashMode === 'auto' ? 'rgba(59, 130, 246, 0.25)' : flashMode === 'on' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
                 color: flashMode === 'auto' ? '#60a5fa' : flashMode === 'on' ? '#fde047' : '#94a3b8',
                 border: flashMode === 'auto' ? '1px solid #3b82f6' : flashMode === 'on' ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.2)',
-                padding: '0.25rem 0.5rem',
+                padding: '0.25rem 0.45rem',
                 borderRadius: '14px',
-                fontSize: '0.72rem',
+                fontSize: '0.78rem',
                 fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.2rem',
+                gap: '0.15rem',
                 transition: 'all 0.2s ease',
                 whiteSpace: 'nowrap'
               }}
             >
               <span>{flashMode === 'on' ? '💡' : flashMode === 'auto' ? '⚡' : '🚫'}</span>
-              <span>{flashMode === 'on' ? 'פלאש' : flashMode === 'auto' ? 'פלאש: אוטו' : 'פלאש: כבוי'}</span>
+              <span style={{ fontSize: '0.65rem' }}>{flashMode === 'auto' ? 'A' : ''}</span>
             </button>
           )}
           {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.72rem', color: '#94a3b8'}}>טוען...</span>}
