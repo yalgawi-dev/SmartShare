@@ -478,7 +478,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     img.src = url;
   };
 
-  /** Commits imported items to the tray as-is (no crop/filters). Single source for "אשר הכל" and gallery import. */
+  /** Commits imported items to the tray. When isAutoEngine is true, processes auto-crop & smart_plus on each item. */
   const commitImportsRaw = async (items: { id: string, url: string }[], startPageNum: number) => {
     const newPages: ScannedPage[] = [];
     for (let idx = 0; idx < items.length; idx++) {
@@ -489,17 +489,58 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       await new Promise((res) => { img.onload = res; img.onerror = res; });
       let w = img.width; let h = img.height;
       if (!w || !h) continue;
-      if (w > 2600) { h = Math.round(h * (2600 / w)); w = 2600; }
+      if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
       const canvas = document.createElement('canvas');
       canvas.width = w; canvas.height = h;
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, w, h);
+        
+        let detectedPts = detectDocument(canvas);
+        let pts = [
+          {x: w * 0.02, y: h * 0.02},
+          {x: w * 0.98, y: h * 0.02},
+          {x: w * 0.98, y: h * 0.98},
+          {x: w * 0.02, y: h * 0.98}
+        ];
+        if (detectedPts && detectedPts.length === 4) {
+          const p1 = detectedPts[0], p2 = detectedPts[1], p3 = detectedPts[2], p4 = detectedPts[3];
+          const polyArea = 0.5 * Math.abs(
+            (p1.x * p2.y - p2.x * p1.y) +
+            (p2.x * p3.y - p3.x * p2.y) +
+            (p3.x * p4.y - p4.x * p3.y) +
+            (p4.x * p1.y - p1.x * p4.y)
+          );
+          const ratio = polyArea / (w * h);
+          if (ratio >= 0.35 && ratio <= 0.98) {
+            pts = detectedPts;
+          }
+        }
+
+        const rawUrl = compressCanvas(canvas, 0.88, 'image/webp');
+        let finalImageUrl = rawUrl;
+        let finalMode: any = 'original';
+
+        // In AUTO mode, automatically crop and enhance each page in the batch!
+        if (isAutoEngine) {
+          try {
+            const res = await applyPerspectiveAndFilters(rawUrl, pts, 'smart_plus');
+            if (res && res.filtered) {
+              finalImageUrl = res.filtered;
+              finalMode = res.activeProfile || 'smart_plus';
+            }
+          } catch (e) {
+            console.warn("Auto-crop batch page error:", e);
+          }
+        }
+
         newPages.push({
           id: items[idx].id,
-          imageUrl: compressCanvas(canvas, 0.82),
-          rawImageUrl: compressCanvas(canvas, 1.0),
+          imageUrl: finalImageUrl,
+          rawImageUrl: rawUrl,
+          cropPoints: pts,
+          mode: finalMode,
           pageNum: startPageNum + idx,
           source: 'upload'
         });
@@ -1205,7 +1246,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.96</span>
+            <span>v3.4.97</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -2070,18 +2111,63 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                const docToLoad = scannedPages.find(p => p.id === item.id);
                                if (docToLoad) {
                                   setScannedPages(prev => prev.filter(p => p.id !== item.id));
-                                  const restoredMode = docToLoad.mode || 'smart_plus';
                                   const restoredCat = docToLoad.category || 'document';
                                   const restoredSource = docToLoad.source || 'upload';
                                   setActiveSource(restoredSource);
                                   setScannerMode(restoredSource);
                                   setIsEditingFromReview(false);
-                                  setMode(restoredMode);
                                   setSelectedCategory(restoredCat);
-                                  setImageCache({ [restoredMode]: docToLoad.imageUrl });
-                                  setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
-                                  if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
-                                  setStep('review');
+                                  const rawImg = docToLoad.rawImageUrl || docToLoad.imageUrl;
+                                  setRawSnapshot(rawImg);
+
+                                  // If the page was already enhanced with another filter
+                                  const hasEnhancedMode = docToLoad.mode && docToLoad.mode !== 'original' && docToLoad.imageUrl;
+                                  if (hasEnhancedMode) {
+                                    setMode(docToLoad.mode as any);
+                                    setImageCache({ [docToLoad.mode as string]: docToLoad.imageUrl, original: rawImg });
+                                    if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
+                                    setStep('review');
+                                  } else if (isAutoEngine) {
+                                    // In AUTO mode: auto-crop and enhance directly to smart_plus!
+                                    setImageCache({ original: docToLoad.imageUrl });
+                                    setMode('smart_plus');
+                                    setStep('review');
+                                    setIsProcessing(true);
+                                    setTimeout(async () => {
+                                      let pts = docToLoad.cropPoints;
+                                      if (!pts || pts.length !== 4) {
+                                        const imgEl = new Image();
+                                        imgEl.crossOrigin = 'anonymous';
+                                        await new Promise((res) => { imgEl.onload = res; imgEl.onerror = res; imgEl.src = rawImg; });
+                                        const canvas = document.createElement('canvas');
+                                        canvas.width = imgEl.width;
+                                        canvas.height = imgEl.height;
+                                        const ctx = canvas.getContext('2d');
+                                        if (ctx) {
+                                          ctx.drawImage(imgEl, 0, 0);
+                                          const detected = detectDocument(canvas);
+                                          if (detected && detected.length === 4) pts = detected;
+                                        }
+                                      }
+                                      if (!pts || pts.length !== 4) {
+                                        pts = [
+                                          { x: 0, y: 0 },
+                                          { x: 100, y: 0 },
+                                          { x: 100, y: 100 },
+                                          { x: 0, y: 100 }
+                                        ];
+                                      }
+                                      setCropPoints(pts);
+                                      await performCrop(rawImg, pts, 'smart_plus');
+                                      setIsProcessing(false);
+                                    }, 40);
+                                  } else {
+                                    const restoredMode = docToLoad.mode || 'original';
+                                    setMode(restoredMode);
+                                    setImageCache({ [restoredMode]: docToLoad.imageUrl, original: rawImg });
+                                    if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
+                                    setStep('review');
+                                  }
                                 }
                             }
                          }}
