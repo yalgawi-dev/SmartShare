@@ -371,7 +371,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
     };
     document.body.appendChild(script);
-  }, []);  const processImportUrl = async (url: string, preserveId?: string) => {
+  }, []);
+
+  // When OpenCV finishes loading, re-detect boundary on active snapshot if cropPoints is currently full-frame or empty
+  useEffect(() => {
+    if (!cvLoaded) return;
+    const targetUrl = rawSnapshot || activeOriginalUrl;
+    if (!targetUrl) return;
+
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const detected = detectDocument(canvas);
+        if (detected && detected.length === 4) {
+          setCropPoints(detected);
+        }
+      }
+    };
+    img.src = targetUrl;
+  }, [cvLoaded, rawSnapshot, activeOriginalUrl]);  const processImportUrl = async (url: string, preserveId?: string) => {
     const cleanUrl = await toCleanDataUrl(url);
     url = cleanUrl || url;
     setActiveSource('upload');
@@ -1169,7 +1193,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.85</span>
+            <span>v3.4.90</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -1222,12 +1246,35 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   setIsEditingFromReview(true);
                   setStep('cropping');
                 } else {
-                  // Switching to AUTO ✨ -> auto-crop and enhance with detected boundary, straight to review!
+                  // Switching to AUTO ✨ -> re-detect document boundaries & auto-crop with enhancement straight to review!
                   setIsProcessing(true);
                   setTimeout(async () => {
-                    await performCrop(targetSnapshot, cropPoints, (mode === 'original' || !mode) ? 'smart_plus' : mode);
-                    setIsProcessing(false);
-                    setStep('review');
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = async () => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      const ctx = canvas.getContext('2d');
+                      let ptsToUse = cropPoints;
+                      if (ctx) {
+                        ctx.drawImage(img, 0, 0);
+                        const detected = detectDocument(canvas);
+                        if (detected && detected.length === 4) {
+                          ptsToUse = detected;
+                          setCropPoints(detected);
+                        }
+                      }
+                      await performCrop(targetSnapshot, ptsToUse, (mode === 'original' || !mode) ? 'smart_plus' : mode);
+                      setIsProcessing(false);
+                      setStep('review');
+                    };
+                    img.onerror = async () => {
+                      await performCrop(targetSnapshot, cropPoints, (mode === 'original' || !mode) ? 'smart_plus' : mode);
+                      setIsProcessing(false);
+                      setStep('review');
+                    };
+                    img.src = targetSnapshot;
                   }, 30);
                 }
               }

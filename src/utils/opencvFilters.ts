@@ -527,13 +527,30 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
       if (!ctx) return reject(new Error('Canvas context failed'));
       ctx.drawImage(img, 0, 0);
 
-      // Safe Points Fallback: if pts is empty, undefined, or malformed, default safely to full frame (2% margin)
+      // Helper: Check if points are already the full-frame fallback (or near 100% boundary)
+      const isFullFrameFallback = (points: Point[], w: number, h: number): boolean => {
+        if (!points || points.length !== 4) return true;
+        // Check if all points are within 4% of image margins
+        const isNear = (val: number, target: number, tol: number) => Math.abs(val - target) <= tol;
+        const tolX = w * 0.04;
+        const tolY = h * 0.04;
+        const c0 = isNear(points[0].x, 0, tolX) && isNear(points[0].y, 0, tolY);
+        const c1 = isNear(points[1].x, w, tolX) && isNear(points[1].y, 0, tolY);
+        const c2 = isNear(points[2].x, w, tolX) && isNear(points[2].y, h, tolY);
+        const c3 = isNear(points[3].x, 0, tolX) && isNear(points[3].y, h, tolY);
+        return c0 && c1 && c2 && c3;
+      };
+
+      // Safe Points Fallback & Auto-detect:
+      // If pts is empty, undefined, malformed, or full-frame fallback, auto-detect document boundary on canvas!
       let safePts = pts;
-      if (!safePts || safePts.length < 4 || !safePts[0] || typeof safePts[0].x !== 'number') {
+      const needsDetection = !safePts || safePts.length < 4 || !safePts[0] || typeof safePts[0].x !== 'number' || isFullFrameFallback(safePts, img.width, img.height);
+      
+      if (needsDetection) {
         const detected = detectDocument(canvas);
         if (detected && detected.length === 4) {
           safePts = detected;
-        } else {
+        } else if (!safePts || safePts.length < 4 || !safePts[0] || typeof safePts[0].x !== 'number') {
           safePts = [
             { x: img.width * 0.02, y: img.height * 0.02 },
             { x: img.width * 0.98, y: img.height * 0.02 },
