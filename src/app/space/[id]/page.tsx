@@ -75,7 +75,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument, deleteDocument } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument, removeDocument } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -198,7 +198,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         const primaryDoc = docs[0];
         setEditingDocumentInfo({
           docId: primaryDoc.id,
-          title: primaryDoc.title || 'מסמך מאוחד',
+          title: 'איחוד מסמכים למגילה',
           pages: allPages,
           sourceDocIds: docs.map((d: any) => d.id)
         });
@@ -1300,33 +1300,39 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             initialPages={editingDocumentInfo?.pages}
             editingDocId={editingDocumentInfo?.docId}
             editingDocTitle={editingDocumentInfo?.title}
+            isMultiDocMerge={Boolean(editingDocumentInfo?.sourceDocIds && editingDocumentInfo.sourceDocIds.length > 1)}
             onComplete={(url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
                 if (editingDocumentInfo) {
                   const currentEditing = editingDocumentInfo;
                   setEditingDocumentInfo(null);
                   const updatedPages = allPages && allPages.length > 0 ? allPages : [url];
+                  const isMerge = Array.isArray(currentEditing.sourceDocIds) && currentEditing.sourceDocIds.length > 1;
+
                   if (updateDocument) {
                     updateDocument(space.id, currentEditing.docId, {
                       pages: updatedPages,
                       url: updatedPages[0],
-                      thumbnailUrl: updatedPages[0]
+                      thumbnailUrl: updatedPages[0],
+                      ...(isMerge ? { title: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
                     });
                   }
 
-                  // If this was a multi-document merge, clean up the other source documents
-                  if (Array.isArray(currentEditing.sourceDocIds) && currentEditing.sourceDocIds.length > 1 && deleteDocument) {
+                  // If this was a multi-document merge, clean up the other source documents using removeDocument
+                  if (isMerge && removeDocument) {
                     const secondaryIds = currentEditing.sourceDocIds.filter(id => id !== currentEditing.docId);
                     secondaryIds.forEach(secId => {
                       try {
-                        deleteDocument(space.id, secId);
+                        removeDocument(space.id, secId);
                       } catch (err) {
                         console.error('Failed to clean up merged doc:', secId, err);
                       }
                     });
                   }
 
-                  setToastMessage(`המסמך עודכן בהצלחה! מכיל כעת ${updatedPages.length} עמודים.`);
+                  setToastMessage(isMerge 
+                    ? `האיחוד הושלם בהצלחה! נוצרה מגילה בת ${updatedPages.length} עמודים.` 
+                    : `המסמך עודכן בהצלחה! מכיל כעת ${updatedPages.length} עמודים.`);
                   setTimeout(() => setToastMessage(null), 3500);
                   return;
                 }

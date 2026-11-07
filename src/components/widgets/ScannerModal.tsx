@@ -44,9 +44,10 @@ interface ScannerModalProps {
   initialPages?: string[];
   editingDocId?: string;
   editingDocTitle?: string;
+  isMultiDocMerge?: boolean;
 }
 
-export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt', initialPages, editingDocId, editingDocTitle }: ScannerModalProps) {
+export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance, standalone = false, maxBytes, defaultMode = 'camera', defaultCategory = 'receipt', initialPages, editingDocId, editingDocTitle, isMultiDocMerge }: ScannerModalProps) {
   
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const isClosingRef = useRef(false);
@@ -1065,8 +1066,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           </h2>
           {editingDocTitle && (
             <div style={{ fontSize: '0.74rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
-              <span>📄 הוספה ל: &quot;{editingDocTitle}&quot;</span>
-              <span style={{ color: '#fbbf24' }}>({scannedPages.length} עמודים במדף)</span>
+              <span>{isMultiDocMerge ? '📜 איחוד מסמכים למגילה' : `📄 הוספה ל: "${editingDocTitle}"`}</span>
+              <span style={{ color: '#fbbf24' }}>
+                ({sortedTrayItems.length} עמודים במגש)
+              </span>
             </div>
           )}
         </div>

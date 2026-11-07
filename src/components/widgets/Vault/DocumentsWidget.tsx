@@ -1713,10 +1713,11 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   const docCount = activeDocuments.filter(d => d.shelfId === activeShelf.id).length;
                   setShelfToDelete({ id: activeShelf.id, name: activeShelf.name, count: docCount });
                 }} 
-                style={{ background: 'transparent', border: 'none', padding: '0', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem' }}
+                style={{ background: 'transparent', border: 'none', padding: '0', color: '#ef4444', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.85rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.2rem' }}
                 title="מחק מדף זה"
               >
-                🗑️ מחק
+                <span>🗑️</span>
+                <span>מחק מדף</span>
               </button>
             </div>
           </div>
