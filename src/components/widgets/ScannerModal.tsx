@@ -1311,16 +1311,51 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
              )}
              
              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-               <TransformWrapper initialScale={1} minScale={0.2} maxScale={5} centerOnInit={true}>
-               <TransformComponent wrapperStyle={{ width: '100%', height: '100%', flex: 1 }} contentStyle={{ width: '100%', height: '100%' }}>
-                  <img 
-                    src={imageCache[mode]} 
-                    style={{ maxWidth: '96%', maxHeight: '96%', objectFit: 'contain', borderRadius: '4px', boxShadow: '0 8px 30px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)' }} 
-                    alt="Scanned document" 
-                  />
-               </TransformComponent>
-             </TransformWrapper>
-           </div>
+               <TransformWrapper
+                 key={imageCache[mode] || activeDocId || mode}
+                 initialScale={1}
+                 minScale={0.8}
+                 maxScale={5}
+                 centerOnInit={true}
+                 centerZoomedOut={true}
+                 limitToBounds={true}
+                 panning={{ velocityDisabled: true }}
+               >
+                 <TransformComponent
+                   wrapperStyle={{
+                     width: '100%',
+                     height: '100%',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center'
+                   }}
+                   contentStyle={{
+                     width: '100%',
+                     height: '100%',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     position: 'relative'
+                   }}
+                 >
+                   <img 
+                     src={imageCache[mode]} 
+                     style={{
+                       maxWidth: '92%',
+                       maxHeight: '92%',
+                       width: 'auto',
+                       height: 'auto',
+                       margin: 'auto',
+                       display: 'block',
+                       objectFit: 'contain',
+                       borderRadius: '4px',
+                       boxShadow: '0 8px 30px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.1)'
+                     }} 
+                     alt="Scanned document" 
+                   />
+                 </TransformComponent>
+               </TransformWrapper>
+             </div>
          </div>
         )}
       </div>

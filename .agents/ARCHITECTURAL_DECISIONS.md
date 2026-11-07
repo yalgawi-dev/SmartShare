@@ -1329,6 +1329,25 @@ flowchart TD
 * מניעה מוחלטת של תקלות Revert שבהן שינויים מתבטלים.
 * חיסכון קבוע של 33% בנפח ובזיכרון בכל שמירה.
 
+---
+
+## 57. מירכוז סימטרי מוחלט של מסמך התצוגה בסורק וחיסול שאריות עבר (v3.4.80)
+
+### האתגרים והתופעות שזוהו:
+1. **הסטת התמונה הצידה במקום מירכוז במרכז המסך (`review` ב-ScannerModal):**
+   * בתצוגת העריכה/בדיקה (Review), התמונה נצמדה לצד ימין של המסך (המסגרת האדומה שסימן המשתמש בצילום המסך), במקום לשבת בדיוק במרכז האופקי והאנכי (המסגרת הירוקה).
+   * **Root Cause:** רכיב ה-`TransformComponent` של ספריית `react-zoom-pan-pinch` הגדיר כברירת מחדל `flex: 1` ללא `display: flex`, `alignItems: 'center'`, `justifyContent: 'center'` ב-`wrapperStyle` וב-`contentStyle`. בנוסף, ל-`TransformWrapper` לא הוגדר `key` דינמי של התמונה, מה שגרם לו לשמור על הסטת ה-Pan מהעמוד או הפעולה הקודמת במקום להתאפס למרכז.
+2. **ניקוי שאריות קוד:**
+   * אומת שכל שאריות הקוד הישן (`pendingImports`, כפתורי דילוג/אישור הכל ישנים) נמחקו לחלוטין וללא שאריות.
+
+### הפתרונות ההנדסיים:
+1. **מירכוז מושלם וסימטרי של ה-TransformWrapper:**
+   * הוגדר `key={imageCache[mode] || activeDocId || mode}` – מאפס את תצוגת הזום וההזזה (Pan) בדיוק למרכז המסך בכל החלפת דף או פילטר.
+   * הוגדרו `centerOnInit={true}`, `centerZoomedOut={true}`, `limitToBounds={true}` ו-`panning: { velocityDisabled: true }`.
+   * ב-`wrapperStyle` וב-`contentStyle` של `TransformComponent`: הוגדרו `display: 'flex'`, `alignItems: 'center'`, `justifyContent: 'center'`.
+   * על תגית התמונה `<img>` הוגדר `margin: 'auto'`, `display: 'block'`, `objectFit: 'contain'`, המבטיחים שהדף ימוקם תמיד מתמטית במרכז הפיקסל של המסך (כמו המסגרת הירוקה).
+2. **עודכנה הגרסה הוויזואלית ל-`v3.4.80`.**
+
 
 
 
