@@ -308,7 +308,8 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     // Candidate Collector
     const collectContourCandidate = (cnt: any, weightFactor: number = 1.0) => {
       let area = cv.contourArea(cnt);
-      if (area < imgArea * 0.04 || area > imgArea * 0.96) return;
+      // Legitimate scanned documents and receipts occupy at least 18% of the frame, up to 98%
+      if (area < imgArea * 0.18 || area > imgArea * 0.98) return;
 
       let quad = extractBest4Corners(cnt);
       if (!quad || quad.length !== 4) return;
@@ -321,9 +322,11 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       const avgW = (widthA + widthB) / 2;
       const avgH = (heightA + heightB) / 2;
 
-      if (avgW < 25 || avgH < 25) return;
+      // Ensure minimum width and height in downscaled coordinates
+      if (avgW < 50 || avgH < 50) return;
       const aspect = avgW / avgH;
-      if (aspect < 0.2 || aspect > 5.0) return;
+      // Typical documents / folded scrolls / receipts have aspect ratios between 0.35 and 2.8
+      if (aspect < 0.35 || aspect > 2.8) return;
 
       let hull = new cv.Mat();
       cv.convexHull(cnt, hull);
@@ -331,6 +334,9 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       hull.delete();
 
       let solidity = hullArea > 0 ? (area / hullArea) : 0.8;
+      // A legitimate quadrilateral paper page must be relatively convex (solidity >= 0.70)
+      if (solidity < 0.70) return;
+
       rawCandidates.push({ pts: quad, area, solidity, weightFactor });
     };
 
@@ -470,24 +476,26 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
       // 4. Header/Footer Ink Truncation Penalty
       const truncationPenalty = getHeaderFooterTruncationPenalty(quad);
 
-      // 5. Inner Document vs Outer Background Surface Priority
-      let innerBonus = 1.0;
-      for (let other of rawCandidates) {
-        if (other.area > candidate.area * 1.10 && isInsideOtherQuad(quad, other.pts)) {
-          innerBonus = 3.5;
-          break;
-        }
+      // 5. Realistic Document Area Coverage Bonus:
+      // Real documents occupy 45% - 94% of the camera/import frame.
+      // Favor the full paper sheet over small internal tables, stamps or logos!
+      const areaRatio = candidate.area / imgArea;
+      let coverageBonus = 1.0;
+      if (areaRatio >= 0.45 && areaRatio <= 0.94) {
+        coverageBonus = 1.5 + (areaRatio * 1.5); // 2.175x to 2.91x boost for realistic full-sheet framing!
+      } else if (areaRatio >= 0.25 && areaRatio < 0.45) {
+        coverageBonus = 1.2;
       }
 
       // 6. Close-up vs Far-distance Handling:
       // Only penalize quads that touch the absolute camera frame edge (> 96% screen area).
       // Close-up captures (70%-94% screen area) are fully supported with zero penalty!
       let areaPenalty = 1.0;
-      if (candidate.area > imgArea * 0.95) {
+      if (candidate.area > imgArea * 0.96) {
         areaPenalty = 0.1; // Only penalize the entire viewport rectangle itself
       }
 
-      let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * boundaryScore * paperUniformity * truncationPenalty * innerBonus * areaPenalty;
+      let score = (candidate.solidity * 2.0) * candidate.weightFactor * centerWeight * boundaryScore * paperUniformity * truncationPenalty * coverageBonus * areaPenalty;
 
       scoredCandidates.push({ pts: quad, score });
     }
@@ -532,13 +540,30 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
       if (!safePts || safePts.length < 4 || !safePts[0] || typeof safePts[0].x !== 'number') {
         const detected = detectDocument(canvas);
         if (detected && detected.length === 4) {
-          safePts = detected;
+          const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
+          const polyArea = 0.5 * Math.abs(
+            (p1.x * p2.y - p2.x * p1.y) +
+            (p2.x * p3.y - p3.x * p1.y) +
+            (p3.x * p4.y - p4.x * p3.y) +
+            (p4.x * p1.y - p1.x * p4.y)
+          );
+          const ratio = polyArea / (img.width * img.height);
+          if (ratio >= 0.35 && ratio <= 0.98) {
+            safePts = detected;
+          } else {
+            safePts = [
+              { x: img.width * 0.05, y: img.height * 0.05 },
+              { x: img.width * 0.95, y: img.height * 0.05 },
+              { x: img.width * 0.95, y: img.height * 0.95 },
+              { x: img.width * 0.05, y: img.height * 0.95 }
+            ];
+          }
         } else {
           safePts = [
-            { x: img.width * 0.02, y: img.height * 0.02 },
-            { x: img.width * 0.98, y: img.height * 0.02 },
-            { x: img.width * 0.98, y: img.height * 0.98 },
-            { x: img.width * 0.02, y: img.height * 0.98 }
+            { x: img.width * 0.05, y: img.height * 0.05 },
+            { x: img.width * 0.95, y: img.height * 0.05 },
+            { x: img.width * 0.95, y: img.height * 0.95 },
+            { x: img.width * 0.05, y: img.height * 0.95 }
           ];
         }
       }

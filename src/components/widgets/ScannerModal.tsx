@@ -278,17 +278,43 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             setImageCache(prev => ({ ...prev, original: cleanActive }));
             setActiveOriginalUrl(cleanActive);
 
-            // Set default generous framing for vault documents
+            // Detect boundary or set default framing for vault documents
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
               if (!isMounted) return;
-              setCropPoints([
-                { x: img.width * 0.02, y: img.height * 0.02 },
-                { x: img.width * 0.98, y: img.height * 0.02 },
-                { x: img.width * 0.98, y: img.height * 0.98 },
-                { x: img.width * 0.02, y: img.height * 0.98 }
-              ]);
+              let pts = [
+                { x: img.width * 0.05, y: img.height * 0.05 },
+                { x: img.width * 0.95, y: img.height * 0.05 },
+                { x: img.width * 0.95, y: img.height * 0.95 },
+                { x: img.width * 0.05, y: img.height * 0.95 }
+              ];
+              try {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0);
+                  const detected = detectDocument(canvas);
+                  if (detected && detected.length === 4) {
+                    const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
+                    const polyArea = 0.5 * Math.abs(
+                      (p1.x * p2.y - p2.x * p1.y) +
+                      (p2.x * p3.y - p3.x * p2.y) +
+                      (p3.x * p4.y - p4.x * p3.y) +
+                      (p4.x * p1.y - p1.x * p4.y)
+                    );
+                    const ratio = polyArea / (img.width * img.height);
+                    if (ratio >= 0.35 && ratio <= 0.98) {
+                      pts = detected;
+                    }
+                  }
+                }
+              } catch (e) {
+                console.warn("Vault doc boundary detection error:", e);
+              }
+              setCropPoints(pts);
             };
             img.src = cleanActive;
           }
@@ -1159,7 +1185,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.91</span>
+            <span>v3.4.92</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -1196,13 +1222,30 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                         ctx.drawImage(img, 0, 0);
                         const detected = detectDocument(canvas);
                         if (detected && detected.length === 4) {
-                          setCropPoints(detected);
+                          const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
+                          const polyArea = 0.5 * Math.abs(
+                            (p1.x * p2.y - p2.x * p1.y) +
+                            (p2.x * p3.y - p3.x * p1.y) +
+                            (p3.x * p4.y - p4.x * p3.y) +
+                            (p4.x * p1.y - p1.x * p4.y)
+                          );
+                          const ratio = polyArea / (img.width * img.height);
+                          if (ratio >= 0.35 && ratio <= 0.98) {
+                            setCropPoints(detected);
+                          } else {
+                            setCropPoints([
+                              { x: img.width * 0.05, y: img.height * 0.05 },
+                              { x: img.width * 0.95, y: img.height * 0.05 },
+                              { x: img.width * 0.95, y: img.height * 0.95 },
+                              { x: img.width * 0.05, y: img.height * 0.95 }
+                            ]);
+                          }
                         } else {
                           setCropPoints([
-                            { x: img.width * 0.02, y: img.height * 0.02 },
-                            { x: img.width * 0.98, y: img.height * 0.02 },
-                            { x: img.width * 0.98, y: img.height * 0.98 },
-                            { x: img.width * 0.02, y: img.height * 0.98 }
+                            { x: img.width * 0.05, y: img.height * 0.05 },
+                            { x: img.width * 0.95, y: img.height * 0.05 },
+                            { x: img.width * 0.95, y: img.height * 0.95 },
+                            { x: img.width * 0.05, y: img.height * 0.95 }
                           ]);
                         }
                       }
@@ -1227,8 +1270,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                         ctx.drawImage(img, 0, 0);
                         const detected = detectDocument(canvas);
                         if (detected && detected.length === 4) {
-                          ptsToUse = detected;
-                          setCropPoints(detected);
+                          const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
+                          const polyArea = 0.5 * Math.abs(
+                            (p1.x * p2.y - p2.x * p1.y) +
+                            (p2.x * p3.y - p3.x * p1.y) +
+                            (p3.x * p4.y - p4.x * p3.y) +
+                            (p4.x * p1.y - p1.x * p4.y)
+                          );
+                          const ratio = polyArea / (img.width * img.height);
+                          if (ratio >= 0.35 && ratio <= 0.98) {
+                            ptsToUse = detected;
+                            setCropPoints(detected);
+                          }
                         }
                       }
                       await performCrop(targetSnapshot, ptsToUse, (mode === 'original' || !mode) ? 'smart_plus' : mode);
