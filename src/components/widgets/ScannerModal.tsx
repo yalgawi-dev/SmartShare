@@ -104,7 +104,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [selectedCategory, setSelectedCategory] = useState<'receipt' | 'document' | 'image' | 'advanced'>(defaultCategory);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [step, setStep] = useState<'scanning' | 'cropping' | 'review'>(() => {
-    return (initialPages && initialPages.length > 0) ? 'review' : 'scanning';
+    if (initialPages && initialPages.length > 0) {
+      try {
+        const saved = localStorage.getItem('smartshare_scanner_auto_engine');
+        const auto = saved !== null ? saved === 'true' : true;
+        return auto ? 'review' : 'cropping';
+      } catch {
+        return 'review';
+      }
+    }
+    return 'scanning';
   });
   const [scannerMode, setScannerMode] = useState<'camera' | 'upload'>(defaultMode);
   const [activeSource, setActiveSource] = useState<'camera' | 'upload'>(() => {
@@ -315,6 +324,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 console.warn("Vault doc boundary detection error:", e);
               }
               setCropPoints(pts);
+
+              // If initial mode is AUTO and document was opened, apply auto-crop and enhance directly
+              if (isAutoEngine) {
+                setTimeout(async () => {
+                  if (isMounted) {
+                    await performCrop(cleanActive, pts, 'smart_plus');
+                  }
+                }, 30);
+              }
             };
             img.src = cleanActive;
           }
@@ -1185,7 +1203,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.92</span>
+            <span>v3.4.93</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -1993,6 +2011,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   if (targetImg && !rawSnapshot) {
                     setRawSnapshot(targetImg);
                   }
+                  if (!cropPoints || cropPoints.length !== 4) {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        ctx.drawImage(img, 0, 0);
+                        const detected = detectDocument(canvas);
+                        if (detected && detected.length === 4) {
+                          setCropPoints(detected);
+                        } else {
+                          setCropPoints([
+                            { x: img.width * 0.05, y: img.height * 0.05 },
+                            { x: img.width * 0.95, y: img.height * 0.05 },
+                            { x: img.width * 0.95, y: img.height * 0.95 },
+                            { x: img.width * 0.05, y: img.height * 0.95 }
+                          ]);
+                        }
+                      }
+                    };
+                    if (targetImg) img.src = targetImg;
+                  }
                   setIsEditingFromReview(true);
                   setStep('cropping');
                 }} style={{ flex: 1, background: 'transparent', color: 'white', border: '1px solid rgba(255,255,255,0.4)', padding: '0.4rem 0.2rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.72rem', display: 'flex', flexDirection: 'column', alignItems: 'center', whiteSpace: 'nowrap' }}>
@@ -2103,7 +2146,7 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
       setTick(t => t + 1);
       setNaturalSize({ w, h });
       // If points are empty or invalid, initialize to the 4 corners so yellow boundaries always display
-      if (!points || points.length !== 4) {
+      if (!points || points.length !== 4 || !points[0] || typeof points[0].x !== 'number') {
         const fallbackCorners: Point[] = [
           { x: Math.round(w * 0.05), y: Math.round(h * 0.05) },
           { x: Math.round(w * 0.95), y: Math.round(h * 0.05) },
@@ -2115,6 +2158,13 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
       }
     }
   };
+
+  // Immediate check if naturalWidth is already loaded (cached / data: URL)
+  useEffect(() => {
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalWidth > 1) {
+      handleImgLoad();
+    }
+  }, [imageUrl]);
 
   // Get actual rendered image dimensions and offsets inside the object-fit: contain box
     const getRenderedDimensions = () => {
