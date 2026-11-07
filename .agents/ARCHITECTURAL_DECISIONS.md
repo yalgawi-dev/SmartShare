@@ -1303,6 +1303,32 @@ flowchart TD
    * אין מרוץ שמירות, אין חזרות אחורה (Revert), והפעולה מתבצעת ב-100% ודאות.
 3. **עודכנה הגרסה הוויזואלית ל-`v3.4.78`.**
 
+---
+
+## 56. חוק ברזל גלובלי: איסור מוחלט על שמירת מחרוזות Base64 ב-Firestore ושימוש בלעדי ב-Binary Blobs (v3.4.79)
+
+### עקרון היסוד (Fundamental Principle):
+1. **אפס מחרוזות Base64 במסד הנתונים (Zero Base64 in Database):**
+   * חל איסור מוחלט לשמור מחרוזות Base64 (`data:image/...` או `data:application/pdf...`) בתוך מסמכי Firestore או State גלובלי.
+   * כל קובץ, תמונה, חתימה או דף סרוק מועברים ישירות כ-Binary `Blob` או מועלים ל-Firebase Storage ומקבלים כתובת URL בלבד.
+   * ב-Firestore יישמרו אך ורק מחרוזות URL קצרות (HTTPS) המפנות לקובץ האמיתי בענן.
+
+### מנגנון ההעלאה הבינארי (`uploadImageToStorage`):
+* פונקציית התשתית `uploadImageToStorage` ב-`src/lib/firebase.ts` עודכנה כך שגם כאשר מתקבלת מחרוזת תצוגה מקומית (`dataUrl`), היא מומרת ישירות ל-Binary `Blob` טהור בזיכרון המקומי (`new Blob([ab])`) ונשלחת לרשת באמצעות `uploadBytes` (ולא `uploadString`).
+* **הרווח:** מניעת תוספת ה-33% בתעבורת הרשת מול שרתי גוגל וחיסכון מלא במשאבי המכשיר.
+
+### מיפוי ואימות כל מוקדי השמירה באפליקציה:
+1. **סורק המסמכים ואיחוד מגילות (`page.tsx` + `ScannerModal`):** כל עמוד מועלה ל-Storage כ-Blob ומקבל URL לפני כתיבה ל-Firestore.
+2. **מחסן המסמכים (`DocumentsWidget.tsx`):** כל מסמך חדש, עמודים נוספים ו-Thumbnails מועלים ישירות ל-Storage.
+3. **מודול כספים / חשבוניות (`FinanceInbox.tsx`, `InvoiceAttachMatchModal.tsx`, `FinanceWidget.tsx`):** כל קבלה או חשבונית מועלות כ-WebP ממוטב ישירות ל-Storage.
+4. **עורך הודעות / חתימות / צ'אט (`MessageEditor.tsx`):** תמונות וחתימות מומרות ומועלות ישירות ל-Storage.
+5. **שיתוף קבצים חיצוניים (`FileShareWidget.tsx`, `SharedFileHandler.tsx`):** קבצים מגיעים כ-Blobs דרך Service Worker/IndexedDB ומועלים ישירות ל-Storage.
+
+### התוצאה:
+* אפס חריגות של מגבלת 1MB במסד הנתונים.
+* מניעה מוחלטת של תקלות Revert שבהן שינויים מתבטלים.
+* חיסכון קבוע של 33% בנפח ובזיכרון בכל שמירה.
+
 
 
 
