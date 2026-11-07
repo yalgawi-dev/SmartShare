@@ -437,21 +437,6 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     satContours.delete(); satHierarchy.delete(); satClosed.delete(); M3.delete(); paperMask.delete();
     satChannel.delete(); hsvPlanes.delete(); hsv.delete();
 
-    // Helper: Check if Quad A is contained inside Quad B
-    const isInsideOtherQuad = (target: Point[], container: Point[]): boolean => {
-      let tMinX = Math.min(...target.map(p => p.x));
-      let tMaxX = Math.max(...target.map(p => p.x));
-      let tMinY = Math.min(...target.map(p => p.y));
-      let tMaxY = Math.max(...target.map(p => p.y));
-
-      let cMinX = Math.min(...container.map(p => p.x));
-      let cMaxX = Math.max(...container.map(p => p.x));
-      let cMinY = Math.min(...container.map(p => p.y));
-      let cMaxY = Math.max(...container.map(p => p.y));
-
-      return (tMinX >= cMinX - 10 && tMaxX <= cMaxX + 10 && tMinY >= cMinY - 10 && tMaxY <= cMaxY + 10);
-    };
-
     // --- STAGE 2: Advanced Multi-Factor Scoring (v17.7) ---
     let scoredCandidates: { pts: Point[]; score: number }[] = [];
 
@@ -504,9 +489,26 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     // Removed dangerous cleanupMats block that crashed OpenCV.js when .isDeleted() was undefined
     // Memory leaks are prevented by explicitly deleting Mats in their respective blocks.
 
+    // Helper: Expand quadrilateral outward slightly (CamScanner safety bleed)
+    // Ensures text, prices or signatures on edges are never truncated.
+    const expandQuadSafely = (pts: Point[], marginFactor: number = 0.018): Point[] => {
+      if (pts.length !== 4) return pts;
+      const cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
+      const cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
+
+      return pts.map(p => {
+        const dx = p.x - cx;
+        const dy = p.y - cy;
+        return {
+          x: Math.max(0, Math.min(canvas.width, p.x + dx * marginFactor)),
+          y: Math.max(0, Math.min(canvas.height, p.y + dy * marginFactor))
+        };
+      });
+    };
+
     if (scoredCandidates.length > 0) {
       scoredCandidates.sort((a, b) => b.score - a.score);
-      return scoredCandidates[0].pts;
+      return expandQuadSafely(scoredCandidates[0].pts, 0.018);
     }
 
     return null;

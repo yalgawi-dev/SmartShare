@@ -293,10 +293,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             img.onload = () => {
               if (!isMounted) return;
               let pts = [
-                { x: img.width * 0.05, y: img.height * 0.05 },
-                { x: img.width * 0.95, y: img.height * 0.05 },
-                { x: img.width * 0.95, y: img.height * 0.95 },
-                { x: img.width * 0.05, y: img.height * 0.95 }
+                { x: img.width * 0.015, y: img.height * 0.015 },
+                { x: img.width * 0.985, y: img.height * 0.015 },
+                { x: img.width * 0.985, y: img.height * 0.985 },
+                { x: img.width * 0.015, y: img.height * 0.985 }
               ];
               try {
                 const canvas = document.createElement('canvas');
@@ -1203,7 +1203,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.93</span>
+            <span>v3.4.94</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -1252,18 +1252,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                             setCropPoints(detected);
                           } else {
                             setCropPoints([
-                              { x: img.width * 0.05, y: img.height * 0.05 },
-                              { x: img.width * 0.95, y: img.height * 0.05 },
-                              { x: img.width * 0.95, y: img.height * 0.95 },
-                              { x: img.width * 0.05, y: img.height * 0.95 }
+                              { x: img.width * 0.015, y: img.height * 0.015 },
+                              { x: img.width * 0.985, y: img.height * 0.015 },
+                              { x: img.width * 0.985, y: img.height * 0.985 },
+                              { x: img.width * 0.015, y: img.height * 0.985 }
                             ]);
                           }
                         } else {
                           setCropPoints([
-                            { x: img.width * 0.05, y: img.height * 0.05 },
-                            { x: img.width * 0.95, y: img.height * 0.05 },
-                            { x: img.width * 0.95, y: img.height * 0.95 },
-                            { x: img.width * 0.05, y: img.height * 0.95 }
+                            { x: img.width * 0.015, y: img.height * 0.015 },
+                            { x: img.width * 0.985, y: img.height * 0.015 },
+                            { x: img.width * 0.985, y: img.height * 0.985 },
+                            { x: img.width * 0.015, y: img.height * 0.985 }
                           ]);
                         }
                       }
@@ -2026,10 +2026,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                           setCropPoints(detected);
                         } else {
                           setCropPoints([
-                            { x: img.width * 0.05, y: img.height * 0.05 },
-                            { x: img.width * 0.95, y: img.height * 0.05 },
-                            { x: img.width * 0.95, y: img.height * 0.95 },
-                            { x: img.width * 0.05, y: img.height * 0.95 }
+                            { x: img.width * 0.015, y: img.height * 0.015 },
+                            { x: img.width * 0.985, y: img.height * 0.015 },
+                            { x: img.width * 0.985, y: img.height * 0.985 },
+                            { x: img.width * 0.015, y: img.height * 0.985 }
                           ]);
                         }
                       }
@@ -2148,10 +2148,10 @@ function ManualCropper({ imageUrl, initialPoints, onChange }: { imageUrl: string
       // If points are empty or invalid, initialize to the 4 corners so yellow boundaries always display
       if (!points || points.length !== 4 || !points[0] || typeof points[0].x !== 'number') {
         const fallbackCorners: Point[] = [
-          { x: Math.round(w * 0.05), y: Math.round(h * 0.05) },
-          { x: Math.round(w * 0.95), y: Math.round(h * 0.05) },
-          { x: Math.round(w * 0.95), y: Math.round(h * 0.95) },
-          { x: Math.round(w * 0.05), y: Math.round(h * 0.95) }
+          { x: Math.round(w * 0.015), y: Math.round(h * 0.015) },
+          { x: Math.round(w * 0.985), y: Math.round(h * 0.015) },
+          { x: Math.round(w * 0.985), y: Math.round(h * 0.985) },
+          { x: Math.round(w * 0.015), y: Math.round(h * 0.985) }
         ];
         setPoints(fallbackCorners);
         onChange(fallbackCorners);
