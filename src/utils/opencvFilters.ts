@@ -525,59 +525,27 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
       if (!safePts || safePts.length < 4 || !safePts[0] || typeof safePts[0].x !== 'number') {
         const detected = detectDocument(canvas);
         if (detected && detected.length === 4) {
-          const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
-          const polyArea = 0.5 * Math.abs(
-            (p1.x * p2.y - p2.x * p1.y) +
-            (p2.x * p3.y - p3.x * p1.y) +
-            (p3.x * p4.y - p4.x * p3.y) +
-            (p4.x * p1.y - p1.x * p4.y)
-          );
-          const ratio = polyArea / (img.width * img.height);
-          if (ratio >= 0.35 && ratio <= 0.98) {
-            safePts = detected;
-          } else {
-            safePts = [
-              { x: 0, y: 0 },
-              { x: img.width, y: 0 },
-              { x: img.width, y: img.height },
-              { x: 0, y: img.height }
-            ];
-          }
+          safePts = detected;
         } else {
           safePts = [
-            { x: 0, y: 0 },
-            { x: img.width, y: 0 },
-            { x: img.width, y: img.height },
-            { x: 0, y: img.height }
+            { x: img.width * 0.02, y: img.height * 0.02 },
+            { x: img.width * 0.98, y: img.height * 0.02 },
+            { x: img.width * 0.98, y: img.height * 0.98 },
+            { x: img.width * 0.02, y: img.height * 0.98 }
           ];
         }
       }
 
-      // Helper: Ensure window.cv is fully ready with imread and Mat
-      const ensureCvReady = async (): Promise<any> => {
-        let cv = (window as any).cv;
-        if (cv && cv.imread && cv.Mat) return cv;
-
-        // Wait up to 5 seconds for OpenCV to finish initializing
-        for (let i = 0; i < 50; i++) {
-          await new Promise(r => setTimeout(r, 100));
-          cv = (window as any).cv;
-          if (cv && cv.imread && cv.Mat) return cv;
-        }
-        return (window as any).cv;
-      };
-
       try {
         let finalHybrid: any;
-        ensureCvReady().then((cv) => {
-          if (!cv || !cv.imread || !cv.Mat) {
-            return reject(new Error('OpenCV library is still loading, please retry in a second.'));
-          }
-
-          const t0_math = performance.now();
-          let t_warp = 0, t_bw = 0, t_hsv = 0, t_hull = 0, t_engine = 0;
-          let mark = performance.now();
-          let src = cv.imread(canvas);
+        const cv = (window as any).cv;
+        if (!cv || !cv.Mat || !cv.imread) {
+          return reject(new Error('OpenCV עדיין נטען, אנא נסה שוב בעוד רגע'));
+        }
+        const t0_math = performance.now();
+        let t_warp = 0, t_bw = 0, t_hsv = 0, t_hull = 0, t_engine = 0;
+        let mark = performance.now();
+        let src = cv.imread(canvas);
         
         const widthA = Math.hypot(safePts[2].x - safePts[3].x, safePts[2].y - safePts[3].y);
         const widthB = Math.hypot(safePts[1].x - safePts[0].x, safePts[1].y - safePts[0].y);
@@ -1313,13 +1281,41 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           if(typeof finalSmartPlusRgba !== 'undefined' && !finalSmartPlusRgba.isDeleted()) finalSmartPlusRgba.delete();
           if(typeof finalHybrid !== 'undefined' && !finalHybrid.isDeleted()) finalHybrid.delete();
           
-          } catch (err) {
-            console.error("OpenCV processing failed", err);
-            reject(err);
+          // Cleanup all local Mat references that might have leaked
+          const locals = [
+             typeof smallDst !== 'undefined' ? smallDst : null,
+             typeof smallGray !== 'undefined' ? smallGray : null,
+             typeof bgKernelSmall !== 'undefined' ? bgKernelSmall : null,
+             typeof bgSmallest !== 'undefined' ? bgSmallest : null,
+             typeof smallBw !== 'undefined' ? smallBw : null,
+             typeof smallMask !== 'undefined' ? smallMask : null,
+             typeof contours !== 'undefined' ? contours : null,
+             typeof hierarchy !== 'undefined' ? hierarchy : null,
+             typeof hullMask !== 'undefined' ? hullMask : null,
+             typeof dilateKernelSmall !== 'undefined' ? dilateKernelSmall : null,
+             typeof hybridMask !== 'undefined' ? hybridMask : null,
+             typeof flatRgb !== 'undefined' ? flatRgb : null,
+             typeof blurredFlat !== 'undefined' ? blurredFlat : null,
+             typeof flatHsv !== 'undefined' ? flatHsv : null,
+             typeof planesHsv !== 'undefined' ? planesHsv : null,
+             typeof v !== 'undefined' ? v : null,
+             typeof smallLogoMask !== 'undefined' ? smallLogoMask : null,
+             typeof inpaintedSmallRgb !== 'undefined' ? inpaintedSmallRgb : null,
+             typeof bgSmall2 !== 'undefined' ? bgSmall2 : null,
+             typeof bgRgb !== 'undefined' ? bgRgb : null,
+             typeof planesRgb !== 'undefined' ? planesRgb : null,
+             typeof planesBg !== 'undefined' ? planesBg : null,
+             typeof textMask !== 'undefined' ? textMask : null,
+             typeof edges !== 'undefined' ? edges : null
+          ];
+          for (let m of locals) {
+             if (m && typeof m.delete === 'function' && !m.isDeleted()) m.delete();
           }
-        }).catch(reject);
+        } catch(e) {}
+
+
       } catch (err) {
-        console.error("OpenCV wrapper failed", err);
+        console.error("OpenCV processing failed", err);
         reject(err);
       }
     };

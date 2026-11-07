@@ -323,21 +323,16 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               } catch (e) {
                 console.warn("Vault doc boundary detection error:", e);
               }
+              // Set crop points ready for manual adjustments if user toggles to manual
               setCropPoints(pts);
 
-              // If initial mode is AUTO and document was opened, apply auto-crop and enhance directly once OpenCV is ready
+              // If initial mode is AUTO and document was opened, initialize into review smoothly
               if (isAutoEngine) {
-                const triggerAutoCropWhenReady = async () => {
-                  for (let i = 0; i < 50; i++) {
-                    const cv = (window as any).cv;
-                    if (cv && cv.imread && cv.Mat) break;
-                    await new Promise(r => setTimeout(r, 100));
-                  }
-                  if (isMounted) {
-                    await performCrop(cleanActive, pts, 'smart_plus');
-                  }
-                };
-                triggerAutoCropWhenReady();
+                // Document from vault is already displayed in review via imageCache['original'].
+                // If user desires auto-enhancement, performCrop will run safely without blocking or loop-freezing
+                if (window.cv && window.cv.Mat && window.cv.imread) {
+                  performCrop(cleanActive, pts, 'smart_plus').catch(e => console.warn("Auto enhance vault doc error:", e));
+                }
               }
             };
             img.src = cleanActive;
@@ -1209,7 +1204,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.95</span>
+            <span>v3.4.96</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
