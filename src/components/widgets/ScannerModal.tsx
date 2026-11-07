@@ -377,6 +377,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           {x: w * 0.98, y: h * 0.98},
           {x: w * 0.02, y: h * 0.98}
         ];
+        let autoConfidence = false;
         if (detectedPts && detectedPts.length === 4) {
           const p1 = detectedPts[0], p2 = detectedPts[1], p3 = detectedPts[2], p4 = detectedPts[3];
           const polyArea = 0.5 * Math.abs(
@@ -388,16 +389,31 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           const ratio = polyArea / (w * h);
           if (ratio >= 0.35 && ratio <= 0.98) {
             pts = detectedPts;
+            if (ratio >= 0.55) autoConfidence = true;
           }
         }
         setCropPoints(pts);
         const snapshotUrl = compressCanvas(canvas, 0.88, 'image/webp');
         setRawSnapshot(snapshotUrl);
         if (!preserveId) setActiveDocId(generateDocId());
-        // Imported files default to original, with manual crop available
-        setImageCache({ original: snapshotUrl });
-        setMode('original');
-        setStep('review');
+
+        // Mode behavior:
+        // In MANUAL mode -> go directly to cropping screen so user sees & adjusts the 4 boundary corners!
+        // In AUTO mode -> if confident, auto-crop & enhance to review; otherwise go to cropping with full image
+        if (!isAutoEngine) {
+          setIsEditingFromReview(false);
+          setStep('cropping');
+        } else if (autoConfidence) {
+          setIsProcessing(true);
+          setTimeout(async () => {
+            await performCrop(snapshotUrl, pts, 'smart_plus');
+            setIsProcessing(false);
+            setStep('review');
+          }, 40);
+        } else {
+          // Auto mode but low confidence -> show crop boundary for safety
+          setStep('cropping');
+        }
       }
     };
     img.src = url;
@@ -1115,52 +1131,61 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
 
       {/* Header */}
-      <div style={{ padding: '0.6rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <button onClick={handleManualClose} style={{ background: 'transparent', color: 'white', border: 'none', fontSize: '1rem', cursor: 'pointer' }}>✕ סגור</button>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.15rem', flex: 1, justifyContent: 'center' }}>
-          <h2 style={{ margin: 0, fontSize: '1.05rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+      <div style={{ padding: '0.5rem 0.75rem', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)', gap: '0.4rem' }}>
+        {/* Left: Close button */}
+        <button onClick={handleManualClose} style={{ background: 'transparent', color: '#e2e8f0', border: 'none', fontSize: '0.9rem', cursor: 'pointer', padding: '0.3rem 0.4rem', whiteSpace: 'nowrap' }}>✕ סגור</button>
+        
+        {/* Center: Title & Version */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', justifyContent: 'center', textAlign: 'center', minWidth: 0 }}>
+          <h2 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap' }}>
             <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
-            <VersionBadge style={{ background: '#3b82f6', color: '#fff' }} />
+            <VersionBadge style={{ background: '#3b82f6', color: '#fff', fontSize: '0.65rem', padding: '1px 5px' }} />
           </h2>
           {editingDocTitle && (
-            <div style={{ fontSize: '0.74rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.7rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
               <span>{isMultiDocMerge ? '📜 איחוד מסמכים למגילה' : `📄 הוספה ל: "${editingDocTitle}"`}</span>
               <span style={{ color: '#fbbf24' }}>
-                ({sortedTrayItems.length} עמודים במגש)
+                ({sortedTrayItems.length} במגש)
               </span>
             </div>
           )}
         </div>
         
-        <div style={{ minWidth: '95px', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem' }}>
-          {/* Toggle Auto/Manual Engine */}
+        {/* Right: Controls (Mode Toggle & Torch) */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.35rem' }}>
+          {/* Toggle Auto/Manual Crop Engine */}
           <button
             onClick={() => {
               setIsAutoEngine(prev => {
                 const nextVal = !prev;
                 try { localStorage.setItem('smartshare_scanner_auto_engine', String(nextVal)); } catch {}
+                // If currently in review and has snapshot, switching to manual allows opening crop
+                if (!nextVal && rawSnapshot && step === 'review') {
+                  setIsEditingFromReview(true);
+                  setStep('cropping');
+                }
                 return nextVal;
               });
             }}
-            title={isAutoEngine ? "מצב אוטומטי (Auto-Magic): חיתוך ופילטר חכמים אוטומטית" : "מצב ידני (Manual): שליטה ובחירה ידנית בכל שלב"}
+            title={isAutoEngine ? "מצב אוטומטי: מזהה, חותך ומשפר אוטומטית" : "מצב ידני: פותח גבולות לכיוונון ידני מדויק"}
             style={{
               background: isAutoEngine ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)',
               color: isAutoEngine ? '#34d399' : '#fbbf24',
               border: isAutoEngine ? '1px solid #10b981' : '1px solid #f59e0b',
-              padding: '0.35rem 0.65rem',
-              borderRadius: '16px',
-              fontSize: '0.75rem',
+              padding: '0.25rem 0.5rem',
+              borderRadius: '14px',
+              fontSize: '0.72rem',
               fontWeight: 800,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.25rem',
+              gap: '0.2rem',
               transition: 'all 0.2s ease',
               whiteSpace: 'nowrap'
             }}
           >
             <span>{isAutoEngine ? '⚡' : '🖐️'}</span>
-            <span>{isAutoEngine ? 'אוטומט' : 'ידני'}</span>
+            <span>{isAutoEngine ? 'חיתוך: אוטו' : 'חיתוך: ידני'}</span>
           </button>
 
           {step === 'scanning' && stream && (
@@ -1170,27 +1195,28 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 else if (flashMode === 'on') setFlashMode('off');
                 else setFlashMode('auto');
               }}
-              title={`מצב פלאש: ${flashMode === 'auto' ? 'אוטומטי (ברירת מחדל)' : flashMode === 'on' ? 'פועל רציף' : 'כבוי'}`}
+              title={`פלאש מצלמה: ${flashMode === 'auto' ? 'אוטומטי לפי תאורה' : flashMode === 'on' ? 'פועל רציף' : 'כבוי'}`}
               style={{
                 background: flashMode === 'auto' ? 'rgba(59, 130, 246, 0.25)' : flashMode === 'on' ? 'rgba(234, 179, 8, 0.3)' : 'rgba(255, 255, 255, 0.1)',
                 color: flashMode === 'auto' ? '#60a5fa' : flashMode === 'on' ? '#fde047' : '#94a3b8',
                 border: flashMode === 'auto' ? '1px solid #3b82f6' : flashMode === 'on' ? '1px solid #eab308' : '1px solid rgba(255,255,255,0.2)',
-                padding: '0.35rem 0.65rem',
-                borderRadius: '16px',
-                fontSize: '0.78rem',
+                padding: '0.25rem 0.5rem',
+                borderRadius: '14px',
+                fontSize: '0.72rem',
                 fontWeight: 800,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.3rem',
-                transition: 'all 0.2s ease'
+                gap: '0.2rem',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
               }}
             >
-              <span>{flashMode === 'auto' ? '⚡' : flashMode === 'on' ? '💡' : '🚫'}</span>
-              <span>{flashMode === 'auto' ? 'אוטו' : flashMode === 'on' ? 'דולק' : 'כבוי'}</span>
+              <span>{flashMode === 'on' ? '💡' : flashMode === 'auto' ? '⚡' : '🚫'}</span>
+              <span>{flashMode === 'on' ? 'פלאש' : flashMode === 'auto' ? 'פלאש: אוטו' : 'פלאש: כבוי'}</span>
             </button>
           )}
-          {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.8rem', color: '#ccc'}}>טוען מנוע...</span>}
+          {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.72rem', color: '#94a3b8'}}>טוען...</span>}
         </div>
       </div>
 
