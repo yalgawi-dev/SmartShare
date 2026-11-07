@@ -1312,7 +1312,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
              
              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                <TransformWrapper
-                 key={imageCache[mode] || activeDocId || mode}
+                 key={activeDocId || 'review-active-page'}
                  initialScale={1}
                  minScale={0.8}
                  maxScale={5}
