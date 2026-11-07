@@ -2229,7 +2229,45 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 </div>
 
                 {/* Bottom Row: Symmetrical Action Buttons (Merge & Edit, Move, Share, Delete) */}
-                <div style={{ display: 'grid', gridTemplateColumns: selectedDocIds.length > 1 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)', gap: '0.35rem', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: selectedDocIds.length > 1 ? 'repeat(4, 1fr)' : 'repeat(4, 1fr)', gap: '0.35rem', alignItems: 'center' }}>
+                  {/* Single selected document: Edit in Scanner */}
+                  {selectedDocIds.length === 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const targetDoc = documents.find(d => d.id === selectedDocIds[0]);
+                        if (targetDoc && typeof window !== 'undefined') {
+                          setIsMultiSelect(false);
+                          setSelectedDocIds([]);
+                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+                            detail: { doc: targetDoc }
+                          }));
+                        }
+                      }}
+                      style={{
+                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                        color: 'white',
+                        border: 'none',
+                        padding: '0.55rem 0.25rem',
+                        borderRadius: '10px',
+                        fontWeight: 700,
+                        fontSize: '0.76rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.2rem',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
+                        minWidth: 0
+                      }}
+                      title="עריכה ופילטור המסמך בסורק"
+                    >
+                      <span style={{ fontSize: '0.88rem' }}>✂️</span> עריכה
+                    </button>
+                  )}
+
+                  {/* Multiple selected documents: Merge into Scroll */}
                   {selectedDocIds.length > 1 && (
                     <button
                       type="button"
@@ -3673,11 +3711,27 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         {activeDocMenuId === doc.id && (
                                           <>
                                             <div onClick={(e) => { e.stopPropagation(); setActiveDocMenuId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
-                                            <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', padding: '0.35rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.2rem', minWidth: '160px', direction: 'rtl' }}>
+                                            <div onClick={(e) => e.stopPropagation()} style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '14px', boxShadow: '0 12px 30px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0', padding: '0.45rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '175px', direction: 'rtl' }}>
+                                              {/* קבוצה 1: פעולות ועריכה */}
+                                              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', padding: '0.2rem 0.4rem 0.1rem', letterSpacing: '0.3px' }}>
+                                                עריכה ותצוגה
+                                              </div>
+                                              <button
+                                                type="button"
+                                                onClick={() => {
+                                                  setActiveDocMenuId(null);
+                                                  if (typeof window !== 'undefined') {
+                                                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', { detail: { doc } }));
+                                                  }
+                                                }}
+                                                style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.4rem 0.6rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.8rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                              >
+                                                ✂️ עריכה בסורק
+                                              </button>
                                               <button
                                                 type="button"
                                                 onClick={() => { setActiveDocMenuId(null); downloadDocument(doc.url, doc.title); }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0284c7', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
                                                 ⬇️ הורד למכשיר
                                               </button>
@@ -3694,44 +3748,38 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                     onSave: (val) => { if (val.trim()) updateDocument(space.id, doc.id, { title: val.trim() }); }
                                                   });
                                                 }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#334155', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
                                                 ✏️ ערוך כותרת
                                               </button>
                                               <button
                                                 type="button"
                                                 onClick={() => { setActiveDocMenuId(null); setNoteDocId(doc.id); }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
-                                                📝 {doc.note ? 'הצג / ערוך הערה' : 'הכנס הערה'}
+                                                📝 {doc.note ? 'הצג / ערוך הערה' : 'הוסף הערה'}
                                               </button>
-                                              {showTimeline && (
-                                                <button
-                                                  type="button"
-                                                  onClick={() => { setActiveDocMenuId(null); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }}
-                                                  style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                                                >
-                                                  🔗 {linkedEvent ? 'שנה תחנה' : 'קשר לתחנה'}
-                                                </button>
-                                              )}
+
+                                              {/* קו מפריד */}
+                                              <div style={{ height: '1px', background: '#f1f5f9', margin: '0.2rem 0' }} />
+
+                                              {/* קבוצה 2: ארגון ופרטיות */}
+                                              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
+                                                ארגון ופרטיות
+                                              </div>
                                               <button
                                                 type="button"
-                                                onClick={() => { setActiveDocMenuId(null); setLinkingDoc(doc); }}
-                                                style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#047857', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                onClick={() => { setActiveDocMenuId(null); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0369a1', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
-                                                💳 קשר לחשבוניות / מסמכים מקושרים
+                                                📁 העבר לתיקייה
                                               </button>
                                               <button
                                                 type="button"
-                                                onClick={() => {
-                                                  setActiveDocMenuId(null);
-                                                  if (typeof window !== 'undefined') {
-                                                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', { detail: { doc } }));
-                                                  }
-                                                }}
-                                                style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#6d28d9', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                onClick={() => { setActiveDocMenuId(null); handleMoveDocument(doc.id, activeShelf.id); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
-                                                ✂️ ערוך, פלטר והוסף בסורק
+                                                🔄 העבר למדף
                                               </button>
                                               <button
                                                 type="button"
@@ -3745,28 +3793,43 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                     ownerId: doc.ownerId || (doc as any).addedBy
                                                   });
                                                 }}
-                                                style={{ background: '#eff6ff', border: '1px solid #bfdbfe', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#1d4ed8', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#15803d', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
-                                                🔐 הרשאות ופרטיות מסמך
+                                                🔐 הרשאות ופרטיות
                                               </button>
+
+                                              {/* קו מפריד */}
+                                              <div style={{ height: '1px', background: '#f1f5f9', margin: '0.2rem 0' }} />
+
+                                              {/* קבוצה 3: קישור */}
+                                              <div style={{ fontSize: '0.68rem', fontWeight: 800, color: '#94a3b8', padding: '0.1rem 0.4rem', letterSpacing: '0.3px' }}>
+                                                קישורים
+                                              </div>
                                               <button
-                                                  type="button"
-                                                  onClick={() => { setActiveDocMenuId(null); setMoveDocToFolder({ docIds: [doc.id], currentFolderId: doc.folderId }); }}
-                                                  style={{ background: '#f0f9ff', border: '1px solid #bae6fd', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0284c7', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.4rem' }}
-                                                >
-                                                  📁 העבר לתיקייה
-                                                </button>
-                                                <button
                                                 type="button"
-                                                onClick={() => { setActiveDocMenuId(null); handleMoveDocument(doc.id, activeShelf.id); }}
-                                                style={{ background: 'transparent', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#475569', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                onClick={() => { setActiveDocMenuId(null); setLinkingDoc(doc); }}
+                                                style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#0f766e', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
-                                                🔄 העבר למדף אחר
+                                                💳 קשר להוצאה / מסמך
                                               </button>
+                                              {showTimeline && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() => { setActiveDocMenuId(null); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }}
+                                                  style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
+                                                >
+                                                  🔗 {linkedEvent ? 'שנה תחנה' : 'קשר לתחנה'}
+                                                </button>
+                                              )}
+
+                                              {/* קו מפריד */}
+                                              <div style={{ height: '1px', background: '#fef2f2', margin: '0.2rem 0' }} />
+
+                                              {/* קבוצה 4: מחיקה */}
                                               <button
                                                 type="button"
                                                 onClick={() => { setActiveDocMenuId(null); handleDeleteDocument(doc.id, doc.title); }}
-                                                style={{ background: '#fef2f2', border: 'none', padding: '0.4rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#dc2626', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+                                                style={{ background: '#fff1f2', border: '1px solid #fecdd3', padding: '0.4rem 0.6rem', borderRadius: '8px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#e11d48', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                               >
                                                 🗑️ מחק מסמך
                                               </button>
