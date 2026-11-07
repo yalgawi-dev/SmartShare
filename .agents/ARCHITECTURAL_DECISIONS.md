@@ -1264,6 +1264,45 @@ flowchart TD
    * ב-`DocumentsWidget.tsx`, הכפתור בכותרת עודכן ל-`whiteSpace: 'nowrap'`, `display: 'flex'`, `alignItems: 'center'`, `gap: '0.2rem'`, ונכתב בצורה ברורה: `🗑️ מחק מדף`.
 4. **עודכנה הגרסה הוויזואלית ל-`v3.4.77`.**
 
+---
+
+## 55. פתרון עומק לאיחוד מסמכים אטומי (Atomic Document Merge) ומניעת חריגת גודל Firestore (v3.4.78)
+
+### תיאור התופעה שנצפתה:
+בעת לחיצה על שמירה של איחוד מסמכים:
+1. שני המסמכים נעלמו לשניות ספורות (בגלל העדכון האופטימי המקומי).
+2. לאחר מספר שניות, שני המסמכים המקוריים **חזרו לכספת**, והמגילה המאוחדת לא נשמרה.
+
+### ניתוח שורש הבעיה (Root Cause Analysis):
+1. **חריגת מגבלת גודל מסמך Firestore (1MB Document Size Limit):**
+   * כאשר משתמש סורק או עורך תמונות בסורק, התמונות נוצרות כמחרוזות Base64 מקומיות (`data:image/webp;base64,...` או `data:image/jpeg;base64,...`).
+   * כל תמונה ברזולוציה מלאה שוקלת בין 400KB ל-1.5MB.
+   * כאשר ב-`page.tsx` נשמרו העמודים כ-`updatedPages`, הם נשלחו ישירות עם ה-Base64 לתוך מסמך ה-Space הראשי ב-Firestore (`spaces/{spaceId}`).
+   * Firestore מגביל מסמך בודד ל-**1MB בלבד**! כאשר גודל ה-Space חרג מ-1MB עקב שמירת מחרוזות ה-Base64 של העמודים ישירות בתוכו, הקריאה `setDoc(doc(db, 'spaces', spaceId), ...)` נכשלה ונזרקה שגיאה (`Error updating Firestore space root`).
+   * במנגנון `saveSpaceUpdate`, כאשר `setDoc` נכשל, המערכת מבצעת **Revert** מלא ומחזירה את ה-State למצבו המקורי:
+     ```typescript
+     // Revert UI on failure
+     const revertedSpaces = spacesBaseRef.current.map(space => space.id === spaceId ? currentSpace : space);
+     setSpacesBase(revertedSpaces);
+     ```
+     זה בדיוק מה שהחזיר את שני המסמכים הישנים וביטל את האיחוד!
+2. **מרוץ שמירות (Race Condition) עקב עדכונים נפרדים ולא אטומיים:**
+   * קודם לכן נקרא `updateDocument` על המסמך הראשי (שהפעיל `saveSpaceUpdate` אסינכרוני), ובמקביל בלולאה נקרא `removeDocument` על המסמכים המשניים (שהפעיל שוב `saveSpaceUpdate` לכל מסמך משני).
+   * קריאות מקבילות ל-`saveSpaceUpdate` עולות זו על זו ועלולות לדרוס מוטציות קודמות.
+
+### הפתרונות ההנדסיים:
+1. **העלאה מקדימה ל-Firebase Storage לפני כתיבה ל-Firestore:**
+   * ב-`page.tsx` (`onComplete`), כל עמוד שהוא בפורמט `data:` מועלה מיידית ל-Firebase Storage באמצעות `uploadImageToStorage` ומקבל כתובת HTTPS קצרה וקבועה.
+   * ב-Firestore נשמרות אך ורק כתובות URL של Firebase Storage (כמה עשרות בתים בלבד לכל עמוד). מסמך ה-Space לעולם אינו מתנפח ולעולם אינו חורג מ-1MB!
+2. **פעולת איחוד אטומית אחת (`mergeDocuments`):**
+   * נוספה פונקציה אטומית ייעודית ב-`SpacesContext`:
+     ```typescript
+     mergeDocuments(spaceId, primaryDocId, primaryUpdates, secondaryDocIds)
+     ```
+   * בפעולה יחידה זו, מסמך ה-Space מתעדכן פעם אחת בלבד: המסמך הראשי מקבל את כל העמודים והשם המעודכן, וכל המסמכים המשניים מסומנים כ-`deletedAt` (מועברים לסל האשפה).
+   * אין מרוץ שמירות, אין חזרות אחורה (Revert), והפעולה מתבצעת ב-100% ודאות.
+3. **עודכנה הגרסה הוויזואלית ל-`v3.4.78`.**
+
 
 
 

@@ -75,7 +75,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   const router = useRouter();
   const isGuestMode = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('role') === 'guest' : false;
   
-  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument, removeDocument } = useSpaces() as any;
+  const { spaces, isLoaded, toggleFeature, updateSpaceTitle, updateSpaceDate, updateSpaceCover, updateSpaceIcon, updateSpaceSettings, getRoleForSpace, migrateGuestToRealUser, updateShelfEvent, markConversationRead, requestGroupJoin, addInboxItems, restoreSpace, updateDocument, mergeDocuments, removeDocument } = useSpaces() as any;
   const { user } = useAuth();
   const { openChat } = useChat();
   const space = spaces.find(s => s.id === id);
@@ -1301,33 +1301,42 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             editingDocId={editingDocumentInfo?.docId}
             editingDocTitle={editingDocumentInfo?.title}
             isMultiDocMerge={Boolean(editingDocumentInfo?.sourceDocIds && editingDocumentInfo.sourceDocIds.length > 1)}
-            onComplete={(url, _, allPages, routingType) => { 
+            onComplete={async (url, _, allPages, routingType) => { 
                 setIsScannerOpen(false); 
                 if (editingDocumentInfo) {
                   const currentEditing = editingDocumentInfo;
                   setEditingDocumentInfo(null);
-                  const updatedPages = allPages && allPages.length > 0 ? allPages : [url];
+                  let updatedPages = allPages && allPages.length > 0 ? allPages : [url];
                   const isMerge = Array.isArray(currentEditing.sourceDocIds) && currentEditing.sourceDocIds.length > 1;
 
-                  if (updateDocument) {
-                    updateDocument(space.id, currentEditing.docId, {
-                      pages: updatedPages,
-                      url: updatedPages[0],
-                      thumbnailUrl: updatedPages[0],
-                      ...(isMerge ? { title: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
-                    });
+                  // Upload any raw data: URLs to storage first so Firestore 1MB document limit is never exceeded
+                  try {
+                    updatedPages = await Promise.all(
+                      updatedPages.map(async (pageUrl, idx) => {
+                        if (pageUrl.startsWith('data:')) {
+                          const ext = pageUrl.startsWith('data:application/pdf') ? 'pdf' : (pageUrl.startsWith('data:image/webp') ? 'webp' : 'jpg');
+                          const path = `documents/${space.id}/page_${Date.now()}_${idx}_${Math.random().toString(36).substring(7)}.${ext}`;
+                          return await uploadImageToStorage(pageUrl, path);
+                        }
+                        return pageUrl;
+                      })
+                    );
+                  } catch (uploadErr) {
+                    console.error('Failed to upload pages to storage during document save/merge:', uploadErr);
                   }
 
-                  // If this was a multi-document merge, clean up the other source documents using removeDocument
-                  if (isMerge && removeDocument) {
-                    const secondaryIds = currentEditing.sourceDocIds.filter(id => id !== currentEditing.docId);
-                    secondaryIds.forEach(secId => {
-                      try {
-                        removeDocument(space.id, secId);
-                      } catch (err) {
-                        console.error('Failed to clean up merged doc:', secId, err);
-                      }
-                    });
+                  const primaryUpdates = {
+                    pages: updatedPages,
+                    url: updatedPages[0],
+                    thumbnailUrl: updatedPages[0],
+                    ...(isMerge ? { title: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
+                  };
+
+                  if (isMerge && mergeDocuments) {
+                    const secondaryIds = currentEditing.sourceDocIds!.filter(id => id !== currentEditing.docId);
+                    mergeDocuments(space.id, currentEditing.docId, primaryUpdates, secondaryIds);
+                  } else if (updateDocument) {
+                    updateDocument(space.id, currentEditing.docId, primaryUpdates);
                   }
 
                   setToastMessage(isMerge 
