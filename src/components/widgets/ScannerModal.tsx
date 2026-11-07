@@ -276,83 +276,104 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [cropEndToEndTiming, setCropEndToEndTiming] = useState<{ totalUiMs: number; asyncWaitMs: number; cropFnMs: number; classifyMs?: number } | null>(null);
   const [classifyOverride, setClassifyOverride] = useState(false);
   
+  // Helper: Prepare canvas and compute normalized 4-corner cropPoints uniformly
+  const prepareImageCanvasAndPoints = async (url: string): Promise<{ canvas: HTMLCanvasElement; rawUrl: string; pts: Point[] } | null> => {
+    try {
+      const cleanUrl = await toCleanDataUrl(url);
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = cleanUrl || url;
+      await new Promise((res, rej) => {
+        img.onload = () => res(true);
+        img.onerror = () => res(false);
+      });
+      let w = img.width;
+      let h = img.height;
+      if (!w || !h) return null;
+      if (w > 1500) {
+        h = Math.round(h * (1500 / w));
+        w = 1500;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      ctx.drawImage(img, 0, 0, w, h);
+
+      let pts: Point[] = [
+        { x: w * 0.015, y: h * 0.015 },
+        { x: w * 0.985, y: h * 0.015 },
+        { x: w * 0.985, y: h * 0.985 },
+        { x: w * 0.015, y: h * 0.985 }
+      ];
+
+      const detected = detectDocument(canvas);
+      if (detected && detected.length === 4) {
+        const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
+        const polyArea = 0.5 * Math.abs(
+          (p1.x * p2.y - p2.x * p1.y) +
+          (p2.x * p3.y - p3.x * p2.y) +
+          (p3.x * p4.y - p4.x * p3.y) +
+          (p4.x * p1.y - p1.x * p4.y)
+        );
+        const ratio = polyArea / (w * h);
+        if (ratio >= 0.35 && ratio <= 0.98) {
+          pts = detected;
+        }
+      }
+
+      const rawUrl = compressCanvas(canvas, 0.88, 'image/webp');
+      return { canvas, rawUrl, pts };
+    } catch (e) {
+      console.warn("prepareImageCanvasAndPoints failed", e);
+      return null;
+    }
+  };
+
   // Sanitize remote initialPages on mount to avoid CORS canvas tainting
   useEffect(() => {
     if (initialPages && initialPages.length > 0) {
       let isMounted = true;
       (async () => {
         try {
-          const cleanActive = await toCleanDataUrl(initialPages[0]);
-          if (isMounted && cleanActive && cleanActive.startsWith('data:')) {
-            setRawSnapshot(prev => (prev === initialPages[0] ? cleanActive : prev));
-            setImageCache(prev => ({ ...prev, original: cleanActive }));
-            setActiveOriginalUrl(cleanActive);
+          // Process First Page
+          const firstPageResult = await prepareImageCanvasAndPoints(initialPages[0]);
+          if (isMounted && firstPageResult) {
+            const { rawUrl, pts } = firstPageResult;
+            setRawSnapshot(rawUrl);
+            setImageCache(prev => ({ ...prev, original: rawUrl }));
+            setActiveOriginalUrl(rawUrl);
+            setCropPoints(pts);
 
-            // Detect boundary or set default framing for vault documents
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.onload = () => {
-              if (!isMounted) return;
-              let pts = [
-                { x: img.width * 0.015, y: img.height * 0.015 },
-                { x: img.width * 0.985, y: img.height * 0.015 },
-                { x: img.width * 0.985, y: img.height * 0.985 },
-                { x: img.width * 0.015, y: img.height * 0.985 }
-              ];
-              try {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext('2d');
-                if (ctx) {
-                  ctx.drawImage(img, 0, 0);
-                  const detected = detectDocument(canvas);
-                  if (detected && detected.length === 4) {
-                    const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
-                    const polyArea = 0.5 * Math.abs(
-                      (p1.x * p2.y - p2.x * p1.y) +
-                      (p2.x * p3.y - p3.x * p2.y) +
-                      (p3.x * p4.y - p4.x * p3.y) +
-                      (p4.x * p1.y - p1.x * p4.y)
-                    );
-                    const ratio = polyArea / (img.width * img.height);
-                    if (ratio >= 0.35 && ratio <= 0.98) {
-                      pts = detected;
-                    }
-                  }
-                }
-              } catch (e) {
-                console.warn("Vault doc boundary detection error:", e);
+            // If initial mode is AUTO and document was opened, initialize into review smoothly
+            if (isAutoEngine) {
+              const cv = (window as any).cv;
+              if (cv && cv.Mat && cv.imread) {
+                performCrop(rawUrl, pts, 'smart_plus').catch(e => console.warn("Auto enhance vault doc error:", e));
               }
-              // Set crop points ready for manual adjustments if user toggles to manual
-              setCropPoints(pts);
-
-              // If initial mode is AUTO and document was opened, initialize into review smoothly
-              if (isAutoEngine) {
-                // Document from vault is already displayed in review via imageCache['original'].
-                // If user desires auto-enhancement, performCrop will run safely without blocking or loop-freezing
-                const cv = (window as any).cv;
-                if (cv && cv.Mat && cv.imread) {
-                  performCrop(cleanActive, pts, 'smart_plus').catch(e => console.warn("Auto enhance vault doc error:", e));
-                }
-              }
-            };
-            img.src = cleanActive;
+            }
           }
+
+          // Process Pages 2+ uniformly so they also have exact cropPoints and boundary rulers!
           if (initialPages.length > 1) {
-            const sanitizedRest = await Promise.all(
+            const restResults = await Promise.all(
               initialPages.slice(1).map(async (url) => {
-                const clean = await toCleanDataUrl(url);
-                return clean || url;
+                return await prepareImageCanvasAndPoints(url);
               })
             );
             if (isMounted) {
               setScannedPages(prev => prev.map((p, idx) => {
-                if (idx < sanitizedRest.length) {
+                const prep = restResults[idx];
+                if (prep) {
                   return {
                     ...p,
-                    imageUrl: sanitizedRest[idx],
-                    rawImageUrl: sanitizedRest[idx]
+                    imageUrl: prep.rawUrl,
+                    rawImageUrl: prep.rawUrl,
+                    cropPoints: prep.pts,
+                    filterCache: { original: prep.rawUrl }
                   };
                 }
                 return p;
@@ -408,7 +429,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     document.body.appendChild(script);
   }, []);
 
-  const processImportUrl = async (url: string, preserveId?: string) => {
+  // When OpenCV finishes loading, trigger auto-enhance if auto mode is selected and first doc is still original
+  useEffect(() => {
+    if (cvLoaded && isAutoEngine && step === 'review' && mode === 'original') {
+      const targetSnapshot = rawSnapshot || imageCache['original'] || activeOriginalUrl;
+      if (targetSnapshot && cropPoints && cropPoints.length === 4) {
+        performCrop(targetSnapshot, cropPoints, 'smart_plus').catch(e => console.warn('Auto enhance on cvLoaded error:', e));
+      }
+    }
+  }, [cvLoaded, isAutoEngine, step, mode, rawSnapshot, imageCache, activeOriginalUrl, cropPoints]);
+
+  const processImportUrl = async (url: string, preserveId?: string) => {
     const cleanUrl = await toCleanDataUrl(url);
     url = cleanUrl || url;
     setActiveSource('upload');
@@ -1266,7 +1297,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.98</span>
+            <span>v3.4.99</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -2167,12 +2198,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                     setTimeout(async () => {
                                       let pts = docToLoad.cropPoints;
                                       if (!pts || pts.length !== 4) {
-                                        pts = [
+                                        const prep = await prepareImageCanvasAndPoints(rawImg);
+                                        pts = prep?.pts || [
                                           { x: 0, y: 0 },
                                           { x: 100, y: 0 },
                                           { x: 100, y: 100 },
                                           { x: 0, y: 100 }
                                         ];
+                                        setCropPoints(pts);
                                       }
                                       await performCrop(rawImg, pts, 'smart_plus');
                                       setIsProcessing(false);
