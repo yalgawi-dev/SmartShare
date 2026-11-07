@@ -277,6 +277,32 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             setRawSnapshot(prev => (prev === initialPages[0] ? cleanActive : prev));
             setImageCache(prev => ({ ...prev, original: cleanActive }));
             setActiveOriginalUrl(cleanActive);
+
+            // Pre-calculate document boundaries for seamless auto-crop and manual crop adjustments
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              if (!isMounted) return;
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) {
+                ctx.drawImage(img, 0, 0);
+                const detected = detectDocument(canvas);
+                if (detected && detected.length === 4) {
+                  setCropPoints(detected);
+                } else {
+                  setCropPoints([
+                    { x: img.width * 0.02, y: img.height * 0.02 },
+                    { x: img.width * 0.98, y: img.height * 0.02 },
+                    { x: img.width * 0.98, y: img.height * 0.98 },
+                    { x: img.width * 0.02, y: img.height * 0.98 }
+                  ]);
+                }
+              }
+            };
+            img.src = cleanActive;
           }
           if (initialPages.length > 1) {
             const sanitizedRest = await Promise.all(
@@ -758,7 +784,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
 
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow') => {
     if (mode === targetMode) return;
-    if (!rawSnapshot || cropPoints.length !== 4) return;
+    const targetSnapshot = rawSnapshot || imageCache[mode] || activeOriginalUrl;
+    if (!targetSnapshot) return;
+
     if (imageCache[targetMode]) {
        setMode(targetMode);
        if (targetMode !== 'smart_plus' && targetMode !== 'pure_color' && targetMode !== 'bw') {
@@ -771,9 +799,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     }
     setIsProcessing(true);
     setTimeout(async () => {
-      await performCrop(rawSnapshot, cropPoints, targetMode);
+      await performCrop(targetSnapshot, cropPoints, targetMode);
       setIsProcessing(false);
-    }, 50);
+    }, 40);
   };
 
 
@@ -1165,13 +1193,39 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                 if (!nextVal) {
                   // Switching to MANUAL ✂️ -> show the crop screen with the 4 yellow corners!
                   if (!rawSnapshot) setRawSnapshot(targetSnapshot);
+                  // Ensure cropPoints is initialized if empty
+                  if (!cropPoints || cropPoints.length !== 4) {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.onload = () => {
+                      const canvas = document.createElement('canvas');
+                      canvas.width = img.width;
+                      canvas.height = img.height;
+                      const ctx = canvas.getContext('2d');
+                      if (ctx) {
+                        ctx.drawImage(img, 0, 0);
+                        const detected = detectDocument(canvas);
+                        if (detected && detected.length === 4) {
+                          setCropPoints(detected);
+                        } else {
+                          setCropPoints([
+                            { x: img.width * 0.02, y: img.height * 0.02 },
+                            { x: img.width * 0.98, y: img.height * 0.02 },
+                            { x: img.width * 0.98, y: img.height * 0.98 },
+                            { x: img.width * 0.02, y: img.height * 0.98 }
+                          ]);
+                        }
+                      }
+                    };
+                    img.src = targetSnapshot;
+                  }
                   setIsEditingFromReview(true);
                   setStep('cropping');
                 } else {
                   // Switching to AUTO ✨ -> auto-crop and enhance with detected boundary, straight to review!
                   setIsProcessing(true);
                   setTimeout(async () => {
-                    await performCrop(targetSnapshot, cropPoints, mode === 'original' ? 'smart_plus' : mode);
+                    await performCrop(targetSnapshot, cropPoints, (mode === 'original' || !mode) ? 'smart_plus' : mode);
                     setIsProcessing(false);
                     setStep('review');
                   }, 30);
