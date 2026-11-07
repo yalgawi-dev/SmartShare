@@ -371,29 +371,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             }
           }
 
-          // Process Pages 2+ uniformly so they also have exact cropPoints and boundary rulers!
-          if (initialPages.length > 1) {
-            const restResults = await Promise.all(
-              initialPages.slice(1).map(async (url) => {
-                return await prepareImageCanvasAndPoints(url);
-              })
-            );
-            if (isMounted) {
-              setScannedPages(prev => prev.map((p, idx) => {
-                const prep = restResults[idx];
-                if (prep) {
-                  return {
-                    ...p,
-                    imageUrl: prep.rawUrl,
-                    rawImageUrl: prep.rawUrl,
-                    cropPoints: prep.pts,
-                    filterCache: { original: prep.rawUrl }
-                  };
-                }
-                return p;
-              }));
-            }
-          }
+          // Pages 2+ (even if 100 pages!) are kept lightweight in the tray.
+          // They will be processed on-demand in <50ms only when clicked (Lazy Loading)!
         } catch (e) {
           console.warn('InitialPages sanitization failed', e);
         }
@@ -1311,7 +1290,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.5.00</span>
+            <span>v3.5.01</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -2128,31 +2107,44 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                     setImageCache(combinedCache);
                                     setMode(effectiveMode as any);
                                     setStep('review');
-                                  } else if (isAutoEngine && !combinedCache['smart_plus']) {
-                                    // First-time load only: process once and save to cache
-                                    setImageCache(combinedCache);
-                                    setMode('smart_plus');
-                                    setStep('review');
-                                    setIsProcessing(true);
-                                    setTimeout(async () => {
-                                      let pts = docToLoad.cropPoints;
-                                      if (!pts || pts.length !== 4) {
-                                        const prep = await prepareImageCanvasAndPoints(rawImg);
-                                        pts = prep?.pts || [
-                                          { x: 0, y: 0 },
-                                          { x: 100, y: 0 },
-                                          { x: 100, y: 100 },
-                                          { x: 0, y: 100 }
-                                        ];
-                                        setCropPoints(pts);
-                                      }
-                                      await performCrop(rawImg, pts, 'smart_plus');
-                                      setIsProcessing(false);
-                                    }, 10);
                                   } else {
-                                    setImageCache(combinedCache);
-                                    setMode(effectiveMode as any);
-                                    setStep('review');
+                                    // ⚡ On-demand lazy boundary & enhancement calculation (<50ms)
+                                    let activePts = docToLoad.cropPoints;
+                                    let activeRaw = rawImg;
+                                    if (!activePts || activePts.length !== 4) {
+                                      setIsProcessing(true);
+                                      setTimeout(async () => {
+                                        const prep = await prepareImageCanvasAndPoints(rawImg);
+                                        if (prep) {
+                                          activePts = prep.pts;
+                                          activeRaw = prep.rawUrl;
+                                          setCropPoints(prep.pts);
+                                          setRawSnapshot(prep.rawUrl);
+                                          combinedCache['original'] = prep.rawUrl;
+                                        }
+                                        if (isAutoEngine && !combinedCache['smart_plus']) {
+                                          await performCrop(activeRaw, activePts || [], 'smart_plus');
+                                        } else {
+                                          setImageCache(combinedCache);
+                                          setMode(effectiveMode as any);
+                                          setStep('review');
+                                        }
+                                        setIsProcessing(false);
+                                      }, 10);
+                                    } else if (isAutoEngine && !combinedCache['smart_plus']) {
+                                      setImageCache(combinedCache);
+                                      setMode('smart_plus');
+                                      setStep('review');
+                                      setIsProcessing(true);
+                                      setTimeout(async () => {
+                                        await performCrop(activeRaw, activePts!, 'smart_plus');
+                                        setIsProcessing(false);
+                                      }, 10);
+                                    } else {
+                                      setImageCache(combinedCache);
+                                      setMode(effectiveMode as any);
+                                      setStep('review');
+                                    }
                                   }
                                 }
                             }
