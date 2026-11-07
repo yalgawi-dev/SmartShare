@@ -325,13 +325,19 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               }
               setCropPoints(pts);
 
-              // If initial mode is AUTO and document was opened, apply auto-crop and enhance directly
+              // If initial mode is AUTO and document was opened, apply auto-crop and enhance directly once OpenCV is ready
               if (isAutoEngine) {
-                setTimeout(async () => {
+                const triggerAutoCropWhenReady = async () => {
+                  for (let i = 0; i < 50; i++) {
+                    const cv = (window as any).cv;
+                    if (cv && cv.imread && cv.Mat) break;
+                    await new Promise(r => setTimeout(r, 100));
+                  }
                   if (isMounted) {
                     await performCrop(cleanActive, pts, 'smart_plus');
                   }
-                }, 30);
+                };
+                triggerAutoCropWhenReady();
               }
             };
             img.src = cleanActive;
@@ -1203,7 +1209,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.94</span>
+            <span>v3.4.95</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})

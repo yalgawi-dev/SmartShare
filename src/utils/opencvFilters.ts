@@ -489,26 +489,9 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
     // Removed dangerous cleanupMats block that crashed OpenCV.js when .isDeleted() was undefined
     // Memory leaks are prevented by explicitly deleting Mats in their respective blocks.
 
-    // Helper: Expand quadrilateral outward slightly (CamScanner safety bleed)
-    // Ensures text, prices or signatures on edges are never truncated.
-    const expandQuadSafely = (pts: Point[], marginFactor: number = 0.018): Point[] => {
-      if (pts.length !== 4) return pts;
-      const cx = (pts[0].x + pts[1].x + pts[2].x + pts[3].x) / 4;
-      const cy = (pts[0].y + pts[1].y + pts[2].y + pts[3].y) / 4;
-
-      return pts.map(p => {
-        const dx = p.x - cx;
-        const dy = p.y - cy;
-        return {
-          x: Math.max(0, Math.min(canvas.width, p.x + dx * marginFactor)),
-          y: Math.max(0, Math.min(canvas.height, p.y + dy * marginFactor))
-        };
-      });
-    };
-
     if (scoredCandidates.length > 0) {
       scoredCandidates.sort((a, b) => b.score - a.score);
-      return expandQuadSafely(scoredCandidates[0].pts, 0.018);
+      return scoredCandidates[0].pts;
     }
 
     return null;
@@ -554,29 +537,47 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
             safePts = detected;
           } else {
             safePts = [
-              { x: img.width * 0.05, y: img.height * 0.05 },
-              { x: img.width * 0.95, y: img.height * 0.05 },
-              { x: img.width * 0.95, y: img.height * 0.95 },
-              { x: img.width * 0.05, y: img.height * 0.95 }
+              { x: 0, y: 0 },
+              { x: img.width, y: 0 },
+              { x: img.width, y: img.height },
+              { x: 0, y: img.height }
             ];
           }
         } else {
           safePts = [
-            { x: img.width * 0.05, y: img.height * 0.05 },
-            { x: img.width * 0.95, y: img.height * 0.05 },
-            { x: img.width * 0.95, y: img.height * 0.95 },
-            { x: img.width * 0.05, y: img.height * 0.95 }
+            { x: 0, y: 0 },
+            { x: img.width, y: 0 },
+            { x: img.width, y: img.height },
+            { x: 0, y: img.height }
           ];
         }
       }
 
+      // Helper: Ensure window.cv is fully ready with imread and Mat
+      const ensureCvReady = async (): Promise<any> => {
+        let cv = (window as any).cv;
+        if (cv && cv.imread && cv.Mat) return cv;
+
+        // Wait up to 5 seconds for OpenCV to finish initializing
+        for (let i = 0; i < 50; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          cv = (window as any).cv;
+          if (cv && cv.imread && cv.Mat) return cv;
+        }
+        return (window as any).cv;
+      };
+
       try {
         let finalHybrid: any;
-        const cv = (window as any).cv;
-        const t0_math = performance.now();
-        let t_warp = 0, t_bw = 0, t_hsv = 0, t_hull = 0, t_engine = 0;
-        let mark = performance.now();
-        let src = cv.imread(canvas);
+        ensureCvReady().then((cv) => {
+          if (!cv || !cv.imread || !cv.Mat) {
+            return reject(new Error('OpenCV library is still loading, please retry in a second.'));
+          }
+
+          const t0_math = performance.now();
+          let t_warp = 0, t_bw = 0, t_hsv = 0, t_hull = 0, t_engine = 0;
+          let mark = performance.now();
+          let src = cv.imread(canvas);
         
         const widthA = Math.hypot(safePts[2].x - safePts[3].x, safePts[2].y - safePts[3].y);
         const widthB = Math.hypot(safePts[1].x - safePts[0].x, safePts[1].y - safePts[0].y);
@@ -1312,41 +1313,13 @@ export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], force
           if(typeof finalSmartPlusRgba !== 'undefined' && !finalSmartPlusRgba.isDeleted()) finalSmartPlusRgba.delete();
           if(typeof finalHybrid !== 'undefined' && !finalHybrid.isDeleted()) finalHybrid.delete();
           
-          // Cleanup all local Mat references that might have leaked
-          const locals = [
-             typeof smallDst !== 'undefined' ? smallDst : null,
-             typeof smallGray !== 'undefined' ? smallGray : null,
-             typeof bgKernelSmall !== 'undefined' ? bgKernelSmall : null,
-             typeof bgSmallest !== 'undefined' ? bgSmallest : null,
-             typeof smallBw !== 'undefined' ? smallBw : null,
-             typeof smallMask !== 'undefined' ? smallMask : null,
-             typeof contours !== 'undefined' ? contours : null,
-             typeof hierarchy !== 'undefined' ? hierarchy : null,
-             typeof hullMask !== 'undefined' ? hullMask : null,
-             typeof dilateKernelSmall !== 'undefined' ? dilateKernelSmall : null,
-             typeof hybridMask !== 'undefined' ? hybridMask : null,
-             typeof flatRgb !== 'undefined' ? flatRgb : null,
-             typeof blurredFlat !== 'undefined' ? blurredFlat : null,
-             typeof flatHsv !== 'undefined' ? flatHsv : null,
-             typeof planesHsv !== 'undefined' ? planesHsv : null,
-             typeof v !== 'undefined' ? v : null,
-             typeof smallLogoMask !== 'undefined' ? smallLogoMask : null,
-             typeof inpaintedSmallRgb !== 'undefined' ? inpaintedSmallRgb : null,
-             typeof bgSmall2 !== 'undefined' ? bgSmall2 : null,
-             typeof bgRgb !== 'undefined' ? bgRgb : null,
-             typeof planesRgb !== 'undefined' ? planesRgb : null,
-             typeof planesBg !== 'undefined' ? planesBg : null,
-             typeof textMask !== 'undefined' ? textMask : null,
-             typeof edges !== 'undefined' ? edges : null
-          ];
-          for (let m of locals) {
-             if (m && typeof m.delete === 'function' && !m.isDeleted()) m.delete();
+          } catch (err) {
+            console.error("OpenCV processing failed", err);
+            reject(err);
           }
-        } catch(e) {}
-
-
+        }).catch(reject);
       } catch (err) {
-        console.error("OpenCV processing failed", err);
+        console.error("OpenCV wrapper failed", err);
         reject(err);
       }
     };
