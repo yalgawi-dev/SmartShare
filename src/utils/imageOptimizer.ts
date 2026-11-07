@@ -699,6 +699,74 @@ export const DOCUMENT_MAX_BYTES = 300 * 1024;
 export const dataUrlBytes = (u: string) => Math.round((u.length - u.indexOf(',') - 1) * 0.75);
 
 /**
+ * Converts any image URL (remote cloud URL, blob URL, or data URL) into a clean, local Base64 DataURL.
+ * This guarantees that the Canvas is never tainted by cross-origin security restrictions.
+ */
+export async function toCleanDataUrl(url: string): Promise<string> {
+  if (!url) return '';
+  if (url.startsWith('data:image/')) return url;
+
+  // Try direct fetch to blob first
+  try {
+    const res = await fetch(url);
+    if (res.ok) {
+      const blob = await res.blob();
+      return await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+  } catch (err) {
+    console.warn('Direct fetch to blob failed, falling back to proxy / image element', err);
+  }
+
+  // Fallback via server pdf/image proxy if remote fetch is blocked by CORS
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    try {
+      const proxyUrl = `/api/pdf-proxy?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
+      if (res.ok) {
+        const blob = await res.blob();
+        return await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(blob);
+        });
+      }
+    } catch (proxyErr) {
+      console.warn('Proxy fetch failed', proxyErr);
+    }
+  }
+
+  // Final fallback using Image element with crossOrigin
+  return new Promise<string>((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/webp', 0.90));
+          return;
+        }
+      } catch (canvasErr) {
+        console.warn('Canvas export tainted', canvasErr);
+      }
+      resolve(url);
+    };
+    img.onerror = () => resolve(url);
+    img.src = url;
+  });
+}
+
+/**
  * Shrinks an image to fit maxBytes.
  * Connected directly to WebP engine with seamless fallback to legacy JPEG engine.
  */

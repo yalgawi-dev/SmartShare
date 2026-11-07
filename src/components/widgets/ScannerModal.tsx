@@ -3,7 +3,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { createPortal } from 'react-dom';
-import { compressCanvas, mergeImagesCleanly, compressToBudget } from '../../utils/imageOptimizer';
+import { compressCanvas, mergeImagesCleanly, compressToBudget, toCleanDataUrl } from '../../utils/imageOptimizer';
 import { useCamera } from '../../hooks/useCamera';
 import { detectDocument, applyPerspectiveAndFilters, Point } from '../../utils/opencvFilters';
 import { convertImagesToPdfBlob } from '@/utils/documentUtils';
@@ -118,9 +118,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     return () => input?.removeEventListener('cancel', handleCancel);
   }, []); // Only run once on mount!
   
-  const [pendingImports, setPendingImports] = useState<{id: string, url: string}[]>([]);
 
-  const isCameraActive = scannerMode === 'camera' && step === 'scanning' && pendingImports.length === 0;
+  const isCameraActive = scannerMode === 'camera' && step === 'scanning';
 
   const {
     stream,
@@ -201,16 +200,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   
   // Derived state for sorting tray
   const derivedTrayItems = React.useMemo(() => {
-    const isAlreadyPresent = scannedPages.some(p => p.id === activeDocId) || pendingImports.some(p => p.id === activeDocId);
+    const isAlreadyPresent = scannedPages.some(p => p.id === activeDocId);
     const activeUrl = imageCache[mode] || rawSnapshot || activeOriginalUrl;
     
     const items: TrayItem[] = [
       ...scannedPages.map(p => ({ id: p.id, type: 'scanned' as const, url: p.imageUrl, pageNum: p.pageNum })),
-      ...(step !== 'scanning' && activeUrl && !isAlreadyPresent ? [{ id: activeDocId, type: 'active' as const, url: activeUrl as string, isEdited: step === 'review' }] : []),
-      ...pendingImports.map((p) => ({ id: p.id, type: 'pending' as const, url: p.url }))
+      ...(step !== 'scanning' && activeUrl && !isAlreadyPresent ? [{ id: activeDocId, type: 'active' as const, url: activeUrl as string, isEdited: step === 'review' }] : [])
     ];
     return items;
-  }, [scannedPages, step, rawSnapshot, imageCache, mode, pendingImports, activeDocId, activeOriginalUrl]);
+  }, [scannedPages, step, rawSnapshot, imageCache, mode, activeDocId, activeOriginalUrl]);
 
   const sortedTrayItems = React.useMemo(() => {
     return [...derivedTrayItems].sort((a, b) => {
@@ -259,6 +257,46 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [cropEndToEndTiming, setCropEndToEndTiming] = useState<{ totalUiMs: number; asyncWaitMs: number; cropFnMs: number; classifyMs?: number } | null>(null);
   const [classifyOverride, setClassifyOverride] = useState(false);
   
+  // Sanitize remote initialPages on mount to avoid CORS canvas tainting
+  useEffect(() => {
+    if (initialPages && initialPages.length > 0) {
+      let isMounted = true;
+      (async () => {
+        try {
+          const cleanActive = await toCleanDataUrl(initialPages[0]);
+          if (isMounted && cleanActive && cleanActive.startsWith('data:')) {
+            setRawSnapshot(prev => (prev === initialPages[0] ? cleanActive : prev));
+            setImageCache(prev => ({ ...prev, original: cleanActive }));
+            setActiveOriginalUrl(cleanActive);
+          }
+          if (initialPages.length > 1) {
+            const sanitizedRest = await Promise.all(
+              initialPages.slice(1).map(async (url) => {
+                const clean = await toCleanDataUrl(url);
+                return clean || url;
+              })
+            );
+            if (isMounted) {
+              setScannedPages(prev => prev.map((p, idx) => {
+                if (idx < sanitizedRest.length) {
+                  return {
+                    ...p,
+                    imageUrl: sanitizedRest[idx],
+                    rawImageUrl: sanitizedRest[idx]
+                  };
+                }
+                return p;
+              }));
+            }
+          }
+        } catch (e) {
+          console.warn('InitialPages sanitization failed', e);
+        }
+      })();
+      return () => { isMounted = false; };
+    }
+  }, []);
+
   // 1. Load OpenCV.js safely
   useEffect(() => {
     // @ts-ignore
@@ -298,7 +336,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       }
     };
     document.body.appendChild(script);
-  }, []);  const processImportUrl = (url: string, preserveId?: string) => {
+  }, []);  const processImportUrl = async (url: string, preserveId?: string) => {
+    const cleanUrl = await toCleanDataUrl(url);
+    url = cleanUrl || url;
     setActiveSource('upload');
     setScannerMode('upload');
     setIsEditingFromReview(false);
@@ -345,8 +385,10 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const commitImportsRaw = async (items: { id: string, url: string }[], startPageNum: number) => {
     const newPages: ScannedPage[] = [];
     for (let idx = 0; idx < items.length; idx++) {
+      const cleanUrl = await toCleanDataUrl(items[idx].url);
       const img = new Image();
-      img.src = items[idx].url;
+      img.crossOrigin = 'anonymous';
+      img.src = cleanUrl || items[idx].url;
       await new Promise((res) => { img.onload = res; img.onerror = res; });
       let w = img.width; let h = img.height;
       if (!w || !h) continue;
@@ -638,15 +680,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setClassifyOverride(false);
     setIsEditingFromReview(false);
 
-    if (pendingImports.length > 0) {
-        const nextItem = pendingImports[0];
-        setPendingImports(prev => prev.slice(1));
-        setActiveDocId(nextItem.id);
-        processImportUrl(nextItem.url, nextItem.id);
-    } else {
-        setActiveDocId(generateDocId());
-        setStep('scanning');
-    }
+    setActiveDocId(generateDocId());
+    setStep('scanning');
   };
 
   const handleFilterSwitch = (targetMode: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow') => {
@@ -675,12 +710,15 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     
     if (step === 'cropping') {
       if (rawSnapshot) {
-        setPendingImports(prev => {
-          if (!prev.some(p => p.url === rawSnapshot)) {
-            return [{ id: activeDocId, url: rawSnapshot }, ...prev];
-          }
-          return prev;
-        });
+        const newPage: ScannedPage = {
+          id: activeDocId,
+          imageUrl: rawSnapshot,
+          pageNum: scannedPages.length + 1,
+          rawImageUrl: rawSnapshot,
+          cropPoints: cropPoints,
+          source: activeSource
+        };
+        setScannedPages(prev => [...prev, newPage]);
       }
     } else if (step === 'review') {
       const currentImg = imageCache[mode];
@@ -699,17 +737,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   };
 
   const handleDeleteActive = () => {
-    const nextPending = pendingImports.length > 0 ? pendingImports[0] : null;
     const nextScanned = scannedPages.length > 0 ? scannedPages[scannedPages.length - 1] : null;
 
-    if (nextPending) {
-       setPendingImports(prev => prev.filter(p => p.id !== nextPending.id));
-       setActiveDocId(nextPending.id);
-       setActiveSource('upload');
-       setScannerMode('upload');
-       setIsEditingFromReview(false);
-       processImportUrl(nextPending.url, nextPending.id);
-    } else if (nextScanned) {
+    if (nextScanned) {
        setScannedPages(prev => prev.filter(p => p.id !== nextScanned.id));
        const restoredMode = nextScanned.mode || 'smart_plus';
        const restoredCat = nextScanned.category || 'document';
@@ -891,68 +921,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       if (item.type === 'scanned' || item.type === 'active') {
         const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
         allPageUrls.push(urlToUse);
-      } else if (item.type === 'pending') {
-         try {
-           const img = new Image();
-           img.src = item.url;
-           await new Promise((res, rej) => { 
-              img.onload = res; 
-              img.onerror = () => rej(new Error('Failed to load pending image'));
-           });
-           let w = img.width; let h = img.height;
-           if (w === 0 || h === 0) {
-              console.warn("Invalid image dimensions", w, h);
-              continue;
-           }
-           
-           if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
-           const canvas = document.createElement('canvas');
-           canvas.width = w; canvas.height = h;
-           const ctx = canvas.getContext('2d');
-           if (ctx) {
-              ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-              ctx.drawImage(img, 0, 0, w, h);
-              
-              // Auto-crop magic for batch imports!
-              const pts = detectDocument(canvas) || [
-                {x: w * 0.1, y: h * 0.1},
-                {x: w * 0.9, y: h * 0.1},
-                {x: w * 0.9, y: h * 0.9},
-                {x: w * 0.1, y: h * 0.9}
-              ];
-              const snapshotUrl = compressCanvas(canvas, 1.0);
-              
-              try {
-                  const result = await applyPerspectiveAndFilters(snapshotUrl, pts, defaultBatchEngine);
-                  
-                  // Now compress the processed smart_plus image
-                  const imgProcessed = new Image();
-                  imgProcessed.src = result.filtered;
-                  await new Promise((r) => { imgProcessed.onload = r; imgProcessed.onerror = r; });
-                  
-                  const processedCanvas = document.createElement('canvas');
-                  processedCanvas.width = imgProcessed.width; processedCanvas.height = imgProcessed.height;
-                  const pCtx = processedCanvas.getContext('2d');
-                  if (pCtx) {
-                      pCtx.drawImage(imgProcessed, 0, 0);
-                      const data = compressCanvas(processedCanvas, 0.90);
-                      if (data && data !== 'data:,') {
-                          allPageUrls.push(data);
-                      }
-                  }
-              } catch (e) {
-                  // Fallback to raw if OpenCV fails
-                  console.error("Batch crop failed", e);
-                  const data = compressCanvas(canvas, 0.90);
-                  if (data && data !== 'data:,') {
-                      allPageUrls.push(data);
-                  }
-              }
-           }
-
-         } catch (e) {
-           console.error("Error processing pending image:", e);
-         }
       }
     }
     
@@ -997,67 +965,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         if (item.type === 'scanned' || item.type === 'active') {
           const urlToUse = needsCompression ? await getFinalCompressedUrl(item.url) : item.url;
           allPageUrls.push(urlToUse);
-        } else if (item.type === 'pending') {
-           try {
-             const img = new Image();
-             img.src = item.url;
-             await new Promise((res, rej) => { 
-                img.onload = res; 
-                img.onerror = () => rej(new Error('Failed to load pending image'));
-             });
-             let w = img.width; let h = img.height;
-             if (w === 0 || h === 0) {
-                console.warn('Invalid image dimensions', w, h);
-                continue;
-             }
-             
-             if (w > 1500) { h = Math.round(h * (1500 / w)); w = 1500; }
-             const canvas = document.createElement('canvas');
-             canvas.width = w; canvas.height = h;
-             const ctx = canvas.getContext('2d');
-             if (ctx) {
-                ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
-                ctx.drawImage(img, 0, 0, w, h);
-                
-                const pts = detectDocument(canvas) || [
-                  {x: w * 0.1, y: h * 0.1},
-                  {x: w * 0.9, y: h * 0.1},
-                  {x: w * 0.9, y: h * 0.9},
-                  {x: w * 0.1, y: h * 0.9}
-                ];
-                const snapshotUrl = compressCanvas(canvas, 1.0);
-                
-                try {
-                    const result = await applyPerspectiveAndFilters(snapshotUrl, pts, defaultBatchEngine);
-                    const imgProcessed = new Image();
-                    imgProcessed.src = result.filtered;
-                    await new Promise((r) => { imgProcessed.onload = r; imgProcessed.onerror = r; });
-                    
-                    const processedCanvas = document.createElement('canvas');
-                    processedCanvas.width = imgProcessed.width; processedCanvas.height = imgProcessed.height;
-                    const pCtx = processedCanvas.getContext('2d');
-                    if (pCtx) {
-                        pCtx.drawImage(imgProcessed, 0, 0);
-                        const data = compressCanvas(processedCanvas, 0.90);
-                        if (data && data !== 'data:,') {
-                            allPageUrls.push(data);
-                        }
-                    }
-                } catch (e) {
-                    console.error('Batch crop failed', e);
-                    const data = compressCanvas(canvas, 0.90);
-                    if (data && data !== 'data:,') {
-                        allPageUrls.push(data);
-                    }
-                }
-             }
-
-           } catch (e) {
-             console.error('Error processing pending image:', e);
-           }
         }
       }
-      setPendingImports([]);
       
       if (maxBytes && allPageUrls.length > 0) {
         const perPage = maxBytes;
@@ -1206,16 +1115,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         {step === 'scanning' && (
           <>
             {/* Top thumbnail strip removed: single source of truth is SortableTray at the bottom */}
-            {pendingImports.length > 0 ? (
-               <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0f172a' }}>
-                  <div style={{ fontSize: '4rem', marginBottom: '1rem', opacity: 0.8 }}>📂</div>
-                  <h3 style={{ color: 'white', margin: '0 0 0.5rem 0', fontSize: '1.2rem' }}>מצב ייבוא מרובה</h3>
-                  <p style={{ color: '#94a3b8', fontSize: '0.9rem', maxWidth: '80%', textAlign: 'center', margin: 0, lineHeight: 1.5 }}>
-                    ישנם <b>{pendingImports.length}</b> מסמכים ממתינים בתור.<br/><br/>
-                    בחר מסמך במגש ה"לא ערוכים" למטה כדי לחתוך אותו, או לחץ על הכפתור "אשר הכל" ⏩.
-                  </p>
-               </div>
-            ) : scannerMode === 'upload' ? null : (
+            {scannerMode === 'upload' ? null : (
               <>
                 <video 
                   ref={videoRef} 
@@ -1741,69 +1641,49 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           </>
         )}
         {/* GLOBAL TRAYS */}
-             {(step !== 'scanning' ? (scannedPages.length > 0 || pendingImports.length > 0 || (rawSnapshot || imageCache[mode])) : (pendingImports.length > 0 && scannerMode === 'upload')) && (
+             {(scannedPages.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
                <div style={{ marginTop: '0.5rem', width: '100%', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                  <div style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', direction: 'ltr', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.2)' }}>
-                    <SortableTray 
-                       items={sortedTrayItems}
-                       onReorder={(newItems) => setTrayOrder(newItems.map(i => i.id))}
-                       onItemClick={(item) => {
-                           if (item.type === 'scanned') {
-                              saveCurrentStateToTrays();
-                              setActiveDocId(item.id);
-                              const docToLoad = scannedPages.find(p => p.id === item.id);
-                              if (docToLoad) {
-                                 setScannedPages(prev => prev.filter(p => p.id !== item.id));
-                                 const restoredMode = docToLoad.mode || 'smart_plus';
-                                 const restoredCat = docToLoad.category || 'document';
-                                 const restoredSource = docToLoad.source || 'upload';
-                                 setActiveSource(restoredSource);
-                                 setScannerMode(restoredSource);
-                                 setIsEditingFromReview(false);
-                                 setMode(restoredMode);
-                                 setSelectedCategory(restoredCat);
-                                 setImageCache({ [restoredMode]: docToLoad.imageUrl });
-                                 setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
-                                 if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
-                                 setStep('review');
-                               }
-                           } else if (item.type === 'pending') {
-                              saveCurrentStateToTrays();
-                              setActiveDocId(item.id);
-                              setActiveSource('upload');
-                              setScannerMode('upload');
-                              setIsEditingFromReview(false);
-                              setPendingImports(prev => prev.filter(p => p.id !== item.id));
-                              processImportUrl(item.url, item.id);
-                           }
+                                         <SortableTray 
+                        items={sortedTrayItems}
+                        onReorder={(newItems) => setTrayOrder(newItems.map(i => i.id))}
+                        onItemClick={(item) => {
+                            if (item.type === 'scanned') {
+                               saveCurrentStateToTrays();
+                               setActiveDocId(item.id);
+                               const docToLoad = scannedPages.find(p => p.id === item.id);
+                               if (docToLoad) {
+                                  setScannedPages(prev => prev.filter(p => p.id !== item.id));
+                                  const restoredMode = docToLoad.mode || 'smart_plus';
+                                  const restoredCat = docToLoad.category || 'document';
+                                  const restoredSource = docToLoad.source || 'upload';
+                                  setActiveSource(restoredSource);
+                                  setScannerMode(restoredSource);
+                                  setIsEditingFromReview(false);
+                                  setMode(restoredMode);
+                                  setSelectedCategory(restoredCat);
+                                  setImageCache({ [restoredMode]: docToLoad.imageUrl });
+                                  setRawSnapshot(docToLoad.rawImageUrl || docToLoad.imageUrl);
+                                  if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
+                                  setStep('review');
+                                }
+                            }
+                         }}
+                        onItemDelete={(item) => {
+                            if (item.type === 'scanned') {
+                                setScannedPages(prev => prev.filter(p => p.id !== item.id));
+                            } else if (item.type === 'active') {
+                                handleDeleteActive();
+                            }
+                            setTrayOrder(prev => prev.filter(id => id !== item.id));
                         }}
-                       onItemDelete={(item) => {
-                           if (item.type === 'scanned') {
-                               setScannedPages(prev => prev.filter(p => p.id !== item.id));
-                           } else if (item.type === 'pending') {
-                               setPendingImports(prev => prev.filter(p => p.id !== item.id));
-                           } else if (item.type === 'active') {
-                               handleDeleteActive();
-                           }
-                           setTrayOrder(prev => prev.filter(id => id !== item.id));
-                       }}
-                    />
-                 </div>
-                 <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', width: '100%' }}>
-                   {pendingImports.length > 0 && (
-                     <button onClick={async () => {
-                         setIsProcessing(true);
-                         await commitImportsRaw(pendingImports, scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0) + 1);
-                         setPendingImports([]);
-                         setIsProcessing(false);
-                     }} style={{ flex: '1', background: 'rgba(16,185,129,0.2)', color: '#10b981', border: '1px solid #10b981', padding: '0.5rem', borderRadius: '12px', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 'bold' }}>
-                       ⏩ אשר הכל (ללא עריכה)
-                     </button>
-                   )}
-                   {(step !== 'scanning' ? (scannedPages.length > 0 || pendingImports.length > 0 || (rawSnapshot || imageCache[mode])) : (pendingImports.length > 0 && scannerMode === 'upload')) && (
+                     />
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.2rem', width: '100%' }}>
+                    {(scannedPages.length > 0 || (step !== 'scanning' && (rawSnapshot || imageCache[mode]))) && (
                      <button onClick={() => standalone ? handleShare() : handleDone()} style={{ flex: '2', background: standalone ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'var(--primary)', color: 'white', border: 'none', padding: '0.5rem', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
                        <span>{standalone ? '📤 שתף / 💾 שמור למכשיר' : 'סיום ושמירה'}</span>
-                       <span>({scannedPages.length + pendingImports.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0)} עמודים)</span>
+                       <span>({scannedPages.length + (step !== 'scanning' && (rawSnapshot || imageCache[mode]) ? 1 : 0)} עמודים)</span>
                      </button>
                    )}
                  </div>

@@ -515,6 +515,7 @@ export function detectDocument(canvas: HTMLCanvasElement): Point[] | null {
 export function applyPerspectiveAndFilters(snapshot: string, pts: Point[], forcedProfile: 'auto' | 'text' | 'photo' | 'mixed' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' = 'auto'): Promise<{ filtered: string, activeProfile: string, detectedType?: string, timings?: { mathMs: number, encodeMs: number, totalMs: number, breakdown?: any } }> {
   return new Promise((resolve, reject) => {
     const img = new Image();
+    img.crossOrigin = 'anonymous';
     img.src = snapshot;
     img.onload = () => {
       const t0_total = performance.now();

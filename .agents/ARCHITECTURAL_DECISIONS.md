@@ -1212,6 +1212,33 @@ flowchart TD
    * כאשר הסורק נפתח עם `initialPages` (איחוד או עריכת מסמך קיים), מצב הפתיחה הראשוני של הסורק הוא ישירות `step = 'review'`, העמוד הראשון נטען מיידית לתצוגה המרכזית, וכל יתר העמודים ממתינים במדף (Tray) לסידור, עריכה או אישור.
 4. **עודכנה הגרסה הוויזואלית ל-`v3.4.75`.**
 
+---
+
+## 53. חיסול שאריות pendingImports, איחוד מנוע הייבוא ל-SortableTray ומניעת שגיאת CORS Tainted Canvas
+
+### הדילמה / השאלה שעלתה:
+1. בעת ניסיון לחתוך או לערוך מסמכים שיובאו מהכספת/ענן לתוך הסורק, קפצה הודעת שגיאה:
+   `Error in crop: Failed to execute 'getImageData' on 'CanvasRenderingContext2D': The canvas has been tainted by cross-origin data.`
+2. בנוסף, המשתמש שם לב שבעת ייבוא מסמכים מהכספת הופיע כפתור ישן `⏩ אשר הכל (ללא עריכה)` ומסך שחור ישן של "ייבוא מרובה", שלא קיימים בייבוא רגיל וגרמו לחשד לכפילות קוד ולשאריות ישנות.
+
+### שורש הבעיה (Root Cause Analysis):
+1. **שגיאת Tainted Canvas:**
+   * קבצים שמגיעים מהענן (Firebase Storage / Vercel CDN) נטענו ישירות אל תוך אובייקט `Image` בדפדפן. כאשר ה-Canvas קרא את הפיקסלים באמצעות `getImageData` או `cv.imread` של OpenCV ללא הגדרת `crossOrigin = 'anonymous'` וללא המרה מוקדמת ל-DataURL מקומי, הדפדפן סימן את ה-Canvas כ-"Tainted" (מוכתם באבטחה בין-אתרית) וחסם את פעולת החיתוך.
+2. **שאריות `pendingImports` מגרסאות עבר:**
+   * בגרסה ישנה (v2.7.9) היה מנגנון זמני של תור בשם `pendingImports` עם מסך נפרד וכפתור "אשר הכל". כאשר הוספנו מאוחר יותר את המגש הגלובלי `SortableTray` (גרסה v3.4.34+), מנגנון ה-SortableTray טיפל בעצמו בכל העמודים בצורה מודולרית וישירה (`scannedPages`). נוצרו כ-65 שורות של קוד כפול ומיותר שעדיין נשענו על `pendingImports` ויצרו שתי התנהגויות שונות ובלבול בממשק.
+
+### הפתרונות ההנדסיים:
+1. **חיסול מוחלט של `pendingImports`:**
+   * הוסרו לחלוטין כל מופעי `pendingImports` מתוך `ScannerModal.tsx`.
+   * כל תהליכי הייבוא (ייבוא קבצים, מסמכים מהכספת, צילום מצלמה) זורמים ישירות לתוך ה-Single Source of Truth של המערכת: `scannedPages` ו-`SortableTray`.
+   * הוסר המסך השחור הישן והוסר הכפתור הישן "אשר הכל". הממשק אחיד, נקי ומודרני.
+2. **מניעה מוחלטת של CORS Tainted Canvas (`toCleanDataUrl`):**
+   * בפונקציה `applyPerspectiveAndFilters` הוגדר `img.crossOrigin = 'anonymous'`.
+   * ב-`imageOptimizer.ts` נבנתה פונקציית תשתית גלובלית `toCleanDataUrl(url)` הממירה כל כתובת ענן ל-Base64 DataURL מקומי ונקי (עם נפילה שקופה לפרוקסי `/api/pdf-proxy` במידת הצורך), כך שה-Canvas לעולם אינו מוכתם.
+   * כל מסמך קיים או מיובא עובר סניטציה דרך `toCleanDataUrl` עוד לפני שליחתו ל-OpenCV.
+3. **עודכנה הגרסה הוויזואלית ל-`v3.4.76`.**
+
+
 
 
 
