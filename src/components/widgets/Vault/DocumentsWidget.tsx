@@ -3818,7 +3818,7 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                                   onClick={() => { setActiveDocMenuId(null); setLinkStationDoc({ docId: doc.id, title: doc.title, url: doc.url }); }}
                                                   style={{ background: 'transparent', border: 'none', padding: '0.35rem 0.6rem', borderRadius: '6px', textAlign: 'right', cursor: 'pointer', fontSize: '0.78rem', color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.45rem' }}
                                                 >
-                                                  🔗 {linkedEvent ? 'שנה תחנה' : 'קשר לתחנה'}
+                                                  🔗 {linkedEvent ? 'שנה תחנה (ציר זמן)' : 'קשר לתחנה (ציר זמן)'}
                                                 </button>
                                               )}
 

@@ -278,29 +278,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             setImageCache(prev => ({ ...prev, original: cleanActive }));
             setActiveOriginalUrl(cleanActive);
 
-            // Pre-calculate document boundaries for seamless auto-crop and manual crop adjustments
+            // Set default generous framing for vault documents
             const img = new Image();
             img.crossOrigin = 'anonymous';
             img.onload = () => {
               if (!isMounted) return;
-              const canvas = document.createElement('canvas');
-              canvas.width = img.width;
-              canvas.height = img.height;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(img, 0, 0);
-                const detected = detectDocument(canvas);
-                if (detected && detected.length === 4) {
-                  setCropPoints(detected);
-                } else {
-                  setCropPoints([
-                    { x: img.width * 0.02, y: img.height * 0.02 },
-                    { x: img.width * 0.98, y: img.height * 0.02 },
-                    { x: img.width * 0.98, y: img.height * 0.98 },
-                    { x: img.width * 0.02, y: img.height * 0.98 }
-                  ]);
-                }
-              }
+              setCropPoints([
+                { x: img.width * 0.02, y: img.height * 0.02 },
+                { x: img.width * 0.98, y: img.height * 0.02 },
+                { x: img.width * 0.98, y: img.height * 0.98 },
+                { x: img.width * 0.02, y: img.height * 0.98 }
+              ]);
             };
             img.src = cleanActive;
           }
@@ -373,29 +361,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     document.body.appendChild(script);
   }, []);
 
-  // When OpenCV finishes loading, re-detect boundary on active snapshot if cropPoints is currently full-frame or empty
-  useEffect(() => {
-    if (!cvLoaded) return;
-    const targetUrl = rawSnapshot || activeOriginalUrl;
-    if (!targetUrl) return;
-
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(img, 0, 0);
-        const detected = detectDocument(canvas);
-        if (detected && detected.length === 4) {
-          setCropPoints(detected);
-        }
-      }
-    };
-    img.src = targetUrl;
-  }, [cvLoaded, rawSnapshot, activeOriginalUrl]);  const processImportUrl = async (url: string, preserveId?: string) => {
+  const processImportUrl = async (url: string, preserveId?: string) => {
     const cleanUrl = await toCleanDataUrl(url);
     url = cleanUrl || url;
     setActiveSource('upload');
@@ -1193,7 +1159,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.90</span>
+            <span>v3.4.91</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -1803,10 +1769,11 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   setIsEditingFromReview(false);
                   setStep('review');
                 }} 
+                title="חזרה למסך התצוגה המקדימה ללא שינוי חיתוך"
                 style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.6rem 0.2rem', borderRadius: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', fontWeight: 'bold', fontSize: '0.82rem', whiteSpace: 'nowrap' }}
               >
                 <span>↩️</span>
-                <span>ביטול</span>
+                <span>חזרה</span>
               </button>
             ) : (
               <button 
