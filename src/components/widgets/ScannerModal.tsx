@@ -276,6 +276,17 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
   const [cropEndToEndTiming, setCropEndToEndTiming] = useState<{ totalUiMs: number; asyncWaitMs: number; cropFnMs: number; classifyMs?: number } | null>(null);
   const [classifyOverride, setClassifyOverride] = useState(false);
   
+  // Helper to ensure OpenCV runtime is ready before running contour detection
+  const ensureCvReady = async (maxWaitMs = 2500): Promise<boolean> => {
+    const t0 = Date.now();
+    while (Date.now() - t0 < maxWaitMs) {
+      const cv = (window as any).cv;
+      if (cv && cv.Mat && cv.imread) return true;
+      await new Promise(r => setTimeout(r, 50));
+    }
+    return Boolean((window as any).cv?.Mat && (window as any).cv?.imread);
+  };
+
   // Helper: Prepare canvas and compute normalized 4-corner cropPoints uniformly
   const prepareImageCanvasAndPoints = async (url: string): Promise<{ canvas: HTMLCanvasElement; rawUrl: string; pts: Point[] } | null> => {
     try {
@@ -283,7 +294,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.src = cleanUrl || url;
-      await new Promise((res, rej) => {
+      await new Promise((res) => {
         img.onload = () => res(true);
         img.onerror = () => res(false);
       });
@@ -309,6 +320,9 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
         { x: w * 0.985, y: h * 0.985 },
         { x: w * 0.015, y: h * 0.985 }
       ];
+
+      // Wait for OpenCV so boundary detection reliably identifies real paper edges
+      await ensureCvReady(2500);
 
       const detected = detectDocument(canvas);
       if (detected && detected.length === 4) {
@@ -1297,7 +1311,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.99</span>
+            <span>v3.5.00</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -1319,93 +1333,33 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
               const targetSnapshot = rawSnapshot || imageCache[mode] || activeOriginalUrl;
               if (targetSnapshot) {
                 if (!nextVal) {
-                  // Switching to MANUAL ✂️ -> show the crop screen with the 4 yellow corners!
-                  if (!rawSnapshot) setRawSnapshot(targetSnapshot);
-                  // Ensure cropPoints is initialized if empty
-                  if (!cropPoints || cropPoints.length !== 4) {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => {
-                      const canvas = document.createElement('canvas');
-                      canvas.width = img.width;
-                      canvas.height = img.height;
-                      const ctx = canvas.getContext('2d');
-                      if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        const detected = detectDocument(canvas);
-                        if (detected && detected.length === 4) {
-                          const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
-                          const polyArea = 0.5 * Math.abs(
-                            (p1.x * p2.y - p2.x * p1.y) +
-                            (p2.x * p3.y - p3.x * p1.y) +
-                            (p3.x * p4.y - p4.x * p3.y) +
-                            (p4.x * p1.y - p1.x * p4.y)
-                          );
-                          const ratio = polyArea / (img.width * img.height);
-                          if (ratio >= 0.35 && ratio <= 0.98) {
-                            setCropPoints(detected);
-                          } else {
-                            setCropPoints([
-                              { x: img.width * 0.015, y: img.height * 0.015 },
-                              { x: img.width * 0.985, y: img.height * 0.015 },
-                              { x: img.width * 0.985, y: img.height * 0.985 },
-                              { x: img.width * 0.015, y: img.height * 0.985 }
-                            ]);
-                          }
-                        } else {
-                          setCropPoints([
-                            { x: img.width * 0.015, y: img.height * 0.015 },
-                            { x: img.width * 0.985, y: img.height * 0.015 },
-                            { x: img.width * 0.985, y: img.height * 0.985 },
-                            { x: img.width * 0.015, y: img.height * 0.985 }
-                          ]);
-                        }
+                  // Switching to MANUAL ✂️ -> ensure rawSnapshot and cropPoints are ready
+                  (async () => {
+                    let ptsToUse = cropPoints;
+                    if (!ptsToUse || ptsToUse.length !== 4) {
+                      const prep = await prepareImageCanvasAndPoints(targetSnapshot);
+                      if (prep) {
+                        ptsToUse = prep.pts;
+                        setCropPoints(prep.pts);
+                        if (!rawSnapshot) setRawSnapshot(prep.rawUrl);
                       }
-                    };
-                    img.src = targetSnapshot;
-                  }
-                  setIsEditingFromReview(true);
-                  setStep('cropping');
+                    } else if (!rawSnapshot) {
+                      setRawSnapshot(targetSnapshot);
+                    }
+                    setIsEditingFromReview(true);
+                    setStep('cropping');
+                  })();
                 } else {
                   // Switching to AUTO ✨ -> re-detect document boundaries & auto-crop with enhancement straight to review!
                   setIsProcessing(true);
                   setTimeout(async () => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = async () => {
-                      const canvas = document.createElement('canvas');
-                      canvas.width = img.width;
-                      canvas.height = img.height;
-                      const ctx = canvas.getContext('2d');
-                      let ptsToUse = cropPoints;
-                      if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        const detected = detectDocument(canvas);
-                        if (detected && detected.length === 4) {
-                          const p1 = detected[0], p2 = detected[1], p3 = detected[2], p4 = detected[3];
-                          const polyArea = 0.5 * Math.abs(
-                            (p1.x * p2.y - p2.x * p1.y) +
-                            (p2.x * p3.y - p3.x * p1.y) +
-                            (p3.x * p4.y - p4.x * p3.y) +
-                            (p4.x * p1.y - p1.x * p4.y)
-                          );
-                          const ratio = polyArea / (img.width * img.height);
-                          if (ratio >= 0.35 && ratio <= 0.98) {
-                            ptsToUse = detected;
-                            setCropPoints(detected);
-                          }
-                        }
-                      }
-                      await performCrop(targetSnapshot, ptsToUse, (mode === 'original' || !mode) ? 'smart_plus' : mode);
-                      setIsProcessing(false);
-                      setStep('review');
-                    };
-                    img.onerror = async () => {
-                      await performCrop(targetSnapshot, cropPoints, (mode === 'original' || !mode) ? 'smart_plus' : mode);
-                      setIsProcessing(false);
-                      setStep('review');
-                    };
-                    img.src = targetSnapshot;
+                    const prep = await prepareImageCanvasAndPoints(targetSnapshot);
+                    const ptsToUse = prep?.pts || cropPoints;
+                    const snapToUse = prep?.rawUrl || targetSnapshot;
+                    if (prep?.pts) setCropPoints(prep.pts);
+                    await performCrop(snapToUse, ptsToUse, (mode === 'original' || !mode) ? 'smart_plus' : mode);
+                    setIsProcessing(false);
+                    setStep('review');
                   }, 30);
                 }
               }
@@ -2100,35 +2054,20 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                   <span style={{ fontSize: '1rem' }}>{(activeSource === 'upload' || scannerMode === 'upload') ? '📁' : '📷'}</span>
                   {(activeSource === 'upload' || scannerMode === 'upload') ? 'החלף קובץ' : 'צלם שוב'}
                 </button>
-                <button onClick={() => {
+                <button onClick={async () => {
                   const targetImg = rawSnapshot || imageCache[mode] || activeOriginalUrl;
-                  if (targetImg && !rawSnapshot) {
-                    setRawSnapshot(targetImg);
-                  }
-                  if (!cropPoints || cropPoints.length !== 4) {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.onload = () => {
-                      const canvas = document.createElement('canvas');
-                      canvas.width = img.width;
-                      canvas.height = img.height;
-                      const ctx = canvas.getContext('2d');
-                      if (ctx) {
-                        ctx.drawImage(img, 0, 0);
-                        const detected = detectDocument(canvas);
-                        if (detected && detected.length === 4) {
-                          setCropPoints(detected);
-                        } else {
-                          setCropPoints([
-                            { x: img.width * 0.015, y: img.height * 0.015 },
-                            { x: img.width * 0.985, y: img.height * 0.015 },
-                            { x: img.width * 0.985, y: img.height * 0.985 },
-                            { x: img.width * 0.015, y: img.height * 0.985 }
-                          ]);
-                        }
+                  if (targetImg) {
+                    if (!cropPoints || cropPoints.length !== 4) {
+                      const prep = await prepareImageCanvasAndPoints(targetImg);
+                      if (prep) {
+                        setCropPoints(prep.pts);
+                        setRawSnapshot(prep.rawUrl);
+                      } else {
+                        setRawSnapshot(targetImg);
                       }
-                    };
-                    if (targetImg) img.src = targetImg;
+                    } else if (!rawSnapshot) {
+                      setRawSnapshot(targetImg);
+                    }
                   }
                   setIsEditingFromReview(true);
                   setStep('cropping');
