@@ -1128,8 +1128,15 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                   const timeLeft = getRemainingTimeString(doc.deletedAt);
                   return (
                     <div key={doc.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', padding: '0.65rem 0.85rem', borderRadius: '14px', border: '1px solid #e2e8f0' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden' }}>
-                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? `url(${doc.thumbnailUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem' }}>
+                      <div 
+                        onClick={() => {
+                          setLastViewedDocId(doc.id);
+                          setPreviewState({ docs: [doc], index: 0 });
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden', cursor: 'pointer', flex: 1 }}
+                        title="לחץ לצפייה מקדימה במסמך"
+                      >
+                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#e2e8f0', backgroundImage: doc.thumbnailUrl ? `url(${doc.thumbnailUrl})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: '1.2rem', transition: 'transform 0.15s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
                           {!doc.thumbnailUrl && (doc.type === 'pdf' ? '📄' : '🖼️')}
                         </div>
                         <div style={{ overflow: 'hidden' }}>
