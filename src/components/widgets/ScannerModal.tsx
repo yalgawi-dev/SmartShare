@@ -1128,24 +1128,55 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       <input ref={galleryInputRef} type="file" accept="image/*,application/pdf" multiple onChange={handleGalleryImport} style={{ display: 'none' }} />
 
       {/* Header */}
-      <div style={{ padding: '0.5rem 0.75rem', display: 'grid', gridTemplateColumns: 'auto 1fr auto', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)', gap: '0.4rem' }}>
-        {/* Left: Controls (Mode Toggle & Torch) - placed on left for natural flow */}
-        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: '0.35rem' }}>
+      <div style={{ padding: '0.45rem 0.8rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.85)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+        {/* Right side in RTL (right corner of screen): Close button */}
+        <button onClick={handleManualClose} style={{ background: 'transparent', color: '#e2e8f0', border: 'none', fontSize: '0.95rem', cursor: 'pointer', padding: '0.3rem 0.5rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+          <span>✕</span>
+          <span>סגור</span>
+        </button>
+
+        {/* Center: Title & Subtle Micro-Version underneath */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.05rem', justifyContent: 'center', textAlign: 'center', minWidth: 0, flex: 1 }}>
+          <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#f8fafc', whiteSpace: 'nowrap' }}>
+            {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
+          </h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
+            <span>v3.4.85</span>
+            {editingDocTitle && (
+              <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Left side in RTL (left corner of screen): Toggle Engine & Flash */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.35rem' }}>
           {/* Toggle Auto/Manual Crop Engine */}
           <button
             onClick={() => {
-              setIsAutoEngine(prev => {
-                const nextVal = !prev;
-                try { localStorage.setItem('smartshare_scanner_auto_engine', String(nextVal)); } catch {}
-                // If currently in review and has snapshot, switching to manual allows opening crop
-                if (!nextVal && rawSnapshot && step === 'review') {
+              const nextVal = !isAutoEngine;
+              setIsAutoEngine(nextVal);
+              try { localStorage.setItem('smartshare_scanner_auto_engine', String(nextVal)); } catch {}
+
+              // Live response to mode switch:
+              if (rawSnapshot) {
+                if (!nextVal) {
+                  // Switching to MANUAL 🖐️ -> show the crop screen with the 4 yellow corners!
                   setIsEditingFromReview(true);
                   setStep('cropping');
+                } else {
+                  // Switching to AUTO ⚡ -> auto-crop and enhance with detected boundary, straight to review!
+                  setIsProcessing(true);
+                  setTimeout(async () => {
+                    await performCrop(rawSnapshot, cropPoints, mode === 'original' ? 'smart_plus' : mode);
+                    setIsProcessing(false);
+                    setStep('review');
+                  }, 30);
                 }
-                return nextVal;
-              });
+              }
             }}
-            title={isAutoEngine ? "מצב אוטומטי: מזהה, חותך ומשפר אוטומטית ללא עצירה" : "מצב ידני: מציג גבולות לכיוונון ידני"}
+            title={isAutoEngine ? "מצב אוטומטי: יישור ושיפור מיידי" : "מצב ידני: כיוונון 4 פינות עצמאי"}
             style={{
               background: isAutoEngine ? 'rgba(16, 185, 129, 0.25)' : 'rgba(245, 158, 11, 0.25)',
               color: isAutoEngine ? '#34d399' : '#fbbf24',
@@ -1195,30 +1226,6 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             </button>
           )}
           {!cvLoaded && step === 'scanning' && scannerMode === 'camera' && <span style={{fontSize: '0.72rem', color: '#94a3b8'}}>טוען...</span>}
-        </div>
-
-        {/* Center: Title & Small Version */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.1rem', justifyContent: 'center', textAlign: 'center', minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.35rem', whiteSpace: 'nowrap' }}>
-            <span>{(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}</span>
-            <VersionBadge style={{ background: '#3b82f6', color: '#fff', fontSize: '0.62rem', padding: '1px 5px' }} />
-          </h2>
-          {editingDocTitle && (
-            <div style={{ fontSize: '0.7rem', color: '#93c5fd', display: 'flex', alignItems: 'center', gap: '0.25rem', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>
-              <span>{isMultiDocMerge ? '📜 איחוד מסמכים למגילה' : `📄 הוספה ל: "${editingDocTitle}"`}</span>
-              <span style={{ color: '#fbbf24' }}>
-                ({sortedTrayItems.length} במגש)
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* Right: Close button */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center' }}>
-          <button onClick={handleManualClose} style={{ background: 'transparent', color: '#e2e8f0', border: 'none', fontSize: '0.95rem', cursor: 'pointer', padding: '0.3rem 0.5rem', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-            <span>✕</span>
-            <span>סגור</span>
-          </button>
         </div>
       </div>
 
