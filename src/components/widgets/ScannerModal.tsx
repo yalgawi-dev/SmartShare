@@ -20,6 +20,7 @@ interface ScannedPage {
   rawImageUrl?: string;
   cropPoints?: Point[];
   mode?: 'auto' | 'bw' | 'pure_color' | 'smart_plus' | 'hybrid' | 'experimental' | 'original' | 'hybrid_shadow';
+  filterCache?: Record<string, string>;
   category?: 'receipt' | 'document' | 'image' | 'advanced';
   source?: 'camera' | 'upload';
 }
@@ -535,12 +536,18 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           }
         }
 
+        const pageCache: Record<string, string> = { original: rawUrl };
+        if (finalMode && finalImageUrl) {
+          pageCache[finalMode] = finalImageUrl;
+        }
+
         newPages.push({
           id: items[idx].id,
           imageUrl: finalImageUrl,
           rawImageUrl: rawUrl,
           cropPoints: pts,
           mode: finalMode,
+          filterCache: pageCache,
           pageNum: startPageNum + idx,
           source: 'upload'
         });
@@ -839,6 +846,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
       pageNum: scannedPages.length + 1,
       rawImageUrl: rawSnapshot || undefined,
       cropPoints: cropPoints,
+      mode: mode,
+      filterCache: { ...imageCache },
       source: activeSource
     };
     setScannedPages(prev => {
@@ -864,6 +873,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     const targetSnapshot = rawSnapshot || imageCache[mode] || activeOriginalUrl;
     if (!targetSnapshot) return;
 
+    // Instant switch if filter is already cached in memory!
     if (imageCache[targetMode]) {
        setMode(targetMode);
        if (targetMode !== 'smart_plus' && targetMode !== 'pure_color' && targetMode !== 'bw') {
@@ -871,6 +881,14 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
        }
        return;
     }
+
+    // Instant switch for original (already in memory as rawSnapshot)
+    if (targetMode === 'original' && rawSnapshot) {
+       setImageCache(prev => ({ ...prev, original: rawSnapshot }));
+       setMode('original');
+       return;
+    }
+
     if (targetMode !== 'smart_plus' && targetMode !== 'pure_color' && targetMode !== 'bw') {
        setSelectedCategory('advanced');
     }
@@ -878,7 +896,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
     setTimeout(async () => {
       await performCrop(targetSnapshot, cropPoints, targetMode);
       setIsProcessing(false);
-    }, 40);
+    }, 20);
   };
 
 
@@ -906,6 +924,8 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
           pageNum: scannedPages.length + 1,
           rawImageUrl: rawSnapshot || undefined,
           cropPoints: cropPoints,
+          mode: mode,
+          filterCache: { ...imageCache },
           source: activeSource
         };
         setScannedPages(prev => [...prev, newPage]);
@@ -1246,7 +1266,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.4.97</span>
+            <span>v3.4.98</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})
@@ -2119,36 +2139,33 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                   setSelectedCategory(restoredCat);
                                   const rawImg = docToLoad.rawImageUrl || docToLoad.imageUrl;
                                   setRawSnapshot(rawImg);
+                                  if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
 
-                                  // If the page was already enhanced with another filter
-                                  const hasEnhancedMode = docToLoad.mode && docToLoad.mode !== 'original' && docToLoad.imageUrl;
-                                  if (hasEnhancedMode) {
-                                    setMode(docToLoad.mode as any);
-                                    setImageCache({ [docToLoad.mode as string]: docToLoad.imageUrl, original: rawImg });
-                                    if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
+                                  // Restore all cached filter results instantly!
+                                  const combinedCache: Record<string, string> = {
+                                    original: rawImg,
+                                    ...(docToLoad.filterCache || {})
+                                  };
+                                  if (docToLoad.mode && docToLoad.imageUrl) {
+                                    combinedCache[docToLoad.mode] = docToLoad.imageUrl;
+                                  }
+
+                                  // Check if this document already has an enhanced version (e.g. smart_plus)
+                                  const effectiveMode = docToLoad.mode || (combinedCache['smart_plus'] ? 'smart_plus' : 'original');
+
+                                  if (combinedCache[effectiveMode] && effectiveMode !== 'original') {
+                                    // ⚡ INSTANT 0ms SWITCH: Already processed!
+                                    setImageCache(combinedCache);
+                                    setMode(effectiveMode as any);
                                     setStep('review');
-                                  } else if (isAutoEngine) {
-                                    // In AUTO mode: auto-crop and enhance directly to smart_plus!
-                                    setImageCache({ original: docToLoad.imageUrl });
+                                  } else if (isAutoEngine && !combinedCache['smart_plus']) {
+                                    // First-time load only: process once and save to cache
+                                    setImageCache(combinedCache);
                                     setMode('smart_plus');
                                     setStep('review');
                                     setIsProcessing(true);
                                     setTimeout(async () => {
                                       let pts = docToLoad.cropPoints;
-                                      if (!pts || pts.length !== 4) {
-                                        const imgEl = new Image();
-                                        imgEl.crossOrigin = 'anonymous';
-                                        await new Promise((res) => { imgEl.onload = res; imgEl.onerror = res; imgEl.src = rawImg; });
-                                        const canvas = document.createElement('canvas');
-                                        canvas.width = imgEl.width;
-                                        canvas.height = imgEl.height;
-                                        const ctx = canvas.getContext('2d');
-                                        if (ctx) {
-                                          ctx.drawImage(imgEl, 0, 0);
-                                          const detected = detectDocument(canvas);
-                                          if (detected && detected.length === 4) pts = detected;
-                                        }
-                                      }
                                       if (!pts || pts.length !== 4) {
                                         pts = [
                                           { x: 0, y: 0 },
@@ -2157,15 +2174,12 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
                                           { x: 0, y: 100 }
                                         ];
                                       }
-                                      setCropPoints(pts);
                                       await performCrop(rawImg, pts, 'smart_plus');
                                       setIsProcessing(false);
-                                    }, 40);
+                                    }, 10);
                                   } else {
-                                    const restoredMode = docToLoad.mode || 'original';
-                                    setMode(restoredMode);
-                                    setImageCache({ [restoredMode]: docToLoad.imageUrl, original: rawImg });
-                                    if (docToLoad.cropPoints) setCropPoints(docToLoad.cropPoints);
+                                    setImageCache(combinedCache);
+                                    setMode(effectiveMode as any);
                                     setStep('review');
                                   }
                                 }
