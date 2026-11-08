@@ -122,6 +122,14 @@ export default function UniversalViewerModal({
     (currentDoc.url && currentDoc.url.startsWith('blob:') && currentDoc.type !== 'image')
   );
 
+  const hasPdfSource = Boolean(
+    currentDoc.rawPdfUrl ||
+    (currentDoc.url && currentDoc.url.toLowerCase().includes('.pdf')) ||
+    currentDoc.url?.startsWith('data:application/pdf') ||
+    currentDoc.downloadUrl?.toLowerCase().includes('.pdf') ||
+    currentDoc.originalUrl?.toLowerCase().includes('.pdf')
+  );
+
   const currentDocKey = currentDoc.id || currentDoc.url || String(currentIndex);
   const isHdActive = Boolean(hdActiveDocIds[currentDocKey]);
 
@@ -152,15 +160,12 @@ export default function UniversalViewerModal({
       return;
     }
 
-    // Must have a valid PDF source url (url or rawPdfUrl or downloadUrl)
+    // Ultra-HD is exclusively for vector/digital PDFs that have a real PDF source file
     const pdfSource = (currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.url?.startsWith('data:application/pdf'))
       ? currentDoc.url
       : (currentDoc.rawPdfUrl || currentDoc.downloadUrl || currentDoc.originalUrl || (isDocPdf ? currentDoc.url : ''));
 
     if (!pdfSource) {
-      // If no raw PDF file is available (e.g. image document or older pre-rasterized file),
-      // seamlessly enable Ultra-Contrast visual sharpening mode without interrupting with an alert!
-      setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
       return;
     }
 
@@ -175,13 +180,9 @@ export default function UniversalViewerModal({
         if (onNormalizeDoc && currentDoc.id) {
           onNormalizeDoc(currentDoc.id, hdPages);
         }
-      } else {
-        // Fallback to high-contrast sharpening
-        setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
       }
     } catch (err) {
-      console.warn('Failed to render Ultra-HD PDF pages, fallback to image contrast mode:', err);
-      setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
+      console.warn('Failed to render Ultra-HD PDF pages:', err);
     } finally {
       setIsHdRendering(false);
     }
@@ -425,8 +426,8 @@ export default function UniversalViewerModal({
 
         {/* Top Controls: Ultra-HD Button & Close */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
-          {/* Universal Ultra-HD Button (Visible for all PDF documents, or when user zooms in) */}
-          {(isDocPdf || currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.rawPdfUrl || currentScale > 2) && (
+          {/* Universal Ultra-HD Button: Only visible when an actual PDF source exists for 3200px re-rendering */}
+          {hasPdfSource && (
             <button
               type="button"
               onClick={handleToggleUltraHd}
@@ -660,8 +661,7 @@ export default function UniversalViewerModal({
                                   boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                                   userSelect: 'none',
                                   border: '1px solid rgba(255, 255, 255, 0.08)',
-                                  imageRendering: (currentScale > 2.0 || isHdActive) ? '-webkit-optimize-contrast' : 'auto',
-                                  filter: isHdActive ? 'contrast(1.32) brightness(0.97)' : 'none'
+                                  imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
                                 }}
                               />
                               {/* CamScanner Page Badge */}
@@ -746,8 +746,8 @@ export default function UniversalViewerModal({
                         >
                           −
                         </button>
-                        {/* HD Button directly in floating zoom toolbar */}
-                        {(isDocPdf || currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.rawPdfUrl || currentScale > 2) && (
+                        {/* HD Button directly in floating zoom toolbar: Only when real PDF source is available */}
+                        {hasPdfSource && (
                           <button
                             type="button"
                             onClick={handleToggleUltraHd}
@@ -965,8 +965,7 @@ export default function UniversalViewerModal({
                             boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                             userSelect: 'none',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
-                            imageRendering: (currentScale > 2.0 || isHdActive) ? '-webkit-optimize-contrast' : 'auto',
-                            filter: isHdActive ? 'contrast(1.32) brightness(0.97)' : 'none',
+                            imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto',
                             position: 'relative',
                             zIndex: 2
                           }}
@@ -1031,8 +1030,8 @@ export default function UniversalViewerModal({
                       >
                         −
                       </button>
-                      {/* HD Button directly in floating zoom toolbar */}
-                      {(isDocPdf || currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.rawPdfUrl || currentScale > 2) && (
+                      {/* HD Button directly in floating zoom toolbar: Only when real PDF source is available */}
+                      {hasPdfSource && (
                         <button
                           type="button"
                           onClick={handleToggleUltraHd}
