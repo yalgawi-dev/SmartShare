@@ -29,6 +29,7 @@ export interface FileShareItem {
   creatorName: string;
   allowedPartners?: string[]; // empty array = open to all space members (Rule 20)
   shareLink?: ShareLinkConfig;
+  isFavorite?: boolean;
 }
 
 export interface PublicSharedData {

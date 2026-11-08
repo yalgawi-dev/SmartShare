@@ -1,12 +1,17 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 export interface FolderTargetItem {
   id: string;
   name: string;
   parentId?: string | null;
   shelfId?: string | null;
+}
+
+export interface ShelfTargetItem {
+  id: string;
+  name: string;
 }
 
 export interface GlobalMoveModalProps {
@@ -16,8 +21,10 @@ export interface GlobalMoveModalProps {
   subtitle?: string;
   itemCount: number;
   currentFolderId?: string | null;
+  currentShelfId?: string | null;
+  shelves?: ShelfTargetItem[];
   folders: FolderTargetItem[];
-  onConfirmMove: (targetFolderId: string | null) => void;
+  onConfirmMove: (targetFolderId: string | null, targetShelfId?: string) => void;
   rootLabel?: string;
   rootDescription?: string;
 }
@@ -29,6 +36,8 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
   subtitle,
   itemCount,
   currentFolderId,
+  currentShelfId,
+  shelves,
   folders,
   onConfirmMove,
   rootLabel = 'תיקייה ראשית (ללא תיקייה)',
@@ -36,27 +45,43 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  const hasShelves = Array.isArray(shelves) && shelves.length > 0;
+  const [selectedShelfId, setSelectedShelfId] = useState<string>(
+    currentShelfId || (hasShelves ? shelves[0].id : '')
+  );
+
   const normId = (id?: string | null) => (id && String(id).trim().length > 0 ? String(id).trim() : null);
   const activeCurrentFolderId = normId(currentFolderId);
-  const isRootCurrent = !activeCurrentFolderId;
+
+  // Filter folders by selected shelf if shelves exist
+  const scopedFolders = hasShelves
+    ? folders.filter(f => !f.shelfId || f.shelfId === selectedShelfId)
+    : folders;
+
+  const isSameShelf = !hasShelves || selectedShelfId === currentShelfId;
+  const isRootCurrent = isSameShelf && !activeCurrentFolderId;
 
   // Current folder object
-  const currentFolderObj = activeCurrentFolderId ? folders.find(f => normId(f.id) === activeCurrentFolderId) : null;
+  const currentFolderObj = activeCurrentFolderId ? scopedFolders.find(f => normId(f.id) === activeCurrentFolderId) : null;
   const currentParentId = currentFolderObj ? normId(currentFolderObj.parentId) : null;
 
   // Sibling folders: share the exact same normalized parentId!
-  const siblingFolders = folders.filter(f => {
+  const siblingFolders = scopedFolders.filter(f => {
     const fParentId = normId(f.parentId);
     return fParentId === currentParentId;
   });
 
   // Other folders: exist but have a different parentId
-  const otherFolders = folders.filter(f => {
+  const otherFolders = scopedFolders.filter(f => {
     const fParentId = normId(f.parentId);
     return fParentId !== currentParentId;
   });
 
   const modalTitle = title || (itemCount > 1 ? `העברת ${itemCount} פריטים לתיקייה` : 'העברה לתיקייה');
+
+  const handleSelectTarget = (targetFolderId: string | null) => {
+    onConfirmMove(targetFolderId, hasShelves ? selectedShelfId : undefined);
+  };
 
   return (
     <div
@@ -80,7 +105,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
         style={{
           background: 'white',
           width: '100%',
-          maxWidth: '440px',
+          maxWidth: '460px',
           borderRadius: '24px',
           padding: '1.5rem',
           maxHeight: '85vh',
@@ -90,13 +115,14 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           direction: 'rtl'
         }}
       >
+        {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <div>
             <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>
               {modalTitle}
             </h3>
             {subtitle && (
-              <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px', maxWidth: '320px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {subtitle}
               </div>
             )}
@@ -115,8 +141,43 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           </button>
         </div>
 
+        {/* Shelves Selector (if applicable) */}
+        {hasShelves && (
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: '#334155', marginBottom: '0.4rem' }}>
+              בחר מדף יעד:
+            </label>
+            <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.3rem' }}>
+              {shelves.map(sh => {
+                const isSelected = sh.id === selectedShelfId;
+                return (
+                  <button
+                    key={sh.id}
+                    type="button"
+                    onClick={() => setSelectedShelfId(sh.id)}
+                    style={{
+                      padding: '0.5rem 0.8rem',
+                      borderRadius: '12px',
+                      border: isSelected ? '2px solid #2563eb' : '1px solid #e2e8f0',
+                      background: isSelected ? '#eff6ff' : '#f8fafc',
+                      color: isSelected ? '#1d4ed8' : '#475569',
+                      fontWeight: isSelected ? 800 : 600,
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.15s ease'
+                    }}
+                  >
+                    🗄️ {sh.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.75rem' }}>
-          בחר תיקיית יעד:
+          {hasShelves ? 'בחר מיקום בתוך המדף:' : 'בחר תיקיית יעד:'}
         </div>
 
         <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
@@ -124,7 +185,7 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
           <button
             type="button"
             disabled={isRootCurrent}
-            onClick={() => onConfirmMove(null)}
+            onClick={() => handleSelectTarget(null)}
             style={{
               padding: '0.85rem 1rem',
               background: isRootCurrent ? '#f1f5f9' : '#eff6ff',
@@ -169,13 +230,13 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {siblingFolders.map(f => {
-                  const isCurrent = normId(f.id) === activeCurrentFolderId;
+                  const isCurrent = isSameShelf && normId(f.id) === activeCurrentFolderId;
                   return (
                     <button
                       key={f.id}
                       type="button"
                       disabled={isCurrent}
-                      onClick={() => onConfirmMove(f.id)}
+                      onClick={() => handleSelectTarget(f.id)}
                       style={{
                         padding: '0.85rem 1rem',
                         background: isCurrent ? '#f1f5f9' : '#ffffff',
@@ -225,14 +286,14 @@ export const GlobalMoveModal: React.FC<GlobalMoveModalProps> = ({
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                 {otherFolders.map(f => {
-                  const isCurrent = normId(f.id) === activeCurrentFolderId;
-                  const parentF = f.parentId ? folders.find(p => normId(p.id) === normId(f.parentId)) : null;
+                  const isCurrent = isSameShelf && normId(f.id) === activeCurrentFolderId;
+                  const parentF = f.parentId ? scopedFolders.find(p => normId(p.id) === normId(f.parentId)) : null;
                   return (
                     <button
                       key={f.id}
                       type="button"
                       disabled={isCurrent}
-                      onClick={() => onConfirmMove(f.id)}
+                      onClick={() => handleSelectTarget(f.id)}
                       style={{
                         padding: '0.75rem 1rem',
                         background: isCurrent ? '#f1f5f9' : '#f8fafc',

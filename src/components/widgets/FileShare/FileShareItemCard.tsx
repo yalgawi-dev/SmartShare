@@ -11,6 +11,8 @@ interface FileShareItemCardProps {
   onManagePermissions?: (item: FileShareItem) => void;
   onRename?: (item: FileShareItem, newName: string) => void;
   onDelete: (item: FileShareItem) => void;
+  onMove?: (item: FileShareItem) => void;
+  onToggleFavorite?: (item: FileShareItem) => void;
   isMultiSelect?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (item: FileShareItem) => void;
@@ -23,6 +25,8 @@ export function FileShareItemCard({
   onManagePermissions,
   onRename,
   onDelete,
+  onMove,
+  onToggleFavorite,
   isMultiSelect = false,
   isSelected = false,
   onToggleSelect
@@ -82,14 +86,18 @@ export function FileShareItemCard({
   return (
     <div
       style={{
-        background: isSelected ? 'rgba(99, 102, 241, 0.05)' : 'var(--bg-card, #ffffff)',
+        background: isSelected ? 'rgba(99, 102, 241, 0.05)' : (item.isFavorite ? '#fffdf7' : 'var(--bg-card, #ffffff)'),
         borderRadius: '16px',
-        border: isSelected ? '2px solid var(--primary, #6366f1)' : '1px solid var(--border-light, #e2e8f0)',
+        border: isSelected
+          ? '2px solid var(--primary, #6366f1)'
+          : (item.isFavorite ? '1.5px solid #f59e0b' : '1px solid var(--border-light, #e2e8f0)'),
         padding: '0.85rem 1rem',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.65rem',
-        boxShadow: isSelected ? '0 4px 12px rgba(99, 102, 241, 0.15)' : '0 1px 3px rgba(0,0,0,0.04)',
+        boxShadow: isSelected
+          ? '0 4px 12px rgba(99, 102, 241, 0.15)'
+          : (item.isFavorite ? '0 2px 8px rgba(245,158,11,0.18)' : '0 1px 3px rgba(0,0,0,0.04)'),
         transition: 'all 0.2s ease',
         cursor: 'pointer'
       }}
@@ -143,7 +151,7 @@ export function FileShareItemCard({
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               loading="lazy"
               onError={(e) => {
-                (e.currentTarget as HTMLElement).style.display = 'none';
+                (e.target as HTMLElement).style.display = 'none';
               }}
             />
           ) : isPdf && item.url ? (
@@ -342,8 +350,49 @@ export function FileShareItemCard({
           )}
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons: Favorite ⭐, Move 📦, Link 🔗, Delete 🗑️ */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+          {/* Favorite Button */}
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(item)}
+              style={{
+                background: item.isFavorite ? '#fef3c7' : 'transparent',
+                border: item.isFavorite ? '1px solid #f59e0b' : 'none',
+                padding: '0.35rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                lineHeight: 1
+              }}
+              title={item.isFavorite ? 'הסר ממועדפים' : 'סמן כמועדף'}
+            >
+              {item.isFavorite ? '⭐' : '☆'}
+            </button>
+          )}
+
+          {/* Move Item Button */}
+          {onMove && (
+            <button
+              type="button"
+              onClick={() => onMove(item)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '0.35rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.95rem',
+                lineHeight: 1
+              }}
+              title={isFolder ? 'העבר תיקייה למיקום אחר' : 'העבר קובץ לתיקייה'}
+            >
+              📦
+            </button>
+          )}
+
+          {/* Share Link Button */}
           <button
             type="button"
             onClick={() => onManageLink(item)}
@@ -368,6 +417,7 @@ export function FileShareItemCard({
             <span>{isPublicLinkActive ? 'ניהול לינק' : 'שלח לינק'}</span>
           </button>
 
+          {/* Delete Button */}
           <button
             type="button"
             onClick={() => onDelete(item)}

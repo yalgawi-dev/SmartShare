@@ -327,6 +327,17 @@ export function FileShareWidget({
     }
   };
 
+  // Toggle Favorite for single item (File or Folder)
+  const handleToggleFavorite = async (item: FileShareItem) => {
+    const next = allItems.map(i => {
+      if (i.id === item.id) {
+        return { ...i, isFavorite: !i.isFavorite };
+      }
+      return i;
+    });
+    await saveItems(next);
+  };
+
   // Open item (Folder: navigate down. File: open universal viewer)
   const handleOpenItem = (item: FileShareItem) => {
     if (item.type === 'folder') {
@@ -629,6 +640,8 @@ export function FileShareWidget({
             }}
             onRename={handleRenameItem}
             onDelete={handleDeleteItem}
+            onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
+            onToggleFavorite={handleToggleFavorite}
             isMultiSelect={isMultiSelect}
             isSelected={selectedItemIds.includes(folder.id)}
             onToggleSelect={handleToggleSelectItem}
@@ -648,6 +661,8 @@ export function FileShareWidget({
             }}
             onRename={handleRenameItem}
             onDelete={handleDeleteItem}
+            onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
+            onToggleFavorite={handleToggleFavorite}
             isMultiSelect={isMultiSelect}
             isSelected={selectedItemIds.includes(file.id)}
             onToggleSelect={handleToggleSelectItem}
@@ -903,7 +918,21 @@ export function FileShareWidget({
       {/* GLOBAL MOVE MODAL */}
       {moveModalState && (() => {
         const count = moveModalState.itemIds.length;
-        const availableFolders = allItems.filter(i => i.type === 'folder' && !moveModalState.itemIds.includes(i.id));
+        // Recursively exclude descendant folders if any moving item is a folder to prevent circular nesting
+        const getDescendantFolderIds = (parentId: string): string[] => {
+          const direct = allItems.filter(i => i.type === 'folder' && i.parentId === parentId).map(i => i.id);
+          let all = [...direct];
+          direct.forEach(subId => {
+            all = [...all, ...getDescendantFolderIds(subId)];
+          });
+          return all;
+        };
+        const invalidFolderIds = new Set<string>(moveModalState.itemIds);
+        moveModalState.itemIds.forEach(id => {
+          getDescendantFolderIds(id).forEach(descId => invalidFolderIds.add(descId));
+        });
+
+        const availableFolders = allItems.filter(i => i.type === 'folder' && !invalidFolderIds.has(i.id));
 
         return (
           <GlobalMoveModal
