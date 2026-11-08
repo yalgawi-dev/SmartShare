@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
 
 interface CreateShareLinkModalProps {
@@ -36,6 +38,13 @@ export function CreateShareLinkModal({
   const [newRecipientRole, setNewRecipientRole] = useState<RecipientRole>('client');
   const [newRecipientPhone, setNewRecipientPhone] = useState('');
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
+  const [supportsContactPicker, setSupportsContactPicker] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window) {
+      setSupportsContactPicker(true);
+    }
+  }, []);
 
   // Helper to generate a secure random 4-digit PIN
   const generateRandomPin = () => {
@@ -121,6 +130,33 @@ export function CreateShareLinkModal({
         newConfig,
         folderFiles
       );
+
+      // Direct Firestore sync to Space document to ensure zero data loss on immediate modal reopen
+      if (item.spaceId) {
+        try {
+          const spaceDocRef = doc(db, 'spaces', item.spaceId);
+          const spaceSnap = await getDoc(spaceDocRef);
+          if (spaceSnap.exists()) {
+            const currentItems = Array.isArray(spaceSnap.data().fileShareItems) ? [...spaceSnap.data().fileShareItems] : [];
+            const idx = currentItems.findIndex((i: any) => i.id === item.id);
+            if (idx >= 0) {
+              currentItems[idx] = {
+                ...currentItems[idx],
+                shareLink: newConfig
+              };
+              await updateDoc(spaceDocRef, { fileShareItems: currentItems });
+            }
+          }
+        } catch (dbErr) {
+          console.warn('Direct space update failed, falling back to onSaved:', dbErr);
+        }
+      }
+
+      // Update parent object reference in place
+      if (item) {
+        item.shareLink = newConfig;
+      }
+
       onSaved(newConfig);
       return true;
     } catch (err) {
@@ -176,6 +212,30 @@ export function CreateShareLinkModal({
     setRecipients(nextRecipients);
     if (token) {
       await ensurePersisted(token, nextRecipients);
+    }
+  };
+
+  const handlePickFromContacts = async () => {
+    try {
+      if ('contacts' in navigator && 'ContactsManager' in window) {
+        const props = ['name', 'tel'];
+        const contacts = await (navigator as any).contacts.select(props, { multiple: false });
+        if (contacts && contacts.length > 0) {
+          const c = contacts[0];
+          if (c.name && c.name.length > 0 && c.name[0]) {
+            setNewRecipientName(c.name[0]);
+          }
+          if (c.tel && c.tel.length > 0 && c.tel[0]) {
+            // Clean phone string
+            const cleanedPhone = c.tel[0].replace(/[^\d+]/g, '');
+            setNewRecipientPhone(cleanedPhone);
+          }
+        }
+      } else {
+        alert('התכונה "בחירה מאנשי קשר" נתמכת ישירות במכשיר הנייד (Chrome / Android PWA).');
+      }
+    } catch (err: any) {
+      console.warn('Contact picker dismissed or error:', err);
     }
   };
 
@@ -305,8 +365,10 @@ export function CreateShareLinkModal({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: '1rem',
-        direction: 'rtl'
+        padding: '0.75rem',
+        direction: 'rtl',
+        overflowX: 'hidden',
+        boxSizing: 'border-box'
       }}
       onClick={onClose}
     >
@@ -314,15 +376,17 @@ export function CreateShareLinkModal({
         style={{
           background: 'var(--bg-card, #ffffff)',
           width: '100%',
-          maxWidth: '500px',
-          maxHeight: '90vh',
+          maxWidth: '480px',
+          maxHeight: '92vh',
           borderRadius: '24px',
-          padding: '1.25rem 1.5rem',
+          padding: '1.15rem 1.25rem',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1rem',
-          overflow: 'hidden'
+          gap: '0.85rem',
+          overflowX: 'hidden',
+          overflowY: 'hidden',
+          boxSizing: 'border-box'
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -413,13 +477,15 @@ export function CreateShareLinkModal({
           <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '1rem',
+            gap: '0.85rem',
             background: '#ffffff',
             border: '1px solid var(--border-light, #e2e8f0)',
-            padding: '1rem',
+            padding: '0.85rem',
             borderRadius: '16px',
             overflowY: 'auto',
-            maxHeight: 'calc(90vh - 220px)'
+            overflowX: 'hidden',
+            maxHeight: 'calc(92vh - 210px)',
+            boxSizing: 'border-box'
           }}>
             
             {/* PIN Protection */}
@@ -697,15 +763,14 @@ export function CreateShareLinkModal({
               </p>
 
               {/* Add recipient input & role selector */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
-                {/* Role Pill Switcher */}
-                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
-                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>סוג נמען:</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem', width: '100%', boxSizing: 'border-box' }}>
+                {/* Compact Role Switcher (Grid 3 columns, no overflow) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem', width: '100%', boxSizing: 'border-box' }}>
                   {(
                     [
-                      { id: 'client', label: '👤 לקוח / מזמין', title: 'מקבל שירות' },
-                      { id: 'provider', label: '🛠️ ספק / קבלן', title: 'נותן שירות / מגיש הצעה' },
-                      { id: 'general', label: '🤝 שותף / כללי', title: 'שיתוף מסמכים' }
+                      { id: 'client', label: '👤 לקוח', title: 'מקבל שירות / מזמין' },
+                      { id: 'provider', label: '🛠️ ספק', title: 'נותן שירות / קבלן' },
+                      { id: 'general', label: '🤝 שותף', title: 'שיתוף מסמכים / כללי' }
                     ] as const
                   ).map(pill => (
                     <button
@@ -713,17 +778,18 @@ export function CreateShareLinkModal({
                       type="button"
                       onClick={() => setNewRecipientRole(pill.id)}
                       style={{
-                        flex: 1,
-                        padding: '5px 4px',
+                        padding: '6px 2px',
                         borderRadius: '8px',
-                        fontSize: '0.72rem',
+                        fontSize: '0.75rem',
                         fontWeight: newRecipientRole === pill.id ? 800 : 600,
-                        border: newRecipientRole === pill.id ? '1.5px solid #4f46e5' : '1px solid var(--border-light)',
-                        background: newRecipientRole === pill.id ? '#eff6ff' : 'var(--bg-main)',
+                        border: newRecipientRole === pill.id ? '1.5px solid #4f46e5' : '1px solid var(--border-light, #e2e8f0)',
+                        background: newRecipientRole === pill.id ? '#eff6ff' : 'var(--bg-main, #f8fafc)',
                         color: newRecipientRole === pill.id ? '#4f46e5' : '#64748b',
                         cursor: 'pointer',
                         textAlign: 'center',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
                       }}
                       title={pill.title}
                     >
@@ -732,8 +798,8 @@ export function CreateShareLinkModal({
                   ))}
                 </div>
 
-                {/* Input Row: Name + Button */}
-                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'stretch' }}>
+                {/* Input Row: Name + Contact Picker + Add Button */}
+                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'stretch', width: '100%', boxSizing: 'border-box' }}>
                   <input
                     type="text"
                     placeholder="שם הנמען (למשל: יוסי)"
@@ -748,32 +814,59 @@ export function CreateShareLinkModal({
                     style={{
                       flex: 1,
                       minWidth: 0,
-                      padding: '0.6rem 0.8rem',
+                      padding: '0.55rem 0.75rem',
                       borderRadius: '10px',
-                      border: '1px solid var(--border-light)',
-                      background: 'var(--bg-main)',
-                      fontSize: '0.86rem',
-                      color: 'var(--text-primary)'
+                      border: '1px solid var(--border-light, #e2e8f0)',
+                      background: 'var(--bg-main, #f8fafc)',
+                      fontSize: '0.85rem',
+                      color: 'var(--text-primary)',
+                      boxSizing: 'border-box'
                     }}
                   />
+
+                  {/* Native Device Contact Picker Button */}
+                  <button
+                    type="button"
+                    onClick={handlePickFromContacts}
+                    style={{
+                      flexShrink: 0,
+                      padding: '0.55rem 0.65rem',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      background: '#f8fafc',
+                      color: '#334155',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.2rem'
+                    }}
+                    title="בחר איש קשר ישירות מהטלפון"
+                  >
+                    <span>📖</span>
+                    <span>אנשי קשר</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={handleAddRecipient}
                     disabled={!newRecipientName.trim()}
                     style={{
                       flexShrink: 0,
-                      padding: '0.6rem 1rem',
+                      padding: '0.55rem 0.85rem',
                       borderRadius: '10px',
                       border: 'none',
                       background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
                       color: '#ffffff',
                       fontWeight: 800,
-                      fontSize: '0.85rem',
+                      fontSize: '0.82rem',
                       cursor: newRecipientName.trim() ? 'pointer' : 'default',
                       whiteSpace: 'nowrap',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.3rem'
+                      gap: '0.25rem'
                     }}
                   >
                     <span>➕</span>
@@ -781,11 +874,11 @@ export function CreateShareLinkModal({
                   </button>
                 </div>
 
-                {/* Phone row (dedicated, spacious) */}
-                <div>
+                {/* Phone row: concise placeholder that never cuts off */}
+                <div style={{ width: '100%', boxSizing: 'border-box' }}>
                   <input
                     type="tel"
-                    placeholder="📞 טלפון נייד ליצירת קשר ושליחה בוואטסאפ (אופציונלי)"
+                    placeholder="📱 טלפון נייד (אופציונלי)"
                     value={newRecipientPhone}
                     onChange={e => setNewRecipientPhone(e.target.value)}
                     style={{
@@ -793,9 +886,9 @@ export function CreateShareLinkModal({
                       boxSizing: 'border-box',
                       padding: '0.5rem 0.75rem',
                       borderRadius: '10px',
-                      border: '1px solid var(--border-light)',
-                      background: 'var(--bg-main)',
-                      fontSize: '0.8rem',
+                      border: '1px solid var(--border-light, #e2e8f0)',
+                      background: 'var(--bg-main, #f8fafc)',
+                      fontSize: '0.82rem',
                       color: 'var(--text-primary)'
                     }}
                   />
@@ -921,21 +1014,30 @@ export function CreateShareLinkModal({
                             {r.enabled ? 'חסום' : 'בטל חסימה'}
                           </button>
 
-                          {/* Remove */}
+                          {/* Delete Recipient (Trash Button) */}
                           <button
                             type="button"
-                            onClick={() => handleRemoveRecipient(r.id)}
-                            style={{
-                              background: 'transparent',
-                              border: 'none',
-                              color: '#94a3b8',
-                              cursor: 'pointer',
-                              fontSize: '0.75rem',
-                              padding: '2px 4px'
+                            onClick={() => {
+                              if (confirm(`האם אתה בטוח שברצונך למחוק את הנמען "${r.recipientName}" מהרשימה?`)) {
+                                handleRemoveRecipient(r.id);
+                              }
                             }}
-                            title="מחק נמען"
+                            style={{
+                              background: '#fef2f2',
+                              color: '#dc2626',
+                              border: '1px solid #fecaca',
+                              borderRadius: '6px',
+                              padding: '3px 6px',
+                              fontSize: '0.75rem',
+                              cursor: 'pointer',
+                              fontWeight: 700,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="מחק נמען זה מהרשימה לחלוטין"
                           >
-                            ✕
+                            🗑️
                           </button>
                         </div>
                       </div>
