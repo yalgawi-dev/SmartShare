@@ -13,6 +13,7 @@ import {
 } from '../../../utils/invoiceMatcher';
 import { downscaleBase64, extractPdfPages } from '../../../utils/imageOptimizer';
 import { uploadImageToStorage } from '../../../lib/firebase';
+import PdfThumbnail from '../../shared/PdfThumbnail';
 import UniversalViewerModal, { ViewerDocument } from '../../common/ViewerEngine/UniversalViewerModal';
 
 export interface ScannedReceiptInput {
@@ -70,6 +71,7 @@ export default function InvoiceAttachMatchModal({
   const [extractedDoc, setExtractedDoc] = useState<MatchableDoc>({});
   const [uploadedUrls, setUploadedUrls] = useState<{ url: string; pages?: string[] } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [localFirstPageThumb, setLocalFirstPageThumb] = useState<string | null>(null);
 
   // Selected candidate ID (expense ID in Direction 1, inbox item ID in Direction 2)
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -108,6 +110,7 @@ export default function InvoiceAttachMatchModal({
       setShowAllManual(false);
       setApplyAmountUpdate(false);
       setUploadedUrls(null);
+      setLocalFirstPageThumb(null);
 
       // If OCR data was already provided (e.g. from Inbox), use it immediately
       if (currentReceipt.ocrData) {
@@ -136,7 +139,7 @@ export default function InvoiceAttachMatchModal({
         let webpPages: string[] = [];
         if (currentReceipt.pages && currentReceipt.pages.length > 0) {
           webpPages = currentReceipt.pages;
-        } else if (isPdf && rawUri.startsWith('data:')) {
+        } else if (isPdf) {
           webpPages = await extractPdfPages(rawUri, 1500, 0.85);
         }
 
@@ -146,6 +149,10 @@ export default function InvoiceAttachMatchModal({
           } else {
             webpPages = [rawUri];
           }
+        }
+
+        if (webpPages.length > 0 && !cancelled) {
+          setLocalFirstPageThumb(webpPages[0]);
         }
 
         // 2. Run OCR if we don't already have OCR fields
@@ -462,59 +469,83 @@ export default function InvoiceAttachMatchModal({
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div
-                onClick={() =>
-                  setPreviewDoc({
-                    id: 'preview-receipt',
-                    title: extractedDoc.supplier || 'חשבונית שנסרקה',
-                    url: uploadedUrls?.url || currentReceipt.url,
-                    pages: uploadedUrls?.pages || currentReceipt.pages,
-                  })
-                }
-                style={{
-                  width: '56px',
-                  height: '56px',
-                  borderRadius: '10px',
-                  overflow: 'hidden',
-                  border: '1.5px solid #94a3b8',
-                  flexShrink: 0,
-                  cursor: 'pointer',
-                  position: 'relative',
-                  background: '#e2e8f0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
-                }}
-                title="לחץ להגדלת החשבונית"
-              >
-                <img
-                  src={uploadedUrls?.url || (currentReceipt.pages && currentReceipt.pages[0]) || currentReceipt.url}
-                  alt="Receipt"
-                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                />
-                <span
+                <div
+                  onClick={() =>
+                    setPreviewDoc({
+                      id: 'preview-receipt',
+                      title: extractedDoc.supplier || 'חשבונית שנסרקה',
+                      url: uploadedUrls?.url || localFirstPageThumb || currentReceipt.url,
+                      pages: uploadedUrls?.pages || (localFirstPageThumb ? [localFirstPageThumb] : currentReceipt.pages),
+                    })
+                  }
                   style={{
-                    position: 'absolute',
-                    bottom: 2,
-                    right: 2,
-                    background: 'rgba(0,0,0,0.7)',
-                    color: '#fff',
-                    fontSize: '0.62rem',
-                    padding: '1px 4px',
-                    borderRadius: '4px',
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '10px',
+                    overflow: 'hidden',
+                    border: '1.5px solid #94a3b8',
+                    flexShrink: 0,
+                    cursor: 'pointer',
+                    position: 'relative',
+                    background: '#e2e8f0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 2px 5px rgba(0,0,0,0.08)',
                   }}
+                  title="לחץ להגדלת החשבונית"
                 >
-                  🔍
-                </span>
-              </div>
+                  {(() => {
+                    const candidateImg = uploadedUrls?.url || localFirstPageThumb || (currentReceipt.pages && currentReceipt.pages[0]);
+                    const isCandidatePdf = !candidateImg || candidateImg.toLowerCase().includes('.pdf') || candidateImg.startsWith('data:application/pdf');
+
+                    if (candidateImg && !isCandidatePdf) {
+                      return (
+                        <img
+                          src={candidateImg}
+                          alt="Receipt"
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      );
+                    }
+
+                    // Fallback to PdfThumbnail component if it's a PDF
+                    return (
+                      <PdfThumbnail
+                        url={currentReceipt.url}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                    );
+                  })()}
+                  <span
+                    style={{
+                      position: 'absolute',
+                      bottom: 2,
+                      right: 2,
+                      background: 'rgba(0,0,0,0.7)',
+                      color: '#fff',
+                      fontSize: '0.62rem',
+                      padding: '1px 4px',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    🔍
+                  </span>
+                </div>
 
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#1e293b' }}>
-                  {isScanningOcr ? '⏳ מנתח נתונים מהחשבונית להצלבה...' : '📄 נתוני החשבונית שזוהו:'}
+                <div style={{ fontSize: '0.86rem', fontWeight: 800, color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {isScanningOcr ? (
+                    <>
+                      <div style={{ width: '12px', height: '12px', border: '2px solid #3b82f6', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                      <span style={{ color: '#2563eb' }}>מפענח נתונים מהחשבונית (OCR)...</span>
+                    </>
+                  ) : (
+                    <span>📄 נתוני החשבונית החדשה:</span>
+                  )}
                 </div>
                 <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
-                  ניתן לדייק את שם הספק או הסכום אם יש צורך בהתאמה:
+                  {isScanningOcr ? 'סורק סכום, תאריך ושם ספק באופן אוטומטי...' : 'הנתונים שחולצו מהמסמך שלך (ניתן לערוך ידנית):'}
                 </div>
               </div>
             </div>
@@ -593,11 +624,20 @@ export default function InvoiceAttachMatchModal({
 
         {/* Direction 1: Candidate Expenses List */}
         {currentReceipt && (
-          <div>
+          <div style={{ marginTop: '0.4rem', borderTop: '1px solid #e2e8f0', paddingTop: '0.75rem' }}>
+            <div style={{ marginBottom: '0.35rem' }}>
+              <div style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0f172a' }}>
+                📋 שייך להוצאה קיימת במרחב (ללא חשבונית):
+              </div>
+              <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                בחר הוצאה שכבר נרשמה וחסרה לה חשבונית, כדי להצמיד אליה את הקובץ:
+              </div>
+            </div>
+
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.45rem', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.84rem', fontWeight: 800, color: '#1e293b' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#334155' }}>
                 {expenseMatches.length > 0
-                  ? `נמצאו ${expenseMatches.length} התאמות מומלצות:`
+                  ? `🎯 נמצאו ${expenseMatches.length} התאמות מומלצות לפי הסכום והספק:`
                   : 'לא נמצאה התאמה אוטומטית מובהקת'}
               </span>
               <button

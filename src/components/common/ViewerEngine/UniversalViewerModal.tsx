@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { downloadDocument, formatFileSize } from '@/utils/documentUtils';
 import DynamicPdfScrollPreview from '@/components/widgets/Vault/DynamicPdfScrollPreview';
+import { extractPdfPages } from '@/utils/imageOptimizer';
 import { APP_VERSION } from '@/constants/version';
 
 export interface ViewerDocument {
@@ -59,6 +60,9 @@ export default function UniversalViewerModal({
   const [currentIndex, setCurrentIndex] = useState<number>(initialIndex);
   const [mounted, setMounted] = useState(() => typeof window !== 'undefined');
   const [currentScale, setCurrentScale] = useState<number>(1);
+  const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
+  const [hdActiveDocIds, setHdActiveDocIds] = useState<Record<string, boolean>>({});
+  const [hdPagesMap, setHdPagesMap] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -118,10 +122,67 @@ export default function UniversalViewerModal({
     (currentDoc.url && currentDoc.url.startsWith('blob:') && currentDoc.type !== 'image')
   );
 
+  const currentDocKey = currentDoc.id || currentDoc.url || String(currentIndex);
+  const isHdActive = Boolean(hdActiveDocIds[currentDocKey]);
+
+  // If HD version was generated in-memory, use it; otherwise use document's pages
+  const effectivePages = hdPagesMap[currentDocKey] || (
+    Array.isArray(currentDoc.pages)
+      ? currentDoc.pages.filter(p => typeof p === 'string' && !p.toLowerCase().includes('.pdf') && !p.startsWith('data:application/pdf'))
+      : []
+  );
+
   // Filter out any pages that might accidentally be PDF URLs
-  const validImagePages = Array.isArray(currentDoc.pages)
-    ? currentDoc.pages.filter(p => typeof p === 'string' && !p.toLowerCase().includes('.pdf') && !p.startsWith('data:application/pdf'))
-    : [];
+  const validImagePages = effectivePages;
+
+  // Ultra-HD trigger for any PDF source (even if already saved with 1200px preview pages)
+  const handleToggleUltraHd = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (isHdRendering) return;
+
+    if (isHdActive) {
+      // Toggle back off
+      setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: false }));
+      return;
+    }
+
+    // Check if we already have HD pages cached in memory for this doc
+    if (hdPagesMap[currentDocKey] && hdPagesMap[currentDocKey].length > 0) {
+      setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
+      return;
+    }
+
+    // Must have a valid PDF source url (url or rawPdfUrl)
+    const pdfSource = currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.url?.startsWith('data:application/pdf')
+      ? currentDoc.url
+      : (currentDoc.rawPdfUrl || (isDocPdf ? currentDoc.url : ''));
+
+    if (!pdfSource) {
+      alert('קובץ מקור PDF אינו זמין לחידוד HD.');
+      return;
+    }
+
+    setIsHdRendering(true);
+    try {
+      // Render at 3200px Ultra-HD for crystal-clear CAD & plan reading
+      const hdPages = await extractPdfPages(pdfSource, 3200, 0.90);
+      if (hdPages && hdPages.length > 0) {
+        setHdPagesMap(prev => ({ ...prev, [currentDocKey]: hdPages }));
+        setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
+        currentDoc.pages = hdPages;
+        if (onNormalizeDoc && currentDoc.id) {
+          onNormalizeDoc(currentDoc.id, hdPages);
+        }
+      } else {
+        alert('לא ניתן היה לרנדר עמודי HD עבור קובץ זה.');
+      }
+    } catch (err) {
+      console.error('Failed to render Ultra-HD PDF pages:', err);
+      alert('אירעה שגיאה בחידוד השרטוט.');
+    } finally {
+      setIsHdRendering(false);
+    }
+  };
 
   const isMultiPage = currentDoc.type !== 'image' && validImagePages.length > 1;
 
@@ -359,29 +420,62 @@ export default function UniversalViewerModal({
           )}
         </div>
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          style={{
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(6px)',
-            border: '1px solid rgba(255, 255, 255, 0.25)',
-            color: 'white',
-            width: '42px',
-            height: '42px',
-            borderRadius: '50%',
-            fontSize: '1.2rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
-            transition: 'transform 0.15s ease'
-          }}
-          title="סגור תצוגה"
-        >
-          ✕
-        </button>
+        {/* Top Controls: Ultra-HD Button & Close */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+          {/* Universal Ultra-HD Button (Visible for all PDF documents, or when user zooms in) */}
+          {(isDocPdf || currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.rawPdfUrl || currentScale > 2) && (
+            <button
+              type="button"
+              onClick={handleToggleUltraHd}
+              disabled={isHdRendering}
+              style={{
+                background: isHdActive ? '#10b981' : (currentScale > 2.5 ? '#3b82f6' : 'rgba(255, 255, 255, 0.18)'),
+                backdropFilter: 'blur(8px)',
+                border: isHdActive ? '1.5px solid #34d399' : '1px solid rgba(255, 255, 255, 0.3)',
+                color: '#ffffff',
+                padding: '4px 10px',
+                borderRadius: '16px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                cursor: isHdRendering ? 'wait' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                boxShadow: isHdActive ? '0 2px 10px rgba(16,185,129,0.4)' : '0 2px 6px rgba(0,0,0,0.3)',
+                transition: 'all 0.2s ease',
+                whiteSpace: 'nowrap'
+              }}
+              title="רינדור מחדש בחדות Ultra-HD לקריאת מידות ומספרים קטנים בשרטוט"
+            >
+              <span>{isHdRendering ? '⏳' : (isHdActive ? '✓' : '🔍')}</span>
+              <span>{isHdRendering ? 'מחדד...' : (isHdActive ? 'חדות HD פעילה' : 'חדד שרטוט (Ultra-HD)')}</span>
+            </button>
+          )}
+
+          {/* Close Button */}
+          <button
+            onClick={onClose}
+            style={{
+              background: 'rgba(255, 255, 255, 0.15)',
+              backdropFilter: 'blur(6px)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              color: 'white',
+              width: '42px',
+              height: '42px',
+              borderRadius: '50%',
+              fontSize: '1.2rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              transition: 'transform 0.15s ease'
+            }}
+            title="סגור תצוגה"
+          >
+            ✕
+          </button>
+        </div>
       </div>
 
       {/* Navigation Arrow: Previous Document */}
@@ -648,7 +742,34 @@ export default function UniversalViewerModal({
                         >
                           −
                         </button>
-                        {currentScale > 1.1 && (
+                        {/* HD Button directly in floating zoom toolbar */}
+                        {(isDocPdf || currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.rawPdfUrl || currentScale > 2) && (
+                          <button
+                            type="button"
+                            onClick={handleToggleUltraHd}
+                            disabled={isHdRendering}
+                            title="חידוד שרטוט (Ultra-HD)"
+                            style={{
+                              width: '42px',
+                              height: '42px',
+                              borderRadius: '50%',
+                              background: isHdActive ? '#10b981' : (currentScale > 2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
+                              backdropFilter: 'blur(8px)',
+                              border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
+                              color: '#ffffff',
+                              fontSize: '0.82rem',
+                              fontWeight: 800,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              cursor: isHdRendering ? 'wait' : 'pointer',
+                              boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                            }}
+                          >
+                            {isHdRendering ? '⏳' : (isHdActive ? 'HD✓' : 'HD')}
+                          </button>
+                        )}
+                      {currentScale > 1.1 && (
                           <button
                             type="button"
                             onClick={() => resetTransform()}
@@ -905,6 +1026,33 @@ export default function UniversalViewerModal({
                       >
                         −
                       </button>
+                      {/* HD Button directly in floating zoom toolbar */}
+                      {(isDocPdf || currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.rawPdfUrl || currentScale > 2) && (
+                        <button
+                          type="button"
+                          onClick={handleToggleUltraHd}
+                          disabled={isHdRendering}
+                          title="חידוד שרטוט (Ultra-HD)"
+                          style={{
+                            width: '42px',
+                            height: '42px',
+                            borderRadius: '50%',
+                            background: isHdActive ? '#10b981' : (currentScale > 2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
+                            backdropFilter: 'blur(8px)',
+                            border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
+                            color: '#ffffff',
+                            fontSize: '0.82rem',
+                            fontWeight: 800,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: isHdRendering ? 'wait' : 'pointer',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                          }}
+                        >
+                          {isHdRendering ? '⏳' : (isHdActive ? 'HD✓' : 'HD')}
+                        </button>
+                      )}
                       {currentScale > 1.1 && (
                         <button
                           type="button"
