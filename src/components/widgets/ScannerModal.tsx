@@ -1290,7 +1290,7 @@ export default function ScannerModal({ onClose, onComplete, hasVault, hasFinance
             {(activeSource === 'upload' || scannerMode === 'upload') ? 'ייבוא מסמכים' : 'סורק מסמכים'}
           </h2>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.62rem', color: '#64748b', lineHeight: 1 }}>
-            <span>v3.5.09</span>
+            <span>v3.5.10</span>
             {editingDocTitle && (
               <span style={{ color: '#fbbf24', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 • {isMultiDocMerge ? 'מגילה' : editingDocTitle} ({sortedTrayItems.length})

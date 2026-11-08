@@ -29,6 +29,12 @@ export function CreateShareLinkModal({
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string>('');
 
+  // Helper to generate a secure random 4-digit PIN
+  const generateRandomPin = () => {
+    const randomNum = Math.floor(1000 + Math.random() * 9000);
+    return String(randomNum);
+  };
+
   useEffect(() => {
     if (isOpen && item) {
       const link = item.shareLink;
@@ -311,32 +317,63 @@ export function CreateShareLinkModal({
                 <input 
                   type="checkbox" 
                   checked={requirePin} 
-                  onChange={e => setRequirePin(e.target.checked)}
+                  onChange={e => {
+                    const willRequire = e.target.checked;
+                    setRequirePin(willRequire);
+                    if (willRequire && !pin) {
+                      setPin(generateRandomPin());
+                    }
+                  }}
                   style={{ width: '17px', height: '17px', accentColor: 'var(--primary)' }}
                 />
                 <span>🔐 הגנה באמצעות קוד גישה (PIN)</span>
               </label>
               {requirePin && (
                 <div style={{ marginTop: '0.5rem', paddingRight: '1.6rem' }}>
-                  <input 
-                    type="text" 
-                    maxLength={6}
-                    placeholder="הזן 4-6 ספרות (למשל: 1234)"
-                    value={pin}
-                    onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem 0.75rem',
-                      borderRadius: '10px',
-                      border: '1.5px solid var(--primary)',
-                      fontSize: '0.9rem',
-                      fontWeight: 800,
-                      letterSpacing: '3px',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '3px' }}>
-                    האורח יידרש להקליד את הקוד כדי לצפות במסמך.
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                    <input 
+                      type="text" 
+                      maxLength={6}
+                      placeholder="הזן 4-6 ספרות"
+                      value={pin}
+                      onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '10px',
+                        border: '1.5px solid var(--primary)',
+                        fontSize: '0.95rem',
+                        fontWeight: 800,
+                        letterSpacing: '3px',
+                        textAlign: 'center',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setPin(generateRandomPin())}
+                      style={{
+                        padding: '0.5rem 0.75rem',
+                        borderRadius: '10px',
+                        border: '1px solid #cbd5e1',
+                        background: '#f8fafc',
+                        color: '#1e293b',
+                        fontWeight: 700,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        whiteSpace: 'nowrap'
+                      }}
+                      title="הגרל קוד PIN חדש אקראי"
+                    >
+                      <span>🎲</span>
+                      <span>הגרל קוד</span>
+                    </button>
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'block', marginTop: '4px' }}>
+                    קוד PIN נוצר אוטומטית. האורח יידרש להקלידו כדי לצפות במסמך.
                   </span>
                 </div>
               )}
