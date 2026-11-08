@@ -1107,8 +1107,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         {/* Gamification / Wall of Fame */}
         <TopGuestsWidget space={space} />
 
-        {/* Standalone Scanner Info Banner */}
-        {hasScanner && !hasVault && !hasFinance && !isScannerBannerDismissed && (
+        {/* Standalone Scanner Info Banner (Only when truly standalone without vault, fileshare, or finance) */}
+        {hasScanner && !hasVault && !hasFinance && !hasFileShare && !isScannerBannerDismissed && (
           <div style={{
             position: 'relative',
             background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.08) 0%, rgba(168, 85, 247, 0.08) 100%)',

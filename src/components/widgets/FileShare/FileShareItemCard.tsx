@@ -7,6 +7,8 @@ import PdfThumbnail from '@/components/shared/PdfThumbnail';
 interface FileShareItemCardProps {
   item: FileShareItem;
   itemIndex?: number;
+  viewMode?: 'list' | 'grid_medium' | 'grid_large';
+  containedItemCount?: number;
   onOpen: (item: FileShareItem) => void;
   onManageLink: (item: FileShareItem) => void;
   onManagePermissions?: (item: FileShareItem) => void;
@@ -25,6 +27,8 @@ interface FileShareItemCardProps {
 export function FileShareItemCard({
   item,
   itemIndex,
+  viewMode = 'grid_medium',
+  containedItemCount = 0,
   onOpen,
   onManageLink,
   onManagePermissions,
@@ -115,6 +119,201 @@ export function FileShareItemCard({
 
   // FOLDER CARD VIEW (Uniform with Vault Folders)
   if (isFolder) {
+    if (viewMode === 'grid_medium' || viewMode === 'grid_large') {
+      const folderIconSize = viewMode === 'grid_large' ? '3.4rem' : '2.6rem';
+
+      return (
+        <div
+          onTouchStart={startLongPress}
+          onTouchMove={cancelLongPress}
+          onTouchEnd={cancelLongPress}
+          onMouseDown={startLongPress}
+          onMouseUp={cancelLongPress}
+          onClick={() => {
+            if (isLongPressTriggeredRef.current) {
+              isLongPressTriggeredRef.current = false;
+              return;
+            }
+            if (isMultiSelect && onToggleSelect) onToggleSelect(item);
+            else onOpen(item);
+          }}
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '0.75rem 0.5rem 0.5rem 0.5rem',
+            background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffdf7' : '#ffffff'),
+            border: isSelected
+              ? '2px solid #2563eb'
+              : (item.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'),
+            borderRadius: '16px',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+            boxShadow: isSelected ? '0 8px 20px rgba(37,99,235,0.2)' : '0 2px 6px rgba(0,0,0,0.03)',
+            textAlign: 'center',
+            gap: '0.35rem',
+            position: 'relative'
+          }}
+        >
+          {/* Checkbox Overlay in MultiSelect */}
+          {isMultiSelect && (
+            <div style={{
+              position: 'absolute',
+              top: '6px',
+              left: '6px',
+              zIndex: 25,
+              background: isSelected ? '#2563eb' : 'rgba(255,255,255,0.9)',
+              color: 'white',
+              borderRadius: '6px',
+              width: '20px',
+              height: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: isSelected ? 'none' : '1.5px solid #94a3b8',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.15)',
+              fontSize: '0.75rem',
+              fontWeight: 'bold'
+            }}>
+              {isSelected ? '✓' : ''}
+            </div>
+          )}
+
+          {/* Folder Icon with item count badge */}
+          <div style={{ position: 'relative' }}>
+            <span style={{ fontSize: folderIconSize, filter: 'drop-shadow(0 4px 6px rgba(245,158,11,0.25))' }}>📁</span>
+            {containedItemCount > 0 && (
+              <span style={{
+                position: 'absolute',
+                bottom: '2px',
+                right: '-4px',
+                background: '#2563eb',
+                color: 'white',
+                borderRadius: '999px',
+                padding: '1px 5px',
+                fontSize: '0.65rem',
+                fontWeight: 800
+              }}>
+                {containedItemCount}
+              </span>
+            )}
+          </div>
+
+          {/* Folder Title */}
+          {isEditingName ? (
+            <form onSubmit={handleRenameSubmit} onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '3px', width: '100%', padding: '0 4px' }}>
+              <input
+                type="text"
+                value={editNameValue}
+                onChange={e => setEditNameValue(e.target.value)}
+                autoFocus
+                style={{ padding: '2px 4px', fontSize: '0.78rem', fontWeight: 800, borderRadius: '6px', border: '1.5px solid #2563eb', outline: 'none', width: '100%', textAlign: 'center' }}
+              />
+              <button type="submit" style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 5px', fontSize: '0.7rem', fontWeight: 800 }}>✓</button>
+              <button type="button" onClick={() => setIsEditingName(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 5px', fontSize: '0.7rem', fontWeight: 800 }}>✕</button>
+            </form>
+          ) : (
+            <div style={{
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              color: '#0f172a',
+              width: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              padding: '0 4px'
+            }} title={item.name}>
+              {item.name}
+            </div>
+          )}
+
+          {/* Privacy badge */}
+          {onManagePermissions && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onManagePermissions(item);
+              }}
+              style={{
+                background: privacyBadge.bg,
+                border: `1px solid ${privacyBadge.border}`,
+                color: privacyBadge.color,
+                fontSize: '0.66rem',
+                padding: '1px 6px',
+                borderRadius: '6px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
+                maxWidth: '90%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap'
+              }}
+              title={`הרשאות תיקייה: ${privacyBadge.text} (לחץ לעריכה)`}
+            >
+              <span>{privacyBadge.icon}</span>
+              <span>{privacyBadge.text}</span>
+            </button>
+          )}
+
+          {/* Action buttons row */}
+          {!isMultiSelect && (
+            <div style={{ display: 'flex', gap: '3px', marginTop: '0.2rem', justifyContent: 'center' }} onClick={e => e.stopPropagation()}>
+              {onToggleFavorite && (
+                <button
+                  type="button"
+                  onClick={() => onToggleFavorite(item)}
+                  style={{ background: item.isFavorite ? '#fef3c7' : '#f8fafc', border: item.isFavorite ? '1px solid #f59e0b' : '1px solid #cbd5e1', borderRadius: '5px', padding: '1px 5px', fontSize: '0.68rem', cursor: 'pointer' }}
+                  title={item.isFavorite ? 'הסר ממועדפים' : 'סמן כמועדף'}
+                >
+                  {item.isFavorite ? '⭐' : '☆'}
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsEditingName(true)}
+                style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                title="ערוך שם"
+              >
+                ✏️
+              </button>
+              {onMove && (
+                <button
+                  type="button"
+                  onClick={() => onMove(item)}
+                  style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '1px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
+                  title="העבר תיקייה"
+                >
+                  📦
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => onManageLink(item)}
+                style={{ background: isPublicLinkActive ? '#ecfdf5' : '#f8fafc', border: isPublicLinkActive ? '1px solid #10b981' : '1px solid #cbd5e1', color: isPublicLinkActive ? '#047857' : '#4f46e5', borderRadius: '5px', padding: '1px 5px', fontSize: '0.68rem', cursor: 'pointer' }}
+                title="לינק שיתוף"
+              >
+                🔗
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(item)}
+                style={{ background: '#fee2e2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '5px', padding: '1px 4px', fontSize: '0.68rem', cursor: 'pointer' }}
+                title="מחק לסל אשפה"
+              >
+                🗑️
+              </button>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    // LIST VIEW FOR FOLDER (Uniform with DocumentsWidget List Mode)
     return (
       <div
         onTouchStart={startLongPress}
@@ -132,33 +331,34 @@ export function FileShareItemCard({
         }}
         style={{
           background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffdf7' : '#ffffff'),
-          borderRadius: '14px',
+          borderRadius: '12px',
           border: isSelected
             ? '2px solid #2563eb'
             : (item.isFavorite ? '2px solid #f59e0b' : '1px solid #e2e8f0'),
-          padding: '0.75rem 0.85rem',
+          padding: '0.55rem 0.85rem',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           cursor: 'pointer',
-          boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 1px 3px rgba(0,0,0,0.03)',
-          transition: 'all 0.15s ease'
+          boxShadow: isSelected ? '0 4px 12px rgba(37,99,235,0.15)' : '0 1px 3px rgba(0,0,0,0.02)',
+          transition: 'all 0.15s ease',
+          gap: '0.5rem'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', overflow: 'hidden', flex: 1 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', minWidth: 0, flex: 1 }}>
           {isMultiSelect && (
             <input
               type="checkbox"
               checked={isSelected}
               onChange={() => onToggleSelect?.(item)}
               onClick={e => e.stopPropagation()}
-              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer', flexShrink: 0 }}
             />
           )}
-          <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>📁</span>
-          <div style={{ overflow: 'hidden', flex: 1 }}>
+          <span style={{ fontSize: '1.6rem', filter: 'drop-shadow(0 2px 4px rgba(245,158,11,0.25))', flexShrink: 0 }}>📁</span>
+          <div style={{ minWidth: 0, flex: 1 }}>
             {isEditingName ? (
-              <form onSubmit={handleRenameSubmit} onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '4px' }}>
+              <form onSubmit={handleRenameSubmit} onClick={e => e.stopPropagation()} style={{ display: 'flex', gap: '4px', maxWidth: '280px' }}>
                 <input
                   type="text"
                   value={editNameValue}
@@ -170,30 +370,50 @@ export function FileShareItemCard({
                 <button type="button" onClick={() => setIsEditingName(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', padding: '2px 6px', fontSize: '0.75rem', fontWeight: 800 }}>✕</button>
               </form>
             ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span style={{ fontWeight: 800, fontSize: '0.92rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 800, fontSize: '0.88rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                   {item.name}
                 </span>
-                <button
-                  type="button"
-                  onClick={e => { e.stopPropagation(); setIsEditingName(true); }}
-                  style={{ background: 'transparent', border: 'none', cursor: 'pointer', fontSize: '0.75rem', opacity: 0.6 }}
-                  title="ערוך שם"
-                >
-                  ✏️
-                </button>
+                {onManagePermissions && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onManagePermissions(item);
+                    }}
+                    style={{
+                      fontSize: '0.66rem',
+                      background: privacyBadge.bg,
+                      color: privacyBadge.color,
+                      border: `1px solid ${privacyBadge.border}`,
+                      padding: '1px 6px',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '3px'
+                    }}
+                    title={`הרשאות תיקייה: ${privacyBadge.text} (לחץ לעריכה)`}
+                  >
+                    <span>{privacyBadge.icon}</span>
+                    <span>{privacyBadge.text}</span>
+                  </button>
+                )}
+                {isPublicLinkActive && (
+                  <span style={{ fontSize: '0.66rem', color: '#047857', background: '#ecfdf5', padding: '1px 6px', borderRadius: '6px', fontWeight: 700, border: '1px solid #a7f3d0' }}>
+                    🔗 לינק פעיל
+                  </span>
+                )}
               </div>
             )}
-            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span>{new Date(item.createdAt).toLocaleDateString('he-IL')}</span>
-              {isPublicLinkActive && (
-                <span style={{ color: '#047857', fontWeight: 700 }}>• 🔗 לינק פעיל</span>
-              )}
+            <div style={{ fontSize: '0.72rem', color: '#64748b', marginTop: '1px' }}>
+              {containedItemCount > 0 ? `${containedItemCount} פריטים • ` : ''}{new Date(item.createdAt).toLocaleDateString('he-IL')}
             </div>
           </div>
         </div>
 
-        {/* Action icons for folder */}
+        {/* Action icons for folder in List View */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }} onClick={e => e.stopPropagation()}>
           {onToggleFavorite && (
             <button
@@ -205,21 +425,19 @@ export function FileShareItemCard({
               {item.isFavorite ? '⭐' : '☆'}
             </button>
           )}
-          {onManagePermissions && (
-            <button
-              type="button"
-              onClick={() => onManagePermissions(item)}
-              style={{ background: privacyBadge.bg, color: privacyBadge.color, border: `1px solid ${privacyBadge.border}`, borderRadius: '7px', padding: '3px 6px', fontSize: '0.75rem', fontWeight: 800, cursor: 'pointer' }}
-              title={privacyBadge.text}
-            >
-              {privacyBadge.icon}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => setIsEditingName(true)}
+            style={{ background: '#f8fafc', border: '1px solid #cbd5e1', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#334155', cursor: 'pointer' }}
+            title="ערוך שם"
+          >
+            ✏️
+          </button>
           {onMove && (
             <button
               type="button"
               onClick={() => onMove(item)}
-              style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#16a34a', borderRadius: '7px', padding: '3px 6px', fontSize: '0.75rem', cursor: 'pointer' }}
+              style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#16a34a', cursor: 'pointer' }}
               title="העבר תיקייה"
             >
               📦
@@ -236,8 +454,196 @@ export function FileShareItemCard({
           <button
             type="button"
             onClick={() => onDelete(item)}
-            style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '7px', padding: '3px 6px', fontSize: '0.75rem', cursor: 'pointer' }}
+            style={{ background: '#fef2f2', border: '1px solid #fecaca', padding: '3px 7px', borderRadius: '7px', fontSize: '0.72rem', fontWeight: 600, color: '#dc2626', cursor: 'pointer' }}
+            title="מחק תיקייה"
+          >
+            🗑️
+          </button>
+          <span style={{ color: '#94a3b8', fontSize: '0.9rem', marginRight: '4px' }}>❯</span>
+        </div>
+      </div>
+    );
+  }
+
+  // FILE / DOCUMENT CARD VIEW (Identical Flagship Layout to Vault Document Card)
+  if (viewMode === 'list') {
+    return (
+      <div
+        onTouchStart={startLongPress}
+        onTouchMove={cancelLongPress}
+        onTouchEnd={cancelLongPress}
+        onMouseDown={startLongPress}
+        onMouseUp={cancelLongPress}
+        onClick={() => {
+          if (isLongPressTriggeredRef.current) {
+            isLongPressTriggeredRef.current = false;
+            return;
+          }
+          if (isMultiSelect && onToggleSelect) onToggleSelect(item);
+          else onOpen(item);
+        }}
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px 1fr 90px 105px' : '36px 30px 38px 1fr 90px 105px',
+          alignItems: 'center',
+          gap: '0.45rem',
+          padding: '0.4rem 0.6rem',
+          background: isSelected ? '#eff6ff' : (item.isFavorite ? '#fffbeb' : '#ffffff'),
+          border: isSelected ? '1.5px solid #3b82f6' : (item.isFavorite ? '1.5px solid #f59e0b' : '1px solid #e2e8f0'),
+          borderRadius: '10px',
+          cursor: 'pointer',
+          transition: 'background 0.15s ease, box-shadow 0.2s ease',
+          boxShadow: item.isFavorite ? '0 2px 6px rgba(245,158,11,0.15)' : '0 1px 2px rgba(0,0,0,0.02)'
+        }}
+        onMouseEnter={(e) => { if (!isSelected && !item.isFavorite) e.currentTarget.style.background = '#f8fafc'; }}
+        onMouseLeave={(e) => { if (!isSelected && !item.isFavorite) e.currentTarget.style.background = '#ffffff'; }}
+      >
+        {isMultiSelect && (
+          <div style={{ textAlign: 'center' }}>
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => {}}
+              style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+            />
+          </div>
+        )}
+
+        {/* Document Index Number */}
+        <div style={{
+          fontSize: '0.75rem',
+          fontWeight: 800,
+          color: '#64748b',
+          textAlign: 'center',
+          background: '#f1f5f9',
+          padding: '2px 0',
+          borderRadius: '6px'
+        }}>
+          #{typeof itemIndex === 'number' ? itemIndex + 1 : 1}
+        </div>
+
+        {/* Favorite Star Toggle */}
+        <div style={{ textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+          {onToggleFavorite && (
+            <button
+              type="button"
+              onClick={() => onToggleFavorite(item)}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                padding: '2px',
+                lineHeight: 1
+              }}
+              title={item.isFavorite ? 'הסר ממועדפים' : 'סמן כמועדף'}
+            >
+              {item.isFavorite ? '⭐' : '☆'}
+            </button>
+          )}
+        </div>
+
+        {/* Thumbnail */}
+        <div style={{
+          width: '38px',
+          height: '38px',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          background: '#f1f5f9',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          border: '1px solid #e2e8f0'
+        }}>
+          {previewUrl ? (
+            <img src={previewUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          ) : isPdf ? (
+            <span style={{ fontSize: '1.2rem' }}>📑</span>
+          ) : (
+            <span style={{ fontSize: '1.2rem' }}>📄</span>
+          )}
+        </div>
+
+        {/* Title & Info */}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {item.name}
+            </span>
+            {item.isFavorite && (
+              <span style={{ fontSize: '0.62rem', background: '#fef3c7', color: '#b45309', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, flexShrink: 0 }}>
+                מועדף
+              </span>
+            )}
+            {isPublicLinkActive && (
+              <span style={{ fontSize: '0.62rem', color: '#047857', background: '#ecfdf5', padding: '1px 5px', borderRadius: '4px', fontWeight: 800, flexShrink: 0 }}>
+                🔗 לינק פעיל
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '2px', flexWrap: 'wrap' }}>
+            {item.creatorName && (
+              <span style={{ fontSize: '0.64rem', color: '#475569', background: '#f1f5f9', padding: '1px 5px', borderRadius: '4px' }} title={`הועלה ע"י: ${item.creatorName}`}>
+                👤 {item.creatorName}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Date & Size */}
+        <div style={{ fontSize: '0.72rem', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
+          <span>{new Date(item.createdAt).toLocaleDateString('he-IL')}</span>
+          {item.size ? (
+            <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }} title="גודל הקובץ">
+              ⚖️ {formatFileSize(item.size)}
+            </span>
+          ) : null}
+        </div>
+
+        {/* Quick Actions */}
+        <div style={{ display: 'flex', gap: '3px', justifyContent: 'center' }} onClick={(e) => e.stopPropagation()}>
+          {onManagePermissions && (
+            <button
+              type="button"
+              onClick={() => onManagePermissions(item)}
+              title={`פרטיות והרשאות: ${privacyBadge.text}`}
+              style={{ background: privacyBadge.bg, color: privacyBadge.color, border: `1px solid ${privacyBadge.border}`, borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+            >
+              {privacyBadge.icon}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onManageLink(item)}
+            title="שתף קישור"
+            style={{ background: isPublicLinkActive ? '#ecfdf5' : '#f0fdf4', color: isPublicLinkActive ? '#047857' : '#059669', border: isPublicLinkActive ? '1px solid #10b981' : '1px solid #a7f3d0', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+          >
+            📤
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsEditingName(true)}
+            title="ערוך שם"
+            style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
+          >
+            ✏️
+          </button>
+          {onMove && (
+            <button
+              type="button"
+              onClick={() => onMove(item)}
+              style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '2px 6px', borderRadius: '6px', fontSize: '0.72rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '2px' }}
+              title="העבר לתיקייה"
+            >
+              📁
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => onDelete(item)}
             title="מחק לסל אשפה"
+            style={{ background: '#fef2f2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
           >
             🗑️
           </button>
@@ -246,7 +652,9 @@ export function FileShareItemCard({
     );
   }
 
-  // FILE / DOCUMENT CARD VIEW (Identical Flagship Layout to Vault Document Card)
+  // Grid views: grid_medium / grid_large
+  const docCardHeight = viewMode === 'grid_large' ? '185px' : '135px';
+
   return (
     <div
       onTouchStart={startLongPress}
@@ -306,7 +714,7 @@ export function FileShareItemCard({
       {/* Preview Container */}
       <div
         style={{
-          height: '135px',
+          height: docCardHeight,
           background: '#e2e8f0',
           backgroundImage: previewUrl ? `url(${previewUrl})` : 'none',
           backgroundSize: 'cover',

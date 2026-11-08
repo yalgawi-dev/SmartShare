@@ -58,6 +58,24 @@ export function FileShareWidget({
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
 
+  // View Mode: grid_medium (125px) / grid_large (175px) / list (Table)
+  const [viewMode, setViewMode] = useState<'grid_medium' | 'grid_large' | 'list'>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('smartshare_fileshare_view_mode');
+      if (saved === 'list' || saved === 'grid_medium' || saved === 'grid_large') return saved;
+    }
+    return 'grid_medium';
+  });
+  const [showViewDropdown, setShowViewDropdown] = useState(false);
+
+  const handleSetViewMode = (mode: 'grid_medium' | 'grid_large' | 'list') => {
+    setViewMode(mode);
+    setShowViewDropdown(false);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('smartshare_fileshare_view_mode', mode);
+    }
+  };
+
   // raw items from space
   const allItems: FileShareItem[] = useMemo(() => {
     return Array.isArray(space?.fileShareItems) ? space.fileShareItems : [];
@@ -534,8 +552,134 @@ export function FileShareWidget({
           </div>
         </div>
 
-        {/* Global Stats Counter & Recycle Bin */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        {/* Global Stats Counter, View Switcher & Recycle Bin */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+          {/* View Mode Switcher (List / Medium Grid / Large Grid) */}
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setShowViewDropdown(!showViewDropdown)}
+              style={{
+                background: '#ffffff',
+                border: '1px solid #cbd5e1',
+                color: '#334155',
+                padding: '4px 10px',
+                borderRadius: '10px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                boxShadow: showViewDropdown ? '0 2px 6px rgba(59,130,246,0.15)' : 'none',
+                transition: 'all 0.15s ease'
+              }}
+              title="שינוי תצוגת פריסה (רשימה / בינוני / גדול)"
+            >
+              <span style={{ fontSize: '0.9rem' }}>
+                {viewMode === 'list' ? '☰' : viewMode === 'grid_large' ? '☷' : '▦'}
+              </span>
+              <span>
+                {viewMode === 'list' ? 'רשימה' : viewMode === 'grid_large' ? 'גדול' : 'בינוני'}
+              </span>
+              <span style={{ fontSize: '0.65rem', opacity: 0.65 }}>▾</span>
+            </button>
+
+            {showViewDropdown && (
+              <>
+                <div onClick={() => setShowViewDropdown(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
+                <div style={{
+                  position: 'absolute',
+                  top: 'calc(100% + 4px)',
+                  left: 0,
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '12px',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  padding: '4px',
+                  zIndex: 9999,
+                  minWidth: '120px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '2px',
+                  animation: 'fadeIn 0.15s ease-out'
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => handleSetViewMode('list')}
+                    style={{
+                      border: 'none',
+                      background: viewMode === 'list' ? '#eff6ff' : 'transparent',
+                      color: viewMode === 'list' ? '#1d4ed8' : '#334155',
+                      fontWeight: viewMode === 'list' ? 800 : 500,
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      textAlign: 'right',
+                      width: '100%'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.95rem' }}>☰</span>
+                    <span>רשימה</span>
+                    {viewMode === 'list' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSetViewMode('grid_medium')}
+                    style={{
+                      border: 'none',
+                      background: viewMode === 'grid_medium' ? '#eff6ff' : 'transparent',
+                      color: viewMode === 'grid_medium' ? '#1d4ed8' : '#334155',
+                      fontWeight: viewMode === 'grid_medium' ? 800 : 500,
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      textAlign: 'right',
+                      width: '100%'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.95rem' }}>▦</span>
+                    <span>בינוני</span>
+                    {viewMode === 'grid_medium' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSetViewMode('grid_large')}
+                    style={{
+                      border: 'none',
+                      background: viewMode === 'grid_large' ? '#eff6ff' : 'transparent',
+                      color: viewMode === 'grid_large' ? '#1d4ed8' : '#334155',
+                      fontWeight: viewMode === 'grid_large' ? 800 : 500,
+                      borderRadius: '8px',
+                      padding: '6px 10px',
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      textAlign: 'right',
+                      width: '100%'
+                    }}
+                  >
+                    <span style={{ fontSize: '0.95rem' }}>☷</span>
+                    <span>גדול</span>
+                    {viewMode === 'grid_large' && <span style={{ marginRight: 'auto', color: '#3b82f6', fontWeight: 900 }}>✓</span>}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+
           {deletedItems.length > 0 && (
             <button
               type="button"
@@ -799,70 +943,126 @@ export function FileShareWidget({
         </div>
       )}
 
-      {/* 4. ITEMS LIST (FOLDERS LIST, THEN FILES GRID) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-        {/* FOLDERS SECTION */}
-        {folders.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-            {folders.map(folder => (
-              <FileShareItemCard
-                key={folder.id}
-                item={folder}
-                onOpen={handleOpenItem}
-                onManageLink={item => setActiveShareItem(item)}
-                onManagePermissions={item => {
-                  setPrivacyItem(item);
-                  setSelectedAllowedPartners(item.allowedPartners || []);
-                }}
-                onRename={handleRenameItem}
-                onDelete={handleDeleteItem}
-                onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
-                onToggleFavorite={handleToggleFavorite}
-                isMultiSelect={isMultiSelect}
-                isSelected={selectedItemIds.includes(folder.id)}
-                onToggleSelect={handleToggleSelectItem}
-                onLongPressSelect={item => {
-                  setIsMultiSelect(true);
-                  setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
-                }}
-              />
-            ))}
+      {/* 4. ITEMS LIST (FOLDERS & FILES ACCORDING TO VIEW MODE) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        {/* Table Header when in List View */}
+        {viewMode === 'list' && (folders.length > 0 || files.length > 0) && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMultiSelect ? '26px 36px 30px 38px 1fr 90px 105px' : '36px 30px 38px 1fr 90px 105px',
+            alignItems: 'center',
+            gap: '0.45rem',
+            padding: '0.35rem 0.6rem',
+            background: '#f1f5f9',
+            borderRadius: '8px',
+            fontSize: '0.72rem',
+            fontWeight: 800,
+            color: '#475569'
+          }}>
+            {isMultiSelect && <span style={{ textAlign: 'center' }}>בחר</span>}
+            <span style={{ textAlign: 'center' }}>מס'</span>
+            <span style={{ textAlign: 'center' }} title="מועדף / רלוונטי">⭐</span>
+            <span>תצוגה</span>
+            <span>שם הפריט</span>
+            <span style={{ textAlign: 'right' }}>תאריך / משקל</span>
+            <span style={{ textAlign: 'center' }}>פעולות</span>
           </div>
         )}
 
-        {/* FILES GRID SECTION (Uniform 2-column responsive grid matching Vault Documents) */}
+        {/* FOLDERS SECTION */}
+        {folders.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span>📁</span>
+              <span>תיקיות ({folders.length}):</span>
+            </div>
+
+            <div style={{
+              display: viewMode === 'list' ? 'flex' : 'grid',
+              flexDirection: viewMode === 'list' ? 'column' : undefined,
+              gridTemplateColumns: viewMode === 'grid_large' 
+                ? 'repeat(auto-fill, minmax(175px, 1fr))' 
+                : (viewMode === 'grid_medium' ? 'repeat(auto-fill, minmax(125px, 1fr))' : undefined),
+              gap: '0.75rem'
+            }}>
+              {folders.map(folder => {
+                const subItemCount = allItems.filter(i => i.parentId === folder.id && !i.deletedAt).length;
+                return (
+                  <FileShareItemCard
+                    key={folder.id}
+                    item={folder}
+                    viewMode={viewMode}
+                    containedItemCount={subItemCount}
+                    onOpen={handleOpenItem}
+                    onManageLink={item => setActiveShareItem(item)}
+                    onManagePermissions={item => {
+                      setPrivacyItem(item);
+                      setSelectedAllowedPartners(item.allowedPartners || []);
+                    }}
+                    onRename={handleRenameItem}
+                    onDelete={handleDeleteItem}
+                    onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
+                    onToggleFavorite={handleToggleFavorite}
+                    isMultiSelect={isMultiSelect}
+                    isSelected={selectedItemIds.includes(folder.id)}
+                    onToggleSelect={handleToggleSelectItem}
+                    onLongPressSelect={item => {
+                      setIsMultiSelect(true);
+                      setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* FILES SECTION */}
         {files.length > 0 && (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
-            gap: '0.75rem'
-          }}>
-            {files.map((file, idx) => (
-              <FileShareItemCard
-                key={file.id}
-                item={file}
-                itemIndex={idx}
-                onOpen={handleOpenItem}
-                onManageLink={item => setActiveShareItem(item)}
-                onManagePermissions={item => {
-                  setPrivacyItem(item);
-                  setSelectedAllowedPartners(item.allowedPartners || []);
-                }}
-                onRename={handleRenameItem}
-                onDelete={handleDeleteItem}
-                onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
-                onToggleFavorite={handleToggleFavorite}
-                onEditInScanner={handleEditInScanner}
-                hasScanner={hasScanner}
-                isMultiSelect={isMultiSelect}
-                isSelected={selectedItemIds.includes(file.id)}
-                onToggleSelect={handleToggleSelectItem}
-                onLongPressSelect={item => {
-                  setIsMultiSelect(true);
-                  setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
-                }}
-              />
-            ))}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+            {folders.length > 0 && (
+              <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>📄</span>
+                <span>קבצים ({files.length}):</span>
+              </div>
+            )}
+
+            <div style={{
+              display: viewMode === 'list' ? 'flex' : 'grid',
+              flexDirection: viewMode === 'list' ? 'column' : undefined,
+              gridTemplateColumns: viewMode === 'grid_large' 
+                ? 'repeat(auto-fill, minmax(175px, 1fr))' 
+                : (viewMode === 'grid_medium' ? 'repeat(auto-fill, minmax(125px, 1fr))' : undefined),
+              gap: '0.75rem'
+            }}>
+              {files.map((file, idx) => (
+                <FileShareItemCard
+                  key={file.id}
+                  item={file}
+                  itemIndex={idx}
+                  viewMode={viewMode}
+                  onOpen={handleOpenItem}
+                  onManageLink={item => setActiveShareItem(item)}
+                  onManagePermissions={item => {
+                    setPrivacyItem(item);
+                    setSelectedAllowedPartners(item.allowedPartners || []);
+                  }}
+                  onRename={handleRenameItem}
+                  onDelete={handleDeleteItem}
+                  onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
+                  onToggleFavorite={handleToggleFavorite}
+                  onEditInScanner={handleEditInScanner}
+                  hasScanner={hasScanner}
+                  isMultiSelect={isMultiSelect}
+                  isSelected={selectedItemIds.includes(file.id)}
+                  onToggleSelect={handleToggleSelectItem}
+                  onLongPressSelect={item => {
+                    setIsMultiSelect(true);
+                    setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+                  }}
+                />
+              ))}
+            </div>
           </div>
         )}
 
