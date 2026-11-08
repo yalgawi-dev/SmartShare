@@ -155,10 +155,16 @@ export function isTrueOriginalPdf(analysis: PdfAnalysisResult, fileSize: number)
     return false;
   }
 
-  // 3. True Digital-Born Vector PDF:
-  // Has verified vector text layer and average page size is lightweight (typical vector doc is 30KB - 500KB per page).
-  // Supports multi-page documents (50 or 100 pages) as long as it's vector-based!
-  if (analysis.hasTextLayer && analysis.avgBytesPerPage <= 700 * 1024) {
+  // 3. True Digital-Born Vector PDF or CAD Blueprint:
+  // Has verified vector text layer or vector graphics operators (typical vector doc is 30KB - 500KB per page,
+  // but dense architectural CAD drawings and blueprints can be 1.5MB - 5MB per page of vector paths).
+  // If it has text layer and is not a pure wrapped camera scan, retain raw PDF for legal validity & Ultra-HD zoom!
+  if (analysis.hasTextLayer) {
+    return true;
+  }
+
+  // If page density is light to moderate and not flagged as a wrapped scan, preserve original
+  if (!analysis.isWrappedRasterScan && analysis.avgBytesPerPage <= 700 * 1024) {
     return true;
   }
 

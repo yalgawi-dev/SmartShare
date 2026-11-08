@@ -481,6 +481,7 @@ export function FileShareWidget({
       const fileDocs = files.map(f => ({
         id: f.id,
         url: f.url || '',
+        rawPdfUrl: f.rawPdfUrl || (f.fileType === 'pdf' || f.url?.toLowerCase().includes('.pdf') ? f.url : undefined),
         title: f.name,
         type: f.fileType || 'other',
         pages: f.pages || (f.url ? [f.url] : [])

@@ -577,6 +577,7 @@ export default function SharedFileHandler() {
               shelfId: targetShelfId,
               folderId: selectedFolderId || undefined,
               url: rawPdfDownloadUrl || finalThumb,
+              rawPdfUrl: rawPdfDownloadUrl,
               thumbnailUrl: finalThumb,
               pages: uploadedPages.length > 0 ? uploadedPages : (finalThumb ? [finalThumb] : undefined),
               title: cleanTitle || (isOriginalSignedOrVector ? 'מסמך PDF מקורי' : 'מסמך ששותף'),

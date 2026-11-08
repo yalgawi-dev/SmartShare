@@ -177,6 +177,7 @@ export interface SpaceDocument {
   thumbnailUrl?: string;
   pages?: string[];
   storageTarget?: 'cloud' | 'local' | 'gdrive';
+  rawPdfUrl?: string;
   deletedAt?: string;
   note?: string;
   fileSize?: number;

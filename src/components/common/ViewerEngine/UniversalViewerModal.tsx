@@ -152,13 +152,15 @@ export default function UniversalViewerModal({
       return;
     }
 
-    // Must have a valid PDF source url (url or rawPdfUrl)
-    const pdfSource = currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.url?.startsWith('data:application/pdf')
+    // Must have a valid PDF source url (url or rawPdfUrl or downloadUrl)
+    const pdfSource = (currentDoc.url?.toLowerCase().includes('.pdf') || currentDoc.url?.startsWith('data:application/pdf'))
       ? currentDoc.url
-      : (currentDoc.rawPdfUrl || (isDocPdf ? currentDoc.url : ''));
+      : (currentDoc.rawPdfUrl || currentDoc.downloadUrl || currentDoc.originalUrl || (isDocPdf ? currentDoc.url : ''));
 
     if (!pdfSource) {
-      alert('קובץ מקור PDF אינו זמין לחידוד HD.');
+      // If no raw PDF file is available (e.g. image document or older pre-rasterized file),
+      // seamlessly enable Ultra-Contrast visual sharpening mode without interrupting with an alert!
+      setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
       return;
     }
 
@@ -174,11 +176,12 @@ export default function UniversalViewerModal({
           onNormalizeDoc(currentDoc.id, hdPages);
         }
       } else {
-        alert('לא ניתן היה לרנדר עמודי HD עבור קובץ זה.');
+        // Fallback to high-contrast sharpening
+        setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
       }
     } catch (err) {
-      console.error('Failed to render Ultra-HD PDF pages:', err);
-      alert('אירעה שגיאה בחידוד השרטוט.');
+      console.warn('Failed to render Ultra-HD PDF pages, fallback to image contrast mode:', err);
+      setHdActiveDocIds(prev => ({ ...prev, [currentDocKey]: true }));
     } finally {
       setIsHdRendering(false);
     }
@@ -657,7 +660,8 @@ export default function UniversalViewerModal({
                                   boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                                   userSelect: 'none',
                                   border: '1px solid rgba(255, 255, 255, 0.08)',
-                                  imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
+                                  imageRendering: (currentScale > 2.0 || isHdActive) ? '-webkit-optimize-contrast' : 'auto',
+                                  filter: isHdActive ? 'contrast(1.32) brightness(0.97)' : 'none'
                                 }}
                               />
                               {/* CamScanner Page Badge */}
@@ -961,7 +965,8 @@ export default function UniversalViewerModal({
                             boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                             userSelect: 'none',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
-                            imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto',
+                            imageRendering: (currentScale > 2.0 || isHdActive) ? '-webkit-optimize-contrast' : 'auto',
+                            filter: isHdActive ? 'contrast(1.32) brightness(0.97)' : 'none',
                             position: 'relative',
                             zIndex: 2
                           }}

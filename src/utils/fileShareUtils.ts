@@ -50,6 +50,7 @@ export interface FileShareItem {
   thumbnailUrl?: string;
   pages?: string[];        // for multi-page documents
   fileType?: 'pdf' | 'image' | 'doc' | 'sheet' | 'other';
+  rawPdfUrl?: string;
   size?: number;           // bytes
   createdAt: number;       // timestamp in ms
   createdBy: string;       // user id
