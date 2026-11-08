@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
-import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare } from '@/utils/fileShareUtils';
+import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
@@ -50,6 +50,7 @@ export function FileShareWidget({
   // Partner Permission Modal state
   const [privacyItem, setPrivacyItem] = useState<FileShareItem | null>(null);
   const [selectedAllowedPartners, setSelectedAllowedPartners] = useState<string[]>([]);
+  const [folderPartnersConfig, setFolderPartnersConfig] = useState<FolderPartnerPermission[]>([]);
 
   // Multi-select and batch operations (Rule DRY / Single Source of Truth)
   const [isMultiSelect, setIsMultiSelect] = useState(false);
@@ -109,6 +110,23 @@ export function FileShareWidget({
 
   const isCreator = space.creatorId === user?.id || (user?.email && space.creatorEmail === user.email);
   const currentUserId = user?.id || '';
+
+  // Check if current user is folder admin or creator for current folder
+  const currentFolderItem = useMemo(() => {
+    if (!currentFolderId) return null;
+    return activeItems.find(i => i.id === currentFolderId && i.type === 'folder') || null;
+  }, [currentFolderId, activeItems]);
+
+  const isCurrentFolderAdmin = useMemo(() => {
+    if (isCreator) return true;
+    if (!currentFolderItem) return true; // root level
+    if (currentFolderItem.createdBy === currentUserId) return true;
+    if (Array.isArray(currentFolderItem.folderPartners)) {
+      const p = currentFolderItem.folderPartners.find(fp => fp.partnerId === currentUserId);
+      if (p && p.role === 'admin') return true;
+    }
+    return false;
+  }, [isCreator, currentFolderItem, currentUserId]);
 
   // Listen to floating dock events (Rule DRY / Single Source of Action)
   useEffect(() => {
@@ -186,8 +204,9 @@ export function FileShareWidget({
         } else if (item.allowedPartners.includes('__only_me__')) {
           if (item.createdBy !== currentUserId && !isCreator) return false;
         } else {
-          // Specific partners list
-          if (!isCreator && currentUserId && !item.allowedPartners.includes(currentUserId) && item.createdBy !== currentUserId) {
+          // Check if user is in allowedPartners OR in folderPartners
+          const hasFolderPartnerAccess = Array.isArray(item.folderPartners) && item.folderPartners.some(fp => fp.partnerId === currentUserId);
+          if (!isCreator && currentUserId && !item.allowedPartners.includes(currentUserId) && !hasFolderPartnerAccess && item.createdBy !== currentUserId) {
             return false;
           }
         }
@@ -495,7 +514,8 @@ export function FileShareWidget({
       if (i.id === privacyItem.id) {
         return {
           ...i,
-          allowedPartners: selectedAllowedPartners
+          allowedPartners: selectedAllowedPartners,
+          folderPartners: privacyItem.type === 'folder' ? folderPartnersConfig : undefined
         };
       }
       return i;
@@ -775,6 +795,9 @@ export function FileShareWidget({
           </button>
           {breadcrumbTrail.map((crumb, idx) => {
             const isLast = idx === breadcrumbTrail.length - 1;
+            const crumbFolder = crumb.id ? activeItems.find(i => i.id === crumb.id) : null;
+            const crumbPartners = crumbFolder?.folderPartners || [];
+
             return (
               <React.Fragment key={crumb.id || 'root'}>
                 {idx > 0 && <span style={{ color: 'var(--text-secondary)' }}>/</span>}
@@ -784,10 +807,18 @@ export function FileShareWidget({
                     color: isLast ? 'var(--text-primary)' : 'var(--primary)',
                     fontWeight: isLast ? 800 : 600,
                     cursor: isLast ? 'default' : 'pointer',
-                    textDecoration: isLast ? 'none' : 'underline'
+                    textDecoration: isLast ? 'none' : 'underline',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
                   }}
                 >
-                  {crumb.id === null ? '🏠 ראשי' : `📁 ${crumb.name}`}
+                  <span>{crumb.id === null ? '🏠 ראשי' : `📁 ${crumb.name}`}</span>
+                  {crumbPartners.length > 0 && (
+                    <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '4px', background: '#e0e7ff', color: '#3730a3', fontWeight: 700 }}>
+                      👥 {crumbPartners.map(p => p.name || 'שותף').join(', ')}
+                    </span>
+                  )}
                 </span>
               </React.Fragment>
             );
@@ -1000,6 +1031,7 @@ export function FileShareWidget({
                     onManagePermissions={item => {
                       setPrivacyItem(item);
                       setSelectedAllowedPartners(item.allowedPartners || []);
+                      setFolderPartnersConfig(item.folderPartners || []);
                     }}
                     onRename={handleRenameItem}
                     onDelete={handleDeleteItem}
@@ -1048,6 +1080,7 @@ export function FileShareWidget({
                   onManagePermissions={item => {
                     setPrivacyItem(item);
                     setSelectedAllowedPartners(item.allowedPartners || []);
+                    setFolderPartnersConfig(item.folderPartners || []);
                   }}
                   onRename={handleRenameItem}
                   onDelete={handleDeleteItem}
@@ -1168,7 +1201,7 @@ export function FileShareWidget({
               קבע מי יכול לצפות בפריט: <strong>{privacyItem.name}</strong>
             </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '280px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '360px', overflowY: 'auto' }}>
               {/* Option 1: 🌐 Open to everyone in space (Rule 20 default) */}
               <label style={{
                 display: 'flex',
@@ -1186,7 +1219,10 @@ export function FileShareWidget({
                   type="radio"
                   name="privacyScope"
                   checked={selectedAllowedPartners.length === 0}
-                  onChange={() => setSelectedAllowedPartners([])}
+                  onChange={() => {
+                    setSelectedAllowedPartners([]);
+                    setFolderPartnersConfig([]);
+                  }}
                   style={{ accentColor: 'var(--primary)' }}
                 />
                 <div>
@@ -1195,7 +1231,7 @@ export function FileShareWidget({
                 </div>
               </label>
 
-              {/* Option 2: 👤 Only Me */}
+              {/* Option 2: 👤 Solo / Only Me */}
               <label style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1212,12 +1248,15 @@ export function FileShareWidget({
                   type="radio"
                   name="privacyScope"
                   checked={selectedAllowedPartners.includes('__only_me__')}
-                  onChange={() => setSelectedAllowedPartners(['__only_me__'])}
+                  onChange={() => {
+                    setSelectedAllowedPartners(['__only_me__']);
+                    setFolderPartnersConfig([]);
+                  }}
                   style={{ accentColor: 'var(--primary)' }}
                 />
                 <div>
-                  <div style={{ color: 'var(--text-primary)' }}>👤 רק לעצמי (פרטי לחלוטין)</div>
-                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>רק אתה תוכל לצפות בפריט זה</div>
+                  <div style={{ color: 'var(--text-primary)' }}>👤 פרויקט סולו (רק לעצמי - פרטי לחלוטין)</div>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', fontWeight: 500 }}>רק אתה כמנהל המרחב תוכל לצפות ולנהל פריט זה</div>
                 </div>
               </label>
 
@@ -1238,7 +1277,10 @@ export function FileShareWidget({
                   type="radio"
                   name="privacyScope"
                   checked={selectedAllowedPartners.includes('__creator_vault_secret__')}
-                  onChange={() => setSelectedAllowedPartners(['__creator_vault_secret__'])}
+                  onChange={() => {
+                    setSelectedAllowedPartners(['__creator_vault_secret__']);
+                    setFolderPartnersConfig([]);
+                  }}
                   style={{ accentColor: 'var(--primary)' }}
                 />
                 <div>
@@ -1247,49 +1289,170 @@ export function FileShareWidget({
                 </div>
               </label>
 
-              {/* Option 4: Specific Members / Partners (if any exist) */}
+              {/* Option 4: Specific Members / Project Partners (Dedicated Local Role & Permissions) */}
               {activePartners.length > 0 && (
                 <div style={{ marginTop: '0.4rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.5rem' }}>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.4rem' }}>
-                    🔒 או הגבל לחברים / שותפים ספציפיים:
+                  <div style={{ fontSize: '0.82rem', fontWeight: 800, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                    👥 שיוך שותפים ייעודיים {privacyItem?.type === 'folder' ? 'לפרויקט / תיקייה זו' : 'לפריט זה'}:
                   </div>
-                  {activePartners.map((m: any) => {
-                    const partnerId = m.userId || m.id;
-                    const isChecked = selectedAllowedPartners.includes(partnerId);
-                    return (
-                      <label 
-                        key={partnerId}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          padding: '0.5rem 0.8rem',
-                          background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
-                          borderRadius: '10px',
-                          cursor: 'pointer',
-                          fontSize: '0.82rem',
-                          color: 'var(--text-primary)'
-                        }}
-                      >
-                        <input 
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => {
-                            if (isChecked) {
-                              setSelectedAllowedPartners(prev => prev.filter(id => id !== partnerId));
-                            } else {
-                              setSelectedAllowedPartners(prev => [
-                                ...prev.filter(id => id !== '__only_me__' && id !== '__creator_vault_secret__'),
-                                partnerId
-                              ]);
-                            }
+                  <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.72rem', color: 'var(--text-secondary)', lineHeight: 1.35 }}>
+                    תוכל להגדיר שותף ספציפי כספק, לקוח או שותף כללי, ולקבוע אם יש לו הרשאת ניהול מקומית בתיקייה או הרשאת צפייה בלבד.
+                  </p>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    {activePartners.map((m: any) => {
+                      const partnerId = m.userId || m.id;
+                      const isChecked = selectedAllowedPartners.includes(partnerId);
+                      const currentPartnerConfig = folderPartnersConfig.find(fp => fp.partnerId === partnerId) || {
+                        partnerId,
+                        role: 'admin' as const,
+                        partnerType: 'general' as const
+                      };
+
+                      return (
+                        <div
+                          key={partnerId}
+                          style={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '0.35rem',
+                            padding: '0.55rem 0.75rem',
+                            background: isChecked ? 'rgba(99, 102, 241, 0.08)' : 'var(--bg-main, #f8fafc)',
+                            border: isChecked ? '1.5px solid var(--primary, #4f46e5)' : '1px solid var(--border-light, #e2e8f0)',
+                            borderRadius: '12px',
+                            transition: 'all 0.15s ease'
                           }}
-                          style={{ accentColor: 'var(--primary)' }}
-                        />
-                        <span>{m.name || m.email || 'חבר מרחב'} {m.role === 'creator' ? '(יוצר המרחב)' : ''}</span>
-                      </label>
-                    );
-                  })}
+                        >
+                          <label 
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              cursor: 'pointer',
+                              fontSize: '0.82rem',
+                              color: 'var(--text-primary)',
+                              fontWeight: isChecked ? 800 : 600
+                            }}
+                          >
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <input 
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={() => {
+                                  if (isChecked) {
+                                    setSelectedAllowedPartners(prev => prev.filter(id => id !== partnerId));
+                                    setFolderPartnersConfig(prev => prev.filter(fp => fp.partnerId !== partnerId));
+                                  } else {
+                                    setSelectedAllowedPartners(prev => [
+                                      ...prev.filter(id => id !== '__only_me__' && id !== '__creator_vault_secret__'),
+                                      partnerId
+                                    ]);
+                                    setFolderPartnersConfig(prev => [
+                                      ...prev.filter(fp => fp.partnerId !== partnerId),
+                                      {
+                                        partnerId,
+                                        name: m.name || m.email,
+                                        role: 'admin',
+                                        partnerType: 'general',
+                                        assignedAt: Date.now()
+                                      }
+                                    ]);
+                                  }
+                                }}
+                                style={{ accentColor: 'var(--primary)' }}
+                              />
+                              <span>{m.name || m.email || 'חבר מרחב'} {m.role === 'creator' ? '(יוצר המרחב)' : ''}</span>
+                            </div>
+                            {isChecked && (
+                              <span style={{ fontSize: '0.68rem', color: '#4f46e5', fontWeight: 800, background: '#eff6ff', padding: '1px 6px', borderRadius: '4px' }}>
+                                מורשה ✓
+                              </span>
+                            )}
+                          </label>
+
+                          {/* Role & Partner Type Controls (Shown when partner is checked and item is a folder) */}
+                          {isChecked && privacyItem?.type === 'folder' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem', paddingTop: '0.35rem', borderTop: '1px dashed #cbd5e1', flexWrap: 'wrap' }}>
+                              {/* Partner Type: Client / Provider / General */}
+                              <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>תפקיד:</span>
+                                {(
+                                  [
+                                    { id: 'client', label: '👤 לקוח' },
+                                    { id: 'provider', label: '🛠️ ספק' },
+                                    { id: 'general', label: '🤝 שותף' }
+                                  ] as const
+                                ).map(t => (
+                                  <button
+                                    key={t.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFolderPartnersConfig(prev => {
+                                        const exists = prev.find(fp => fp.partnerId === partnerId);
+                                        if (exists) {
+                                          return prev.map(fp => fp.partnerId === partnerId ? { ...fp, partnerType: t.id } : fp);
+                                        }
+                                        return [...prev, { partnerId, name: m.name, role: 'admin', partnerType: t.id, assignedAt: Date.now() }];
+                                      });
+                                    }}
+                                    style={{
+                                      padding: '2px 5px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: currentPartnerConfig.partnerType === t.id ? 800 : 500,
+                                      border: currentPartnerConfig.partnerType === t.id ? '1px solid #4f46e5' : '1px solid #e2e8f0',
+                                      background: currentPartnerConfig.partnerType === t.id ? '#4f46e5' : '#ffffff',
+                                      color: currentPartnerConfig.partnerType === t.id ? '#ffffff' : '#475569',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {t.label}
+                                  </button>
+                                ))}
+                              </div>
+
+                              {/* Local Access Permission: Admin vs Viewer */}
+                              <div style={{ display: 'flex', gap: '0.2rem', alignItems: 'center', marginRight: 'auto' }}>
+                                <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700 }}>הרשאה:</span>
+                                {(
+                                  [
+                                    { id: 'admin', label: '⚡ מנהל תיקייה' },
+                                    { id: 'viewer', label: '👁️ צפייה בלבד' }
+                                  ] as const
+                                ).map(p => (
+                                  <button
+                                    key={p.id}
+                                    type="button"
+                                    onClick={() => {
+                                      setFolderPartnersConfig(prev => {
+                                        const exists = prev.find(fp => fp.partnerId === partnerId);
+                                        if (exists) {
+                                          return prev.map(fp => fp.partnerId === partnerId ? { ...fp, role: p.id } : fp);
+                                        }
+                                        return [...prev, { partnerId, name: m.name, role: p.id, partnerType: 'general', assignedAt: Date.now() }];
+                                      });
+                                    }}
+                                    style={{
+                                      padding: '2px 6px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: currentPartnerConfig.role === p.id ? 800 : 500,
+                                      border: currentPartnerConfig.role === p.id ? '1px solid #059669' : '1px solid #e2e8f0',
+                                      background: currentPartnerConfig.role === p.id ? '#ecfdf5' : '#ffffff',
+                                      color: currentPartnerConfig.role === p.id ? '#059669' : '#475569',
+                                      cursor: 'pointer'
+                                    }}
+                                  >
+                                    {p.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

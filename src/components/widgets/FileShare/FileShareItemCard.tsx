@@ -100,10 +100,22 @@ export function FileShareItemCard({
 
   const getPrivacyBadge = () => {
     if (isOnlyMe) {
-      return { icon: '👤', text: 'רק לעצמי', bg: '#fef3c7', color: '#92400e', border: '#fde68a' };
+      return { icon: '👤', text: 'סולו', bg: '#fef3c7', color: '#92400e', border: '#fde68a' };
     }
     if (isOnlyAdmins) {
       return { icon: '🛡️', text: 'מנהלים', bg: '#fee2e2', color: '#991b1b', border: '#fecaca' };
+    }
+    if (Array.isArray(item.folderPartners) && item.folderPartners.length > 0) {
+      const pCount = item.folderPartners.length;
+      const firstRole = item.folderPartners[0].partnerType;
+      const roleIcon = firstRole === 'provider' ? '🛠️' : (firstRole === 'client' ? '👤' : '🤝');
+      return { 
+        icon: roleIcon, 
+        text: pCount > 1 ? `${roleIcon} ${pCount} שותפים` : `${roleIcon} ${item.folderPartners[0].name || 'שותף פרויקט'}`, 
+        bg: '#eff6ff', 
+        color: '#1d4ed8', 
+        border: '#bfdbfe' 
+      };
     }
     if (isRestricted) {
       return { icon: '🔒', text: 'מוגבל', bg: '#ede9fe', color: '#6d28d9', border: '#ddd6fe' };

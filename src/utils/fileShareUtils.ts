@@ -32,6 +32,14 @@ export interface ShareLinkConfig {
   recipients?: RecipientShareLink[];
 }
 
+export interface FolderPartnerPermission {
+  partnerId: string;
+  name?: string;
+  role: 'admin' | 'viewer'; // 'admin' = מנהל תיקייה (יכול להעלות, למחוק, לנהל), 'viewer' = צופה בלבד
+  partnerType?: 'provider' | 'client' | 'general'; // ספק / קבלן, לקוח / מזמין, שותף כללי
+  assignedAt?: number;
+}
+
 export interface FileShareItem {
   id: string;
   spaceId: string;
@@ -47,6 +55,7 @@ export interface FileShareItem {
   createdBy: string;       // user id
   creatorName: string;
   allowedPartners?: string[]; // empty array = open to all space members (Rule 20)
+  folderPartners?: FolderPartnerPermission[]; // Local folder partners with custom permissions & roles
   shareLink?: ShareLinkConfig;
   isFavorite?: boolean;
   deletedAt?: string;
