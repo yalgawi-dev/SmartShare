@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileShareItem, ShareLinkConfig, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
+import { FileShareItem, ShareLinkConfig, RecipientShareLink, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
@@ -29,6 +29,11 @@ export function CreateShareLinkModal({
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string>('');
 
+  // Individual Named Recipients for 1-to-1 Tracking & Blocking
+  const [recipients, setRecipients] = useState<RecipientShareLink[]>([]);
+  const [newRecipientName, setNewRecipientName] = useState('');
+  const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
+
   // Helper to generate a secure random 4-digit PIN
   const generateRandomPin = () => {
     const randomNum = Math.floor(1000 + Math.random() * 9000);
@@ -44,6 +49,7 @@ export function CreateShareLinkModal({
         setRequirePin(Boolean(link.requirePin));
         setPin(link.pin || '');
         setAllowDownload(link.allowDownload !== false);
+        setRecipients(Array.isArray(link.recipients) ? link.recipients : []);
 
         if (!link.expiresAt) {
           setExpiryOption('never');
@@ -61,8 +67,10 @@ export function CreateShareLinkModal({
         setPin('');
         setExpiryOption('never');
         setAllowDownload(true);
+        setRecipients([]);
       }
       setCopied(false);
+      setNewRecipientName('');
     }
   }, [isOpen, item]);
 
@@ -79,10 +87,11 @@ export function CreateShareLinkModal({
     return null;
   };
 
-  const ensurePersisted = async (tokenToUse: string): Promise<boolean> => {
+  const ensurePersisted = async (tokenToUse: string, updatedRecipients?: RecipientShareLink[]): Promise<boolean> => {
     if (!item) return false;
     try {
       const expiresAt = calculateExpiryTimestamp(expiryOption);
+      const activeRecipients = updatedRecipients !== undefined ? updatedRecipients : recipients;
       const newConfig: ShareLinkConfig = {
         enabled: true,
         token: tokenToUse,
@@ -91,8 +100,10 @@ export function CreateShareLinkModal({
         expiresAt,
         allowDownload,
         viewCount: item.shareLink?.viewCount || 0,
+        totalDurationSeconds: item.shareLink?.totalDurationSeconds || 0,
         lastViewedAt: item.shareLink?.lastViewedAt || null,
-        createdAt: item.shareLink?.createdAt || Date.now()
+        createdAt: item.shareLink?.createdAt || Date.now(),
+        recipients: activeRecipients
       };
 
       await createOrUpdatePublicShare(
@@ -108,6 +119,79 @@ export function CreateShareLinkModal({
       console.error('Failed to auto-persist share link:', err);
       return false;
     }
+  };
+
+  const handleAddRecipient = async () => {
+    if (!newRecipientName.trim()) return;
+    const recipientToken = generateShareToken();
+    const newRecipient: RecipientShareLink = {
+      id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      recipientName: newRecipientName.trim(),
+      token: recipientToken,
+      enabled: true,
+      createdAt: Date.now(),
+      viewCount: 0,
+      totalDurationSeconds: 0,
+      lastViewedAt: null
+    };
+
+    const nextRecipients = [...recipients, newRecipient];
+    setRecipients(nextRecipients);
+    setNewRecipientName('');
+    if (token) {
+      await ensurePersisted(token, nextRecipients);
+    }
+  };
+
+  const handleToggleRecipientBlock = async (recId: string) => {
+    const nextRecipients = recipients.map(r => {
+      if (r.id === recId) {
+        return { ...r, enabled: !r.enabled };
+      }
+      return r;
+    });
+    setRecipients(nextRecipients);
+    if (token) {
+      await ensurePersisted(token, nextRecipients);
+    }
+  };
+
+  const handleRemoveRecipient = async (recId: string) => {
+    const target = recipients.find(r => r.id === recId);
+    if (target?.token) {
+      await revokePublicShare(target.token);
+    }
+    const nextRecipients = recipients.filter(r => r.id !== recId);
+    setRecipients(nextRecipients);
+    if (token) {
+      await ensurePersisted(token, nextRecipients);
+    }
+  };
+
+  const handleCopyRecipientLink = async (r: RecipientShareLink) => {
+    const url = `${currentOrigin}/share/${r.token}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedRecipientId(r.id);
+      setTimeout(() => setCopiedRecipientId(null), 2500);
+    } catch (_) {
+      const textarea = document.createElement('textarea');
+      textarea.value = url;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      setCopiedRecipientId(r.id);
+      setTimeout(() => setCopiedRecipientId(null), 2500);
+    }
+  };
+
+  const handleWhatsAppRecipient = (r: RecipientShareLink) => {
+    const url = `${currentOrigin}/share/${r.token}`;
+    const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
+    const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
+    const text = encodeURIComponent(`שלום ${r.recipientName}, מצורף קישור אישי לצפייה ב${itemTypeHeb} "${item?.name}" מתוך ${spaceTitle}:${pinText}\n${url}`);
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
   const handleSave = async () => {
@@ -542,8 +626,11 @@ export function CreateShareLinkModal({
 
                 {/* Audit stats */}
                 {item.shareLink?.viewCount !== undefined && (
-                  <div style={{ marginTop: '0.6rem', fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <div style={{ marginTop: '0.6rem', fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
                     <span>👁️ נצפה {item.shareLink.viewCount} פעמים</span>
+                    {item.shareLink.totalDurationSeconds ? (
+                      <span>• ⏱️ שהייה מצטברת: {Math.round(item.shareLink.totalDurationSeconds / 60) > 0 ? `${Math.round(item.shareLink.totalDurationSeconds / 60)} דקות` : `${item.shareLink.totalDurationSeconds} שניות`}</span>
+                    ) : null}
                     {item.shareLink.lastViewedAt && (
                       <span>• לאחרונה ב-{new Date(item.shareLink.lastViewedAt).toLocaleDateString('he-IL')}</span>
                     )}
@@ -551,6 +638,191 @@ export function CreateShareLinkModal({
                 )}
               </div>
             )}
+
+            {/* NAMED RECIPIENTS SECTION (1-to-1 Tracking & Selective Blocking) */}
+            <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                <span style={{ fontSize: '0.86rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  👥 נמענים ומעקב אישי (ללא חיכוך)
+                </span>
+                <span style={{ fontSize: '0.7rem', color: '#6366f1', fontWeight: 700 }}>
+                  מעקב צפיות + חסימה פרטנית
+                </span>
+              </div>
+              <p style={{ margin: '0 0 0.6rem 0', fontSize: '0.73rem', color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+                הוסף שמות של קבלנים או שותפים כדי לקבל עבור כל אחד מהם קישור ייחודי. תוכל לדעת בדיוק מי פתח וכמה זמן צפה, ולחסום אדם ספציפי בכל רגע מבלי לפגוע באחרים.
+              </p>
+
+              {/* Add recipient input */}
+              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                <input
+                  type="text"
+                  placeholder="שם הנמען (למשל: יוסי קבלן שלד)"
+                  value={newRecipientName}
+                  onChange={e => setNewRecipientName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddRecipient();
+                    }
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '10px',
+                    border: '1px solid var(--border-light)',
+                    background: 'var(--bg-main)',
+                    fontSize: '0.82rem',
+                    color: 'var(--text-primary)'
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={handleAddRecipient}
+                  disabled={!newRecipientName.trim()}
+                  style={{
+                    padding: '0.5rem 0.85rem',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.8rem',
+                    cursor: newRecipientName.trim() ? 'pointer' : 'default',
+                    whiteSpace: 'nowrap'
+                  }}
+                >
+                  ➕ הוסף קישור אישי
+                </button>
+              </div>
+
+              {/* Recipients list */}
+              {recipients.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxHeight: '180px', overflowY: 'auto' }}>
+                  {recipients.map(r => {
+                    const isCopied = copiedRecipientId === r.id;
+                    const durationText = r.totalDurationSeconds
+                      ? (Math.round(r.totalDurationSeconds / 60) > 0 ? `${Math.round(r.totalDurationSeconds / 60)} דק'` : `${r.totalDurationSeconds} שנ'`)
+                      : '0 שנ\'';
+
+                    return (
+                      <div
+                        key={r.id}
+                        style={{
+                          background: r.enabled ? '#ffffff' : '#fef2f2',
+                          border: r.enabled ? '1px solid #e2e8f0' : '1px solid #fecaca',
+                          borderRadius: '12px',
+                          padding: '0.5rem 0.65rem',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: '0.5rem',
+                          fontSize: '0.78rem'
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <span style={{ fontWeight: 800, color: r.enabled ? '#0f172a' : '#991b1b', textDecoration: r.enabled ? 'none' : 'line-through' }}>
+                              {r.recipientName}
+                            </span>
+                            {!r.enabled && (
+                              <span style={{ fontSize: '0.62rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
+                                חסום 🛑
+                              </span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.68rem', color: '#64748b', display: 'flex', gap: '0.4rem', marginTop: '2px', flexWrap: 'wrap' }}>
+                            <span>👁️ {r.viewCount || 0} צפיות</span>
+                            <span>• ⏱️ שהה: {durationText}</span>
+                            {r.lastViewedAt && (
+                              <span>• נצפה לאחרונה ב-{new Date(r.lastViewedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Actions for this recipient */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                          {r.enabled && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => handleWhatsAppRecipient(r)}
+                                style={{
+                                  background: '#25D366',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  padding: '3px 6px',
+                                  fontSize: '0.72rem',
+                                  cursor: 'pointer',
+                                  fontWeight: 700
+                                }}
+                                title="שלח בוואטסאפ לנמען זה"
+                              >
+                                💬
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyRecipientLink(r)}
+                                style={{
+                                  background: isCopied ? '#059669' : '#eff6ff',
+                                  color: isCopied ? 'white' : '#2563eb',
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: '6px',
+                                  padding: '3px 6px',
+                                  fontSize: '0.72rem',
+                                  cursor: 'pointer',
+                                  fontWeight: 700
+                                }}
+                                title="העתק קישור אישי"
+                              >
+                                {isCopied ? '✓' : '📋'}
+                              </button>
+                            </>
+                          )}
+
+                          {/* Block / Unblock Toggle */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleRecipientBlock(r.id)}
+                            style={{
+                              background: r.enabled ? '#fff1f2' : '#f0fdf4',
+                              color: r.enabled ? '#e11d48' : '#16a34a',
+                              border: r.enabled ? '1px solid #fecdd3' : '1px solid #bbf7d0',
+                              borderRadius: '6px',
+                              padding: '3px 7px',
+                              fontSize: '0.7rem',
+                              fontWeight: 800,
+                              cursor: 'pointer'
+                            }}
+                            title={r.enabled ? 'חסום גישה לנמען זה מיידית' : 'בטל חסימה והחזר גישה לנמען זה'}
+                          >
+                            {r.enabled ? 'חסום' : 'בטל חסימה'}
+                          </button>
+
+                          {/* Remove */}
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveRecipient(r.id)}
+                            style={{
+                              background: 'transparent',
+                              border: 'none',
+                              color: '#94a3b8',
+                              cursor: 'pointer',
+                              fontSize: '0.75rem',
+                              padding: '2px 4px'
+                            }}
+                            title="מחק נמען"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
           </div>
         )}

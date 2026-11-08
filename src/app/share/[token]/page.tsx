@@ -1,9 +1,9 @@
 'use client';
 
-import React, { use, useState, useEffect } from 'react';
+import React, { use, useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { getPublicShare, recordPublicShareView, isShareExpired, PublicSharedData, formatFileSize } from '@/utils/fileShareUtils';
+import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize } from '@/utils/fileShareUtils';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 
 interface SharePageProps {
@@ -24,6 +24,33 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
   // Viewer state
   const [previewState, setPreviewState] = useState<{ docs: any[]; index: number } | null>(null);
+
+  // Heartbeat tracking for time spent in document (Audit duration)
+  const startTimeRef = useRef<number>(Date.now());
+  const intervalRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (isUnlocked && token) {
+      startTimeRef.current = Date.now();
+      // Send heartbeat every 15 seconds
+      intervalRef.current = setInterval(() => {
+        recordShareHeartbeat(token, 15);
+      }, 15000);
+
+      const handleUnload = () => {
+        const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
+        if (elapsed > 0) {
+          recordShareHeartbeat(token, elapsed % 15);
+        }
+      };
+      window.addEventListener('beforeunload', handleUnload);
+
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+        window.removeEventListener('beforeunload', handleUnload);
+      };
+    }
+  }, [isUnlocked, token]);
 
   useEffect(() => {
     async function loadData() {
@@ -250,13 +277,18 @@ export default function PublicSharePage({ params }: SharePageProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span style={{ fontSize: '1.5rem' }}>{isFolder ? '📁' : '📄'}</span>
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
                 <h1 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f172a' }}>
                   {shareData.name}
                 </h1>
                 <span style={{ fontSize: '0.65rem', background: '#dcfce7', color: '#15803d', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
                   🔒 שיתוף מאובטח
                 </span>
+                {shareData.recipientName && (
+                  <span style={{ fontSize: '0.68rem', background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe', padding: '1px 7px', borderRadius: '6px', fontWeight: 800 }}>
+                    שלום, {shareData.recipientName} 👋
+                  </span>
+                )}
               </div>
               <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
                 מתוך: {shareData.spaceTitle}
