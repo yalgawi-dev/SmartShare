@@ -55,9 +55,9 @@ export function CreateShareLinkModal({
   useEffect(() => {
     if (isOpen && item) {
       const link = item.shareLink;
-      if (link && link.enabled && link.token) {
-        setIsEnabled(true);
-        setToken(link.token);
+      if (link && (link.token || Array.isArray(link.recipients))) {
+        setIsEnabled(link.enabled !== false);
+        setToken(link.token || generateShareToken());
         setRequirePin(Boolean(link.requirePin));
         setPin(link.pin || '');
         setAllowDownload(link.allowDownload !== false);
@@ -506,8 +506,8 @@ export function CreateShareLinkModal({
                 <span>🔐 הגנה באמצעות קוד גישה (PIN)</span>
               </label>
               {requirePin && (
-                <div style={{ marginTop: '0.5rem', paddingRight: '1.6rem' }}>
-                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <div style={{ marginTop: '0.5rem', width: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
                     <input 
                       type="text" 
                       maxLength={6}
@@ -516,7 +516,8 @@ export function CreateShareLinkModal({
                       onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
                       style={{
                         flex: 1,
-                        padding: '0.5rem 0.75rem',
+                        minWidth: 0,
+                        padding: '0.5rem 0.5rem',
                         borderRadius: '10px',
                         border: '1.5px solid var(--primary)',
                         fontSize: '0.95rem',
@@ -530,7 +531,7 @@ export function CreateShareLinkModal({
                       type="button"
                       onClick={() => setPin(generateRandomPin())}
                       style={{
-                        padding: '0.5rem 0.75rem',
+                        padding: '0.5rem 0.65rem',
                         borderRadius: '10px',
                         border: '1px solid #cbd5e1',
                         background: '#f8fafc',
@@ -541,7 +542,8 @@ export function CreateShareLinkModal({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '0.3rem',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
                       }}
                       title="הגרל קוד PIN חדש אקראי"
                     >

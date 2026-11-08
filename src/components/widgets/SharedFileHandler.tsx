@@ -652,10 +652,46 @@ export default function SharedFileHandler() {
         setSharedFiles([]);
         router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId + (selectedFolderId ? '&folderId=' + selectedFolderId : ''));
       } else if (routeDestination === 'attach_existing') {
-        const queue: ScannedReceiptInput[] = sharedFiles.map((uri, idx) => ({
-          url: uri.replace(/^"|"$/g, ''),
-          pages: idx === 0 && sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 1 ? sharedAllPages : undefined,
-        }));
+        // Prepare queue with converted WebP pages right away so OCR and thumbnail work immediately without raw PDF issues
+        const queue: ScannedReceiptInput[] = [];
+        for (let idx = 0; idx < sharedFiles.length; idx++) {
+          const rawUri = sharedFiles[idx].replace(/^"|"$/g, '');
+          const correspondingBlob = sharedBlobs[idx];
+          const isPdf = Boolean(
+            (correspondingBlob?.blob && (correspondingBlob.blob.type === 'application/pdf' || correspondingBlob.blob.name?.toLowerCase().endsWith('.pdf'))) ||
+            correspondingBlob?.type === 'application/pdf' ||
+            correspondingBlob?.name?.toLowerCase().endsWith('.pdf') ||
+            rawUri.toLowerCase().includes('.pdf') ||
+            rawUri.startsWith('data:application/pdf')
+          );
+
+          let webpPages: string[] | undefined = undefined;
+          if (idx === 0 && sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 1) {
+            webpPages = sharedAllPages;
+          } else if (isPdf) {
+            try {
+              const blobSource = (correspondingBlob?.blob instanceof Blob)
+                ? correspondingBlob.blob
+                : rawUri;
+              webpPages = await extractPdfPages(blobSource, 1500, 0.85);
+            } catch (pdfErr) {
+              console.warn('PDF extraction for attach_existing queue failed:', pdfErr);
+            }
+          }
+
+          queue.push({
+            url: (webpPages && webpPages.length > 0) ? webpPages[0] : rawUri,
+            pages: (webpPages && webpPages.length > 1) ? webpPages : undefined,
+          });
+        }
+
+        const request = indexedDB.open('MySpaceDB', 1);
+        request.onsuccess = (e: any) => {
+          const db = e.target.result;
+          const tx = db.transaction('sharedFiles', 'readwrite');
+          tx.objectStore('sharedFiles').delete('latest_shared');
+        };
+
         setIsModalOpen(false);
         setIsProcessing(false);
         setSharedFiles([]);
