@@ -417,6 +417,23 @@ export function FileShareWidget({
     await saveItems(next);
   };
 
+  // Edit single item in scanner
+  const handleEditInScanner = (item: FileShareItem) => {
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+        detail: {
+          doc: {
+            id: item.id,
+            title: item.name,
+            url: item.url,
+            pages: item.pages && item.pages.length > 0 ? item.pages : (item.url ? [item.url] : [])
+          },
+          itemType: 'fileshare'
+        }
+      }));
+    }
+  };
+
   // Open item (Folder: navigate down. File: open universal viewer)
   const handleOpenItem = (item: FileShareItem) => {
     if (item.type === 'folder') {
@@ -637,24 +654,77 @@ export function FileShareWidget({
         const currentItemIds = visibleItems.map(i => i.id);
         const isAllSelected = currentItemIds.length > 0 && currentItemIds.every(id => selectedItemIds.includes(id));
 
-        const actions: BatchToolbarAction[] = [
-          {
-            id: 'move',
-            label: 'העבר לתיקייה',
-            icon: '📁',
-            variant: 'info',
-            title: 'העבר פריטים נבחרים לתיקייה',
-            onClick: () => setMoveModalState({ itemIds: selectedItemIds, currentFolderId })
-          },
-          {
-            id: 'delete',
-            label: 'מחק',
-            icon: '🗑️',
-            variant: 'danger',
-            title: 'מחק פריטים נבחרים',
-            onClick: () => setBatchDeleteConfirm(true)
+        const actions: BatchToolbarAction[] = [];
+
+        // Single or Multi edit/merge in scanner
+        if (hasScanner) {
+          if (selectedItemIds.length === 1) {
+            const targetItem = allItems.find(i => i.id === selectedItemIds[0]);
+            if (targetItem && targetItem.type === 'file') {
+              actions.push({
+                id: 'edit',
+                label: 'עריכה',
+                icon: '✂️',
+                variant: 'primary',
+                title: 'עריכה ופילטור הקובץ בסורק',
+                onClick: () => {
+                  setIsMultiSelect(false);
+                  setSelectedItemIds([]);
+                  handleEditInScanner(targetItem);
+                }
+              });
+            }
+          } else if (selectedItemIds.length > 1) {
+            const selectedFiles = selectedItemIds
+              .map(id => allItems.find(i => i.id === id))
+              .filter(i => i && i.type === 'file') as FileShareItem[];
+
+            if (selectedFiles.length > 1) {
+              actions.push({
+                id: 'merge',
+                label: 'איחוד',
+                icon: '📜',
+                variant: 'primary',
+                title: 'איחוד הקבצים הנבחרים בסורק',
+                onClick: () => {
+                  setIsMultiSelect(false);
+                  setSelectedItemIds([]);
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+                      detail: {
+                        docs: selectedFiles.map(f => ({
+                          id: f.id,
+                          title: f.name,
+                          url: f.url,
+                          pages: f.pages && f.pages.length > 0 ? f.pages : (f.url ? [f.url] : [])
+                        })),
+                        itemType: 'fileshare'
+                      }
+                    }));
+                  }
+                }
+              });
+            }
           }
-        ];
+        }
+
+        actions.push({
+          id: 'move',
+          label: 'העבר לתיקייה',
+          icon: '📁',
+          variant: 'info',
+          title: 'העבר פריטים נבחרים לתיקייה',
+          onClick: () => setMoveModalState({ itemIds: selectedItemIds, currentFolderId })
+        });
+
+        actions.push({
+          id: 'delete',
+          label: 'מחק',
+          icon: '🗑️',
+          variant: 'danger',
+          title: 'מחק פריטים נבחרים',
+          onClick: () => setBatchDeleteConfirm(true)
+        });
 
         return (
           <BatchActionToolbar
@@ -751,6 +821,10 @@ export function FileShareWidget({
                 isMultiSelect={isMultiSelect}
                 isSelected={selectedItemIds.includes(folder.id)}
                 onToggleSelect={handleToggleSelectItem}
+                onLongPressSelect={item => {
+                  setIsMultiSelect(true);
+                  setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+                }}
               />
             ))}
           </div>
@@ -778,9 +852,15 @@ export function FileShareWidget({
                 onDelete={handleDeleteItem}
                 onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
                 onToggleFavorite={handleToggleFavorite}
+                onEditInScanner={handleEditInScanner}
+                hasScanner={hasScanner}
                 isMultiSelect={isMultiSelect}
                 isSelected={selectedItemIds.includes(file.id)}
                 onToggleSelect={handleToggleSelectItem}
+                onLongPressSelect={item => {
+                  setIsMultiSelect(true);
+                  setSelectedItemIds(prev => prev.includes(item.id) ? prev : [...prev, item.id]);
+                }}
               />
             ))}
           </div>

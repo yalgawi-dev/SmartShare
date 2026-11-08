@@ -31,7 +31,8 @@ import { PartnersDirectoryWidget } from '../../../components/widgets/Partners/Pa
 import { PartnersInviteModal } from '../../../components/widgets/Partners/PartnersInviteModal';
 import PartnerControlPanel from '../../../components/widgets/Partners/PartnerControlPanel';
 import { compressImage } from '../../../utils/imageOptimizer';
-import { uploadImageToStorage } from '@/lib/firebase';
+import { db, uploadImageToStorage } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 import InstallAppHeaderButton from '../../../components/InstallAppHeaderButton';
 import { SpaceAnnouncementBanner } from '../../../components/common/SpaceAnnouncementBanner';
 import VersionBadge from '../../../components/common/VersionBadge';
@@ -163,7 +164,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   }, [activeChatId, space?.features]);
 
   const [pendingEventScan, setPendingEventScan] = useState<{ eventId: string; shelfId?: string } | null>(null);
-  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[]; sourceDocIds?: string[] } | null>(null);
+  const [editingDocumentInfo, setEditingDocumentInfo] = useState<{ docId: string; title: string; pages: string[]; sourceDocIds?: string[]; itemType?: 'vault' | 'fileshare' } | null>(null);
   const [isScannerBannerDismissed, setIsScannerBannerDismissed] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('hide_scanner_banner_' + id) === '1';
@@ -201,7 +202,8 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
           docId: primaryDoc.id,
           title: 'איחוד מסמכים למגילה',
           pages: allPages,
-          sourceDocIds: docs.map((d: any) => d.id)
+          sourceDocIds: docs.map((d: any) => d.id),
+          itemType: e.detail?.itemType || 'vault'
         });
         setPendingEventScan(null);
         setScannerMode('camera');
@@ -211,8 +213,9 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
         const docPages = (doc.pages && doc.pages.length > 0) ? doc.pages : (doc.url ? [doc.url] : []);
         setEditingDocumentInfo({
           docId: doc.id,
-          title: doc.title || 'מסמך',
-          pages: docPages
+          title: doc.title || doc.name || 'מסמך',
+          pages: docPages,
+          itemType: e.detail?.itemType || 'vault'
         });
         setPendingEventScan(null);
         setScannerMode('camera');
@@ -1333,7 +1336,33 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                     ...(isMerge ? { title: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
                   };
 
-                  if (isMerge && mergeDocuments) {
+                  if (currentEditing.itemType === 'fileshare') {
+                    // Update FileShare item(s) in Firestore space.fileShareItems
+                    const existingItems = Array.isArray(space.fileShareItems) ? space.fileShareItems : [];
+                    const secSet = isMerge ? new Set(currentEditing.sourceDocIds!.filter(id => id !== currentEditing.docId)) : new Set<string>();
+                    const updatedItems = existingItems.map((it: any) => {
+                      if (it.id === currentEditing.docId) {
+                        return {
+                          ...it,
+                          pages: updatedPages,
+                          url: updatedPages[0],
+                          thumbnailUrl: updatedPages[0],
+                          fileType: 'pdf',
+                          ...(isMerge ? { name: `מסמך מאוחד (${updatedPages.length} עמודים)` } : {})
+                        };
+                      }
+                      if (secSet.has(it.id)) {
+                        return { ...it, deletedAt: new Date().toISOString() };
+                      }
+                      return it;
+                    });
+                    try {
+                      const spaceDocRef = doc(db, 'spaces', space.id);
+                      await updateDoc(spaceDocRef, { fileShareItems: updatedItems });
+                    } catch (e) {
+                      console.error('Failed to update fileshare items after scanner edit/merge:', e);
+                    }
+                  } else if (isMerge && mergeDocuments) {
                     const secondaryIds = currentEditing.sourceDocIds!.filter(id => id !== currentEditing.docId);
                     mergeDocuments(space.id, currentEditing.docId, primaryUpdates, secondaryIds);
                   } else if (updateDocument) {

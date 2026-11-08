@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileShareItem, formatFileSize } from '@/utils/fileShareUtils';
 import PdfThumbnail from '@/components/shared/PdfThumbnail';
 
@@ -14,9 +14,12 @@ interface FileShareItemCardProps {
   onDelete: (item: FileShareItem) => void;
   onMove?: (item: FileShareItem) => void;
   onToggleFavorite?: (item: FileShareItem) => void;
+  onEditInScanner?: (item: FileShareItem) => void;
+  hasScanner?: boolean;
   isMultiSelect?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (item: FileShareItem) => void;
+  onLongPressSelect?: (item: FileShareItem) => void;
 }
 
 export function FileShareItemCard({
@@ -29,9 +32,12 @@ export function FileShareItemCard({
   onDelete,
   onMove,
   onToggleFavorite,
+  onEditInScanner,
+  hasScanner = false,
   isMultiSelect = false,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  onLongPressSelect
 }: FileShareItemCardProps) {
   const isFolder = item.type === 'folder';
   const isPublicLinkActive = Boolean(item.shareLink?.enabled && item.shareLink?.token);
@@ -43,6 +49,10 @@ export function FileShareItemCard({
   const [isEditingName, setIsEditingName] = useState(false);
   const [editNameValue, setEditNameValue] = useState(item.name);
   const [showDotsMenu, setShowDotsMenu] = useState(false);
+
+  // Long press timer ref & flag
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isLongPressTriggeredRef = useRef(false);
 
   useEffect(() => {
     setEditNameValue(item.name);
@@ -57,6 +67,31 @@ export function FileShareItemCard({
       onRename(item, editNameValue.trim());
     }
     setIsEditingName(false);
+  };
+
+  const startLongPress = () => {
+    isLongPressTriggeredRef.current = false;
+    if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = setTimeout(() => {
+      isLongPressTriggeredRef.current = true;
+      if (onLongPressSelect) {
+        onLongPressSelect(item);
+      } else if (onToggleSelect) {
+        onToggleSelect(item);
+      }
+      try {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(50);
+        }
+      } catch (_) {}
+    }, 500);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
   };
 
   const getPrivacyBadge = () => {
@@ -82,7 +117,16 @@ export function FileShareItemCard({
   if (isFolder) {
     return (
       <div
+        onTouchStart={startLongPress}
+        onTouchMove={cancelLongPress}
+        onTouchEnd={cancelLongPress}
+        onMouseDown={startLongPress}
+        onMouseUp={cancelLongPress}
         onClick={() => {
+          if (isLongPressTriggeredRef.current) {
+            isLongPressTriggeredRef.current = false;
+            return;
+          }
           if (isMultiSelect && onToggleSelect) onToggleSelect(item);
           else onOpen(item);
         }}
@@ -205,7 +249,16 @@ export function FileShareItemCard({
   // FILE / DOCUMENT CARD VIEW (Identical Flagship Layout to Vault Document Card)
   return (
     <div
+      onTouchStart={startLongPress}
+      onTouchMove={cancelLongPress}
+      onTouchEnd={cancelLongPress}
+      onMouseDown={startLongPress}
+      onMouseUp={cancelLongPress}
       onClick={() => {
+        if (isLongPressTriggeredRef.current) {
+          isLongPressTriggeredRef.current = false;
+          return;
+        }
         if (isMultiSelect && onToggleSelect) onToggleSelect(item);
         else onOpen(item);
       }}
@@ -469,7 +522,7 @@ export function FileShareItemCard({
               {showDotsMenu && (
                 <>
                   <div onClick={() => setShowDotsMenu(false)} style={{ position: 'fixed', inset: 0, zIndex: 9998 }} />
-                  <div style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '14px', boxShadow: '0 12px 30px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0', padding: '0.45rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '150px', direction: 'rtl' }}>
+                  <div style={{ position: 'absolute', bottom: '120%', left: 0, background: 'white', borderRadius: '14px', boxShadow: '0 12px 30px rgba(0,0,0,0.18)', border: '1px solid #e2e8f0', padding: '0.45rem', zIndex: 9999, display: 'flex', flexDirection: 'column', gap: '0.25rem', minWidth: '160px', direction: 'rtl' }}>
                     <button
                       type="button"
                       onClick={() => {
@@ -480,6 +533,19 @@ export function FileShareItemCard({
                     >
                       👁️ צפה בקובץ
                     </button>
+                    {hasScanner && onEditInScanner && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowDotsMenu(false);
+                          onEditInScanner(item);
+                        }}
+                        style={{ background: 'transparent', border: 'none', padding: '0.45rem', textAlign: 'right', borderRadius: '8px', cursor: 'pointer', fontSize: '0.82rem', fontWeight: 700, color: '#2563eb', display: 'flex', alignItems: 'center', gap: '0.35rem' }}
+                      >
+                        <span>✂️</span>
+                        <span>עריכה בסורק</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
