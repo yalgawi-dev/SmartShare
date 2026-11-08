@@ -2161,6 +2161,36 @@ flowchart TD
      2. **"המשך כהוצאה חדשה בכל זאת"**: מאפשר למשתמש להתעלם מההתראה אם מדובר בהוצאה חדשה אמיתית.
 3. **גרסה ויזואלית**: הועלתה ל-**`v3.5.25`**.
 
+---
+
+## 99. סנכרון דו-שכבתי מוחלט בשיתוף קבצים ושימור נמענים אישיים (Dual-Layer Sync & Canonical Recipients Re-hydration)
+
+### הרקע והתקלה שנצפתה:
+בעת הוספת נמען ("מייק פלא עובד שי") בתוך מודאל שיתוף קישור מאובטח לתיקייה ("גולדה") ולחיצה על "שמור והחל הגדרות", בעת סגירה ופתיחה חוזרת של המודאל מאותו כפתור, רשימת הנמענים הופיעה ריקה. בנוסף, שדה קלט קוד ה-PIN חרג מגבולות הכרטיס במכשירים ניידים.
+
+### ניתוח שורש (Root Cause Analysis - 95%+ Certainty):
+1. **עקיפת ה-Single Source of Truth (`SpacesContext`)**:
+   - `FileShareWidget.tsx` שמר את השינויים באמצעות קריאה ישירה ל-Firestore: `updateDoc(spaceRef, { fileShareItems: updatedItems })`.
+   - לעומת שאר המערכת המנוהלת דרך `saveSpaceUpdate` בתוך `SpacesContext`, העדכון לא עדכן את ה-React State האופטימי (`spacesBase`) ולא הופץ מידית לקומפוננטת הדף `space/[id]/page.tsx`.
+   - כשנפתח המודאל מחדש, הועבר אליו ה-`item` מתוך ה-`space` שטרם עודכן במצב הפנימי של ריאקט, מה שהביא למחיקת רשימת הנמענים (`recipients = []`).
+2. **תלות ב-Object Reference שגוי באפקט הטעינה**:
+   - ב-`CreateShareLinkModal`, ה-`useEffect` הסתמך על `[isOpen, item]` (רפרנס אובייקט ולא מזהה `item?.id`), ובמקרה של שיהוי או חוסר במערך הנמענים באובייקט המקומי, אתחל את הרשימה כריקה.
+3. **שדה ה-PIN**:
+   - אלמנט ה-input היה עם `minWidth: 0` אך ללא `width: 0` בתוך flex-container, מה שגרם לו להתפשט ולדחוק את כפתור "הגרל קוד" מחוץ לגבולות התצוגה במובייל.
+
+### הפתרון וההחלטות ההנדסיות:
+1. **הטמעת פונקציית עדכון מרוכזת ב-`SpacesContext`**:
+   - נוספה `updateFileShareItems(spaceId: string, items: any[]) => Promise<boolean>` ב-`SpacesContext.tsx` שמשתמשת ב-`saveSpaceUpdate`.
+   - עדכון אופטימי מידי ל-`spacesBaseRef` ול-`setSpacesBase`, וסנכרון אטומי מול Firestore.
+2. **חיבור `FileShareWidget` ל-`updateFileShareItems`**:
+   - `saveItems` ב-`FileShareWidget.tsx` מפעיל כעת ישירות את `updateFileShareItems`, כך שכל צרכן של המרחב מעודכן מידית וללא שיהוי.
+3. **רה-הידרציה קנונית (Canonical Re-hydration Layer)**:
+   - ב-`CreateShareLinkModal.tsx`, בעת פתיחה (`isOpen && item`), המודאל מבצע במקביל שליפה ישירה של הרשומה הקנונית מאוסף `shared_links/{token}` ב-Firestore.
+   - במידה וקיימים נמענים באוסף הקנוני, המודאל מחזיר ומשמר אותם מידית ב-State של המודאל וברפרנס של התיקייה, כך שאין שום אפשרות לאיבוד נתונים או איפוס ריק.
+4. **תיקון גבולות ה-PIN במובייל**:
+   - הוגדר `width: 0`, `flex: 1`, `minWidth: 0` עם `gap: 0.5rem` המבטיח שהשדה וכפתור ההגרלה יישארו תמיד ב-100% מרוחב הכרטיס ללא גלישה.
+5. **גרסה ויזואלית**: הועלתה ל-**`v3.5.26`**.
+
 
 
 

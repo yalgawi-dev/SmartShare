@@ -87,6 +87,7 @@ export interface PublicSharedData {
   totalDurationSeconds?: number;
   lastViewedAt: number | null;
   createdAt: number;
+  recipients?: RecipientShareLink[];
   folderFiles?: Array<{
     id: string;
     name: string;
@@ -152,7 +153,8 @@ export async function createOrUpdatePublicShare(
     allowUploads: config.allowUploads !== false,
     viewCount: config.viewCount || 0,
     lastViewedAt: config.lastViewedAt || null,
-    createdAt: config.createdAt || now
+    createdAt: config.createdAt || now,
+    recipients: Array.isArray(config.recipients) ? config.recipients : []
   };
 
   if (item.type === 'folder' && folderFiles) {

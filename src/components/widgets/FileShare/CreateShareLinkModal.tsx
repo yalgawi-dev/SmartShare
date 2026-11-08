@@ -54,10 +54,12 @@ export function CreateShareLinkModal({
 
   useEffect(() => {
     if (isOpen && item) {
+      let isMounted = true;
       const link = item.shareLink;
       if (link && (link.token || Array.isArray(link.recipients))) {
         setIsEnabled(link.enabled !== false);
-        setToken(link.token || generateShareToken());
+        const activeToken = link.token || generateShareToken();
+        setToken(activeToken);
         setRequirePin(Boolean(link.requirePin));
         setPin(link.pin || '');
         setAllowDownload(link.allowDownload !== false);
@@ -71,6 +73,23 @@ export function CreateShareLinkModal({
           if (diffDays <= 1) setExpiryOption('1day');
           else if (diffDays <= 7) setExpiryOption('7days');
           else setExpiryOption('30days');
+        }
+
+        // Deep re-hydration directly from canonical shared_links collection if available
+        if (link.token) {
+          getDoc(doc(db, 'shared_links', link.token))
+            .then(snap => {
+              if (snap.exists() && isMounted) {
+                const data = snap.data();
+                if (Array.isArray(data.recipients) && data.recipients.length > 0) {
+                  setRecipients(data.recipients);
+                  if (item.shareLink) {
+                    item.shareLink.recipients = data.recipients;
+                  }
+                }
+              }
+            })
+            .catch(() => {});
         }
       } else {
         // Auto-enable and generate token so link is immediately usable
@@ -87,8 +106,12 @@ export function CreateShareLinkModal({
       setNewRecipientName('');
       setNewRecipientPhone('');
       setNewRecipientRole('client');
+
+      return () => {
+        isMounted = false;
+      };
     }
-  }, [isOpen, item]);
+  }, [isOpen, item?.id]);
 
   if (!isOpen || !item) return null;
 
@@ -507,7 +530,7 @@ export function CreateShareLinkModal({
               </label>
               {requirePin && (
                 <div style={{ marginTop: '0.5rem', width: '100%', boxSizing: 'border-box' }}>
-                  <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%', boxSizing: 'border-box' }}>
                     <input 
                       type="text" 
                       maxLength={6}
@@ -516,7 +539,8 @@ export function CreateShareLinkModal({
                       onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
                       style={{
                         flex: 1,
-                        minWidth: 0,
+                        width: '0',
+                        minWidth: '0',
                         padding: '0.5rem 0.5rem',
                         borderRadius: '10px',
                         border: '1.5px solid var(--primary)',

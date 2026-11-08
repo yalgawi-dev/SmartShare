@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
+import { useSpaces } from '@/app/context/SpacesContext';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
@@ -31,6 +32,7 @@ export function FileShareWidget({
   onOpenScanner
 }: FileShareWidgetProps) {
   const { user } = useAuth();
+  const { updateFileShareItems } = useSpaces();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -282,8 +284,12 @@ export function FileShareWidget({
 
   const saveItems = async (updatedItems: FileShareItem[]) => {
     try {
-      const spaceRef = doc(db, 'spaces', space.id);
-      await updateDoc(spaceRef, { fileShareItems: updatedItems });
+      if (updateFileShareItems && space?.id) {
+        await updateFileShareItems(space.id, updatedItems);
+      } else {
+        const spaceRef = doc(db, 'spaces', space.id);
+        await updateDoc(spaceRef, { fileShareItems: updatedItems });
+      }
     } catch (err) {
       console.error('Failed to update file share items:', err);
       alert('שגיאה בשמירת הנתונים. אנא נסה שוב.');
