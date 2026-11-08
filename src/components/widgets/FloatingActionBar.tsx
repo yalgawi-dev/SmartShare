@@ -48,6 +48,7 @@ export function FloatingActionBar({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   const [isInShelf, setIsInShelf] = useState(false);
+  const [isFileShareSubfolder, setIsFileShareSubfolder] = useState(false);
   const [activeShelfId, setActiveShelfId] = useState<string | null>(null);
   const [shelfSubTab, setShelfSubTab] = useState<'timeline' | 'vault'>('vault');
   const [isVaultTab, setIsVaultTab] = useState(false);
@@ -88,6 +89,11 @@ export function FloatingActionBar({
       if (e?.detail?.sortOrder) setTimelineSortOrder(e.detail.sortOrder);
     };
 
+    const handleFileShareFolderEntered = () => setIsFileShareSubfolder(true);
+    const handleFileShareFolderExited = () => setIsFileShareSubfolder(false);
+
+    window.addEventListener('smartshare:fileshare_folder_entered', handleFileShareFolderEntered);
+    window.addEventListener('smartshare:fileshare_folder_exited', handleFileShareFolderExited);
     window.addEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
     window.addEventListener("smartshare:shelf_opened", handleOpen);
     window.addEventListener("smartshare:shelf_closed", handleClose);
@@ -105,6 +111,8 @@ export function FloatingActionBar({
       window.removeEventListener("smartshare:shelf_subtab_changed", handleSubTab);
       window.removeEventListener("smartshare:vault_tab_active", handleVaultOn);
       window.removeEventListener("smartshare:vault_tab_inactive", handleVaultOff);
+      window.removeEventListener('smartshare:fileshare_folder_entered', handleFileShareFolderEntered);
+      window.removeEventListener('smartshare:fileshare_folder_exited', handleFileShareFolderExited);
       window.removeEventListener('smartshare:trigger_file_upload', handleTriggerUpload);
       window.removeEventListener("smartshare:preview_open", handlePreviewOpen);
       window.removeEventListener("smartshare:preview_closed", handlePreviewClose);
@@ -446,7 +454,38 @@ export function FloatingActionBar({
 
             {/* When hasFileShare is active - Dedicate floating buttons to FileShare */}
             {hasFileShare && !hasFinance && (!hasVault || !isInShelf) && (
-              <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%' }}>
+              <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
+                {/* Back Button (Icon Only - Single Step Back when inside subfolder) */}
+                {isFileShareSubfolder && (
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
+                        detail: { handled: false },
+                      });
+                      window.dispatchEvent(stepEvent);
+                    }}
+                    style={{
+                      background: 'rgba(59, 130, 246, 0.08)', 
+                      border: '1px solid #bfdbfe', 
+                      padding: '0.5rem 0.1rem', 
+                      borderRadius: '16px',
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      justifyContent: 'center', 
+                      cursor: 'pointer',
+                      color: '#1d4ed8',
+                      minWidth: '36px', 
+                      transition: 'all 0.2s', 
+                      boxShadow: '0 1px 3px rgba(59, 130, 246, 0.1)'
+                    }}
+                    title="חזור אחורה"
+                  >
+                    <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>↩️</span>
+                  </button>
+                )}
+
                 <button 
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('smartshare:fileshare_add_folder'));

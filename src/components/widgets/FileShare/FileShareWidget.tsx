@@ -12,6 +12,7 @@ import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalView
 import VersionBadge from '@/components/common/VersionBadge';
 import BatchActionToolbar, { BatchToolbarAction } from '@/components/common/BatchActionToolbar';
 import GlobalMoveModal from '@/components/common/GlobalMoveModal';
+import GlobalRecycleBinModal, { TrashItem } from '@/components/common/GlobalRecycleBinModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
 
 interface FileShareWidgetProps {
@@ -55,11 +56,38 @@ export function FileShareWidget({
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [moveModalState, setMoveModalState] = useState<{ itemIds: string[]; currentFolderId: string | null } | null>(null);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
+  const [showRecycleBin, setShowRecycleBin] = useState(false);
 
   // raw items from space
   const allItems: FileShareItem[] = useMemo(() => {
     return Array.isArray(space?.fileShareItems) ? space.fileShareItems : [];
   }, [space?.fileShareItems]);
+
+  // Active items (not deleted)
+  const activeItems = useMemo(() => {
+    return allItems.filter(i => !i.deletedAt);
+  }, [allItems]);
+
+  // Deleted items in recycle bin (deleted within 12 hours)
+  const deletedItems = useMemo(() => {
+    return allItems.filter(i => !!i.deletedAt);
+  }, [allItems]);
+
+  // Auto purge items older than 12 hours (Rule: 12-hour recycle bin auto-cleanup)
+  useEffect(() => {
+    const TWELVE_HOURS_MS = 12 * 60 * 60 * 1000;
+    const now = Date.now();
+    const expired = deletedItems.filter(i => i.deletedAt && (now - new Date(i.deletedAt).getTime()) > TWELVE_HOURS_MS);
+    if (expired.length > 0) {
+      const expiredIds = new Set(expired.map(i => i.id));
+      // Revoke any public links
+      expired.forEach(i => {
+        if (i.shareLink?.token) revokePublicShare(i.shareLink.token);
+      });
+      const remaining = allItems.filter(i => !expiredIds.has(i.id));
+      saveItems(remaining);
+    }
+  }, [deletedItems, allItems]);
 
   const isCreator = space.creatorId === user?.id || (user?.email && space.creatorEmail === user.email);
   const currentUserId = user?.id || '';
@@ -82,13 +110,23 @@ export function FileShareWidget({
     window.addEventListener('smartshare:fileshare_upload', handleUpload);
     window.addEventListener('smartshare:fileshare_import', handleImport);
 
+    const handleBackStep = (e: any) => {
+      if (currentFolderId) {
+        const parent = activeItems.find(i => i.id === currentFolderId && i.type === 'folder');
+        setCurrentFolderId(parent?.parentId || null);
+        if (e?.detail) e.detail.handled = true;
+      }
+    };
+    window.addEventListener('smartshare:navigate_back_one_step', handleBackStep);
+
     return () => {
       window.removeEventListener('smartshare:add_folder', handleAddFolder);
       window.removeEventListener('smartshare:fileshare_add_folder', handleAddFolder);
       window.removeEventListener('smartshare:fileshare_upload', handleUpload);
       window.removeEventListener('smartshare:fileshare_import', handleImport);
+      window.removeEventListener('smartshare:navigate_back_one_step', handleBackStep);
     };
-  }, []);
+  }, [currentFolderId, activeItems]);
 
   // Breadcrumbs path computation
   const breadcrumbTrail = useMemo(() => {
@@ -99,7 +137,7 @@ export function FileShareWidget({
     const path: { id: string | null; name: string }[] = [];
     while (currId && !visited.has(currId)) {
       visited.add(currId);
-      const parentFolder = allItems.find(i => i.id === currId && i.type === 'folder');
+      const parentFolder = activeItems.find(i => i.id === currId && i.type === 'folder');
       if (parentFolder) {
         path.unshift({ id: parentFolder.id, name: parentFolder.name });
         currId = parentFolder.parentId;
@@ -108,11 +146,18 @@ export function FileShareWidget({
       }
     }
     return [...trail, ...path];
-  }, [currentFolderId, allItems]);
+  }, [currentFolderId, activeItems]);
 
-  // Current folder's items filtered by access and search
+  // Notify floating action bar when entering / exiting subfolders (Rule DRY: Uniform Back button)
+  useEffect(() => {
+    if (currentFolderId) {
+      window.dispatchEvent(new CustomEvent('smartshare:fileshare_folder_entered'));
+    } else {
+      window.dispatchEvent(new CustomEvent('smartshare:fileshare_folder_exited'));
+    }
+  }, [currentFolderId]);
   const visibleItems = useMemo(() => {
-    return allItems.filter(item => {
+    return activeItems.filter(item => {
       // 1. Must match current folder
       if (item.parentId !== currentFolderId) return false;
 
@@ -169,7 +214,7 @@ export function FileShareWidget({
     setMoveModalState(null);
   };
 
-  // Confirm batch delete items
+  // Confirm batch delete items (Move to Recycle Bin for 12 hours)
   const handleConfirmBatchDelete = async () => {
     const deletingIds = new Set(selectedItemIds);
     // Recursively collect all children if any selected item is a folder
@@ -179,20 +224,19 @@ export function FileShareWidget({
       allItems.forEach(i => {
         if (i.parentId && deletingIds.has(i.parentId) && !deletingIds.has(i.id)) {
           deletingIds.add(i.id);
-          if (i.shareLink?.token) revokePublicShare(i.shareLink.token);
           addedMore = true;
         }
       });
     }
 
-    // Revoke links
-    for (const item of allItems) {
-      if (deletingIds.has(item.id) && item.shareLink?.token) {
-        await revokePublicShare(item.shareLink.token);
+    const nowIso = new Date().toISOString();
+    const next = allItems.map(i => {
+      if (deletingIds.has(i.id)) {
+        return { ...i, deletedAt: nowIso };
       }
-    }
+      return i;
+    });
 
-    const next = allItems.filter(i => !deletingIds.has(i.id));
     await saveItems(next);
     setSelectedItemIds([]);
     setIsMultiSelect(false);
@@ -292,21 +336,19 @@ export function FileShareWidget({
     await saveItems(next);
   };
 
-  // Delete item
+  // Delete item (Move to Recycle Bin for 12 hours)
   const handleDeleteItem = async (item: FileShareItem) => {
     const isFolder = item.type === 'folder';
     const confirmMsg = isFolder
-      ? `האם למחוק את התיקייה "${item.name}" ואת כל הקבצים שבתוכה?`
-      : `האם למחוק את הקובץ "${item.name}"?`;
+      ? `האם להעביר את התיקייה "${item.name}" וכל תכולתה לסל האשפה? (נשמרת למשך 12 שעות)`
+      : `האם להעביר את הקובץ "${item.name}" לסל האשפה? (נשמר למשך 12 שעות)`;
 
     if (!confirm(confirmMsg)) return;
 
-    if (item.shareLink?.token) {
-      await revokePublicShare(item.shareLink.token);
-    }
+    const nowIso = new Date().toISOString();
 
     if (isFolder) {
-      // Recursively remove folder and all children
+      // Recursively mark folder and all children as deletedAt
       const toDeleteIds = new Set<string>([item.id]);
       let addedMore = true;
       while (addedMore) {
@@ -314,17 +356,54 @@ export function FileShareWidget({
         allItems.forEach(i => {
           if (i.parentId && toDeleteIds.has(i.parentId) && !toDeleteIds.has(i.id)) {
             toDeleteIds.add(i.id);
-            if (i.shareLink?.token) revokePublicShare(i.shareLink.token);
             addedMore = true;
           }
         });
       }
-      const next = allItems.filter(i => !toDeleteIds.has(i.id));
+      const next = allItems.map(i => (toDeleteIds.has(i.id) ? { ...i, deletedAt: nowIso } : i));
       await saveItems(next);
     } else {
-      const next = allItems.filter(i => i.id !== item.id);
+      const next = allItems.map(i => (i.id === item.id ? { ...i, deletedAt: nowIso } : i));
       await saveItems(next);
     }
+  };
+
+  // Restore item from recycle bin
+  const handleRestoreItem = async (item: TrashItem) => {
+    const next = allItems.map(i => {
+      if (i.id === item.id) {
+        const copy = { ...i };
+        delete copy.deletedAt;
+        return copy;
+      }
+      return i;
+    });
+    await saveItems(next);
+  };
+
+  // Permanently delete item
+  const handlePermanentDeleteItem = async (item: TrashItem) => {
+    if (!confirm(`האם אתה בטוח שברצונך למחוק לצמיתות את "${item.name}"? לא ניתן יהיה לשחזר אותו.`)) return;
+
+    if (item.rawItem?.shareLink?.token) {
+      await revokePublicShare(item.rawItem.shareLink.token);
+    }
+
+    const toDeleteIds = new Set<string>([item.id]);
+    let addedMore = true;
+    while (addedMore) {
+      addedMore = false;
+      allItems.forEach(i => {
+        if (i.parentId && toDeleteIds.has(i.parentId) && !toDeleteIds.has(i.id)) {
+          toDeleteIds.add(i.id);
+          if (i.shareLink?.token) revokePublicShare(i.shareLink.token);
+          addedMore = true;
+        }
+      });
+    }
+
+    const next = allItems.filter(i => !toDeleteIds.has(i.id));
+    await saveItems(next);
   };
 
   // Toggle Favorite for single item (File or Folder)
@@ -438,8 +517,33 @@ export function FileShareWidget({
           </div>
         </div>
 
-        {/* Global Stats Counter */}
+        {/* Global Stats Counter & Recycle Bin */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {deletedItems.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowRecycleBin(true)}
+              style={{
+                padding: '0.35rem 0.6rem',
+                background: '#fef2f2',
+                border: '1px solid #fecaca',
+                borderRadius: '10px',
+                color: '#ef4444',
+                fontWeight: 'bold',
+                fontSize: '0.78rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                whiteSpace: 'nowrap'
+              }}
+              title="סל אשפה (קבצים ותיקיות שנמחקו ב-12 השעות האחרונות)"
+            >
+              <span>🗑️</span>
+              <span>{deletedItems.length}</span>
+            </button>
+          )}
+
           <span style={{ fontSize: '0.74rem', background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-light)', padding: '3px 9px', borderRadius: '10px', color: 'var(--text-secondary)', fontWeight: 700 }}>
             {folders.length} תיקיות • {files.length} קבצים
           </span>
@@ -625,49 +729,62 @@ export function FileShareWidget({
         </div>
       )}
 
-      {/* 4. ITEMS LIST (FOLDERS FIRST, THEN FILES) */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+      {/* 4. ITEMS LIST (FOLDERS LIST, THEN FILES GRID) */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {/* FOLDERS SECTION */}
-        {folders.map(folder => (
-          <FileShareItemCard
-            key={folder.id}
-            item={folder}
-            onOpen={handleOpenItem}
-            onManageLink={item => setActiveShareItem(item)}
-            onManagePermissions={item => {
-              setPrivacyItem(item);
-              setSelectedAllowedPartners(item.allowedPartners || []);
-            }}
-            onRename={handleRenameItem}
-            onDelete={handleDeleteItem}
-            onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
-            onToggleFavorite={handleToggleFavorite}
-            isMultiSelect={isMultiSelect}
-            isSelected={selectedItemIds.includes(folder.id)}
-            onToggleSelect={handleToggleSelectItem}
-          />
-        ))}
+        {folders.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+            {folders.map(folder => (
+              <FileShareItemCard
+                key={folder.id}
+                item={folder}
+                onOpen={handleOpenItem}
+                onManageLink={item => setActiveShareItem(item)}
+                onManagePermissions={item => {
+                  setPrivacyItem(item);
+                  setSelectedAllowedPartners(item.allowedPartners || []);
+                }}
+                onRename={handleRenameItem}
+                onDelete={handleDeleteItem}
+                onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
+                onToggleFavorite={handleToggleFavorite}
+                isMultiSelect={isMultiSelect}
+                isSelected={selectedItemIds.includes(folder.id)}
+                onToggleSelect={handleToggleSelectItem}
+              />
+            ))}
+          </div>
+        )}
 
-        {/* FILES SECTION */}
-        {files.map(file => (
-          <FileShareItemCard
-            key={file.id}
-            item={file}
-            onOpen={handleOpenItem}
-            onManageLink={item => setActiveShareItem(item)}
-            onManagePermissions={item => {
-              setPrivacyItem(item);
-              setSelectedAllowedPartners(item.allowedPartners || []);
-            }}
-            onRename={handleRenameItem}
-            onDelete={handleDeleteItem}
-            onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
-            onToggleFavorite={handleToggleFavorite}
-            isMultiSelect={isMultiSelect}
-            isSelected={selectedItemIds.includes(file.id)}
-            onToggleSelect={handleToggleSelectItem}
-          />
-        ))}
+        {/* FILES GRID SECTION (Uniform 2-column responsive grid matching Vault Documents) */}
+        {files.length > 0 && (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(135px, 1fr))',
+            gap: '0.75rem'
+          }}>
+            {files.map((file, idx) => (
+              <FileShareItemCard
+                key={file.id}
+                item={file}
+                itemIndex={idx}
+                onOpen={handleOpenItem}
+                onManageLink={item => setActiveShareItem(item)}
+                onManagePermissions={item => {
+                  setPrivacyItem(item);
+                  setSelectedAllowedPartners(item.allowedPartners || []);
+                }}
+                onRename={handleRenameItem}
+                onDelete={handleDeleteItem}
+                onMove={item => setMoveModalState({ itemIds: [item.id], currentFolderId: item.parentId })}
+                onToggleFavorite={handleToggleFavorite}
+                isMultiSelect={isMultiSelect}
+                isSelected={selectedItemIds.includes(file.id)}
+                onToggleSelect={handleToggleSelectItem}
+              />
+            ))}
+          </div>
+        )}
 
         {/* EMPTY STATE */}
         {folders.length === 0 && files.length === 0 && !isUploading && (
@@ -1051,6 +1168,44 @@ export function FileShareWidget({
           docs={previewState.docs}
           initialIndex={previewState.index}
           onClose={() => setPreviewState(null)}
+        />
+      )}
+
+      {/* 10. GLOBAL RECYCLE BIN MODAL (Single Source of Truth) */}
+      {showRecycleBin && (
+        <GlobalRecycleBinModal
+          isOpen={showRecycleBin}
+          onClose={() => setShowRecycleBin(false)}
+          items={deletedItems.map(item => {
+            const parentF = item.parentId ? allItems.find(p => p.id === item.parentId) : null;
+            const origin = parentF ? `שיתוף קבצים / תיקיית "${parentF.name}"` : 'שיתוף קבצים / ראשי';
+            return {
+              id: item.id,
+              name: item.name,
+              type: item.type === 'folder' ? 'folder' : 'file',
+              originLocation: origin,
+              deletedAt: item.deletedAt,
+              thumbnailUrl: item.thumbnailUrl,
+              url: item.url,
+              pages: item.pages,
+              rawItem: item
+            };
+          })}
+          onRestore={handleRestoreItem}
+          onPermanentDelete={handlePermanentDeleteItem}
+          onPreviewItem={(item) => {
+            if (item.url) {
+              setPreviewState({
+                docs: [{
+                  id: item.id,
+                  url: item.url,
+                  title: item.name,
+                  pages: item.pages || [item.url]
+                }],
+                index: 0
+              });
+            }
+          }}
         />
       )}
     </div>
