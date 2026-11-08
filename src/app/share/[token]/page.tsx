@@ -251,7 +251,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
     <>
       <Head>
         <meta name="robots" content="noindex, nofollow" />
-        <title>{shareData.name} | SmartShare</title>
+        <title>{shareData.name} | MySpace</title>
       </Head>
 
       <div style={{
@@ -261,6 +261,50 @@ export default function PublicSharePage({ params }: SharePageProps) {
         display: 'flex',
         flexDirection: 'column'
       }}>
+        {/* Top Brand Banner: MySpace App Branding */}
+        <div style={{
+          background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 100%)',
+          padding: '0.45rem 1.25rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          color: '#ffffff',
+          fontSize: '0.78rem',
+          fontWeight: 700,
+          borderBottom: '1px solid rgba(255,255,255,0.1)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <img 
+              src="/myspace_logo.png" 
+              alt="MySpace Logo" 
+              style={{ width: '22px', height: '22px', borderRadius: '6px', objectFit: 'contain', background: '#ffffff', padding: '1px' }} 
+            />
+            <span style={{ letterSpacing: '0.3px', fontWeight: 900 }}>
+              שותף באמצעות אפליקציית MySpace
+            </span>
+          </div>
+
+          <Link
+            href="/"
+            style={{
+              color: '#a5b4fc',
+              textDecoration: 'none',
+              fontSize: '0.72rem',
+              fontWeight: 800,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.25rem',
+              background: 'rgba(255,255,255,0.12)',
+              padding: '2px 8px',
+              borderRadius: '6px',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span>פתח מרחב משלך בחינם</span>
+            <span>↗</span>
+          </Link>
+        </div>
+
         {/* Top Portal Navigation Header */}
         <header style={{
           background: '#ffffff',
@@ -291,7 +335,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 )}
               </div>
               <p style={{ margin: 0, fontSize: '0.74rem', color: '#64748b' }}>
-                מתוך: {shareData.spaceTitle}
+                מתוך מרחב: <strong>{shareData.spaceTitle}</strong> באפליקציית MySpace
               </p>
             </div>
           </div>
@@ -550,7 +594,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
             </div>
           )}
 
-          {/* Viral Conversion / Invite Guest to SmartShare */}
+          {/* Viral Conversion / Invite Guest to MySpace */}
           <div style={{
             marginTop: '2rem',
             background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
@@ -566,61 +610,76 @@ export default function PublicSharePage({ params }: SharePageProps) {
             gap: '0.85rem'
           }}>
             <div style={{
-              width: '48px',
-              height: '48px',
-              borderRadius: '16px',
-              background: 'rgba(255,255,255,0.1)',
+              width: '56px',
+              height: '56px',
+              borderRadius: '18px',
+              background: '#ffffff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.6rem'
+              padding: '6px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
             }}>
-              🚀
+              <img 
+                src="/myspace_logo.png" 
+                alt="MySpace Logo" 
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 900, color: '#ffffff' }}>
-                אהבת את שיתוף המסמכים?
+              <h3 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 900, color: '#ffffff' }}>
+                רוצה לשתף קבצים ותוכניות בקלות כזאת?
               </h3>
-              <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.82rem', color: '#cbd5e1', maxWidth: '420px', lineHeight: 1.5 }}>
-                צור מרחב אישי או עסקי בחינם ב-SmartShare: שיתוף קבצים מאובטח, סורק חכם באיכות מלאה, וניהול הוצאות עם שותפים.
+              <p style={{ margin: '0.45rem 0 0 0', fontSize: '0.84rem', color: '#cbd5e1', maxWidth: '440px', lineHeight: 1.5 }}>
+                הצטרף לאפליקציית <strong>MySpace</strong> – שיתוף תוכניות ומסמכים כבדים באיכות מלאה (זום עמוק עד 3000%), סורק מסמכים חכם, ומעקב אישי אחרי צפיות של קבלנים ושותפים.
               </p>
             </div>
 
-            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '380px', marginTop: '0.25rem' }}>
+            <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', justifyContent: 'center', width: '100%', maxWidth: '400px', marginTop: '0.4rem' }}>
               <Link
                 href="/"
                 style={{
-                  flex: 1,
-                  minWidth: '150px',
-                  padding: '0.75rem 1.25rem',
+                  flex: 1.2,
+                  minWidth: '160px',
+                  padding: '0.85rem 1.25rem',
                   borderRadius: '14px',
                   background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
                   color: '#ffffff',
                   fontWeight: 800,
-                  fontSize: '0.88rem',
+                  fontSize: '0.9rem',
                   textAlign: 'center',
-                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)'
+                  boxShadow: '0 4px 14px rgba(99, 102, 241, 0.4)',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
                 }}
               >
-                הצטרף חינם ל-SmartShare ✨
+                <span>✨</span>
+                <span>הצטרף חינם ל-MySpace</span>
               </Link>
 
               <Link
                 href={`/space/${shareData.spaceId}`}
                 style={{
                   flex: 1,
-                  minWidth: '150px',
-                  padding: '0.75rem 1.25rem',
+                  minWidth: '140px',
+                  padding: '0.85rem 1rem',
                   borderRadius: '14px',
                   background: 'rgba(255, 255, 255, 0.1)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                  border: '1px solid rgba(255, 255, 255, 0.25)',
                   color: '#ffffff',
                   fontWeight: 800,
-                  fontSize: '0.88rem',
-                  textAlign: 'center'
+                  fontSize: '0.85rem',
+                  textAlign: 'center',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.3rem'
                 }}
               >
-                כניסה כחבר מרחב 🔑
+                <span>🔑</span>
+                <span>כניסה למרחב</span>
               </Link>
             </div>
           </div>
