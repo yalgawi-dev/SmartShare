@@ -3,7 +3,8 @@
 import React, { use, useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize } from '@/utils/fileShareUtils';
+import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
+import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 
 interface SharePageProps {
@@ -28,6 +29,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
   // Heartbeat tracking for time spent in document (Audit duration)
   const startTimeRef = useRef<number>(Date.now());
   const intervalRef = useRef<any>(null);
+
+  // Recipient Two-Way Submissions state
+  const submissionFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submissionSuccess, setSubmissionSuccess] = useState(false);
+  const [submissionNote, setSubmissionNote] = useState('');
+  const [submissionPhone, setSubmissionPhone] = useState('');
+  const [uploadedFilesList, setUploadedFilesList] = useState<string[]>([]);
 
   useEffect(() => {
     if (isUnlocked && token) {
@@ -132,6 +141,58 @@ export default function PublicSharePage({ params }: SharePageProps) {
     }));
     const idx = docs.findIndex(d => d.id === fileItem.id);
     setPreviewState({ docs, index: idx >= 0 ? idx : 0 });
+  };
+
+  const handleRecipientFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0 || !shareData) return;
+
+    setIsSubmitting(true);
+    try {
+      const now = Date.now();
+      const uploadedNames: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+        const isImg = file.type.startsWith('image/');
+        const fileType = isPdf ? 'pdf' : (isImg ? 'image' : 'other');
+
+        // Storage upload
+        const storagePath = `spaces/${shareData.spaceId}/submissions/${shareData.recipientId || 'guest'}_${now}_${file.name}`;
+        const downloadUrl = await uploadBlobToStorage(file, storagePath);
+
+        const res = await uploadRecipientSubmission(
+          token,
+          {
+            name: file.name,
+            url: downloadUrl,
+            fileType,
+            size: file.size
+          },
+          submissionNote.trim(),
+          submissionPhone.trim() || shareData.recipientPhone
+        );
+
+        if (res.success) {
+          uploadedNames.push(file.name);
+        }
+      }
+
+      if (uploadedNames.length > 0) {
+        setUploadedFilesList(prev => [...prev, ...uploadedNames]);
+        setSubmissionSuccess(true);
+        setTimeout(() => setSubmissionSuccess(false), 5000);
+      }
+    } catch (err: any) {
+      console.error('Submission error:', err);
+      alert('שגיאה בהעלאת המסמכים. אנא נסה שוב.');
+    } finally {
+      setIsSubmitting(false);
+      if (submissionFileInputRef.current) {
+        submissionFileInputRef.current.value = '';
+      }
+    }
   };
 
   if (loading) {
@@ -590,6 +651,150 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 >
                   <span>🔍</span> פתח בצפיין המלא (מגילה רציפה וזום עמוק עד 3000%)
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* TWO-WAY RECIPIENT SUBMISSION / CLIENT & CONTRACTOR PORTAL */}
+          {shareData.allowUploads !== false && (
+            <div style={{
+              marginTop: '1.75rem',
+              background: '#ffffff',
+              borderRadius: '24px',
+              border: '1.5px solid #e0e7ff',
+              padding: '1.5rem',
+              boxShadow: '0 8px 24px rgba(79, 70, 229, 0.07)',
+              direction: 'rtl'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.6rem' }}>
+                <span style={{
+                  fontSize: '1.4rem',
+                  background: '#eff6ff',
+                  width: '42px',
+                  height: '42px',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#4f46e5'
+                }}>
+                  {shareData.recipientRole === 'provider' ? '💼' : (shareData.recipientRole === 'client' ? '📋' : '📤')}
+                </span>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 900, color: '#0f172a' }}>
+                    {shareData.recipientRole === 'provider' 
+                      ? 'הגשת הצעת מחיר ומסמכי ספק' 
+                      : (shareData.recipientRole === 'client' ? 'צירוף מסמכים ובקשות לקוח' : 'ערוץ הגשת קבצים ישיר')}
+                  </h3>
+                  <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b' }}>
+                    {shareData.recipientRole === 'provider'
+                      ? 'העלה הצעת מחיר חתומה, מפרט טכני או תעודות משלוח ישירות לתיק הפרויקט'
+                      : 'העלה מסמכים, אישורים, תוכניות או תמונות מהשטח שיסודרו בתיק האישי שלך'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Hidden file input */}
+              <input
+                ref={submissionFileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf"
+                style={{ display: 'none' }}
+                onChange={handleRecipientFileUpload}
+              />
+
+              {/* Optional Phone & Note fields */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginTop: '1rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  <input
+                    type="tel"
+                    placeholder="מספר טלפון להתקשרות (אופציונלי)"
+                    value={submissionPhone}
+                    onChange={e => setSubmissionPhone(e.target.value)}
+                    style={{
+                      flex: 1,
+                      minWidth: '180px',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '12px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.82rem',
+                      background: '#f8fafc'
+                    }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="הערה / נושא הקובץ (למשל: הצעת מחיר מעודכנת)"
+                    value={submissionNote}
+                    onChange={e => setSubmissionNote(e.target.value)}
+                    style={{
+                      flex: 1.5,
+                      minWidth: '220px',
+                      padding: '0.6rem 0.85rem',
+                      borderRadius: '12px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.82rem',
+                      background: '#f8fafc'
+                    }}
+                  />
+                </div>
+
+                {/* Upload Button */}
+                <button
+                  type="button"
+                  onClick={() => submissionFileInputRef.current?.click()}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: '0.85rem',
+                    borderRadius: '14px',
+                    border: 'none',
+                    background: isSubmitting ? '#94a3b8' : 'linear-gradient(135deg, #4f46e5 0%, #3730a3 100%)',
+                    color: '#ffffff',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    cursor: isSubmitting ? 'wait' : 'pointer',
+                    boxShadow: '0 4px 14px rgba(79, 70, 229, 0.25)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <span>{isSubmitting ? '⏳' : '📎'}</span>
+                  <span>{isSubmitting ? 'מעלה מסמכים ומסדר בתיק...' : 'בחר קבצים להעלאה (PDF או תמונות)'}</span>
+                </button>
+
+                {/* Success Banner */}
+                {submissionSuccess && (
+                  <div style={{
+                    padding: '0.75rem 1rem',
+                    borderRadius: '12px',
+                    background: '#ecfdf5',
+                    border: '1px solid #a7f3d0',
+                    color: '#065f46',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    animation: 'fadeIn 0.3s'
+                  }}>
+                    <span>✅</span>
+                    <span>הקבצים הועלו בהצלחה ונשמרו בתיק הייעודי במערכת!</span>
+                  </div>
+                )}
+
+                {/* Uploaded items in this session */}
+                {uploadedFilesList.length > 0 && (
+                  <div style={{ marginTop: '0.4rem', fontSize: '0.75rem', color: '#475569', background: '#f8fafc', padding: '0.6rem', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                    <span style={{ fontWeight: 800, display: 'block', marginBottom: '4px' }}>קבצים שהועלו על ידך כעת ({uploadedFilesList.length}):</span>
+                    <ul style={{ margin: 0, paddingRight: '1.2rem' }}>
+                      {uploadedFilesList.map((fname, fidx) => (
+                        <li key={fidx}>{fname}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
             </div>
           )}

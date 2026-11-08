@@ -1,15 +1,20 @@
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, deleteDoc, increment } from 'firebase/firestore';
 
+export type RecipientRole = 'client' | 'provider' | 'general';
+
 export interface RecipientShareLink {
   id: string;
   recipientName: string;
+  role?: RecipientRole; // 'client' = מקבל שירות, 'provider' = נותן שירות, 'general' = שותף/כללי
+  phone?: string;
   token: string;
   enabled: boolean;
   createdAt: number;
   viewCount: number;
   totalDurationSeconds?: number;
   lastViewedAt: number | null;
+  submissionFolderId?: string; // ID of personal folder created in space for this recipient
 }
 
 export interface ShareLinkConfig {
@@ -19,6 +24,7 @@ export interface ShareLinkConfig {
   pin?: string;
   expiresAt: number | null; // timestamp in ms, or null for no expiry
   allowDownload: boolean;   // if false: view-only mode
+  allowUploads?: boolean;  // if true: recipient can upload submissions / quotes
   viewCount?: number;
   totalDurationSeconds?: number;
   lastViewedAt?: number | null;
@@ -55,6 +61,8 @@ export interface PublicSharedData {
   name: string;
   recipientName?: string;
   recipientId?: string;
+  recipientRole?: RecipientRole;
+  recipientPhone?: string;
   url?: string;
   thumbnailUrl?: string;
   pages?: string[];
@@ -64,6 +72,7 @@ export interface PublicSharedData {
   pin?: string;
   expiresAt: number | null;
   allowDownload: boolean;
+  allowUploads?: boolean;
   viewCount: number;
   totalDurationSeconds?: number;
   lastViewedAt: number | null;
@@ -130,6 +139,7 @@ export async function createOrUpdatePublicShare(
     pin: config.requirePin && config.pin ? config.pin.trim() : '',
     expiresAt: config.expiresAt || null,
     allowDownload: config.allowDownload !== false,
+    allowUploads: config.allowUploads !== false,
     viewCount: config.viewCount || 0,
     lastViewedAt: config.lastViewedAt || null,
     createdAt: config.createdAt || now
@@ -162,6 +172,8 @@ export async function createOrUpdatePublicShare(
             token: r.token,
             recipientId: r.id,
             recipientName: r.recipientName,
+            recipientRole: r.role || 'general',
+            recipientPhone: r.phone || '',
             viewCount: r.viewCount || 0,
             lastViewedAt: r.lastViewedAt || null,
             totalDurationSeconds: r.totalDurationSeconds || 0,
@@ -313,4 +325,99 @@ export { formatFileSize } from '@/utils/documentUtils';
 export function isShareExpired(expiresAt: number | null): boolean {
   if (!expiresAt) return false;
   return Date.now() > expiresAt;
+}
+
+/**
+ * Uploads a recipient submission (quote, contract, photo, document) from /share/[token]
+ * and saves it into the Space's fileShareItems, automatically creating a designated folder
+ * named after the recipient if it doesn't already exist.
+ */
+export async function uploadRecipientSubmission(
+  token: string,
+  fileData: {
+    name: string;
+    url: string;
+    fileType: 'pdf' | 'image' | 'doc' | 'sheet' | 'other';
+    size: number;
+    pages?: string[];
+  },
+  note?: string,
+  contactPhone?: string
+): Promise<{ success: boolean; folderId?: string; fileId?: string; error?: string }> {
+  try {
+    const shareData = await getPublicShare(token);
+    if (!shareData || !shareData.spaceId) {
+      return { success: false, error: 'שיתוף לא נמצא או שפג תוקפו' };
+    }
+
+    const spaceDocRef = doc(db, 'spaces', shareData.spaceId);
+    const spaceSnap = await getDoc(spaceDocRef);
+    if (!spaceSnap.exists()) {
+      return { success: false, error: 'המרחב אינו זמין' };
+    }
+
+    const spaceData = spaceSnap.data();
+    const items: FileShareItem[] = Array.isArray(spaceData.fileShareItems) ? [...spaceData.fileShareItems] : [];
+
+    // Determine recipient display title
+    const recipientName = shareData.recipientName || 'אורח קישור';
+    const roleHebrew = shareData.recipientRole === 'provider' ? 'ספק / קבלן' : (shareData.recipientRole === 'client' ? 'לקוח' : 'נמען');
+    const folderName = `📥 ${recipientName} (${roleHebrew})`;
+
+    // Check if recipient folder already exists in the space
+    let targetFolder = items.find(i => i.type === 'folder' && (
+      i.name === folderName || 
+      i.name.startsWith(`📥 ${recipientName}`) ||
+      (shareData.recipientId && i.id === `sub_folder_${shareData.recipientId}`)
+    ));
+
+    const now = Date.now();
+
+    if (!targetFolder) {
+      targetFolder = {
+        id: shareData.recipientId ? `sub_folder_${shareData.recipientId}` : `folder_sub_${now}`,
+        spaceId: shareData.spaceId,
+        name: folderName,
+        type: 'folder',
+        parentId: null, // Root level folder in fileshare
+        createdAt: now,
+        createdBy: `guest_${shareData.recipientId || 'external'}`,
+        creatorName: `${recipientName} (${contactPhone || shareData.recipientPhone || 'הגשה חיצונית'})`,
+        allowedPartners: [] // open to space members
+      };
+      items.push(targetFolder);
+    }
+
+    // Create the uploaded file item
+    const newFileItem: FileShareItem = {
+      id: `file_sub_${now}_${Math.random().toString(36).substring(2, 6)}`,
+      spaceId: shareData.spaceId,
+      name: fileData.name,
+      type: 'file',
+      parentId: targetFolder.id,
+      url: fileData.url,
+      thumbnailUrl: fileData.pages && fileData.pages.length > 0 ? fileData.pages[0] : (fileData.url && !fileData.url.includes('.pdf') ? fileData.url : undefined),
+      pages: fileData.pages || [fileData.url],
+      fileType: fileData.fileType,
+      size: fileData.size,
+      createdAt: now,
+      createdBy: `guest_${shareData.recipientId || 'external'}`,
+      creatorName: `${recipientName} ${contactPhone ? `[📞 ${contactPhone}]` : ''} ${note ? `• "${note}"` : ''}`.trim(),
+      allowedPartners: []
+    };
+
+    items.push(newFileItem);
+
+    // Save updated items back to the space
+    await updateDoc(spaceDocRef, { fileShareItems: items });
+
+    return {
+      success: true,
+      folderId: targetFolder.id,
+      fileId: newFileItem.id
+    };
+  } catch (err: any) {
+    console.error('Failed to upload recipient submission:', err);
+    return { success: false, error: err.message || 'שגיאה בשמירת הקובץ' };
+  }
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { FileShareItem, ShareLinkConfig, RecipientShareLink, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
+import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
@@ -25,6 +25,7 @@ export function CreateShareLinkModal({
   const [pin, setPin] = useState('');
   const [expiryOption, setExpiryOption] = useState<'never' | '1day' | '7days' | '30days'>('never');
   const [allowDownload, setAllowDownload] = useState(true);
+  const [allowUploads, setAllowUploads] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [copied, setCopied] = useState(false);
   const [token, setToken] = useState<string>('');
@@ -32,6 +33,8 @@ export function CreateShareLinkModal({
   // Individual Named Recipients for 1-to-1 Tracking & Blocking
   const [recipients, setRecipients] = useState<RecipientShareLink[]>([]);
   const [newRecipientName, setNewRecipientName] = useState('');
+  const [newRecipientRole, setNewRecipientRole] = useState<RecipientRole>('client');
+  const [newRecipientPhone, setNewRecipientPhone] = useState('');
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
 
   // Helper to generate a secure random 4-digit PIN
@@ -49,6 +52,7 @@ export function CreateShareLinkModal({
         setRequirePin(Boolean(link.requirePin));
         setPin(link.pin || '');
         setAllowDownload(link.allowDownload !== false);
+        setAllowUploads(link.allowUploads !== false);
         setRecipients(Array.isArray(link.recipients) ? link.recipients : []);
 
         if (!link.expiresAt) {
@@ -67,10 +71,13 @@ export function CreateShareLinkModal({
         setPin('');
         setExpiryOption('never');
         setAllowDownload(true);
+        setAllowUploads(true);
         setRecipients([]);
       }
       setCopied(false);
       setNewRecipientName('');
+      setNewRecipientPhone('');
+      setNewRecipientRole('client');
     }
   }, [isOpen, item]);
 
@@ -99,6 +106,7 @@ export function CreateShareLinkModal({
         pin: requirePin ? pin.trim() : undefined,
         expiresAt,
         allowDownload,
+        allowUploads,
         viewCount: item.shareLink?.viewCount || 0,
         totalDurationSeconds: item.shareLink?.totalDurationSeconds || 0,
         lastViewedAt: item.shareLink?.lastViewedAt || null,
@@ -127,6 +135,8 @@ export function CreateShareLinkModal({
     const newRecipient: RecipientShareLink = {
       id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       recipientName: newRecipientName.trim(),
+      role: newRecipientRole,
+      phone: newRecipientPhone.trim() || undefined,
       token: recipientToken,
       enabled: true,
       createdAt: Date.now(),
@@ -138,6 +148,7 @@ export function CreateShareLinkModal({
     const nextRecipients = [...recipients, newRecipient];
     setRecipients(nextRecipients);
     setNewRecipientName('');
+    setNewRecipientPhone('');
     if (token) {
       await ensurePersisted(token, nextRecipients);
     }
@@ -530,6 +541,22 @@ export function CreateShareLinkModal({
               )}
             </div>
 
+            {/* Two-Way Portal Uploads Toggle */}
+            <div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.86rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                <input 
+                  type="checkbox" 
+                  checked={allowUploads} 
+                  onChange={e => setAllowUploads(e.target.checked)}
+                  style={{ width: '17px', height: '17px', accentColor: 'var(--primary)' }}
+                />
+                <span>📤 אפשר לנמענים להעלות הצעות מחיר, מסמכים ותמונות</span>
+              </label>
+              <span style={{ fontSize: '0.72rem', color: '#64748b', display: 'block', marginTop: '3px', paddingRight: '1.6rem' }}>
+                📁 כל נמען שיעלה מסמך יקבל תיקייה אישית אוטומטית במרחב שלך עם שמו.
+              </span>
+            </div>
+
             {/* Quick Link Share & Copy */}
             {shareUrl && (
               <div style={{ marginTop: '0.5rem', paddingTop: '0.75rem', borderTop: '1px solid var(--border-light)' }}>
@@ -669,53 +696,102 @@ export function CreateShareLinkModal({
                 הוסף שמות של קבלנים או שותפים כדי לקבל עבור כל אחד מהם קישור ייחודי. תוכל לדעת בדיוק מי פתח וכמה זמן צפה, ולחסום אדם ספציפי בכל רגע מבלי לפגוע באחרים.
               </p>
 
-              {/* Add recipient input */}
-              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', alignItems: 'stretch' }}>
-                <input
-                  type="text"
-                  placeholder="שם הנמען (למשל: יוסי)"
-                  value={newRecipientName}
-                  onChange={e => setNewRecipientName(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddRecipient();
-                    }
-                  }}
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    padding: '0.55rem 0.75rem',
-                    borderRadius: '10px',
-                    border: '1px solid var(--border-light)',
-                    background: 'var(--bg-main)',
-                    fontSize: '0.82rem',
-                    color: 'var(--text-primary)'
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={handleAddRecipient}
-                  disabled={!newRecipientName.trim()}
-                  style={{
-                    flexShrink: 0,
-                    padding: '0.55rem 0.85rem',
-                    borderRadius: '10px',
-                    border: 'none',
-                    background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
-                    color: '#ffffff',
-                    fontWeight: 800,
-                    fontSize: '0.82rem',
-                    cursor: newRecipientName.trim() ? 'pointer' : 'default',
-                    whiteSpace: 'nowrap',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.25rem'
-                  }}
-                >
-                  <span>➕</span>
-                  <span>הוסף</span>
-                </button>
+              {/* Add recipient input & role selector */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
+                {/* Role Pill Switcher */}
+                <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
+                  <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>סוג נמען:</span>
+                  {(
+                    [
+                      { id: 'client', label: '👤 לקוח / מזמין', title: 'מקבל שירות' },
+                      { id: 'provider', label: '🛠️ ספק / קבלן', title: 'נותן שירות / מגיש הצעה' },
+                      { id: 'general', label: '🤝 שותף / כללי', title: 'שיתוף מסמכים' }
+                    ] as const
+                  ).map(pill => (
+                    <button
+                      key={pill.id}
+                      type="button"
+                      onClick={() => setNewRecipientRole(pill.id)}
+                      style={{
+                        padding: '3px 8px',
+                        borderRadius: '8px',
+                        fontSize: '0.72rem',
+                        fontWeight: newRecipientRole === pill.id ? 800 : 600,
+                        border: newRecipientRole === pill.id ? '1.5px solid #4f46e5' : '1px solid var(--border-light)',
+                        background: newRecipientRole === pill.id ? '#eff6ff' : 'var(--bg-main)',
+                        color: newRecipientRole === pill.id ? '#4f46e5' : '#64748b',
+                        cursor: 'pointer'
+                      }}
+                      title={pill.title}
+                    >
+                      {pill.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'stretch' }}>
+                  <input
+                    type="text"
+                    placeholder="שם הנמען (למשל: יוסי)"
+                    value={newRecipientName}
+                    onChange={e => setNewRecipientName(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddRecipient();
+                      }
+                    }}
+                    style={{
+                      flex: 1.2,
+                      minWidth: 0,
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-light)',
+                      background: 'var(--bg-main)',
+                      fontSize: '0.82rem',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                  <input
+                    type="tel"
+                    placeholder="טלפון (אופציונלי)"
+                    value={newRecipientPhone}
+                    onChange={e => setNewRecipientPhone(e.target.value)}
+                    style={{
+                      flex: 0.8,
+                      minWidth: 0,
+                      padding: '0.55rem 0.55rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-light)',
+                      background: 'var(--bg-main)',
+                      fontSize: '0.78rem',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddRecipient}
+                    disabled={!newRecipientName.trim()}
+                    style={{
+                      flexShrink: 0,
+                      padding: '0.55rem 0.85rem',
+                      borderRadius: '10px',
+                      border: 'none',
+                      background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '0.82rem',
+                      cursor: newRecipientName.trim() ? 'pointer' : 'default',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                  >
+                    <span>➕</span>
+                    <span>הוסף</span>
+                  </button>
+                </div>
               </div>
 
               {/* Recipients list */}
@@ -747,6 +823,21 @@ export function CreateShareLinkModal({
                             <span style={{ fontWeight: 800, color: r.enabled ? '#0f172a' : '#991b1b', textDecoration: r.enabled ? 'none' : 'line-through' }}>
                               {r.recipientName}
                             </span>
+                            <span style={{
+                              fontSize: '0.62rem',
+                              padding: '1px 5px',
+                              borderRadius: '4px',
+                              fontWeight: 700,
+                              background: r.role === 'provider' ? '#fef3c7' : (r.role === 'client' ? '#e0f2fe' : '#f1f5f9'),
+                              color: r.role === 'provider' ? '#b45309' : (r.role === 'client' ? '#0369a1' : '#475569')
+                            }}>
+                              {r.role === 'provider' ? '🛠️ ספק' : (r.role === 'client' ? '👤 לקוח' : '🤝 כללי')}
+                            </span>
+                            {r.phone && (
+                              <span style={{ fontSize: '0.62rem', color: '#64748b' }}>
+                                📞 {r.phone}
+                              </span>
+                            )}
                             {!r.enabled && (
                               <span style={{ fontSize: '0.62rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
                                 חסום 🛑
