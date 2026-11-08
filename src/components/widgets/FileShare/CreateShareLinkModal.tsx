@@ -299,13 +299,15 @@ export function CreateShareLinkModal({
         style={{
           background: 'var(--bg-card, #ffffff)',
           width: '100%',
-          maxWidth: '480px',
+          maxWidth: '500px',
+          maxHeight: '90vh',
           borderRadius: '24px',
-          padding: '1.5rem',
+          padding: '1.25rem 1.5rem',
           boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '1.25rem'
+          gap: '1rem',
+          overflow: 'hidden'
         }}
         onClick={e => e.stopPropagation()}
       >
@@ -393,7 +395,17 @@ export function CreateShareLinkModal({
 
         {/* Security Controls (Shown if enabled) */}
         {isEnabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: '#ffffff', border: '1px solid var(--border-light, #e2e8f0)', padding: '1rem', borderRadius: '16px' }}>
+          <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            background: '#ffffff',
+            border: '1px solid var(--border-light, #e2e8f0)',
+            padding: '1rem',
+            borderRadius: '16px',
+            overflowY: 'auto',
+            maxHeight: 'calc(90vh - 220px)'
+          }}>
             
             {/* PIN Protection */}
             <div>
