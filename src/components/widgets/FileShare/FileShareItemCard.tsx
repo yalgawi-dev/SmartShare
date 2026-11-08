@@ -11,6 +11,9 @@ interface FileShareItemCardProps {
   onManagePermissions?: (item: FileShareItem) => void;
   onRename?: (item: FileShareItem, newName: string) => void;
   onDelete: (item: FileShareItem) => void;
+  isMultiSelect?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (item: FileShareItem) => void;
 }
 
 export function FileShareItemCard({
@@ -19,7 +22,10 @@ export function FileShareItemCard({
   onManageLink,
   onManagePermissions,
   onRename,
-  onDelete
+  onDelete,
+  isMultiSelect = false,
+  isSelected = false,
+  onToggleSelect
 }: FileShareItemCardProps) {
   const isFolder = item.type === 'folder';
   const isPublicLinkActive = Boolean(item.shareLink?.enabled && item.shareLink?.token);
@@ -76,21 +82,43 @@ export function FileShareItemCard({
   return (
     <div
       style={{
-        background: 'var(--bg-card, #ffffff)',
+        background: isSelected ? 'rgba(99, 102, 241, 0.05)' : 'var(--bg-card, #ffffff)',
         borderRadius: '16px',
-        border: '1px solid var(--border-light, #e2e8f0)',
+        border: isSelected ? '2px solid var(--primary, #6366f1)' : '1px solid var(--border-light, #e2e8f0)',
         padding: '0.85rem 1rem',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.65rem',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+        boxShadow: isSelected ? '0 4px 12px rgba(99, 102, 241, 0.15)' : '0 1px 3px rgba(0,0,0,0.04)',
         transition: 'all 0.2s ease',
         cursor: 'pointer'
       }}
-      onClick={() => onOpen(item)}
+      onClick={() => {
+        if (isMultiSelect && onToggleSelect) {
+          onToggleSelect(item);
+        } else {
+          onOpen(item);
+        }
+      }}
     >
-      {/* Top Row: Thumbnail + Title & Privacy */}
+      {/* Top Row: Checkbox (if multiSelect) + Thumbnail + Title & Privacy */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', minWidth: 0 }}>
+        {isMultiSelect && (
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect?.(item);
+            }}
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onToggleSelect?.(item)}
+              style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#3b82f6' }}
+            />
+          </div>
+        )}
         {/* Real Thumbnail (48x48) */}
         <div style={{
           width: '48px',

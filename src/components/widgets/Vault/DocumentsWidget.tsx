@@ -10,6 +10,8 @@ import { ShelfCoverPicker } from './ShelfCoverPicker';
 import ShelfTimeline from './ShelfTimeline';
 import { uploadImageToStorage } from '@/lib/firebase';
 import ConfirmModal from '../../common/ConfirmModal';
+import BatchActionToolbar, { BatchToolbarAction } from '../../common/BatchActionToolbar';
+import GlobalMoveModal from '../../common/GlobalMoveModal';
 import { downloadDocument, shareDocument, getDocumentPreviewUrl, formatFileSize } from '../../../utils/documentUtils';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { mergeImagesCleanly } from '../../../utils/imageOptimizer';
@@ -2168,226 +2170,98 @@ const handleDeleteDocument = (docId: string, title?: string) => {
             </div>
           )}
 
-          {/* MULTI-SELECT FLOATING ACTION BAR - REFACTORED CLEAN & SYMMETRIC */}
+          {/* MULTI-SELECT FLOATING ACTION BAR - REFACTORED VIA GLOBAL COMPONENT */}
           {isMultiSelect && (() => {
             const currentLevelDocIds = shelfDocs
               .filter(d => (currentFolderId ? d.folderId === currentFolderId : !d.folderId))
               .map(d => d.id);
             const isAllSelected = currentLevelDocIds.length > 0 && currentLevelDocIds.every(id => selectedDocIds.includes(id));
 
+            const actions: BatchToolbarAction[] = [];
+
+            if (selectedDocIds.length === 1) {
+              actions.push({
+                id: 'edit',
+                label: 'עריכה',
+                icon: '✂️',
+                variant: 'primary',
+                title: 'עריכה ופילטור המסמך בסורק',
+                onClick: () => {
+                  const targetDoc = documents.find(d => d.id === selectedDocIds[0]);
+                  if (targetDoc && typeof window !== 'undefined') {
+                    setIsMultiSelect(false);
+                    setSelectedDocIds([]);
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+                      detail: { doc: targetDoc }
+                    }));
+                  }
+                }
+              });
+            } else if (selectedDocIds.length > 1) {
+              actions.push({
+                id: 'merge',
+                label: 'איחוד',
+                icon: '📜',
+                variant: 'primary',
+                title: 'עריכה, יישור ואיחוד המסמכים הנבחרים בסורק',
+                onClick: () => {
+                  const targetDocs = documents.filter(d => selectedDocIds.includes(d.id));
+                  if (targetDocs.length > 0 && typeof window !== 'undefined') {
+                    setIsMultiSelect(false);
+                    setSelectedDocIds([]);
+                    window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
+                      detail: { docs: targetDocs }
+                    }));
+                  }
+                }
+              });
+            }
+
+            actions.push({
+              id: 'move',
+              label: 'תיקייה',
+              icon: '📁',
+              variant: 'info',
+              title: 'העבר מסמכים נבחרים לתיקייה',
+              onClick: () => setMoveDocToFolder({ docIds: selectedDocIds, currentFolderId })
+            });
+
+            actions.push({
+              id: 'share',
+              label: isSharingBatch ? 'מכין...' : 'שתף',
+              icon: '📤',
+              variant: 'secondary',
+              disabled: isSharingBatch,
+              onClick: () => shareMultipleDocuments(selectedDocIds)
+            });
+
+            actions.push({
+              id: 'delete',
+              label: 'מחק',
+              icon: '🗑️',
+              variant: 'danger',
+              title: 'העבר מסמכים נבחרים לסל אשפה',
+              onClick: () => setBatchDeleteConfirm(true)
+            });
+
             return (
-              <div style={{
-                background: '#0f172a',
-                color: 'white',
-                borderRadius: '16px',
-                padding: '0.75rem 0.85rem',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '0.65rem',
-                boxShadow: '0 10px 25px -5px rgba(15,23,42,0.4)',
-                position: 'sticky',
-                top: '115px',
-                zIndex: 90,
-                border: '1px solid #334155'
-              }}>
-                {/* Top Row: Checkbox Select All, Selection Count Badge, Cancel Action */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '0.4rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', cursor: 'pointer', userSelect: 'none' }}>
-                    <input
-                      type="checkbox"
-                      checked={isAllSelected}
-                      onChange={() => {
-                        if (isAllSelected) {
-                          setSelectedDocIds(prev => prev.filter(id => !currentLevelDocIds.includes(id)));
-                        } else {
-                          setSelectedDocIds(prev => Array.from(new Set([...prev, ...currentLevelDocIds])));
-                        }
-                      }}
-                      style={{ width: '17px', height: '17px', cursor: 'pointer', accentColor: '#3b82f6' }}
-                    />
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f1f5f9' }}>
-                      בחר הכל ({currentLevelDocIds.length})
-                    </span>
-                  </label>
-
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#93c5fd', background: 'rgba(59,130,246,0.18)', border: '1px solid rgba(59,130,246,0.3)', padding: '2px 8px', borderRadius: '12px' }}>
-                    נבחרו: {selectedDocIds.length}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMultiSelect(false);
-                      setSelectedDocIds([]);
-                    }}
-                    style={{
-                      background: 'rgba(255,255,255,0.08)',
-                      border: 'none',
-                      color: '#cbd5e1',
-                      padding: '3px 10px',
-                      borderRadius: '8px',
-                      fontSize: '0.78rem',
-                      fontWeight: 600,
-                      cursor: 'pointer'
-                    }}
-                  >
-                    ✕ ביטול
-                  </button>
-                </div>
-
-                {/* Bottom Row: Symmetrical Action Buttons (Merge & Edit, Move, Share, Delete) */}
-                <div style={{ display: 'grid', gridTemplateColumns: selectedDocIds.length > 1 ? 'repeat(4, 1fr)' : 'repeat(4, 1fr)', gap: '0.35rem', alignItems: 'center' }}>
-                  {/* Single selected document: Edit in Scanner */}
-                  {selectedDocIds.length === 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetDoc = documents.find(d => d.id === selectedDocIds[0]);
-                        if (targetDoc && typeof window !== 'undefined') {
-                          setIsMultiSelect(false);
-                          setSelectedDocIds([]);
-                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
-                            detail: { doc: targetDoc }
-                          }));
-                        }
-                      }}
-                      style={{
-                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                        color: 'white',
-                        border: 'none',
-                        padding: '0.55rem 0.25rem',
-                        borderRadius: '10px',
-                        fontWeight: 700,
-                        fontSize: '0.76rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.2rem',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
-                        minWidth: 0
-                      }}
-                      title="עריכה ופילטור המסמך בסורק"
-                    >
-                      <span style={{ fontSize: '0.88rem' }}>✂️</span> עריכה
-                    </button>
-                  )}
-
-                  {/* Multiple selected documents: Merge into Scroll */}
-                  {selectedDocIds.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const targetDocs = documents.filter(d => selectedDocIds.includes(d.id));
-                        if (targetDocs.length > 0 && typeof window !== 'undefined') {
-                          setIsMultiSelect(false);
-                          setSelectedDocIds([]);
-                          window.dispatchEvent(new CustomEvent('smartshare:open_scanner_for_doc', {
-                            detail: { docs: targetDocs }
-                          }));
-                        }
-                      }}
-                      style={{
-                        background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                        color: 'white',
-                        border: 'none',
-                        padding: '0.55rem 0.25rem',
-                        borderRadius: '10px',
-                        fontWeight: 700,
-                        fontSize: '0.76rem',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '0.2rem',
-                        whiteSpace: 'nowrap',
-                        boxShadow: '0 2px 8px rgba(99,102,241,0.35)',
-                        minWidth: 0
-                      }}
-                      title="עריכה, יישור ואיחוד המסמכים הנבחרים בסורק"
-                    >
-                      <span style={{ fontSize: '0.88rem' }}>📜</span> איחוד
-                    </button>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={selectedDocIds.length === 0}
-                    onClick={() => setMoveDocToFolder({ docIds: selectedDocIds, currentFolderId })}
-                    style={{
-                      background: '#0284c7',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.55rem 0.25rem',
-                      borderRadius: '10px',
-                      fontWeight: 700,
-                      fontSize: '0.76rem',
-                      cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
-                      opacity: selectedDocIds.length === 0 ? 0.5 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.2rem',
-                      whiteSpace: 'nowrap',
-                      minWidth: 0
-                    }}
-                    title="העבר מסמכים נבחרים לתיקייה"
-                  >
-                    <span style={{ fontSize: '0.88rem' }}>📁</span> תיקייה
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={selectedDocIds.length === 0 || isSharingBatch}
-                    onClick={() => shareMultipleDocuments(selectedDocIds)}
-                    style={{
-                      background: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      padding: '0.55rem 0.25rem',
-                      borderRadius: '10px',
-                      fontWeight: 700,
-                      fontSize: '0.76rem',
-                      cursor: selectedDocIds.length === 0 || isSharingBatch ? 'not-allowed' : 'pointer',
-                      opacity: selectedDocIds.length === 0 || isSharingBatch ? 0.5 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.2rem',
-                      whiteSpace: 'nowrap',
-                      minWidth: 0
-                    }}
-                  >
-                    <span style={{ fontSize: '0.88rem' }}>📤</span> {isSharingBatch ? 'מכין...' : 'שתף'}
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={selectedDocIds.length === 0}
-                    onClick={() => setBatchDeleteConfirm(true)}
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.2)',
-                      color: '#fca5a5',
-                      border: '1px solid #ef4444',
-                      padding: '0.55rem 0.25rem',
-                      borderRadius: '10px',
-                      fontWeight: 700,
-                      fontSize: '0.76rem',
-                      cursor: selectedDocIds.length === 0 ? 'not-allowed' : 'pointer',
-                      opacity: selectedDocIds.length === 0 ? 0.5 : 1,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '0.2rem',
-                      whiteSpace: 'nowrap',
-                      minWidth: 0
-                    }}
-                  >
-                    <span style={{ fontSize: '0.88rem' }}>🗑️</span> מחק
-                  </button>
-                </div>
-              </div>
+              <BatchActionToolbar
+                selectedCount={selectedDocIds.length}
+                totalCount={currentLevelDocIds.length}
+                isAllSelected={isAllSelected}
+                onToggleSelectAll={() => {
+                  if (isAllSelected) {
+                    setSelectedDocIds(prev => prev.filter(id => !currentLevelDocIds.includes(id)));
+                  } else {
+                    setSelectedDocIds(prev => Array.from(new Set([...prev, ...currentLevelDocIds])));
+                  }
+                }}
+                onCancel={() => {
+                  setIsMultiSelect(false);
+                  setSelectedDocIds([]);
+                }}
+                actions={actions}
+              />
             );
           })()}
 
@@ -4115,225 +3989,27 @@ const handleDeleteDocument = (docId: string, title?: string) => {
         const count = moveDocToFolder.docIds.length;
         const singleDoc = count === 1 ? documents.find(d => String(d.id) === String(moveDocToFolder.docIds[0])) : null;
         const targetShelfId = activeShelfId || activeShelf?.id || singleDoc?.shelfId;
+        const availableFolders = (space.documentFolders || []).filter(f => !f.deletedAt && f.shelfId === targetShelfId);
         
-        // Robust retrieval of all folders in the current shelf with permission check
-        const allShelfFolders = (space.documentFolders || []).filter(f => {
-          if (f.deletedAt) return false;
-          if (targetShelfId && f.shelfId && String(f.shelfId) !== String(targetShelfId)) return false;
-          return canAccessItem({
-            spaceRole: myRole,
-            userId: user?.id,
-            partnerToken: myPartnerToken,
-            creatorId: space.creatorId,
-            isManagedMode: isManaged,
-            allowedPartners: f.allowedPartners
-          });
-        });
-
-        const handleConfirmMove = (targetFolderId: string | null) => {
-          moveDocToFolder.docIds.forEach(id => {
-            updateDocument(space.id, id, { folderId: targetFolderId ? String(targetFolderId) : null });
-          });
-          setSelectedDocIds([]);
-          setIsMultiSelect(false);
-          setMoveDocToFolder(null);
-        };
-
-        const normId = (id?: string | null) => (id && String(id).trim().length > 0) ? String(id).trim() : null;
-        const activeCurrentFolderId = normId(moveDocToFolder.currentFolderId);
-        const isRootCurrent = !activeCurrentFolderId;
-
-        // Current folder object
-        const currentFolderObj = activeCurrentFolderId ? allShelfFolders.find(f => normId(f.id) === activeCurrentFolderId) : null;
-        const currentParentId = currentFolderObj ? normId(currentFolderObj.parentId) : null;
-
-        // Sibling folders: share the exact same normalized parentId!
-        const siblingFolders = allShelfFolders.filter(f => {
-          const fParentId = normId(f.parentId);
-          return fParentId === currentParentId;
-        });
-
-        // Other folders: exist in shelf but have a different parentId
-        const otherFolders = allShelfFolders.filter(f => {
-          const fParentId = normId(f.parentId);
-          return fParentId !== currentParentId;
-        });
-
         return (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 10001, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-            <div onClick={(e) => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: '440px', borderRadius: '24px', padding: '1.5rem', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 40px rgba(0,0,0,0.3)', direction: 'rtl' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b' }}>
-                    {count > 1 ? `העברת ${count} מסמכים לתיקייה` : 'העברת מסמך לתיקייה'}
-                  </h3>
-                  <div style={{ fontSize: '0.82rem', color: '#64748b', marginTop: '2px', maxWidth: '300px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {count > 1 ? `📁 נבחרו ${count} מסמכים` : `📄 ${singleDoc?.title || 'מסמך'}`}
-                  </div>
-                </div>
-                <button onClick={() => setMoveDocToFolder(null)} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
-              </div>
-
-              <div style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#475569', marginBottom: '0.75rem' }}>
-                בחר תיקיית יעד:
-              </div>
-
-              <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.6rem', paddingBottom: '0.5rem' }}>
-                {/* Option 1: Root level */}
-                <button
-                  type="button"
-                  disabled={isRootCurrent}
-                  onClick={() => handleConfirmMove(null)}
-                  style={{
-                    padding: '0.85rem 1rem',
-                    background: isRootCurrent ? '#f1f5f9' : '#eff6ff',
-                    border: isRootCurrent ? '2px solid #94a3b8' : '2px solid #2563eb',
-                    borderRadius: '14px',
-                    cursor: isRootCurrent ? 'default' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    textAlign: 'right',
-                    boxShadow: isRootCurrent ? 'none' : '0 2px 6px rgba(37,99,235,0.08)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <span style={{ fontSize: '1.35rem' }}>🏠</span>
-                    <div>
-                      <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isRootCurrent ? '#64748b' : '#1d4ed8' }}>
-                        תיקייה ראשית (ללא תיקייה)
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                        שכבת הבסיס של המדף
-                      </div>
-                    </div>
-                  </div>
-                  {isRootCurrent ? (
-                    <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>מיקום נוכחי</span>
-                  ) : (
-                    <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 700 }}>העבר לכאן ←</span>
-                  )}
-                </button>
-
-                {/* Sibling Folders (Same Tier) */}
-                {siblingFolders.length > 0 && (
-                  <div style={{ marginTop: '0.4rem' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>📁</span>
-                      <span>{currentFolderObj ? 'תיקיות מקבילות (באותה שכבה):' : 'תיקיות ברמה הראשית של המדף:'}</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {siblingFolders.map(f => {
-                        const isCurrent = normId(f.id) === activeCurrentFolderId;
-                        return (
-                          <button
-                            key={f.id}
-                            type="button"
-                            disabled={isCurrent}
-                            onClick={() => handleConfirmMove(f.id)}
-                            style={{
-                              padding: '0.85rem 1rem',
-                              background: isCurrent ? '#f1f5f9' : '#ffffff',
-                              border: isCurrent ? '2px solid #94a3b8' : '1px solid #bfdbfe',
-                              borderRadius: '14px',
-                              cursor: isCurrent ? 'default' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              textAlign: 'right',
-                              boxShadow: isCurrent ? 'none' : '0 1px 4px rgba(37,99,235,0.06)'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                              <span style={{ fontSize: '1.35rem' }}>📁</span>
-                              <div>
-                                <div style={{ fontSize: '0.95rem', fontWeight: 'bold', color: isCurrent ? '#64748b' : '#0f172a' }}>
-                                  {f.name}
-                                </div>
-                                <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                  {isCurrent ? 'המסמך כבר נמצא בתיקייה זו' : (currentFolderObj ? 'תיקייה מקבילה באותה שכבה' : 'תיקייה בראשי המדף')}
-                                </div>
-                              </div>
-                            </div>
-                            {isCurrent ? (
-                              <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>תיקייה נוכחית</span>
-                            ) : (
-                              <span style={{ color: '#2563eb', fontSize: '0.8rem', fontWeight: 700 }}>העבר לכאן ←</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Other Folders in this shelf */}
-                {otherFolders.length > 0 && (
-                  <div style={{ marginTop: '0.6rem' }}>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      <span>🗂️</span>
-                      <span>תיקיות בשכבות אחרות:</span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {otherFolders.map(f => {
-                        const isCurrent = normId(f.id) === activeCurrentFolderId;
-                        const parentF = f.parentId ? allShelfFolders.find(p => normId(p.id) === normId(f.parentId)) : null;
-                        return (
-                          <button
-                            key={f.id}
-                            type="button"
-                            disabled={isCurrent}
-                            onClick={() => handleConfirmMove(f.id)}
-                            style={{
-                              padding: '0.75rem 1rem',
-                              background: isCurrent ? '#f1f5f9' : '#f8fafc',
-                              border: isCurrent ? '2px solid #94a3b8' : '1px solid #e2e8f0',
-                              borderRadius: '14px',
-                              cursor: isCurrent ? 'default' : 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              textAlign: 'right'
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                              <span style={{ fontSize: '1.2rem' }}>📁</span>
-                              <div>
-                                <div style={{ fontSize: '0.9rem', fontWeight: 'bold', color: isCurrent ? '#64748b' : '#334155' }}>
-                                  {f.name}
-                                </div>
-                                {parentF ? (
-                                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                    בתוך: {parentF.name}
-                                  </div>
-                                ) : (
-                                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                                    ברמה הראשית
-                                  </div>
-                                )}
-                              </div>
-                            </div>
-                            {isCurrent ? (
-                              <span style={{ background: '#e2e8f0', color: '#475569', padding: '2px 8px', borderRadius: '8px', fontSize: '0.72rem', fontWeight: 800 }}>תיקייה נוכחית</span>
-                            ) : (
-                              <span style={{ color: '#2563eb', fontSize: '0.78rem', fontWeight: 700 }}>העבר לכאן ←</span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <button 
-                onClick={() => setMoveDocToFolder(null)} 
-                style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: '#f1f5f9', color: '#64748b', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.95rem' }}
-              >
-                ביטול
-              </button>
-            </div>
-          </div>
+          <GlobalMoveModal
+            isOpen={Boolean(moveDocToFolder)}
+            itemCount={count}
+            subtitle={count > 1 ? `📁 נבחרו ${count} מסמכים` : `📄 ${singleDoc?.title || 'מסמך'}`}
+            currentFolderId={moveDocToFolder.currentFolderId}
+            folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
+            onClose={() => setMoveDocToFolder(null)}
+            onConfirmMove={(targetFolderId) => {
+              moveDocToFolder.docIds.forEach(id => {
+                updateDocument(space.id, id, { folderId: targetFolderId ? String(targetFolderId) : null });
+              });
+              setSelectedDocIds([]);
+              setIsMultiSelect(false);
+              setMoveDocToFolder(null);
+            }}
+            rootLabel="תיקייה ראשית (ללא תיקייה)"
+            rootDescription="שכבת הבסיס של המדף"
+          />
         );
       })()}
 

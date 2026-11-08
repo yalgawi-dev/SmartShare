@@ -10,6 +10,9 @@ import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import VersionBadge from '@/components/common/VersionBadge';
+import BatchActionToolbar, { BatchToolbarAction } from '@/components/common/BatchActionToolbar';
+import GlobalMoveModal from '@/components/common/GlobalMoveModal';
+import ConfirmModal from '@/components/common/ConfirmModal';
 
 interface FileShareWidgetProps {
   space: any;
@@ -46,6 +49,12 @@ export function FileShareWidget({
   // Partner Permission Modal state
   const [privacyItem, setPrivacyItem] = useState<FileShareItem | null>(null);
   const [selectedAllowedPartners, setSelectedAllowedPartners] = useState<string[]>([]);
+
+  // Multi-select and batch operations (Rule DRY / Single Source of Truth)
+  const [isMultiSelect, setIsMultiSelect] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [moveModalState, setMoveModalState] = useState<{ itemIds: string[]; currentFolderId: string | null } | null>(null);
+  const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
 
   // raw items from space
   const allItems: FileShareItem[] = useMemo(() => {
@@ -136,6 +145,60 @@ export function FileShareWidget({
   const files = useMemo(() => visibleItems.filter(i => i.type === 'file'), [visibleItems]);
 
   // Save updated items list to Firestore
+  
+  // Toggle selection for single item
+  const handleToggleSelectItem = (item: FileShareItem) => {
+    setSelectedItemIds(prev =>
+      prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+    );
+  };
+
+  // Confirm move items to target folder
+  const handleConfirmMoveItems = async (targetFolderId: string | null) => {
+    if (!moveModalState) return;
+    const movingIds = new Set(moveModalState.itemIds);
+    const next = allItems.map(i => {
+      if (movingIds.has(i.id)) {
+        return { ...i, parentId: targetFolderId };
+      }
+      return i;
+    });
+    await saveItems(next);
+    setSelectedItemIds([]);
+    setIsMultiSelect(false);
+    setMoveModalState(null);
+  };
+
+  // Confirm batch delete items
+  const handleConfirmBatchDelete = async () => {
+    const deletingIds = new Set(selectedItemIds);
+    // Recursively collect all children if any selected item is a folder
+    let addedMore = true;
+    while (addedMore) {
+      addedMore = false;
+      allItems.forEach(i => {
+        if (i.parentId && deletingIds.has(i.parentId) && !deletingIds.has(i.id)) {
+          deletingIds.add(i.id);
+          if (i.shareLink?.token) revokePublicShare(i.shareLink.token);
+          addedMore = true;
+        }
+      });
+    }
+
+    // Revoke links
+    for (const item of allItems) {
+      if (deletingIds.has(item.id) && item.shareLink?.token) {
+        await revokePublicShare(item.shareLink.token);
+      }
+    }
+
+    const next = allItems.filter(i => !deletingIds.has(i.id));
+    await saveItems(next);
+    setSelectedItemIds([]);
+    setIsMultiSelect(false);
+    setBatchDeleteConfirm(false);
+  };
+
   const saveItems = async (updatedItems: FileShareItem[]) => {
     try {
       const spaceRef = doc(db, 'spaces', space.id);
@@ -369,6 +432,32 @@ export function FileShareWidget({
           <span style={{ fontSize: '0.74rem', background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-light)', padding: '3px 9px', borderRadius: '10px', color: 'var(--text-secondary)', fontWeight: 700 }}>
             {folders.length} תיקיות • {files.length} קבצים
           </span>
+          {visibleItems.length > 0 && !isMultiSelect && (
+            <button
+              type="button"
+              onClick={() => {
+                setIsMultiSelect(true);
+                setSelectedItemIds([]);
+              }}
+              style={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                color: 'var(--primary, #4f46e5)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                padding: '4px 10px',
+                borderRadius: '10px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem'
+              }}
+              title="בחר מספר קבצים או תיקיות לביצוע פעולה מרוכזת"
+            >
+              <span>☑️</span>
+              <span>בחירה מרובה</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -427,6 +516,52 @@ export function FileShareWidget({
           })}
         </div>
       )}
+
+      {/* MULTI-SELECT FLOATING ACTION BAR */}
+      {isMultiSelect && (() => {
+        const currentItemIds = visibleItems.map(i => i.id);
+        const isAllSelected = currentItemIds.length > 0 && currentItemIds.every(id => selectedItemIds.includes(id));
+
+        const actions: BatchToolbarAction[] = [
+          {
+            id: 'move',
+            label: 'העבר לתיקייה',
+            icon: '📁',
+            variant: 'info',
+            title: 'העבר פריטים נבחרים לתיקייה',
+            onClick: () => setMoveModalState({ itemIds: selectedItemIds, currentFolderId })
+          },
+          {
+            id: 'delete',
+            label: 'מחק',
+            icon: '🗑️',
+            variant: 'danger',
+            title: 'מחק פריטים נבחרים',
+            onClick: () => setBatchDeleteConfirm(true)
+          }
+        ];
+
+        return (
+          <BatchActionToolbar
+            selectedCount={selectedItemIds.length}
+            totalCount={currentItemIds.length}
+            isAllSelected={isAllSelected}
+            onToggleSelectAll={() => {
+              if (isAllSelected) {
+                setSelectedItemIds(prev => prev.filter(id => !currentItemIds.includes(id)));
+              } else {
+                setSelectedItemIds(prev => Array.from(new Set([...prev, ...currentItemIds])));
+              }
+            }}
+            onCancel={() => {
+              setIsMultiSelect(false);
+              setSelectedItemIds([]);
+            }}
+            actions={actions}
+            topPosition="70px"
+          />
+        );
+      })()}
 
       {/* 3. SEARCH BAR & HIDDEN UPLOAD INPUT (Actions reside in Floating Dock per Rule DRY) */}
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', width: '100%' }}>
@@ -494,6 +629,9 @@ export function FileShareWidget({
             }}
             onRename={handleRenameItem}
             onDelete={handleDeleteItem}
+            isMultiSelect={isMultiSelect}
+            isSelected={selectedItemIds.includes(folder.id)}
+            onToggleSelect={handleToggleSelectItem}
           />
         ))}
 
@@ -510,6 +648,9 @@ export function FileShareWidget({
             }}
             onRename={handleRenameItem}
             onDelete={handleDeleteItem}
+            isMultiSelect={isMultiSelect}
+            isSelected={selectedItemIds.includes(file.id)}
+            onToggleSelect={handleToggleSelectItem}
           />
         ))}
 
@@ -758,6 +899,36 @@ export function FileShareWidget({
           </div>
         </div>
       )}
+
+      {/* GLOBAL MOVE MODAL */}
+      {moveModalState && (() => {
+        const count = moveModalState.itemIds.length;
+        const availableFolders = allItems.filter(i => i.type === 'folder' && !moveModalState.itemIds.includes(i.id));
+
+        return (
+          <GlobalMoveModal
+            isOpen={Boolean(moveModalState)}
+            itemCount={count}
+            subtitle={count > 1 ? `נבחרו ${count} פריטים להעברה` : undefined}
+            currentFolderId={moveModalState.currentFolderId}
+            folders={availableFolders.map(f => ({ id: f.id, name: f.name, parentId: f.parentId }))}
+            onClose={() => setMoveModalState(null)}
+            onConfirmMove={handleConfirmMoveItems}
+            rootLabel="תיקייה ראשית (ללא תיקייה)"
+            rootDescription="ברמה הראשית של שיתוף הקבצים"
+          />
+        );
+      })()}
+
+      {/* BATCH DELETE CONFIRM MODAL */}
+      <ConfirmModal
+        isOpen={batchDeleteConfirm}
+        title="מחיקת פריטים נבחרים"
+        message={`האם אתה בטוח שברצונך למחוק ${selectedItemIds.length} פריטים נבחרים? פעולה זו תמחק גם את כל הקבצים שבתוך תיקיות שנבחרו.`}
+        confirmText="מחק פריטים"
+        onConfirm={handleConfirmBatchDelete}
+        onClose={() => setBatchDeleteConfirm(false)}
+      />
 
       {/* 7. NEW FOLDER MODAL */}
       {showNewFolderModal && (
