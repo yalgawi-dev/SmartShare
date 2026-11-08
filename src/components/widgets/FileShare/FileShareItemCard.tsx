@@ -619,7 +619,7 @@ export function FileShareItemCard({
             title="שתף קישור"
             style={{ background: isPublicLinkActive ? '#ecfdf5' : '#f0fdf4', color: isPublicLinkActive ? '#047857' : '#059669', border: isPublicLinkActive ? '1px solid #10b981' : '1px solid #a7f3d0', borderRadius: '6px', padding: '2px 5px', fontSize: '0.72rem', cursor: 'pointer' }}
           >
-            📤
+            🔗
           </button>
           <button
             type="button"
@@ -901,7 +901,7 @@ export function FileShareItemCard({
                 style={{ background: isPublicLinkActive ? '#ecfdf5' : '#f0fdf4', color: isPublicLinkActive ? '#047857' : '#059669', border: isPublicLinkActive ? '1px solid #10b981' : '1px solid #a7f3d0', padding: '2px 5px', borderRadius: '5px', fontSize: '0.68rem', fontWeight: 'bold', cursor: 'pointer' }}
                 title="שתף קישור חיצוני"
               >
-                📤
+                🔗
               </button>
 
               {/* Move to folder button */}

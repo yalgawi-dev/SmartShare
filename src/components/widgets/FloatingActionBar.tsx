@@ -162,39 +162,41 @@ export function FloatingActionBar({
         onChange={onFileUpload}
       />
       
-      {/* Right side (RTL Start) - Tabs */}
-      <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'space-evenly' }}>
+      {/* Right side (RTL Start) - Tabs & Navigation */}
+      <div style={{ display: 'flex', gap: '0.1rem', paddingRight: '0.1rem', flex: 1, justifyContent: 'space-evenly', alignItems: 'center' }}>
+        {/* Back Button (Icon Only - Single Step Back) when inside Shelf or FileShare subfolder */}
+        {(isInShelf || isFileShareSubfolder) && (
+          <button 
+            type="button"
+            onClick={() => {
+              const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
+                detail: { handled: false },
+              });
+              window.dispatchEvent(stepEvent);
+            }}
+            style={{
+              background: 'rgba(59, 130, 246, 0.08)', 
+              border: '1px solid #bfdbfe', 
+              padding: '0.5rem 0.1rem', 
+              borderRadius: '16px',
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              cursor: 'pointer',
+              color: '#1d4ed8',
+              minWidth: '36px', 
+              transition: 'all 0.2s', 
+              boxShadow: '0 1px 3px rgba(59, 130, 246, 0.1)'
+            }}
+            title="חזור אחורה"
+          >
+            <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>↩️</span>
+          </button>
+        )}
+
         {isInShelf ? (
           <>
-            {/* Back Button (Icon Only - Single Step Back) */}
-            <button 
-              type="button"
-              onClick={() => {
-                const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
-                  detail: { handled: false },
-                });
-                window.dispatchEvent(stepEvent);
-              }}
-              style={{
-                background: 'rgba(59, 130, 246, 0.08)', 
-                border: '1px solid #bfdbfe', 
-                padding: '0.5rem 0.1rem', 
-                borderRadius: '16px',
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                cursor: 'pointer',
-                color: '#1d4ed8',
-                minWidth: '36px', 
-                transition: 'all 0.2s', 
-                boxShadow: '0 1px 3px rgba(59, 130, 246, 0.1)'
-              }}
-              title="חזור אחורה"
-            >
-              <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>↩️</span>
-            </button>
-
             {/* When INSIDE a Topic/Shelf: Toggle between Timeline (if enabled) and Warehouse */}
             {showVaultTimeline && (
               <button 
@@ -455,37 +457,6 @@ export function FloatingActionBar({
             {/* When hasFileShare is active - Dedicate floating buttons to FileShare */}
             {hasFileShare && !hasFinance && (!hasVault || !isInShelf) && (
               <div style={{ display: 'flex', gap: '0.1rem', flex: 1, width: '100%', alignItems: 'center' }}>
-                {/* Back Button (Icon Only - Single Step Back when inside subfolder) */}
-                {isFileShareSubfolder && (
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      const stepEvent = new CustomEvent('smartshare:navigate_back_one_step', {
-                        detail: { handled: false },
-                      });
-                      window.dispatchEvent(stepEvent);
-                    }}
-                    style={{
-                      background: 'rgba(59, 130, 246, 0.08)', 
-                      border: '1px solid #bfdbfe', 
-                      padding: '0.5rem 0.1rem', 
-                      borderRadius: '16px',
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center', 
-                      justifyContent: 'center', 
-                      cursor: 'pointer',
-                      color: '#1d4ed8',
-                      minWidth: '36px', 
-                      transition: 'all 0.2s', 
-                      boxShadow: '0 1px 3px rgba(59, 130, 246, 0.1)'
-                    }}
-                    title="חזור אחורה"
-                  >
-                    <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>↩️</span>
-                  </button>
-                )}
-
                 <button 
                   onClick={() => {
                     window.dispatchEvent(new CustomEvent('smartshare:fileshare_add_folder'));
@@ -515,17 +486,6 @@ export function FloatingActionBar({
                   <span style={{ fontSize: '1.2rem' }}>📥</span>
                   <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>ייבוא</span>
                 </button>
-
-                {hasScanner && (
-                  <button 
-                    onClick={() => onOpenScanner('camera', 'document')} 
-                    style={{ background: 'transparent', border: 'none', padding: '0.5rem 0.1rem', borderRadius: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.2rem', cursor: 'pointer', color: '#059669', minWidth: '42px', transition: 'all 0.2s', flex: 1 }}
-                    title="סרוק מסמך"
-                  >
-                    <span style={{ fontSize: '1.2rem' }}>🖨️</span>
-                    <span style={{ fontSize: '0.6rem', fontWeight: '800', textAlign: 'center', lineHeight: '1.1', whiteSpace: 'normal', maxWidth: '55px' }}>סריקה</span>
-                  </button>
-                )}
               </div>
             )}
 
