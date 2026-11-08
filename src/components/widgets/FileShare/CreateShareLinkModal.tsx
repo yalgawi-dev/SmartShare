@@ -201,6 +201,10 @@ export function CreateShareLinkModal({
         if (token) {
           await revokePublicShare(token);
         }
+        // Also revoke all recipient tokens
+        for (const r of recipients) {
+          if (r.token) await revokePublicShare(r.token);
+        }
         onSaved(undefined);
         onClose();
         return;
@@ -213,7 +217,7 @@ export function CreateShareLinkModal({
       }
 
       const activeToken = token || generateShareToken();
-      await ensurePersisted(activeToken);
+      await ensurePersisted(activeToken, recipients);
       onClose();
     } catch (err) {
       console.error('Error saving share link:', err);

@@ -483,6 +483,8 @@ export function FileShareWidget({
       }
       return i;
     });
+    // Update local activeShareItem state as well so re-opening modal reflects changes immediately
+    setActiveShareItem(prev => (prev && prev.id === activeShareItem.id ? { ...prev, shareLink: updatedLinkConfig } : prev));
     await saveItems(next);
   };
 
@@ -1111,7 +1113,7 @@ export function FileShareWidget({
       {/* 5. CREATE / EDIT PUBLIC SHARE LINK MODAL */}
       <CreateShareLinkModal
         isOpen={Boolean(activeShareItem)}
-        item={activeShareItem}
+        item={activeShareItem ? (allItems.find(i => i.id === activeShareItem.id) || activeShareItem) : null}
         spaceTitle={space.title || 'המרחב שלי'}
         folderFiles={currentFolderContainedFiles}
         onClose={() => setActiveShareItem(null)}
