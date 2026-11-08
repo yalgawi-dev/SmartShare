@@ -20,6 +20,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [error, setError] = useState<boolean>(false);
   const [totalPageCount, setTotalPageCount] = useState<number>(1);
   const [pdfScale, setPdfScale] = useState<number>(1);
+  const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
+  const [isHdActive, setIsHdActive] = useState<boolean>(false);
+  const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
+  const pdfDocRef = React.useRef<any>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -53,9 +57,19 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
         const pdf = await loadingTask.promise;
         if (!isMounted) return;
+        pdfDocRef.current = pdf;
 
         const numPages = pdf.numPages || 1;
         setTotalPageCount(numPages);
+
+        // Check if page 1 dimensions resemble architectural plan / blueprint (large format A3/A2/A1/A0 or width > 1000pt)
+        try {
+          const firstPage = await pdf.getPage(1);
+          const vp = firstPage.getViewport({ scale: 1.0 });
+          if (vp.width > 900 || vp.height > 900 || (vp.width / vp.height > 1.3 && vp.width > 800)) {
+            setIsPlanDetected(true);
+          }
+        } catch (_) {}
 
         const renderPageCanvas = async (pageNum: number) => {
           const page = await pdf.getPage(pageNum);
@@ -117,6 +131,53 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       isMounted = false;
     };
   }, [url]);
+
+  // On-demand Ultra-HD re-rendering for architectural plans / deep reading of tiny dimensions
+  const handleToggleUltraHd = async () => {
+    if (!pdfDocRef.current || isHdRendering) return;
+
+    if (isHdActive) {
+      // Revert to fast preview by triggering re-mount or re-render
+      setIsHdActive(false);
+      return;
+    }
+
+    setIsHdRendering(true);
+    try {
+      const pdf = pdfDocRef.current;
+      const numPages = pdf.numPages || 1;
+      const hdUrls: string[] = [];
+
+      for (let p = 1; p <= numPages; p++) {
+        const page = await pdf.getPage(p);
+        const unscaledViewport = page.getViewport({ scale: 1.0 });
+        const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
+        // Scale to 3200px for crystal-clear CAD / architectural dimensions readability
+        const hdScale = Math.min(4.5, 3200 / currentMax);
+        const viewport = page.getViewport({ scale: Math.max(2.0, hdScale) });
+        const canvas = document.createElement('canvas');
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          hdUrls.push(compressCanvasWebP(canvas, 0.90));
+        }
+      }
+
+      if (hdUrls.length > 0) {
+        setPages(hdUrls);
+        setIsHdActive(true);
+      }
+    } catch (err) {
+      console.warn('Failed to render Ultra-HD PDF pages:', err);
+      alert('לא ניתן היה לרנדר ברזולוציית HD עבור קובץ זה.');
+    } finally {
+      setIsHdRendering(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -205,7 +266,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                       borderRadius: '10px',
                       boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                       userSelect: 'none',
-                      border: '1px solid rgba(255, 255, 255, 0.08)'
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
                     }}
                   />
                   {pages.length > 1 && (
@@ -233,6 +295,48 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               ))}
             </div>
           </TransformComponent>
+
+          {/* On-Demand Ultra-HD Button for Plan / Blueprint / Small Text Reading */}
+          {pdfDocRef.current && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                top: '16px',
+                left: '16px',
+                zIndex: 200025,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleToggleUltraHd}
+                disabled={isHdRendering}
+                style={{
+                  background: isHdActive ? '#10b981' : (isPlanDetected || pdfScale > 2.2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
+                  backdropFilter: 'blur(8px)',
+                  border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
+                  color: '#ffffff',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  cursor: isHdRendering ? 'wait' : 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                  transition: 'all 0.2s ease'
+                }}
+                title="רינדור מחדש בחדות Ultra-HD לקריאת מידות ומספרים קטנים בשרטוט"
+              >
+                <span>{isHdRendering ? '⏳' : (isHdActive ? '✓' : '🔍')}</span>
+                <span>{isHdRendering ? 'מחדד שרטוט...' : (isHdActive ? 'איכות שרטוט HD פעילה' : 'חדד שרטוט (Ultra-HD)')}</span>
+              </button>
+            </div>
+          )}
         </TransformWrapper>
       </div>
     );

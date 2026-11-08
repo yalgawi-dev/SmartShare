@@ -562,7 +562,8 @@ export default function UniversalViewerModal({
                                   borderRadius: '10px',
                                   boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                                   userSelect: 'none',
-                                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                                  border: '1px solid rgba(255, 255, 255, 0.08)',
+                                  imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
                                 }}
                               />
                               {/* CamScanner Page Badge */}
@@ -839,6 +840,7 @@ export default function UniversalViewerModal({
                             boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
                             userSelect: 'none',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
+                            imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto',
                             position: 'relative',
                             zIndex: 2
                           }}
