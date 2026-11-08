@@ -56,7 +56,7 @@ export function CreateShareLinkModal({
     if (isOpen && item) {
       let isMounted = true;
       const link = item.shareLink;
-      if (link && (link.token || Array.isArray(link.recipients))) {
+      if (link && (link.token || (Array.isArray(link.recipients) && link.recipients.length > 0))) {
         setIsEnabled(link.enabled !== false);
         const activeToken = link.token || generateShareToken();
         setToken(activeToken);
@@ -92,7 +92,7 @@ export function CreateShareLinkModal({
             .catch(() => {});
         }
       } else {
-        // Auto-enable and generate token so link is immediately usable
+        // First time opening or no existing configuration
         setIsEnabled(true);
         setToken(generateShareToken());
         setRequirePin(false);
