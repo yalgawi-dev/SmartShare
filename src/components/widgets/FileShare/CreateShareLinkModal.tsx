@@ -670,10 +670,10 @@ export function CreateShareLinkModal({
               </p>
 
               {/* Add recipient input */}
-              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.75rem', alignItems: 'stretch' }}>
                 <input
                   type="text"
-                  placeholder="שם הנמען (למשל: יוסי קבלן שלד)"
+                  placeholder="שם הנמען (למשל: יוסי)"
                   value={newRecipientName}
                   onChange={e => setNewRecipientName(e.target.value)}
                   onKeyDown={e => {
@@ -684,7 +684,8 @@ export function CreateShareLinkModal({
                   }}
                   style={{
                     flex: 1,
-                    padding: '0.5rem 0.75rem',
+                    minWidth: 0,
+                    padding: '0.55rem 0.75rem',
                     borderRadius: '10px',
                     border: '1px solid var(--border-light)',
                     background: 'var(--bg-main)',
@@ -697,18 +698,23 @@ export function CreateShareLinkModal({
                   onClick={handleAddRecipient}
                   disabled={!newRecipientName.trim()}
                   style={{
-                    padding: '0.5rem 0.85rem',
+                    flexShrink: 0,
+                    padding: '0.55rem 0.85rem',
                     borderRadius: '10px',
                     border: 'none',
                     background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
                     color: '#ffffff',
                     fontWeight: 800,
-                    fontSize: '0.8rem',
+                    fontSize: '0.82rem',
                     cursor: newRecipientName.trim() ? 'pointer' : 'default',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.25rem'
                   }}
                 >
-                  ➕ הוסף קישור אישי
+                  <span>➕</span>
+                  <span>הוסף</span>
                 </button>
               </div>
 
