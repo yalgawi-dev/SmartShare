@@ -22,8 +22,8 @@ interface FinanceAddExpenseFormProps {
   selectedPayerId: string;
   setSelectedPayerId: (val: string) => void;
   selectedCategory: string;
-  
   setSelectedCategory: (val: string) => void;
+  onAttachToExisting?: (targetExpenseId: string, applyAmount?: boolean) => void;
 }
 
 export function FinanceAddExpenseForm({
@@ -46,7 +46,8 @@ export function FinanceAddExpenseForm({
   selectedPayerId,
   setSelectedPayerId,
   selectedCategory,
-  setSelectedCategory
+  setSelectedCategory,
+  onAttachToExisting
 }: FinanceAddExpenseFormProps) {
   const [isCredit, setIsCredit] = React.useState(ocrData?.isCreditInvoice || false);
     const [isStoreCredit, setIsStoreCredit] = React.useState(false);
@@ -243,6 +244,112 @@ export function FinanceAddExpenseForm({
           {ocrDebugMessage && (
             <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'rtl', textAlign: 'right' }}>
               {ocrDebugMessage}
+            </div>
+          )}
+
+          {/* Smart Match Warning: If an unattached existing expense already matches this invoice */}
+          {ocrData?._unattachedMatch && onAttachToExisting && !retroInvoiceToEdit && (
+            <div style={{
+              padding: '1.1rem',
+              background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
+              border: '2px solid #22c55e',
+              borderRadius: '16px',
+              color: '#15803d',
+              fontSize: '0.92rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.85rem',
+              boxShadow: '0 4px 14px rgba(34, 197, 94, 0.15)',
+              position: 'relative'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ fontSize: '1.4rem' }}>💡</span>
+                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#166534' }}>
+                  נמצאה התאמה להוצאה קיימת שממתינה לחשבונית!
+                </div>
+              </div>
+
+              <div style={{
+                background: '#ffffff',
+                border: '1px solid #bbf7d0',
+                borderRadius: '12px',
+                padding: '0.85rem',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.35rem'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontWeight: 800, fontSize: '1.05rem', color: '#1e293b' }}>
+                    {ocrData._unattachedMatch.supplier || 'הוצאה ללא שם ספק'}
+                  </span>
+                  <span style={{ fontWeight: 800, fontSize: '1.15rem', color: '#16a34a' }}>
+                    ₪{ocrData._unattachedMatch.amount != null ? Number(ocrData._unattachedMatch.amount).toLocaleString('he-IL') : '0'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.82rem', color: '#64748b' }}>
+                  <span>📅 תאריך רישום: {ocrData._unattachedMatch.date || 'לא צוין'}</span>
+                  {ocrData._unattachedMatch.payerName && (
+                    <span>👤 נרשם ע"י: {ocrData._unattachedMatch.payerName}</span>
+                  )}
+                </div>
+                {ocrData._unattachedMatch.note && (
+                  <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', marginTop: '0.2rem' }}>
+                    הערה: "{ocrData._unattachedMatch.note}"
+                  </div>
+                )}
+              </div>
+
+              <div style={{ fontSize: '0.82rem', color: '#166534', lineHeight: 1.4 }}>
+                במקום ליצור הוצאה כפולה, מומלץ לצרף את החשבונית הזו ישירות להוצאה הפתוחה הקיימת.
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => onAttachToExisting(ocrData._unattachedMatch.id, true)}
+                  style={{
+                    flex: '1 1 200px',
+                    background: '#16a34a',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    fontWeight: 800,
+                    fontSize: '0.92rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 2px 8px rgba(22, 163, 74, 0.35)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <span>📎 שייך להוצאה הקיימת וסגור</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Dismiss warning and let user proceed as new expense
+                    if (ocrData) {
+                      delete ocrData._unattachedMatch;
+                      setFormValues({ ...formValues });
+                    }
+                  }}
+                  style={{
+                    background: 'transparent',
+                    color: '#475569',
+                    border: '1px solid #cbd5e1',
+                    padding: '0.75rem 1rem',
+                    borderRadius: '10px',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  המשך כהוצאה חדשה בכל זאת
+                </button>
+              </div>
             </div>
           )}
 

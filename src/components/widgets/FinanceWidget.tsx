@@ -1,5 +1,6 @@
 "use client";
 import { isDuplicateInvoice } from '../../utils/duplicateCheck';
+import { matchInvoiceToExpenses } from '../../utils/invoiceMatcher';
 import { recordTelemetryAction } from '../../utils/telemetryTracker';
 // @ts-nocheck
 
@@ -78,7 +79,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const [retroInvoiceToEdit, setRetroInvoiceToEdit] = useState<any>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, clientName?: string, vatNumber?: string, invoiceNumber?: string}>({});
+  const [ocrData, setOcrData] = useState<{amount?: number, date?: string, vendor?: string, clientName?: string, vatNumber?: string, invoiceNumber?: string, pages?: string[], [key: string]: any}>({});
   const [ocrDebugMessage, setOcrDebugMessage] = useState<string | null>(null);
   const [ocrElapsedTime, setOcrElapsedTime] = useState<number>(0);
   const [scannedImage, setScannedImage] = useState<string | null>(null);
@@ -104,7 +105,7 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
     if (amount) setPreselectedAmount(amount);
     if (setIsAddingExpense) setIsAddingExpense(true);
   };
-  const { addInvoice, updateInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem } = useSpaces();
+  const { addInvoice, updateInvoice, attachFileToInvoice, updateSpaceSettings, updateSharesBulk, getRoleForSpace, getTokenForSpace, removeInboxItem } = useSpaces();
   const myRole = getRoleForSpace(space.id);
   const isCreatorMe = myRole === 'creator' || (space.creatorId && user?.id === space.creatorId);
   const myEffectiveId = user?.id || 'me';
@@ -239,6 +240,31 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
               const warnPrefix = data.invoiceNumber ? ' (מספר ' + data.invoiceNumber + ')' : '';
               data._duplicateWarning = 'נראה שחשבונית/קבלה זו' + warnPrefix + ' כבר הועלתה למערכת בעבר.';
               data._duplicateInvoice = exists;
+            }
+
+            // Check if there is an unattached existing expense waiting for this invoice
+            if (!retroInvoice) {
+              const parsedAmt = data.amount != null ? Number(String(data.amount).replace(/[^\d.-]/g, '')) : null;
+              const matchDoc = {
+                amount: parsedAmt && !isNaN(parsedAmt) ? parsedAmt : null,
+                supplier: data.vendor || data.supplier || null,
+                date: data.date || null,
+                invoiceNumber: data.invoiceNumber || null,
+                vatNumber: data.vatNumber || null
+              };
+              const candidates = (space.invoices || []).filter((inv: any) => 
+                inv.isActive !== false &&
+                inv.type !== 'transfer' &&
+                inv.type !== 'income' &&
+                inv.category !== 'cashbox_equity' &&
+                inv.category !== 'cashbox_withdrawal' &&
+                !inv.hasAttachment
+              );
+              const ranked = matchInvoiceToExpenses(matchDoc, candidates, { minScore: 35, limit: 1 });
+              if (ranked && ranked.length > 0 && ranked[0].item) {
+                data._unattachedMatch = ranked[0].item;
+                data._unattachedMatchScore = ranked[0].score;
+              }
             }
           }
           
@@ -540,6 +566,57 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     setTimeout(() => setToastMsg(null), 3000);
   };
 
+  const handleAttachToExistingExpense = async (targetExpenseId: string, applyAmount?: boolean) => {
+    let finalAttachmentUrl = (scannedImage && scannedImage.startsWith('http')) ? scannedImage : null;
+    if (uploadPromiseRef.current) {
+      try {
+        finalAttachmentUrl = await uploadPromiseRef.current;
+        uploadPromiseRef.current = null;
+      } catch (err) {
+        console.error("Background upload failed during attach", err);
+      }
+    }
+
+    if (!finalAttachmentUrl && scannedImage) {
+      finalAttachmentUrl = scannedImage;
+    }
+
+    if (!finalAttachmentUrl) {
+      alert("קובץ החשבונית עדיין בתהליך עיבוד. נסה שוב בעוד רגע.");
+      return;
+    }
+
+    const performer = {
+      id: user?.id || myEffectiveId,
+      name: user?.realName || user?.nickname || 'שותף במרחב'
+    };
+
+    const targetExpense = (space.invoices || []).find((inv: any) => inv.id === targetExpenseId);
+    const newAmount = (applyAmount && ocrData?.amount != null) ? Number(ocrData.amount) : undefined;
+
+    attachFileToInvoice(
+      space.id,
+      targetExpenseId,
+      {
+        url: finalAttachmentUrl,
+        pages: ocrData?.pages,
+        newAmount
+      },
+      performer
+    );
+
+    if (reviewingInboxItemId) {
+      removeInboxItem(space.id, reviewingInboxItemId);
+      setReviewingInboxItemId(null);
+    }
+    setRetroInvoiceToEdit(null);
+
+    handleCloseForm();
+    setActiveTab('transactions');
+    setToastMsg(`החשבונית צורפה בהצלחה להוצאה "${targetExpense?.supplier || 'קיימת'}"!`);
+    setTimeout(() => setToastMsg(null), 3500);
+  };
+
   return (
     <div ref={rootRef} className="card glass-panel" style={{ padding: '0', marginBottom: '2rem', background: 'var(--bg-card)', position: 'relative', overflow: 'visible' }}>
       
@@ -719,6 +796,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
           setIsScanning={setIsScanning}
           runOcrPipeline={runOcrPipeline}
           setPreviewImage={setPreviewImage}
+          onAttachToExisting={handleAttachToExistingExpense}
           selectedPayerId={selectedPayerId}
           setSelectedPayerId={setSelectedPayerId}
           selectedCategory={selectedCategory}
