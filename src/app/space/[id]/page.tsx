@@ -186,6 +186,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
     const handleScannerForDoc = (e: any) => {
       const { doc, docs } = e.detail || {};
       if (Array.isArray(docs) && docs.length > 0) {
+        console.log('[PAGE SCANNER RECEIVE] docs received in event:', docs.length, docs.map((d: any) => ({ id: d.id, title: d.title, pages: d.pages?.length })));
         // Multi-document merge & reverse-engineering into scanner
         const allPages: string[] = [];
         docs.forEach((d: any) => {

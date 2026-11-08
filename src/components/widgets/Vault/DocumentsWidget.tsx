@@ -2205,7 +2205,9 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                 variant: 'primary',
                 title: 'עריכה, יישור ואיחוד המסמכים הנבחרים בסורק',
                 onClick: () => {
-                  const targetDocs = documents.filter(d => selectedDocIds.includes(d.id));
+                  console.log('[DEBUG MERGE] selectedDocIds:', selectedDocIds);
+                  const targetDocs = selectedDocIds.map(id => documents.find(d => d.id === id)).filter((d) => Boolean(d)) as any[];
+                  console.log('[DEBUG MERGE] targetDocs:', targetDocs.map(d => ({ id: d.id, title: d.title, pages: d.pages?.length })));
                   if (targetDocs.length > 0 && typeof window !== 'undefined') {
                     setIsMultiSelect(false);
                     setSelectedDocIds([]);
