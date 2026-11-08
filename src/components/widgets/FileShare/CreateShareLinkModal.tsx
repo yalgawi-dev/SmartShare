@@ -697,7 +697,7 @@ export function CreateShareLinkModal({
               </p>
 
               {/* Add recipient input & role selector */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '0.75rem' }}>
                 {/* Role Pill Switcher */}
                 <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'center' }}>
                   <span style={{ fontSize: '0.74rem', fontWeight: 700, color: '#64748b' }}>סוג נמען:</span>
@@ -713,14 +713,17 @@ export function CreateShareLinkModal({
                       type="button"
                       onClick={() => setNewRecipientRole(pill.id)}
                       style={{
-                        padding: '3px 8px',
+                        flex: 1,
+                        padding: '5px 4px',
                         borderRadius: '8px',
                         fontSize: '0.72rem',
                         fontWeight: newRecipientRole === pill.id ? 800 : 600,
                         border: newRecipientRole === pill.id ? '1.5px solid #4f46e5' : '1px solid var(--border-light)',
                         background: newRecipientRole === pill.id ? '#eff6ff' : 'var(--bg-main)',
                         color: newRecipientRole === pill.id ? '#4f46e5' : '#64748b',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        textAlign: 'center',
+                        whiteSpace: 'nowrap'
                       }}
                       title={pill.title}
                     >
@@ -729,6 +732,7 @@ export function CreateShareLinkModal({
                   ))}
                 </div>
 
+                {/* Input Row: Name + Button */}
                 <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'stretch' }}>
                   <input
                     type="text"
@@ -742,29 +746,13 @@ export function CreateShareLinkModal({
                       }
                     }}
                     style={{
-                      flex: 1.2,
+                      flex: 1,
                       minWidth: 0,
-                      padding: '0.55rem 0.75rem',
+                      padding: '0.6rem 0.8rem',
                       borderRadius: '10px',
                       border: '1px solid var(--border-light)',
                       background: 'var(--bg-main)',
-                      fontSize: '0.82rem',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <input
-                    type="tel"
-                    placeholder="טלפון (אופציונלי)"
-                    value={newRecipientPhone}
-                    onChange={e => setNewRecipientPhone(e.target.value)}
-                    style={{
-                      flex: 0.8,
-                      minWidth: 0,
-                      padding: '0.55rem 0.55rem',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-light)',
-                      background: 'var(--bg-main)',
-                      fontSize: '0.78rem',
+                      fontSize: '0.86rem',
                       color: 'var(--text-primary)'
                     }}
                   />
@@ -774,23 +762,43 @@ export function CreateShareLinkModal({
                     disabled={!newRecipientName.trim()}
                     style={{
                       flexShrink: 0,
-                      padding: '0.55rem 0.85rem',
+                      padding: '0.6rem 1rem',
                       borderRadius: '10px',
                       border: 'none',
                       background: newRecipientName.trim() ? '#4f46e5' : '#cbd5e1',
                       color: '#ffffff',
                       fontWeight: 800,
-                      fontSize: '0.82rem',
+                      fontSize: '0.85rem',
                       cursor: newRecipientName.trim() ? 'pointer' : 'default',
                       whiteSpace: 'nowrap',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '0.25rem'
+                      gap: '0.3rem'
                     }}
                   >
                     <span>➕</span>
                     <span>הוסף</span>
                   </button>
+                </div>
+
+                {/* Phone row (dedicated, spacious) */}
+                <div>
+                  <input
+                    type="tel"
+                    placeholder="📞 טלפון נייד ליצירת קשר ושליחה בוואטסאפ (אופציונלי)"
+                    value={newRecipientPhone}
+                    onChange={e => setNewRecipientPhone(e.target.value)}
+                    style={{
+                      width: '100%',
+                      boxSizing: 'border-box',
+                      padding: '0.5rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1px solid var(--border-light)',
+                      background: 'var(--bg-main)',
+                      fontSize: '0.8rem',
+                      color: 'var(--text-primary)'
+                    }}
+                  />
                 </div>
               </div>
 
