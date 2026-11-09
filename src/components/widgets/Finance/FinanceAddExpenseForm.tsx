@@ -3,6 +3,7 @@ import PdfThumbnail from '../../shared/PdfThumbnail';
 import ScannerModal from '../ScannerModal';
 import { APP_VERSION } from '@/constants/version';
 import { parseCleanAmount, matchInvoiceToExpenses } from '@/utils/invoiceMatcher';
+import { useSpaces } from '@/app/context/SpacesContext';
 
 interface FinanceAddExpenseFormProps {
   space?: any;
@@ -86,11 +87,15 @@ export function FinanceAddExpenseForm({
     setFormValues(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
+  const { spaces } = useSpaces();
+  const currentSpace = (spaces || []).find((s: any) => s.id === space?.id) || space;
+  const effectiveInvoices = currentSpace?.invoices || space?.invoices || [];
+
   const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
 
   // Pool of candidate unattached expenses in this space
   const unattachedExpenses = useMemo(() => {
-    return (space?.invoices || []).filter(
+    return effectiveInvoices.filter(
       (inv: any) =>
         inv.isActive !== false &&
         inv.type !== 'transfer' &&
@@ -99,7 +104,7 @@ export function FinanceAddExpenseForm({
         inv.category !== 'cashbox_withdrawal' &&
         (!inv.hasAttachment || !inv.attachmentUrl || String(inv.attachmentUrl).trim() === '')
     );
-  }, [space?.invoices]);
+  }, [effectiveInvoices]);
 
   // Guaranteed reactive match: whether from OCR result, form inputs, or Firestore updates
   const effectiveUnattachedMatch = useMemo(() => {
@@ -207,7 +212,8 @@ export function FinanceAddExpenseForm({
             direction: 'ltr',
             textAlign: 'left'
           }}>
-            <div><strong>[CHECKPOINT]</strong> Space Invoices: {space?.invoices?.length ?? 0} | Unattached: {unattachedExpenses.length}</div>
+            <div><strong>[CHECKPOINT]</strong> Space ID: {currentSpace?.id || 'MISSING'} | Title: {currentSpace?.title || 'NONE'}</div>
+            <div>Invoices on Space: {effectiveInvoices.length} | Unattached: {unattachedExpenses.length}</div>
             <div>Target Amt: {String(formValues.amount || ocrData?.amount || 'none')} | Clean: {String(parseCleanAmount(formValues.amount || ocrData?.amount))}</div>
             <div>Match Result: {effectiveUnattachedMatch ? `FOUND (${effectiveUnattachedMatch.id} | ${effectiveUnattachedMatch.supplier} | ₪${effectiveUnattachedMatch.amount})` : 'NULL'}</div>
           </div>
