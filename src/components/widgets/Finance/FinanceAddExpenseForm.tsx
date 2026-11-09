@@ -188,35 +188,25 @@ export function FinanceAddExpenseForm({
       `}} />
       <div className="bottom-sheet-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: 'rgba(0,0,0,0.5)' }}></div>
       <div className="bottom-sheet" style={{ position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1001, background: 'var(--bg-card)', padding: '2rem', borderTopLeftRadius: '24px', borderTopRightRadius: '24px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 -10px 40px rgba(0,0,0,0.2)' }}> 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <h3 style={{ margin: 0, fontSize: '1.25rem' }}>הוספת הוצאה חדשה</h3>
-            <span style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '1px 6px', fontWeight: 'bold' }}>{APP_VERSION}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.2rem' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+              <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>הוספת הוצאה חדשה</h3>
+              <span style={{ fontSize: '0.72rem', background: '#eff6ff', color: '#2563eb', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '1px 6px', fontWeight: 'bold' }}>{APP_VERSION}</span>
+            </div>
+            {currentSpace?.title && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <span>📁 מרחב פעיל:</span>
+                <span style={{ fontWeight: 700, color: 'var(--primary)', background: 'rgba(79, 70, 229, 0.08)', padding: '1px 8px', borderRadius: '8px' }}>
+                  {currentSpace.icon ? currentSpace.icon + ' ' : ''}{currentSpace.title}
+                </span>
+              </div>
+            )}
           </div>
           <button type="button" onClick={handleCloseForm} style={{ background: 'none', border: 'none', fontSize: '1.5rem', color: 'var(--text-secondary)', cursor: 'pointer' }}>✕</button>
         </div>
         
         <form key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
-          
-          {/* Diagnostic Checkpoint Banner: Shows exact values evaluated by match engine in UI */}
-          <div style={{
-            padding: '0.5rem 0.75rem',
-            background: '#f8fafc',
-            border: '1px dashed #94a3b8',
-            borderRadius: '10px',
-            fontSize: '0.75rem',
-            color: '#475569',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.2rem',
-            direction: 'ltr',
-            textAlign: 'left'
-          }}>
-            <div><strong>[CHECKPOINT]</strong> Space ID: {currentSpace?.id || 'MISSING'} | Title: {currentSpace?.title || 'NONE'}</div>
-            <div>Invoices on Space: {effectiveInvoices.length} | Unattached: {unattachedExpenses.length}</div>
-            <div>Target Amt: {String(formValues.amount || ocrData?.amount || 'none')} | Clean: {String(parseCleanAmount(formValues.amount || ocrData?.amount))}</div>
-            <div>Match Result: {effectiveUnattachedMatch ? `FOUND (${effectiveUnattachedMatch.id} | ${effectiveUnattachedMatch.supplier} | ₪${effectiveUnattachedMatch.amount})` : 'NULL'}</div>
-          </div>
 
           {/* Smart Match Warning (Top Priority): If an unattached existing expense already matches this invoice */}
           {effectiveUnattachedMatch && onAttachToExisting && !retroInvoiceToEdit && (
@@ -403,35 +393,7 @@ export function FinanceAddExpenseForm({
             </div>
           )}
           
-          {!isAnalyzing && scannedImage && ocrElapsedTime > 0 && !ocrDebugMessage && ocrData._debug && (
-            <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#ecfdf5', borderRadius: '0.5rem', border: '1px solid #10b981' }}>
-              <h4 style={{ color: '#047857', fontSize: '0.9rem', marginBottom: '0.5rem', fontWeight: 600 }}>⏱️ נתוני ביצועים (OCR)</h4>
-              <table style={{ width: '100%', fontSize: '0.85rem', color: '#065f46', borderCollapse: 'collapse' }}>
-                <tbody>
-                  <tr>
-                    <td style={{ padding: '0.25rem 0' }}>סה"כ זמן המתנה (לקוח):</td>
-                    <td style={{ fontWeight: 'bold', textAlign: 'left', padding: '0.25rem 0' }}>{ocrElapsedTime.toFixed(2)} שניות</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>מתוכם ניתוח נקי (Google AI):</td>
-                    <td style={{ textAlign: 'left', padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>{((ocrData._debug.pureInferenceMs || ocrData._debug.aiTimeMs || 0) / 1000).toFixed(2)} שניות</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '0.25rem 0' }}>מתוכם קריאות שבוטלו (Google Hang):</td>
-                    <td style={{ textAlign: 'left', padding: '0.25rem 0' }}>{((ocrData._debug.abortedTimeMs || 0) / 1000).toFixed(2)} שניות</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '0.25rem 0' }}>מתוכם השהיית עומסים בצד שרת:</td>
-                    <td style={{ textAlign: 'left', padding: '0.25rem 0' }}>{((ocrData._debug.totalWaitMs || 0) / 1000).toFixed(2)} שניות ({ocrData._debug.retryCount || 0} ניסיונות)</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>העלאה, רשת ופערים (הצד שלנו):</td>
-                    <td style={{ textAlign: 'left', padding: '0.25rem 0', borderTop: '1px solid #6ee7b7' }}>{Math.max(0, ocrElapsedTime - ((Number(ocrData._debug.aiTimeMs) || 0) / 1000)).toFixed(2)} שניות</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
+          {/* OCR Performance Debug Panel - hidden by default to keep UI clean and prevent confusion */}
 
           {ocrDebugMessage && (
             <div style={{ padding: '1rem', background: '#fee2e2', color: '#991b1b', borderRadius: '12px', border: '1px solid #f87171', fontSize: '0.9rem', whiteSpace: 'pre-wrap', direction: 'rtl', textAlign: 'right' }}>
