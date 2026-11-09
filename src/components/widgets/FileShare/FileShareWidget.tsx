@@ -5,7 +5,7 @@ import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
-import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData } from '@/utils/fileShareUtils';
+import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
@@ -305,6 +305,11 @@ export function FileShareWidget({
       } else {
         const spaceRef = doc(db, 'spaces', space.id);
         await updateDoc(spaceRef, sanitizeFirestoreData({ fileShareItems: updatedItems }));
+      }
+
+      // Automatically sync public shares if files inside a shared folder were added/modified
+      if (currentFolderId && space?.id) {
+        syncPublicFolderShares(space.id, currentFolderId, updatedItems);
       }
     } catch (err) {
       console.error('Failed to update file share items:', err);

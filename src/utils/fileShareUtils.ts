@@ -442,6 +442,11 @@ export async function uploadRecipientSubmission(
     // Save updated items back to the space
     await updateDoc(spaceDocRef, { fileShareItems: items });
 
+    // Sync the folder's shared_links so recipient sees their new file immediately
+    if (targetFolder.shareLink?.token && shareData.spaceId) {
+      await syncPublicFolderShares(shareData.spaceId, targetFolder.id, items);
+    }
+
     return {
       success: true,
       folderId: targetFolder.id,
@@ -450,5 +455,45 @@ export async function uploadRecipientSubmission(
   } catch (err: any) {
     console.error('Failed to upload recipient submission:', err);
     return { success: false, error: err.message || 'שגיאה בשמירת הקובץ' };
+  }
+}
+
+/**
+ * Automatically synchronizes public share records for a folder when files inside it change.
+ */
+export async function syncPublicFolderShares(
+  spaceId: string,
+  folderId: string,
+  allItems: FileShareItem[]
+): Promise<void> {
+  try {
+    const folder = allItems.find(i => i.id === folderId && i.type === 'folder');
+    if (!folder || !folder.shareLink?.token) return;
+
+    const folderFiles = allItems.filter(i => i.parentId === folderId && !i.deletedAt);
+    const mappedFiles = folderFiles.map(f => ({
+      id: f.id,
+      name: f.name,
+      url: f.url || '',
+      pages: f.pages || [],
+      fileType: f.fileType || 'other',
+      size: f.size || 0
+    }));
+
+    // 1. Update master folder token
+    const masterDocRef = doc(db, 'shared_links', folder.shareLink.token);
+    await updateDoc(masterDocRef, { folderFiles: mappedFiles }).catch(() => {});
+
+    // 2. Update all recipient tokens for this folder
+    if (Array.isArray(folder.shareLink.recipients)) {
+      for (const r of folder.shareLink.recipients) {
+        if (r.token && r.enabled !== false) {
+          const rDocRef = doc(db, 'shared_links', r.token);
+          await updateDoc(rDocRef, { folderFiles: mappedFiles }).catch(() => {});
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Failed to sync public folder shares:', err);
   }
 }

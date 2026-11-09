@@ -449,26 +449,6 @@ export default function PublicSharePage({ params }: SharePageProps) {
               </button>
             )}
 
-            {/* Open in App Button */}
-            <Link
-              href={`/space/${shareData.spaceId}`}
-              style={{
-                background: '#eff6ff',
-                color: '#2563eb',
-                border: '1px solid #bfdbfe',
-                padding: '0.45rem 0.75rem',
-                borderRadius: '12px',
-                fontSize: '0.82rem',
-                fontWeight: 800,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.35rem'
-              }}
-              title="פתח במרחב האפליקציה"
-            >
-              <span>🚀</span> לאפליקציה
-            </Link>
-
             {!isFolder && !shareData.allowDownload && (
               <span style={{ fontSize: '0.74rem', background: '#fef3c7', color: '#b45309', padding: '3px 8px', borderRadius: '8px', fontWeight: 700 }}>
                 🛡️ צפייה בלבד

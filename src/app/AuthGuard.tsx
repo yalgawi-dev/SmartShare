@@ -3,9 +3,17 @@
 import React from 'react';
 import { useAuth } from './context/AuthContext';
 import AuthWall from '../components/widgets/Auth/AuthWall';
+import { usePathname } from 'next/navigation';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isLoaded } = useAuth();
+  const pathname = usePathname();
+
+  // Public routes (external recipient share links, etc.) must NEVER require login or phone auth
+  const isPublicRoute = Boolean(pathname && pathname.startsWith('/share/'));
+  if (isPublicRoute) {
+    return <>{children}</>;
+  }
   
   if (!isLoaded) {
     return (
