@@ -27,11 +27,12 @@ export default function VersionUpdateBanner() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Check shortly after boot
-    const timer = setTimeout(checkVersion, 3000);
+    // Check immediately after boot and again at 3s
+    checkVersion();
+    const timer = setTimeout(checkVersion, 2500);
 
-    // Periodic check every 45 seconds
-    const interval = setInterval(checkVersion, 45000);
+    // Periodic check every 20 seconds
+    const interval = setInterval(checkVersion, 20000);
 
     // Also check when app comes back to foreground / focus
     const onFocus = () => checkVersion();
