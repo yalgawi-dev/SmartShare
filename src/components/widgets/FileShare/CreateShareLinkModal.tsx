@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken } from '@/utils/fileShareUtils';
+import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken, sanitizeFirestoreData } from '@/utils/fileShareUtils';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
@@ -39,6 +39,7 @@ export function CreateShareLinkModal({
   const [newRecipientPhone, setNewRecipientPhone] = useState('');
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
   const [supportsContactPicker, setSupportsContactPicker] = useState(false);
+  const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window) {
@@ -106,6 +107,7 @@ export function CreateShareLinkModal({
       setNewRecipientName('');
       setNewRecipientPhone('');
       setNewRecipientRole('client');
+      setSaveSuccessMsg(null);
 
       return () => {
         isMounted = false;
@@ -135,7 +137,7 @@ export function CreateShareLinkModal({
         enabled: true,
         token: tokenToUse,
         requirePin,
-        pin: requirePin ? pin.trim() : undefined,
+        pin: requirePin && pin ? pin.trim() : '',
         expiresAt,
         allowDownload,
         allowUploads,
@@ -167,7 +169,7 @@ export function CreateShareLinkModal({
                 ...currentItems[idx],
                 shareLink: newConfig
               };
-              await updateDoc(spaceDocRef, { fileShareItems: currentItems });
+              await updateDoc(spaceDocRef, sanitizeFirestoreData({ fileShareItems: currentItems }));
             }
           }
         } catch (dbErr) {
@@ -191,11 +193,12 @@ export function CreateShareLinkModal({
   const handleAddRecipient = async () => {
     if (!newRecipientName.trim()) return;
     const recipientToken = generateShareToken();
+    const phoneVal = newRecipientPhone.trim();
     const newRecipient: RecipientShareLink = {
       id: `rcp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       recipientName: newRecipientName.trim(),
       role: newRecipientRole,
-      phone: newRecipientPhone.trim() || undefined,
+      phone: phoneVal || '',
       token: recipientToken,
       enabled: true,
       createdAt: Date.now(),
@@ -311,8 +314,23 @@ export function CreateShareLinkModal({
       }
 
       const activeToken = token || generateShareToken();
-      await ensurePersisted(activeToken, recipients);
-      onClose();
+      const ok = await ensurePersisted(activeToken, recipients);
+      if (ok) {
+        setSaveSuccessMsg('ההגדרות והנמענים נשמרו בהצלחה!');
+        // Dispatch global notification event
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('smartshare:fileshare_saved', {
+            detail: { message: 'הגדרות השיתוף נשמרו בהצלחה!' }
+          }));
+        }
+        setTimeout(() => {
+          setIsSaving(false);
+          onClose();
+        }, 800);
+        return;
+      } else {
+        alert('שגיאה בשמירת קישור השיתוף לשרת. אנא נסה שוב.');
+      }
     } catch (err) {
       console.error('Error saving share link:', err);
       alert('שגיאה ביצירת קישור השיתוף. אנא נסה שוב.');
@@ -1076,11 +1094,34 @@ export function CreateShareLinkModal({
           </div>
         )}
 
+        {/* Success Feedback Confirmation */}
+        {saveSuccessMsg && (
+          <div style={{
+            background: 'linear-gradient(135deg, #10b981, #059669)',
+            color: '#ffffff',
+            padding: '0.65rem 1rem',
+            borderRadius: '12px',
+            fontSize: '0.85rem',
+            fontWeight: 800,
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '0.5rem',
+            boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+            animation: 'fadeIn 0.2s ease-out'
+          }}>
+            <span>✓</span>
+            <span>{saveSuccessMsg}</span>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
           <button
             type="button"
             onClick={onClose}
+            disabled={isSaving}
             style={{
               flex: 1,
               padding: '0.75rem',
@@ -1090,7 +1131,7 @@ export function CreateShareLinkModal({
               color: 'var(--text-secondary)',
               fontWeight: 700,
               fontSize: '0.85rem',
-              cursor: 'pointer'
+              cursor: isSaving ? 'not-allowed' : 'pointer'
             }}
           >
             ביטול
@@ -1104,15 +1145,32 @@ export function CreateShareLinkModal({
               padding: '0.75rem',
               borderRadius: '14px',
               border: 'none',
-              background: 'var(--primary)',
+              background: saveSuccessMsg ? '#10b981' : 'var(--primary)',
               color: '#ffffff',
               fontWeight: 800,
               fontSize: '0.9rem',
               cursor: isSaving ? 'wait' : 'pointer',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)'
+              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              transition: 'background 0.3s'
             }}
           >
-            {isSaving ? 'שומר...' : 'שמור והחל הגדרות'}
+            {isSaving ? (
+              <>
+                <span style={{ display: 'inline-block', animation: 'spin 1s linear infinite' }}>⏳</span>
+                <span>שומר לשרת...</span>
+              </>
+            ) : saveSuccessMsg ? (
+              <>
+                <span>✓</span>
+                <span>נשמר בהצלחה!</span>
+              </>
+            ) : (
+              'שמור והחל הגדרות'
+            )}
           </button>
         </div>
       </div>

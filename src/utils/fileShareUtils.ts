@@ -62,6 +62,25 @@ export interface FileShareItem {
   deletedAt?: string;
 }
 
+/**
+ * Recursively removes all `undefined` values and converts them to safe Firestore equivalents
+ * to completely eliminate `Unsupported field value: undefined` exceptions in Firebase SDK.
+ */
+export function sanitizeFirestoreData<T = any>(data: T): T {
+  if (data === undefined) return null as any;
+  if (data === null || typeof data !== 'object') return data;
+  if (Array.isArray(data)) {
+    return data.map(item => sanitizeFirestoreData(item)) as any;
+  }
+  const clean: Record<string, any> = {};
+  for (const [key, value] of Object.entries(data)) {
+    if (value !== undefined) {
+      clean[key] = sanitizeFirestoreData(value);
+    }
+  }
+  return clean as T;
+}
+
 export interface PublicSharedData {
   token: string;
   spaceId: string;
@@ -168,7 +187,7 @@ export async function createOrUpdatePublicShare(
     }));
   }
 
-  await setDoc(shareDocRef, payload, { merge: true });
+  await setDoc(shareDocRef, sanitizeFirestoreData(payload), { merge: true });
 
   // If there are specific recipients, ensure their personal tokens are also stored/updated in shared_links
   if (Array.isArray(config.recipients)) {
@@ -191,7 +210,7 @@ export async function createOrUpdatePublicShare(
             totalDurationSeconds: r.totalDurationSeconds || 0,
             createdAt: r.createdAt || now
           };
-          await setDoc(rDocRef, rPayload, { merge: true });
+          await setDoc(rDocRef, sanitizeFirestoreData(rPayload), { merge: true });
         }
       }
     }

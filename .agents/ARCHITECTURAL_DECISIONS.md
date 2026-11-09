@@ -2193,19 +2193,26 @@ flowchart TD
 
 ---
 
-## 43. אטימת סנכרון נמענים בשיתוף מאובטח (CreateShareLinkModal) - מניעת איפוס ודליפת מידע
+## 44. פתרון עומק לאי-שמירת נמענים (Unsupported field value: undefined) וחיווי שמירה ויזואלי
 
-### הבעיה שזוהתה:
-בעת הוספת נמען אישי (למשל "מייק פלא עובד שי") בקישור שיתוף מאובטח לתיקייה, סגירת המודאל ופתיחתו מחדש, רשימת הנמענים הייתה עלולה להתאפס בגלל תנאי אתחול שבדק `Array.isArray(link.recipients)` גם כשהמערך ריק ומחזר טוקנים חדשים.
+### שורש התקלה שפוענח (Root Cause Analysis):
+בדיקת עומק ומעקב צמתים (Checkpoints) מול Firebase SDK חשפה את הגורם הקריטי:
+1. בעת הוספת נמען חדש ב-`CreateShareLinkModal`, השדה `phone` הוגדר:
+   `phone: newRecipientPhone.trim() || undefined`
+2. ב-Firebase Firestore Web SDK, **ערך `undefined` אסור לחלוטין** בתוך אובייקטים או מערכים. כאשר נשלח מסמך המכיל `undefined`, מתודת `setDoc(shareDocRef, payload)` ו-`updateDoc(spaceDocRef, ...)` זורקת מיידית חריגה סינכרונית:
+   `Function setDoc() called with invalid data. Unsupported field value: undefined`
+3. שגיאה זו נתפסה ב-`catch` הפנימי של `ensurePersisted`, ולכן **שום נתון לא נשלח או נשמר בשרת**!
+4. כתוצאה מכך, בעת פתיחה מחדש של המודאל, התיקייה עדיין הייתה חסרת `shareLink` בשרת, והמודאל אתחל את עצמו כמצב חדש וריק.
+5. בנוסף, חסר היה חיווי ויזואלי מובהק (Toast ו-Button State) המאשר למשתמש שהשמירה לשרת הושלמה בהצלחה.
 
 ### הפתרון המקיף:
-1. **אטימת תנאי ה-re-hydration**:
-   הבדיקה עודכנה ל-`link && (link.token || (Array.isArray(link.recipients) && link.recipients.length > 0))`, וכך שמירה על נמענים קיימים מונעת כל איפוס שווא.
-2. **סנכרון תלת-שכבתי (Three-Layer Sync)**:
-   - שכבה ראשונה: State מקומי ב-`CreateShareLinkModal` מתעדכן אופטימית.
-   - שכבה שנייה: שמירה במסמך השיתוף הייעודי `shared_links/{token}` ועדכון `recipients` ברמת השורש ובטוקנים האישיים.
-   - שכבה שלישית: עדכון ישיר במסמך המרחב `spaces/{spaceId}` בתוך `fileShareItems` וכן בסנכרון `updateFileShareItems` ב-`SpacesContext`.
-3. **גרסה ויזואלית**: הועלתה ל-**`v3.5.27`**.
+1. **סניטיזציה גלובלית כנגד `undefined` (`sanitizeFirestoreData`)**:
+   - ב-`fileShareUtils.ts`, הוגדרה ויוצאה פונקציית סניטיזציה עמוקה שמנקה באופן רקורסיבי כל `undefined` לפני כל קריאת `setDoc` או `updateDoc`.
+   - ב-`newRecipient`, שדה ה-`phone` נשמר כמחרוזת ריקה `''` או ערך תקני, ולעולם לא כ-`undefined`.
+2. **חיווי ויזואלי מלא למשתמש**:
+   - כפתור השמירה מציג מצב טעינה `⏳ שומר לשרת...` ומיד לאחר מכן באנר הצלחה ירוק ואינדיקטור `✓ נשמר בהצלחה!`.
+   - שיגור אירוע גלובלי `smartshare:fileshare_saved` המקפיץ Toast מרחף בתחתית המסך של הווידג'ט.
+3. **גרסה ויזואלית**: הועלתה ל-**`v3.5.28`**.
 
 
 

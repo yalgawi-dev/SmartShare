@@ -5,7 +5,7 @@ import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
-import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission } from '@/utils/fileShareUtils';
+import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
@@ -45,6 +45,19 @@ export function FileShareWidget({
   // Folder creation prompt modal state
   const [showNewFolderModal, setShowNewFolderModal] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
+
+  // Floating save feedback toast
+  const [saveFeedbackToast, setSaveFeedbackToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleSavedEvent = (e: any) => {
+      const msg = e.detail?.message || 'הגדרות השיתוף נשמרו בהצלחה!';
+      setSaveFeedbackToast(msg);
+      setTimeout(() => setSaveFeedbackToast(null), 3000);
+    };
+    window.addEventListener('smartshare:fileshare_saved', handleSavedEvent);
+    return () => window.removeEventListener('smartshare:fileshare_saved', handleSavedEvent);
+  }, []);
 
   // Import existing file modal state
   const [showImportModal, setShowImportModal] = useState(false);
@@ -288,7 +301,7 @@ export function FileShareWidget({
         await updateFileShareItems(space.id, updatedItems);
       } else {
         const spaceRef = doc(db, 'spaces', space.id);
-        await updateDoc(spaceRef, { fileShareItems: updatedItems });
+        await updateDoc(spaceRef, sanitizeFirestoreData({ fileShareItems: updatedItems }));
       }
     } catch (err) {
       console.error('Failed to update file share items:', err);
@@ -1659,6 +1672,31 @@ export function FileShareWidget({
             }
           }}
         />
+      )}
+      {/* FLOATING ACTION FEEDBACK TOAST */}
+      {saveFeedbackToast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '24px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: '#ffffff',
+          padding: '0.75rem 1.4rem',
+          borderRadius: '50px',
+          boxShadow: '0 8px 24px rgba(16, 185, 129, 0.35)',
+          zIndex: 100000,
+          fontWeight: 800,
+          fontSize: '0.88rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          direction: 'rtl',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <span>✓</span>
+          <span>{saveFeedbackToast}</span>
+        </div>
       )}
     </div>
   );
