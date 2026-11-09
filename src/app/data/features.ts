@@ -16,7 +16,14 @@ export const AVAILABLE_FEATURES: Feature[] = [
     name: 'שיתוף קבצים', 
     desc: 'פורטל שיתוף קבצים ותיקיות מאובטח עם קישורים חיצוניים, קוד גישה, הגבלת הורדה ומעקב צפיות', 
     icon: '📤',
-    recommends: ['partners', 'scanner']
+    recommends: ['partners', 'scanner', 'business_card']
+  },
+  { 
+    id: 'business_card', 
+    name: 'כרטיס ביקור ומיתוג עסקי', 
+    desc: 'דף נחיתה עסקי בראש השיתופים: לוגו, סלוגן, טלפון ישיר, וואטסאפ וקישור לתיק עבודות / חומרים חיצוניים', 
+    icon: '📇',
+    recommends: ['fileshare']
   },
   {
     id: 'chat',

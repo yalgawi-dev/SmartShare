@@ -77,9 +77,6 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
         
-        {/* BRANDING & DIGITAL BUSINESS CARD SECTION (Phase B) */}
-        <BusinessCardSettingsCard space={space} />
-
         {/* GLOBAL SPACE ACCESS & MANAGED MODE SECTION (Rule 16: Independent of features) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
@@ -354,8 +351,13 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
                   </div>
                 )}
 
+                {/* Specific configs for Business Card & Branding Feature */}
+                {featureId === 'business_card' && (
+                  <BusinessCardSettingsCard space={space} isInsideFeature={true} />
+                )}
+
                 {/* Generic features message */}
-                {featureId !== 'finance' && featureId !== 'partners' && featureId !== 'vault' && (
+                {featureId !== 'finance' && featureId !== 'partners' && featureId !== 'vault' && featureId !== 'business_card' && (
                   <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.9rem' }}>{feature.desc}</p>
                 )}
 

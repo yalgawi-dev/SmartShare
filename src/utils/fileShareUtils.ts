@@ -176,11 +176,14 @@ export async function createOrUpdatePublicShare(
       const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
       if (spaceSnap.exists()) {
         const spaceData = spaceSnap.data();
-        if (!businessCard && spaceData?.settings?.businessCard) {
-          businessCard = spaceData.settings.businessCard;
-        }
-        if (!spaceLogoUrl && spaceData?.logoUrl) {
-          spaceLogoUrl = spaceData.logoUrl;
+        const hasBusinessFeature = Array.isArray(spaceData?.features) && spaceData.features.includes('business_card');
+        if (hasBusinessFeature) {
+          if (!businessCard && spaceData?.settings?.businessCard) {
+            businessCard = spaceData.settings.businessCard;
+          }
+          if (!spaceLogoUrl && spaceData?.logoUrl) {
+            spaceLogoUrl = spaceData.logoUrl;
+          }
         }
       }
     } catch (e) {
@@ -520,15 +523,18 @@ export async function syncPublicFolderShares(
     // 1. Update master folder token
     const masterDocRef = doc(db, 'shared_links', folder.shareLink.token);
     
-    // Optional branding enrichment if available
+    // Optional branding enrichment if available and feature enabled
     let brandingUpdates: any = { folderFiles: mappedFiles };
     try {
       if (spaceId) {
         const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
         if (spaceSnap.exists()) {
           const sData = spaceSnap.data();
-          if (sData?.settings?.businessCard) brandingUpdates.businessCard = sData.settings.businessCard;
-          if (sData?.logoUrl) brandingUpdates.spaceLogoUrl = sData.logoUrl;
+          const hasBusinessFeature = Array.isArray(sData?.features) && sData.features.includes('business_card');
+          if (hasBusinessFeature) {
+            if (sData?.settings?.businessCard) brandingUpdates.businessCard = sData.settings.businessCard;
+            if (sData?.logoUrl) brandingUpdates.spaceLogoUrl = sData.logoUrl;
+          }
         }
       }
     } catch (_) {}

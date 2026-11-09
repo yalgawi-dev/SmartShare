@@ -6,9 +6,10 @@ import { uploadBlobToStorage } from '@/lib/firebase';
 
 interface BusinessCardSettingsCardProps {
   space: Space;
+  isInsideFeature?: boolean;
 }
 
-export function BusinessCardSettingsCard({ space }: BusinessCardSettingsCardProps) {
+export function BusinessCardSettingsCard({ space, isInsideFeature }: BusinessCardSettingsCardProps) {
   const { updateSpaceSettings, updateSpaceLogo } = useSpaces();
 
   const [businessName, setBusinessName] = useState(space.settings?.businessCard?.businessName || space.title || '');
@@ -91,28 +92,30 @@ export function BusinessCardSettingsCard({ space }: BusinessCardSettingsCardProp
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-      {/* Title Divider */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
-            כרטיס ביקור ומיתוג דף שיתוף
-          </span>
-          <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-            v3.5.43
-          </span>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', width: '100%' }}>
+      {/* Title Divider (only if not rendered inside feature accordion) */}
+      {!isInsideFeature && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '800', color: 'var(--primary)', letterSpacing: '0.5px', textTransform: 'uppercase' }}>
+              כרטיס ביקור ומיתוג דף שיתוף
+            </span>
+            <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+              v3.5.44
+            </span>
+          </div>
+          <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(0,0,0,0.1), transparent)' }}></div>
         </div>
-        <div style={{ flex: 1, height: '1px', background: 'linear-gradient(to right, rgba(0,0,0,0.1), transparent)' }}></div>
-      </div>
+      )}
 
       <section 
-        className="card glass-panel" 
+        className={isInsideFeature ? "" : "card glass-panel"} 
         style={{ 
-          padding: '1.25rem', 
-          background: 'var(--bg-card)', 
-          borderRadius: 'var(--radius-lg)', 
-          boxShadow: '0 10px 40px rgba(0,0,0,0.06)', 
-          border: '1px solid rgba(0,0,0,0.05)', 
+          padding: isInsideFeature ? '0' : '1.25rem', 
+          background: isInsideFeature ? 'transparent' : 'var(--bg-card)', 
+          borderRadius: isInsideFeature ? '0' : 'var(--radius-lg)', 
+          boxShadow: isInsideFeature ? 'none' : '0 10px 40px rgba(0,0,0,0.06)', 
+          border: isInsideFeature ? 'none' : '1px solid rgba(0,0,0,0.05)', 
           display: 'flex', 
           flexDirection: 'column', 
           gap: '1.25rem' 
@@ -122,6 +125,9 @@ export function BusinessCardSettingsCard({ space }: BusinessCardSettingsCardProp
           <div>
             <h4 style={{ margin: '0 0 0.25rem 0', fontSize: '1rem', color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
               <span>📇</span> כרטיס ביקור דיגיטלי ותיק עבודות
+              <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                v3.5.44
+              </span>
             </h4>
             <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
               הפרטים שתגדיר כאן יופיעו בראש דפי השיתוף הציבוריים ובהודעות הוואטסאפ, וישמשו ככרטיס ביקור יוקרתי לשיווק העסק שלך.

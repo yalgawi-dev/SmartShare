@@ -467,7 +467,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.43
+                  v3.5.44
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>

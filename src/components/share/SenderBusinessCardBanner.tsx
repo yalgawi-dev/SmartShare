@@ -9,14 +9,16 @@ interface SenderBusinessCardBannerProps {
 
 export function SenderBusinessCardBanner({ shareData }: SenderBusinessCardBannerProps) {
   const card = shareData.businessCard;
-  const businessName = card?.businessName || shareData.spaceTitle;
-  const slogan = card?.slogan;
-  const phone = card?.phone;
-  const whatsapp = card?.whatsapp || phone;
-  const websiteUrl = card?.websiteUrl;
-  const portfolioUrl = card?.portfolioUrl;
-  const portfolioDescription = card?.portfolioDescription;
-  const logoUrl = card?.logoUrl || shareData.spaceLogoUrl;
+  if (!card) return null;
+
+  const businessName = card.businessName || shareData.spaceTitle;
+  const slogan = card.slogan;
+  const phone = card.phone;
+  const whatsapp = card.whatsapp || phone;
+  const websiteUrl = card.websiteUrl;
+  const portfolioUrl = card.portfolioUrl;
+  const portfolioDescription = card.portfolioDescription;
+  const logoUrl = card.logoUrl || shareData.spaceLogoUrl;
 
   const cleanWhatsappNumber = whatsapp ? whatsapp.replace(/\D/g, '') : '';
   const formattedWhatsappNumber = cleanWhatsappNumber.startsWith('0')
@@ -55,7 +57,7 @@ export function SenderBusinessCardBanner({ shareData }: SenderBusinessCardBanner
             📇 כרטיס ביקור ופרופיל עסקי
           </span>
           <span style={{ fontSize: '0.62rem', background: 'rgba(255,255,255,0.15)', color: '#38bdf8', padding: '1px 6px', borderRadius: '5px', fontWeight: 800 }}>
-            v3.5.43
+            v3.5.44
           </span>
         </div>
 

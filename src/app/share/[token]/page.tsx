@@ -91,11 +91,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
           const spaceSnap = await getDoc(doc(db, 'spaces', enrichedData.spaceId));
           if (spaceSnap.exists()) {
             const sData = spaceSnap.data();
-            if (!enrichedData.businessCard && sData?.settings?.businessCard) {
-              enrichedData.businessCard = sData.settings.businessCard;
-            }
-            if (!enrichedData.spaceLogoUrl && sData?.logoUrl) {
-              enrichedData.spaceLogoUrl = sData.logoUrl;
+            const hasBusinessFeature = Array.isArray(sData?.features) && sData.features.includes('business_card');
+            if (hasBusinessFeature) {
+              if (!enrichedData.businessCard && sData?.settings?.businessCard) {
+                enrichedData.businessCard = sData.settings.businessCard;
+              }
+              if (!enrichedData.spaceLogoUrl && sData?.logoUrl) {
+                enrichedData.spaceLogoUrl = sData.logoUrl;
+              }
             }
           }
         } catch (_) {}
