@@ -39,9 +39,11 @@ export default function SharedFileHandler() {
   const router = useRouter();
 
   // Thorough cleanup of all share caches across browser storage
-  const clearAllShareStores = () => {
+  const clearAllShareStores = (opts?: { keepLatestShared?: boolean }) => {
     try {
-      localStorage.removeItem('smartshare_latest_shared_backup');
+      if (!opts?.keepLatestShared) {
+        localStorage.removeItem('smartshare_latest_shared_backup');
+      }
       localStorage.removeItem('smartshare_share_checkpoints');
     } catch(e) {}
 
@@ -69,16 +71,18 @@ export default function SharedFileHandler() {
       };
     } catch(e) {}
 
-    try {
-      const dbReq = indexedDB.open('MySpaceDB', 1);
-      dbReq.onsuccess = (e: any) => {
-        const db = e.target.result;
-        if (db.objectStoreNames.contains('sharedFiles')) {
-          const tx = db.transaction('sharedFiles', 'readwrite');
-          tx.objectStore('sharedFiles').delete('latest_shared');
-        }
-      };
-    } catch(e) {}
+    if (!opts?.keepLatestShared) {
+      try {
+        const dbReq = indexedDB.open('MySpaceDB', 1);
+        dbReq.onsuccess = (e: any) => {
+          const db = e.target.result;
+          if (db.objectStoreNames.contains('sharedFiles')) {
+            const tx = db.transaction('sharedFiles', 'readwrite');
+            tx.objectStore('sharedFiles').delete('latest_shared');
+          }
+        };
+      } catch(e) {}
+    }
   };
 
   useEffect(() => {
@@ -432,7 +436,7 @@ export default function SharedFileHandler() {
     if (sharedFiles.length === 0) return;
     hasHandledShareRef.current = true;
     isCancelledRef.current = true;
-    clearAllShareStores();
+    clearAllShareStores({ keepLatestShared: routeDestination === 'direct' });
     setIsProcessing(true);
     
     try {
@@ -729,6 +733,11 @@ export default function SharedFileHandler() {
               console.warn('PDF extraction for direct route failed:', pdfErr);
             }
           }
+
+          // Also backup in localStorage in case IndexedDB transaction hasn't settled before navigation
+          try {
+            localStorage.setItem('smartshare_latest_shared_backup', JSON.stringify({ primary: convertedPrimary, allPages: convertedPages, files: convertedPages }));
+          } catch(e) {}
 
           const dbReq = indexedDB.open('MySpaceDB', 1);
           await new Promise<void>((resolve) => {

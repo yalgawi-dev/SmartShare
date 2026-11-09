@@ -293,52 +293,75 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
       if (params.get('addExpense') === 'true') {
         setIsAddingExpense(true);
         if (params.get('triggerOcr') === 'true') {
-          const request = indexedDB.open('MySpaceDB', 1);
-          request.onsuccess = (e: any) => {
-            const db = e.target.result;
-            if (!db.objectStoreNames.contains('sharedFiles')) return;
-            const tx = db.transaction('sharedFiles', 'readonly');
-            const store = tx.objectStore('sharedFiles');
-            const getReq = store.get('latest_shared');
-            getReq.onsuccess = () => {
-              const res = getReq.result;
-              let targetFile: string | null = null;
-              let allPages: string[] | undefined = undefined;
-
-              if (res) {
-                if (typeof res === 'object' && !Array.isArray(res)) {
-                  targetFile = res.primary || (res.files && res.files[0]) || null;
-                  allPages = Array.isArray(res.allPages) && res.allPages.length > 0 ? res.allPages : (Array.isArray(res.files) ? res.files : undefined);
-                } else if (Array.isArray(res)) {
-                  targetFile = res[0] || null;
-                  allPages = res.length > 1 ? res : undefined;
-                }
+          const triggerScanWhenReady = (targetFile: string, allPages?: string[]) => {
+            let attempts = 0;
+            const checkAndTrigger = setInterval(() => {
+              attempts++;
+              if (financeRef.current && typeof financeRef.current.processScan === 'function') {
+                clearInterval(checkAndTrigger);
+                financeRef.current.processScan(targetFile, allPages);
+                try {
+                  localStorage.removeItem('smartshare_latest_shared_backup');
+                  const delDbReq = indexedDB.open('MySpaceDB', 1);
+                  delDbReq.onsuccess = (ev: any) => {
+                    const d = ev.target.result;
+                    if (d.objectStoreNames.contains('sharedFiles')) {
+                      const dtx = d.transaction('sharedFiles', 'readwrite');
+                      dtx.objectStore('sharedFiles').delete('latest_shared');
+                    }
+                  };
+                } catch (err) {}
+              } else if (attempts > 40) {
+                clearInterval(checkAndTrigger);
               }
-
-              if (targetFile) {
-                let attempts = 0;
-                const checkAndTrigger = setInterval(() => {
-                  attempts++;
-                  if (financeRef.current && typeof financeRef.current.processScan === 'function') {
-                    clearInterval(checkAndTrigger);
-                    financeRef.current.processScan(targetFile!, allPages);
-                    try {
-                      const delDbReq = indexedDB.open('MySpaceDB', 1);
-                      delDbReq.onsuccess = (ev: any) => {
-                        const d = ev.target.result;
-                        if (d.objectStoreNames.contains('sharedFiles')) {
-                          const dtx = d.transaction('sharedFiles', 'readwrite');
-                          dtx.objectStore('sharedFiles').delete('latest_shared');
-                        }
-                      };
-                    } catch (err) {}
-                  } else if (attempts > 30) {
-                    clearInterval(checkAndTrigger);
-                  }
-                }, 200);
-              }
-            };
+            }, 150);
           };
+
+          // 1. Try localStorage backup first for instant synchronous read
+          let foundInBackup = false;
+          try {
+            const rawBackup = localStorage.getItem('smartshare_latest_shared_backup');
+            if (rawBackup) {
+              const res = JSON.parse(rawBackup);
+              const targetFile = res?.primary || (res?.files && res.files[0]) || (Array.isArray(res) ? res[0] : null);
+              const allPages = Array.isArray(res?.allPages) && res.allPages.length > 0 ? res.allPages : (Array.isArray(res) ? res : undefined);
+              if (targetFile) {
+                foundInBackup = true;
+                triggerScanWhenReady(targetFile, allPages);
+              }
+            }
+          } catch(e) {}
+
+          // 2. Also check IndexedDB if not found or as primary source
+          if (!foundInBackup) {
+            const request = indexedDB.open('MySpaceDB', 1);
+            request.onsuccess = (e: any) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains('sharedFiles')) return;
+              const tx = db.transaction('sharedFiles', 'readonly');
+              const store = tx.objectStore('sharedFiles');
+              const getReq = store.get('latest_shared');
+              getReq.onsuccess = () => {
+                const res = getReq.result;
+                let targetFile: string | null = null;
+                let allPages: string[] | undefined = undefined;
+
+                if (res) {
+                  if (typeof res === 'object' && !Array.isArray(res)) {
+                    targetFile = res.primary || (res.files && res.files[0]) || null;
+                    allPages = Array.isArray(res.allPages) && res.allPages.length > 0 ? res.allPages : (Array.isArray(res.files) ? res.files : undefined);
+                  } else if (Array.isArray(res)) {
+                    targetFile = res[0] || null;
+                    allPages = res.length > 1 ? res : undefined;
+                  }
+                }
+
+                if (targetFile) {
+                  triggerScanWhenReady(targetFile, allPages);
+                }
+              };
+            };
+          }
         }
         window.history.replaceState({}, document.title, window.location.pathname);
       }
