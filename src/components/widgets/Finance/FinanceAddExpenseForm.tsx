@@ -193,6 +193,25 @@ export function FinanceAddExpenseForm({
         
         <form key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
           
+          {/* Diagnostic Checkpoint Banner: Shows exact values evaluated by match engine in UI */}
+          <div style={{
+            padding: '0.5rem 0.75rem',
+            background: '#f8fafc',
+            border: '1px dashed #94a3b8',
+            borderRadius: '10px',
+            fontSize: '0.75rem',
+            color: '#475569',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.2rem',
+            direction: 'ltr',
+            textAlign: 'left'
+          }}>
+            <div><strong>[CHECKPOINT]</strong> Space Invoices: {space?.invoices?.length ?? 0} | Unattached: {unattachedExpenses.length}</div>
+            <div>Target Amt: {String(formValues.amount || ocrData?.amount || 'none')} | Clean: {String(parseCleanAmount(formValues.amount || ocrData?.amount))}</div>
+            <div>Match Result: {effectiveUnattachedMatch ? `FOUND (${effectiveUnattachedMatch.id} | ${effectiveUnattachedMatch.supplier} | ₪${effectiveUnattachedMatch.amount})` : 'NULL'}</div>
+          </div>
+
           {/* Smart Match Warning (Top Priority): If an unattached existing expense already matches this invoice */}
           {effectiveUnattachedMatch && onAttachToExisting && !retroInvoiceToEdit && (
             <div style={{
