@@ -1,9 +1,11 @@
-import React from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import PdfThumbnail from '../../shared/PdfThumbnail';
 import ScannerModal from '../ScannerModal';
 import { APP_VERSION } from '@/constants/version';
+import { parseCleanAmount, matchInvoiceToExpenses } from '@/utils/invoiceMatcher';
 
 interface FinanceAddExpenseFormProps {
+  space?: any;
   user: any;
   validMembers: any[];
   activePartnersCount: number;
@@ -28,6 +30,7 @@ interface FinanceAddExpenseFormProps {
 }
 
 export function FinanceAddExpenseForm({
+  space,
   user,
   validMembers,
   activePartnersCount,
@@ -82,6 +85,59 @@ export function FinanceAddExpenseForm({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormValues(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
+
+  const [dismissedMatchId, setDismissedMatchId] = useState<string | null>(null);
+
+  // Pool of candidate unattached expenses in this space
+  const unattachedExpenses = useMemo(() => {
+    return (space?.invoices || []).filter(
+      (inv: any) =>
+        inv.isActive !== false &&
+        inv.type !== 'transfer' &&
+        inv.type !== 'income' &&
+        inv.category !== 'cashbox_equity' &&
+        inv.category !== 'cashbox_withdrawal' &&
+        (!inv.hasAttachment || !inv.attachmentUrl || String(inv.attachmentUrl).trim() === '')
+    );
+  }, [space?.invoices]);
+
+  // Guaranteed reactive match: whether from OCR result, form inputs, or Firestore updates
+  const effectiveUnattachedMatch = useMemo(() => {
+    if (retroInvoiceToEdit) return null;
+    
+    // 1. Direct match already computed on ocrData
+    if (ocrData?._unattachedMatch && ocrData._unattachedMatch.id !== dismissedMatchId) {
+      return ocrData._unattachedMatch;
+    }
+
+    // 2. Reactively check based on current form values or OCR data
+    const targetAmt = parseCleanAmount(formValues.amount || ocrData?.amount);
+    if (!targetAmt || targetAmt <= 0) return null;
+
+    // Check exact amount first (100% fail-safe)
+    const exact = unattachedExpenses.find(e => {
+      if (e.id === dismissedMatchId) return false;
+      const eAmt = parseCleanAmount(e.amount);
+      return eAmt != null && Math.abs(eAmt - targetAmt) < 0.01;
+    });
+    if (exact) return exact;
+
+    // Fallback to fuzzy ranking
+    const targetSupplier = formValues.supplier || ocrData?.vendor || ocrData?.supplier || null;
+    const ranked = matchInvoiceToExpenses(
+      {
+        amount: targetAmt,
+        supplier: targetSupplier,
+        date: formValues.date || ocrData?.date || null,
+        invoiceNumber: ocrData?.invoiceNumber || null,
+        vatNumber: ocrData?.vatNumber || null
+      },
+      unattachedExpenses.filter(e => e.id !== dismissedMatchId),
+      { minScore: 30, limit: 1 }
+    );
+
+    return (ranked && ranked.length > 0) ? ranked[0].item : null;
+  }, [ocrData, formValues.amount, formValues.supplier, formValues.date, unattachedExpenses, dismissedMatchId, retroInvoiceToEdit]);
 
   const isFormValid = formValues.supplier.trim() !== '' && formValues.amount.toString().trim() !== '' && formValues.date.trim() !== '';
 
@@ -138,7 +194,7 @@ export function FinanceAddExpenseForm({
         <form key={JSON.stringify(ocrData) + (scannedImage || 'new-expense')} onSubmit={handleAddExpense} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', width: '100%', maxWidth: '100%' }}>
           
           {/* Smart Match Warning (Top Priority): If an unattached existing expense already matches this invoice */}
-          {ocrData?._unattachedMatch && onAttachToExisting && !retroInvoiceToEdit && (
+          {effectiveUnattachedMatch && onAttachToExisting && !retroInvoiceToEdit && (
             <div style={{
               padding: '1.1rem',
               background: 'linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%)',
@@ -171,21 +227,21 @@ export function FinanceAddExpenseForm({
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span style={{ fontWeight: 800, fontSize: '1.1rem', color: '#1e293b' }}>
-                    {ocrData._unattachedMatch.supplier || 'הוצאה ללא שם ספק'}
+                    {effectiveUnattachedMatch.supplier || 'הוצאה ללא שם ספק'}
                   </span>
                   <span style={{ fontWeight: 800, fontSize: '1.25rem', color: '#16a34a' }}>
-                    ₪{ocrData._unattachedMatch.amount != null ? Number(ocrData._unattachedMatch.amount).toLocaleString('he-IL') : '0'}
+                    ₪{effectiveUnattachedMatch.amount != null ? Number(effectiveUnattachedMatch.amount).toLocaleString('he-IL') : '0'}
                   </span>
                 </div>
                 <div style={{ display: 'flex', gap: '1rem', fontSize: '0.82rem', color: '#64748b' }}>
-                  <span>📅 תאריך רישום: {ocrData._unattachedMatch.date || 'לא צוין'}</span>
-                  {ocrData._unattachedMatch.payerName && (
-                    <span>👤 נרשם ע"י: {ocrData._unattachedMatch.payerName}</span>
+                  <span>📅 תאריך רישום: {effectiveUnattachedMatch.date || 'לא צוין'}</span>
+                  {effectiveUnattachedMatch.payerName && (
+                    <span>👤 נרשם ע"י: {effectiveUnattachedMatch.payerName}</span>
                   )}
                 </div>
-                {ocrData._unattachedMatch.note && (
+                {effectiveUnattachedMatch.note && (
                   <div style={{ fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic', marginTop: '0.2rem' }}>
-                    הערה: "{ocrData._unattachedMatch.note}"
+                    הערה: "{effectiveUnattachedMatch.note}"
                   </div>
                 )}
               </div>
@@ -197,7 +253,7 @@ export function FinanceAddExpenseForm({
               <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.2rem', flexWrap: 'wrap' }}>
                 <button
                   type="button"
-                  onClick={() => onAttachToExisting(ocrData._unattachedMatch.id, true)}
+                  onClick={() => onAttachToExisting(effectiveUnattachedMatch.id, true)}
                   style={{
                     flex: '1 1 200px',
                     background: '#16a34a',
@@ -222,9 +278,9 @@ export function FinanceAddExpenseForm({
                   type="button"
                   onClick={() => {
                     // Dismiss warning and let user proceed as new expense
+                    setDismissedMatchId(effectiveUnattachedMatch.id);
                     if (ocrData) {
                       delete ocrData._unattachedMatch;
-                      setFormValues({ ...formValues });
                     }
                   }}
                   style={{

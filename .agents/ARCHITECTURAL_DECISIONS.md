@@ -2268,6 +2268,32 @@ flowchart TD
    - המשתמש רואה מיד בכניסה: "נמצאה התאמה להוצאה קיימת שממתינה לחשבונית!" עם פרטי ההוצאה וכפתור ירוק בולט לשיוך בקליק אחד.
 4. **גרסה ויזואלית:** הועלתה ל-**`v3.5.36`**.
 
+---
+
+## 102. מניעת Stale Closure והתאמה ריאקטיבית דו-שכבתית (Two-Layer Reactive Matching) לשיוך חשבוניות (v3.5.37)
+
+### רקע והאתגר:
+בעת שיתוף חשבונית מבחוץ (Android Share Target), הפיענוח ב-OCR הצליח לחלץ את מלוא הנתונים (כולל סכום של ₪4,980 ושם ספק), אך התראת השיוך להוצאה הקיימת ללא חשבונית לא הוצגה כלל.
+בדיקה עמוקה במסד הנתונים של Firestore הוכיחה מעל לכל ספק שההוצאה הקיימת (`id=inv-1793935339396`, סכום: `4980`, ללא חשבונית) אכן קיימת במרחב!
+
+### ניתוח שורש (Root Cause Analysis - 100% Proven):
+1. **Stale Closure ב-`useImperativeHandle` של `FinanceWidget`:**
+   הפונקציה `processScan` נקראה מיד בעת טעינת דף המרחב כתוצאה מפרמטר השיתוף (`?addExpense=true&triggerOcr=true`).
+   ה-hook של `useImperativeHandle(ref, ...)` נוצר עם סגירת ברירת מחדל (closure) על אובייקט ה-`space` הראשוני, לפני שה-Snapshot המלא של חשבוניות המרחב נטען מ-Firestore (`space.invoices` היה מערך ריק `[]` ברינדור הראשון).
+   לפיכך התנאי `if (space?.invoices && space.invoices.length > 0)` נכשל, ובדיקת ההתאמה ב-OCR לא רצה!
+2. **הטופס `FinanceAddExpenseForm` לא היה ריאקטיבי:**
+   הטופס הסתמך אך ורק על `ocrData._unattachedMatch` שהופק פעם אחת בלבד בעת ה-OCR. הוא לא קיבל את אובייקט ה-`space` ולא ידע לחשב התאמה עצמאית כאשר נתוני ה-Firestore הוזרמו או כאשר הנתונים בשדות הטופס מולאו ע"י ה-OCR.
+
+### ההחלטה והפתרון ההנדסי:
+1. **שימוש ב-Refs עדכניים (`spaceRef`, `spacesRef`, `runOcrPipelineRef`):**
+   - ה-Imperative Handle מתעדכן ומפעיל תמיד את הגרסה העדכנית ביותר של צינור ה-OCR.
+   - בדיקת ההתאמה ב-`runOcrPipeline` שולפת את נתוני המרחב והחשבוניות מתוך המקור העדכני ביותר (`spacesRef.current || spaceRef.current || space`).
+2. **שכבת הגנה שנייה: התאמה ריאקטיבית בטופס (`effectiveUnattachedMatch`):**
+   - העברת ה-`space` המלא כ-prop ל-`FinanceAddExpenseForm`.
+   - חישוב `effectiveUnattachedMatch` באמצעות `useMemo` המאזין בזמן אמת ל-`[ocrData, formValues.amount, formValues.supplier, unattachedExpenses, dismissedMatchId]`.
+   - גם אם מסיבה כלשהי ה-OCR פספס את הבדיקה בעת הריצה (למשל עקב השהיית רשת), ברגע ששדה הסכום מתמלא (למשל `4980`) או שהחשבוניות נטענות מ-Firestore, הטופס מזהה מיידית את ההוצאה הקיימת ללא חשבונית ומקפיץ את הבאנר הירוק בראש המסך עם כפתור השיוך.
+3. **גרסה ויזואלית:** הועלתה ל-**`v3.5.37`**.
+
 
 
 

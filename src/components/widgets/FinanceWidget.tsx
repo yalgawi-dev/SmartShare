@@ -24,6 +24,18 @@ import VersionBadge from '@/components/common/VersionBadge';
 
 const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddingExpense, setIsAddingExpense, onRestrictedAction, activeTab, setActiveTab, onOpenPartnersModal }: { space: any, activePartnersCount: number, onRemove?: () => void, isAddingExpense?: boolean, setIsAddingExpense?: (v: boolean) => void, onRestrictedAction?: (action: () => void) => void, activeTab: 'summary'|'transactions'|'inbox', setActiveTab: (tab: 'summary'|'transactions'|'inbox') => void, onOpenPartnersModal?: () => void }, ref) => {
   const { user } = useAuth();
+  const { spaces } = useSpaces();
+
+  // Keep fresh references to avoid any stale closure bugs when called via imperative handles
+  const spaceRef = useRef(space);
+  useEffect(() => {
+    spaceRef.current = space;
+  }, [space]);
+
+  const spacesRef = useRef(spaces);
+  useEffect(() => {
+    spacesRef.current = spaces;
+  }, [spaces]);
   
   // Check if current user is a restricted partner (pending / guest)
   // NOTE: isRestricted logic lives in page.tsx (Single Source of Truth).
@@ -50,10 +62,15 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   };
 
   const rootRef = useRef<HTMLDivElement>(null);
+  const runOcrPipelineRef = useRef<any>(null);
   
   useImperativeHandle(ref, () => ({
     processScan: (url: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
-      runOcrPipeline(url, allPages, retroInvoice, rawPdfSource);
+      if (runOcrPipelineRef.current) {
+        runOcrPipelineRef.current(url, allPages, retroInvoice, rawPdfSource);
+      } else {
+        runOcrPipeline(url, allPages, retroInvoice, rawPdfSource);
+      }
     },
     processBatch: (urls: string[]) => {
       if (!urls || urls.length === 0) return;
@@ -62,7 +79,11 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
         setToastMsg(`מעבד חשבונית 1 מתוך ${urls.length}...`);
         setTimeout(() => setToastMsg(null), 3500);
       }
-      runOcrPipeline(urls[0]);
+      if (runOcrPipelineRef.current) {
+        runOcrPipelineRef.current(urls[0]);
+      } else {
+        runOcrPipeline(urls[0]);
+      }
     },
     setFilter: (newFilter: 'all' | 'pending_me' | 'pending_partners' | 'dispute' | 'archive' | 'no_receipt') => {
       setActiveTab('transactions');
@@ -157,7 +178,7 @@ const [isMounted, setIsMounted] = useState(false);
   
   
 
-const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
+  const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
     if (retroInvoice) setRetroInvoiceToEdit(retroInvoice); else setRetroInvoiceToEdit(null);
     setIsScanning(false);
     if(setIsAddingExpense) setIsAddingExpense(true); // Open the form immediately
@@ -286,8 +307,12 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
       if (response.ok) {
         const data = await response.json();
           
-          if (space?.invoices && space.invoices.length > 0) {
-            const exists = space.invoices.find((inv: any) => (retroInvoice ? inv.id !== retroInvoice.id : true) && isDuplicateInvoice(inv, data));
+          // Use latest space snapshot from ref or context to avoid stale closure
+          const currentSpace = (spacesRef.current || []).find((s: any) => s.id === space.id) || spaceRef.current || space;
+          const currentInvoices = currentSpace?.invoices || [];
+
+          if (currentInvoices.length > 0) {
+            const exists = currentInvoices.find((inv: any) => (retroInvoice ? inv.id !== retroInvoice.id : true) && isDuplicateInvoice(inv, data));
             if (exists) {
               const warnPrefix = data.invoiceNumber ? ' (מספר ' + data.invoiceNumber + ')' : '';
               data._duplicateWarning = 'נראה שחשבונית/קבלה זו' + warnPrefix + ' כבר הועלתה למערכת בעבר.';
@@ -308,7 +333,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
                 vatNumber: data.vatNumber || null
               };
 
-              const candidates = (space.invoices || []).filter((inv: any) => 
+              const candidates = currentInvoices.filter((inv: any) => 
                 inv.isActive !== false &&
                 inv.type !== 'transfer' &&
                 inv.type !== 'income' &&
@@ -385,6 +410,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     
     setIsAnalyzing(false);
   };
+  runOcrPipelineRef.current = runOcrPipeline;
 
   
   
@@ -876,6 +902,7 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
       {/* Add Expense Modal (Bottom Sheet Style) */}
       {isMounted && isAddingExpense && selectedCategory !== 'העברה/קיזוז' && createPortal(
         <FinanceAddExpenseForm 
+          space={space}
           retroInvoiceToEdit={retroInvoiceToEdit}
           user={user}
           validMembers={validMembers}
