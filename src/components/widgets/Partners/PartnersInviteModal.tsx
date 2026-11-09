@@ -450,70 +450,19 @@ export function PartnersInviteModal({
         ) : (
           <div style={{ width: '100%' }}>
           {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
                 {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי' : 'הזמנת שותף למרחב')}
               </h3>
-              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.60</span>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.61</span>
             </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
               {step === 1 ? 'שלב 1 מתוך 2: הגדרת סוג ההזמנה והיקף הגישה' : 'שלב 2 מתוך 2: בחירת המוזמן ואופן השליחה'}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
-        </div>
-
-        {/* Wizard Steps Navigation Bar */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
-          <button
-            type="button"
-            onClick={() => setStep(1)}
-            style={{
-              padding: '0.6rem',
-              borderRadius: '12px',
-              border: step === 1 ? '2px solid var(--primary, #4f46e5)' : '1px solid #e2e8f0',
-              background: step === 1 ? 'rgba(99, 102, 241, 0.08)' : '#f8fafc',
-              color: step === 1 ? 'var(--primary, #4f46e5)' : '#64748b',
-              fontWeight: 800,
-              fontSize: '0.82rem',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>1️⃣</span>
-            <span>הגדרת גישה ותחום</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setStep(2)}
-            disabled={scopeType !== 'folder' && !isBalanced}
-            style={{
-              padding: '0.6rem',
-              borderRadius: '12px',
-              border: step === 2 ? '2px solid #16a34a' : '1px solid #e2e8f0',
-              background: step === 2 ? '#f0fdf4' : '#f8fafc',
-              color: step === 2 ? '#15803d' : '#64748b',
-              fontWeight: 800,
-              fontSize: '0.82rem',
-              cursor: (scopeType !== 'folder' && !isBalanced) ? 'not-allowed' : 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '0.4rem',
-              opacity: (scopeType !== 'folder' && !isBalanced) ? 0.5 : 1,
-              transition: 'all 0.15s ease'
-            }}
-          >
-            <span>2️⃣</span>
-            <span>בחירת איש קשר ושליחה</span>
-          </button>
         </div>
 
         {/* ================= STEP 1: הגדרת גישה ותחום ================= */}
