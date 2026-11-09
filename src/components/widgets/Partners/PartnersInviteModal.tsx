@@ -322,6 +322,8 @@ export function PartnersInviteModal({
   };
 
   const [inviteType, setInviteType] = useState<'single' | 'group'>('single');
+  const [step, setStep] = useState<1 | 2>(1);
+  const [inviteMethod, setInviteMethod] = useState<'existing_user' | 'whatsapp' | 'link'>('existing_user');
 
   const handleGenerateGroupLink = () => {
     const url = new URL('/space/' + space.id, window.location.origin);
@@ -448,267 +450,167 @@ export function PartnersInviteModal({
         ) : (
           <div style={{ width: '100%' }}>
           {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.75rem', marginBottom: '0.75rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <h3 style={{ margin: 0, color: '#0f172a', fontSize: '1.25rem', fontWeight: 800 }}>
-                {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי (יחיד)' : 'הזמנת משתף פעולה (יחיד)')}
+                {inviteType === 'group' ? 'הזמנת קבוצה (ועד בית / שיתוף מרובה)' : (isFinancial ? 'הזמנת שותף פיננסי' : 'הזמנת שותף למרחב')}
               </h3>
-              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.58</span>
+              <span style={{ fontSize: '0.75rem', background: '#e0e7ff', color: '#4338ca', padding: '2px 6px', borderRadius: '6px', fontWeight: 'bold' }}>v6.8.60</span>
             </div>
             <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.8rem', color: '#64748b' }}>
-              {inviteType === 'group' 
-                ? 'שליחת קישור אחד לכולם בווטסאפ עם נעילה ואישור מנהל' 
-                : (isFinancial ? 'הזמנה ישירה ללא צורך באישור מנהל' : 'גישה ישירה למרחב ללא אישור')}
+              {step === 1 ? 'שלב 1 מתוך 2: הגדרת סוג ההזמנה והיקף הגישה' : 'שלב 2 מתוך 2: בחירת המוזמן ואופן השליחה'}
             </p>
           </div>
           <button onClick={onClose} style={{ background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#64748b' }}>×</button>
         </div>
 
-        {/* Step 1: קוביה מעוצבת סוג ההזמנה */}
-        <div style={{ 
-          background: '#f0f7ff', 
-          border: '1.5px solid #bfdbfe', 
-          borderRadius: '16px', 
-          padding: '0.85rem', 
-          marginTop: '0.75rem',
-          marginBottom: '0.85rem',
-          boxShadow: '0 2px 6px rgba(59, 130, 246, 0.05)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-            <span style={{ background: '#2563eb', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>שלב 1</span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e3a8a' }}>סוג ההזמנה</span>
-          </div>
+        {/* Wizard Steps Navigation Bar */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginBottom: '1rem' }}>
+          <button
+            type="button"
+            onClick={() => setStep(1)}
+            style={{
+              padding: '0.6rem',
+              borderRadius: '12px',
+              border: step === 1 ? '2px solid var(--primary, #4f46e5)' : '1px solid #e2e8f0',
+              background: step === 1 ? 'rgba(99, 102, 241, 0.08)' : '#f8fafc',
+              color: step === 1 ? 'var(--primary, #4f46e5)' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span>1️⃣</span>
+            <span>הגדרת גישה ותחום</span>
+          </button>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#ffffff', padding: '0.35rem', borderRadius: '12px', border: '1px solid #dbeafe' }}>
-            <button
-              type="button"
-              onClick={() => setInviteType('single')}
-              style={{
-                padding: '0.65rem 0.5rem',
-                borderRadius: '10px',
-                border: inviteType === 'single' ? '2px solid #2563eb' : 'none',
-                background: inviteType === 'single' ? '#eff6ff' : 'transparent',
-                color: inviteType === 'single' ? '#1e40af' : '#64748b',
-                fontWeight: 800,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.4rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>👤</span>
-              <span>הזמנת יחיד</span>
-              <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 'bold' }}>(מיידי)</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setInviteType('group')}
-              style={{
-                padding: '0.65rem 0.5rem',
-                borderRadius: '10px',
-                border: inviteType === 'group' ? '2px solid #4f46e5' : 'none',
-                background: inviteType === 'group' ? '#eef2ff' : 'transparent',
-                color: inviteType === 'group' ? '#3730a3' : '#64748b',
-                fontWeight: 800,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '0.4rem',
-                transition: 'all 0.2s'
-              }}
-            >
-              <span>👥</span>
-              <span>הזמנת קבוצה</span>
-              <span style={{ fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' }}>(דורש אישור)</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            disabled={scopeType !== 'folder' && !isBalanced}
+            style={{
+              padding: '0.6rem',
+              borderRadius: '12px',
+              border: step === 2 ? '2px solid #16a34a' : '1px solid #e2e8f0',
+              background: step === 2 ? '#f0fdf4' : '#f8fafc',
+              color: step === 2 ? '#15803d' : '#64748b',
+              fontWeight: 800,
+              fontSize: '0.82rem',
+              cursor: (scopeType !== 'folder' && !isBalanced) ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '0.4rem',
+              opacity: (scopeType !== 'folder' && !isBalanced) ? 0.5 : 1,
+              transition: 'all 0.15s ease'
+            }}
+          >
+            <span>2️⃣</span>
+            <span>בחירת איש קשר ושליחה</span>
+          </button>
         </div>
 
-        {/* Scoped Area Selector (All Space vs Specific Folder) */}
-        {availableFolders.length > 0 && (
-          <div style={{
-            background: '#f8fafc',
-            border: '1.5px solid #e2e8f0',
-            borderRadius: '16px',
-            padding: '0.85rem',
-            marginBottom: '0.85rem',
-            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <span style={{ background: '#475569', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>היקף שותפות</span>
-                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>לאיזה תחום השותף מצטרף?</span>
+        {/* ================= STEP 1: הגדרת גישה ותחום ================= */}
+        {step === 1 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {/* Step 1: קוביה מעוצבת סוג ההזמנה */}
+            <div style={{ 
+              background: '#f0f7ff', 
+              border: '1.5px solid #bfdbfe', 
+              borderRadius: '16px', 
+              padding: '0.85rem', 
+              boxShadow: '0 2px 6px rgba(59, 130, 246, 0.05)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                <span style={{ background: '#2563eb', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>סוג שותף</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e3a8a' }}>למי מיועדת ההזמנה?</span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#ffffff', padding: '0.35rem', borderRadius: '12px', border: '1px solid #dbeafe' }}>
+                <button
+                  type="button"
+                  onClick={() => setInviteType('single')}
+                  style={{
+                    padding: '0.65rem 0.5rem',
+                    borderRadius: '10px',
+                    border: inviteType === 'single' ? '2px solid #2563eb' : 'none',
+                    background: inviteType === 'single' ? '#eff6ff' : 'transparent',
+                    color: inviteType === 'single' ? '#1e40af' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span>👤</span>
+                  <span>הזמנת יחיד</span>
+                  <span style={{ fontSize: '0.7rem', color: '#16a34a', fontWeight: 'bold' }}>(מיידי)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setInviteType('group')}
+                  style={{
+                    padding: '0.65rem 0.5rem',
+                    borderRadius: '10px',
+                    border: inviteType === 'group' ? '2px solid #4f46e5' : 'none',
+                    background: inviteType === 'group' ? '#eef2ff' : 'transparent',
+                    color: inviteType === 'group' ? '#3730a3' : '#64748b',
+                    fontWeight: 800,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.4rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span>👥</span>
+                  <span>הזמנת קבוצה</span>
+                  <span style={{ fontSize: '0.7rem', color: '#d97706', fontWeight: 'bold' }}>(דורש אישור)</span>
+                </button>
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem', marginBottom: '0.6rem' }}>
-              <button
-                type="button"
-                onClick={() => setScopeType('all')}
-                style={{
-                  padding: '0.65rem 0.5rem',
-                  borderRadius: '10px',
-                  border: scopeType === 'all' ? '2px solid var(--primary, #4f46e5)' : '1px solid #cbd5e1',
-                  background: scopeType === 'all' ? 'rgba(99, 102, 241, 0.08)' : '#ffffff',
-                  color: scopeType === 'all' ? 'var(--primary, #4f46e5)' : '#475569',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.4rem'
-                }}
-              >
-                <span>🌐</span>
-                <span>כל המרחב (מלא)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setScopeType('folder')}
-                style={{
-                  padding: '0.65rem 0.5rem',
-                  borderRadius: '10px',
-                  border: scopeType === 'folder' ? '2px solid #059669' : '1px solid #cbd5e1',
-                  background: scopeType === 'folder' ? '#ecfdf5' : '#ffffff',
-                  color: scopeType === 'folder' ? '#047857' : '#475569',
-                  fontWeight: 800,
-                  fontSize: '0.85rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.4rem'
-                }}
-              >
-                <span>📁</span>
-                <span>תיקייה ספציפית בלבד</span>
-              </button>
-            </div>
-
-            {scopeType === 'folder' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155' }}>בחר תיקייה לשיוך:</label>
-                  <select
-                    value={selectedFolderId}
-                    onChange={e => setSelectedFolderId(e.target.value)}
-                    style={{
-                      padding: '0.55rem 0.75rem',
-                      borderRadius: '8px',
-                      border: '1px solid #cbd5e1',
-                      fontSize: '0.88rem',
-                      fontWeight: 700,
-                      background: '#ffffff',
-                      color: '#0f172a'
-                    }}
-                  >
-                    {availableFolders.map((f: any) => (
-                      <option key={f.id} value={f.id}>📁 {f.name}</option>
-                    ))}
-                  </select>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155' }}>הרשאת השותף בתיקייה:</span>
-                  <div style={{ display: 'flex', gap: '0.35rem' }}>
-                    <button
-                      type="button"
-                      onClick={() => setPartnerFolderRole('admin')}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        border: partnerFolderRole === 'admin' ? '1.5px solid #059669' : '1px solid #cbd5e1',
-                        background: partnerFolderRole === 'admin' ? '#ecfdf5' : '#ffffff',
-                        color: partnerFolderRole === 'admin' ? '#047857' : '#64748b',
-                        fontWeight: 800,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⚡ מנהל תיקייה (העלאה ועריכה)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setPartnerFolderRole('viewer')}
-                      style={{
-                        padding: '4px 10px',
-                        borderRadius: '6px',
-                        border: partnerFolderRole === 'viewer' ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
-                        background: partnerFolderRole === 'viewer' ? '#eff6ff' : '#ffffff',
-                        color: partnerFolderRole === 'viewer' ? '#1d4ed8' : '#64748b',
-                        fontWeight: 800,
-                        fontSize: '0.78rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      👁️ צפייה בלבד
-                    </button>
+            {/* Scoped Area Selector (All Space vs Specific Folder) */}
+            {availableFolders.length > 0 && (
+              <div style={{
+                background: '#f8fafc',
+                border: '1.5px solid #e2e8f0',
+                borderRadius: '16px',
+                padding: '0.85rem',
+                boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                    <span style={{ background: '#475569', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>היקף שותפות</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>לאיזה תחום השותף מצטרף?</span>
                   </div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
 
-        {inviteType === 'group' ? (
-          /* Group Invite Layout */
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
-            <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '1.3rem' }}>📢</span>
-                <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '1rem' }}>שליחה מרוכזת לקבוצת ווטסאפ</span>
-              </div>
-              <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
-                מתאים לקבוצות של 10, 20 או 30 משתתפים (כגון ועד בית או צוות). שולחים קישור יחיד לכולם.
-                כל מי שנרשם דרך הקישור <strong>יהיה נעול</strong> ויראה הודעה: <em>&quot;הגישה תתקבל ברגע ש-{creatorName} יאשר את הצטרפותכם&quot;</em>.
-              </p>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <button
-                onClick={handleGroupWhatsApp}
-                style={{
-                  width: '100%',
-                  padding: '1rem',
-                  background: '#25D366',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '14px',
-                  fontWeight: 800,
-                  fontSize: '1.05rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '0.6rem',
-                  boxShadow: '0 8px 16px -4px rgba(37, 211, 102, 0.4)'
-                }}
-              >
-                <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                <span>שלח קישור ישירות לקבוצת ווטסאפ</span>
-              </button>
-
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                {typeof navigator !== 'undefined' && 'share' in navigator && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem', marginBottom: '0.6rem' }}>
                   <button
-                    onClick={handleGroupNativeShare}
+                    type="button"
+                    onClick={() => setScopeType('all')}
                     style={{
-                      flex: 1,
-                      padding: '0.85rem',
-                      background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '12px',
-                      fontWeight: 700,
+                      padding: '0.65rem 0.5rem',
+                      borderRadius: '10px',
+                      border: scopeType === 'all' ? '2px solid var(--primary, #4f46e5)' : '1px solid #cbd5e1',
+                      background: scopeType === 'all' ? 'rgba(99, 102, 241, 0.08)' : '#ffffff',
+                      color: scopeType === 'all' ? 'var(--primary, #4f46e5)' : '#475569',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -716,424 +618,710 @@ export function PartnersInviteModal({
                       gap: '0.4rem'
                     }}
                   >
-                    <span>📤</span>
-                    <span>שתף ביישומים נוספים</span>
+                    <span>🌐</span>
+                    <span>כל המרחב (מלא)</span>
                   </button>
-                )}
-                <button
-                  onClick={handleGroupCopy}
-                  style={{
-                    flex: 1,
-                    padding: '0.85rem',
-                    background: '#f8fafc',
-                    color: '#0f172a',
-                    border: '1px solid #cbd5e1',
-                    borderRadius: '12px',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  {copied ? '✓ הועתק!' : '📋 העתק הודעה וקישור'}
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <>
-        {isFinancial && !isSharedOnly && scopeType !== 'folder' && (<>
 
-        {space.features?.includes("finance") && (<>
-        {/* Step 2: קוביה מעוצבת חלוקת אחוזים ותצוגה מקדימה */}
-        <div style={{ 
-          background: '#faf5ff', 
-          border: '1.5px solid #e9d5ff', 
-          borderRadius: '16px', 
-          padding: '0.85rem', 
-          marginTop: '0.5rem',
-          marginBottom: '0.85rem',
-          boxShadow: '0 2px 6px rgba(147, 51, 234, 0.05)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-            <span style={{ background: '#7c3aed', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>שלב 2</span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#581c87' }}>חלוקת אחוזים ותצוגה מקדימה</span>
-          </div>
-
-          <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', color: '#334155', marginBottom: '0.5rem' }}>
-            איך לחשב את אחוזי ההשתתפות?
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
-            <button
-              type="button"
-              onClick={() => setAllocationMode('from_creator')}
-              style={{
-                padding: '0.6rem 0.5rem',
-                borderRadius: '10px',
-                border: allocationMode === 'from_creator' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
-                background: allocationMode === 'from_creator' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
-                color: allocationMode === 'from_creator' ? 'var(--primary, #3b82f6)' : '#475569',
-                fontWeight: allocationMode === 'from_creator' ? 'bold' : 'normal',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                textAlign: 'center'
-              }}
-            >
-              👑 מהיוצר בלבד
-            </button>
-            <button
-              type="button"
-              onClick={() => setAllocationMode('equal')}
-              style={{
-                padding: '0.6rem 0.5rem',
-                borderRadius: '10px',
-                border: allocationMode === 'equal' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
-                background: allocationMode === 'equal' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
-                color: allocationMode === 'equal' ? 'var(--primary, #3b82f6)' : '#475569',
-                fontWeight: allocationMode === 'equal' ? 'bold' : 'normal',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                textAlign: 'center'
-              }}
-            >
-              ⚖️ שווה בשווה
-            </button>
-            {validMembers.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setAllocationMode('proportional')}
-                style={{
-                  padding: '0.6rem 0.5rem',
-                  borderRadius: '10px',
-                  border: allocationMode === 'proportional' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
-                  background: allocationMode === 'proportional' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
-                  color: allocationMode === 'proportional' ? 'var(--primary, #3b82f6)' : '#475569',
-                  fontWeight: allocationMode === 'proportional' ? 'bold' : 'normal',
-                  cursor: 'pointer',
-                  fontSize: '0.8rem',
-                  textAlign: 'center'
-                }}
-              >
-                📉 דילול יחסי (3+)
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setAllocationMode('custom')}
-              style={{
-                padding: '0.6rem 0.5rem',
-                borderRadius: '10px',
-                border: allocationMode === 'custom' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
-                background: allocationMode === 'custom' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
-                color: allocationMode === 'custom' ? 'var(--primary, #3b82f6)' : '#475569',
-                fontWeight: allocationMode === 'custom' ? 'bold' : 'normal',
-                cursor: 'pointer',
-                fontSize: '0.8rem',
-                textAlign: 'center',
-                gridColumn: validMembers.length === 0 ? 'span 2' : 'auto'
-              }}
-            >
-              ✍️ התאמה ידנית
-            </button>
-          </div>
-        </div>
-
-        {/* Share input for from_creator and proportional */}
-        {(allocationMode === 'from_creator' || allocationMode === 'proportional') && (
-          <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#334155' }}>
-                אחוז לשותף החדש:
-              </span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <input 
-                  type="number" 
-                  min="1" 
-                  max="99"
-                  value={customShare}
-                  onChange={e => setCustomShare(e.target.value)}
-                  onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
-                  onClick={e => (e.target as HTMLInputElement).select()}
-                  style={{ width: '65px', padding: '0.4rem', borderRadius: '8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
-                />
-                <span style={{ fontWeight: 'bold', color: '#64748b' }}>%</span>
-              </div>
-            </div>
-            <p style={{ margin: '0.4rem 0 0 0', fontSize: '0.75rem', color: '#64748b' }}>
-              {allocationMode === 'from_creator' ? 
-                'האחוזים יופחתו ישירות מחלקו של היוצר, שאר השותפים יישארו ללא שינוי.' :
-                'האחוזים יקוזזו מכל השותפים והיוצר באופן יחסי למשקלם הנוכחי.'}
-            </p>
-          </div>
-        )}
-
-        {/* Custom manual editor */}
-        {allocationMode === 'custom' && (
-          <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>👑 {creatorName} (יוצר):</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <input 
-                  type="number" 
-                  value={manualCreatorShare} 
-                  onChange={e => setManualCreatorShare(Number(e.target.value) || 0)}
-                  onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
-                  onClick={e => (e.target as HTMLInputElement).select()}
-                  style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
-                />
-                <span>%</span>
-              </div>
-            </div>
-            {validMembers.map((m: any) => (
-              <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.85rem' }}>👤 {m.name}:</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <input 
-                    type="number" 
-                    value={manualShares[m.userId] ?? 0} 
-                    onChange={e => setManualShares({ ...manualShares, [m.userId]: Number(e.target.value) || 0 })}
-                    onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
-                    onClick={e => (e.target as HTMLInputElement).select()}
-                    style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
-                  />
-                  <span>%</span>
+                  <button
+                    type="button"
+                    onClick={() => setScopeType('folder')}
+                    style={{
+                      padding: '0.65rem 0.5rem',
+                      borderRadius: '10px',
+                      border: scopeType === 'folder' ? '2px solid #059669' : '1px solid #cbd5e1',
+                      background: scopeType === 'folder' ? '#ecfdf5' : '#ffffff',
+                      color: scopeType === 'folder' ? '#047857' : '#475569',
+                      fontWeight: 800,
+                      fontSize: '0.85rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.4rem'
+                    }}
+                  >
+                    <span>📁</span>
+                    <span>תיקייה ספציפית בלבד</span>
+                  </button>
                 </div>
-              </div>
-            ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '0.5rem' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--primary)' }}>🆕 {partnerName.trim() || 'שותף חדש'}:</span>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                <input 
-                  type="number" 
-                  value={manualGuestShare} 
-                  onChange={e => setManualGuestShare(Number(e.target.value) || 0)}
-                  onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
-                  onClick={e => (e.target as HTMLInputElement).select()}
-                  style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
-                />
-                <span>%</span>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Live Preview Breakdown */}
-        <div style={{ background: '#f1f5f9', padding: '0.75rem 1rem', borderRadius: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>
-              תצוגה מקדימה: חלוקת האחוזים החדשה
-            </span>
-            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: isBalanced ? '#10b981' : '#ef4444' }}>
-              סה״כ: {totalCalculated}% {isBalanced ? '✓' : '(לא מאוזן)'}
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>👑 {creatorName}:</span>
-              <span style={{ fontWeight: 'bold' }}>{plannedCreatorShare}%</span>
-            </div>
-            {validMembers.map((m: any) => (
-              <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <span>👤 {m.name}:</span>
-                <span style={{ fontWeight: 'bold' }}>{plannedPartnerShares[m.userId]}%</span>
-              </div>
-            ))}
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--primary, #3b82f6)', fontWeight: 'bold' }}>
-              <span>🆕 {partnerName.trim() || 'שותף מוזמן'}:</span>
-              <span>{plannedGuestShare}%</span>
-            </div>
-          </div>
-        </div>
+                {scopeType === 'folder' && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155' }}>בחר תיקייה לשיוך:</label>
+                      <select
+                        value={selectedFolderId}
+                        onChange={e => setSelectedFolderId(e.target.value)}
+                        style={{
+                          padding: '0.55rem 0.75rem',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '0.88rem',
+                          fontWeight: 700,
+                          background: '#ffffff',
+                          color: '#0f172a'
+                        }}
+                      >
+                        {availableFolders.map((f: any) => (
+                          <option key={f.id} value={f.id}>📁 {f.name}</option>
+                        ))}
+                      </select>
+                    </div>
 
-        </>)}
-
-        {/* Step 3: קוביה מעוצבת חיוב רטרואקטיבי */}
-        {space.features?.includes("finance") && space.invoices && space.invoices.length > 0 && (
-          <div style={{ 
-            background: '#fffbeb', 
-            border: '1.5px solid #fde68a', 
-            borderRadius: '16px', 
-            padding: '0.85rem', 
-            marginBottom: '0.85rem',
-            boxShadow: '0 2px 6px rgba(217, 119, 6, 0.05)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
-              <span style={{ background: '#d97706', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>שלב 3</span>
-              <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#78350f' }}>חיוב רטרואקטיבי</span>
-            </div>
-            <div style={{ background: '#ffffff', padding: '0.85rem', borderRadius: '12px', border: '1px solid #fef3c7' }}>
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
-                <input 
-                  type="checkbox" 
-                  checked={isRetroactive} 
-                  onChange={e => setIsRetroactive(e.target.checked)}
-                  style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#d97706' }}
-                />
-                <div>
-                  <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem' }}>חיוב רטרואקטיבי בהוצאות קודמות</div>
-                  <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', lineHeight: '1.4' }}>
-                    {isRetroactive ? 
-                      'השותף ישתתף בכל ההוצאות שהיו במרחב מיום פתיחתו.' : 
-                      'ברירת מחדל: השותף פטור מהוצאות עבר ויחויב רק מהוצאות עתידיות והלאה.'}
-                  </div>
-                </div>
-              </label>
-            </div>
-          </div>
-        )}
-
-        </>)}
-        {/* Step 4: קוביה מעוצבת פרטי המוזמן ושליחה */}
-        <div style={{ 
-          background: '#f0fdf4', 
-          border: '1.5px solid #bbf7d0', 
-          borderRadius: '16px', 
-          padding: '0.85rem', 
-          marginTop: '0.5rem',
-          marginBottom: '0.5rem',
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '1rem', 
-          opacity: (scopeType === 'folder' || isBalanced) ? 1 : 0.5, 
-          pointerEvents: (scopeType === 'folder' || isBalanced) ? 'auto' : 'none',
-          boxShadow: '0 2px 6px rgba(22, 163, 74, 0.05)'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ background: '#16a34a', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>
-              {scopeType === 'folder' ? 'שלב 2' : (isSharedOnly ? 'שלב 2' : (isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4' : 'שלב 3') : 'שלב 2'))}
-            </span>
-            <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#14532d' }}>פרטי המוזמן ושליחה מהירה</span>
-          </div>
-          
-          {/* Quick General Share & Copy Link First */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-              <label style={{ fontSize: '0.85rem', color: '#1e293b', fontWeight: 'bold' }}>
-                👤 שם או כינוי של המוזמן (מומלץ):
-              </label>
-              <input
-                type="text"
-                placeholder="לדוגמה: תומר 40, לינוי, דני"
-                value={partnerName}
-                onChange={e => {
-                  setPartnerName(e.target.value);
-                  setConfirmAsNewPartner(false);
-                }}
-                style={{
-                  padding: '0.7rem 0.85rem',
-                  borderRadius: '10px',
-                  border: matchCandidate && !confirmAsNewPartner ? '1px solid #f59e0b' : '1px solid #cbd5e1',
-                  fontSize: '0.95rem',
-                  outline: 'none',
-                  background: '#f8fafc',
-                  color: '#0f172a'
-                }}
-              />
-
-              {matchCandidate && (
-                <div style={{
-                  marginTop: '0.4rem',
-                  padding: '0.65rem 0.85rem',
-                  background: confirmAsNewPartner ? '#f0fdf4' : '#fffbeb',
-                  borderRadius: '10px',
-                  border: confirmAsNewPartner ? '1px solid #bbf7d0' : '1px solid #fef3c7',
-                  fontSize: '0.8rem',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.45rem'
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', color: confirmAsNewPartner ? '#166534' : '#92400e', fontWeight: 600 }}>
-                      <span>{confirmAsNewPartner ? '✓' : '💡'}</span>
-                      <span>
-                        {matchCandidate.isExact 
-                          ? `כבר קיים ${matchCandidate.type === 'member' ? 'שותף פעיל' : 'מוזמן ממתין'} בשם "${matchCandidate.displayName}"`
-                          : `שים לב: קיים ${matchCandidate.type === 'member' ? 'שותף' : 'מוזמן'} עם שם דומה: "${matchCandidate.displayName}"`}
-                      </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155' }}>הרשאת השותף בתיקייה:</span>
+                      <div style={{ display: 'flex', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          onClick={() => setPartnerFolderRole('admin')}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: partnerFolderRole === 'admin' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                            background: partnerFolderRole === 'admin' ? '#ecfdf5' : '#ffffff',
+                            color: partnerFolderRole === 'admin' ? '#047857' : '#64748b',
+                            fontWeight: 800,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ⚡ מנהל תיקייה (העלאה ועריכה)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPartnerFolderRole('viewer')}
+                          style={{
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            border: partnerFolderRole === 'viewer' ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                            background: partnerFolderRole === 'viewer' ? '#eff6ff' : '#ffffff',
+                            color: partnerFolderRole === 'viewer' ? '#1d4ed8' : '#64748b',
+                            fontWeight: 800,
+                            fontSize: '0.78rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          👁️ צפייה בלבד
+                        </button>
+                      </div>
                     </div>
                   </div>
+                )}
+              </div>
+            )}
 
-                  <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.1rem' }}>
+            {/* Financial Sharing Controls (If applicable and not folder scoped) */}
+            {inviteType === 'single' && isFinancial && !isSharedOnly && scopeType !== 'folder' && space.features?.includes("finance") && (
+              <>
+                <div style={{ 
+                  background: '#faf5ff', 
+                  border: '1.5px solid #e9d5ff', 
+                  borderRadius: '16px', 
+                  padding: '0.85rem', 
+                  boxShadow: '0 2px 6px rgba(147, 51, 234, 0.05)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                    <span style={{ background: '#7c3aed', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>חלוקת אחוזים</span>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#581c87' }}>איך לחשב את אחוזי ההשתתפות?</span>
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
                     <button
                       type="button"
-                      onClick={() => setConfirmAsNewPartner(false)}
+                      onClick={() => setAllocationMode('from_creator')}
                       style={{
-                        flex: 1,
-                        padding: '0.35rem 0.6rem',
-                        borderRadius: '6px',
-                        border: !confirmAsNewPartner ? '1px solid #d97706' : '1px solid #e2e8f0',
-                        background: !confirmAsNewPartner ? '#fef3c7' : '#ffffff',
-                        color: !confirmAsNewPartner ? '#92400e' : '#64748b',
-                        fontWeight: !confirmAsNewPartner ? 700 : 500,
-                        fontSize: '0.75rem',
-                        cursor: 'pointer'
+                        padding: '0.6rem 0.5rem',
+                        borderRadius: '10px',
+                        border: allocationMode === 'from_creator' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
+                        background: allocationMode === 'from_creator' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
+                        color: allocationMode === 'from_creator' ? 'var(--primary, #3b82f6)' : '#475569',
+                        fontWeight: allocationMode === 'from_creator' ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        textAlign: 'center'
                       }}
                     >
-                      🔄 תזכורת / עדכון לאותו שותף
+                      👑 מהיוצר בלבד
                     </button>
                     <button
                       type="button"
-                      onClick={() => setConfirmAsNewPartner(true)}
+                      onClick={() => setAllocationMode('equal')}
                       style={{
-                        flex: 1,
-                        padding: '0.35rem 0.6rem',
-                        borderRadius: '6px',
-                        border: confirmAsNewPartner ? '1px solid #16a34a' : '1px solid #e2e8f0',
-                        background: confirmAsNewPartner ? '#dcfce7' : '#ffffff',
-                        color: confirmAsNewPartner ? '#15803d' : '#64748b',
-                        fontWeight: confirmAsNewPartner ? 700 : 500,
-                        fontSize: '0.75rem',
-                        cursor: 'pointer'
+                        padding: '0.6rem 0.5rem',
+                        borderRadius: '10px',
+                        border: allocationMode === 'equal' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
+                        background: allocationMode === 'equal' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
+                        color: allocationMode === 'equal' ? 'var(--primary, #3b82f6)' : '#475569',
+                        fontWeight: allocationMode === 'equal' ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        textAlign: 'center'
                       }}
                     >
-                      ➕ זה שותף חדש אחר
+                      ⚖️ שווה בשווה
+                    </button>
+                    {validMembers.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setAllocationMode('proportional')}
+                        style={{
+                          padding: '0.6rem 0.5rem',
+                          borderRadius: '10px',
+                          border: allocationMode === 'proportional' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
+                          background: allocationMode === 'proportional' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
+                          color: allocationMode === 'proportional' ? 'var(--primary, #3b82f6)' : '#475569',
+                          fontWeight: allocationMode === 'proportional' ? 'bold' : 'normal',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          textAlign: 'center'
+                        }}
+                      >
+                        📉 דילול יחסי (3+)
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setAllocationMode('custom')}
+                      style={{
+                        padding: '0.6rem 0.5rem',
+                        borderRadius: '10px',
+                        border: allocationMode === 'custom' ? '2px solid var(--primary, #3b82f6)' : '1px solid #e2e8f0',
+                        background: allocationMode === 'custom' ? 'rgba(59, 130, 246, 0.08)' : '#f8fafc',
+                        color: allocationMode === 'custom' ? 'var(--primary, #3b82f6)' : '#475569',
+                        fontWeight: allocationMode === 'custom' ? 'bold' : 'normal',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        textAlign: 'center',
+                        gridColumn: validMembers.length === 0 ? 'span 2' : 'auto'
+                      }}
+                    >
+                      ✍️ התאמה ידנית
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
 
-            <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 'bold' }}>שתף או העתק הזמנה:</div>
-            
+                {/* Share input for from_creator and proportional */}
+                {(allocationMode === 'from_creator' || allocationMode === 'proportional') && (
+                  <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: '500', color: '#334155' }}>
+                        אחוז לשותף החדש:
+                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          max="99"
+                          value={customShare}
+                          onChange={e => setCustomShare(e.target.value)}
+                          onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                          onClick={e => (e.target as HTMLInputElement).select()}
+                          style={{ width: '65px', padding: '0.4rem', borderRadius: '8px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
+                        />
+                        <span style={{ fontWeight: 'bold', color: '#64748b' }}>%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Custom manual editor */}
+                {allocationMode === 'custom' && (
+                  <div style={{ background: '#f8fafc', padding: '0.75rem 1rem', borderRadius: '12px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold' }}>👑 {creatorName} (יוצר):</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <input 
+                          type="number" 
+                          value={manualCreatorShare} 
+                          onChange={e => setManualCreatorShare(Number(e.target.value) || 0)}
+                          onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                          onClick={e => (e.target as HTMLInputElement).select()}
+                          style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
+                        />
+                        <span>%</span>
+                      </div>
+                    </div>
+                    {validMembers.map((m: any) => (
+                      <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.85rem' }}>👤 {m.name}:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <input 
+                            type="number" 
+                            value={manualShares[m.userId] ?? 0} 
+                            onChange={e => setManualShares({ ...manualShares, [m.userId]: Number(e.target.value) || 0 })}
+                            onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                            onClick={e => (e.target as HTMLInputElement).select()}
+                            style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
+                          />
+                          <span>%</span>
+                        </div>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', paddingTop: '0.5rem' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--primary)' }}>🆕 {partnerName.trim() || 'שותף חדש'}:</span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <input 
+                          type="number" 
+                          value={manualGuestShare} 
+                          onChange={e => setManualGuestShare(Number(e.target.value) || 0)}
+                          onFocus={e => { const el = e.target; setTimeout(() => el.select(), 10); }}
+                          onClick={e => (e.target as HTMLInputElement).select()}
+                          style={{ width: '60px', padding: '0.3rem', borderRadius: '6px', border: '1px solid #cbd5e1', textAlign: 'center', fontWeight: 'bold' }}
+                        />
+                        <span>%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Live Preview Breakdown */}
+                <div style={{ background: '#f1f5f9', padding: '0.75rem 1rem', borderRadius: '12px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#475569' }}>
+                      תצוגה מקדימה: חלוקת האחוזים החדשה
+                    </span>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: isBalanced ? '#10b981' : '#ef4444' }}>
+                      סה״כ: {totalCalculated}% {isBalanced ? '✓' : '(לא מאוזן)'}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', fontSize: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span>👑 {creatorName}:</span>
+                      <span style={{ fontWeight: 'bold' }}>{plannedCreatorShare}%</span>
+                    </div>
+                    {validMembers.map((m: any) => (
+                      <div key={m.userId} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>👤 {m.name}:</span>
+                        <span style={{ fontWeight: 'bold' }}>{plannedPartnerShares[m.userId]}%</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--primary, #3b82f6)', fontWeight: 'bold' }}>
+                      <span>🆕 {partnerName.trim() || 'שותף מוזמן'}:</span>
+                      <span>{plannedGuestShare}%</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Retroactive Invoices */}
+                {space.invoices && space.invoices.length > 0 && (
+                  <div style={{ 
+                    background: '#fffbeb', 
+                    border: '1.5px solid #fde68a', 
+                    borderRadius: '16px', 
+                    padding: '0.85rem', 
+                    boxShadow: '0 2px 6px rgba(217, 119, 6, 0.05)'
+                  }}>
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isRetroactive} 
+                        onChange={e => setIsRetroactive(e.target.checked)}
+                        style={{ width: '18px', height: '18px', marginTop: '2px', accentColor: '#d97706' }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 'bold', color: '#0f172a', fontSize: '0.95rem' }}>חיוב רטרואקטיבי בהוצאות קודמות</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.2rem', lineHeight: '1.4' }}>
+                          {isRetroactive ? 
+                            'השותף ישתתף בכל ההוצאות שהיו במרחב מיום פתיחתו.' : 
+                            'ברירת מחדל: השותף פטור מהוצאות עבר ויחויב רק מהוצאות עתידיות והלאה.'}
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Next Step Button */}
             <button
-              onClick={handlePersonalWhatsApp}
+              type="button"
+              onClick={() => setStep(2)}
+              disabled={scopeType !== 'folder' && !isBalanced}
               style={{
                 width: '100%',
                 padding: '0.9rem',
-                background: '#25D366',
+                marginTop: '0.5rem',
+                background: (scopeType !== 'folder' && !isBalanced) ? '#cbd5e1' : 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
                 color: 'white',
                 border: 'none',
-                borderRadius: '12px',
+                borderRadius: '14px',
                 fontWeight: 800,
                 fontSize: '1rem',
+                cursor: (scopeType !== 'folder' && !isBalanced) ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.5rem',
+                boxShadow: (scopeType !== 'folder' && !isBalanced) ? 'none' : '0 4px 14px rgba(79, 70, 229, 0.35)',
+                transition: 'all 0.2s'
+              }}
+            >
+              <span>המשך לשלב 2: בחירת איש קשר ושליחה</span>
+              <span>←</span>
+            </button>
+          </div>
+        )}
+
+        {/* ================= STEP 2: בחירת איש קשר ושליחה ================= */}
+        {step === 2 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            {inviteType === 'group' ? (
+              /* Group Invite Layout */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.25rem 0' }}>
+                <div style={{ background: '#f8fafc', padding: '1rem', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                    <span style={{ fontSize: '1.3rem' }}>📢</span>
+                    <span style={{ fontWeight: 800, color: '#1e293b', fontSize: '1rem' }}>שליחה מרוכזת לקבוצת ווטסאפ</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '0.85rem', color: '#64748b', lineHeight: 1.5 }}>
+                    מתאים לקבוצות של 10, 20 או 30 משתתפים (כגון ועד בית או צוות). שולחים קישור יחיד לכולם.
+                    כל מי שנרשם דרך הקישור <strong>יהיה נעול</strong> ויראה הודעה: <em>&quot;הגישה תתקבל ברגע ש-{creatorName} יאשר את הצטרפותכם&quot;</em>.
+                  </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  <button
+                    onClick={handleGroupWhatsApp}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      background: '#25D366',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '14px',
+                      fontWeight: 800,
+                      fontSize: '1.05rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.6rem',
+                      boxShadow: '0 8px 16px -4px rgba(37, 211, 102, 0.4)'
+                    }}
+                  >
+                    <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    <span>שלח קישור ישירות לקבוצת ווטסאפ</span>
+                  </button>
+
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {typeof navigator !== 'undefined' && 'share' in navigator && (
+                      <button
+                        onClick={handleGroupNativeShare}
+                        style={{
+                          flex: 1,
+                          padding: '0.85rem',
+                          background: 'linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '12px',
+                          fontWeight: 700,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '0.4rem'
+                        }}
+                      >
+                        <span>📤</span>
+                        <span>שתף ביישומים</span>
+                      </button>
+                    )}
+                    <button
+                      onClick={handleGroupCopy}
+                      style={{
+                        flex: 1,
+                        padding: '0.85rem',
+                        background: '#f8fafc',
+                        color: '#0f172a',
+                        border: '1px solid #cbd5e1',
+                        borderRadius: '12px',
+                        fontWeight: 700,
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {copied ? '✓ הועתק!' : '📋 העתק הודעה'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Single Partner 3-Way Choice: In-app partner vs WhatsApp vs Direct Link */
+              <>
+                {/* 3 Tabs to select sending channel */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <span style={{ fontSize: '0.82rem', fontWeight: 800, color: '#334155' }}>בחר איך לצרף או לשלוח לשותף:</span>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.35rem', background: '#f1f5f9', padding: '4px', borderRadius: '12px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setInviteMethod('existing_user')}
+                      style={{
+                        padding: '0.6rem 0.3rem',
+                        borderRadius: '9px',
+                        border: inviteMethod === 'existing_user' ? '1.5px solid #4f46e5' : 'none',
+                        background: inviteMethod === 'existing_user' ? '#ffffff' : 'transparent',
+                        color: inviteMethod === 'existing_user' ? '#4f46e5' : '#64748b',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '0.2rem',
+                        boxShadow: inviteMethod === 'existing_user' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.1rem' }}>👥</span>
+                      <span>שותף קיים</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInviteMethod('whatsapp')}
+                      style={{
+                        padding: '0.6rem 0.3rem',
+                        borderRadius: '9px',
+                        border: inviteMethod === 'whatsapp' ? '1.5px solid #16a34a' : 'none',
+                        background: inviteMethod === 'whatsapp' ? '#ffffff' : 'transparent',
+                        color: inviteMethod === 'whatsapp' ? '#15803d' : '#64748b',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '0.2rem',
+                        boxShadow: inviteMethod === 'whatsapp' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.1rem' }}>💬</span>
+                      <span>הודעת ווטסאפ</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setInviteMethod('link')}
+                      style={{
+                        padding: '0.6rem 0.3rem',
+                        borderRadius: '9px',
+                        border: inviteMethod === 'link' ? '1.5px solid #2563eb' : 'none',
+                        background: inviteMethod === 'link' ? '#ffffff' : 'transparent',
+                        color: inviteMethod === 'link' ? '#1d4ed8' : '#64748b',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: '0.2rem',
+                        boxShadow: inviteMethod === 'link' ? '0 2px 4px rgba(0,0,0,0.06)' : 'none'
+                      }}
+                    >
+                      <span style={{ fontSize: '1.1rem' }}>🔗</span>
+                      <span>קישור להעתקה</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* TAB 1: Existing App User (Direct instant add, no WhatsApp required) */}
+                {inviteMethod === 'existing_user' && (
+                  <div style={{
+                    background: '#f8fafc',
+                    border: '1.5px solid #cbd5e1',
+                    borderRadius: '16px',
+                    padding: '0.9rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.6rem'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#1e293b' }}>
+                      <span style={{ fontSize: '1.1rem' }}>⚡</span>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 800 }}>חיבור ישיר של שותף מהמערכת:</div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748b', lineHeight: 1.4 }}>
+                      בחר איש קשר רשום במערכת. המרחב יתווסף לחשבונו ישירות ובאופן מיידי ללא צורך בשליחת קישורים!
+                    </p>
+                    <div style={{ marginTop: '0.25rem' }}>
+                      <ContactSelector onSelect={handleContactSelect} title="בחר שותף מהרשימה:" />
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 2: Direct WhatsApp Send */}
+                {inviteMethod === 'whatsapp' && (
+                  <div style={{
+                    background: '#f0fdf4',
+                    border: '1.5px solid #bbf7d0',
+                    borderRadius: '16px',
+                    padding: '0.9rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <label style={{ fontSize: '0.85rem', color: '#166534', fontWeight: 'bold' }}>
+                        👤 שם או כינוי של המוזמן (שיופיע בהודעה):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="לדוגמה: תומר, לינוי, דני"
+                        value={partnerName}
+                        onChange={e => {
+                          setPartnerName(e.target.value);
+                          setConfirmAsNewPartner(false);
+                        }}
+                        style={{
+                          padding: '0.7rem 0.85rem',
+                          borderRadius: '10px',
+                          border: '1px solid #86efac',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          background: '#ffffff',
+                          color: '#0f172a'
+                        }}
+                      />
+                    </div>
+
+                    <p style={{ margin: 0, fontSize: '0.78rem', color: '#15803d', lineHeight: 1.4 }}>
+                      לחיצה על הכפתור תפתח את אפליקציית ווטסאפ עם הודעת הזמנה מותאמת אישית וקישור כניסה ייעודי.
+                    </p>
+
+                    <button
+                      onClick={handlePersonalWhatsApp}
+                      style={{
+                        width: '100%',
+                        padding: '0.9rem',
+                        background: '#25D366',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '12px',
+                        fontWeight: 800,
+                        fontSize: '1rem',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.6rem',
+                        boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)'
+                      }}
+                    >
+                      <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                      <span>שלח הזמנה ישירות בווטסאפ</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* TAB 3: Copy Link & Share */}
+                {inviteMethod === 'link' && (
+                  <div style={{
+                    background: '#eff6ff',
+                    border: '1.5px solid #bfdbfe',
+                    borderRadius: '16px',
+                    padding: '0.9rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.75rem'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                      <label style={{ fontSize: '0.85rem', color: '#1e40af', fontWeight: 'bold' }}>
+                        👤 שם או כינוי (מומלץ להתאמת ההזמנה):
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="לדוגמה: תומר, לינוי, דני"
+                        value={partnerName}
+                        onChange={e => {
+                          setPartnerName(e.target.value);
+                          setConfirmAsNewPartner(false);
+                        }}
+                        style={{
+                          padding: '0.7rem 0.85rem',
+                          borderRadius: '10px',
+                          border: '1px solid #93c5fd',
+                          fontSize: '0.95rem',
+                          outline: 'none',
+                          background: '#ffffff',
+                          color: '#0f172a'
+                        }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                      <button 
+                        onClick={handleCopy} 
+                        style={{ 
+                          flex: 1, 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center', 
+                          gap: '0.5rem', 
+                          background: copied ? '#16a34a' : 'var(--primary, #3b82f6)', 
+                          color: 'white', 
+                          padding: '0.85rem', 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          cursor: 'pointer', 
+                          fontWeight: 'bold', 
+                          fontSize: '0.95rem',
+                          boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)'
+                        }}
+                      >
+                        {copied ? '✓ ההזמנה הועתקה!' : '📋 העתק הודעת הזמנה'}
+                      </button>
+
+                      {typeof navigator !== 'undefined' && 'share' in navigator && (
+                        <button 
+                          onClick={handleNativeShare} 
+                          style={{ 
+                            flex: 1, 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            gap: '0.5rem', 
+                            background: '#ffffff', 
+                            color: '#1e293b', 
+                            padding: '0.85rem', 
+                            borderRadius: '12px', 
+                            border: '1px solid #cbd5e1', 
+                            cursor: 'pointer', 
+                            fontWeight: 'bold', 
+                            fontSize: '0.95rem' 
+                          }}
+                        >
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                          שיתוף נוסף
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Back button to Step 1 */}
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              style={{
+                width: '100%',
+                padding: '0.7rem',
+                marginTop: '0.25rem',
+                background: '#f8fafc',
+                color: '#475569',
+                border: '1px solid #cbd5e1',
+                borderRadius: '12px',
+                fontWeight: 700,
+                fontSize: '0.88rem',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '0.6rem',
-                boxShadow: '0 4px 12px rgba(37, 211, 102, 0.25)'
+                gap: '0.4rem'
               }}
             >
-              <svg width="20" height="20" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-              <span>שלח הזמנה ישירות בווטסאפ</span>
+              <span>→</span>
+              <span>חזור לשלב 1: הגדרת גישה ותחום</span>
             </button>
-
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              { typeof navigator !== 'undefined' && 'share' in navigator && (
-                <button onClick={handleNativeShare} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'var(--primary, #3b82f6)', color: 'white', padding: '0.85rem', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem' }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
-                  שיתוף נוסף
-                </button>
-              )}
-              <button onClick={handleCopy} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#f8fafc', color: '#0f172a', padding: '0.85rem', borderRadius: '12px', border: '1px solid #cbd5e1', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.95rem' }}>
-                {copied ? '✓ ההזמנה הועתקה!' : '📋 העתק הזמנה'}
-              </button>
-            </div>
           </div>
-
-          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '1.25rem' }}>
-            <ContactSelector onSelect={handleContactSelect} title="או בחר איש קשר להזמנה בווטסאפ:" />
-          </div>
-        </div>
-        </>
         )}
         </div>
         )}
