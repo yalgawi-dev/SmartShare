@@ -10,6 +10,8 @@ interface CreateShareLinkModalProps {
   item: FileShareItem | null;
   spaceTitle: string;
   folderFiles?: FileShareItem[];
+  spaceLogoUrl?: string;
+  businessCard?: any;
   onClose: () => void;
   onSaved: (updatedLinkConfig?: ShareLinkConfig) => void;
 }
@@ -19,6 +21,8 @@ export function CreateShareLinkModal({
   item,
   spaceTitle,
   folderFiles,
+  spaceLogoUrl,
+  businessCard,
   onClose,
   onSaved
 }: CreateShareLinkModalProps) {
@@ -153,7 +157,8 @@ export function CreateShareLinkModal({
         spaceTitle,
         item,
         newConfig,
-        folderFiles
+        folderFiles,
+        { businessCard, spaceLogoUrl }
       );
 
       // Direct Firestore sync to Space document to ensure zero data loss on immediate modal reopen
@@ -287,7 +292,18 @@ export function CreateShareLinkModal({
     const url = `${currentOrigin}/share/${r.token}`;
     const itemTypeHeb = item?.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const text = encodeURIComponent(`שלום ${r.recipientName}, מצורף קישור אישי לצפייה ב${itemTypeHeb} "${item?.name}" מתוך ${spaceTitle}:${pinText}\n${url}`);
+    
+    // Business Branding details
+    const bizName = businessCard?.businessName || spaceTitle;
+    const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
+    const phone = businessCard?.phone || businessCard?.whatsapp;
+    const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
+    const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
+
+    const text = encodeURIComponent(`שלום ${r.recipientName},
+${bizName} שיתף איתך ${itemTypeHeb} "${item?.name}":${pinText}
+${url}
+${slogan}${phoneText}${portfolioText}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
@@ -364,7 +380,17 @@ export function CreateShareLinkModal({
     if (token) await ensurePersisted(token);
     const itemTypeHeb = item.type === 'folder' ? 'תיקיית' : 'מסמך';
     const pinText = requirePin && pin ? `\n🔐 קוד גישה: ${pin}` : '';
-    const text = encodeURIComponent(`שלום, מצורף קישור לצפייה ב${itemTypeHeb} "${item.name}" מתוך ${spaceTitle}:${pinText}\n${shareUrl}`);
+
+    const bizName = businessCard?.businessName || spaceTitle;
+    const slogan = businessCard?.slogan ? `\n✨ ${businessCard.slogan}` : '';
+    const phone = businessCard?.phone || businessCard?.whatsapp;
+    const phoneText = phone ? `\n📞 ליצירת קשר: ${phone}` : '';
+    const portfolioText = businessCard?.portfolioUrl ? `\n🎨 לתיק עבודות: ${businessCard.portfolioUrl}` : '';
+
+    const text = encodeURIComponent(`שלום,
+${bizName} שיתף איתך ${itemTypeHeb} "${item.name}":${pinText}
+${shareUrl}
+${slogan}${phoneText}${portfolioText}`);
     window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
   };
 
@@ -436,9 +462,14 @@ export function CreateShareLinkModal({
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
             <span style={{ fontSize: '1.5rem' }}>🔗</span>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
-                קישור שיתוף חיצוני מאובטח
-              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                  קישור שיתוף חיצוני מאובטח
+                </h3>
+                <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
+                  v3.5.43
+                </span>
+              </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
                 {item.type === 'folder' ? '📁 תיקייה:' : '📄 קובץ:'} {item.name}
               </p>

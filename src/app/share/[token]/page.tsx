@@ -3,9 +3,12 @@
 import React, { use, useState, useEffect, useRef } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
+import { db } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
 import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
+import { SenderBusinessCardBanner } from '@/components/share/SenderBusinessCardBanner';
 
 interface SharePageProps {
   params: Promise<{ token: string }>;
@@ -82,12 +85,28 @@ export default function PublicSharePage({ params }: SharePageProps) {
         return;
       }
 
-      setShareData(data);
-      if (!data.requirePin || !data.pin) {
+      let enrichedData = { ...data };
+      if ((!enrichedData.businessCard || !enrichedData.spaceLogoUrl) && enrichedData.spaceId) {
+        try {
+          const spaceSnap = await getDoc(doc(db, 'spaces', enrichedData.spaceId));
+          if (spaceSnap.exists()) {
+            const sData = spaceSnap.data();
+            if (!enrichedData.businessCard && sData?.settings?.businessCard) {
+              enrichedData.businessCard = sData.settings.businessCard;
+            }
+            if (!enrichedData.spaceLogoUrl && sData?.logoUrl) {
+              enrichedData.spaceLogoUrl = sData.logoUrl;
+            }
+          }
+        } catch (_) {}
+      }
+
+      setShareData(enrichedData);
+      if (!enrichedData.requirePin || !enrichedData.pin) {
         setIsUnlocked(true);
         recordPublicShareView(token);
-        if (data.itemType !== 'folder') {
-          openViewerForFile(data as any);
+        if (enrichedData.itemType !== 'folder') {
+          openViewerForFile(enrichedData as any);
         }
       }
       setLoading(false);
@@ -459,6 +478,10 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
         {/* Main Content Area */}
         <main style={{ flex: 1, maxWidth: '900px', width: '100%', margin: '0 auto', padding: '1.25rem' }}>
+          
+          {/* Sender Hero Digital Business Card & Portfolio */}
+          <SenderBusinessCardBanner shareData={shareData} />
+
           {isFolder ? (
             /* FOLDER VIEW: LIST OF CONTAINED FILES */
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

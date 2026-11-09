@@ -224,6 +224,17 @@ export interface GlobalAnnouncement {
   targetedAnnouncements?: TargetedAnnouncementItem[];
 }
 
+export interface BusinessCardSettings {
+  businessName?: string;
+  slogan?: string;
+  phone?: string;
+  whatsapp?: string;
+  websiteUrl?: string;
+  portfolioUrl?: string;
+  portfolioDescription?: string;
+  logoUrl?: string;
+}
+
 export interface SpaceSettings {
   isManagedMode?: boolean;
   isCustomShare?: boolean;
@@ -244,6 +255,7 @@ export interface SpaceSettings {
   announcementDurationHours?: number | null;
   announcementShowOnce?: boolean;
   targetedAnnouncements?: TargetedAnnouncementItem[];
+  businessCard?: BusinessCardSettings;
 }
 
 export interface SpaceMessage {

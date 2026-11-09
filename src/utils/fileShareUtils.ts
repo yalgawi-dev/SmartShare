@@ -81,10 +81,23 @@ export function sanitizeFirestoreData<T = any>(data: T): T {
   return clean as T;
 }
 
+export interface BusinessCardShareData {
+  businessName?: string;
+  slogan?: string;
+  phone?: string;
+  whatsapp?: string;
+  websiteUrl?: string;
+  portfolioUrl?: string;
+  portfolioDescription?: string;
+  logoUrl?: string;
+}
+
 export interface PublicSharedData {
   token: string;
   spaceId: string;
   spaceTitle: string;
+  spaceLogoUrl?: string;
+  businessCard?: BusinessCardShareData;
   itemId: string;
   itemType: 'file' | 'folder';
   name: string;
@@ -146,17 +159,41 @@ export async function createOrUpdatePublicShare(
   spaceTitle: string,
   item: FileShareItem,
   config: ShareLinkConfig,
-  folderFiles?: FileShareItem[]
+  folderFiles?: FileShareItem[],
+  options?: { businessCard?: BusinessCardShareData; spaceLogoUrl?: string }
 ): Promise<string> {
   const token = config.token || generateShareToken();
   const now = Date.now();
 
   const shareDocRef = doc(db, 'shared_links', token);
 
+  // If businessCard / spaceLogoUrl were not passed directly, try to fetch from Space doc
+  let businessCard = options?.businessCard;
+  let spaceLogoUrl = options?.spaceLogoUrl;
+
+  if ((!businessCard || !spaceLogoUrl) && spaceId) {
+    try {
+      const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
+      if (spaceSnap.exists()) {
+        const spaceData = spaceSnap.data();
+        if (!businessCard && spaceData?.settings?.businessCard) {
+          businessCard = spaceData.settings.businessCard;
+        }
+        if (!spaceLogoUrl && spaceData?.logoUrl) {
+          spaceLogoUrl = spaceData.logoUrl;
+        }
+      }
+    } catch (e) {
+      // Non-blocking fallback
+    }
+  }
+
   const payload: PublicSharedData = {
     token,
     spaceId,
     spaceTitle: spaceTitle || 'מרחב משותף',
+    spaceLogoUrl: spaceLogoUrl || undefined,
+    businessCard: businessCard || undefined,
     itemId: item.id,
     itemType: item.type,
     name: item.name,
@@ -482,14 +519,28 @@ export async function syncPublicFolderShares(
 
     // 1. Update master folder token
     const masterDocRef = doc(db, 'shared_links', folder.shareLink.token);
-    await updateDoc(masterDocRef, { folderFiles: mappedFiles }).catch(() => {});
+    
+    // Optional branding enrichment if available
+    let brandingUpdates: any = { folderFiles: mappedFiles };
+    try {
+      if (spaceId) {
+        const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
+        if (spaceSnap.exists()) {
+          const sData = spaceSnap.data();
+          if (sData?.settings?.businessCard) brandingUpdates.businessCard = sData.settings.businessCard;
+          if (sData?.logoUrl) brandingUpdates.spaceLogoUrl = sData.logoUrl;
+        }
+      }
+    } catch (_) {}
+
+    await updateDoc(masterDocRef, brandingUpdates).catch(() => {});
 
     // 2. Update all recipient tokens for this folder
     if (Array.isArray(folder.shareLink.recipients)) {
       for (const r of folder.shareLink.recipients) {
         if (r.token && r.enabled !== false) {
           const rDocRef = doc(db, 'shared_links', r.token);
-          await updateDoc(rDocRef, { folderFiles: mappedFiles }).catch(() => {});
+          await updateDoc(rDocRef, brandingUpdates).catch(() => {});
         }
       }
     }

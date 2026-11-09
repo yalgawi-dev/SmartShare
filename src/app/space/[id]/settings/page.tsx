@@ -1,6 +1,7 @@
 'use client';
 import { PartnersDirectoryWidget } from '../../../../components/widgets/Partners/PartnersDirectoryWidget';
 import { SpaceAnnouncementSettingsCard } from '../../../../components/common/SpaceAnnouncementBanner';
+import { BusinessCardSettingsCard } from '../../../../components/space/BusinessCardSettingsCard';
 
 import { use, useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -76,6 +77,9 @@ export default function SpaceSettingsPage({ params }: { params: Promise<{ id: st
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '3.5rem' }}>
         
+        {/* BRANDING & DIGITAL BUSINESS CARD SECTION (Phase B) */}
+        <BusinessCardSettingsCard space={space} />
+
         {/* GLOBAL SPACE ACCESS & MANAGED MODE SECTION (Rule 16: Independent of features) */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingLeft: '0.5rem', paddingRight: '0.5rem' }}>

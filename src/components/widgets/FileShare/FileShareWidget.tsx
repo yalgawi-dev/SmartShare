@@ -1205,6 +1205,8 @@ export function FileShareWidget({
         item={activeShareItem ? (allItems.find(i => i.id === activeShareItem.id) || activeShareItem) : null}
         spaceTitle={space.title || 'המרחב שלי'}
         folderFiles={currentFolderContainedFiles}
+        spaceLogoUrl={space.logoUrl}
+        businessCard={space.settings?.businessCard}
         onClose={() => setActiveShareItem(null)}
         onSaved={handleSaveShareLink}
       />
