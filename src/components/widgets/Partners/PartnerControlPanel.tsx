@@ -68,12 +68,14 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
     rejectShareChange, 
     declinePendingInvite,
     togglePendingInviteRetroactive,
-    toggleMemberRetroactive 
+    toggleMemberRetroactive,
+    updateFileShareItems
   } = useSpaces() as any;
   const { user } = useAuth();
 
   const [mounted, setMounted] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
+  const [showFolderPermissionsModal, setShowFolderPermissionsModal] = useState(false);
   const [confirmModalConfig, setConfirmModalConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -307,6 +309,29 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
 
                 return (
                   <>
+                    <button
+                      type="button"
+                      onClick={() => setShowFolderPermissionsModal(true)}
+                      style={{
+                        background: '#eff6ff',
+                        color: '#1d4ed8',
+                        border: '1px solid #bfdbfe',
+                        padding: '0.45rem 0.75rem',
+                        borderRadius: '20px',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        fontSize: '0.8rem',
+                        whiteSpace: 'nowrap',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.35rem'
+                      }}
+                      title="עריכת הרשאות ותיקיות משויכות לשותף זה"
+                    >
+                      <span>📁</span>
+                      <span>הרשאות ותיקיות</span>
+                    </button>
+
                     {member.role !== 'admin' && (
                       <button onClick={handleMakeAdmin} style={{ background: '#fef3c7', color: '#92400e', border: 'none', padding: '0.5rem 0.75rem', borderRadius: '20px', fontWeight: 'bold', cursor: 'pointer', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
                         👑 הגדר כמנהל
@@ -924,6 +949,223 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
         onConfirm={confirmModalConfig.onConfirm}
         onClose={() => setConfirmModalConfig(prev => ({ ...prev, isOpen: false }))}
       />
+
+      {/* Folder Permissions Modal */}
+      {showFolderPermissionsModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', zIndex: 1000000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+          <div style={{ background: '#ffffff', borderRadius: '20px', width: '100%', maxWidth: '440px', maxHeight: '85vh', overflowY: 'auto', padding: '1.25rem', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.35)', color: '#0f172a', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.65rem' }}>
+              <div>
+                <h4 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
+                  📁 ניהול הרשאות ותיקיות: {memberName}
+                </h4>
+                <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.78rem', color: '#64748b' }}>
+                  קבע לאילו תיקיות לשותף יש גישה ומה רמת ההרשאה שלו
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowFolderPermissionsModal(false)}
+                style={{ background: 'transparent', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#64748b' }}
+              >
+                ×
+              </button>
+            </div>
+
+            {(() => {
+              const fileShareFolders = (space.fileShareItems || []).filter((i: any) => i.type === 'folder' && !i.deletedAt);
+              if (fileShareFolders.length === 0) {
+                return (
+                  <div style={{ padding: '1.5rem', textAlign: 'center', background: '#f8fafc', borderRadius: '14px', border: '1px dashed #cbd5e1' }}>
+                    <span style={{ fontSize: '1.5rem' }}>📂</span>
+                    <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#64748b' }}>
+                      לא קיימות תיקיות במרחב זה. ניתן להוסיף תיקיות במרחב הקבצים.
+                    </p>
+                  </div>
+                );
+              }
+
+              const partnerId = member.userId;
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {fileShareFolders.map((folder: any) => {
+                    const allowed = Array.isArray(folder.allowedPartners) ? folder.allowedPartners : [];
+                    const isChecked = allowed.includes(partnerId);
+                    const folderPartners = Array.isArray(folder.folderPartners) ? folder.folderPartners : [];
+                    const partnerConfig = folderPartners.find((fp: any) => fp.partnerId === partnerId) || {
+                      role: 'admin',
+                      partnerType: 'general'
+                    };
+
+                    const handleToggleFolder = async (e: React.ChangeEvent<HTMLInputElement>) => {
+                      const willAllow = e.target.checked;
+                      const updatedItems = (space.fileShareItems || []).map((item: any) => {
+                        if (item.id === folder.id) {
+                          const currAllowed = Array.isArray(item.allowedPartners) ? [...item.allowedPartners] : [];
+                          const nextAllowed = currAllowed.filter((id: string) => id !== '__only_me__' && id !== '__creator_vault_secret__');
+                          
+                          if (willAllow) {
+                            if (!nextAllowed.includes(partnerId)) nextAllowed.push(partnerId);
+                          } else {
+                            const idx = nextAllowed.indexOf(partnerId);
+                            if (idx >= 0) nextAllowed.splice(idx, 1);
+                          }
+
+                          const currConfigs = Array.isArray(item.folderPartners) ? [...item.folderPartners] : [];
+                          let nextConfigs = currConfigs.filter((fp: any) => fp.partnerId !== partnerId);
+                          if (willAllow) {
+                            nextConfigs.push({
+                              partnerId,
+                              name: member.name || 'שותף',
+                              role: partnerConfig.role || 'admin',
+                              partnerType: partnerConfig.partnerType || 'general',
+                              assignedAt: Date.now()
+                            });
+                          }
+
+                          return {
+                            ...item,
+                            allowedPartners: nextAllowed,
+                            folderPartners: nextConfigs
+                          };
+                        }
+                        return item;
+                      });
+
+                      if (typeof updateFileShareItems === 'function') {
+                        await updateFileShareItems(space.id, updatedItems);
+                      }
+                    };
+
+                    const handleChangeRole = async (newRole: 'admin' | 'viewer') => {
+                      const updatedItems = (space.fileShareItems || []).map((item: any) => {
+                        if (item.id === folder.id) {
+                          const currConfigs = Array.isArray(item.folderPartners) ? [...item.folderPartners] : [];
+                          const exists = currConfigs.find((fp: any) => fp.partnerId === partnerId);
+                          let nextConfigs;
+                          if (exists) {
+                            nextConfigs = currConfigs.map((fp: any) => fp.partnerId === partnerId ? { ...fp, role: newRole } : fp);
+                          } else {
+                            nextConfigs = [...currConfigs, {
+                              partnerId,
+                              name: member.name || 'שותף',
+                              role: newRole,
+                              partnerType: partnerConfig.partnerType || 'general',
+                              assignedAt: Date.now()
+                            }];
+                          }
+                          return {
+                            ...item,
+                            folderPartners: nextConfigs
+                          };
+                        }
+                        return item;
+                      });
+
+                      if (typeof updateFileShareItems === 'function') {
+                        await updateFileShareItems(space.id, updatedItems);
+                      }
+                    };
+
+                    return (
+                      <div
+                        key={folder.id}
+                        style={{
+                          background: isChecked ? '#eff6ff' : '#f8fafc',
+                          border: isChecked ? '1.5px solid #93c5fd' : '1px solid #e2e8f0',
+                          borderRadius: '14px',
+                          padding: '0.75rem',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '0.45rem',
+                          transition: 'all 0.15s'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontWeight: 800, fontSize: '0.88rem', color: '#1e293b' }}>
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={handleToggleFolder}
+                              style={{ width: '18px', height: '18px', accentColor: '#2563eb', cursor: 'pointer' }}
+                            />
+                            <span>📁 {folder.name}</span>
+                          </label>
+
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: isChecked ? '#2563eb' : '#64748b' }}>
+                            {isChecked ? 'מורשה ✓' : 'ללא גישה'}
+                          </span>
+                        </div>
+
+                        {isChecked && (
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.2rem', paddingTop: '0.4rem', borderTop: '1px dashed #cbd5e1' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569' }}>הרשאה בתיקייה:</span>
+                            <div style={{ display: 'flex', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleChangeRole('admin')}
+                                style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  border: partnerConfig.role === 'admin' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                                  background: partnerConfig.role === 'admin' ? '#ecfdf5' : '#ffffff',
+                                  color: partnerConfig.role === 'admin' ? '#047857' : '#64748b',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                ⚡ מנהל תיקייה
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleChangeRole('viewer')}
+                                style={{
+                                  padding: '3px 8px',
+                                  borderRadius: '6px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 800,
+                                  border: partnerConfig.role === 'viewer' ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                                  background: partnerConfig.role === 'viewer' ? '#eff6ff' : '#ffffff',
+                                  color: partnerConfig.role === 'viewer' ? '#1d4ed8' : '#64748b',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                👁️ צפייה בלבד
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+
+            <button
+              type="button"
+              onClick={() => setShowFolderPermissionsModal(false)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#f1f5f9',
+                color: '#334155',
+                border: 'none',
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '0.9rem',
+                cursor: 'pointer',
+                marginTop: '0.25rem'
+              }}
+            >
+              סיום ושמירה
+            </button>
+          </div>
+        </div>
+      )}
     </>,
     document.body
   );
