@@ -616,8 +616,17 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
 }
 
 export async function downscaleBase64(base64: string, maxDim = 1500, quality = 0.75): Promise<string> {
-  if (base64.startsWith('data:application/pdf') || base64.includes('application/pdf')) {
+  if (base64.startsWith('data:application/pdf') || base64.includes('application/pdf') || base64.toLowerCase().includes('.pdf')) {
     return convertPdfToOptimizedImage(base64, maxDim, quality);
+  }
+  if (base64.startsWith('blob:')) {
+    try {
+      const res = await fetch(base64);
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/pdf')) {
+        return convertPdfToOptimizedImage(base64, maxDim, quality);
+      }
+    } catch {}
   }
   return new Promise((resolve, reject) => {
     const img = new Image();

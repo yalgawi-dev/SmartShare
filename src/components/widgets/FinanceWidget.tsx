@@ -191,8 +191,17 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
         }
       }
       
-      // Check if this is a PDF
-      const isPdf = processingUrl.startsWith('data:application/pdf') || processingUrl.includes('application/pdf');
+      // Check if this is a PDF (check data uri, file extension, or inspect blob if blob: url)
+      let isPdf = processingUrl.startsWith('data:application/pdf') || processingUrl.includes('application/pdf') || processingUrl.toLowerCase().includes('.pdf');
+      if (!isPdf && processingUrl.startsWith('blob:')) {
+        try {
+          const headRes = await fetch(processingUrl);
+          const blobType = headRes.headers.get('content-type') || '';
+          if (blobType.includes('application/pdf')) {
+            isPdf = true;
+          }
+        } catch (e) {}
+      }
       
       let ocrPayload = processingUrl;
       let archiveImgUrl = processingUrl;

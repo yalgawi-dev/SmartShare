@@ -700,18 +700,55 @@ export default function SharedFileHandler() {
       } else {
         // Direct route: save primary and allPages to IndexedDB for page-by-page review
         try {
-          const dbReq = indexedDB.open('MySpaceDB', 1);
-          dbReq.onsuccess = (e: any) => {
-            const db = e.target.result;
-            if (db.objectStoreNames.contains('sharedFiles')) {
-              const tx = db.transaction('sharedFiles', 'readwrite');
-              const store = tx.objectStore('sharedFiles');
-              const primary = sharedFiles[0];
-              const pagesPayload = sharedAllPages && sharedAllPages.length > 0 ? sharedAllPages : sharedFiles;
-              store.put({ primary, allPages: pagesPayload, files: sharedFiles }, 'latest_shared');
+          let convertedPrimary = sharedFiles[0];
+          let convertedPages = sharedAllPages && sharedAllPages.length > 0 ? sharedAllPages : sharedFiles;
+
+          // Check if the primary file is a PDF (Blob instance or data URI or filename)
+          const correspondingBlob = sharedBlobs[0];
+          const rawUri = (sharedFiles[0] || '').replace(/^"|"$/g, '');
+          const isPdf = Boolean(
+            (correspondingBlob?.blob && (correspondingBlob.blob.type === 'application/pdf' || correspondingBlob.blob.name?.toLowerCase().endsWith('.pdf'))) ||
+            correspondingBlob?.type === 'application/pdf' ||
+            correspondingBlob?.name?.toLowerCase().endsWith('.pdf') ||
+            rawUri.toLowerCase().includes('.pdf') ||
+            rawUri.startsWith('data:application/pdf') ||
+            (correspondingBlob?.blob instanceof Blob && correspondingBlob.blob.type === 'application/pdf')
+          );
+
+          if (isPdf) {
+            try {
+              const blobSource = (correspondingBlob?.blob instanceof Blob)
+                ? correspondingBlob.blob
+                : rawUri;
+              const extracted = await extractPdfPages(blobSource, 1500, 0.85);
+              if (extracted && extracted.length > 0) {
+                convertedPrimary = extracted[0];
+                convertedPages = extracted;
+              }
+            } catch (pdfErr) {
+              console.warn('PDF extraction for direct route failed:', pdfErr);
             }
-          };
-        } catch(e) {}
+          }
+
+          const dbReq = indexedDB.open('MySpaceDB', 1);
+          await new Promise<void>((resolve) => {
+            dbReq.onsuccess = (e: any) => {
+              const db = e.target.result;
+              if (db.objectStoreNames.contains('sharedFiles')) {
+                const tx = db.transaction('sharedFiles', 'readwrite');
+                const store = tx.objectStore('sharedFiles');
+                store.put({ primary: convertedPrimary, allPages: convertedPages, files: convertedPages }, 'latest_shared');
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => resolve();
+              } else {
+                resolve();
+              }
+            };
+            dbReq.onerror = () => resolve();
+          });
+        } catch(e) {
+          console.warn('IndexedDB write latest_shared error:', e);
+        }
 
         setIsModalOpen(false);
         setIsProcessing(false);
