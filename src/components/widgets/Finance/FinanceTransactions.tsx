@@ -373,21 +373,27 @@ export function FinanceTransactions({
 
 
   const handleShareInvoice = async (inv: any) => {
-    if (!inv.attachmentUrl) {
+    if (!inv.attachmentUrl && !inv.rawPdfUrl) {
       alert('אין קובץ מצורף לשתף.');
       return;
     }
     try {
-      const response = await fetch(inv.attachmentUrl);
-      const blob = await response.blob();
       let fileToShare: File;
-      
-      if (blob.type === 'application/pdf' || inv.attachmentUrl.includes('.pdf')) {
-        fileToShare = new File([blob], `invoice_${inv.supplier || 'general'}.pdf`, { type: 'application/pdf' });
+      if (inv.rawPdfUrl) {
+        const response = await fetch(inv.rawPdfUrl);
+        const blob = await response.blob();
+        fileToShare = new File([blob], `invoice_${inv.supplier || 'general'}_signed.pdf`, { type: 'application/pdf' });
       } else {
-        // Convert to PDF on the fly via global single source of truth engine!
-        const pdfBlob = await convertImagesToPdfBlob([inv.attachmentUrl]);
-        fileToShare = new File([pdfBlob], `invoice_${inv.supplier || 'general'}.pdf`, { type: 'application/pdf' });
+        const response = await fetch(inv.attachmentUrl);
+        const blob = await response.blob();
+        
+        if (blob.type === 'application/pdf' || inv.attachmentUrl.includes('.pdf')) {
+          fileToShare = new File([blob], `invoice_${inv.supplier || 'general'}.pdf`, { type: 'application/pdf' });
+        } else {
+          // Convert to PDF on the fly via global single source of truth engine!
+          const pdfBlob = await convertImagesToPdfBlob([inv.attachmentUrl]);
+          fileToShare = new File([pdfBlob], `invoice_${inv.supplier || 'general'}.pdf`, { type: 'application/pdf' });
+        }
       }
 
       if (navigator.canShare && navigator.canShare({ files: [fileToShare] })) {
@@ -496,11 +502,38 @@ export function FinanceTransactions({
                     {/* Left Side: Invoice Image */}
                     {inv.hasAttachment && inv.attachmentUrl ? (
                       <div style={{ flex: '1 1 200px', maxWidth: '300px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '0.35rem' }}>
                           <p style={{ margin: 0, fontSize: '0.9rem', fontWeight: 'bold' }}>חשבונית / קבלה סרוקה:</p>
-                          <button onClick={() => handleShareInvoice(inv)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
-                            📤 שתף (PDF)
-                          </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            {inv.rawPdfUrl && (
+                              <a 
+                                href={inv.rawPdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                download={`original_${inv.supplier || 'invoice'}.pdf`}
+                                onClick={(e) => e.stopPropagation()}
+                                style={{ 
+                                  background: '#eff6ff', 
+                                  color: '#2563eb', 
+                                  border: '1px solid #bfdbfe',
+                                  borderRadius: '6px',
+                                  padding: '2px 6px',
+                                  fontSize: '0.75rem', 
+                                  fontWeight: 800, 
+                                  textDecoration: 'none',
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  gap: '0.2rem' 
+                                }}
+                                title="הורד מסמך מקור חתום דיגיטלית לצורכי מס"
+                              >
+                                📄 מקור חתום
+                              </a>
+                            )}
+                            <button onClick={() => handleShareInvoice(inv)} style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                              📤 שתף (PDF)
+                            </button>
+                          </div>
                         </div>
                         <div 
                           onClick={() => {

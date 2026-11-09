@@ -12,7 +12,7 @@ import {
   MatchableDoc,
 } from '../../../utils/invoiceMatcher';
 import { downscaleBase64, extractPdfPages } from '../../../utils/imageOptimizer';
-import { uploadImageToStorage } from '../../../lib/firebase';
+import { uploadImageToStorage, uploadBlobToStorage } from '../../../lib/firebase';
 import PdfThumbnail from '../../shared/PdfThumbnail';
 import UniversalViewerModal, { ViewerDocument } from '../../common/ViewerEngine/UniversalViewerModal';
 
@@ -21,6 +21,10 @@ export interface ScannedReceiptInput {
   url: string;
   /** Optional pages array if multi-page */
   pages?: string[];
+  /** Optional raw original PDF URL (preserved for digitally signed or vector original invoices) */
+  rawPdfUrl?: string;
+  /** Optional raw original PDF Blob for background upload */
+  rawPdfBlob?: Blob;
   /** Optional pre-extracted OCR data (e.g. from InboxItem) */
   ocrData?: {
     amount?: number | string | null;
@@ -330,10 +334,20 @@ export default function InvoiceAttachMatchModal({
           ? activeComparison.invoiceDoc.amount
           : undefined;
 
+      let finalRawPdfUrl = currentReceipt?.rawPdfUrl;
+      if (!finalRawPdfUrl && currentReceipt?.rawPdfBlob) {
+        try {
+          const rawPdfPath = `invoices/${space.id}/${Date.now()}_original.pdf`;
+          finalRawPdfUrl = await uploadBlobToStorage(currentReceipt.rawPdfBlob, rawPdfPath);
+        } catch (err) {
+          console.warn('Background raw PDF upload in modal failed:', err);
+        }
+      }
+
       attachFileToInvoice(
         space.id,
         activeComparison.expense.id,
-        { url: finalUrl, pages: finalPages, newAmount },
+        { url: finalUrl, pages: finalPages, rawPdfUrl: finalRawPdfUrl, newAmount },
         performer
       );
 

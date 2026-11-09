@@ -671,14 +671,24 @@ export default function SharedFileHandler() {
           );
 
           let webpPages: string[] | undefined = undefined;
+          let rawPdfBlobToKeep: Blob | undefined = undefined;
+
           if (idx === 0 && sharedFiles.length === 1 && sharedAllPages && sharedAllPages.length > 1) {
             webpPages = sharedAllPages;
           } else if (isPdf) {
             try {
               const blobSource = (correspondingBlob?.blob instanceof Blob)
                 ? correspondingBlob.blob
-                : rawUri;
-              webpPages = await extractPdfPages(blobSource, 1500, 0.85);
+                : await fetch(rawUri).then(r => r.blob()).catch(() => null);
+
+              if (blobSource) {
+                webpPages = await extractPdfPages(blobSource, 1500, 0.85);
+                const buffer = await blobSource.arrayBuffer();
+                const analysis = await analyzePdfStructure(buffer);
+                if (isTrueOriginalPdf(analysis, blobSource.size)) {
+                  rawPdfBlobToKeep = blobSource;
+                }
+              }
             } catch (pdfErr) {
               console.warn('PDF extraction for attach_existing queue failed:', pdfErr);
             }
@@ -687,14 +697,17 @@ export default function SharedFileHandler() {
           queue.push({
             url: (webpPages && webpPages.length > 0) ? webpPages[0] : rawUri,
             pages: (webpPages && webpPages.length > 1) ? webpPages : undefined,
+            rawPdfBlob: rawPdfBlobToKeep
           });
         }
 
         const request = indexedDB.open('MySpaceDB', 1);
         request.onsuccess = (e: any) => {
           const db = e.target.result;
-          const tx = db.transaction('sharedFiles', 'readwrite');
-          tx.objectStore('sharedFiles').delete('latest_shared');
+          if (db.objectStoreNames.contains('sharedFiles')) {
+            const tx = db.transaction('sharedFiles', 'readwrite');
+            tx.objectStore('sharedFiles').delete('latest_shared');
+          }
         };
 
         setIsModalOpen(false);
@@ -702,10 +715,11 @@ export default function SharedFileHandler() {
         setSharedFiles([]);
         setAttachQueueState({ spaceId: selectedSpaceId, queue });
       } else {
-        // Direct route: save primary and allPages to IndexedDB for page-by-page review
+        // Direct route: save primary and allPages for page-by-page review and OCR
         try {
           let convertedPrimary = sharedFiles[0];
           let convertedPages = sharedAllPages && sharedAllPages.length > 0 ? sharedAllPages : sharedFiles;
+          let rawPdfBlobToKeep: Blob | undefined = undefined;
 
           // Check if the primary file is a PDF (Blob instance or data URI or filename)
           const correspondingBlob = sharedBlobs[0];
@@ -723,40 +737,82 @@ export default function SharedFileHandler() {
             try {
               const blobSource = (correspondingBlob?.blob instanceof Blob)
                 ? correspondingBlob.blob
-                : rawUri;
-              const extracted = await extractPdfPages(blobSource, 1500, 0.85);
-              if (extracted && extracted.length > 0) {
-                convertedPrimary = extracted[0];
-                convertedPages = extracted;
+                : await fetch(rawUri).then(r => r.blob()).catch(() => null);
+
+              if (blobSource) {
+                const extracted = await extractPdfPages(blobSource, 1500, 0.85);
+                if (extracted && extracted.length > 0) {
+                  convertedPrimary = extracted[0];
+                  convertedPages = extracted;
+                }
+                const buffer = await blobSource.arrayBuffer();
+                const analysis = await analyzePdfStructure(buffer);
+                if (isTrueOriginalPdf(analysis, blobSource.size)) {
+                  rawPdfBlobToKeep = blobSource;
+                }
               }
             } catch (pdfErr) {
               console.warn('PDF extraction for direct route failed:', pdfErr);
             }
           }
 
-          // Also backup in localStorage in case IndexedDB transaction hasn't settled before navigation
+          const pendingExpensePayload = {
+            primary: convertedPrimary,
+            allPages: convertedPages,
+            files: convertedPages,
+            rawPdfBlob: rawPdfBlobToKeep,
+            spaceId: selectedSpaceId
+          };
+
+          // 1. In-memory storage on window (0ms, no quota limits, passes raw Blob directly)
+          if (typeof window !== 'undefined') {
+            (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__ = pendingExpensePayload;
+          }
+
+          // 2. Dedicated IndexedDB SmartShareSharedBlobsDB (handles Blobs without memory/quota limits)
           try {
-            localStorage.setItem('smartshare_latest_shared_backup', JSON.stringify({ primary: convertedPrimary, allPages: convertedPages, files: convertedPages }));
+            const blobDbReq = indexedDB.open('SmartShareSharedBlobsDB', 1);
+            blobDbReq.onupgradeneeded = (e: any) => {
+              if (!e.target.result.objectStoreNames.contains('blobs')) {
+                e.target.result.createObjectStore('blobs');
+              }
+            };
+            blobDbReq.onsuccess = (e: any) => {
+              const db = e.target.result;
+              if (db.objectStoreNames.contains('blobs')) {
+                const tx = db.transaction('blobs', 'readwrite');
+                tx.objectStore('blobs').put(pendingExpensePayload, 'pending_expense');
+              }
+            };
           } catch(e) {}
 
-          const dbReq = indexedDB.open('MySpaceDB', 1);
-          await new Promise<void>((resolve) => {
+          // 3. Fallbacks to MySpaceDB and localStorage
+          try {
+            const dbReq = indexedDB.open('MySpaceDB', 1);
+            dbReq.onupgradeneeded = (e: any) => {
+              if (!e.target.result.objectStoreNames.contains('sharedFiles')) {
+                e.target.result.createObjectStore('sharedFiles');
+              }
+            };
             dbReq.onsuccess = (e: any) => {
               const db = e.target.result;
               if (db.objectStoreNames.contains('sharedFiles')) {
                 const tx = db.transaction('sharedFiles', 'readwrite');
-                const store = tx.objectStore('sharedFiles');
-                store.put({ primary: convertedPrimary, allPages: convertedPages, files: convertedPages }, 'latest_shared');
-                tx.oncomplete = () => resolve();
-                tx.onerror = () => resolve();
-              } else {
-                resolve();
+                tx.objectStore('sharedFiles').put(pendingExpensePayload, 'latest_shared');
               }
             };
-            dbReq.onerror = () => resolve();
-          });
+          } catch(e) {}
+
+          try {
+            localStorage.setItem('smartshare_latest_shared_backup', JSON.stringify({ primary: convertedPrimary, allPages: convertedPages, files: convertedPages }));
+          } catch(e) {}
+
+          // 4. Dispatch instant CustomEvent in case target space is already open
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('smartshare:trigger_shared_expense', { detail: pendingExpensePayload }));
+          }
         } catch(e) {
-          console.warn('IndexedDB write latest_shared error:', e);
+          console.warn('Direct expense handover error:', e);
         }
 
         setIsModalOpen(false);
@@ -1345,13 +1401,39 @@ export default function SharedFileHandler() {
             onFallbackToNewExpense={(receipt) => {
               const sid = attachQueueState.spaceId;
               setAttachQueueState(null);
+              const fallbackPayload = {
+                primary: receipt.url,
+                allPages: receipt.pages || [receipt.url],
+                files: [receipt.url],
+                rawPdfBlob: receipt.rawPdfBlob,
+                spaceId: sid
+              };
+              if (typeof window !== 'undefined') {
+                (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__ = fallbackPayload;
+                window.dispatchEvent(new CustomEvent('smartshare:trigger_shared_expense', { detail: fallbackPayload }));
+              }
+              try {
+                const blobDbReq = indexedDB.open('SmartShareSharedBlobsDB', 1);
+                blobDbReq.onsuccess = (e: any) => {
+                  const db = e.target.result;
+                  if (db.objectStoreNames.contains('blobs')) {
+                    const tx = db.transaction('blobs', 'readwrite');
+                    tx.objectStore('blobs').put(fallbackPayload, 'pending_expense');
+                  }
+                };
+              } catch(e) {}
               try {
                 const dbReq = indexedDB.open('MySpaceDB', 1);
+                dbReq.onupgradeneeded = (e: any) => {
+                  if (!e.target.result.objectStoreNames.contains('sharedFiles')) {
+                    e.target.result.createObjectStore('sharedFiles');
+                  }
+                };
                 dbReq.onsuccess = (e: any) => {
                   const db = e.target.result;
                   if (db.objectStoreNames.contains('sharedFiles')) {
                     const tx = db.transaction('sharedFiles', 'readwrite');
-                    tx.objectStore('sharedFiles').put({ primary: receipt.url, allPages: receipt.pages || [receipt.url], files: [receipt.url] }, 'latest_shared');
+                    tx.objectStore('sharedFiles').put(fallbackPayload, 'latest_shared');
                   }
                 };
               } catch {}

@@ -52,8 +52,8 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   const rootRef = useRef<HTMLDivElement>(null);
   
   useImperativeHandle(ref, () => ({
-    processScan: (url: string, allPages?: string[], retroInvoice?: any) => {
-      runOcrPipeline(url, allPages, retroInvoice);
+    processScan: (url: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
+      runOcrPipeline(url, allPages, retroInvoice, rawPdfSource);
     },
     processBatch: (urls: string[]) => {
       if (!urls || urls.length === 0) return;
@@ -147,6 +147,8 @@ const FinanceWidget = forwardRef(({ space, activePartnersCount, onRemove, isAddi
   };
 const [isMounted, setIsMounted] = useState(false);
   const uploadPromiseRef = useRef<Promise<string> | null>(null);
+  const rawPdfUploadPromiseRef = useRef<Promise<string | undefined> | null>(null);
+  const [rawPdfUrl, setRawPdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
@@ -155,13 +157,15 @@ const [isMounted, setIsMounted] = useState(false);
   
   
 
-const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any) => {
+const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?: any, rawPdfSource?: Blob | string) => {
     if (retroInvoice) setRetroInvoiceToEdit(retroInvoice); else setRetroInvoiceToEdit(null);
     setIsScanning(false);
     if(setIsAddingExpense) setIsAddingExpense(true); // Open the form immediately
     setIsAnalyzing(true);
     setOcrData({}); // Clear old data
     setOcrElapsedTime(0);
+    rawPdfUploadPromiseRef.current = null;
+    setRawPdfUrl(null);
     
     if (imgUrl && (imgUrl.includes('image/heic') || imgUrl.includes('image/heif'))) {
       alert("סוג קובץ זה (HEIC) אינו נתמך כרגע בסורק המהיר. אנא העלה תמונה רגילה (JPG/PNG).");
@@ -201,6 +205,45 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
             isPdf = true;
           }
         } catch (e) {}
+      }
+
+      // Track B2 (Background - Non Blocking): Check if original PDF is authentic signed/vector, and upload intact original PDF
+      if (isPdf || rawPdfSource) {
+        (async () => {
+          try {
+            let pdfBlob: Blob | null = null;
+            if (rawPdfSource instanceof Blob) {
+              pdfBlob = rawPdfSource;
+            } else if (typeof rawPdfSource === 'string' && rawPdfSource.startsWith('data:application/pdf')) {
+              pdfBlob = await fetch(rawPdfSource).then(r => r.blob()).catch(() => null);
+            } else if (imgUrl.startsWith('blob:') && isPdf) {
+              pdfBlob = await fetch(imgUrl).then(r => r.blob()).catch(() => null);
+            } else if (imgUrl.startsWith('data:application/pdf')) {
+              pdfBlob = await fetch(imgUrl).then(r => r.blob()).catch(() => null);
+            }
+
+            if (pdfBlob) {
+              const buffer = await pdfBlob.arrayBuffer();
+              const { analyzePdfStructure, isTrueOriginalPdf } = await import('../../utils/imageOptimizer');
+              const analysis = await analyzePdfStructure(buffer);
+              const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, pdfBlob.size);
+
+              if (isOriginalSignedOrVector) {
+                const { uploadBlobToStorage } = await import('../../lib/firebase');
+                const rawPdfPath = `invoices/${space.id}/${Date.now()}_original.pdf`;
+                rawPdfUploadPromiseRef.current = uploadBlobToStorage(pdfBlob, rawPdfPath).then(uploadedUrl => {
+                  setRawPdfUrl(uploadedUrl);
+                  return uploadedUrl;
+                }).catch(err => {
+                  console.warn('Background raw PDF upload failed:', err);
+                  return undefined;
+                });
+              }
+            }
+          } catch (err) {
+            console.warn('PDF original check failed:', err);
+          }
+        })();
       }
       
       let ocrPayload = processingUrl;
@@ -331,6 +374,8 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     setPreselectedAmount(undefined);
     if(setIsAddingExpense) setIsAddingExpense(false);
     setScannedImage(null);
+    rawPdfUploadPromiseRef.current = null;
+    setRawPdfUrl(null);
     setSelectedCategory('כללי'); // Reset to default so next time 'הזנה' opens the correct modal
     
     setOcrData({});
@@ -474,6 +519,16 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
       }
     }
 
+    let finalRawPdfUrl = rawPdfUrl;
+    if (rawPdfUploadPromiseRef.current) {
+      try {
+        finalRawPdfUrl = (await rawPdfUploadPromiseRef.current) || finalRawPdfUrl;
+        rawPdfUploadPromiseRef.current = null;
+      } catch (err) {
+        console.warn('Background raw PDF upload wait failed:', err);
+      }
+    }
+
     const myApproval = 1; // The person uploading inherently approves it
     const expenseApprovalsNeeded = activePartnersCount > 0 ? activePartnersCount + 1 : 0;
     
@@ -550,6 +605,9 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     if (finalAttachmentUrl) {
       newInvoice.attachmentUrl = finalAttachmentUrl;
     }
+    if (finalRawPdfUrl) {
+      newInvoice.rawPdfUrl = finalRawPdfUrl;
+    }
     if (reviewingInboxItemId) {
       newInvoice.source = 'inbox';
     }
@@ -603,12 +661,23 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
     const targetExpense = (space.invoices || []).find((inv: any) => inv.id === targetExpenseId);
     const newAmount = (applyAmount && ocrData?.amount != null) ? Number(ocrData.amount) : undefined;
 
+    let finalRawPdfUrl = rawPdfUrl;
+    if (rawPdfUploadPromiseRef.current) {
+      try {
+        finalRawPdfUrl = (await rawPdfUploadPromiseRef.current) || finalRawPdfUrl;
+        rawPdfUploadPromiseRef.current = null;
+      } catch (err) {
+        console.warn("Background raw PDF upload wait during attach failed", err);
+      }
+    }
+
     attachFileToInvoice(
       space.id,
       targetExpenseId,
       {
         url: finalAttachmentUrl,
         pages: ocrData?.pages,
+        rawPdfUrl: finalRawPdfUrl || undefined,
         newAmount
       },
       performer

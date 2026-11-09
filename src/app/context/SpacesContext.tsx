@@ -59,6 +59,8 @@ export interface Invoice {
   sharesSnapshot?: Record<string, number>;
   /** All pages of a multi-page attachment (attachmentUrl is always the first page). */
   attachmentPages?: string[];
+  /** Optional raw original PDF URL (preserved for digitally signed or vector original invoices) */
+  rawPdfUrl?: string;
   /** Amount before the last invoice-driven correction (a single number – no files are kept, to save storage). */
   previousAmount?: number | null;
   ocrData?: any;
@@ -70,6 +72,8 @@ export interface AttachFilePayload {
   url: string;
   /** All pages when the file has more than one. */
   pages?: string[];
+  /** Optional raw original PDF URL (preserved for digitally signed or vector original invoices) */
+  rawPdfUrl?: string;
   /** Optional correction of the expense amount to the invoice amount. */
   newAmount?: number | null;
 }
@@ -1188,6 +1192,7 @@ export function SpacesProvider({ children }: { children: ReactNode }) {
         hasAttachment: true,
         attachmentUrl: payload.url,
         attachmentPages: payload.pages && payload.pages.length > 1 ? payload.pages : undefined,
+        ...(payload.rawPdfUrl ? { rawPdfUrl: payload.rawPdfUrl } : {}),
         ...(amountChanged ? { amount: payload.newAmount as number, previousAmount: inv.amount } : {}),
         ...(needsReApproval
           ? { status: 'pending' as InvoiceStatus, approvedBy: [performer.id], approvalsReceived: 1 }

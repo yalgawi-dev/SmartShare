@@ -288,36 +288,83 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
   };
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('addExpense') === 'true') {
-        setIsAddingExpense(true);
-        if (params.get('triggerOcr') === 'true') {
-          const triggerScanWhenReady = (targetFile: string, allPages?: string[]) => {
-            let attempts = 0;
-            const checkAndTrigger = setInterval(() => {
-              attempts++;
-              if (financeRef.current && typeof financeRef.current.processScan === 'function') {
-                clearInterval(checkAndTrigger);
-                financeRef.current.processScan(targetFile, allPages);
-                try {
-                  localStorage.removeItem('smartshare_latest_shared_backup');
-                  const delDbReq = indexedDB.open('MySpaceDB', 1);
-                  delDbReq.onsuccess = (ev: any) => {
-                    const d = ev.target.result;
-                    if (d.objectStoreNames.contains('sharedFiles')) {
-                      const dtx = d.transaction('sharedFiles', 'readwrite');
-                      dtx.objectStore('sharedFiles').delete('latest_shared');
-                    }
-                  };
-                } catch (err) {}
-              } else if (attempts > 40) {
-                clearInterval(checkAndTrigger);
-              }
-            }, 150);
-          };
+    if (typeof window === 'undefined') return;
 
-          // 1. Try localStorage backup first for instant synchronous read
+    const triggerScanWhenReady = (targetFile: string, allPages?: string[], rawPdfBlob?: Blob) => {
+      let attempts = 0;
+      const checkAndTrigger = setInterval(() => {
+        attempts++;
+        if (financeRef.current && typeof financeRef.current.processScan === 'function') {
+          clearInterval(checkAndTrigger);
+          financeRef.current.processScan(targetFile, allPages, undefined, rawPdfBlob);
+          try {
+            if (typeof window !== 'undefined') {
+              (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__ = null;
+            }
+            localStorage.removeItem('smartshare_latest_shared_backup');
+            const blobDbReq = indexedDB.open('SmartShareSharedBlobsDB', 1);
+            blobDbReq.onsuccess = (ev: any) => {
+              const bdb = ev.target.result;
+              if (bdb.objectStoreNames.contains('blobs')) {
+                const btx = bdb.transaction('blobs', 'readwrite');
+                btx.objectStore('blobs').delete('pending_expense');
+              }
+            };
+            const delDbReq = indexedDB.open('MySpaceDB', 1);
+            delDbReq.onsuccess = (ev: any) => {
+              const d = ev.target.result;
+              if (d.objectStoreNames.contains('sharedFiles')) {
+                const dtx = d.transaction('sharedFiles', 'readwrite');
+                dtx.objectStore('sharedFiles').delete('latest_shared');
+              }
+            };
+          } catch (err) {}
+        } else if (attempts > 40) {
+          clearInterval(checkAndTrigger);
+        }
+      }, 150);
+    };
+
+    // Listen to custom event for instantaneous shared expense triggering
+    const handleTriggerShared = (ev: any) => {
+      const detail = ev.detail;
+      if (detail && (!detail.spaceId || detail.spaceId === space?.id)) {
+        setIsAddingExpense(true);
+        triggerScanWhenReady(detail.primary, detail.allPages, detail.rawPdfBlob);
+      }
+    };
+    window.addEventListener('smartshare:trigger_shared_expense', handleTriggerShared);
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('addExpense') === 'true') {
+      setIsAddingExpense(true);
+      if (params.get('triggerOcr') === 'true') {
+        // 1. Instant check from in-memory window payload (zero delay, preserves raw Blob directly)
+        const pendingMemory = (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__;
+        if (pendingMemory && (!pendingMemory.spaceId || pendingMemory.spaceId === space?.id)) {
+          (window as any).__SMARTSHARE_PENDING_SHARED_EXPENSE__ = null;
+          triggerScanWhenReady(pendingMemory.primary, pendingMemory.allPages, pendingMemory.rawPdfBlob);
+        } else {
+          // 2. Check SmartShareSharedBlobsDB
+          try {
+            const blobReq = indexedDB.open('SmartShareSharedBlobsDB', 1);
+            blobReq.onsuccess = (e: any) => {
+              const bdb = e.target.result;
+              if (bdb.objectStoreNames.contains('blobs')) {
+                const btx = bdb.transaction('blobs', 'readonly');
+                const bstore = btx.objectStore('blobs');
+                const getReq = bstore.get('pending_expense');
+                getReq.onsuccess = () => {
+                  const bRes = getReq.result;
+                  if (bRes && (!bRes.spaceId || bRes.spaceId === space?.id)) {
+                    triggerScanWhenReady(bRes.primary, bRes.allPages, bRes.rawPdfBlob);
+                  }
+                };
+              }
+            };
+          } catch (e) {}
+
+          // 3. Check localStorage backup
           let foundInBackup = false;
           try {
             const rawBackup = localStorage.getItem('smartshare_latest_shared_backup');
@@ -332,7 +379,7 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
             }
           } catch(e) {}
 
-          // 2. Also check IndexedDB if not found or as primary source
+          // 4. Fallback to MySpaceDB
           if (!foundInBackup) {
             const request = indexedDB.open('MySpaceDB', 1);
             request.onsuccess = (e: any) => {
@@ -357,16 +404,20 @@ export default function SpaceWallPage({ params }: { params: Promise<{ id: string
                 }
 
                 if (targetFile) {
-                  triggerScanWhenReady(targetFile, allPages);
+                  triggerScanWhenReady(targetFile, allPages, res?.rawPdfBlob);
                 }
               };
             };
           }
         }
-        window.history.replaceState({}, document.title, window.location.pathname);
       }
+      window.history.replaceState({}, document.title, window.location.pathname);
     }
-  }, []);
+
+    return () => {
+      window.removeEventListener('smartshare:trigger_shared_expense', handleTriggerShared);
+    };
+  }, [space?.id]);
 
   // Handle openChat URL param (?openChat=group or ?openChat=userId)
   useEffect(() => {
