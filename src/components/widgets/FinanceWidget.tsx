@@ -296,7 +296,10 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
 
             // Check if there is an unattached existing expense waiting for this invoice
             if (!retroInvoice) {
-              const parsedAmt = data.amount != null ? Number(String(data.amount).replace(/[^\d.-]/g, '')) : null;
+              const parsedAmt = typeof data.amount === 'number' 
+                ? (isNaN(data.amount) ? null : data.amount) 
+                : (data.amount != null ? Number(String(data.amount).replace(/[^\d.-]/g, '')) : null);
+
               const matchDoc = {
                 amount: parsedAmt && !isNaN(parsedAmt) ? parsedAmt : null,
                 supplier: data.vendor || data.supplier || null,
@@ -304,18 +307,33 @@ const runOcrPipeline = async (imgUrl: string, allPages?: string[], retroInvoice?
                 invoiceNumber: data.invoiceNumber || null,
                 vatNumber: data.vatNumber || null
               };
+
               const candidates = (space.invoices || []).filter((inv: any) => 
                 inv.isActive !== false &&
                 inv.type !== 'transfer' &&
                 inv.type !== 'income' &&
                 inv.category !== 'cashbox_equity' &&
                 inv.category !== 'cashbox_withdrawal' &&
-                !inv.hasAttachment
+                (!inv.hasAttachment || !inv.attachmentUrl || String(inv.attachmentUrl).trim() === '')
               );
-              const ranked = matchInvoiceToExpenses(matchDoc, candidates, { minScore: 35, limit: 1 });
+
+              // 1. Smart ranking (minScore 30)
+              const ranked = matchInvoiceToExpenses(matchDoc, candidates, { minScore: 30, limit: 1 });
               if (ranked && ranked.length > 0 && ranked[0].item) {
                 data._unattachedMatch = ranked[0].item;
                 data._unattachedMatchScore = ranked[0].score;
+              } else if (matchDoc.amount && matchDoc.amount > 0) {
+                // 2. Direct exact-amount fallback: If an unattached expense has the exact same amount, match it immediately!
+                const targetAmt = matchDoc.amount;
+                const exactMatch = candidates.find((c: any) => {
+                  const cRaw = c.amount;
+                  const cNum = typeof cRaw === 'number' ? cRaw : Number(String(cRaw || '').replace(/[^\d.-]/g, ''));
+                  return !isNaN(cNum) && Math.abs(cNum - targetAmt) < 0.01;
+                });
+                if (exactMatch) {
+                  data._unattachedMatch = exactMatch;
+                  data._unattachedMatchScore = 85;
+                }
               }
             }
           }

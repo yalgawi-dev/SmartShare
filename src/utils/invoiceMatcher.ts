@@ -97,14 +97,25 @@ export function supplierSimilarity(a?: string | null, b?: string | null): number
   return Math.max(jaccard, dice * 0.9);
 }
 
-function amountSimilarity(a?: number | null, b?: number | null): { value: number; status: MatchSignalStatus; diff: number | null } {
-  if (a == null || b == null || isNaN(a) || isNaN(b)) return { value: 0, status: 'unknown', diff: null };
-  const diff = Math.round((a - b) * 100) / 100;
+export function parseCleanAmount(v?: any): number | null {
+  if (v == null) return null;
+  if (typeof v === 'number') return isNaN(v) ? null : v;
+  const s = String(v).replace(/[^\d.-]/g, '');
+  if (!s) return null;
+  const n = Number(s);
+  return isNaN(n) ? null : n;
+}
+
+function amountSimilarity(a?: any, b?: any): { value: number; status: MatchSignalStatus; diff: number | null } {
+  const numA = parseCleanAmount(a);
+  const numB = parseCleanAmount(b);
+  if (numA == null || numB == null) return { value: 0, status: 'unknown', diff: null };
+  const diff = Math.round((numA - numB) * 100) / 100;
   const abs = Math.abs(diff);
   if (abs < 0.005) return { value: 1, status: 'match', diff: null };
-  const rel = abs / Math.max(Math.abs(a), Math.abs(b), 1);
-  if (abs <= 1 || rel <= 0.01) return { value: 0.85, status: 'close', diff };   // rounding
-  if (rel <= 0.05) return { value: 0.4, status: 'close', diff };
+  const rel = abs / Math.max(Math.abs(numA), Math.abs(numB), 1);
+  if (abs <= 1 || rel <= 0.01) return { value: 0.90, status: 'close', diff };   // rounding
+  if (rel <= 0.05) return { value: 0.50, status: 'close', diff };
   return { value: 0, status: 'diff', diff };
 }
 
@@ -175,22 +186,33 @@ export function scorePair(a: MatchableDoc, b: MatchableDoc): Omit<MatchResult<ne
 
   const denominator = Math.max(presentWeight, MIN_DENOMINATOR);
   let score = Math.max(0, Math.min(100, Math.round((earned / denominator) * 100)));
-  // Both suppliers are readable and clearly different: same amount alone must not look like a good match.
+
+  // If amounts match identically on an expense waiting for receipt:
+  // In real life, users often write generic/category descriptions ("קניות", "דלק", "שמאות")
+  // instead of the legal business name ("אר איץ שמאות בע״מ").
+  // Therefore, an identical amount MUST ALWAYS be treated as a strong candidate (>= 75%)!
   const supplierSignal = signals.find((s) => s.key === 'supplier');
-  if (supplierSignal?.status === 'diff') score = Math.min(score, 50);
+  if (amt.status === 'match') {
+    score = Math.max(score, supplierSignal?.status === 'diff' ? 75 : 90);
+  } else if (amt.status === 'close' && amt.value >= 0.85) {
+    score = Math.max(score, supplierSignal?.status === 'diff' ? 60 : 75);
+  } else if (supplierSignal?.status === 'diff') {
+    score = Math.min(score, 50);
+  }
+
   const level: MatchLevel = score >= 85 ? 'high' : score >= 60 ? 'medium' : 'low';
 
   return { score, level, signals, amountDiff: amt.diff };
 }
 
 interface RankOptions {
-  /** Hide candidates below this score (UI always offers a manual list as well). Default 35. */
+  /** Hide candidates below this score (UI always offers a manual list as well). Default 30. */
   minScore?: number;
   limit?: number;
 }
 
 function rank<T>(source: MatchableDoc, candidates: T[], toDoc: (c: T) => MatchableDoc, opts: RankOptions = {}): MatchResult<T>[] {
-  const { minScore = 35, limit = 5 } = opts;
+  const { minScore = 30, limit = 5 } = opts;
   return candidates
     .map((item) => ({ item, ...scorePair(source, toDoc(item)) }))
     .filter((r) => r.score >= minScore)
@@ -199,12 +221,13 @@ function rank<T>(source: MatchableDoc, candidates: T[], toDoc: (c: T) => Matchab
 }
 
 /** Direction 1: a scanned invoice → expenses that still have no attachment. */
-export function matchInvoiceToExpenses<E extends MatchableDoc & { hasAttachment?: boolean }>(
+export function matchInvoiceToExpenses<E extends MatchableDoc & { hasAttachment?: boolean; attachmentUrl?: string }>(
   invoice: MatchableDoc,
   expenses: E[],
   opts?: RankOptions
 ): MatchResult<E>[] {
-  return rank(invoice, expenses.filter((e) => !e.hasAttachment), (e) => e, opts);
+  const unattached = expenses.filter((e) => !e.hasAttachment || !e.attachmentUrl || String(e.attachmentUrl).trim() === '');
+  return rank(invoice, unattached, (e) => e, opts);
 }
 
 /** Direction 2: an expense → waiting (unassigned) scanned invoices. */
