@@ -808,13 +808,12 @@ export function CreateShareLinkModal({
 
               {/* Add recipient input & role selector */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', marginBottom: '0.75rem', width: '100%', boxSizing: 'border-box' }}>
-                {/* Compact Role Switcher (Grid 3 columns, no overflow) */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.35rem', width: '100%', boxSizing: 'border-box' }}>
+                {/* Compact Guest Role Switcher (Client vs Provider) */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.35rem', width: '100%', boxSizing: 'border-box' }}>
                   {(
                     [
-                      { id: 'client', label: '👤 לקוח', title: 'מקבל שירות / מזמין' },
-                      { id: 'provider', label: '🛠️ ספק', title: 'נותן שירות / קבלן' },
-                      { id: 'general', label: '🤝 שותף', title: 'שיתוף מסמכים / כללי' }
+                      { id: 'client', label: '👤 לקוח / מזמין', title: 'מקבל שירות / מזמין חיצוני' },
+                      { id: 'provider', label: '🛠️ ספק / קבלן', title: 'נותן שירות / קבלן חיצוני' }
                     ] as const
                   ).map(pill => (
                     <button

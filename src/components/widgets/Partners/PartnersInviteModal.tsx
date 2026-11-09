@@ -10,12 +10,14 @@ import { useAuth } from '../../../app/context/AuthContext';
 
 export function PartnersInviteModal({ 
   space, 
+  initialScopeFolder,
   onClose 
 }: { 
   space: any; 
+  initialScopeFolder?: any;
   onClose: () => void;
 }) {
-  const { spaces, createPendingInvite } = useSpaces() as any;
+  const { spaces, createPendingInvite, updateFileShareItems } = useSpaces() as any;
   const { allUsers } = useAuth();
   const [successData, setSuccessData] = useState<{name: string, phone: string, text: string} | null>(null);
   const [copied, setCopied] = useState(false);
@@ -26,6 +28,15 @@ export function PartnersInviteModal({
   const [customShare, setCustomShare] = useState('10');
   const isFinancial = space.features?.includes('finance');
   const isSharedOnly = Boolean(space?.settings?.sharedExpensesOnly || space?.settings?.disableSettlements);
+
+  // Scoped Access for FileShare / Vault: All Space vs Specific Folder
+  const availableFolders = useMemo(() => {
+    return Array.isArray(space.fileShareItems) ? space.fileShareItems.filter((i: any) => i.type === 'folder' && !i.deletedAt) : [];
+  }, [space.fileShareItems]);
+
+  const [scopeType, setScopeType] = useState<'all' | 'folder'>(() => initialScopeFolder ? 'folder' : 'all');
+  const [selectedFolderId, setSelectedFolderId] = useState<string>(() => initialScopeFolder?.id || (availableFolders.length > 0 ? availableFolders[0].id : ''));
+  const [partnerFolderRole, setPartnerFolderRole] = useState<'admin' | 'viewer'>('admin');
 
   // Existing active partners (excluding creator)
   const validMembers = useMemo(() => {
@@ -218,13 +229,54 @@ export function PartnersInviteModal({
       targetUserId: effectiveTargetUserId
     });
 
+    // If invitation is scoped to a specific folder in FileShare, immediately assign the partner or pending token to the folder
+    if (scopeType === 'folder' && selectedFolderId && updateFileShareItems && Array.isArray(space.fileShareItems)) {
+      try {
+        const targetFolder = availableFolders.find((f: any) => f.id === selectedFolderId);
+        const folderNameForText = targetFolder?.name || 'תיקייה ספציפית';
+        const partnerIdentifier = effectiveTargetUserId || `pending_${token}`;
+        
+        const updatedItems = space.fileShareItems.map((item: any) => {
+          if (item.id === selectedFolderId) {
+            const currentAllowed = Array.isArray(item.allowedPartners) ? [...item.allowedPartners] : [];
+            const nextAllowed = currentAllowed.filter((id: string) => id !== '__only_me__' && id !== '__creator_vault_secret__');
+            if (!nextAllowed.includes(partnerIdentifier)) nextAllowed.push(partnerIdentifier);
+
+            const currentConfigs = Array.isArray(item.folderPartners) ? [...item.folderPartners] : [];
+            const nextConfigs = currentConfigs.filter((fp: any) => fp.partnerId !== partnerIdentifier);
+            nextConfigs.push({
+              partnerId: partnerIdentifier,
+              name: resolvedName,
+              role: partnerFolderRole,
+              partnerType: 'general',
+              assignedAt: Date.now()
+            });
+
+            return {
+              ...item,
+              allowedPartners: nextAllowed,
+              folderPartners: nextConfigs
+            };
+          }
+          return item;
+        });
+
+        await updateFileShareItems(space.id, updatedItems);
+      } catch (scopeErr) {
+        console.warn('Failed to auto-bind folder scope:', scopeErr);
+      }
+    }
+
     const shareTitle = 'הזמנה להצטרפות למרחב ' + space.title;
     const greeting = resolvedName ? `היי ${resolvedName}! 👋` : 'היי! 👋';
     const cleanCreator = creatorName ? `${creatorName}` : 'מנהל המרחב';
+    const folderScopeNotice = (scopeType === 'folder' && selectedFolderId)
+      ? `\n📁 הוגדרה עבורך גישת ${partnerFolderRole === 'admin' ? 'ניהול' : 'צפייה'} ייעודית בתיקיית "${availableFolders.find((f: any) => f.id === selectedFolderId)?.name || 'פרויקט'}".`
+      : '';
     
     const shareText = isFinancial 
-      ? `${greeting}\n\n${cleanCreator} הזמין אותך להצטרף כשותף למרחב:\n🌟 "${space.title}"\n\n🤝 הוגדר עבורך חלק של ${plannedGuestShare}% בפרויקט.\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}` 
-      : `${greeting}\n\n${cleanCreator} הזמין אותך לשתף פעולה במרחב:\n🌟 "${space.title}"\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`;
+      ? `${greeting}\n\n${cleanCreator} הזמין אותך להצטרף כשותף למרחב:\n🌟 "${space.title}"${folderScopeNotice}\n\n🤝 הוגדר עבורך חלק של ${plannedGuestShare}% בפרויקט.\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}` 
+      : `${greeting}\n\n${cleanCreator} הזמין אותך לשתף פעולה במרחב:\n🌟 "${space.title}"${folderScopeNotice}\n\nלהצטרפות וכניסה ישירה:\n👇\n${link}`;
 
     return { link, shareTitle, shareText };
   };
@@ -479,6 +531,134 @@ export function PartnersInviteModal({
           </div>
         </div>
 
+        {/* Scoped Area Selector (All Space vs Specific Folder) */}
+        {availableFolders.length > 0 && (
+          <div style={{
+            background: '#f8fafc',
+            border: '1.5px solid #e2e8f0',
+            borderRadius: '16px',
+            padding: '0.85rem',
+            marginBottom: '0.85rem',
+            boxShadow: '0 2px 6px rgba(0, 0, 0, 0.03)'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                <span style={{ background: '#475569', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>היקף שותפות</span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#1e293b' }}>לאיזה תחום השותף מצטרף?</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.45rem', marginBottom: '0.6rem' }}>
+              <button
+                type="button"
+                onClick={() => setScopeType('all')}
+                style={{
+                  padding: '0.65rem 0.5rem',
+                  borderRadius: '10px',
+                  border: scopeType === 'all' ? '2px solid var(--primary, #4f46e5)' : '1px solid #cbd5e1',
+                  background: scopeType === 'all' ? 'rgba(99, 102, 241, 0.08)' : '#ffffff',
+                  color: scopeType === 'all' ? 'var(--primary, #4f46e5)' : '#475569',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <span>🌐</span>
+                <span>כל המרחב (מלא)</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setScopeType('folder')}
+                style={{
+                  padding: '0.65rem 0.5rem',
+                  borderRadius: '10px',
+                  border: scopeType === 'folder' ? '2px solid #059669' : '1px solid #cbd5e1',
+                  background: scopeType === 'folder' ? '#ecfdf5' : '#ffffff',
+                  color: scopeType === 'folder' ? '#047857' : '#475569',
+                  fontWeight: 800,
+                  fontSize: '0.85rem',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.4rem'
+                }}
+              >
+                <span>📁</span>
+                <span>תיקייה ספציפית בלבד</span>
+              </button>
+            </div>
+
+            {scopeType === 'folder' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px dashed #cbd5e1' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155' }}>בחר תיקייה לשיוך:</label>
+                  <select
+                    value={selectedFolderId}
+                    onChange={e => setSelectedFolderId(e.target.value)}
+                    style={{
+                      padding: '0.55rem 0.75rem',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      fontSize: '0.88rem',
+                      fontWeight: 700,
+                      background: '#ffffff',
+                      color: '#0f172a'
+                    }}
+                  >
+                    {availableFolders.map((f: any) => (
+                      <option key={f.id} value={f.id}>📁 {f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#334155' }}>הרשאת השותף בתיקייה:</span>
+                  <div style={{ display: 'flex', gap: '0.35rem' }}>
+                    <button
+                      type="button"
+                      onClick={() => setPartnerFolderRole('admin')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: partnerFolderRole === 'admin' ? '1.5px solid #059669' : '1px solid #cbd5e1',
+                        background: partnerFolderRole === 'admin' ? '#ecfdf5' : '#ffffff',
+                        color: partnerFolderRole === 'admin' ? '#047857' : '#64748b',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚡ מנהל תיקייה (העלאה ועריכה)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPartnerFolderRole('viewer')}
+                      style={{
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        border: partnerFolderRole === 'viewer' ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                        background: partnerFolderRole === 'viewer' ? '#eff6ff' : '#ffffff',
+                        color: partnerFolderRole === 'viewer' ? '#1d4ed8' : '#64748b',
+                        fontWeight: 800,
+                        fontSize: '0.78rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      👁️ צפייה בלבד
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {inviteType === 'group' ? (
           /* Group Invite Layout */
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '0.5rem 0' }}>
@@ -560,7 +740,7 @@ export function PartnersInviteModal({
           </div>
         ) : (
           <>
-        {isFinancial && !isSharedOnly && (<>
+        {isFinancial && !isSharedOnly && scopeType !== 'folder' && (<>
 
         {space.features?.includes("finance") && (<>
         {/* Step 2: קוביה מעוצבת חלוקת אחוזים ותצוגה מקדימה */}
@@ -812,13 +992,13 @@ export function PartnersInviteModal({
           display: 'flex', 
           flexDirection: 'column', 
           gap: '1rem', 
-          opacity: isBalanced ? 1 : 0.5, 
-          pointerEvents: isBalanced ? 'auto' : 'none',
+          opacity: (scopeType === 'folder' || isBalanced) ? 1 : 0.5, 
+          pointerEvents: (scopeType === 'folder' || isBalanced) ? 'auto' : 'none',
           boxShadow: '0 2px 6px rgba(22, 163, 74, 0.05)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ background: '#16a34a', color: 'white', borderRadius: '8px', padding: '2px 8px', fontSize: '0.75rem', fontWeight: 800 }}>
-              {isSharedOnly ? 'שלב 2' : (isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4' : 'שלב 3') : 'שלב 2')}
+              {scopeType === 'folder' ? 'שלב 2' : (isSharedOnly ? 'שלב 2' : (isFinancial ? (space.features?.includes("finance") && space.invoices && space.invoices.length > 0 ? 'שלב 4' : 'שלב 3') : 'שלב 2'))}
             </span>
             <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#14532d' }}>פרטי המוזמן ושליחה מהירה</span>
           </div>

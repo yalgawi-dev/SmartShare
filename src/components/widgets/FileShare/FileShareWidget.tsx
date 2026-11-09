@@ -15,6 +15,7 @@ import BatchActionToolbar, { BatchToolbarAction } from '@/components/common/Batc
 import GlobalMoveModal from '@/components/common/GlobalMoveModal';
 import GlobalRecycleBinModal, { TrashItem } from '@/components/common/GlobalRecycleBinModal';
 import ConfirmModal from '@/components/common/ConfirmModal';
+import { PartnersInviteModal } from '@/components/widgets/Partners/PartnersInviteModal';
 
 interface FileShareWidgetProps {
   space: any;
@@ -72,6 +73,8 @@ export function FileShareWidget({
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [moveModalState, setMoveModalState] = useState<{ itemIds: string[]; currentFolderId: string | null } | null>(null);
   const [batchDeleteConfirm, setBatchDeleteConfirm] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteModalScopeFolder, setInviteModalScopeFolder] = useState<FileShareItem | null>(null);
   const [showRecycleBin, setShowRecycleBin] = useState(false);
 
   // View Mode: grid_medium (125px) / grid_large (175px) / list (Table)
@@ -750,6 +753,34 @@ export function FileShareWidget({
           <span style={{ fontSize: '0.74rem', background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-light)', padding: '3px 9px', borderRadius: '10px', color: 'var(--text-secondary)', fontWeight: 700 }}>
             {folders.length} תיקיות • {files.length} קבצים
           </span>
+          {isCreator && (
+            <button
+              type="button"
+              onClick={() => {
+                setInviteModalScopeFolder(currentFolderItem);
+                setShowInviteModal(true);
+              }}
+              style={{
+                background: 'rgba(99, 102, 241, 0.08)',
+                color: 'var(--primary, #4f46e5)',
+                border: '1px solid rgba(99, 102, 241, 0.25)',
+                padding: '4px 10px',
+                borderRadius: '10px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.3rem',
+                whiteSpace: 'nowrap'
+              }}
+              title="הזמן שותף למרחב או לתיקייה הנוכחית באמצעות תוסף השותפים"
+            >
+              <span>👥</span>
+              <span>הזמן שותף</span>
+            </button>
+          )}
+
           {visibleItems.length > 0 && !isMultiSelect && (
             <button
               type="button"
@@ -1475,6 +1506,38 @@ export function FileShareWidget({
                   </div>
                 </div>
               )}
+
+              {/* Quick Invite New Partner via System Module */}
+              <div style={{ marginTop: '0.4rem', borderTop: '1px dashed var(--border-light)', paddingTop: '0.6rem' }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentItem = privacyItem;
+                    setPrivacyItem(null);
+                    setInviteModalScopeFolder(currentItem);
+                    setShowInviteModal(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem',
+                    borderRadius: '12px',
+                    border: '1.5px dashed var(--primary)',
+                    background: 'rgba(99, 102, 241, 0.05)',
+                    color: 'var(--primary)',
+                    fontWeight: 800,
+                    fontSize: '0.82rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.45rem',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  <span>👥➕</span>
+                  <span>הזמן שותף חדש {privacyItem?.type === 'folder' ? 'לתיקייה זו' : 'למרחב'} (תוסף שותפים)</span>
+                </button>
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '0.6rem', marginTop: '0.5rem' }}>
@@ -1673,6 +1736,18 @@ export function FileShareWidget({
           }}
         />
       )}
+      {/* 11. PARTNERS INVITE MODAL (Reusing Global System Partner Module) */}
+      {showInviteModal && (
+        <PartnersInviteModal
+          space={space}
+          initialScopeFolder={inviteModalScopeFolder}
+          onClose={() => {
+            setShowInviteModal(false);
+            setInviteModalScopeFolder(null);
+          }}
+        />
+      )}
+
       {/* FLOATING ACTION FEEDBACK TOAST */}
       {saveFeedbackToast && (
         <div style={{
