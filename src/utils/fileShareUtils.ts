@@ -15,6 +15,9 @@ export interface RecipientShareLink {
   totalDurationSeconds?: number;
   lastViewedAt: number | null;
   submissionFolderId?: string; // ID of personal folder created in space for this recipient
+  internalNote?: string; // 🔒 הערה פנימית פרטית (רק לעיני המנהלים - לא גלוי לנמען!)
+  publicMessage?: string; // ✉️ הודעה גלויה לנמען (מוצגת בדף השיתוף)
+  chatChannelId?: string; // מזהה שיחה ייעודי עם האורח
 }
 
 export interface ShareLinkConfig {
@@ -105,6 +108,8 @@ export interface PublicSharedData {
   recipientId?: string;
   recipientRole?: RecipientRole;
   recipientPhone?: string;
+  publicMessage?: string; // ✉️ הודעה אישית גלויה לנמען
+  chatChannelId?: string; // 💬 מזהה שיחה ישירה עם מנהל המרחב
   url?: string;
   thumbnailUrl?: string;
   pages?: string[];
@@ -245,6 +250,8 @@ export async function createOrUpdatePublicShare(
             recipientName: r.recipientName,
             recipientRole: r.role || 'general',
             recipientPhone: r.phone || '',
+            publicMessage: r.publicMessage || undefined,
+            chatChannelId: r.chatChannelId || (`guest_${r.token}`),
             viewCount: r.viewCount || 0,
             lastViewedAt: r.lastViewedAt || null,
             totalDurationSeconds: r.totalDurationSeconds || 0,

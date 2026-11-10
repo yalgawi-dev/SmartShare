@@ -73,10 +73,27 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   // Title + mode
   let title = 'צ\'אט';
   let isGroup = false;
+  const isGuestChannel = activeTarget?.startsWith('guest_');
+
+  // Look up guest name from file share recipients if target is guest_
+  let guestRecipientName = '';
+  if (isGuestChannel) {
+    const guestToken = activeTarget.replace('guest_', '');
+    const items = space.fileShareItems || [];
+    for (const it of items) {
+      const foundRec = (it.shareLink?.recipients || []).find((r: any) => r.token === guestToken || r.chatChannelId === activeTarget);
+      if (foundRec) {
+        guestRecipientName = foundRec.recipientName;
+        break;
+      }
+    }
+  }
 
   if (activeTarget === 'group') {
     title = 'צ\'אט קבוצתי';
     isGroup = true;
+  } else if (isGuestChannel) {
+    title = guestRecipientName ? `💬 שיחה עם ${guestRecipientName} (אורח בתיקייה)` : '💬 שיחה עם אורח (קישור שיתוף)';
   } else {
     const m = space.members?.find((x: any) => x.userId === activeTarget);
     title = m ? `שיחה עם ${m.name}` : `שיחה עם ${space.createdBy || 'מנהל המרחב'}`;
@@ -86,11 +103,13 @@ export default function ChatDrawer({ spaceId }: ChatDrawerProps) {
   const targetMember = members.find((m: any) => m.userId === targetUserId);
   const hasActivePartners = members.some((m: any) => m.isActive !== false && m.status === 'active' && m.userId !== space.creatorId);
 
-  const isFrozen = !((space.features || []).includes('partners')) || 
+  const isFrozen = isGuestChannel ? false : (!((space.features || []).includes('partners')) || 
     (isGroup && !hasActivePartners) || 
-    (!isGroup && targetMember?.isActive === false);
+    (!isGroup && targetMember?.isActive === false));
 
-  const frozenReason = !(space.features || []).includes('partners')
+  const frozenReason = isGuestChannel
+    ? undefined
+    : !(space.features || []).includes('partners')
     ? 'הצ\'אט מוקפא. רכיב השותפים כבוי ולא ניתן להמשיך לשוחח.'
     : (isGroup && !hasActivePartners)
       ? 'אין שותפים פעילים במרחב זה. לא ניתן לשלוח הודעות קבוצתיות.'

@@ -32,15 +32,23 @@ export async function POST(request: Request) {
             tokenMap.set(token, { userId: userDoc.id, token });
             allMessages.push({
               token,
-              notification: { title, body },
+              notification: { 
+                title, 
+                body,
+                imageUrl: data?.icon || '/myspace_logo.png'
+              },
               data: data || {},
               webpush: {
                 fcmOptions: {
                   link: (data && data.url) ? data.url : '/'
                 },
-                // renotify:true is REQUIRED with tag: without it the browser replaces the
-                // existing notification of the same conversation SILENTLY (no banner/sound).
-                ...(data?.tag ? { notification: { title, body, tag: data.tag, renotify: true, icon: '/icon-192x192.png' } } : {})
+                notification: {
+                  title,
+                  body,
+                  icon: '/myspace_logo.png',
+                  badge: '/myspace_logo.png',
+                  ...(data?.tag ? { tag: data.tag, renotify: true } : {})
+                }
               }
             });
           }

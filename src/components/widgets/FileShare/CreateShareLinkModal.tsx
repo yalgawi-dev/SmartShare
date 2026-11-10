@@ -5,6 +5,7 @@ import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
+import { useChat } from '@/app/context/ChatContext';
 import { getSharedContactsForUser } from '@/utils/partnerUtils';
 import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken, sanitizeFirestoreData } from '@/utils/fileShareUtils';
 import { RegisteredMemberPickerModal, SelectableMember } from './RegisteredMemberPickerModal';
@@ -34,6 +35,7 @@ export function CreateShareLinkModal({
 }: CreateShareLinkModalProps) {
   const { user } = useAuth();
   const { spaces } = useSpaces();
+  const { openChat } = useChat();
 
   const [isEnabled, setIsEnabled] = useState(false);
   const [requirePin, setRequirePin] = useState(false);
@@ -50,6 +52,9 @@ export function CreateShareLinkModal({
   const [newRecipientName, setNewRecipientName] = useState('');
   const [newRecipientRole, setNewRecipientRole] = useState<RecipientRole>('client');
   const [newRecipientPhone, setNewRecipientPhone] = useState('');
+  const [newRecipientInternalNote, setNewRecipientInternalNote] = useState('');
+  const [newRecipientPublicMessage, setNewRecipientPublicMessage] = useState('');
+  const [showNoteFields, setShowNoteFields] = useState(false);
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
   const [supportsContactPicker, setSupportsContactPicker] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
@@ -289,13 +294,19 @@ export function CreateShareLinkModal({
       createdAt: Date.now(),
       viewCount: 0,
       totalDurationSeconds: 0,
-      lastViewedAt: null
+      lastViewedAt: null,
+      internalNote: newRecipientInternalNote.trim() || undefined,
+      publicMessage: newRecipientPublicMessage.trim() || undefined,
+      chatChannelId: `guest_${recipientToken}`
     };
 
     const nextRecipients = [...recipients, newRecipient];
     setRecipients(nextRecipients);
     setNewRecipientName('');
     setNewRecipientPhone('');
+    setNewRecipientInternalNote('');
+    setNewRecipientPublicMessage('');
+    setShowNoteFields(false);
     if (token) {
       await ensurePersisted(token, nextRecipients);
     }
@@ -547,7 +558,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.47
+                  v3.5.48
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -1082,6 +1093,88 @@ ${slogan}${phoneText}${portfolioText}`);
                     }}
                   />
                 </div>
+
+                {/* Collapsible Private Note & Public Message */}
+                <div style={{ width: '100%', boxSizing: 'border-box' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowNoteFields(prev => !prev)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#4f46e5',
+                      fontSize: '0.76rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      padding: '2px 4px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.3rem'
+                    }}
+                  >
+                    <span>{showNoteFields ? '▲ סגור' : '▼ הוסף'}</span>
+                    <span>📝 סיכום שיחה / הערה פנימית לעצמך + הודעה אישית לנמען</span>
+                  </button>
+
+                  {showNoteFields && (
+                    <div style={{
+                      marginTop: '0.4rem',
+                      padding: '0.55rem',
+                      background: '#f8fafc',
+                      border: '1px dashed #cbd5e1',
+                      borderRadius: '10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.45rem'
+                    }}>
+                      {/* Internal Note (Sender Only) */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#92400e', marginBottom: '2px' }}>
+                          🔒 הערה פנימית פרטית (רק לעיניך - לא גלוי לנמען!):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="למשל: סוכם בשיחה שישלח תוכניות מעודכנות עד יום שלישי..."
+                          value={newRecipientInternalNote}
+                          onChange={e => setNewRecipientInternalNote(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '8px',
+                            border: '1px solid #fed7aa',
+                            background: '#fffbeb',
+                            fontSize: '0.78rem',
+                            color: '#1e293b'
+                          }}
+                        />
+                      </div>
+
+                      {/* Public Message (Shown on share page) */}
+                      <div>
+                        <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#1e40af', marginBottom: '2px' }}>
+                          ✉️ הודעה אישית לנמען (אופציונלי - תוצג לו בדף השיתוף):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="למשל: שלום יוסי, מצורפים הקבצים שדיברנו עליהם..."
+                          value={newRecipientPublicMessage}
+                          onChange={e => setNewRecipientPublicMessage(e.target.value)}
+                          style={{
+                            width: '100%',
+                            boxSizing: 'border-box',
+                            padding: '0.45rem 0.65rem',
+                            borderRadius: '8px',
+                            border: '1px solid #bfdbfe',
+                            background: '#ffffff',
+                            fontSize: '0.78rem',
+                            color: '#1e293b'
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Recipients list */}
@@ -1141,10 +1234,48 @@ ${slogan}${phoneText}${portfolioText}`);
                               <span>• נצפה לאחרונה ב-{new Date(r.lastViewedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
                             )}
                           </div>
+                          {r.internalNote && (
+                            <div style={{ marginTop: '3px', fontSize: '0.69rem', background: '#fffbeb', color: '#92400e', border: '1px solid #fed7aa', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <span>🔒</span>
+                              <span style={{ fontWeight: 600 }}>סיכום/הערה:</span> {r.internalNote}
+                            </div>
+                          )}
+                          {r.publicMessage && (
+                            <div style={{ marginTop: '2px', fontSize: '0.69rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              <span>✉️</span>
+                              <span style={{ fontWeight: 600 }}>הודעה שנשלחה:</span> {r.publicMessage}
+                            </div>
+                          )}
                         </div>
 
                         {/* Actions for this recipient */}
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                          {/* Direct 2-Way Chat Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onClose();
+                              openChat(r.chatChannelId || `guest_${r.token}`);
+                            }}
+                            style={{
+                              background: '#eff6ff',
+                              color: '#4f46e5',
+                              border: '1px solid #c7d2fe',
+                              borderRadius: '6px',
+                              padding: '3px 7px',
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '2px'
+                            }}
+                            title={`פתח צ'אט ישיר עם ${r.recipientName}`}
+                          >
+                            <span>💬</span>
+                            <span>צ'אט</span>
+                          </button>
+
                           {r.enabled && (
                             <>
                               <button
@@ -1162,7 +1293,7 @@ ${slogan}${phoneText}${portfolioText}`);
                                 }}
                                 title="שלח בוואטסאפ לנמען זה"
                               >
-                                💬
+                                <span>📱</span>
                               </button>
                               <button
                                 type="button"

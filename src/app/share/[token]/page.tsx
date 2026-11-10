@@ -9,6 +9,8 @@ import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExp
 import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import { SenderBusinessCardBanner } from '@/components/share/SenderBusinessCardBanner';
+import ChatEngineUI from '@/components/widgets/Chat/ChatEngineUI';
+import { onSnapshot } from 'firebase/firestore';
 
 interface SharePageProps {
   params: Promise<{ token: string }>;
@@ -40,6 +42,10 @@ export default function PublicSharePage({ params }: SharePageProps) {
   const [submissionNote, setSubmissionNote] = useState('');
   const [submissionPhone, setSubmissionPhone] = useState('');
   const [uploadedFilesList, setUploadedFilesList] = useState<string[]>([]);
+
+  // Guest Direct Chat state & Live Space Subscription
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [liveSpace, setLiveSpace] = useState<any>(null);
 
   useEffect(() => {
     if (isUnlocked && token) {
@@ -117,6 +123,19 @@ export default function PublicSharePage({ params }: SharePageProps) {
 
     loadData();
   }, [token]);
+
+  // Subscribe to live space updates for two-way chat
+  useEffect(() => {
+    if (!shareData?.spaceId) return;
+    const unsub = onSnapshot(doc(db, 'spaces', shareData.spaceId), snap => {
+      if (snap.exists()) {
+        setLiveSpace({ id: snap.id, ...snap.data() });
+      }
+    }, err => {
+      console.warn('Live space listener error:', err);
+    });
+    return () => unsub();
+  }, [shareData?.spaceId]);
 
   const handleUnlockPin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -484,6 +503,31 @@ export default function PublicSharePage({ params }: SharePageProps) {
           
           {/* Sender Hero Digital Business Card & Portfolio */}
           <SenderBusinessCardBanner shareData={shareData} />
+
+          {/* Personal Message from Space Owner if provided */}
+          {shareData.publicMessage && (
+            <div style={{
+              margin: '0.85rem 0',
+              padding: '0.9rem 1.1rem',
+              borderRadius: '16px',
+              background: '#ffffff',
+              border: '1.5px solid #bfdbfe',
+              boxShadow: '0 2px 8px rgba(30, 64, 175, 0.06)',
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '0.75rem'
+            }}>
+              <span style={{ fontSize: '1.4rem', flexShrink: 0 }}>✉️</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#1e40af', marginBottom: '2px' }}>
+                  הודעה אישית מבעל המרחב:
+                </div>
+                <div style={{ fontSize: '0.88rem', color: '#0f172a', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
+                  {shareData.publicMessage}
+                </div>
+              </div>
+            </div>
+          )}
 
           {isFolder ? (
             /* FOLDER VIEW: LIST OF CONTAINED FILES */
@@ -895,6 +939,115 @@ export default function PublicSharePage({ params }: SharePageProps) {
             </div>
           </div>
         </main>
+
+        {/* Floating 2-Way Chat Button (Direct Guest ↔ Owner Chat) */}
+        {shareData.spaceId && (
+          <div style={{
+            position: 'fixed',
+            bottom: '20px',
+            right: '20px',
+            zIndex: 99990
+          }}>
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(prev => !prev)}
+              style={{
+                background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '30px',
+                padding: '0.75rem 1.25rem',
+                fontSize: '0.9rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                boxShadow: '0 4px 16px rgba(37, 99, 235, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                transition: 'transform 0.15s ease'
+              }}
+            >
+              <span style={{ fontSize: '1.2rem' }}>💬</span>
+              <span>שאל את בעל המרחב</span>
+            </button>
+          </div>
+        )}
+
+        {/* Guest Chat Drawer / Modal using ChatEngineUI */}
+        {isChatOpen && liveSpace && (
+          <div style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            zIndex: 99999,
+            display: 'flex',
+            justifyContent: 'flex-end',
+            direction: 'rtl'
+          }}>
+            <div style={{
+              width: '100%',
+              maxWidth: '480px',
+              height: '100%',
+              background: '#ffffff',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: '-4px 0 20px rgba(0,0,0,0.2)'
+            }}>
+              {/* Header */}
+              <div style={{
+                background: '#1e293b',
+                color: '#ffffff',
+                padding: '0.85rem 1rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexShrink: 0
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ fontSize: '1.3rem' }}>💬</span>
+                  <div>
+                    <h3 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>
+                      שיחה עם {liveSpace.createdBy || 'מנהל המרחב'}
+                    </h3>
+                    <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                      הודעות ישירות ופרטיות (גלויות לך ולמנהלי המרחב בלבד)
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsChatOpen(false)}
+                  style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    border: 'none',
+                    color: '#ffffff',
+                    width: '30px',
+                    height: '30px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    fontSize: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Chat Engine Body */}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <ChatEngineUI
+                  space={liveSpace}
+                  conversationId={shareData.chatChannelId || `guest_${token}`}
+                  viewMode="peer"
+                  isGroup={false}
+                  isFrozen={false}
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Universal Viewer Modal */}
         {previewState && (
