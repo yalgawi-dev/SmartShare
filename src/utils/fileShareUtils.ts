@@ -108,6 +108,7 @@ export interface PublicSharedData {
   recipientId?: string;
   recipientRole?: RecipientRole;
   recipientPhone?: string;
+  internalNote?: string;   // 🔒 הערה פנימית פרטית (רק לעיני המנהלים)
   publicMessage?: string; // ✉️ הודעה אישית גלויה לנמען
   chatChannelId?: string; // 💬 מזהה שיחה ישירה עם מנהל המרחב
   url?: string;
@@ -129,6 +130,7 @@ export interface PublicSharedData {
     id: string;
     name: string;
     url: string;
+    thumbnailUrl?: string;
     pages?: string[];
     fileType?: string;
     size?: number;
@@ -226,6 +228,7 @@ export async function createOrUpdatePublicShare(
       id: f.id,
       name: f.name,
       url: f.url || '',
+      thumbnailUrl: f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (f.url && !f.url.toLowerCase().includes('.pdf') ? f.url : undefined)),
       pages: f.pages || [],
       fileType: f.fileType || 'other',
       size: f.size || 0
@@ -243,6 +246,27 @@ export async function createOrUpdatePublicShare(
           // If disabled/blocked, delete from shared_links
           await deleteDoc(rDocRef);
         } else {
+          // Preserve existing live metrics from existing document if already present
+          let currentViewCount = r.viewCount || 0;
+          let currentDuration = r.totalDurationSeconds || 0;
+          let currentLastViewed = r.lastViewedAt || null;
+
+          try {
+            const existingRSnap = await getDoc(rDocRef);
+            if (existingRSnap.exists()) {
+              const existingData = existingRSnap.data();
+              if (typeof existingData.viewCount === 'number' && existingData.viewCount > currentViewCount) {
+                currentViewCount = existingData.viewCount;
+              }
+              if (typeof existingData.totalDurationSeconds === 'number' && existingData.totalDurationSeconds > currentDuration) {
+                currentDuration = existingData.totalDurationSeconds;
+              }
+              if (existingData.lastViewedAt) {
+                currentLastViewed = existingData.lastViewedAt;
+              }
+            }
+          } catch (_) {}
+
           const rPayload: PublicSharedData = {
             ...payload,
             token: r.token,
@@ -250,11 +274,12 @@ export async function createOrUpdatePublicShare(
             recipientName: r.recipientName,
             recipientRole: r.role || 'general',
             recipientPhone: r.phone || '',
+            internalNote: r.internalNote || undefined,
             publicMessage: r.publicMessage || undefined,
             chatChannelId: r.chatChannelId || (`guest_${r.token}`),
-            viewCount: r.viewCount || 0,
-            lastViewedAt: r.lastViewedAt || null,
-            totalDurationSeconds: r.totalDurationSeconds || 0,
+            viewCount: currentViewCount,
+            lastViewedAt: currentLastViewed,
+            totalDurationSeconds: currentDuration,
             createdAt: r.createdAt || now
           };
           await setDoc(rDocRef, sanitizeFirestoreData(rPayload), { merge: true });

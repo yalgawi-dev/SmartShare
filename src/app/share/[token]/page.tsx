@@ -189,14 +189,19 @@ export default function PublicSharePage({ params }: SharePageProps) {
     }
   };
 
-  const openViewerForFile = (fileItem: { id: string; url: string; name: string; pages?: string[]; fileType?: string }, allContainedFiles?: any[]) => {
-    const docs = (allContainedFiles && allContainedFiles.length > 0 ? allContainedFiles : [fileItem]).map(f => ({
-      id: f.id,
-      url: f.url,
-      title: f.name,
-      type: f.fileType || 'other',
-      pages: f.pages || (f.url ? [f.url] : [])
-    }));
+  const openViewerForFile = (fileItem: { id: string; url: string; name: string; thumbnailUrl?: string; pages?: string[]; fileType?: string }, allContainedFiles?: any[]) => {
+    const docs = (allContainedFiles && allContainedFiles.length > 0 ? allContainedFiles : [fileItem]).map(f => {
+      const isPdf = f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
+      const safeThumb = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (!isPdf && f.url ? f.url : undefined));
+      return {
+        id: f.id,
+        url: f.url,
+        title: f.name,
+        type: f.fileType || (isPdf ? 'pdf' : 'other'),
+        thumbnailUrl: safeThumb,
+        pages: f.pages || (safeThumb ? [safeThumb] : (f.url ? [f.url] : []))
+      };
+    });
     const idx = docs.findIndex(d => d.id === fileItem.id);
     setPreviewState({ docs, index: idx >= 0 ? idx : 0 });
   };
@@ -555,76 +560,118 @@ export default function PublicSharePage({ params }: SharePageProps) {
                 </span>
               </div>
 
-              {(shareData.folderFiles || []).map(f => (
-                <div
-                  key={f.id}
-                  style={{
-                    background: '#ffffff',
-                    borderRadius: '16px',
-                    border: '1px solid #e2e8f0',
-                    padding: '0.85rem 1rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '0.75rem',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => openViewerForFile(f, shareData.folderFiles)}
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-                    <span style={{ fontSize: '1.4rem' }}>
-                      {f.fileType === 'pdf' ? '📕' : f.fileType === 'image' ? '🖼️' : '📄'}
-                    </span>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
-                        {f.name}
-                      </h4>
-                      <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                        {f.size ? formatFileSize(f.size) : 'קובץ'}
-                      </span>
-                    </div>
-                  </div>
+              {(shareData.folderFiles || []).map(f => {
+                const isPdf = f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
+                const isImg = f.fileType === 'image' || f.url?.match(/\.(jpg|jpeg|png|webp|gif)/i);
+                const thumb = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (isImg ? f.url : undefined));
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={e => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => openViewerForFile(f, shareData.folderFiles)}
-                      style={{
-                        background: '#eff6ff',
-                        color: '#2563eb',
-                        border: '1px solid #bfdbfe',
-                        padding: '0.35rem 0.75rem',
-                        borderRadius: '10px',
-                        fontSize: '0.8rem',
-                        fontWeight: 700,
-                        cursor: 'pointer'
-                      }}
-                    >
-                      צפה
-                    </button>
-                    {shareData.allowDownload && (
+                return (
+                  <div
+                    key={f.id}
+                    style={{
+                      background: '#ffffff',
+                      borderRadius: '16px',
+                      border: '1px solid #e2e8f0',
+                      padding: '0.85rem 1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => openViewerForFile(f, shareData.folderFiles)}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      {thumb ? (
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '8px',
+                          overflow: 'hidden',
+                          background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                          flexShrink: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}>
+                          <img
+                            src={thumb}
+                            alt={f.name}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            onError={(e) => {
+                              // If broken image thumbnail, fallback to file icon
+                              (e.target as HTMLElement).style.display = 'none';
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div style={{
+                          width: '42px',
+                          height: '42px',
+                          borderRadius: '8px',
+                          background: isPdf ? '#fef2f2' : (isImg ? '#eff6ff' : '#f8fafc'),
+                          border: isPdf ? '1px solid #fee2e2' : '1px solid #e2e8f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.4rem',
+                          flexShrink: 0
+                        }}>
+                          {isPdf ? '📕' : isImg ? '🖼️' : '📄'}
+                        </div>
+                      )}
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
+                          {f.name}
+                        </h4>
+                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          {f.size ? formatFileSize(f.size) : (isPdf ? 'מסמך PDF' : 'קובץ')}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={e => e.stopPropagation()}>
                       <button
                         type="button"
-                        onClick={() => handleDownload(f.url, f.name)}
+                        onClick={() => openViewerForFile(f, shareData.folderFiles)}
                         style={{
-                          background: '#f1f5f9',
-                          color: '#475569',
-                          border: 'none',
-                          padding: '0.35rem 0.65rem',
+                          background: '#eff6ff',
+                          color: '#2563eb',
+                          border: '1px solid #bfdbfe',
+                          padding: '0.4rem 0.85rem',
                           borderRadius: '10px',
                           fontSize: '0.8rem',
                           fontWeight: 700,
                           cursor: 'pointer'
                         }}
-                        title="הורד קובץ"
                       >
-                        📥
+                        צפה
                       </button>
-                    )}
+                      {shareData.allowDownload && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownload(f.url, f.name)}
+                          style={{
+                            background: '#f1f5f9',
+                            color: '#475569',
+                            border: 'none',
+                            padding: '0.4rem 0.65rem',
+                            borderRadius: '10px',
+                            fontSize: '0.8rem',
+                            fontWeight: 700,
+                            cursor: 'pointer'
+                          }}
+                          title="הורד קובץ"
+                        >
+                          📥
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
 
               {(!shareData.folderFiles || shareData.folderFiles.length === 0) && (
                 <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b', background: '#ffffff', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>

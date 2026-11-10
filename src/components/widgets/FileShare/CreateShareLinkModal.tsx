@@ -59,6 +59,9 @@ export function CreateShareLinkModal({
   const [supportsContactPicker, setSupportsContactPicker] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
   const [isMemberPickerOpen, setIsMemberPickerOpen] = useState(false);
+  const [editingRecipientId, setEditingRecipientId] = useState<string | null>(null);
+  const [editInternalNote, setEditInternalNote] = useState('');
+  const [editPublicMessage, setEditPublicMessage] = useState('');
 
   // Compute registered members list from space and shared contacts
   const registeredMembers: SelectableMember[] = useMemo(() => {
@@ -362,6 +365,30 @@ export function CreateShareLinkModal({
     }
   };
 
+  const handleSaveRecipientNotes = async (recId: string) => {
+    const nextRecipients = recipients.map(r => {
+      if (r.id === recId) {
+        return {
+          ...r,
+          internalNote: editInternalNote.trim() || undefined,
+          publicMessage: editPublicMessage.trim() || undefined
+        };
+      }
+      return r;
+    });
+    setRecipients(nextRecipients);
+    setEditingRecipientId(null);
+    if (token) {
+      await ensurePersisted(token, nextRecipients);
+    }
+  };
+
+  const handleStartEditRecipient = (r: RecipientShareLink) => {
+    setEditingRecipientId(r.id);
+    setEditInternalNote(r.internalNote || '');
+    setEditPublicMessage(r.publicMessage || '');
+  };
+
   const handlePickFromContacts = async () => {
     try {
       if ('contacts' in navigator && 'ContactsManager' in window) {
@@ -583,7 +610,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.53
+                  v3.5.54
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -1125,20 +1152,29 @@ ${slogan}${phoneText}${portfolioText}`);
                     type="button"
                     onClick={() => setShowNoteFields(prev => !prev)}
                     style={{
-                      background: 'none',
-                      border: 'none',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '8px',
                       color: '#4f46e5',
-                      fontSize: '0.76rem',
+                      fontSize: '0.78rem',
                       fontWeight: 700,
                       cursor: 'pointer',
-                      padding: '2px 4px',
-                      display: 'inline-flex',
+                      padding: '6px 10px',
+                      width: '100%',
+                      display: 'flex',
                       alignItems: 'center',
-                      gap: '0.3rem'
+                      justifyContent: 'space-between',
+                      boxSizing: 'border-box'
                     }}
                   >
-                    <span>{showNoteFields ? '▲ סגור' : '▼ הוסף'}</span>
-                    <span>📝 סיכום שיחה / הערה פנימית לעצמך + הודעה אישית לנמען</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 20h9"></path>
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                      </svg>
+                      <span>הוסף הערה פנימית לעצמך / הודעה לנמען</span>
+                    </span>
+                    <span style={{ fontSize: '0.74rem', color: '#64748b' }}>{showNoteFields ? '▲ סגור' : '▼ פתח'}</span>
                   </button>
 
                   {showNoteFields && (
@@ -1287,25 +1323,36 @@ ${slogan}${phoneText}${portfolioText}`);
                           {/* Stats Badge Row: Views & Time clearly highlighted */}
                           <div style={{
                             display: 'flex',
-                            gap: '0.4rem',
-                            marginTop: '0.35rem',
+                            gap: '0.6rem',
+                            marginTop: '0.45rem',
                             flexWrap: 'wrap',
                             background: '#f8fafc',
-                            padding: '4px 8px',
-                            borderRadius: '8px',
-                            border: '1px solid #f1f5f9'
+                            padding: '6px 10px',
+                            borderRadius: '10px',
+                            border: '1px solid #e2e8f0',
+                            alignItems: 'center'
                           }}>
-                            <span style={{ fontWeight: 700, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                              👁️ <b style={{ color: '#4f46e5' }}>{r.viewCount || 0}</b> צפיות
+                            <span style={{ fontWeight: 800, color: '#1e293b', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4f46e5" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                                <circle cx="12" cy="12" r="3"></circle>
+                              </svg>
+                              <span>צפיות:</span>
+                              <b style={{ color: '#4f46e5', fontSize: '0.86rem' }}>{r.viewCount || 0}</b>
                             </span>
-                            <span style={{ color: '#cbd5e1' }}>•</span>
-                            <span style={{ fontWeight: 700, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-                              ⏱️ שהה: <b style={{ color: '#059669' }}>{durationText}</b>
+                            <span style={{ color: '#cbd5e1' }}>|</span>
+                            <span style={{ fontWeight: 800, color: '#1e293b', display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#059669" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polyline points="12 6 12 12 16 14"></polyline>
+                              </svg>
+                              <span>זמן שהייה:</span>
+                              <b style={{ color: '#059669', fontSize: '0.86rem' }}>{durationText}</b>
                             </span>
                             {r.lastViewedAt && (
                               <>
-                                <span style={{ color: '#cbd5e1' }}>•</span>
-                                <span style={{ color: '#64748b' }}>
+                                <span style={{ color: '#cbd5e1' }}>|</span>
+                                <span style={{ color: '#64748b', fontSize: '0.74rem' }}>
                                   נצפה: {new Date(r.lastViewedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
                                 </span>
                               </>
@@ -1313,21 +1360,172 @@ ${slogan}${phoneText}${portfolioText}`);
                           </div>
 
                           {/* Internal Note (Private to Creator) */}
-                          {r.internalNote && (
-                            <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', background: '#fffbeb', color: '#92400e', border: '1px solid #fed7aa', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span>🔒</span>
-                              <span style={{ fontWeight: 800 }}>הערה פנימית (לעצמך):</span>
-                              <span>{r.internalNote}</span>
+                          {editingRecipientId === r.id ? (
+                            <div style={{
+                              marginTop: '0.45rem',
+                              padding: '0.55rem',
+                              background: '#fffbeb',
+                              border: '1.5px solid #fde68a',
+                              borderRadius: '10px',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '0.4rem'
+                            }}>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#92400e', marginBottom: '2px' }}>
+                                  🔒 הערה פנימית פרטית (רק לעיניך):
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editInternalNote}
+                                  onChange={e => setEditInternalNote(e.target.value)}
+                                  placeholder="הערה פרטית לעצמך..."
+                                  style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    padding: '0.4rem 0.6rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #fcd34d',
+                                    background: '#ffffff',
+                                    fontSize: '0.78rem',
+                                    color: '#1e293b'
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 800, color: '#1e40af', marginBottom: '2px' }}>
+                                  ✉️ הודעה אישית לנמען (מוצגת לו בדף):
+                                </label>
+                                <input
+                                  type="text"
+                                  value={editPublicMessage}
+                                  onChange={e => setEditPublicMessage(e.target.value)}
+                                  placeholder="הודעה שתופיע לנמען בקישור..."
+                                  style={{
+                                    width: '100%',
+                                    boxSizing: 'border-box',
+                                    padding: '0.4rem 0.6rem',
+                                    borderRadius: '6px',
+                                    border: '1px solid #bfdbfe',
+                                    background: '#ffffff',
+                                    fontSize: '0.78rem',
+                                    color: '#1e293b'
+                                  }}
+                                />
+                              </div>
+                              <div style={{ display: 'flex', gap: '0.35rem', justifyContent: 'flex-end', marginTop: '2px' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingRecipientId(null)}
+                                  style={{
+                                    background: '#f1f5f9',
+                                    border: '1px solid #cbd5e1',
+                                    color: '#475569',
+                                    padding: '3px 8px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ביטול
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveRecipientNotes(r.id)}
+                                  style={{
+                                    background: '#059669',
+                                    border: 'none',
+                                    color: '#ffffff',
+                                    padding: '3px 10px',
+                                    borderRadius: '6px',
+                                    fontSize: '0.72rem',
+                                    fontWeight: 800,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ✓ שמור עדכון
+                                </button>
+                              </div>
                             </div>
-                          )}
+                          ) : (
+                            <>
+                              {r.internalNote && (
+                                <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', background: '#fffbeb', color: '#92400e', border: '1px solid #fed7aa', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+                                    <span>🔒</span>
+                                    <span style={{ fontWeight: 800, flexShrink: 0 }}>הערה פנימית (לעצמך):</span>
+                                    <span style={{ wordBreak: 'break-word' }}>{r.internalNote}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditRecipient(r)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#b45309',
+                                      cursor: 'pointer',
+                                      fontSize: '0.7rem',
+                                      padding: '0 2px',
+                                      textDecoration: 'underline',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    ערוך
+                                  </button>
+                                </div>
+                              )}
 
-                          {/* Public Message (Sent to Recipient) */}
-                          {r.publicMessage && (
-                            <div style={{ marginTop: '0.25rem', fontSize: '0.72rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                              <span>✉️</span>
-                              <span style={{ fontWeight: 800 }}>הודעה לנמען:</span>
-                              <span>{r.publicMessage}</span>
-                            </div>
+                              {r.publicMessage && (
+                                <div style={{ marginTop: '0.25rem', fontSize: '0.72rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', minWidth: 0 }}>
+                                    <span>✉️</span>
+                                    <span style={{ fontWeight: 800, flexShrink: 0 }}>הודעה לנמען:</span>
+                                    <span style={{ wordBreak: 'break-word' }}>{r.publicMessage}</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditRecipient(r)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#1d4ed8',
+                                      cursor: 'pointer',
+                                      fontSize: '0.7rem',
+                                      padding: '0 2px',
+                                      textDecoration: 'underline',
+                                      flexShrink: 0
+                                    }}
+                                  >
+                                    ערוך
+                                  </button>
+                                </div>
+                              )}
+
+                              {!r.internalNote && !r.publicMessage && (
+                                <div style={{ marginTop: '0.25rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleStartEditRecipient(r)}
+                                    style={{
+                                      background: 'none',
+                                      border: 'none',
+                                      color: '#4f46e5',
+                                      cursor: 'pointer',
+                                      fontSize: '0.72rem',
+                                      padding: '0',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '3px',
+                                      fontWeight: 700
+                                    }}
+                                  >
+                                    <span>✏️</span>
+                                    <span>הוסף הערה פנימית / הודעה לנמען</span>
+                                  </button>
+                                </div>
+                              )}
+                            </>
                           )}
                         </div>
 
@@ -1355,7 +1553,9 @@ ${slogan}${phoneText}${portfolioText}`);
                             }}
                             title="שתף בוואטסאפ"
                           >
-                            <span>💬</span>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+                            </svg>
                             <span>וואטסאפ</span>
                           </button>
 
@@ -1381,7 +1581,10 @@ ${slogan}${phoneText}${portfolioText}`);
                             }}
                             title="העתק קישור אישי"
                           >
-                            <span>🔗</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                            </svg>
                             <span>{isCopied ? 'הועתק!' : 'העתק קישור'}</span>
                           </button>
 
@@ -1407,7 +1610,9 @@ ${slogan}${phoneText}${portfolioText}`);
                             }}
                             title={`פתח צ'אט ישיר עם ${r.recipientName}`}
                           >
-                            <span>💭</span>
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                            </svg>
                             <span>צ'אט</span>
                           </button>
 
