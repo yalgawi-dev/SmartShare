@@ -11,6 +11,7 @@ import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
 import { ImportExistingFileModal } from './ImportExistingFileModal';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
+import { canAccessItem } from '@/utils/permissionUtils';
 import VersionBadge from '@/components/common/VersionBadge';
 import BatchActionToolbar, { BatchToolbarAction } from '@/components/common/BatchActionToolbar';
 import GlobalMoveModal from '@/components/common/GlobalMoveModal';
@@ -34,7 +35,7 @@ export function FileShareWidget({
   onOpenScanner
 }: FileShareWidgetProps) {
   const { user } = useAuth();
-  const { updateFileShareItems } = useSpaces();
+  const { updateFileShareItems, getRoleForSpace, getTokenForSpace } = useSpaces();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
@@ -130,6 +131,11 @@ export function FileShareWidget({
   const isCreator = space.creatorId === user?.id || (user?.email && space.creatorEmail === user.email);
   const currentUserId = user?.id || '';
 
+  const rawRole = getRoleForSpace ? getRoleForSpace(space.id) : (isCreator ? 'creator' : 'partner');
+  const spaceRole: 'creator' | 'admin' | 'partner' = (rawRole === 'none' ? 'partner' : rawRole) || 'partner';
+  const partnerToken = getTokenForSpace ? getTokenForSpace(space.id) : null;
+  const isManaged = Boolean(space.settings?.isManagedMode);
+
   // Check if current user is folder admin or creator for current folder
   const currentFolderItem = useMemo(() => {
     if (!currentFolderId) return null;
@@ -141,11 +147,11 @@ export function FileShareWidget({
     if (!currentFolderItem) return true; // root level
     if (currentFolderItem.createdBy === currentUserId) return true;
     if (Array.isArray(currentFolderItem.folderPartners)) {
-      const p = currentFolderItem.folderPartners.find(fp => fp.partnerId === currentUserId);
+      const p = currentFolderItem.folderPartners.find(fp => fp.partnerId === currentUserId || (partnerToken && fp.partnerId === partnerToken));
       if (p && p.role === 'admin') return true;
     }
     return false;
-  }, [isCreator, currentFolderItem, currentUserId]);
+  }, [isCreator, currentFolderItem, currentUserId, partnerToken]);
 
   // Listen to floating dock events (Rule DRY / Single Source of Action)
   useEffect(() => {
@@ -217,18 +223,21 @@ export function FileShareWidget({
       if (item.parentId !== currentFolderId) return false;
 
       // 2. Permission check (Rule 20: default open to all members, unless restricted)
-      if (Array.isArray(item.allowedPartners) && item.allowedPartners.length > 0) {
-        if (item.allowedPartners.includes('__creator_vault_secret__')) {
-          if (!isCreator) return false;
-        } else if (item.allowedPartners.includes('__only_me__')) {
-          if (item.createdBy !== currentUserId && !isCreator) return false;
-        } else {
-          // Check if user is in allowedPartners OR in folderPartners
-          const hasFolderPartnerAccess = Array.isArray(item.folderPartners) && item.folderPartners.some(fp => fp.partnerId === currentUserId);
-          if (!isCreator && currentUserId && !item.allowedPartners.includes(currentUserId) && !hasFolderPartnerAccess && item.createdBy !== currentUserId) {
-            return false;
-          }
-        }
+      // Check folderPartners explicit mapping first
+      const hasFolderPartnerAccess = Array.isArray(item.folderPartners) && item.folderPartners.some(
+        fp => (currentUserId && fp.partnerId === currentUserId) || (partnerToken && fp.partnerId === partnerToken)
+      );
+
+      if (!canAccessItem({
+        spaceRole,
+        userId: currentUserId,
+        partnerToken,
+        creatorId: space.creatorId,
+        isManagedMode: isManaged,
+        ownerId: item.createdBy,
+        allowedPartners: item.allowedPartners
+      }) && !hasFolderPartnerAccess) {
+        return false;
       }
 
       // 3. Search query check
@@ -239,7 +248,7 @@ export function FileShareWidget({
 
       return true;
     });
-  }, [allItems, currentFolderId, isCreator, currentUserId, searchQuery]);
+  }, [allItems, currentFolderId, spaceRole, currentUserId, partnerToken, space.creatorId, isManaged, searchQuery]);
 
   // Split into folders and files
   const folders = useMemo(() => visibleItems.filter(i => i.type === 'folder'), [visibleItems]);
