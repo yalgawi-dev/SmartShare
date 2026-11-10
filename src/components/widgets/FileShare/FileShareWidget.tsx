@@ -5,7 +5,7 @@ import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
-import { compressImage } from '@/utils/imageOptimizer';
+import { compressImage, analyzePdfStructure, isTrueOriginalPdf, convertPdfToOptimizedImage, generatePdfFirstPageThumbnail } from '@/utils/imageOptimizer';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
@@ -386,8 +386,73 @@ export function FileShareWidget({
             allowedPartners: []
           };
           newUploadedItems.push(newItem);
+        } else if (fileType === 'pdf') {
+          // ADR Dual-Check: Analyze PDF structure to distinguish True Original from Wrapped Raster Scan
+          const arrayBuffer = await file.arrayBuffer();
+          const analysis = await analyzePdfStructure(arrayBuffer);
+          const isOriginal = isTrueOriginalPdf(analysis, file.size);
+
+          if (isOriginal) {
+            // 1. True Original PDF (Digital signature or lightweight vector): retain raw PDF blob
+            const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            const downloadUrl = await uploadBlobToStorage(file, storagePath);
+
+            // Generate lightweight WebP preview thumbnail for the first page
+            let previewThumbUrl: string | undefined = undefined;
+            try {
+              previewThumbUrl = await generatePdfFirstPageThumbnail(downloadUrl, 800, 0.75);
+            } catch (_) {}
+
+            const newItem: FileShareItem = {
+              id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              spaceId: space.id,
+              name: file.name,
+              type: 'file',
+              parentId: currentFolderId,
+              url: downloadUrl,
+              thumbnailUrl: previewThumbUrl,
+              fileType: 'pdf',
+              size: file.size,
+              createdAt: Date.now(),
+              createdBy: currentUserId,
+              creatorName: user?.realName || user?.nickname || 'שותף',
+              allowedPartners: []
+            };
+            newUploadedItems.push(newItem);
+          } else {
+            // 2. Wrapped Raster Scan (Heavy photos/scans wrapped as PDF without signatures):
+            // ADR rule: Compress to optimized WebP pages for massive 80%+ savings and instant 60fps viewing
+            const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+            const webpFileName = `${baseName}.webp`;
+
+            const blobUrl = URL.createObjectURL(file);
+            const webpDataUrl = await convertPdfToOptimizedImage(blobUrl, 1800, 0.85);
+            URL.revokeObjectURL(blobUrl);
+
+            const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${webpFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+            const downloadUrl = await uploadImageToStorage(webpDataUrl, storagePath);
+            const approxSize = Math.round((webpDataUrl.length * 3) / 4);
+
+            const newItem: FileShareItem = {
+              id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+              spaceId: space.id,
+              name: webpFileName,
+              type: 'file',
+              parentId: currentFolderId,
+              url: downloadUrl,
+              thumbnailUrl: downloadUrl,
+              pages: [downloadUrl],
+              fileType: 'image',
+              size: approxSize,
+              createdAt: Date.now(),
+              createdBy: currentUserId,
+              creatorName: user?.realName || user?.nickname || 'שותף',
+              allowedPartners: []
+            };
+            newUploadedItems.push(newItem);
+          }
         } else {
-          // PDF, sheets, docs: preserve exact original binary fidelity
+          // Sheets, docs, etc.: preserve exact original binary fidelity
           const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
           const downloadUrl = await uploadBlobToStorage(file, storagePath);
 
