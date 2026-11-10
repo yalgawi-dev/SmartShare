@@ -343,8 +343,8 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
       const page = await pdf.getPage(pageNum);
       const unscaledViewport = page.getViewport({ scale: 1.0 });
       const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-      const scale = Math.min(1.8, maxDim / currentMax);
-      const viewport = page.getViewport({ scale: Math.max(1.0, scale) });
+      const scale = Math.min(1.8, Math.max(0.05, maxDim / currentMax));
+      const viewport = page.getViewport({ scale });
 
       const pageCanvas = document.createElement('canvas');
       pageCanvas.width = viewport.width;
@@ -592,8 +592,9 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
       const page = await pdf.getPage(pageNum);
       const unscaledViewport = page.getViewport({ scale: 1.0 });
       const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-      const scale = Math.min(1.8, maxDim / currentMax);
-      const viewport = page.getViewport({ scale: Math.max(0.8, scale) });
+      // Strictly scale so max dimension matches maxDim, bounded between 0.05 and 1.8
+      const scale = Math.min(1.8, Math.max(0.05, maxDim / currentMax));
+      const viewport = page.getViewport({ scale });
 
       const pageCanvas = document.createElement('canvas');
       pageCanvas.width = viewport.width;

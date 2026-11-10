@@ -6,7 +6,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
-import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, ensurePdfJsLoaded } from '../../utils/imageOptimizer';
+import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, ensurePdfJsLoaded, dataUrlBytes } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
@@ -563,6 +563,12 @@ export default function SharedFileHandler() {
             // Extract all pages as crisp, optimized WebP images (1200px) for instant viewing
             const webpPages = await extractPdfPages(blobToUpload, 1200, 0.80);
 
+            // Compute accurate compressed size in bytes from the actual WebP page(s)
+            let compressedSize = 0;
+            if (webpPages.length > 0) {
+              compressedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
+            }
+
             // Parallel upload of all WebP pages (super-fast, finishes in ~1.5s instead of 15s!)
             const uploadedPages = await Promise.all(
               webpPages.map((pageUri, p) => uploadImageToStorage(
@@ -585,12 +591,10 @@ export default function SharedFileHandler() {
             const cleanTitle = fileName.replace(/\.pdf$/i, '');
             const finalThumb = uploadedPages[0];
 
-            // Compute accurate file size for the document record
+            // Compute accurate file size for the document record (WebP compressed size for raster scans!)
             const calculatedFileSize = isOriginalSignedOrVector
               ? blobToUpload.size
-              : (uploadedPages.length > 0 && uploadedPages[0].startsWith('data:image/')
-                  ? Math.round((uploadedPages[0].length * 3) / 4)
-                  : (cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : blobToUpload.size));
+              : (compressedSize > 0 ? compressedSize : (cleanUri.startsWith('data:') ? dataUrlBytes(cleanUri) : blobToUpload.size));
 
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
