@@ -5,6 +5,7 @@ import { db, uploadBlobToStorage, uploadImageToStorage } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '@/app/context/AuthContext';
 import { useSpaces } from '@/app/context/SpacesContext';
+import { compressImage } from '@/utils/imageOptimizer';
 import { FileShareItem, formatFileSize, ShareLinkConfig, revokePublicShare, FolderPartnerPermission, sanitizeFirestoreData, syncPublicFolderShares } from '@/utils/fileShareUtils';
 import { FileShareItemCard } from './FileShareItemCard';
 import { CreateShareLinkModal } from './CreateShareLinkModal';
@@ -360,26 +361,53 @@ export function FileShareWidget({
         else if (['xls', 'xlsx', 'csv'].includes(fileExt)) fileType = 'sheet';
         else if (['doc', 'docx', 'txt'].includes(fileExt)) fileType = 'doc';
 
-        const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
-        const downloadUrl = await uploadBlobToStorage(file, storagePath);
+        if (fileType === 'image') {
+          // ADR: Convert raw JPG/PNG/HEIC to ultra-light, crisp WebP (Single Source of Truth)
+          const webpDataUrl = await compressImage(file, 1800, 1800, 0.85);
+          const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+          const webpFileName = `${baseName}.webp`;
+          const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${webpFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const downloadUrl = await uploadImageToStorage(webpDataUrl, storagePath);
+          const approxSize = Math.round((webpDataUrl.length * 3) / 4);
 
-        const newItem: FileShareItem = {
-          id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          spaceId: space.id,
-          name: file.name,
-          type: 'file',
-          parentId: currentFolderId,
-          url: downloadUrl,
-          thumbnailUrl: fileType === 'image' ? downloadUrl : undefined,
-          fileType,
-          size: file.size,
-          createdAt: Date.now(),
-          createdBy: currentUserId,
-          creatorName: user?.realName || user?.nickname || 'שותף',
-          allowedPartners: []
-        };
+          const newItem: FileShareItem = {
+            id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            spaceId: space.id,
+            name: webpFileName,
+            type: 'file',
+            parentId: currentFolderId,
+            url: downloadUrl,
+            thumbnailUrl: downloadUrl,
+            fileType: 'image',
+            size: approxSize,
+            createdAt: Date.now(),
+            createdBy: currentUserId,
+            creatorName: user?.realName || user?.nickname || 'שותף',
+            allowedPartners: []
+          };
+          newUploadedItems.push(newItem);
+        } else {
+          // PDF, sheets, docs: preserve exact original binary fidelity
+          const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const downloadUrl = await uploadBlobToStorage(file, storagePath);
 
-        newUploadedItems.push(newItem);
+          const newItem: FileShareItem = {
+            id: `file_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+            spaceId: space.id,
+            name: file.name,
+            type: 'file',
+            parentId: currentFolderId,
+            url: downloadUrl,
+            thumbnailUrl: undefined,
+            fileType,
+            size: file.size,
+            createdAt: Date.now(),
+            createdBy: currentUserId,
+            creatorName: user?.realName || user?.nickname || 'שותף',
+            allowedPartners: []
+          };
+          newUploadedItems.push(newItem);
+        }
       }
 
       await saveItems([...allItems, ...newUploadedItems]);
