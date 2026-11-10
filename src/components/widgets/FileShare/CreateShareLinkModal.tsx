@@ -1,13 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { useAuth } from '@/app/context/AuthContext';
+import { useSpaces } from '@/app/context/SpacesContext';
+import { getSharedContactsForUser } from '@/utils/partnerUtils';
 import { FileShareItem, ShareLinkConfig, RecipientShareLink, RecipientRole, createOrUpdatePublicShare, revokePublicShare, generateShareToken, sanitizeFirestoreData } from '@/utils/fileShareUtils';
+import { RegisteredMemberPickerModal, SelectableMember } from './RegisteredMemberPickerModal';
 
 interface CreateShareLinkModalProps {
   isOpen: boolean;
   item: FileShareItem | null;
+  space?: any;
   spaceTitle: string;
   folderFiles?: FileShareItem[];
   spaceLogoUrl?: string;
@@ -19,6 +24,7 @@ interface CreateShareLinkModalProps {
 export function CreateShareLinkModal({
   isOpen,
   item,
+  space,
   spaceTitle,
   folderFiles,
   spaceLogoUrl,
@@ -26,6 +32,9 @@ export function CreateShareLinkModal({
   onClose,
   onSaved
 }: CreateShareLinkModalProps) {
+  const { user } = useAuth();
+  const { spaces } = useSpaces();
+
   const [isEnabled, setIsEnabled] = useState(false);
   const [requirePin, setRequirePin] = useState(false);
   const [pin, setPin] = useState('');
@@ -44,6 +53,77 @@ export function CreateShareLinkModal({
   const [copiedRecipientId, setCopiedRecipientId] = useState<string | null>(null);
   const [supportsContactPicker, setSupportsContactPicker] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState<string | null>(null);
+  const [isMemberPickerOpen, setIsMemberPickerOpen] = useState(false);
+
+  // Compute registered members list from space and shared contacts
+  const registeredMembers: SelectableMember[] = useMemo(() => {
+    const list: SelectableMember[] = [];
+    const seenKeys = new Set<string>();
+
+    // 1. Members on current space
+    if (space && Array.isArray(space.members)) {
+      space.members.forEach((m: any) => {
+        const key = m.phone || m.userId || m.name;
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: m.userId || key,
+            name: m.name || 'חבר מרחב',
+            phone: m.phone || '',
+            avatarUrl: m.avatarUrl,
+            role: m.role === 'creator' ? 'מנהל' : (m.role === 'admin' ? 'מנהל' : 'שותף'),
+            info: space.title
+          });
+        }
+      });
+    }
+
+    // 2. Pending or group members on current space
+    if (space && Array.isArray(space.pendingGroupMembers)) {
+      space.pendingGroupMembers.forEach((pm: any) => {
+        const key = pm.phone || pm.id || pm.name;
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: pm.id || key,
+            name: pm.name,
+            phone: pm.phone || '',
+            avatarUrl: pm.avatarUrl,
+            role: 'חבר מרחב',
+            info: space.title
+          });
+        }
+      });
+    }
+
+    // 3. User's saved shared contacts from all spaces (DRY Single Source of Truth)
+    try {
+      const sharedContacts = getSharedContactsForUser(user, spaces);
+      sharedContacts.forEach(sc => {
+        const key = sc.phone || sc.id || sc.name;
+        if (key && !seenKeys.has(key)) {
+          seenKeys.add(key);
+          list.push({
+            id: sc.id || key,
+            name: sc.name,
+            phone: sc.phone || '',
+            avatarUrl: sc.avatarUrl,
+            role: 'איש קשר רשום',
+            info: sc.spaces?.[0]?.title || ''
+          });
+        }
+      });
+    } catch (_) {}
+
+    return list;
+  }, [space, spaces, user]);
+
+  const handleSelectRegisteredMember = (m: SelectableMember) => {
+    setNewRecipientName(m.name);
+    if (m.phone) {
+      setNewRecipientPhone(m.phone);
+    }
+  };
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'contacts' in navigator && 'ContactsManager' in window) {
@@ -467,7 +547,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.44
+                  v3.5.45
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -494,6 +574,18 @@ ${slogan}${phoneText}${portfolioText}`);
             ✕
           </button>
         </div>
+
+        {/* Scrollable Modal Content (prevents infinite scrolling & keeps Action Footer fixed) */}
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          paddingRight: '2px',
+          paddingLeft: '2px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.85rem',
+          maxHeight: 'calc(88vh - 120px)'
+        }}>
 
         {/* Master Toggle */}
         <div style={{
@@ -872,11 +964,59 @@ ${slogan}${phoneText}${portfolioText}`);
                   ))}
                 </div>
 
-                {/* Input Row: Name + Contact Picker + Add Button */}
+                {/* Quick Pick Helper Buttons */}
+                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMemberPickerOpen(true)}
+                    style={{
+                      padding: '0.45rem 0.75rem',
+                      borderRadius: '10px',
+                      border: '1.5px solid #bfdbfe',
+                      background: '#eff6ff',
+                      color: '#1d4ed8',
+                      fontWeight: 800,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.35rem',
+                      boxShadow: '0 1px 3px rgba(30, 64, 175, 0.08)'
+                    }}
+                    title="בחר מתוך רשימת החברים והשותפים הרשומים"
+                  >
+                    <span>👥</span>
+                    <span>בחר חבר רשום / שותף {registeredMembers.length > 0 ? `(${registeredMembers.length})` : ''}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePickFromContacts}
+                    style={{
+                      padding: '0.45rem 0.65rem',
+                      borderRadius: '10px',
+                      border: '1px solid #cbd5e1',
+                      background: '#f8fafc',
+                      color: '#334155',
+                      fontWeight: 700,
+                      fontSize: '0.78rem',
+                      cursor: 'pointer',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.25rem'
+                    }}
+                    title="בחר איש קשר ישירות מהטלפון"
+                  >
+                    <span>📖</span>
+                    <span>אנשי קשר</span>
+                  </button>
+                </div>
+
+                {/* Input Row: Name + Add Button */}
                 <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'stretch', width: '100%', boxSizing: 'border-box' }}>
                   <input
                     type="text"
-                    placeholder="שם הנמען (למשל: יוסי)"
+                    placeholder="שם הנמען (או בחר חבר למעלה)"
                     value={newRecipientName}
                     onChange={e => setNewRecipientName(e.target.value)}
                     onKeyDown={e => {
@@ -897,31 +1037,6 @@ ${slogan}${phoneText}${portfolioText}`);
                       boxSizing: 'border-box'
                     }}
                   />
-
-                  {/* Native Device Contact Picker Button */}
-                  <button
-                    type="button"
-                    onClick={handlePickFromContacts}
-                    style={{
-                      flexShrink: 0,
-                      padding: '0.55rem 0.65rem',
-                      borderRadius: '10px',
-                      border: '1px solid #cbd5e1',
-                      background: '#f8fafc',
-                      color: '#334155',
-                      fontWeight: 700,
-                      fontSize: '0.78rem',
-                      cursor: 'pointer',
-                      whiteSpace: 'nowrap',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.2rem'
-                    }}
-                    title="בחר איש קשר ישירות מהטלפון"
-                  >
-                    <span>📖</span>
-                    <span>אנשי קשר</span>
-                  </button>
 
                   <button
                     type="button"
@@ -1146,8 +1261,11 @@ ${slogan}${phoneText}${portfolioText}`);
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+        </div>
+        {/* End of Scrollable Modal Content */}
+
+        {/* Action Buttons (Fixed Footer) */}
+        <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--border-light, #e2e8f0)' }}>
           <button
             type="button"
             onClick={onClose}
@@ -1204,6 +1322,14 @@ ${slogan}${phoneText}${portfolioText}`);
           </button>
         </div>
       </div>
+
+      {/* Pick Registered Member Modal */}
+      <RegisteredMemberPickerModal
+        isOpen={isMemberPickerOpen}
+        onClose={() => setIsMemberPickerOpen(false)}
+        onSelectMember={handleSelectRegisteredMember}
+        members={registeredMembers}
+      />
     </div>
   );
 }

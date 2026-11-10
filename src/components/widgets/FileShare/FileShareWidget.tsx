@@ -1203,6 +1203,7 @@ export function FileShareWidget({
       <CreateShareLinkModal
         isOpen={Boolean(activeShareItem)}
         item={activeShareItem ? (allItems.find(i => i.id === activeShareItem.id) || activeShareItem) : null}
+        space={space}
         spaceTitle={space.title || 'המרחב שלי'}
         folderFiles={currentFolderContainedFiles}
         spaceLogoUrl={space.features?.includes('business_card') ? space.logoUrl : undefined}
