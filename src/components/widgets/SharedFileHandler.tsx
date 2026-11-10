@@ -6,7 +6,7 @@ import { useSpaces } from '../../app/context/SpacesContext';
 import { useAuth } from '../../app/context/AuthContext';
 import { useRouter } from 'next/navigation';
 import { uploadImageToStorage, uploadBlobToStorage } from '../../lib/firebase';
-import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf } from '../../utils/imageOptimizer';
+import { downscaleBase64, extractPdfPages, analyzePdfStructure, isTrueOriginalPdf, ensurePdfJsLoaded } from '../../utils/imageOptimizer';
 import { saveLocalDeviceFile } from '../../utils/localDeviceStorage';
 import InvoiceAttachMatchModal, { ScannedReceiptInput } from './Finance/InvoiceAttachMatchModal';
 import DynamicPdfScrollPreview from './Vault/DynamicPdfScrollPreview';
@@ -180,33 +180,41 @@ export default function SharedFileHandler() {
     // Immediately remove from persistent stores so interval checks never re-trigger
     clearAllShareStores();
 
-    // Check if the single file is a PDF with multiple pages
+    // Instant Modal Launch: Open modal immediately (<100ms) without blocking on full PDF extraction!
+    setSharedAllPages(null);
+    setSharedFiles(files);
+    setRouteDestination(files.length > 1 ? 'personal' : 'direct');
+    setIsModalOpen(true);
+
+    // Asynchronously check for multi-page documents in background to update page badge smoothly
     if (files.length === 1) {
       const firstUri = files[0];
       const isPdf = typeof firstUri === 'string' && (firstUri.startsWith('data:application/pdf') || firstUri.includes('application/pdf'));
       if (isPdf) {
-        try {
-          const extractedPages = await extractPdfPages(firstUri, 1500, 0.85);
-          if (extractedPages && extractedPages.length > 1) {
-            // Multi-page document: save pages for page-by-page review without forcing megilah
-            setSharedAllPages(extractedPages);
-          } else {
-            setSharedAllPages(null);
+        // Fast probe for multi-page without heavy rendering
+        ensurePdfJsLoaded().then(async (pdfjs) => {
+          if (!pdfjs) return;
+          try {
+            const loadingTask = pdfjs.getDocument({
+              url: firstUri,
+              stopAtErrors: true,
+              disableFontFace: true
+            });
+            const pdf = await loadingTask.promise;
+            if (pdf.numPages > 1) {
+              const pages = await extractPdfPages(firstUri, 1200, 0.80);
+              if (pages && pages.length > 1) {
+                setSharedAllPages(pages);
+              }
+            }
+          } catch (e) {
+            console.warn('Background PDF page count check failed:', e);
           }
-        } catch (pdfErr) {
-          console.warn('extractPdfPages error:', pdfErr);
-          setSharedAllPages(null);
-        }
-      } else {
-        setSharedAllPages(null);
+        }).catch(() => {});
       }
     } else {
       setSharedAllPages(files);
     }
-
-    setSharedFiles(files);
-    setRouteDestination(files.length > 1 ? 'personal' : 'direct');
-    setIsModalOpen(true);
   }, []);
 
   useEffect(() => {
@@ -577,6 +585,13 @@ export default function SharedFileHandler() {
             const cleanTitle = fileName.replace(/\.pdf$/i, '');
             const finalThumb = uploadedPages[0];
 
+            // Compute accurate file size for the document record
+            const calculatedFileSize = isOriginalSignedOrVector
+              ? blobToUpload.size
+              : (uploadedPages.length > 0 && uploadedPages[0].startsWith('data:image/')
+                  ? Math.round((uploadedPages[0].length * 3) / 4)
+                  : (cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : blobToUpload.size));
+
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
               folderId: selectedFolderId || undefined,
@@ -588,7 +603,7 @@ export default function SharedFileHandler() {
               type: isOriginalSignedOrVector ? 'pdf' : 'document',
               addedBy: user?.id || 'me',
               storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
-              fileSize: isOriginalSignedOrVector ? blobToUpload.size : (cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : undefined)
+              fileSize: calculatedFileSize
             });
 
             if (effectiveTarget === 'local') {

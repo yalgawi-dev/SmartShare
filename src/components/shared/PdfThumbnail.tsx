@@ -1,5 +1,6 @@
 'use client';
 import React, { useEffect, useState, useRef } from 'react';
+import { ensurePdfJsLoaded } from '@/utils/imageOptimizer';
 
 // Declare global pdfjsLib to avoid TS errors
 declare global {
@@ -27,24 +28,10 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
     
     const renderPdf = async () => {
       try {
-        if (!window.pdfjsLib) {
-          await new Promise((resolve, reject) => {
-            const script = document.createElement('script');
-            script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-            script.onload = () => {
-              if (window.pdfjsLib) {
-                window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-                resolve(null);
-              } else {
-                reject(new Error('pdfjsLib not found on window'));
-              }
-            };
-            script.onerror = reject;
-            document.head.appendChild(script);
-          });
-        }
+        const pdfjs = await ensurePdfJsLoaded();
+        if (!pdfjs) throw new Error('PDF.js unavailable');
 
-        const loadingTask = window.pdfjsLib.getDocument({ 
+        const loadingTask = pdfjs.getDocument({ 
           url: targetPdf,
           stopAtErrors: true,
           disableFontFace: true 
@@ -53,8 +40,8 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
         const page = await pdf.getPage(1);
         
         const unscaledViewport = page.getViewport({ scale: 1.0 });
-        const scale = Math.min(1.0, 160 / Math.max(unscaledViewport.width, unscaledViewport.height));
-        const viewport = page.getViewport({ scale: Math.max(0.3, scale) });
+        const scale = Math.min(0.2, 120 / Math.max(unscaledViewport.width, unscaledViewport.height));
+        const viewport = page.getViewport({ scale: Math.max(0.04, scale) });
         
         const canvas = document.createElement('canvas');
         const context = canvas.getContext('2d');
@@ -67,9 +54,9 @@ export default function PdfThumbnail({ base64Uri, url, style, onClick }: PdfThum
         
         if (isMounted) {
           try {
-            setImgSrc(canvas.toDataURL('image/webp', 0.8));
+            setImgSrc(canvas.toDataURL('image/webp', 0.6));
           } catch {
-            setImgSrc(canvas.toDataURL('image/jpeg', 0.8));
+            setImgSrc(canvas.toDataURL('image/jpeg', 0.6));
           }
         }
       } catch (err) {
