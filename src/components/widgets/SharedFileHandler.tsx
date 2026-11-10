@@ -27,6 +27,7 @@ export default function SharedFileHandler() {
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
   const [selectedPayerId, setSelectedPayerId] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isUltraHdPlan, setIsUltraHdPlan] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ current: 0, total: 0 });
   const [searchQuery, setSearchQuery] = useState('');
   const [routeDestination, setRouteDestination] = useState<'direct' | 'inbox' | 'personal' | 'vault' | 'attach_existing'>('personal');
@@ -552,8 +553,10 @@ export default function SharedFileHandler() {
             // Strict check: only true digital signatures or compact vector files retain raw PDF!
             const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
 
-            // Extract all pages as crisp, optimized WebP images (1200px) for instant viewing
-            const webpPages = await extractPdfPages(blobToUpload, 1200, 0.80);
+            // Extract all pages as crisp, optimized WebP images (1200px or Ultra-HD 3200px for architectural plans)
+            const maxDim = isUltraHdPlan ? 3200 : 1200;
+            const quality = isUltraHdPlan ? 0.90 : 0.80;
+            const webpPages = await extractPdfPages(blobToUpload, maxDim, quality);
 
             // Parallel upload of all WebP pages (super-fast, finishes in ~1.5s instead of 15s!)
             const uploadedPages = await Promise.all(
@@ -740,7 +743,9 @@ export default function SharedFileHandler() {
                 : await fetch(rawUri).then(r => r.blob()).catch(() => null);
 
               if (blobSource) {
-                const extracted = await extractPdfPages(blobSource, 1500, 0.85);
+                const maxDim = isUltraHdPlan ? 3200 : 1500;
+                const quality = isUltraHdPlan ? 0.90 : 0.85;
+                const extracted = await extractPdfPages(blobSource, maxDim, quality);
                 if (extracted && extracted.length > 0) {
                   convertedPrimary = extracted[0];
                   convertedPages = extracted;
@@ -1070,9 +1075,44 @@ export default function SharedFileHandler() {
 
           {/* STEP 1: Top-Level Destination Switcher */}
           <div style={{ marginBottom: '1.25rem' }}>
-            <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#475569', marginBottom: '0.45rem', display: 'block' }}>
-              לאן לשמור את הקובץ?
-            </label>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.45rem' }}>
+              <label style={{ fontSize: '0.82rem', fontWeight: '800', color: '#475569', display: 'block' }}>
+                לאן לשמור את הקובץ?
+              </label>
+
+              {/* Ultra-HD Plan / Blueprint Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsUltraHdPlan(prev => !prev)}
+                style={{
+                  background: isUltraHdPlan ? '#eff6ff' : '#f8fafc',
+                  border: isUltraHdPlan ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+                  color: isUltraHdPlan ? '#1d4ed8' : '#64748b',
+                  borderRadius: '20px',
+                  padding: '3px 10px',
+                  fontSize: '0.74rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  boxShadow: isUltraHdPlan ? '0 1px 4px rgba(59, 130, 246, 0.2)' : 'none'
+                }}
+                title="הפעל רזולוציית-על של 3200px לקריאת מספרים ומידות קטנות בתוכניות אדריכליות וגרמושקא בזום עד 3000%"
+              >
+                <span>📐</span>
+                <span>איכות Ultra-HD (גרמושקא)</span>
+                <span style={{
+                  fontSize: '0.66rem',
+                  background: isUltraHdPlan ? '#2563eb' : '#94a3b8',
+                  color: '#ffffff',
+                  padding: '1px 5px',
+                  borderRadius: '10px'
+                }}>
+                  {isUltraHdPlan ? 'פעיל (3200px)' : 'רגיל'}
+                </span>
+              </button>
+            </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', background: '#f1f5f9', padding: '0.25rem', borderRadius: '12px' }}>
               <button
                 type="button"

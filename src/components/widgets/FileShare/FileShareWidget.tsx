@@ -43,6 +43,7 @@ export function FileShareWidget({
   const [activeShareItem, setActiveShareItem] = useState<FileShareItem | null>(null);
   const [previewState, setPreviewState] = useState<{ docs: any[]; index: number } | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isUltraHdPlan, setIsUltraHdPlan] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>('');
   
   // Folder creation prompt modal state
@@ -390,7 +391,9 @@ export function FileShareWidget({
 
         if (fileType === 'image') {
           // ADR: Convert raw JPG/PNG/HEIC to ultra-light, crisp WebP (Single Source of Truth)
-          const webpDataUrl = await compressImage(file, 1800, 1800, 0.85);
+          const targetDim = isUltraHdPlan ? 3200 : 1800;
+          const targetQuality = isUltraHdPlan ? 0.90 : 0.85;
+          const webpDataUrl = await compressImage(file, targetDim, targetDim, targetQuality);
           const baseName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
           const webpFileName = `${baseName}.webp`;
           const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${webpFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -453,7 +456,9 @@ export function FileShareWidget({
             const webpFileName = `${baseName}.webp`;
 
             const blobUrl = URL.createObjectURL(file);
-            const webpDataUrl = await convertPdfToOptimizedImage(blobUrl, 1800, 0.85);
+            const targetDim = isUltraHdPlan ? 3200 : 1800;
+            const targetQuality = isUltraHdPlan ? 0.90 : 0.85;
+            const webpDataUrl = await convertPdfToOptimizedImage(blobUrl, targetDim, targetQuality);
             URL.revokeObjectURL(blobUrl);
 
             const storagePath = `spaces/${space.id}/fileshare/${Date.now()}_${webpFileName.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -878,6 +883,30 @@ export function FileShareWidget({
           <span style={{ fontSize: '0.74rem', background: 'var(--bg-card, #ffffff)', border: '1px solid var(--border-light)', padding: '3px 9px', borderRadius: '10px', color: 'var(--text-secondary)', fontWeight: 700 }}>
             {folders.length} תיקיות • {files.length} קבצים
           </span>
+
+          {/* Ultra-HD Plan / Blueprint Toggle */}
+          <button
+            type="button"
+            onClick={() => setIsUltraHdPlan(prev => !prev)}
+            style={{
+              background: isUltraHdPlan ? '#eff6ff' : '#f8fafc',
+              border: isUltraHdPlan ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
+              color: isUltraHdPlan ? '#1d4ed8' : '#64748b',
+              borderRadius: '10px',
+              padding: '4px 9px',
+              fontSize: '0.78rem',
+              fontWeight: 800,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              boxShadow: isUltraHdPlan ? '0 1px 4px rgba(59, 130, 246, 0.2)' : 'none'
+            }}
+            title="הפעל רזולוציית-על של 3200px לקריאת מספרים ומידות קטנות בתוכניות אדריכליות וגרמושקא בזום עד 3000%"
+          >
+            <span>📐</span>
+            <span>{isUltraHdPlan ? 'גרמושקא 3200px פעיל' : 'גרמושקא Ultra-HD'}</span>
+          </button>
           {isCreator && (
             <button
               type="button"

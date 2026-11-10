@@ -135,6 +135,8 @@ export interface PublicSharedData {
     pages?: string[];
     fileType?: string;
     size?: number;
+    createdAt?: number;
+    creatorName?: string;
   }>;
 }
 
@@ -237,7 +239,9 @@ export async function createOrUpdatePublicShare(
       thumbnailUrl: f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (f.url && !f.url.toLowerCase().includes('.pdf') ? f.url : undefined)),
       pages: f.pages || [],
       fileType: f.fileType || 'other',
-      size: f.size || 0
+      size: f.size || 0,
+      createdAt: f.createdAt,
+      creatorName: f.creatorName
     }));
   }
 
