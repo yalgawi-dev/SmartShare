@@ -43,7 +43,6 @@ export default function PublicSharePage({ params }: SharePageProps) {
   const [submissionSuccess, setSubmissionSuccess] = useState(false);
   const [submissionNote, setSubmissionNote] = useState('');
   const [submissionPhone, setSubmissionPhone] = useState('');
-  const [submissionUltraHd, setSubmissionUltraHd] = useState(false);
   const [uploadedFilesList, setUploadedFilesList] = useState<string[]>([]);
 
   // Guest Direct Chat state & Live Space Subscription
@@ -682,7 +681,7 @@ export default function PublicSharePage({ params }: SharePageProps) {
                           {f.name}
                         </div>
 
-                        {/* Metadata: Size, Date & Creator */}
+                        {/* Metadata: Size & Date */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b', marginTop: 'auto' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
                             {f.size ? (
@@ -690,14 +689,6 @@ export default function PublicSharePage({ params }: SharePageProps) {
                                 ⚖️ {formatFileSize(f.size)}
                               </span>
                             ) : null}
-                            {f.createdAt && (
-                              <span>{new Date(f.createdAt).toLocaleDateString('he-IL')}</span>
-                            )}
-                            {f.creatorName && (
-                              <span style={{ fontSize: '0.6rem', color: '#475569', background: '#f1f5f9', padding: '1px 4px', borderRadius: '4px' }}>
-                                👤 {f.creatorName}
-                              </span>
-                            )}
                           </span>
                         </div>
 
@@ -924,40 +915,6 @@ export default function PublicSharePage({ params }: SharePageProps) {
                       background: '#f8fafc'
                     }}
                   />
-                </div>
-
-                {/* Ultra-HD Toggle for blueprints / architectural plans */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.4rem 0.2rem' }}>
-                  <button
-                    type="button"
-                    onClick={() => setSubmissionUltraHd(prev => !prev)}
-                    style={{
-                      background: submissionUltraHd ? '#eff6ff' : '#f8fafc',
-                      border: submissionUltraHd ? '1.5px solid #3b82f6' : '1px solid #cbd5e1',
-                      color: submissionUltraHd ? '#1d4ed8' : '#64748b',
-                      borderRadius: '10px',
-                      padding: '4px 10px',
-                      fontSize: '0.78rem',
-                      fontWeight: 800,
-                      cursor: 'pointer',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px'
-                    }}
-                    title="הפעל רזולוציית-על של 3200px לקריאת מידות ומספרים קטנים בתוכניות אדריכליות וגרמושקא בזום 3000%"
-                  >
-                    <span>📐</span>
-                    <span>מצב תוכניות וגרמושקא (Ultra-HD 3200px)</span>
-                    <span style={{
-                      fontSize: '0.66rem',
-                      background: submissionUltraHd ? '#2563eb' : '#94a3b8',
-                      color: '#ffffff',
-                      padding: '1px 5px',
-                      borderRadius: '10px'
-                    }}>
-                      {submissionUltraHd ? 'פעיל' : 'כבוי'}
-                    </span>
-                  </button>
                 </div>
 
                 {/* Upload Button */}
