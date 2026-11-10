@@ -100,6 +100,7 @@ export interface PublicSharedData {
   spaceId: string;
   spaceTitle: string;
   spaceLogoUrl?: string;
+  features?: string[];
   businessCard?: BusinessCardShareData;
   itemId: string;
   itemType: 'file' | 'folder';
@@ -177,12 +178,16 @@ export async function createOrUpdatePublicShare(
   // If businessCard / spaceLogoUrl were not passed directly, try to fetch from Space doc
   let businessCard = options?.businessCard;
   let spaceLogoUrl = options?.spaceLogoUrl;
+  let spaceFeatures: string[] = [];
 
-  if ((!businessCard || !spaceLogoUrl) && spaceId) {
+  if (spaceId) {
     try {
       const spaceSnap = await getDoc(doc(db, 'spaces', spaceId));
       if (spaceSnap.exists()) {
         const spaceData = spaceSnap.data();
+        if (Array.isArray(spaceData?.features)) {
+          spaceFeatures = spaceData.features;
+        }
         const hasBusinessFeature = Array.isArray(spaceData?.features) && spaceData.features.includes('business_card');
         if (hasBusinessFeature) {
           if (!businessCard && spaceData?.settings?.businessCard) {
@@ -203,6 +208,7 @@ export async function createOrUpdatePublicShare(
     spaceId,
     spaceTitle: spaceTitle || 'מרחב משותף',
     spaceLogoUrl: spaceLogoUrl || undefined,
+    features: spaceFeatures,
     businessCard: businessCard || undefined,
     itemId: item.id,
     itemType: item.type,

@@ -10,6 +10,7 @@ import { saveSharedLink } from '@/utils/savedSharedLinksUtils';
 import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import { SenderBusinessCardBanner } from '@/components/share/SenderBusinessCardBanner';
+import PdfThumbnail from '@/components/shared/PdfThumbnail';
 import ChatEngineUI from '@/components/widgets/Chat/ChatEngineUI';
 import { onSnapshot } from 'firebase/firestore';
 
@@ -552,126 +553,189 @@ export default function PublicSharePage({ params }: SharePageProps) {
           )}
 
           {isFolder ? (
-            /* FOLDER VIEW: LIST OF CONTAINED FILES */
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#475569' }}>
-                  קבצים בתיקייה ({(shareData.folderFiles || []).length})
+            /* FOLDER VIEW: GRID OF CONTAINED FILES MATCHING APP DESKTOP/MOBILE VIEW */
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>📄</span>
+                  <span>קבצים בתיקייה ({(shareData.folderFiles || []).length}):</span>
                 </span>
               </div>
 
-              {(shareData.folderFiles || []).map(f => {
-                const isPdf = f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
-                const isImg = f.fileType === 'image' || f.url?.match(/\.(jpg|jpeg|png|webp|gif)/i);
-                const thumb = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (isImg ? f.url : undefined));
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                gap: '0.85rem'
+              }}>
+                {(shareData.folderFiles || []).map((f, idx) => {
+                  const isPdf = f.fileType === 'pdf' || f.name?.toLowerCase().endsWith('.pdf') || f.url?.toLowerCase().includes('.pdf');
+                  const isImg = f.fileType === 'image' || f.url?.match(/\.(jpg|jpeg|png|webp|gif)/i);
+                  const previewUrl = f.thumbnailUrl || (Array.isArray(f.pages) && f.pages.length > 0 ? f.pages[0] : (isImg ? f.url : ''));
 
-                return (
-                  <div
-                    key={f.id}
-                    style={{
-                      background: '#ffffff',
-                      borderRadius: '16px',
-                      border: '1px solid #e2e8f0',
-                      padding: '0.85rem 1rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '0.75rem',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-                      cursor: 'pointer'
-                    }}
-                    onClick={() => openViewerForFile(f, shareData.folderFiles)}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      {thumb ? (
-                        <div style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '8px',
-                          overflow: 'hidden',
-                          background: '#f8fafc',
-                          border: '1px solid #e2e8f0',
-                          flexShrink: 0,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <img
-                            src={thumb}
-                            alt={f.name}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                            onError={(e) => {
-                              // If broken image thumbnail, fallback to file icon
-                              (e.target as HTMLElement).style.display = 'none';
-                            }}
-                          />
-                        </div>
-                      ) : (
-                        <div style={{
-                          width: '42px',
-                          height: '42px',
-                          borderRadius: '8px',
-                          background: isPdf ? '#fef2f2' : (isImg ? '#eff6ff' : '#f8fafc'),
-                          border: isPdf ? '1px solid #fee2e2' : '1px solid #e2e8f0',
+                  return (
+                    <div
+                      key={f.id}
+                      onClick={() => openViewerForFile(f, shareData.folderFiles)}
+                      style={{
+                        background: '#ffffff',
+                        borderRadius: '14px',
+                        overflow: 'hidden',
+                        border: '1px solid #e2e8f0',
+                        position: 'relative',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.04)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        cursor: 'pointer',
+                        transition: 'transform 0.15s ease, box-shadow 0.15s ease'
+                      }}
+                    >
+                      {/* Preview Image / PDF Canvas Container */}
+                      <div
+                        style={{
+                          height: '140px',
+                          background: '#f1f5f9',
+                          backgroundImage: previewUrl ? `url(${previewUrl})` : 'none',
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          fontSize: '1.4rem',
-                          flexShrink: 0
-                        }}>
-                          {isPdf ? '📕' : isImg ? '🖼️' : '📄'}
-                        </div>
-                      )}
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '0.92rem', fontWeight: 800, color: '#0f172a' }}>
-                          {f.name}
-                        </h4>
-                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
-                          {f.size ? formatFileSize(f.size) : (isPdf ? 'מסמך PDF' : 'קובץ')}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }} onClick={e => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        onClick={() => openViewerForFile(f, shareData.folderFiles)}
-                        style={{
-                          background: '#eff6ff',
-                          color: '#2563eb',
-                          border: '1px solid #bfdbfe',
-                          padding: '0.4rem 0.85rem',
-                          borderRadius: '10px',
-                          fontSize: '0.8rem',
-                          fontWeight: 700,
-                          cursor: 'pointer'
+                          position: 'relative',
+                          overflow: 'hidden'
                         }}
                       >
-                        צפה
-                      </button>
-                      {shareData.allowDownload && (
-                        <button
-                          type="button"
-                          onClick={() => handleDownload(f.url, f.name)}
+                        {/* Index Badge (#1, #2...) */}
+                        <div style={{
+                          position: 'absolute',
+                          top: '6px',
+                          right: '6px',
+                          background: 'rgba(15, 23, 42, 0.82)',
+                          backdropFilter: 'blur(4px)',
+                          color: '#ffffff',
+                          padding: '1px 7px',
+                          borderRadius: '6px',
+                          fontSize: '0.68rem',
+                          fontWeight: 800,
+                          zIndex: 15,
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                        }}>
+                          #{idx + 1}
+                        </div>
+
+                        {/* Fallback PDF Thumbnail when no image */}
+                        {!previewUrl && (
+                          isPdf && f.url ? (
+                            <PdfThumbnail url={f.url} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span style={{ fontSize: '2.5rem' }}>{isPdf ? '📕' : '📄'}</span>
+                          )
+                        )}
+
+                        {/* Cloud Badge (☁️ ענן) */}
+                        <div style={{
+                          position: 'absolute',
+                          bottom: '5px',
+                          right: '5px',
+                          background: 'rgba(37, 99, 235, 0.9)',
+                          color: 'white',
+                          padding: '1px 6px',
+                          borderRadius: '5px',
+                          fontSize: '0.62rem',
+                          fontWeight: 700
+                        }}>
+                          ☁️ ענן
+                        </div>
+
+                        {/* Multi-page badge */}
+                        {f.pages && f.pages.length > 1 && (
+                          <div style={{
+                            position: 'absolute',
+                            bottom: '5px',
+                            left: '5px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            color: 'white',
+                            padding: '1px 5px',
+                            borderRadius: '4px',
+                            fontSize: '0.62rem',
+                            fontWeight: 800
+                          }}>
+                            {f.pages.length}p
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Content Details */}
+                      <div style={{ padding: '0.45rem 0.55rem', display: 'flex', flexDirection: 'column', flex: 1, gap: '0.2rem' }}>
+                        {/* Title */}
+                        <div
                           style={{
-                            background: '#f1f5f9',
-                            color: '#475569',
-                            border: 'none',
-                            padding: '0.4rem 0.65rem',
-                            borderRadius: '10px',
-                            fontSize: '0.8rem',
-                            fontWeight: 700,
-                            cursor: 'pointer'
+                            fontSize: '0.82rem',
+                            fontWeight: 800,
+                            color: '#1e293b',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                           }}
-                          title="הורד קובץ"
+                          title={f.name}
                         >
-                          📥
-                        </button>
-                      )}
+                          {f.name}
+                        </div>
+
+                        {/* Metadata: Size & Date */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.66rem', color: '#64748b', marginTop: 'auto' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                            {f.size ? (
+                              <span style={{ fontSize: '0.62rem', background: '#f1f5f9', color: '#334155', padding: '1px 5px', borderRadius: '4px', fontWeight: 700, border: '1px solid #e2e8f0' }}>
+                                ⚖️ {formatFileSize(f.size)}
+                              </span>
+                            ) : null}
+                          </span>
+                        </div>
+
+                        {/* Bottom Actions for guest: Watch & Download */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', marginTop: '0.35rem', paddingTop: '0.35rem', borderTop: '1px solid #f1f5f9' }} onClick={e => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            onClick={() => openViewerForFile(f, shareData.folderFiles)}
+                            style={{
+                              flex: 1,
+                              background: '#eff6ff',
+                              color: '#2563eb',
+                              border: '1px solid #bfdbfe',
+                              padding: '3px 0',
+                              borderRadius: '6px',
+                              fontSize: '0.74rem',
+                              fontWeight: 800,
+                              cursor: 'pointer',
+                              textAlign: 'center'
+                            }}
+                          >
+                            צפה
+                          </button>
+                          {shareData.allowDownload && (
+                            <button
+                              type="button"
+                              onClick={() => handleDownload(f.url, f.name)}
+                              style={{
+                                background: '#f8fafc',
+                                color: '#475569',
+                                border: '1px solid #cbd5e1',
+                                padding: '3px 6px',
+                                borderRadius: '6px',
+                                fontSize: '0.74rem',
+                                cursor: 'pointer'
+                              }}
+                              title="הורד קובץ"
+                            >
+                              📥
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
 
               {(!shareData.folderFiles || shareData.folderFiles.length === 0) && (
                 <div style={{ padding: '3rem 1rem', textAlign: 'center', color: '#64748b', background: '#ffffff', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
@@ -1004,8 +1068,8 @@ export default function PublicSharePage({ params }: SharePageProps) {
           </div>
         </main>
 
-        {/* Floating 2-Way Chat Button (Direct Guest ↔ Owner Chat) */}
-        {shareData.spaceId && (
+        {/* Floating 2-Way Chat Button (Direct Guest ↔ Owner Chat) - ONLY if Chat feature is enabled on space */}
+        {shareData.spaceId && (liveSpace?.features?.includes('chat') || shareData.features?.includes('chat')) && (
           <div style={{
             position: 'fixed',
             bottom: '20px',

@@ -610,7 +610,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.54
+                  v3.5.55
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -1588,33 +1588,35 @@ ${slogan}${phoneText}${portfolioText}`);
                             <span>{isCopied ? 'הועתק!' : 'העתק קישור'}</span>
                           </button>
 
-                          {/* Direct 2-Way Chat Button */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onClose();
-                              openChat(r.chatChannelId || `guest_${r.token}`);
-                            }}
-                            style={{
-                              background: '#f8fafc',
-                              color: '#4f46e5',
-                              border: '1px solid #c7d2fe',
-                              borderRadius: '8px',
-                              padding: '5px 9px',
-                              fontSize: '0.76rem',
-                              cursor: 'pointer',
-                              fontWeight: 800,
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '4px'
-                            }}
-                            title={`פתח צ'אט ישיר עם ${r.recipientName}`}
-                          >
-                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
-                            </svg>
-                            <span>צ'אט</span>
-                          </button>
+                          {/* Direct 2-Way Chat Button - only if Chat feature enabled */}
+                          {(space?.features?.includes('chat')) && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onClose();
+                                openChat(r.chatChannelId || `guest_${r.token}`);
+                              }}
+                              style={{
+                                background: '#f8fafc',
+                                color: '#4f46e5',
+                                border: '1px solid #c7d2fe',
+                                borderRadius: '8px',
+                                padding: '5px 9px',
+                                fontSize: '0.76rem',
+                                cursor: 'pointer',
+                                fontWeight: 800,
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                              title={`פתח צ'אט ישיר עם ${r.recipientName}`}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+                              </svg>
+                              <span>צ'אט</span>
+                            </button>
+                          )}
 
                           {/* Block / Unblock Toggle */}
                           <button
