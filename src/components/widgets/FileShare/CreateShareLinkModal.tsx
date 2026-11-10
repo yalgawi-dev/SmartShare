@@ -583,7 +583,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.52
+                  v3.5.53
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -1204,7 +1204,7 @@ ${slogan}${phoneText}${portfolioText}`);
 
               {/* Recipients list */}
               {recipients.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxHeight: '180px', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', maxHeight: '260px', overflowY: 'auto' }}>
                   {recipients.map(r => {
                     const isCopied = copiedRecipientId === r.id;
                     const durationText = r.totalDurationSeconds
@@ -1216,65 +1216,175 @@ ${slogan}${phoneText}${portfolioText}`);
                         key={r.id}
                         style={{
                           background: r.enabled ? '#ffffff' : '#fef2f2',
-                          border: r.enabled ? '1px solid #e2e8f0' : '1px solid #fecaca',
-                          borderRadius: '12px',
-                          padding: '0.5rem 0.65rem',
+                          border: r.enabled ? '1px solid #e2e8f0' : '1.5px solid #fecaca',
+                          borderRadius: '14px',
+                          padding: '0.65rem 0.75rem',
                           display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
+                          flexDirection: 'column',
                           gap: '0.5rem',
-                          fontSize: '0.78rem'
+                          fontSize: '0.78rem',
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.04)'
                         }}
                       >
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <span style={{ fontWeight: 800, color: r.enabled ? '#0f172a' : '#991b1b', textDecoration: r.enabled ? 'none' : 'line-through' }}>
-                              {r.recipientName}
-                            </span>
-                            <span style={{
-                              fontSize: '0.62rem',
-                              padding: '1px 5px',
-                              borderRadius: '4px',
-                              fontWeight: 700,
-                              background: r.role === 'provider' ? '#fef3c7' : (r.role === 'client' ? '#e0f2fe' : '#f1f5f9'),
-                              color: r.role === 'provider' ? '#b45309' : (r.role === 'client' ? '#0369a1' : '#475569')
-                            }}>
-                              {r.role === 'provider' ? '🛠️ ספק' : (r.role === 'client' ? '👤 לקוח' : '🤝 כללי')}
-                            </span>
-                            {r.phone && (
-                              <span style={{ fontSize: '0.62rem', color: '#64748b' }}>
-                                📞 {r.phone}
+                        {/* Recipient Details & Metrics Row */}
+                        <div style={{ width: '100%' }}>
+                          {/* Name, Role, Phone, Status & Delete */}
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                              <span style={{ fontWeight: 800, fontSize: '0.88rem', color: r.enabled ? '#0f172a' : '#991b1b', textDecoration: r.enabled ? 'none' : 'line-through' }}>
+                                {r.recipientName}
                               </span>
-                            )}
-                            {!r.enabled && (
-                              <span style={{ fontSize: '0.62rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 5px', borderRadius: '4px', fontWeight: 800 }}>
-                                חסום 🛑
+                              <span style={{
+                                fontSize: '0.65rem',
+                                padding: '1px 6px',
+                                borderRadius: '6px',
+                                fontWeight: 700,
+                                background: r.role === 'provider' ? '#fef3c7' : (r.role === 'client' ? '#e0f2fe' : '#f1f5f9'),
+                                color: r.role === 'provider' ? '#b45309' : (r.role === 'client' ? '#0369a1' : '#475569')
+                              }}>
+                                {r.role === 'provider' ? '🛠️ ספק' : (r.role === 'client' ? '👤 לקוח' : '🤝 כללי')}
                               </span>
-                            )}
+                              {r.phone && (
+                                <span style={{ fontSize: '0.72rem', color: '#64748b', direction: 'ltr' }}>
+                                  📞 {r.phone}
+                                </span>
+                              )}
+                              {!r.enabled && (
+                                <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#b91c1c', padding: '1px 6px', borderRadius: '4px', fontWeight: 800 }}>
+                                  חסום 🛑
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Delete Recipient (Trash Button) */}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (confirm(`האם אתה בטוח שברצונך למחוק את הנמען "${r.recipientName}" מהרשימה?`)) {
+                                  handleRemoveRecipient(r.id);
+                                }
+                              }}
+                              style={{
+                                background: '#fef2f2',
+                                color: '#dc2626',
+                                border: '1px solid #fecaca',
+                                borderRadius: '8px',
+                                padding: '4px 7px',
+                                fontSize: '0.85rem',
+                                cursor: 'pointer',
+                                fontWeight: 700,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0
+                              }}
+                              title="מחק נמען זה מהרשימה"
+                            >
+                              🗑️
+                            </button>
                           </div>
-                          <div style={{ fontSize: '0.68rem', color: '#64748b', display: 'flex', gap: '0.4rem', marginTop: '2px', flexWrap: 'wrap' }}>
-                            <span>👁️ {r.viewCount || 0} צפיות</span>
-                            <span>• ⏱️ שהה: {durationText}</span>
+
+                          {/* Stats Badge Row: Views & Time clearly highlighted */}
+                          <div style={{
+                            display: 'flex',
+                            gap: '0.4rem',
+                            marginTop: '0.35rem',
+                            flexWrap: 'wrap',
+                            background: '#f8fafc',
+                            padding: '4px 8px',
+                            borderRadius: '8px',
+                            border: '1px solid #f1f5f9'
+                          }}>
+                            <span style={{ fontWeight: 700, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              👁️ <b style={{ color: '#4f46e5' }}>{r.viewCount || 0}</b> צפיות
+                            </span>
+                            <span style={{ color: '#cbd5e1' }}>•</span>
+                            <span style={{ fontWeight: 700, color: '#334155', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                              ⏱️ שהה: <b style={{ color: '#059669' }}>{durationText}</b>
+                            </span>
                             {r.lastViewedAt && (
-                              <span>• נצפה לאחרונה ב-{new Date(r.lastViewedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}</span>
+                              <>
+                                <span style={{ color: '#cbd5e1' }}>•</span>
+                                <span style={{ color: '#64748b' }}>
+                                  נצפה: {new Date(r.lastViewedAt).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </>
                             )}
                           </div>
+
+                          {/* Internal Note (Private to Creator) */}
                           {r.internalNote && (
-                            <div style={{ marginTop: '3px', fontSize: '0.69rem', background: '#fffbeb', color: '#92400e', border: '1px solid #fed7aa', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <div style={{ marginTop: '0.35rem', fontSize: '0.72rem', background: '#fffbeb', color: '#92400e', border: '1px solid #fed7aa', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <span>🔒</span>
-                              <span style={{ fontWeight: 600 }}>סיכום/הערה:</span> {r.internalNote}
+                              <span style={{ fontWeight: 800 }}>הערה פנימית (לעצמך):</span>
+                              <span>{r.internalNote}</span>
                             </div>
                           )}
+
+                          {/* Public Message (Sent to Recipient) */}
                           {r.publicMessage && (
-                            <div style={{ marginTop: '2px', fontSize: '0.69rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '1px 6px', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                            <div style={{ marginTop: '0.25rem', fontSize: '0.72rem', background: '#eff6ff', color: '#1e40af', border: '1px solid #bfdbfe', padding: '3px 8px', borderRadius: '6px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                               <span>✉️</span>
-                              <span style={{ fontWeight: 600 }}>הודעה שנשלחה:</span> {r.publicMessage}
+                              <span style={{ fontWeight: 800 }}>הודעה לנמען:</span>
+                              <span>{r.publicMessage}</span>
                             </div>
                           )}
                         </div>
 
-                        {/* Actions for this recipient */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', flexShrink: 0 }}>
+                        {/* Action Buttons Toolbar */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', paddingTop: '0.35rem', borderTop: '1px dashed #e2e8f0' }}>
+                          {/* Direct WhatsApp Share Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleWhatsAppRecipient(r)}
+                            disabled={!r.enabled}
+                            style={{
+                              background: '#25D366',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '8px',
+                              padding: '5px 9px',
+                              fontSize: '0.76rem',
+                              cursor: r.enabled ? 'pointer' : 'not-allowed',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 1px 3px rgba(37, 211, 102, 0.25)',
+                              opacity: r.enabled ? 1 : 0.5
+                            }}
+                            title="שתף בוואטסאפ"
+                          >
+                            <span>💬</span>
+                            <span>וואטסאפ</span>
+                          </button>
+
+                          {/* Copy Personal Link Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleCopyRecipientLink(r)}
+                            disabled={!r.enabled}
+                            style={{
+                              background: isCopied ? '#059669' : '#eff6ff',
+                              color: isCopied ? 'white' : '#2563eb',
+                              border: isCopied ? '1px solid #059669' : '1px solid #bfdbfe',
+                              borderRadius: '8px',
+                              padding: '5px 9px',
+                              fontSize: '0.76rem',
+                              cursor: r.enabled ? 'pointer' : 'not-allowed',
+                              fontWeight: 800,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              boxShadow: '0 1px 3px rgba(37, 99, 235, 0.1)',
+                              opacity: r.enabled ? 1 : 0.5
+                            }}
+                            title="העתק קישור אישי"
+                          >
+                            <span>🔗</span>
+                            <span>{isCopied ? 'הועתק!' : 'העתק קישור'}</span>
+                          </button>
+
                           {/* Direct 2-Way Chat Button */}
                           <button
                             type="button"
@@ -1283,137 +1393,42 @@ ${slogan}${phoneText}${portfolioText}`);
                               openChat(r.chatChannelId || `guest_${r.token}`);
                             }}
                             style={{
-                              background: '#eff6ff',
+                              background: '#f8fafc',
                               color: '#4f46e5',
                               border: '1px solid #c7d2fe',
-                              borderRadius: '6px',
-                              padding: '3px 7px',
-                              fontSize: '0.72rem',
+                              borderRadius: '8px',
+                              padding: '5px 9px',
+                              fontSize: '0.76rem',
                               cursor: 'pointer',
                               fontWeight: 800,
                               display: 'inline-flex',
                               alignItems: 'center',
-                              gap: '2px'
+                              gap: '4px'
                             }}
                             title={`פתח צ'אט ישיר עם ${r.recipientName}`}
                           >
-                            <span>💬</span>
+                            <span>💭</span>
                             <span>צ'אט</span>
                           </button>
-
-                          {r.enabled && (
-                            <>
-                              {/* WhatsApp / Direct Share Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleWhatsAppRecipient(r)}
-                                style={{
-                                  background: '#25D366',
-                                  color: 'white',
-                                  border: 'none',
-                                  borderRadius: '8px',
-                                  padding: '4px 8px',
-                                  fontSize: '0.75rem',
-                                  cursor: 'pointer',
-                                  fontWeight: 800,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  boxShadow: '0 1px 3px rgba(37, 211, 102, 0.25)'
-                                }}
-                                title="שתף בוואטסאפ"
-                              >
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                  <circle cx="18" cy="5" r="3"></circle>
-                                  <circle cx="6" cy="12" r="3"></circle>
-                                  <circle cx="18" cy="19" r="3"></circle>
-                                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                                </svg>
-                                <span>שתף</span>
-                              </button>
-
-                              {/* Copy Personal Link Button */}
-                              <button
-                                type="button"
-                                onClick={() => handleCopyRecipientLink(r)}
-                                style={{
-                                  background: isCopied ? '#059669' : '#eff6ff',
-                                  color: isCopied ? 'white' : '#2563eb',
-                                  border: isCopied ? '1px solid #059669' : '1px solid #bfdbfe',
-                                  borderRadius: '8px',
-                                  padding: '4px 8px',
-                                  fontSize: '0.75rem',
-                                  cursor: 'pointer',
-                                  fontWeight: 800,
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  gap: '3px',
-                                  boxShadow: '0 1px 3px rgba(37, 99, 235, 0.1)'
-                                }}
-                                title="העתק קישור אישי"
-                              >
-                                {isCopied ? (
-                                  <>
-                                    <span>✓</span>
-                                    <span>הועתק</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
-                                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
-                                    </svg>
-                                    <span>העתק</span>
-                                  </>
-                                )}
-                              </button>
-                            </>
-                          )}
 
                           {/* Block / Unblock Toggle */}
                           <button
                             type="button"
                             onClick={() => handleToggleRecipientBlock(r.id)}
                             style={{
+                              marginRight: 'auto',
                               background: r.enabled ? '#fff1f2' : '#f0fdf4',
                               color: r.enabled ? '#e11d48' : '#16a34a',
                               border: r.enabled ? '1px solid #fecdd3' : '1px solid #bbf7d0',
-                              borderRadius: '6px',
-                              padding: '3px 7px',
-                              fontSize: '0.7rem',
+                              borderRadius: '8px',
+                              padding: '5px 9px',
+                              fontSize: '0.74rem',
                               fontWeight: 800,
                               cursor: 'pointer'
                             }}
                             title={r.enabled ? 'חסום גישה לנמען זה מיידית' : 'בטל חסימה והחזר גישה לנמען זה'}
                           >
-                            {r.enabled ? 'חסום' : 'בטל חסימה'}
-                          </button>
-
-                          {/* Delete Recipient (Trash Button) */}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm(`האם אתה בטוח שברצונך למחוק את הנמען "${r.recipientName}" מהרשימה?`)) {
-                                handleRemoveRecipient(r.id);
-                              }
-                            }}
-                            style={{
-                              background: '#fef2f2',
-                              color: '#dc2626',
-                              border: '1px solid #fecaca',
-                              borderRadius: '6px',
-                              padding: '3px 6px',
-                              fontSize: '0.75rem',
-                              cursor: 'pointer',
-                              fontWeight: 700,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center'
-                            }}
-                            title="מחק נמען זה מהרשימה לחלוטין"
-                          >
-                            🗑️
+                            {r.enabled ? '🛑 חסום' : '✅ בטל חסימה'}
                           </button>
                         </div>
                       </div>
