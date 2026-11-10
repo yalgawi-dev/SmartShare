@@ -50,33 +50,37 @@ export async function analyzePdfStructure(arrayBuffer: ArrayBuffer): Promise<Pdf
   const bytes = new Uint8Array(arrayBuffer);
   const fileSize = arrayBuffer.byteLength;
 
-  // 1. Quick binary inspection of markers
+  // 1. Full binary inspection of markers across the buffer
   const decoder = new TextDecoder('latin1');
-  const textContent = decoder.decode(bytes.subarray(0, Math.min(bytes.length, 500000))); // Check first 500KB
-  const tailContent = decoder.decode(bytes.subarray(Math.max(0, bytes.length - 100000))); // Check tail
+  const headChunk = decoder.decode(bytes.subarray(0, Math.min(bytes.length, 500000))); // Check first 500KB
+  const tailChunk = decoder.decode(bytes.subarray(Math.max(0, bytes.length - 100000))); // Check tail
 
   // 1. Signature Check (/Type /Sig, /adbe.pkcs7, /CAdES, /ByteRange)
   const hasDigitalSignature = 
-    textContent.includes('/Type/Sig') || 
-    textContent.includes('/Type /Sig') || 
-    textContent.includes('/adbe.pkcs7') || 
-    textContent.includes('ETSI.CAdES') ||
-    tailContent.includes('/ByteRange');
+    headChunk.includes('/Type/Sig') || 
+    headChunk.includes('/Type /Sig') || 
+    headChunk.includes('/adbe.pkcs7') || 
+    headChunk.includes('ETSI.CAdES') ||
+    tailChunk.includes('/ByteRange');
 
-  // Binary font markers
-  const hasBinaryFontMarkers = 
-    textContent.includes('/Type/Font') || 
-    textContent.includes('/Type /Font') || 
-    textContent.includes('/FontDescriptor') || 
-    textContent.includes('/BT');
-
-  // Binary image markers (JPEG/PNG/Fax bitmap streams)
-  const hasBinaryImageMarkers =
-    textContent.includes('/Subtype/Image') ||
-    textContent.includes('/Subtype /Image') ||
-    textContent.includes('/DCTDecode') ||
-    textContent.includes('/JPXDecode') ||
-    textContent.includes('/CCITTFaxDecode');
+  // Search across the buffer in chunks to reliably find images or fonts in large files (e.g. 20MB)
+  let hasBinaryFontMarkers = false;
+  let hasBinaryImageMarkers = false;
+  const chunkSize = 2 * 1024 * 1024;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    const chunk = decoder.decode(bytes.subarray(offset, Math.min(bytes.length, offset + chunkSize + 128)));
+    if (!hasBinaryImageMarkers) {
+      if (chunk.includes('/Subtype/Image') || chunk.includes('/Subtype /Image') || chunk.includes('/DCTDecode') || chunk.includes('/JPXDecode') || chunk.includes('/CCITTFaxDecode')) {
+        hasBinaryImageMarkers = true;
+      }
+    }
+    if (!hasBinaryFontMarkers) {
+      if (chunk.includes('/Type/Font') || chunk.includes('/Type /Font') || chunk.includes('/FontDescriptor') || chunk.includes('/BT')) {
+        hasBinaryFontMarkers = true;
+      }
+    }
+    if (hasBinaryImageMarkers && hasBinaryFontMarkers) break;
+  }
 
   let pageCount = 1;
   let hasTextItems = false;

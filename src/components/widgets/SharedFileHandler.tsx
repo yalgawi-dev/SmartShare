@@ -588,7 +588,7 @@ export default function SharedFileHandler() {
               type: isOriginalSignedOrVector ? 'pdf' : 'document',
               addedBy: user?.id || 'me',
               storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
-              fileSize: blobToUpload.size
+              fileSize: isOriginalSignedOrVector ? blobToUpload.size : (cleanUri.startsWith('data:') ? Math.round((cleanUri.length * 3) / 4) : undefined)
             });
 
             if (effectiveTarget === 'local') {
