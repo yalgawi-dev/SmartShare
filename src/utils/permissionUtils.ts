@@ -12,6 +12,7 @@ export interface AccessCheckParams {
   isManagedMode?: boolean;
   ownerId?: string;
   allowedPartners?: string[];
+  partnerHasExplicitWhitelist?: boolean; // If this partner was given an explicit folder whitelist, unassigned folders are hidden!
 }
 
 /**
@@ -26,7 +27,7 @@ export function isSpaceManager(spaceRole: 'creator' | 'admin' | 'partner'): bool
  * Determines if a user can access a specific item (Shelf, Folder, Document, or Sales Record).
  */
 export function canAccessItem(params: AccessCheckParams): boolean {
-  const { spaceRole, userId, partnerToken, creatorId, isManagedMode, ownerId, allowedPartners } = params;
+  const { spaceRole, userId, partnerToken, creatorId, isManagedMode, ownerId, allowedPartners, partnerHasExplicitWhitelist } = params;
 
   // 1. Strict Personal Vault ("Only Me" / רק לעצמי)
   // When an item is marked as '__only_me__', NO ONE ELSE can see it, NOT EVEN other managers or group members!
@@ -62,12 +63,19 @@ export function canAccessItem(params: AccessCheckParams): boolean {
     return matchesUser || matchesToken;
   }
 
-  // 4. If space is in Managed (Hierarchical) Mode, standard partners only see their own items
+  // 4. Zero-Trust Whitelist Rule:
+  // If this partner was given an explicit whitelist (i.e. specific folders were chosen for him),
+  // then any unassigned item (allowedPartners is empty) is strictly hidden from him!
+  if (partnerHasExplicitWhitelist) {
+    return false;
+  }
+
+  // 5. If space is in Managed (Hierarchical) Mode, standard partners only see their own items
   if (isManagedMode) {
     if (!ownerId) return true; // General public items in managed mode
     return Boolean((userId && userId === ownerId) || (partnerToken && partnerToken === ownerId));
   }
 
-  // 5. Default open collaboration mode
+  // 6. Default open collaboration mode
   return true;
 }

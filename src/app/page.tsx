@@ -24,6 +24,7 @@ import { uploadImageToStorage } from '@/lib/firebase';
 import { compressImage } from '../utils/imageOptimizer';
 import { sortSpacesByUsagePriority, recordSpaceVisit, getSpaceUsageMetrics } from '../utils/spaceSorting';
 import VersionBadge from '../components/common/VersionBadge';
+import SavedSharedLinksHub from '../components/share/SavedSharedLinksHub';
 
 
 
@@ -1041,6 +1042,9 @@ export default function Dashboard() {
       {showShareModal && (
         <AppShareModal onClose={() => setShowShareModal(false)} />
       )}
+      
+      {/* מרכז קישורים שקיבלתי */}
+      <SavedSharedLinksHub />
     </div>
   );
 }

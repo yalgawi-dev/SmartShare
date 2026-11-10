@@ -217,6 +217,23 @@ export function FileShareWidget({
       window.dispatchEvent(new CustomEvent('smartshare:fileshare_folder_exited'));
     }
   }, [currentFolderId]);
+  // Detect if this partner has an explicit folder whitelist assigned anywhere in this space
+  const partnerHasExplicitWhitelist = useMemo(() => {
+    if (spaceRole === 'creator' || spaceRole === 'admin') return false;
+    const uid = currentUserId;
+    const ptok = partnerToken;
+    if (!uid && !ptok) return false;
+
+    // Check if partner is explicitly named in allowedPartners or folderPartners of any folder
+    return activeItems.some(i => {
+      const allowed = Array.isArray(i.allowedPartners) ? i.allowedPartners : [];
+      const inAllowed = (uid && allowed.includes(uid)) || (ptok && allowed.includes(ptok));
+      const fps = Array.isArray(i.folderPartners) ? i.folderPartners : [];
+      const inFps = fps.some(fp => (uid && fp.partnerId === uid) || (ptok && fp.partnerId === ptok));
+      return inAllowed || inFps;
+    });
+  }, [spaceRole, currentUserId, partnerToken, activeItems]);
+
   const visibleItems = useMemo(() => {
     return activeItems.filter(item => {
       // 1. Must match current folder
@@ -235,7 +252,8 @@ export function FileShareWidget({
         creatorId: space.creatorId,
         isManagedMode: isManaged,
         ownerId: item.createdBy,
-        allowedPartners: item.allowedPartners
+        allowedPartners: item.allowedPartners,
+        partnerHasExplicitWhitelist
       }) && !hasFolderPartnerAccess) {
         return false;
       }
@@ -248,7 +266,7 @@ export function FileShareWidget({
 
       return true;
     });
-  }, [allItems, currentFolderId, spaceRole, currentUserId, partnerToken, space.creatorId, isManaged, searchQuery]);
+  }, [allItems, currentFolderId, spaceRole, currentUserId, partnerToken, space.creatorId, isManaged, partnerHasExplicitWhitelist, searchQuery]);
 
   // Split into folders and files
   const folders = useMemo(() => visibleItems.filter(i => i.type === 'folder'), [visibleItems]);

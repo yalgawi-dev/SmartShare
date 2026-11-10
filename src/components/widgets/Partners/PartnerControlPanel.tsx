@@ -973,6 +973,33 @@ function PartnerControlPanelInner({ member, space, onClose, viewMode = 'creator'
             </div>
 
             {(() => {
+              const partnerRole = member.role;
+              const isPartnerManager = partnerRole === 'creator' || partnerRole === 'admin';
+
+              if (isPartnerManager) {
+                return (
+                  <div style={{
+                    padding: '1.25rem',
+                    textAlign: 'center',
+                    background: '#eff6ff',
+                    borderRadius: '16px',
+                    border: '1.5px solid #bfdbfe',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '0.6rem'
+                  }}>
+                    <span style={{ fontSize: '2.2rem' }}>👑</span>
+                    <h5 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#1e40af' }}>
+                      מנהל מרחב – גישה מלאה לכל התיקיות
+                    </h5>
+                    <p style={{ margin: 0, fontSize: '0.82rem', color: '#3b82f6', lineHeight: 1.5, maxWidth: '320px' }}>
+                      למשתמש זה מוגדרת הרשאת ניהול ({partnerRole === 'creator' ? 'יוצר' : 'מנהל'}) במרחב. כל התיקיות, המסמכים והקבצים פתוחים בפניו באופן מלא ואין צורך בנעילות או בהגבלות פרטניות.
+                    </p>
+                  </div>
+                );
+              }
+
               const fileShareFolders = (space.fileShareItems || []).filter((i: any) => i.type === 'folder' && !i.deletedAt);
               if (fileShareFolders.length === 0) {
                 return (

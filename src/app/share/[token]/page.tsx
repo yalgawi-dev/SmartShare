@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { db } from '@/lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { getPublicShare, recordPublicShareView, recordShareHeartbeat, isShareExpired, PublicSharedData, formatFileSize, uploadRecipientSubmission } from '@/utils/fileShareUtils';
+import { saveSharedLink } from '@/utils/savedSharedLinksUtils';
 import { uploadBlobToStorage } from '@/lib/firebase';
 import UniversalViewerModal from '@/components/common/ViewerEngine/UniversalViewerModal';
 import { SenderBusinessCardBanner } from '@/components/share/SenderBusinessCardBanner';
@@ -114,6 +115,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
       if (!enrichedData.requirePin || !enrichedData.pin) {
         setIsUnlocked(true);
         recordPublicShareView(token);
+        saveSharedLink({
+          token,
+          name: enrichedData.name,
+          itemType: enrichedData.itemType,
+          fileType: enrichedData.fileType,
+          spaceTitle: enrichedData.spaceTitle,
+          spaceLogoUrl: enrichedData.spaceLogoUrl
+        });
         if (enrichedData.itemType !== 'folder') {
           openViewerForFile(enrichedData as any);
         }
@@ -145,6 +154,14 @@ export default function PublicSharePage({ params }: SharePageProps) {
       setIsUnlocked(true);
       setPinError(false);
       recordPublicShareView(token);
+      saveSharedLink({
+        token,
+        name: shareData.name,
+        itemType: shareData.itemType,
+        fileType: shareData.fileType,
+        spaceTitle: shareData.spaceTitle,
+        spaceLogoUrl: shareData.spaceLogoUrl
+      });
       if (shareData.itemType !== 'folder') {
         openViewerForFile(shareData as any);
       }
