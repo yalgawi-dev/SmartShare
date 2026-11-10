@@ -168,13 +168,38 @@ export function CreateShareLinkModal({
         // Deep re-hydration directly from canonical shared_links collection if available
         if (link.token) {
           getDoc(doc(db, 'shared_links', link.token))
-            .then(snap => {
+            .then(async snap => {
               if (snap.exists() && isMounted) {
                 const data = snap.data();
-                if (Array.isArray(data.recipients) && data.recipients.length > 0) {
-                  setRecipients(data.recipients);
+                let canonicalRecipients = Array.isArray(data.recipients) ? data.recipients : [];
+                
+                // Also fetch each individual recipient document to get the latest live viewCount and duration!
+                if (canonicalRecipients.length > 0) {
+                  const updatedRecs = await Promise.all(
+                    canonicalRecipients.map(async (r: RecipientShareLink) => {
+                      if (!r.token) return r;
+                      try {
+                        const rSnap = await getDoc(doc(db, 'shared_links', r.token));
+                        if (rSnap.exists()) {
+                          const rData = rSnap.data();
+                          return {
+                            ...r,
+                            viewCount: rData.viewCount !== undefined ? rData.viewCount : r.viewCount,
+                            totalDurationSeconds: rData.totalDurationSeconds !== undefined ? rData.totalDurationSeconds : r.totalDurationSeconds,
+                            lastViewedAt: rData.lastViewedAt !== undefined ? rData.lastViewedAt : r.lastViewedAt
+                          };
+                        }
+                      } catch (_) {}
+                      return r;
+                    })
+                  );
+                  canonicalRecipients = updatedRecs;
+                }
+
+                if (canonicalRecipients.length > 0 && isMounted) {
+                  setRecipients(canonicalRecipients);
                   if (item.shareLink) {
-                    item.shareLink.recipients = data.recipients;
+                    item.shareLink.recipients = canonicalRecipients;
                   }
                 }
               }
@@ -558,7 +583,7 @@ ${slogan}${phoneText}${portfolioText}`);
                   קישור שיתוף חיצוני מאובטח
                 </h3>
                 <span style={{ fontSize: '0.65rem', background: '#dbeafe', color: '#1e40af', padding: '1px 6px', borderRadius: '6px', fontWeight: 800 }}>
-                  v3.5.48
+                  v3.5.49
                 </span>
               </div>
               <p style={{ margin: 0, fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
@@ -1278,6 +1303,7 @@ ${slogan}${phoneText}${portfolioText}`);
 
                           {r.enabled && (
                             <>
+                              {/* WhatsApp / Direct Share Button */}
                               <button
                                 type="button"
                                 onClick={() => handleWhatsAppRecipient(r)}
@@ -1285,32 +1311,62 @@ ${slogan}${phoneText}${portfolioText}`);
                                   background: '#25D366',
                                   color: 'white',
                                   border: 'none',
-                                  borderRadius: '6px',
-                                  padding: '3px 6px',
-                                  fontSize: '0.72rem',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.75rem',
                                   cursor: 'pointer',
-                                  fontWeight: 700
+                                  fontWeight: 800,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  boxShadow: '0 1px 3px rgba(37, 211, 102, 0.25)'
                                 }}
-                                title="שלח בוואטסאפ לנמען זה"
+                                title="שתף בוואטסאפ"
                               >
-                                <span>📱</span>
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="18" cy="5" r="3"></circle>
+                                  <circle cx="6" cy="12" r="3"></circle>
+                                  <circle cx="18" cy="19" r="3"></circle>
+                                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+                                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+                                </svg>
+                                <span>שתף</span>
                               </button>
+
+                              {/* Copy Personal Link Button */}
                               <button
                                 type="button"
                                 onClick={() => handleCopyRecipientLink(r)}
                                 style={{
                                   background: isCopied ? '#059669' : '#eff6ff',
                                   color: isCopied ? 'white' : '#2563eb',
-                                  border: '1px solid #bfdbfe',
-                                  borderRadius: '6px',
-                                  padding: '3px 6px',
-                                  fontSize: '0.72rem',
+                                  border: isCopied ? '1px solid #059669' : '1px solid #bfdbfe',
+                                  borderRadius: '8px',
+                                  padding: '4px 8px',
+                                  fontSize: '0.75rem',
                                   cursor: 'pointer',
-                                  fontWeight: 700
+                                  fontWeight: 800,
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px',
+                                  boxShadow: '0 1px 3px rgba(37, 99, 235, 0.1)'
                                 }}
                                 title="העתק קישור אישי"
                               >
-                                {isCopied ? '✓' : '📋'}
+                                {isCopied ? (
+                                  <>
+                                    <span>✓</span>
+                                    <span>הועתק</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+                                      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+                                    </svg>
+                                    <span>העתק</span>
+                                  </>
+                                )}
                               </button>
                             </>
                           )}

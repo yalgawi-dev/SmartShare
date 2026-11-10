@@ -114,15 +114,45 @@ export default function PhoneLinkEnforcer() {
 
   const handleOtpChange = (index: number, value: string) => {
     setErrorMsg('');
+    if (!value) {
+      const newOtp = [...otp];
+      newOtp[index] = '';
+      setOtp(newOtp);
+      return;
+    }
+
+    // Auto-fill / paste full code
+    const digitsOnly = value.replace(/\D/g, '');
+    if (digitsOnly.length > 1) {
+      const chars = digitsOnly.slice(0, 6).split('');
+      const newOtp = ['', '', '', '', '', ''];
+      chars.forEach((c, i) => { newOtp[i] = c; });
+      setOtp(newOtp);
+      if (chars.length === 6) {
+        inputRefs.current[5]?.focus();
+        setTimeout(() => {
+          verifyCode(newOtp.join(''));
+        }, 50);
+      } else {
+        inputRefs.current[Math.min(5, chars.length)]?.focus();
+      }
+      return;
+    }
+
     if (!/^\d*$/.test(value)) return;
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
     if (value && index < 5) inputRefs.current[index + 1]?.focus();
+    if (index === 5 && newOtp.join('').length === 6) {
+      setTimeout(() => {
+        verifyCode(newOtp.join(''));
+      }, 50);
+    }
   };
 
-  const verifyCode = async () => {
-    const code = otp.join('');
+  const verifyCode = async (directCode?: string) => {
+    const code = (typeof directCode === 'string' ? directCode : otp.join('')).trim();
     if (code.length !== 6) {
       setErrorMsg('הזן קוד בן 6 ספרות');
       return;
@@ -370,8 +400,14 @@ export default function PhoneLinkEnforcer() {
                   ref={el => { inputRefs.current[i] = el; }}
                   type="text"
                   inputMode="numeric"
-                  maxLength={1}
+                  autoComplete="one-time-code"
+                  maxLength={6}
                   value={digit}
+                  onPaste={e => {
+                    e.preventDefault();
+                    const pastedData = e.clipboardData.getData('text');
+                    handleOtpChange(0, pastedData);
+                  }}
                   onChange={e => handleOtpChange(i, e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Backspace' && !digit && i > 0) {
@@ -396,7 +432,7 @@ export default function PhoneLinkEnforcer() {
             </div>
 
             <button
-              onClick={verifyCode}
+              onClick={() => verifyCode()}
               disabled={isSubmitting || otp.some(d => !d)}
               style={{
                 background: 'linear-gradient(135deg, #10B981, #059669)',

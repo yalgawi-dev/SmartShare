@@ -205,11 +205,29 @@ export default function AuthWall() {
 
   const handleOtpChange = (index: number, value: string) => {
     setErrorMsg('');
-    if (value.length > 1) {
-      const chars = value.replace(/\D/g, '').split('').slice(0, 6);
+    if (!value) {
       const newOtp = [...otp];
-      chars.forEach((c, i) => { if (index + i < 6) newOtp[index + i] = c; });
+      newOtp[index] = '';
       setOtp(newOtp);
+      return;
+    }
+
+    // If pasted or auto-filled full code (e.g. 6 digits or SMS code text)
+    const digitsOnly = value.replace(/\D/g, '');
+    if (digitsOnly.length > 1) {
+      const chars = digitsOnly.slice(0, 6).split('');
+      const newOtp = ['', '', '', '', '', ''];
+      chars.forEach((c, i) => { newOtp[i] = c; });
+      setOtp(newOtp);
+      // Focus last filled digit or submit if 6 digits
+      if (chars.length === 6) {
+        document.getElementById('otp-5')?.focus();
+        setTimeout(() => {
+          handleVerify(newOtp.join(''));
+        }, 50);
+      } else {
+        document.getElementById(`otp-${Math.min(5, chars.length)}`)?.focus();
+      }
       return;
     }
     
@@ -218,6 +236,11 @@ export default function AuthWall() {
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
+    if (index === 5 && newOtp.join('').length === 6) {
+      setTimeout(() => {
+        handleVerify(newOtp.join(''));
+      }, 50);
+    }
   };
 
   
@@ -244,8 +267,8 @@ export default function AuthWall() {
     }
   };
 
-  const handleVerify = async () => {
-    const code = otp.join('');
+  const handleVerify = async (directCode?: string) => {
+    const code = (typeof directCode === 'string' ? directCode : otp.join('')).trim();
     if (code.length < 6) {
       setErrorMsg('אנא הכנס קוד בן 6 ספרות.');
       return;
@@ -268,7 +291,7 @@ export default function AuthWall() {
       }
       
       if (confirmationResult) {
-        await confirmationResult.confirm(code.trim());
+        await confirmationResult.confirm(code);
       }
       setIsSubmitting(false);
     } catch (err: any) {
@@ -529,13 +552,18 @@ export default function AuthWall() {
                   id={`otp-${i}`}
                   type="text"
                   inputMode="numeric"
-                  autoComplete={i === 0 ? "one-time-code" : "off"}
-                  maxLength={1}
+                  autoComplete="one-time-code"
+                  maxLength={6}
                   className="otp-input"
                   value={digit}
+                  onPaste={e => {
+                    e.preventDefault();
+                    const pastedData = e.clipboardData.getData('text');
+                    handleOtpChange(0, pastedData);
+                  }}
                   onChange={e => {
                     handleOtpChange(i, e.target.value);
-                    if (e.target.value && i < 5) {
+                    if (e.target.value.length === 1 && i < 5) {
                       document.getElementById(`otp-${i + 1}`)?.focus();
                     }
                   }}
@@ -576,7 +604,7 @@ export default function AuthWall() {
 
             <div className="auth-actions">
               <button
-                onClick={handleVerify}
+                onClick={() => handleVerify()}
                 disabled={isSubmitting || otp.join('').length < 6}
                 className="auth-btn auth-btn-primary"
               >
