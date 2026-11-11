@@ -165,9 +165,21 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         const page = await pdf.getPage(p);
         const unscaledViewport = page.getViewport({ scale: 1.0 });
         const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-        // Scale to 3200px for crystal-clear CAD / architectural dimensions readability
-        const hdScale = Math.min(4.5, 3200 / currentMax);
-        const viewport = page.getViewport({ scale: Math.max(2.0, hdScale) });
+        const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
+        const aspectRatio = currentMax / Math.max(1, currentMin);
+
+        // Safe budget-aware HD scale calculation:
+        // Do not exceed browser canvas memory limits (32MP) while guaranteeing high detail!
+        let scale: number;
+        if (aspectRatio >= 2.5) {
+          const targetByMin = 2200 / currentMin;
+          const maxBudget = Math.sqrt(28000000 / (unscaledViewport.width * unscaledViewport.height));
+          scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
+        } else {
+          scale = Math.min(2.5, Math.max(1.0, 3200 / currentMax));
+        }
+
+        const viewport = page.getViewport({ scale });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
