@@ -248,119 +248,207 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           pinch={{ step: 5 }}
           onTransform={(ref: any) => setPdfScale(ref.state.scale)}
         >
-          <TransformComponent
-            wrapperStyle={{ width: '100%', height: '100%' }}
-            contentStyle={{
-              width: '100%',
-              minHeight: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '16px',
-                padding: '1rem 0.5rem 6rem 0.5rem',
-                maxWidth: '900px',
-                width: '100%'
-              }}
-            >
-              {pages.map((pageUrl: string, pageIdx: number) => (
+          {({ zoomIn, zoomOut, resetTransform }: any) => (
+            <>
+              <TransformComponent
+                wrapperStyle={{ width: '100%', height: '100%' }}
+                contentStyle={{
+                  width: '100%',
+                  minHeight: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center'
+                }}
+              >
                 <div
-                  key={pageIdx}
                   style={{
-                    position: 'relative',
-                    width: '100%',
                     display: 'flex',
-                    justifyContent: 'center'
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '16px',
+                    padding: '1rem 0.5rem 6rem 0.5rem',
+                    maxWidth: '900px',
+                    width: '100%'
                   }}
                 >
-                  <img
-                    src={pageUrl}
-                    alt={`עמוד ${pageIdx + 1}`}
-                    loading="eager"
-                    style={{
-                      maxWidth: '100%',
-                      maxHeight: '76vh',
-                      width: 'auto',
-                      height: 'auto',
-                      borderRadius: '10px',
-                      boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
-                      userSelect: 'none',
-                      border: '1px solid rgba(255, 255, 255, 0.08)',
-                      imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
-                    }}
-                  />
-                  {pages.length > 1 && (
+                  {pages.map((pageUrl: string, pageIdx: number) => (
                     <div
+                      key={pageIdx}
                       style={{
-                        position: 'absolute',
-                        bottom: '12px',
-                        right: '16px',
-                        background: 'rgba(15, 23, 42, 0.85)',
-                        backdropFilter: 'blur(6px)',
-                        color: '#f8fafc',
-                        padding: '3px 10px',
-                        borderRadius: '12px',
-                        fontSize: '0.75rem',
-                        fontWeight: 800,
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
-                        zIndex: 10
+                        position: 'relative',
+                        width: '100%',
+                        display: 'flex',
+                        justifyContent: 'center'
                       }}
                     >
-                      עמוד {pageIdx + 1} מתוך {Math.max(pages.length, totalPageCount)}
+                      <img
+                        src={pageUrl}
+                        alt={`עמוד ${pageIdx + 1}`}
+                        loading="eager"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '76vh',
+                          width: 'auto',
+                          height: 'auto',
+                          borderRadius: '10px',
+                          boxShadow: '0 8px 30px rgba(0, 0, 0, 0.65)',
+                          userSelect: 'none',
+                          border: '1px solid rgba(255, 255, 255, 0.08)',
+                          imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
+                        }}
+                      />
+                      {pages.length > 1 && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '12px',
+                            right: '16px',
+                            background: 'rgba(15, 23, 42, 0.85)',
+                            backdropFilter: 'blur(6px)',
+                            color: '#f8fafc',
+                            padding: '3px 10px',
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            fontWeight: 800,
+                            border: '1px solid rgba(255, 255, 255, 0.15)',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
+                            zIndex: 10
+                          }}
+                        >
+                          עמוד {pageIdx + 1} מתוך {Math.max(pages.length, totalPageCount)}
+                        </div>
+                      )}
                     </div>
-                  )}
+                  ))}
                 </div>
-              ))}
-            </div>
-          </TransformComponent>
+              </TransformComponent>
 
-          {/* On-Demand Ultra-HD Button for Plan / Blueprint / Small Text Reading */}
-          {pdfDocRef.current && (
-            <div
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                position: 'absolute',
-                top: '16px',
-                left: '16px',
-                zIndex: 200025,
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              <button
-                type="button"
-                onClick={handleToggleUltraHd}
-                disabled={isHdRendering}
+              {/* Top Bar Ultra-HD Button */}
+              {pdfDocRef.current && (
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    position: 'absolute',
+                    top: '16px',
+                    left: '16px',
+                    zIndex: 200025,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={handleToggleUltraHd}
+                    disabled={isHdRendering}
+                    style={{
+                      background: isHdActive ? '#10b981' : (isPlanDetected || pdfScale > 2.2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
+                      backdropFilter: 'blur(8px)',
+                      border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
+                      color: '#ffffff',
+                      padding: '6px 12px',
+                      borderRadius: '20px',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      cursor: isHdRendering ? 'wait' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                      transition: 'all 0.2s ease'
+                    }}
+                    title="רינדור מחדש בחדות Ultra-HD לקריאת מידות ומספרים קטנים בשרטוט"
+                  >
+                    <span>{isHdRendering ? '⏳' : (isHdActive ? '✓' : '🔍')}</span>
+                    <span>{isHdRendering ? 'מחדד שרטוט...' : (isHdActive ? 'איכות שרטוט HD פעילה' : 'חדד שרטוט (Ultra-HD)')}</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Bottom-Left Floating Zoom Buttons (+, -, 1:1) */}
+              <div
+                onClick={(e) => e.stopPropagation()}
                 style={{
-                  background: isHdActive ? '#10b981' : (isPlanDetected || pdfScale > 2.2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
-                  backdropFilter: 'blur(8px)',
-                  border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
-                  color: '#ffffff',
-                  padding: '6px 12px',
-                  borderRadius: '20px',
-                  fontSize: '0.8rem',
-                  fontWeight: 800,
-                  cursor: isHdRendering ? 'wait' : 'pointer',
+                  position: 'absolute',
+                  bottom: '90px',
+                  left: '16px',
                   display: 'flex',
-                  alignItems: 'center',
-                  gap: '5px',
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
-                  transition: 'all 0.2s ease'
+                  flexDirection: 'column',
+                  gap: '8px',
+                  zIndex: 200025
                 }}
-                title="רינדור מחדש בחדות Ultra-HD לקריאת מידות ומספרים קטנים בשרטוט"
               >
-                <span>{isHdRendering ? '⏳' : (isHdActive ? '✓' : '🔍')}</span>
-                <span>{isHdRendering ? 'מחדד שרטוט...' : (isHdActive ? 'איכות שרטוט HD פעילה' : 'חדד שרטוט (Ultra-HD)')}</span>
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={() => zoomIn(2.0)}
+                  title="הגדל זום"
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                    color: '#ffffff',
+                    fontSize: '1.3rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  +
+                </button>
+                <button
+                  type="button"
+                  onClick={() => zoomOut(2.0)}
+                  title="הקטן זום"
+                  style={{
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'rgba(15, 23, 42, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1.5px solid rgba(255, 255, 255, 0.25)',
+                    color: '#ffffff',
+                    fontSize: '1.3rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)'
+                  }}
+                >
+                  −
+                </button>
+                {pdfScale > 1.1 && (
+                  <button
+                    type="button"
+                    onClick={() => resetTransform()}
+                    title="איפוס תצוגה"
+                    style={{
+                      width: '42px',
+                      height: '42px',
+                      borderRadius: '50%',
+                      background: 'rgba(37, 99, 235, 0.85)',
+                      backdropFilter: 'blur(8px)',
+                      border: '1.5px solid rgba(255, 255, 255, 0.3)',
+                      color: '#ffffff',
+                      fontSize: '0.8rem',
+                      fontWeight: 800,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(37,99,235,0.5)'
+                    }}
+                  >
+                    1:1
+                  </button>
+                )}
+              </div>
+            </>
           )}
         </TransformWrapper>
       </div>
