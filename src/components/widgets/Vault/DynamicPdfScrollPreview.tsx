@@ -172,8 +172,8 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         // Do not exceed browser canvas memory limits (32MP) while guaranteeing high detail!
         let scale: number;
         if (aspectRatio >= 2.5) {
-          const targetByMin = 2200 / currentMin;
-          const maxBudget = Math.sqrt(28000000 / (unscaledViewport.width * unscaledViewport.height));
+          const targetByMin = 2400 / currentMin;
+          const maxBudget = Math.sqrt(30000000 / (unscaledViewport.width * unscaledViewport.height));
           scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
         } else {
           scale = Math.min(2.5, Math.max(1.0, 3200 / currentMax));
