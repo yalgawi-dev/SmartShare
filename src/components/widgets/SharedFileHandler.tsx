@@ -33,6 +33,10 @@ export default function SharedFileHandler() {
   const [attachQueueState, setAttachQueueState] = useState<{ spaceId: string; queue: ScannedReceiptInput[] } | null>(null);
   const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [timingLog, setTimingLog] = useState<{ step: string; ms: number }[]>([]);
+  const [showTimingModal, setShowTimingModal] = useState(false);
+  const [copiedTiming, setCopiedTiming] = useState(false);
+  const timingStartRef = useRef<number>(Date.now());
   const [showChromeUpdateModal, setShowChromeUpdateModal] = useState(false);
   const isCancelledRef = useRef(false);
   const hasHandledShareRef = useRef(false);
@@ -534,6 +538,8 @@ export default function SharedFileHandler() {
 
         setUploadProgress({ current: 0, total: sharedFiles.length });
         let currentIdx = 0;
+        const tStartProcess = performance.now();
+        const logs: { step: string; ms: number }[] = [];
         for (const dataUri of sharedFiles) {
           currentIdx++;
           setUploadProgress({ current: currentIdx, total: sharedFiles.length });
@@ -560,22 +566,27 @@ export default function SharedFileHandler() {
             // Strict check: only true digital signatures or compact vector files retain raw PDF!
             const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
 
-            // Extract all pages as crisp, optimized WebP images (1200px) for instant viewing
-            const webpPages = await extractPdfPages(blobToUpload, 1200, 0.80);
+            // Step 1: Render and compress high-legibility WebP pages (budget 2400px for blueprints)
+            const tExtractStart = performance.now();
+            const webpPages = await extractPdfPages(blobToUpload, 2400, 0.82);
+            const tExtractEnd = performance.now();
+            logs.push({ step: '1. רינדור דפי ה-PDF לקנבס וכיווץ WebP (מעבד טלפון)', ms: Math.round(tExtractEnd - tExtractStart) });
 
-            // Compute accurate compressed size in bytes from the actual WebP page(s)
             let compressedSize = 0;
             if (webpPages.length > 0) {
               compressedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
             }
 
-            // Parallel upload of all WebP pages (super-fast, finishes in ~1.5s instead of 15s!)
+            // Step 2: Upload WebP pages to cloud storage
+            const tUploadStart = performance.now();
             const uploadedPages = await Promise.all(
               webpPages.map((pageUri, p) => uploadImageToStorage(
                 pageUri,
                 `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.webp`
               ))
             );
+            const tUploadEnd = performance.now();
+            logs.push({ step: '2. העלאת קבצי WebP לשרת הענן (Supabase)', ms: Math.round(tUploadEnd - tUploadStart) });
 
             let rawPdfDownloadUrl: string | undefined = undefined;
             if (isOriginalSignedOrVector) {
@@ -673,10 +684,13 @@ export default function SharedFileHandler() {
           tx.objectStore('sharedFiles').delete('latest_shared');
         };
 
-        setIsModalOpen(false);
+        const tTotalEnd = performance.now();
+        logs.push({ step: '3. סה"כ זמן עיבוד מלא ושמירה מרגע לחיצה על שמור', ms: Math.round(tTotalEnd - tStartProcess) });
+        setTimingLog(logs);
         setIsProcessing(false);
-        setSharedFiles([]);
-        router.push('/space/' + selectedSpaceId + '?tab=documents&shelfId=' + targetShelfId + (selectedFolderId ? '&folderId=' + selectedFolderId : ''));
+        setShowTimingModal(true);
+        // User can inspect timings, click Copy (C), and proceed to space!
+        return;
       } else if (routeDestination === 'attach_existing') {
         // Prepare queue with converted WebP pages right away so OCR and thumbnail work immediately without raw PDF issues
         const queue: ScannedReceiptInput[] = [];
@@ -1059,13 +1073,38 @@ export default function SharedFileHandler() {
                   uri.toLowerCase().includes('.pdf') ||
                   uri.startsWith('data:application/pdf')
                 );
+                const fileSize = blobItem?.blob?.size || blobItem?.size;
+                const fileName = blobItem?.name || blobItem?.blob?.name || 'קובץ PDF';
                 return isPdf ? (
-                  <PdfThumbnail 
+                  <div
                     key={idx}
-                    url={uri}
                     onClick={() => setZoomedIndex(idx)}
-                    style={{ height: '100%', width: '70px', flexShrink: 0, objectFit: 'cover', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  />
+                    style={{
+                      height: '100%',
+                      minWidth: '85px',
+                      maxWidth: '120px',
+                      flexShrink: 0,
+                      borderRadius: '8px',
+                      border: '1.5px solid #fca5a5',
+                      background: 'linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '4px',
+                      cursor: 'zoom-in',
+                      boxShadow: '0 2px 4px rgba(239, 68, 68, 0.12)'
+                    }}
+                    title="לחץ לתצוגה מוגדלת"
+                  >
+                    <span style={{ fontSize: '1.4rem' }}>📄</span>
+                    <span style={{ fontSize: '0.62rem', fontWeight: 900, color: '#b91c1c', marginTop: '2px' }}>
+                      PDF
+                    </span>
+                    <span style={{ fontSize: '0.55rem', color: '#7f1d1d', maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {fileSize ? (fileSize / (1024 * 1024)).toFixed(1) + ' MB' : fileName}
+                    </span>
+                  </div>
                 ) : (
                   <img 
                     key={idx} 
@@ -1464,6 +1503,103 @@ export default function SharedFileHandler() {
         );
       })()}
       
+      {/* TIMING MONITOR & BENCHMARK MODAL */}
+      {showTimingModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.85)', zIndex: 100020,
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem',
+          backdropFilter: 'blur(8px)', direction: 'rtl'
+        }}>
+          <div style={{
+            background: '#ffffff', borderRadius: '24px', padding: '1.5rem',
+            width: '100%', maxWidth: '420px', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.45)',
+            border: '2px solid #3b82f6', color: '#1e293b'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid #e2e8f0', paddingBottom: '0.6rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.5rem' }}>⏱️</span>
+                <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#0f172a' }}>דוח ניטור זמנים (Benchmark)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTimingModal(false);
+                  setIsModalOpen(false);
+                  setSharedFiles([]);
+                  router.push('/space/' + selectedSpaceId + '?tab=documents');
+                }}
+                style={{ background: 'transparent', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: '#64748b' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1.2rem' }}>
+              {timingLog.map((item, idx) => (
+                <div key={idx} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  background: idx === timingLog.length - 1 ? '#eff6ff' : '#f8fafc',
+                  border: idx === timingLog.length - 1 ? '1.5px solid #3b82f6' : '1px solid #e2e8f0',
+                  padding: '0.65rem 0.8rem', borderRadius: '12px'
+                }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: idx === timingLog.length - 1 ? 800 : 600, color: '#334155' }}>
+                    {item.step}
+                  </span>
+                  <span style={{
+                    fontSize: '0.85rem', fontWeight: 900,
+                    color: item.ms > 10000 ? '#ef4444' : item.ms > 3000 ? '#f59e0b' : '#10b981',
+                    background: '#ffffff', padding: '2px 8px', borderRadius: '6px',
+                    border: '1px solid #cbd5e1', flexShrink: 0
+                  }}>
+                    {(item.ms / 1000).toFixed(2)} שניות
+                  </span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => {
+                  const summaryText = timingLog.map(i => `${i.step}: ${(i.ms / 1000).toFixed(2)}s`).join('\n');
+                  navigator.clipboard.writeText(summaryText);
+                  setCopiedTiming(true);
+                  setTimeout(() => setCopiedTiming(false), 2500);
+                }}
+                style={{
+                  flex: 1, padding: '0.75rem', borderRadius: '14px', border: 'none',
+                  background: copiedTiming ? '#10b981' : '#3b82f6', color: '#ffffff',
+                  fontWeight: 800, fontSize: '0.9rem', cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)'
+                }}
+              >
+                <span>{copiedTiming ? '✅' : '📋'}</span>
+                <span>{copiedTiming ? 'הועתק ללוח!' : 'העתק דוח זמנים (C)'}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTimingModal(false);
+                  setIsModalOpen(false);
+                  setSharedFiles([]);
+                  router.push('/space/' + selectedSpaceId + '?tab=documents');
+                }}
+                style={{
+                  padding: '0.75rem 1.2rem', borderRadius: '14px', border: '1px solid #cbd5e1',
+                  background: '#f1f5f9', color: '#334155', fontWeight: 800, fontSize: '0.88rem',
+                  cursor: 'pointer'
+                }}
+              >
+                המשך למסמכים
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {zoomedIndex !== null && (
         <div 
           style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', zIndex: 100010, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}
