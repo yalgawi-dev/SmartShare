@@ -587,8 +587,10 @@ export default function SharedFileHandler() {
               );
             }
 
-            const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}`;
-            const cleanTitle = fileName.replace(/\.pdf$/i, '');
+            const rawFileName = correspondingBlob?.name || correspondingBlob?.blob?.name || '';
+            const isGeneratedDocName = !rawFileName || /^doc_\d+/i.test(rawFileName) || /^shared_\d+/i.test(rawFileName);
+            const defaultCleanTitle = isOriginalSignedOrVector ? 'תוכנית / מסמך מקורי' : 'תוכנית / מסמך ששותף';
+            const cleanTitle = (!isGeneratedDocName && rawFileName) ? rawFileName.replace(/\.pdf$/i, '') : defaultCleanTitle;
             const finalThumb = uploadedPages[0];
 
             // Compute accurate file size for the document record (WebP compressed size for raster scans!)
@@ -612,7 +614,7 @@ export default function SharedFileHandler() {
 
             if (effectiveTarget === 'local') {
               try {
-                await saveLocalDeviceFile(currentSpace?.title || 'General', fileName, cleanUri);
+                await saveLocalDeviceFile(currentSpace?.title || 'General', `${cleanTitle}.webp`, cleanUri);
               } catch (err) {
                 console.warn("Local save failed in SharedFileHandler:", err);
               }

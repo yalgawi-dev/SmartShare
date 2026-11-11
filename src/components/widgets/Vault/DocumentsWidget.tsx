@@ -2599,6 +2599,24 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                     <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                       {doc.title}
                                     </span>
+                                    {(() => {
+                                      const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
+                                      const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
+                                      return (
+                                        <span style={{
+                                          fontSize: '0.6rem',
+                                          fontWeight: 800,
+                                          padding: '1px 5px',
+                                          borderRadius: '4px',
+                                          background: isRawPdf ? '#fee2e2' : isWebp ? '#dbeafe' : '#f1f5f9',
+                                          color: isRawPdf ? '#b91c1c' : isWebp ? '#1d4ed8' : '#334155',
+                                          border: isRawPdf ? '1px solid #fca5a5' : isWebp ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
+                                          flexShrink: 0
+                                        }}>
+                                          {isRawPdf ? 'PDF' : isWebp ? 'WEBP' : 'FILE'}
+                                        </span>
+                                      );
+                                    })()}
                                     {isDocUnread(doc) && (
                                       <span
                                         style={{
@@ -3179,11 +3197,32 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                   </button>
 
                                   {isPdf && !doc.thumbnailUrl && <span style={{ fontSize: '2.5rem' }}>📑</span>}
-                                  {isPdf && (
-                                    <div style={{ position: 'absolute', bottom: '4px', left: '4px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '1px 5px', borderRadius: '4px', fontSize: '0.6rem', fontWeight: 'bold' }}>
-                                      PDF
-                                    </div>
-                                  )}
+                                  {/* File Format Badge (PDF vs WEBP) */}
+                                  {(() => {
+                                    const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
+                                    const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
+                                    return (
+                                      <div style={{
+                                        position: 'absolute',
+                                        bottom: '4px',
+                                        left: '4px',
+                                        background: isRawPdf ? 'rgba(220, 38, 38, 0.92)' : isWebp ? 'rgba(37, 99, 235, 0.92)' : 'rgba(15, 23, 42, 0.85)',
+                                        color: '#ffffff',
+                                        padding: '2px 6px',
+                                        borderRadius: '5px',
+                                        fontSize: '0.62rem',
+                                        fontWeight: 900,
+                                        letterSpacing: '0.5px',
+                                        boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        border: '1px solid rgba(255,255,255,0.3)'
+                                      }}>
+                                        <span>{isRawPdf ? '📄 PDF' : isWebp ? '🖼️ WEBP' : '📁 קובץ'}</span>
+                                      </div>
+                                    );
+                                  })()}
                                   <div style={{
                                     position: 'absolute',
                                     bottom: '4px',
@@ -3222,10 +3261,28 @@ const handleDeleteDocument = (docId: string, title?: string) => {
                                         }
                                       });
                                     }}
-                                    style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer' }}
+                                    style={{ fontSize: '0.8rem', fontWeight: 800, color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
                                     title="לחץ לשינוי שם"
                                   >
-                                    {doc.title}
+                                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.title}</span>
+                                    {(() => {
+                                      const isRawPdf = Boolean(doc.rawPdfUrl || doc.type === 'pdf' || (doc.url && doc.url.toLowerCase().includes('.pdf')));
+                                      const isWebp = !isRawPdf && (doc.type === 'document' || doc.type === 'image' || (doc.url && doc.url.toLowerCase().includes('.webp')) || (doc.thumbnailUrl && doc.thumbnailUrl.toLowerCase().includes('.webp')));
+                                      return (
+                                        <span style={{
+                                          fontSize: '0.58rem',
+                                          fontWeight: 800,
+                                          padding: '0 4px',
+                                          borderRadius: '3px',
+                                          background: isRawPdf ? '#fee2e2' : isWebp ? '#dbeafe' : '#f1f5f9',
+                                          color: isRawPdf ? '#b91c1c' : isWebp ? '#1d4ed8' : '#334155',
+                                          border: isRawPdf ? '1px solid #fca5a5' : isWebp ? '1px solid #bfdbfe' : '1px solid #cbd5e1',
+                                          flexShrink: 0
+                                        }}>
+                                          {isRawPdf ? 'PDF' : isWebp ? 'WEBP' : 'FILE'}
+                                        </span>
+                                      );
+                                    })()}
                                   </div>
 
                                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>

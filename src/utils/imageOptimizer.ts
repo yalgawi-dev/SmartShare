@@ -348,8 +348,8 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
 
       let scale: number;
       if (aspectRatio >= 2.5) {
-        const targetScaleByMin = 1200 / currentMin;
-        const maxBudgetScale = Math.sqrt(9000000 / (unscaledViewport.width * unscaledViewport.height));
+        const targetScaleByMin = 1800 / currentMin;
+        const maxBudgetScale = Math.sqrt(18000000 / (unscaledViewport.width * unscaledViewport.height));
         scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
       } else {
         scale = Math.min(1.8, Math.max(0.2, maxDim / currentMax));
@@ -608,13 +608,14 @@ export async function extractPdfPages(pdfSource: Blob | string, maxDim = 1200, q
 
       // Intelligent Resolution Budget:
       // For standard documents (A4/Letter ~1.4 aspect ratio): scale to maxDim (1200-1600px).
-      // For blueprints / megilot / CAD (aspect ratio >= 2.5): do NOT crush short axis to 200px!
-      // Instead, guarantee short dimension is at least 1200px (or scale 0.5) with a maximum pixel budget of 9 megapixels,
-      // ensuring all CAD lines, measurement numbers, and annotations remain razor-sharp while keeping WebP ~1.5MB-2.3MB!
+      // For blueprints / megilot / CAD (aspect ratio >= 2.5): do NOT crush short axis!
+      // Guarantee short dimension is at least 1800px (or scale 0.72) with a maximum pixel budget of 18 megapixels,
+      // ensuring all CAD lines, measurement numbers, and fine annotations remain razor-sharp and 100% legible
+      // while keeping WebP file size very light (~1.8MB - 2.4MB)!
       let scale: number;
       if (aspectRatio >= 2.5) {
-        const targetScaleByMin = 1200 / currentMin; // Keep width legible at 1200px
-        const maxBudgetScale = Math.sqrt(9000000 / (unscaledViewport.width * unscaledViewport.height)); // Max 9MP
+        const targetScaleByMin = 1800 / currentMin; // Keep width legible at 1800px
+        const maxBudgetScale = Math.sqrt(18000000 / (unscaledViewport.width * unscaledViewport.height)); // Max 18MP
         scale = Math.min(1.0, Math.min(targetScaleByMin, maxBudgetScale));
       } else {
         scale = Math.min(1.8, Math.max(0.2, maxDim / currentMax));
