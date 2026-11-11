@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.61-benchmark';
+export const APP_VERSION = 'v3.5.62-rawpdf-exp';

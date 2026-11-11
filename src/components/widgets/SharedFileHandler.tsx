@@ -563,51 +563,56 @@ export default function SharedFileHandler() {
 
             const buffer = await blobToUpload.arrayBuffer();
             const analysis = await analyzePdfStructure(buffer);
-            // Strict check: only true digital signatures or compact vector files retain raw PDF!
+            // Strict check: digital signatures OR single-page blueprints/CAD plans retain intact raw PDF!
             const isOriginalSignedOrVector = isTrueOriginalPdf(analysis, blobToUpload.size);
+            const isSinglePageBlueprint = (analysis.pageCount === 1 && blobToUpload.size > 2 * 1024 * 1024);
+            const shouldRetainRawPdf = isOriginalSignedOrVector || isSinglePageBlueprint;
 
-            // Step 1: Render and compress high-legibility WebP pages (budget 2400px for blueprints)
-            const tExtractStart = performance.now();
-            const webpPages = await extractPdfPages(blobToUpload, 2400, 0.82);
-            const tExtractEnd = performance.now();
-            logs.push({ step: '1. רינדור דפי ה-PDF לקנבס וכיווץ WebP (מעבד טלפון)', ms: Math.round(tExtractEnd - tExtractStart) });
-
-            let compressedSize = 0;
-            if (webpPages.length > 0) {
-              compressedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
-            }
-
-            // Step 2: Upload WebP pages to cloud storage
-            const tUploadStart = performance.now();
-            const uploadedPages = await Promise.all(
-              webpPages.map((pageUri, p) => uploadImageToStorage(
-                pageUri,
-                `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.webp`
-              ))
-            );
-            const tUploadEnd = performance.now();
-            logs.push({ step: '2. העלאת קבצי WebP לשרת הענן (Supabase)', ms: Math.round(tUploadEnd - tUploadStart) });
-
+            let uploadedPages: string[] = [];
             let rawPdfDownloadUrl: string | undefined = undefined;
-            if (isOriginalSignedOrVector) {
-              // Digitally signed or compact vector PDF: retain intact original file in Storage for legal validity & download
+            let compressedSize = 0;
+
+            if (shouldRetainRawPdf) {
+              // ── Benchmark: Upload raw PDF directly to cloud storage without phone CPU rendering! ──
+              logs.push({ step: '1. דילוג על רינדור טלפון (קובץ שרטוט נשמר במקורו)', ms: 0 });
+
+              const tUploadStart = performance.now();
               const fileName = correspondingBlob?.name || correspondingBlob?.blob?.name || `doc_${Date.now()}.pdf`;
               rawPdfDownloadUrl = await uploadBlobToStorage(
                 blobToUpload,
                 `vault/${selectedSpaceId}/${Date.now()}-${Math.random().toString(36).substring(7)}.pdf`
               );
+              const tUploadEnd = performance.now();
+              logs.push({ step: `2. העלאת קובץ PDF מקורי לענן (${(blobToUpload.size / (1024*1024)).toFixed(1)} MB)`, ms: Math.round(tUploadEnd - tUploadStart) });
+            } else {
+              // Standard documents / multi-page files: convert to optimized WebP
+              const tExtractStart = performance.now();
+              const webpPages = await extractPdfPages(blobToUpload, 1800, 0.82);
+              const tExtractEnd = performance.now();
+              logs.push({ step: '1. רינדור דפי ה-PDF לקנבס וכיווץ WebP (מעבד טלפון)', ms: Math.round(tExtractEnd - tExtractStart) });
+
+              if (webpPages.length > 0) {
+                compressedSize = webpPages.reduce((acc, p) => acc + dataUrlBytes(p), 0);
+              }
+
+              const tUploadStart = performance.now();
+              uploadedPages = await Promise.all(
+                webpPages.map((pageUri, p) => uploadImageToStorage(
+                  pageUri,
+                  `vault/${selectedSpaceId}/${Date.now()}-${p}-${Math.random().toString(36).substring(7)}.webp`
+                ))
+              );
+              const tUploadEnd = performance.now();
+              logs.push({ step: '2. העלאת קבצי WebP לשרת הענן (Supabase)', ms: Math.round(tUploadEnd - tUploadStart) });
             }
 
             const rawFileName = correspondingBlob?.name || correspondingBlob?.blob?.name || '';
             const isGeneratedDocName = !rawFileName || /^doc_\d+/i.test(rawFileName) || /^shared_\d+/i.test(rawFileName);
-            const defaultCleanTitle = isOriginalSignedOrVector ? 'תוכנית / מסמך מקורי' : 'תוכנית / מסמך ששותף';
+            const defaultCleanTitle = shouldRetainRawPdf ? 'תוכנית / מסמך PDF מקורי' : 'תוכנית / מסמך ששותף';
             const cleanTitle = (!isGeneratedDocName && rawFileName) ? rawFileName.replace(/\.pdf$/i, '') : defaultCleanTitle;
             const finalThumb = uploadedPages[0];
 
-            // Compute accurate file size for the document record (WebP compressed size for raster scans!)
-            const calculatedFileSize = isOriginalSignedOrVector
-              ? blobToUpload.size
-              : (compressedSize > 0 ? compressedSize : (cleanUri.startsWith('data:') ? dataUrlBytes(cleanUri) : blobToUpload.size));
+            const calculatedFileSize = shouldRetainRawPdf ? blobToUpload.size : (compressedSize > 0 ? compressedSize : blobToUpload.size);
 
             addDocument(selectedSpaceId, {
               shelfId: targetShelfId,
@@ -615,9 +620,9 @@ export default function SharedFileHandler() {
               url: rawPdfDownloadUrl || finalThumb,
               rawPdfUrl: rawPdfDownloadUrl,
               thumbnailUrl: finalThumb,
-              pages: uploadedPages.length > 0 ? uploadedPages : (finalThumb ? [finalThumb] : undefined),
-              title: cleanTitle || (isOriginalSignedOrVector ? 'מסמך PDF מקורי' : 'מסמך ששותף'),
-              type: isOriginalSignedOrVector ? 'pdf' : 'document',
+              pages: uploadedPages.length > 0 ? uploadedPages : undefined,
+              title: cleanTitle,
+              type: shouldRetainRawPdf ? 'pdf' : 'document',
               addedBy: user?.id || 'me',
               storageTarget: effectiveTarget as 'cloud' | 'local' | 'gdrive',
               fileSize: calculatedFileSize

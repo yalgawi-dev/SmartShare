@@ -75,8 +75,21 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           const page = await pdf.getPage(pageNum);
           const unscaledViewport = page.getViewport({ scale: 1.0 });
           const currentMax = Math.max(unscaledViewport.width, unscaledViewport.height);
-          const scale = Math.min(1.8, 1200 / currentMax);
-          const viewport = page.getViewport({ scale: Math.max(0.8, scale) });
+          const currentMin = Math.min(unscaledViewport.width, unscaledViewport.height);
+          const aspectRatio = currentMax / Math.max(1, currentMin);
+
+          // For blueprints / megilot / CAD (aspect ratio >= 2.5): guarantee short axis is at least 2200px
+          // so every CAD measurement number and fine line is crystal clear!
+          let scale: number;
+          if (aspectRatio >= 2.5) {
+            const targetByMin = 2200 / currentMin;
+            const maxBudget = Math.sqrt(32000000 / (unscaledViewport.width * unscaledViewport.height));
+            scale = Math.min(1.0, Math.min(targetByMin, maxBudget));
+          } else {
+            scale = Math.min(1.8, Math.max(0.8, 1600 / currentMax));
+          }
+
+          const viewport = page.getViewport({ scale });
           const canvas = document.createElement('canvas');
           canvas.width = viewport.width;
           canvas.height = viewport.height;
@@ -85,7 +98,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             await page.render({ canvasContext: ctx, viewport }).promise;
-            return compressCanvasWebP(canvas, 0.80);
+            return compressCanvasWebP(canvas, 0.85);
           }
           return '';
         };
