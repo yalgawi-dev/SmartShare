@@ -556,8 +556,11 @@ export default function UniversalViewerModal({
       >
         {(() => {
           // ── Case 1: Raw PDF without pre-rendered page images ───────────────
+          // Note: When doc.rawPdfUrl exists or doc is PDF, even if temporary preview pages exist,
+          // we prefer DynamicPdfScrollPreview if rawPdfUrl is present and there's no custom multi-page array.
           const hasRenderedPages = validImagePages.length > 0;
-          if (isDocPdf && !hasRenderedPages) {
+          const shouldPreferVectorPdf = Boolean(isDocPdf && (!hasRenderedPages || currentDoc.rawPdfUrl));
+          if (shouldPreferVectorPdf) {
             return (
               <div
                 style={{
@@ -571,15 +574,9 @@ export default function UniversalViewerModal({
                 }}
               >
                 <DynamicPdfScrollPreview
-                  url={currentDoc.url}
+                  url={currentDoc.rawPdfUrl || currentDoc.url}
                   title={currentDoc.title}
                   thumbnailUrl={currentDoc.thumbnailUrl && !currentDoc.thumbnailUrl.toLowerCase().includes('.pdf') ? currentDoc.thumbnailUrl : undefined}
-                  onPagesLoaded={(loadedPages) => {
-                    currentDoc.pages = loadedPages;
-                    if (onNormalizeDoc && currentDoc.id) {
-                      onNormalizeDoc(currentDoc.id, loadedPages);
-                    }
-                  }}
                 />
               </div>
             );
