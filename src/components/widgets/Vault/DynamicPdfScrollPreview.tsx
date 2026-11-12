@@ -10,6 +10,12 @@ interface DynamicPdfScrollPreviewProps {
   onPagesLoaded?: (pages: string[]) => void;
 }
 
+interface RegionSliceState {
+  dataUrl: string;
+  scale: number;
+  rect: { left: number; top: number; width: number; height: number };
+}
+
 /**
  * DynamicPdfScrollPreview - Progressive, instant PDF viewer (<150ms for page 1)
  * Displays page 1 immediately while streaming remaining pages in background.
@@ -23,7 +29,12 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [isHdActive, setIsHdActive] = useState<boolean>(false);
   const [isPlanDetected, setIsPlanDetected] = useState<boolean>(false);
+  const [regionSlice, setRegionSlice] = useState<RegionSliceState | null>(null);
+  const [isSlicing, setIsSlicing] = useState<boolean>(false);
   const pdfDocRef = React.useRef<any>(null);
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
+  const transformStateRef = React.useRef<{ scale: number; positionX: number; positionY: number }>({ scale: 1, positionX: 0, positionY: 0 });
 
   useEffect(() => {
     let isMounted = true;
@@ -204,6 +215,114 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
     }
   };
 
+  // High-Resolution Local Viewport Slicing:
+  // Renders ONLY the currently visible on-screen rectangle at razor-sharp vector scale!
+  const handleRenderFocusedRegion = async () => {
+    if (!pdfDocRef.current || isSlicing) return;
+    const wrapper = wrapperRef.current;
+    const img = imgRef.current;
+    if (!wrapper || !img) return;
+
+    setIsSlicing(true);
+    try {
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const imgRect = img.getBoundingClientRect();
+
+      // Compute visible intersection of image within the viewer viewport (screen coordinates)
+      const visibleLeft = Math.max(wrapperRect.left, imgRect.left);
+      const visibleTop = Math.max(wrapperRect.top, imgRect.top);
+      const visibleRight = Math.min(wrapperRect.right, imgRect.right);
+      const visibleBottom = Math.min(wrapperRect.bottom, imgRect.bottom);
+
+      const visibleWidth = visibleRight - visibleLeft;
+      const visibleHeight = visibleBottom - visibleTop;
+
+      if (visibleWidth <= 20 || visibleHeight <= 20) {
+        setIsSlicing(false);
+        return;
+      }
+
+      // Normalized coordinates within the full image (0.0 to 1.0)
+      const normX = (visibleLeft - imgRect.left) / imgRect.width;
+      const normY = (visibleTop - imgRect.top) / imgRect.height;
+      const normW = visibleWidth / imgRect.width;
+      const normH = visibleHeight / imgRect.height;
+
+      // Map to PDF Page 1 vector space
+      const page = await pdfDocRef.current.getPage(1);
+      const unscaledViewport = page.getViewport({ scale: 1.0 });
+
+      const pdfX = normX * unscaledViewport.width;
+      const pdfY = normY * unscaledViewport.height;
+      const pdfW = normW * unscaledViewport.width;
+      const pdfH = normH * unscaledViewport.height;
+
+      // Device Pixel Ratio for retina-grade sharpness (2x to 3x)
+      const dpr = Math.min(3, typeof window !== 'undefined' ? (window.devicePixelRatio || 2) : 2);
+      const canvasW = Math.round(visibleWidth * dpr);
+      const canvasH = Math.round(visibleHeight * dpr);
+
+      // Dedicated slice canvas sized EXACTLY to screen viewport (typically ~800x1600 px = 1.2MP only!)
+      const canvas = document.createElement('canvas');
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+      const ctx = canvas.getContext('2d');
+
+      if (!ctx) {
+        setIsSlicing(false);
+        return;
+      }
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      // Coordinate Transform: Map PDF region [pdfX, pdfY, pdfW, pdfH] onto [0, 0, canvasW, canvasH]
+      const scaleX = canvasW / pdfW;
+      const scaleY = canvasH / pdfH;
+      const renderScale = Math.min(scaleX, scaleY);
+
+      // PDF.js standard transform: [s, 0, 0, -s, -pdfX * s, canvasH + (pdfY * s)]
+      // Using transform matrix to slice directly into the viewport with zero pixel distortion:
+      const transform = [
+        renderScale,
+        0,
+        0,
+        -renderScale,
+        -pdfX * renderScale,
+        canvasH + (pdfY * renderScale)
+      ];
+
+      await page.render({
+        canvasContext: ctx,
+        viewport: unscaledViewport,
+        transform: transform
+      }).promise;
+
+      const sliceDataUrl = compressCanvasWebP(canvas, 0.92);
+
+      // Calculate relative position within the unscaled image container so it sits right in place!
+      const relativeLeft = (normX * 100);
+      const relativeTop = (normY * 100);
+      const relativeWidth = (normW * 100);
+      const relativeHeight = (normH * 100);
+
+      setRegionSlice({
+        dataUrl: sliceDataUrl,
+        scale: pdfScale,
+        rect: {
+          left: relativeLeft,
+          top: relativeTop,
+          width: relativeWidth,
+          height: relativeHeight
+        }
+      });
+    } catch (err) {
+      console.error('Failed to render focused region slice:', err);
+    } finally {
+      setIsSlicing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div style={{ width: '100%', height: '78vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: '#38bdf8', position: 'relative' }}>
@@ -231,7 +350,10 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
   if (pages.length > 0) {
     return (
-      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div 
+        ref={wrapperRef}
+        style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}
+      >
         <TransformWrapper
           initialScale={1}
           minScale={0.8}
@@ -246,7 +368,18 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           doubleClick={{ mode: 'zoomIn', step: 2.5 }}
           wheel={{ step: 0.2 }}
           pinch={{ step: 5 }}
-          onTransform={(ref: any) => setPdfScale(ref.state.scale)}
+          onTransform={(ref: any) => {
+            setPdfScale(ref.state.scale);
+            transformStateRef.current = {
+              scale: ref.state.scale,
+              positionX: ref.state.positionX,
+              positionY: ref.state.positionY
+            };
+            // Clear slice when zooming out or changing view drastically
+            if (regionSlice && Math.abs(ref.state.scale - regionSlice.scale) > 0.8) {
+              setRegionSlice(null);
+            }
+          }}
         >
           {({ zoomIn, zoomOut, resetTransform }: any) => (
             <>
@@ -282,6 +415,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                       }}
                     >
                       <img
+                        ref={pageIdx === 0 ? imgRef : undefined}
                         src={pageUrl}
                         alt={`עמוד ${pageIdx + 1}`}
                         loading="eager"
@@ -297,6 +431,36 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                           imageRendering: pdfScale > 2.0 ? '-webkit-optimize-contrast' : 'auto'
                         }}
                       />
+
+                      {/* Focused Vector Slice Overlay (200% razor-sharp CAD dimensions & numbers) */}
+                      {pageIdx === 0 && regionSlice && (
+                        <div
+                          style={{
+                            position: 'absolute',
+                            left: `${regionSlice.rect.left}%`,
+                            top: `${regionSlice.rect.top}%`,
+                            width: `${regionSlice.rect.width}%`,
+                            height: `${regionSlice.rect.height}%`,
+                            pointerEvents: 'none',
+                            zIndex: 15,
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            boxShadow: '0 0 0 1.5px #38bdf8, 0 4px 20px rgba(0,0,0,0.5)'
+                          }}
+                        >
+                          <img
+                            src={regionSlice.dataUrl}
+                            alt="מקטע שרטוט ממוקד"
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              objectFit: 'fill',
+                              display: 'block'
+                            }}
+                          />
+                        </div>
+                      )}
+
                       {pages.length > 1 && (
                         <div
                           style={{
@@ -323,7 +487,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 </div>
               </TransformComponent>
 
-              {/* Top Bar Ultra-HD Button */}
+              {/* Action Buttons Header: Focused Region Sharpener */}
               {pdfDocRef.current && (
                 <div
                   onClick={(e) => e.stopPropagation()}
@@ -339,29 +503,48 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                 >
                   <button
                     type="button"
-                    onClick={handleToggleUltraHd}
-                    disabled={isHdRendering}
+                    onClick={handleRenderFocusedRegion}
+                    disabled={isSlicing}
                     style={{
-                      background: isHdActive ? '#10b981' : (isPlanDetected || pdfScale > 2.2 ? '#3b82f6' : 'rgba(15, 23, 42, 0.75)'),
+                      background: regionSlice ? '#059669' : '#2563eb',
                       backdropFilter: 'blur(8px)',
-                      border: isHdActive ? '1.5px solid #34d399' : '1.5px solid rgba(255, 255, 255, 0.25)',
+                      border: regionSlice ? '1.5px solid #34d399' : '1.5px solid #60a5fa',
                       color: '#ffffff',
-                      padding: '6px 12px',
-                      borderRadius: '20px',
-                      fontSize: '0.8rem',
+                      padding: '8px 14px',
+                      borderRadius: '24px',
+                      fontSize: '0.84rem',
                       fontWeight: 800,
-                      cursor: isHdRendering ? 'wait' : 'pointer',
+                      cursor: isSlicing ? 'wait' : 'pointer',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '5px',
-                      boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+                      gap: '6px',
+                      boxShadow: '0 4px 16px rgba(37,99,235,0.4)',
                       transition: 'all 0.2s ease'
                     }}
-                    title="רינדור מחדש בחדות Ultra-HD לקריאת מידות ומספרים קטנים בשרטוט"
+                    title="מרנדר ומחדד אך ורק את החלון שאתה מגדיל כרגע על המסך באיכות וקטורית מקסימלית"
                   >
-                    <span>{isHdRendering ? '⏳' : (isHdActive ? '✓' : '🔍')}</span>
-                    <span>{isHdRendering ? 'מחדד שרטוט...' : (isHdActive ? 'איכות שרטוט HD פעילה' : 'חדד שרטוט (Ultra-HD)')}</span>
+                    <span>{isSlicing ? '⏳' : (regionSlice ? '✓' : '🎯')}</span>
+                    <span>{isSlicing ? 'מחדד אזור מסך...' : (regionSlice ? 'אזור מסך חד ב-200% ✓' : 'חדד אזור מוצג (Focus)')}</span>
                   </button>
+
+                  {regionSlice && (
+                    <button
+                      type="button"
+                      onClick={() => setRegionSlice(null)}
+                      style={{
+                        background: 'rgba(15, 23, 42, 0.75)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        color: '#94a3b8',
+                        padding: '6px 10px',
+                        borderRadius: '16px',
+                        fontSize: '0.75rem',
+                        cursor: 'pointer'
+                      }}
+                      title="הסר חידוד אזור"
+                    >
+                      בטל חידוד
+                    </button>
+                  )}
                 </div>
               )}
 

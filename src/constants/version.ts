@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.66-zoom-controls';
+export const APP_VERSION = 'v3.5.67-focus-slice';
