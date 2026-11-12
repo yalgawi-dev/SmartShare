@@ -431,65 +431,112 @@ export async function convertPdfToOptimizedImage(pdfSource: string, maxDim = 120
   }
 }
 
-// ── High-Performance Client Caching for PDF Page Extraction ────────────────
+// ── High-Performance Client Caching for PDF Page Extraction & Raw Bytes ────
 const pdfPagesMemoryCache = new Map<string, string[]>();
+const pdfBytesMemoryCache = new Map<string, Uint8Array>();
 const PDF_CACHE_DB = 'SmartShareDocCache';
 const PDF_CACHE_STORE = 'pdf_pages';
+const PDF_BYTES_STORE = 'pdf_bytes';
 
-async function getCachedPdfPages(url: string): Promise<string[] | null> {
+function openPdfCacheDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(PDF_CACHE_DB, 2);
+    req.onupgradeneeded = (e: any) => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(PDF_CACHE_STORE)) {
+        db.createObjectStore(PDF_CACHE_STORE);
+      }
+      if (!db.objectStoreNames.contains(PDF_BYTES_STORE)) {
+        db.createObjectStore(PDF_BYTES_STORE);
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+export async function getCachedPdfBytes(url: string): Promise<Uint8Array | null> {
   if (typeof window === 'undefined') return null;
-  if (pdfPagesMemoryCache.has(url)) {
-    return pdfPagesMemoryCache.get(url)!;
+  if (pdfBytesMemoryCache.has(url)) {
+    return pdfBytesMemoryCache.get(url)!;
   }
   try {
-    return await new Promise<string[] | null>((resolve) => {
-      const req = indexedDB.open(PDF_CACHE_DB, 1);
-      req.onupgradeneeded = () => {
-        req.result.createObjectStore(PDF_CACHE_STORE);
-      };
-      req.onsuccess = () => {
-        const db = req.result;
-        try {
-          const tx = db.transaction(PDF_CACHE_STORE, 'readonly');
-          const store = tx.objectStore(PDF_CACHE_STORE);
-          const getReq = store.get(url);
-          getReq.onsuccess = () => {
-            const res = getReq.result;
-            if (res && Array.isArray(res) && res.length > 0) {
-              pdfPagesMemoryCache.set(url, res);
-              resolve(res);
-            } else {
-              resolve(null);
-            }
-          };
-          getReq.onerror = () => resolve(null);
-        } catch {
-          resolve(null);
-        }
-      };
-      req.onerror = () => resolve(null);
+    const db = await openPdfCacheDb();
+    return await new Promise<Uint8Array | null>((resolve) => {
+      try {
+        const tx = db.transaction(PDF_BYTES_STORE, 'readonly');
+        const store = tx.objectStore(PDF_BYTES_STORE);
+        const getReq = store.get(url);
+        getReq.onsuccess = () => {
+          const res = getReq.result;
+          if (res) {
+            const bytes = res instanceof Uint8Array ? res : new Uint8Array(res);
+            pdfBytesMemoryCache.set(url, bytes);
+            resolve(bytes);
+          } else {
+            resolve(null);
+          }
+        };
+        getReq.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
     });
   } catch {
     return null;
   }
 }
 
-async function setCachedPdfPages(url: string, pages: string[]): Promise<void> {
+export async function setCachedPdfBytes(url: string, bytes: Uint8Array): Promise<void> {
+  if (typeof window === 'undefined' || !bytes || bytes.length === 0) return;
+  pdfBytesMemoryCache.set(url, bytes);
+  try {
+    const db = await openPdfCacheDb();
+    const tx = db.transaction(PDF_BYTES_STORE, 'readwrite');
+    const store = tx.objectStore(PDF_BYTES_STORE);
+    store.put(bytes.buffer, url);
+  } catch {}
+}
+
+export async function getCachedPdfPages(url: string): Promise<string[] | null> {
+  if (typeof window === 'undefined') return null;
+  if (pdfPagesMemoryCache.has(url)) {
+    return pdfPagesMemoryCache.get(url)!;
+  }
+  try {
+    const db = await openPdfCacheDb();
+    return await new Promise<string[] | null>((resolve) => {
+      try {
+        const tx = db.transaction(PDF_CACHE_STORE, 'readonly');
+        const store = tx.objectStore(PDF_CACHE_STORE);
+        const getReq = store.get(url);
+        getReq.onsuccess = () => {
+          const res = getReq.result;
+          if (res && Array.isArray(res) && res.length > 0) {
+            pdfPagesMemoryCache.set(url, res);
+            resolve(res);
+          } else {
+            resolve(null);
+          }
+        };
+        getReq.onerror = () => resolve(null);
+      } catch {
+        resolve(null);
+      }
+    });
+  } catch {
+    return null;
+  }
+}
+
+export async function setCachedPdfPages(url: string, pages: string[]): Promise<void> {
   if (typeof window === 'undefined' || !pages || pages.length === 0) return;
   pdfPagesMemoryCache.set(url, pages);
   try {
-    const req = indexedDB.open(PDF_CACHE_DB, 1);
-    req.onupgradeneeded = () => {
-      req.result.createObjectStore(PDF_CACHE_STORE);
-    };
-    req.onsuccess = () => {
-      const db = req.result;
-      try {
-        const tx = db.transaction(PDF_CACHE_STORE, 'readwrite');
-        const store = tx.objectStore(PDF_CACHE_STORE);
-        store.put(pages, url);
-      } catch {}
-    };
+    const db = await openPdfCacheDb();
+    const tx = db.transaction(PDF_CACHE_STORE, 'readwrite');
+    const store = tx.objectStore(PDF_CACHE_STORE);
+    store.put(pages, url);
   } catch {}
 }
 

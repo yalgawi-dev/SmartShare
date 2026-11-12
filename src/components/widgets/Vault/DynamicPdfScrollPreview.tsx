@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
-import { compressCanvasWebP, ensurePdfJsLoaded } from '@/utils/imageOptimizer';
+import { compressCanvasWebP, ensurePdfJsLoaded, getCachedPdfBytes, setCachedPdfBytes, getCachedPdfPages, setCachedPdfPages } from '@/utils/imageOptimizer';
 import { getDocumentPreviewUrl } from '@/utils/documentUtils';
 
 interface DynamicPdfScrollPreviewProps {
@@ -44,34 +44,60 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
 
     const loadProgressively = async () => {
       try {
+        // Fast-path: Check if we have pre-rendered pages cached in IndexedDB!
+        // If so, display instantly (<50ms) without waiting for PDF fetch & parsing!
+        const cachedPages = await getCachedPdfPages(url);
+        if (cachedPages && cachedPages.length > 0 && isMounted) {
+          setPages(cachedPages);
+          setIsLoading(false);
+          if (onPagesLoaded) onPagesLoaded(cachedPages);
+        }
+
         await ensurePdfJsLoaded();
 
-        let bytes: Uint8Array;
+        let bytes: Uint8Array | null = null;
+        // 1. Check in-memory Map
         const memoryCache = (window as any).__smartshare_pdf_bytes_cache || new Map<string, Uint8Array>();
         (window as any).__smartshare_pdf_bytes_cache = memoryCache;
 
         if (memoryCache.has(url)) {
           bytes = memoryCache.get(url)!;
-        } else if (url.startsWith('data:')) {
-          const base64Data = url.includes('base64,') ? url.split('base64,')[1] : url;
-          const binaryString = window.atob(base64Data);
-          bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
-          memoryCache.set(url, bytes);
         } else {
-          try {
-            const res = await fetch(url);
-            if (!res.ok) throw new Error('Fetch failed: ' + res.status);
-            const ab = await res.arrayBuffer();
-            bytes = new Uint8Array(ab);
-            memoryCache.set(url, bytes);
-          } catch {
-            const proxyRes = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
-            const ab = await proxyRes.arrayBuffer();
-            bytes = new Uint8Array(ab);
+          // 2. Check IndexedDB persistent cache
+          const dbCachedBytes = await getCachedPdfBytes(url);
+          if (dbCachedBytes && dbCachedBytes.length > 0) {
+            bytes = dbCachedBytes;
             memoryCache.set(url, bytes);
           }
         }
+
+        // 3. If still not cached, fetch from network or base64
+        if (!bytes) {
+          if (url.startsWith('data:')) {
+            const base64Data = url.includes('base64,') ? url.split('base64,')[1] : url;
+            const binaryString = window.atob(base64Data);
+            bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+          } else {
+            try {
+              const res = await fetch(url);
+              if (!res.ok) throw new Error('Fetch failed: ' + res.status);
+              const ab = await res.arrayBuffer();
+              bytes = new Uint8Array(ab);
+            } catch {
+              const proxyRes = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
+              const ab = await proxyRes.arrayBuffer();
+              bytes = new Uint8Array(ab);
+            }
+          }
+          if (bytes && bytes.length > 0) {
+            memoryCache.set(url, bytes);
+            // Save to IndexedDB asynchronously so next time it opens instantly
+            setCachedPdfBytes(url, bytes).catch(() => {});
+          }
+        }
+
+        if (!bytes) throw new Error('Failed to obtain PDF bytes');
 
         const loadingTask = window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true });
         const pdf = await loadingTask.promise;
@@ -89,6 +115,11 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
             setIsPlanDetected(true);
           }
         } catch (_) {}
+
+        // If we already had cached pages displayed, we're done loading!
+        if (cachedPages && cachedPages.length > 0) {
+          return;
+        }
 
         const renderPageCanvas = async (pageNum: number) => {
           const page = await pdf.getPage(pageNum);
@@ -142,11 +173,15 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
               setPages(prev => [...prev, nextPage]);
             }
           }
+          setCachedPdfPages(url, allUrls).catch(() => {});
           if (onPagesLoaded && isMounted) {
             onPagesLoaded(allUrls);
           }
-        } else if (onPagesLoaded && isMounted) {
-          onPagesLoaded([page1]);
+        } else if (page1) {
+          setCachedPdfPages(url, [page1]).catch(() => {});
+          if (onPagesLoaded && isMounted) {
+            onPagesLoaded([page1]);
+          }
         }
       } catch (err) {
         console.error('Error in progressive PDF rendering:', err);
