@@ -68,6 +68,7 @@ export default function UniversalViewerModal({
   const singleImageRef = useRef<HTMLImageElement | null>(null);
   const singleWrapperRef = useRef<HTMLDivElement | null>(null);
   const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; scale: number; rect: { left: number; top: number; width: number; height: number } } | null>(null);
+  const webpAutoFocusTimeoutRef = useRef<any>(null);
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -1015,10 +1016,34 @@ export default function UniversalViewerModal({
                 wheel={{ step: 0.2 }}
                 pinch={{ step: 5 }}
                 onTransform={(ref: any) => {
-                  setCurrentScale(ref.state.scale);
-                  if (webpSlice && Math.abs(ref.state.scale - webpSlice.scale) > 0.8) {
+                  const newScale = ref.state.scale;
+                  setCurrentScale(newScale);
+                  if (webpAutoFocusTimeoutRef.current) {
+                    clearTimeout(webpAutoFocusTimeoutRef.current);
+                  }
+                  if (newScale > 1.3) {
+                    webpAutoFocusTimeoutRef.current = setTimeout(() => {
+                      handleRenderWebpFocusRegion();
+                    }, 400);
+                  } else if (newScale <= 1.1 && webpSlice) {
                     setWebpSlice(null);
                     setWebpFocusActive(false);
+                  }
+                }}
+                onPanningStop={() => {
+                  if (webpAutoFocusTimeoutRef.current) clearTimeout(webpAutoFocusTimeoutRef.current);
+                  if (currentScale > 1.3) {
+                    webpAutoFocusTimeoutRef.current = setTimeout(() => {
+                      handleRenderWebpFocusRegion();
+                    }, 300);
+                  }
+                }}
+                onPinchStop={() => {
+                  if (webpAutoFocusTimeoutRef.current) clearTimeout(webpAutoFocusTimeoutRef.current);
+                  if (currentScale > 1.3) {
+                    webpAutoFocusTimeoutRef.current = setTimeout(() => {
+                      handleRenderWebpFocusRegion();
+                    }, 300);
                   }
                 }}
               >

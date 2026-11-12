@@ -35,6 +35,7 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
   const wrapperRef = React.useRef<HTMLDivElement | null>(null);
   const imgRef = React.useRef<HTMLImageElement | null>(null);
   const transformStateRef = React.useRef<{ scale: number; positionX: number; positionY: number }>({ scale: 1, positionX: 0, positionY: 0 });
+  const autoFocusTimeoutRef = React.useRef<any>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -415,15 +416,38 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
           wheel={{ step: 0.2 }}
           pinch={{ step: 5 }}
           onTransform={(ref: any) => {
-            setPdfScale(ref.state.scale);
+            const currentScale = ref.state.scale;
+            setPdfScale(currentScale);
             transformStateRef.current = {
-              scale: ref.state.scale,
+              scale: currentScale,
               positionX: ref.state.positionX,
               positionY: ref.state.positionY
             };
-            // Clear slice when zooming out or changing view drastically
-            if (regionSlice && Math.abs(ref.state.scale - regionSlice.scale) > 0.8) {
+            if (autoFocusTimeoutRef.current) {
+              clearTimeout(autoFocusTimeoutRef.current);
+            }
+            if (currentScale > 1.3 && pdfDocRef.current) {
+              autoFocusTimeoutRef.current = setTimeout(() => {
+                handleRenderFocusedRegion();
+              }, 400);
+            } else if (currentScale <= 1.1 && regionSlice) {
               setRegionSlice(null);
+            }
+          }}
+          onPanningStop={() => {
+            if (autoFocusTimeoutRef.current) clearTimeout(autoFocusTimeoutRef.current);
+            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current) {
+              autoFocusTimeoutRef.current = setTimeout(() => {
+                handleRenderFocusedRegion();
+              }, 300);
+            }
+          }}
+          onPinchStop={() => {
+            if (autoFocusTimeoutRef.current) clearTimeout(autoFocusTimeoutRef.current);
+            if (transformStateRef.current.scale > 1.3 && pdfDocRef.current) {
+              autoFocusTimeoutRef.current = setTimeout(() => {
+                handleRenderFocusedRegion();
+              }, 300);
             }
           }}
         >
