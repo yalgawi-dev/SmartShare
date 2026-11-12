@@ -47,21 +47,29 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
         await ensurePdfJsLoaded();
 
         let bytes: Uint8Array;
-        if (url.startsWith('data:')) {
+        const memoryCache = (window as any).__smartshare_pdf_bytes_cache || new Map<string, Uint8Array>();
+        (window as any).__smartshare_pdf_bytes_cache = memoryCache;
+
+        if (memoryCache.has(url)) {
+          bytes = memoryCache.get(url)!;
+        } else if (url.startsWith('data:')) {
           const base64Data = url.includes('base64,') ? url.split('base64,')[1] : url;
           const binaryString = window.atob(base64Data);
           bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) bytes[i] = binaryString.charCodeAt(i);
+          memoryCache.set(url, bytes);
         } else {
           try {
             const res = await fetch(url);
             if (!res.ok) throw new Error('Fetch failed: ' + res.status);
             const ab = await res.arrayBuffer();
             bytes = new Uint8Array(ab);
+            memoryCache.set(url, bytes);
           } catch {
             const proxyRes = await fetch(`/api/pdf-proxy?url=${encodeURIComponent(url)}`);
             const ab = await proxyRes.arrayBuffer();
             bytes = new Uint8Array(ab);
+            memoryCache.set(url, bytes);
           }
         }
 
@@ -276,25 +284,28 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvasW, canvasH);
 
-      // Coordinate Transform: Map PDF region [pdfX, pdfY, pdfW, pdfH] onto [0, 0, canvasW, canvasH]
-      const scaleX = canvasW / pdfW;
-      const scaleY = canvasH / pdfH;
-      const renderScale = Math.min(scaleX, scaleY);
+      // Calculate slice scale relative to PDF space
+      const renderScale = Math.min(canvasW / pdfW, canvasH / pdfH);
 
-      // PDF.js standard transform: [s, 0, 0, -s, -pdfX * s, canvasH + (pdfY * s)]
-      // Using transform matrix to slice directly into the viewport with zero pixel distortion:
+      // Build target viewport at the exact renderScale
+      const scaledViewport = page.getViewport({ scale: renderScale });
+
+      // Transform: Translate the target region to (0, 0) on the canvas
+      // In PDF.js canvas coordinate space (which already handles PDF top-down coordinate flip):
+      // Target region starts at (pdfX * renderScale, pdfY * renderScale).
+      // Applying transform [1, 0, 0, 1, -pdfX * renderScale, -pdfY * renderScale] translates it perfectly without flipping!
       const transform = [
-        renderScale,
+        1,
         0,
         0,
-        -renderScale,
+        1,
         -pdfX * renderScale,
-        canvasH + (pdfY * renderScale)
+        -pdfY * renderScale
       ];
 
       await page.render({
         canvasContext: ctx,
-        viewport: unscaledViewport,
+        viewport: scaledViewport,
         transform: transform
       }).promise;
 

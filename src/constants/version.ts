@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.67-focus-slice';
+export const APP_VERSION = 'v3.5.68-flip-fixed';
