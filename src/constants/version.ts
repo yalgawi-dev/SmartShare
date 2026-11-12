@@ -1,1 +1,1 @@
-export const APP_VERSION = 'v3.5.68-flip-fixed';
+export const APP_VERSION = 'v3.5.69-compare-engine';

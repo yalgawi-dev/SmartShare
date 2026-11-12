@@ -63,6 +63,10 @@ export default function UniversalViewerModal({
   const [isHdRendering, setIsHdRendering] = useState<boolean>(false);
   const [hdActiveDocIds, setHdActiveDocIds] = useState<Record<string, boolean>>({});
   const [hdPagesMap, setHdPagesMap] = useState<Record<string, string[]>>({});
+  const [webpFocusActive, setWebpFocusActive] = useState<boolean>(false);
+  const singleImageRef = useRef<HTMLImageElement | null>(null);
+  const singleWrapperRef = useRef<HTMLDivElement | null>(null);
+  const [webpSlice, setWebpSlice] = useState<{ dataUrl: string; rect: { left: number; top: number; width: number; height: number } } | null>(null);
 
   useEffect(() => {
     if (onIndexChange) onIndexChange(currentIndex);
@@ -871,6 +875,7 @@ export default function UniversalViewerModal({
           }
           return (
             <div
+              ref={singleWrapperRef}
               style={{
                 width: '100%',
                 height: '100%',
@@ -891,7 +896,12 @@ export default function UniversalViewerModal({
                 doubleClick={{ mode: 'zoomIn', step: 2.5 }}
                 wheel={{ step: 0.2 }}
                 pinch={{ step: 5 }}
-                onTransform={(ref: any) => setCurrentScale(ref.state.scale)}
+                onTransform={(ref: any) => {
+                  setCurrentScale(ref.state.scale);
+                  if (webpFocusActive) {
+                    setWebpFocusActive(false);
+                  }
+                }}
               >
                 {({ zoomIn, zoomOut, resetTransform }: any) => (
                   <>
@@ -937,6 +947,7 @@ export default function UniversalViewerModal({
                           />
                         )}
                         <img
+                          ref={singleImageRef}
                           src={fullUrl || validThumb}
                           alt={currentDoc.title || 'מסמך'}
                           loading="eager"
@@ -963,12 +974,55 @@ export default function UniversalViewerModal({
                             userSelect: 'none',
                             border: '1px solid rgba(255, 255, 255, 0.08)',
                             imageRendering: currentScale > 2.0 ? '-webkit-optimize-contrast' : 'auto',
+                            filter: webpFocusActive 
+                              ? 'contrast(160%) brightness(105%) saturate(120%) drop-shadow(0 0 1px rgba(0,0,0,0.8))' 
+                              : 'none',
                             position: 'relative',
-                            zIndex: 2
+                            zIndex: 2,
+                            transition: 'filter 0.2s ease'
                           }}
                         />
                       </div>
                     </TransformComponent>
+
+                    {/* Top Focus Button for WebP */}
+                    <div
+                      onClick={(e) => e.stopPropagation()}
+                      style={{
+                        position: 'absolute',
+                        top: '16px',
+                        left: '16px',
+                        zIndex: 200025,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setWebpFocusActive(prev => !prev)}
+                        style={{
+                          background: webpFocusActive ? '#059669' : '#2563eb',
+                          backdropFilter: 'blur(8px)',
+                          border: webpFocusActive ? '1.5px solid #34d399' : '1.5px solid #60a5fa',
+                          color: '#ffffff',
+                          padding: '8px 14px',
+                          borderRadius: '24px',
+                          fontSize: '0.84rem',
+                          fontWeight: 800,
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 4px 16px rgba(37,99,235,0.4)',
+                          transition: 'all 0.2s ease'
+                        }}
+                        title="חידוד תמונת WebP (השוואה ל-PDF)"
+                      >
+                        <span>{webpFocusActive ? '✓' : '🎯'}</span>
+                        <span>{webpFocusActive ? 'חידוד WebP פעיל ✓' : 'חדד אזור WebP (Focus)'}</span>
+                      </button>
+                    </div>
 
                     {/* Floating Quick-Zoom Action Controls */}
                     <div
