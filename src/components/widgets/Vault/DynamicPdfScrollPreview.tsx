@@ -513,14 +513,12 @@ export default function DynamicPdfScrollPreview({ url, title, thumbnailUrl, onPa
                             height: `${regionSlice.rect.height}%`,
                             pointerEvents: 'none',
                             zIndex: 15,
-                            borderRadius: '4px',
-                            overflow: 'hidden',
-                            boxShadow: '0 0 0 1.5px #38bdf8, 0 4px 20px rgba(0,0,0,0.5)'
+                            overflow: 'hidden'
                           }}
                         >
                           <img
                             src={regionSlice.dataUrl}
-                            alt="מקטע שרטוט ממוקד"
+                            alt=""
                             style={{
                               width: '100%',
                               height: '100%',

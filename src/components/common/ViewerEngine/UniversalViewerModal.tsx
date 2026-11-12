@@ -1134,14 +1134,12 @@ export default function UniversalViewerModal({
                               height: `${webpSlice.rect.height}%`,
                               pointerEvents: 'none',
                               zIndex: 15,
-                              borderRadius: '4px',
-                              overflow: 'hidden',
-                              boxShadow: '0 0 0 2px #38bdf8, 0 4px 20px rgba(0,0,0,0.6)'
+                              overflow: 'hidden'
                             }}
                           >
                             <img
                               src={webpSlice.dataUrl}
-                              alt="מקטע WebP ממוקד"
+                              alt=""
                               style={{
                                 width: '100%',
                                 height: '100%',
